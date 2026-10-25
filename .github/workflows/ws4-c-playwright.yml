@@ -18,10 +18,18 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Check archive exists and has expected checksum
+      - name: Download WS4-C from private release checkpoint
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p archive
+          gh release download ws4-c --repo "${GITHUB_REPOSITORY}" --pattern 'StrideLab-WS4-C.zip' --dir archive
+
+      - name: Verify release archive checksum and ZIP integrity
         shell: bash
         run: |
-          test -f archive/StrideLab-WS4-C.zip || { echo "::error::Upload archive/StrideLab-WS4-C.zip to this private repo before running"; exit 1; }
+          test -f archive/StrideLab-WS4-C.zip || { echo "::error::The private ws4-c release must have StrideLab-WS4-C.zip attached"; exit 1; }
           echo "487c9b0758cfdeb836fe9e6af6bd545395001fa3fa7aa4635f4a9daf04e8ad44  archive/StrideLab-WS4-C.zip" | sha256sum -c -
           unzip -tq archive/StrideLab-WS4-C.zip
 
