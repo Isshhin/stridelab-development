@@ -1,5 +1,18 @@
 # StrideLab Phase 4D.2 — Workstream 5 Status
 
+## WS5-C Fix1 — CI regression hotfix candidate (2026-10-26)
+
+**NOT OFFICIALLY ACCEPTED.** Prior WS5-C [GitHub Actions run 40244039919](https://github.com/Isshhin/stridelab-development/actions/runs/40244039919) executed the complete 248-test suite: **247 passed, 1 failed**. The failure was the inherited `p4d2-scrolllock.spec.js` Library-detail test, with a 177px background shift before modal lock.
+
+Root cause reproduced in local browser: new 210px Movement and skill guides invitation was inserted *above* search and original exercise tiles. Playwright scrolled a partially offscreen first tile into view before activating the modal, thereby shifting the page before scroll lock captured its position.
+
+Fix1 changes one functional location in `tools/p4d2_ws5c_guides.py`: **append** the new reference-only guide invitation *after* the existing Library results instead of injecting it before search. Original 23 exercise tiles and their preexisting positions are preserved. This also means the guide promotion is lower in the page; reevaluate discoverability during later visual refinement while safeguarding scroll-lock behavior. No coaching engine, modal locking code, exercise identities, storage, guide metadata, or 248 test assertions were modified.
+
+**Fix1 archive:** `StrideLab-WS5-C-fix1.zip` (20,007,356 bytes), SHA-256 `d781ae49fcad50571f1893f414df498ee8c1588cdb581e25aebbe0dc73c49704`. CRC passed, **602/602** manifest payload hashes verified. Deterministic HTML build SHA-256 `e4e6514d935a27d5f4280fe453366f621521289ecf0fa7f2c7e286bbcc05bd7e`. Protected engine `3ae9226a19718925d5a0c59771d13ed85860b4f4cd694490f0cbf668cfb3a3f2` and 4D.1 baseline `cffaad8e9856d988f864cb09143a63aeac573b453aa0978abcded3dfb054bd9d` unchanged.
+
+**Next:** Upload exact ZIP to private GitHub prerelease with tag `ws5-c-fix1`; then manually run the dedicated [WS5-C Fix1 official gate](https://github.com/Isshhin/stridelab-development/actions/workflows/ws5-c-fix1-playwright.yml) (248 passes required, no failures/skips/flakes). Official GitHub CI on this exact fix has **not yet run**. WS5-B Fix2 remains the last accepted checkpoint (237/237). WS5-D is still full Workstream 5 acceptance.
+
+
 ## WS5-C implementation candidate (2026-10-25)
 
 **Delivered, NOT officially accepted.** Source baseline is the [WS5-B Fix2 release](https://github.com/Isshhin/stridelab-development/releases/tag/ws5-b-fix2), independently accepted at 237/237 in [run 40210796282](https://github.com/Isshhin/stridelab-development/actions/runs/40210796282).
