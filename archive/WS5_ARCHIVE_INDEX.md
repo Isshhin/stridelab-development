@@ -1,5 +1,19 @@
 # Workstream 5 checkpoint archives
 
+## WS5-D final Library candidate (2026-10-26)
+
+**Implementation packaged; official acceptance pending.** Latest accepted upstream is **WS5-C Fix1**, [248/248 verified in run 40245684800](https://github.com/Isshhin/stridelab-development/actions/runs/40245684800).
+
+- New final candidate: `StrideLab-WS5-D-candidate.zip` (20,115,804 bytes), SHA-256 `451d53c3387362b9dd17f61457197373fdd66a8399fd8c58e59d60c267de2271`; CRC and **607/607** manifest payload hashes verified.
+- Earlier WIP recovery ZIP: `StrideLab-WS5-D-WIP.zip` (19,986,391 bytes), SHA-256 `bbbab26449237e39c67200da9fd74f4bfc8759635de0f1988382c11a1ec85458`. This is a pre-final snapshot, not the authoritative candidate.
+- Deterministic candidate HTML SHA-256 `4de57902e2f5dfaf6b79807bbb01fcc3df540d6151ed3054ff2ff6de6d89e5fb`.
+- Protected coaching engine `3ae9226a19718925d5a0c59771d13ed85860b4f4cd694490f0cbf668cfb3a3f2` and original 4D.1 baseline `cffaad8e9856d988f864cb09143a63aeac573b453aa0978abcded3dfb054bd9d` are unchanged; all assets byte-for-byte match accepted WS5-C Fix1.
+- Tight final accuracy/a11y corrections: label reverse-lunge illustration **related** because it shows dumbbells while the Library movement is unloaded; guide status now says **1 matching guide** in the singular. Five new regression cases, preserving all inherited 248 tests. **Official suite target 253**.
+- Local focused Chromium probe passed six viewport/text-size combinations (360/390/430px at 100% and 200%), all 21 supplemental guide details, no document/sheet horizontal overflow and no captured page errors. Local tests **do not** establish official Chromium/axe, screen reader, image rendering, physical Android or coaching-domain certification.
+- All five progression pathways remain links to reviewed references, not automatic exercise prescriptions. Original 23 executable exercises, 21 reference-only guides, tracking and engine behavior retained.
+- Next: upload exact ZIP as private GitHub prerelease tag `ws5-d-candidate`, then manually dispatch [WS5-D official Playwright and axe workflow](https://github.com/Isshhin/stridelab-development/actions/workflows/ws5-d-playwright.yml); **253 passes, 0 failures/skips/flaky required** before automated Workstream 5 acceptance. Manual accessibility and professional exercise review remain documented scope limitations.
+
+
 ## WS5-C Fix1 — Official intermediate acceptance (2026-10-26)
 
 **ACCEPTED as the latest WS5 intermediate checkpoint. Workstream 5 is NOT yet final.**
