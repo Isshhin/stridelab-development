@@ -1,0 +1,95 @@
+name: WS4-C official Playwright and axe verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-ws4-c:
+    name: Verify WS4-C (not WS4-D acceptance)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out private archive repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Check archive exists and has expected checksum
+        shell: bash
+        run: |
+          test -f archive/StrideLab-WS4-C.zip || { echo "::error::Upload archive/StrideLab-WS4-C.zip to this private repo before running"; exit 1; }
+          echo "487c9b0758cfdeb836fe9e6af6bd545395001fa3fa7aa4635f4a9daf04e8ad44  archive/StrideLab-WS4-C.zip" | sha256sum -c -
+          unzip -tq archive/StrideLab-WS4-C.zip
+
+      - name: Extract checkpoint and verify all 540 manifest hashes
+        shell: bash
+        run: |
+          mkdir -p _ws4
+          unzip -q archive/StrideLab-WS4-C.zip -d _ws4
+          python3 - <<'PY'
+          import json,hashlib,pathlib,sys
+          root=pathlib.Path('_ws4/StrideLab-WS4')
+          manifest=json.loads((root/'SHA256-MANIFEST-WS4-C.json').read_text())
+          errors=[]
+          for rel, expected in manifest.items():
+              file=root/rel
+              if not file.is_file() or hashlib.sha256(file.read_bytes()).hexdigest()!=expected:
+                  errors.append(rel)
+          print(f'WS4-C manifest: {len(manifest)-len(errors)}/{len(manifest)} verified')
+          if errors:
+              print('Mismatches:', errors[:20]);sys.exit(1)
+          PY
+
+      - name: Rebuild candidate and verify protected hashes
+        shell: bash
+        run: |
+          cd _ws4/StrideLab-WS4
+          python3 tools/build_p4d2.py
+          echo "f565a67241c66717d0495d276e583abaf5a535518fab16fcd5628b559cb6f753  stridelab-afterglow-phase4d2-wip.html" | sha256sum -c -
+          echo "cffaad8e9856d988f864cb09143a63aeac573b453aa0978abcded3dfb054bd9d  baseline-4d1/stridelab-afterglow-phase4d1-final.html" | sha256sum -c -
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install official test dependencies
+        working-directory: _ws4/StrideLab-WS4/suite
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Playwright Chromium and required Linux libraries
+        working-directory: _ws4/StrideLab-WS4/suite
+        run: npx playwright install --with-deps chromium
+
+      - name: Execute official WS4-C Playwright suite, including axe specs
+        working-directory: _ws4/StrideLab-WS4/suite
+        env:
+          PROTO: ${{ github.workspace }}/_ws4/StrideLab-WS4/stridelab-afterglow-phase4d2-wip.html
+          CI: "true"
+        run: npx playwright test
+
+      - name: Print JSON test summary
+        if: always()
+        shell: bash
+        run: |
+          node - <<'JS'
+          const fs=require('fs'),p='_ws4/StrideLab-WS4/suite/results/results.json';
+          if(!fs.existsSync(p)){console.log('Official Playwright JSON report not generated.'); process.exit(0);}
+          const d=JSON.parse(fs.readFileSync(p,'utf8'));
+          console.log('OFFICIAL RESULTS:',JSON.stringify(d.stats||{}));
+          JS
+
+      - name: Preserve results and failure screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ws4-c-official-playwright-results
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            _ws4/StrideLab-WS4/suite/results/results.json
+            _ws4/StrideLab-WS4/suite/results/artifacts/
