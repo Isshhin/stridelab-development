@@ -1,0 +1,110 @@
+name: WS5-D candidate official Playwright and axe verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-ws5-d-candidate:
+    name: Verify WS5-D candidate (not final WS5 acceptance)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out private development repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Download WS5-D candidate from private prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p archive
+          gh release download ws5-d-candidate --repo "${GITHUB_REPOSITORY}" --pattern 'StrideLab-WS5-D-fix1.zip' --dir archive
+
+      - name: Verify archive and extract exact candidate
+        shell: bash
+        run: |
+          echo "451d53c3387362b9dd17f61457197373fdd66a8399fd8c58e59d60c267de2271  archive/StrideLab-WS5-D-fix1.zip" | sha256sum -c -
+          unzip -tq archive/StrideLab-WS5-D-fix1.zip
+          mkdir -p _ws5
+          unzip -q archive/StrideLab-WS5-D-fix1.zip -d _ws5
+
+      - name: Verify 607 checkpoint manifest payload hashes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib,sys
+          root=pathlib.Path('_ws5/StrideLab-WS5')
+          manifest=json.loads((root/'SHA256-MANIFEST-WS5-D-fix1.json').read_text())
+          bad=[]
+          for rel, expected in manifest.items():
+              f=root/rel
+              if not f.is_file() or hashlib.sha256(f.read_bytes()).hexdigest()!=expected:
+                  bad.append(rel)
+          print(f'WS5-D manifest: {len(manifest)-len(bad)}/{len(manifest)} verified')
+          if bad or len(manifest)!=607:
+              print('Unexpected manifest count or mismatches:',bad[:20])
+              sys.exit(1)
+          PY
+
+      - name: Rebuild HTML and check protected engine and 4D.1 baseline
+        shell: bash
+        run: |
+          cd _ws5/StrideLab-WS5
+          python3 tools/build_p4d2.py
+          echo "4de57902e2f5dfaf6b79807bbb01fcc3df540d6151ed3054ff2ff6de6d89e5fb  stridelab-afterglow-phase4d2-wip.html" | sha256sum -c -
+          echo "cffaad8e9856d988f864cb09143a63aeac573b453aa0978abcded3dfb054bd9d  baseline-4d1/stridelab-afterglow-phase4d1-final.html" | sha256sum -c -
+          python3 tools/verify_ws3_integrity.py
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install official Playwright and axe dependencies
+        working-directory: _ws5/StrideLab-WS5/suite
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Playwright Chromium and Linux dependencies
+        working-directory: _ws5/StrideLab-WS5/suite
+        run: npx playwright install --with-deps chromium
+
+      - name: Run full official Playwright suite including axe
+        working-directory: _ws5/StrideLab-WS5/suite
+        env:
+          PROTO: ${{ github.workspace }}/_ws5/StrideLab-WS5/stridelab-afterglow-phase4d2-wip.html
+          CI: "true"
+        run: npx playwright test
+
+      - name: Check full 253-test WS5-D candidate regression
+        shell: bash
+        run: |
+          node - <<'JS'
+          const fs=require('fs');
+          const p='_ws5/StrideLab-WS5/suite/results/results.json';
+          if(!fs.existsSync(p)){console.error('Official Playwright JSON report missing');process.exit(1);}
+          const d=JSON.parse(fs.readFileSync(p,'utf8'));
+          const s=d.stats||{};
+          console.log('Official WS5-D candidate Playwright result:',JSON.stringify(s));
+          if(s.expected!==253 || s.unexpected!==0 || s.flaky!==0 || s.skipped!==0){
+            console.error('Expected exactly 253 passes, zero failures/skips/flaky; do not accept WS5-D.');
+            process.exit(1);
+          }
+          JS
+
+      - name: Upload test evidence and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ws5-d-candidate-official-playwright-evidence
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            _ws5/StrideLab-WS5/suite/results/results.json
+            _ws5/StrideLab-WS5/suite/results/artifacts/
+            _ws5/StrideLab-WS5/evidence/ws5-d/
