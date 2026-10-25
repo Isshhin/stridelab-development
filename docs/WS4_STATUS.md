@@ -31,3 +31,7 @@ Source: the inner `StrideLab-WS4-C.zip` packaged inside uploaded `stridelab ws4 
 7. Do not start WS5, Phase 4D.3 integration, Engine 2.0 or APK packaging until relevant branch safeguards are satisfied.
 
 Keep the original Next.js application in `Isshhin/stride-lab` separate from the standalone Afterglow prototype.
+
+## Private ZIP archive delivery
+
+GitHub's browser repository uploader cannot accept this ~50 MB archive. Store `StrideLab-WS4-C.zip` as an asset of a **private pre-release** tagged `ws4-c` (not in Git source history). The manual GitHub Actions workflow `.github/workflows/ws4-c-playwright.yml` now downloads the attached release asset using the repository-scoped `GITHUB_TOKEN`, checks SHA-256, then executes the official suite. The release is only a storage checkpoint, not a public app release or software acceptance.
