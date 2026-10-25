@@ -1,5 +1,22 @@
 # StrideLab Phase 4D.2 — Workstream 5 Status
 
+## WS5-C implementation candidate (2026-10-25)
+
+**Delivered, NOT officially accepted.** Source baseline is the [WS5-B Fix2 release](https://github.com/Isshhin/stridelab-development/releases/tag/ws5-b-fix2), independently accepted at 237/237 in [run 40210796282](https://github.com/Isshhin/stridelab-development/actions/runs/40210796282).
+
+- Deliverables: `StrideLab-WS5-C-WIP.zip` and `StrideLab-WS5-C-candidate.zip`, both self-contained.
+- Candidate ZIP SHA-256: `91d6b79ce1ebebb9001bcc5b18070352c7752c4595330fb6f95426c741aed7fa` (19,983,629 bytes).
+- ZIP CRC and all **600/600** candidate manifest file hashes passed.
+- Deterministic rebuilt HTML SHA-256: `90ef7d9fd954d5927949acb4d6d3966e57dc2be856c0a950ef74d2a50ef47b90`.
+- Protected engine `3ae9226a19718925d5a0c59771d13ed85860b4f4cd694490f0cbf668cfb3a3f2` and Phase 4D.1 baseline `cffaad8e9856d988f864cb09143a63aeac573b453aa0978abcded3dfb054bd9d` unchanged.
+- Implemented **21 supplemental educational movement guides** with running preparation/drills, two carries, and 14 calisthenics references. Five distinct progression learning paths link steps including canonical pull-up Library IDs. Dedicated Library modal provides live search, discipline and pattern filtering, including **Carry**.
+- These are **reference-only**, with no practice/save/log/plan or automatic prescription; accepted 23 trackable Library entries remain unchanged, as do their IDs and persistence. No new image assets or mascot introduced.
+- Local direct Python Chromium smoke test: **129 grouped checks pass**, all 21 detail views, 360/390/430px and 100%/200% text, keyboard/Escape and zero page errors. Official Playwright/axe tests have **not yet run on WS5-C**.
+- Added 11 official Playwright cases in `suite/tests/p4d2-ws5c-guides.spec.js`; expected entire suite **248** (237 inherited + 11).
+- **Next:** upload exact candidate as a **private prerelease** tagged `ws5-c-candidate`, asset name `StrideLab-WS5-C-candidate.zip`. Then manually run the [dedicated WS5-C official Actions gate](https://github.com/Isshhin/stridelab-development/actions/workflows/ws5-c-playwright.yml) and record real results before proceeding to WS5-D.
+- Qualified coaching review, licensed accurate technique images, screen reader and physical Android checks remain open. **Do not label full WS5 accepted before WS5-D.**
+
+
 **Current: WS5-B Fix2 accepted as an intermediate verified checkpoint; WS5-C next. Full WS5 acceptance NOT YET reached.** Updated 2026-10-25.
 
 ## Official WS5-B Fix2 verification
