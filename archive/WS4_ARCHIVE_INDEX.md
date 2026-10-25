@@ -20,3 +20,7 @@ WS4-C:
 Next: run the packaged official Playwright suite with `npm ci` and Chromium on a Windows/network-enabled environment; migrate obsolete changed-control selectors while retaining assertions; run axe and reflow audits; deliver a separately named WS4-D only when evidence supports acceptance.
 
 Do not publish the private project or silently modify the original `Isshhin/stride-lab` repository.
+
+## WS4-C upload destination
+
+WS4-C is too large for GitHub's browser repository upload. Upload `StrideLab-WS4-C.zip` as an asset in a **private GitHub pre-release** tagged `ws4-c`. The official test workflow downloads it from that release and verifies the checksum. No ZIP binary is currently committed to the Git repository by this index.
