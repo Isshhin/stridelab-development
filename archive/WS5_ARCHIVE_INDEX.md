@@ -1,5 +1,7 @@
 # Workstream 5 checkpoint archives
 
+> **Latest verified WS5 intermediate checkpoint (2026-10-25): WS5-B Fix2**, official Playwright/axe [237 passed, 0 failed, 0 skipped, 0 flaky](https://github.com/Isshhin/stridelab-development/actions/runs/40210796282). ZIP `9c2fe6f720f99f79f79bdc84752ecd30f55e9413d0746ed3fbdf9cf1c70d3940`, 578/578 manifest, protected engine and baseline checks passed. WS5-C may proceed; WS5-D remains the final WS5 gate. Historical contents below document earlier candidates and pending states *as of those checkpoints*.
+
 Updated: 2026-10-25. **WS5-B is a candidate pending its first official Playwright/axe run**, not an accepted build.
 
 The user-uploaded `StrideLab-WS5-B.zip` was independently inspected in the ChatGPT working environment.
@@ -45,3 +47,11 @@ The archival index is not a substitute for the binary release asset. Preserve th
 - **Test-only candidate:** `StrideLab-WS5-B-fix2.zip` (19,628,345 bytes; SHA-256 `9c2fe6f720f99f79f79bdc84752ecd30f55e9413d0746ed3fbdf9cf1c70d3940`). ZIP CRC and **578/578** manifest payload hashes verified.
 - Built HTML remains **byte-identical to fix1**: SHA-256 `868a5908dfc8b70e0ceba8066d6123cd157a19540cf4080d7b60daf041d2fad2`; protected engine and 4D.1 baseline unchanged.
 - **Official fix2 verification pending.** Upload exact ZIP to private prerelease tag `ws5-b-fix2`, then manually run [Fix2 237-test gate](https://github.com/Isshhin/stridelab-development/actions/workflows/ws5-b-fix2-playwright.yml). No claim of final WS5 acceptance; that remains WS5-D.
+
+## WS5-B fix2 official verification — accepted intermediate checkpoint
+
+- GitHub Actions: https://github.com/Isshhin/stridelab-development/actions/runs/40210796282 — **237 passed (3.8m), 0 failed, 0 skipped, 0 flaky**, including available axe accessibility suites.
+- GitHub private prerelease: https://github.com/Isshhin/stridelab-development/releases/tag/ws5-b-fix2
+- Exact archive: `StrideLab-WS5-B-fix2.zip` SHA-256 `9c2fe6f720f99f79f79bdc84752ecd30f55e9413d0746ed3fbdf9cf1c70d3940` (19,628,345 bytes); CRC pass, 578/578 manifest pass.
+- Deterministic HTML rebuild and protected coaching engine / Phase 4D.1 baseline checks passed.
+- This verifies **WS5-B**, not full WS5; further WS5-C, WS5-D, manual mobile/screen reader and coaching-data reviews remain.
