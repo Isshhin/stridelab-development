@@ -4,13 +4,18 @@ Updated: 2026-10-25. **Private developer-only project. No public launch is plann
 
 ## Current milestone
 
-Phase 4D.2 WS3-E is the latest accepted workstream-3 package. Local official Playwright report: **221 passed, 0 failed, 0 skipped**. Real Android, other browser engines, manual contrast checks, and production coaching appropriateness are not established by those tests.
+Phase 4D.2 **WS5-B Fix2 verified** (intermediate checkpoint) by [GitHub Actions run 40210796282](https://github.com/Isshhin/stridelab-development/actions/runs/40210796282): **237 official Playwright tests passed, 0 failed/skipped/flaky**, including available axe checks. Exact checkpoint in private prerelease `ws5-b-fix2`. **Next: WS5-C, then WS5-D final Workstream 5 acceptance.**
 
 - WS1: modal scroll lock, checkpoint 2.
 - WS2: mobile guided Plan Builder, checkpoint 3.
 - WS3: monthly calendar, arbitrary start dates, multi-workout same-day save safety, stable plan/session identity, WS3-E.
-- WS4 **next**: mobile UI consistency, accessibility/responsiveness; preserve stable behavior.
-- WS5: original exercise artwork / Workout Library refinements.
+- WS4: mobile UI consistency and accessibility, verified in official [WS4-D run 40205353927](https://github.com/Isshhin/stridelab-development/actions/runs/40205353927) (228/228).
+- WS5-A: completed Workout Library and exercise-image provenance audit.
+- WS5-B: metadata, accurate image labels, running session structure and Library UX; Fix2 verified 237/237 official tests.
+- WS5-C **next**: expand missing exercise coverage, progression paths, accuracy, licensing and responsive refinements.
+- WS5-D: final integration, independent test evidence, handoff and acceptance.
+
+Manual screen-reader, physical Android, other browsers, final coaching-domain verification and full WS5 completion remain outstanding.
 
 ## Next phases
 
