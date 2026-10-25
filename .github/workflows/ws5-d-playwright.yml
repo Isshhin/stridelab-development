@@ -24,15 +24,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p archive
-          gh release download ws5-d-candidate --repo "${GITHUB_REPOSITORY}" --pattern 'StrideLab-WS5-D-fix1.zip' --dir archive
+          gh release download ws5-d-candidate --repo "${GITHUB_REPOSITORY}" --pattern 'StrideLab-WS5-D-candidate.zip' --dir archive
 
       - name: Verify archive and extract exact candidate
         shell: bash
         run: |
-          echo "451d53c3387362b9dd17f61457197373fdd66a8399fd8c58e59d60c267de2271  archive/StrideLab-WS5-D-fix1.zip" | sha256sum -c -
-          unzip -tq archive/StrideLab-WS5-D-fix1.zip
+          echo "451d53c3387362b9dd17f61457197373fdd66a8399fd8c58e59d60c267de2271  archive/StrideLab-WS5-D-candidate.zip" | sha256sum -c -
+          unzip -tq archive/StrideLab-WS5-D-candidate.zip
           mkdir -p _ws5
-          unzip -q archive/StrideLab-WS5-D-fix1.zip -d _ws5
+          unzip -q archive/StrideLab-WS5-D-candidate.zip -d _ws5
 
       - name: Verify 607 checkpoint manifest payload hashes
         shell: bash
@@ -40,7 +40,7 @@ jobs:
           python3 - <<'PY'
           import hashlib,json,pathlib,sys
           root=pathlib.Path('_ws5/StrideLab-WS5')
-          manifest=json.loads((root/'SHA256-MANIFEST-WS5-D-fix1.json').read_text())
+          manifest=json.loads((root/'SHA256-MANIFEST-WS5-D-candidate.json').read_text())
           bad=[]
           for rel, expected in manifest.items():
               f=root/rel
