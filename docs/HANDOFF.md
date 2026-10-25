@@ -1,3 +1,5 @@
+> **Current WS4 work:** WS4-C is the latest recoverable Workstream-4 checkpoint, **not yet accepted**; official Playwright and axe are pending. See [WS4 status](WS4_STATUS.md) and [WS4 archive index](../archive/WS4_ARCHIVE_INDEX.md). WS3-E remains the last fully regression-accepted baseline. The old instructions below refer to the beginning of WS4 and should not override this update.
+
 # StrideLab Handoff / Session Recovery
 
 ## Current accepted source
