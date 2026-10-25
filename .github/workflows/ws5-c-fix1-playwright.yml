@@ -1,0 +1,110 @@
+name: WS5-C fix1 official Playwright and axe verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-ws5-c-fix1:
+    name: Verify WS5-C fix1 (not final WS5 acceptance)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out private development repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Download WS5-C fix1 from private prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p archive
+          gh release download ws5-c-fix1 --repo "${GITHUB_REPOSITORY}" --pattern 'StrideLab-WS5-C-fix1.zip' --dir archive
+
+      - name: Verify archive and extract exact candidate
+        shell: bash
+        run: |
+          echo "d781ae49fcad50571f1893f414df498ee8c1588cdb581e25aebbe0dc73c49704  archive/StrideLab-WS5-C-fix1.zip" | sha256sum -c -
+          unzip -tq archive/StrideLab-WS5-C-fix1.zip
+          mkdir -p _ws5
+          unzip -q archive/StrideLab-WS5-C-fix1.zip -d _ws5
+
+      - name: Verify 602 checkpoint manifest payload hashes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib,sys
+          root=pathlib.Path('_ws5/StrideLab-WS5')
+          manifest=json.loads((root/'SHA256-MANIFEST-WS5-C-fix1.json').read_text())
+          bad=[]
+          for rel, expected in manifest.items():
+              f=root/rel
+              if not f.is_file() or hashlib.sha256(f.read_bytes()).hexdigest()!=expected:
+                  bad.append(rel)
+          print(f'WS5-C manifest: {len(manifest)-len(bad)}/{len(manifest)} verified')
+          if bad or len(manifest)!=602:
+              print('Unexpected manifest count or mismatches:',bad[:20])
+              sys.exit(1)
+          PY
+
+      - name: Rebuild HTML and check protected engine and 4D.1 baseline
+        shell: bash
+        run: |
+          cd _ws5/StrideLab-WS5
+          python3 tools/build_p4d2.py
+          echo "e4e6514d935a27d5f4280fe453366f621521289ecf0fa7f2c7e286bbcc05bd7e  stridelab-afterglow-phase4d2-wip.html" | sha256sum -c -
+          echo "cffaad8e9856d988f864cb09143a63aeac573b453aa0978abcded3dfb054bd9d  baseline-4d1/stridelab-afterglow-phase4d1-final.html" | sha256sum -c -
+          python3 tools/verify_ws3_integrity.py
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install official Playwright and axe dependencies
+        working-directory: _ws5/StrideLab-WS5/suite
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Playwright Chromium and Linux dependencies
+        working-directory: _ws5/StrideLab-WS5/suite
+        run: npx playwright install --with-deps chromium
+
+      - name: Run full official Playwright suite including axe
+        working-directory: _ws5/StrideLab-WS5/suite
+        env:
+          PROTO: ${{ github.workspace }}/_ws5/StrideLab-WS5/stridelab-afterglow-phase4d2-wip.html
+          CI: "true"
+        run: npx playwright test
+
+      - name: Check full 248-test WS5-C fix1 regression
+        shell: bash
+        run: |
+          node - <<'JS'
+          const fs=require('fs');
+          const p='_ws5/StrideLab-WS5/suite/results/results.json';
+          if(!fs.existsSync(p)){console.error('Official Playwright JSON report missing');process.exit(1);}
+          const d=JSON.parse(fs.readFileSync(p,'utf8'));
+          const s=d.stats||{};
+          console.log('Official WS5-C fix1 Playwright result:',JSON.stringify(s));
+          if(s.expected!==248 || s.unexpected!==0 || s.flaky!==0 || s.skipped!==0){
+            console.error('Expected exactly 248 passes, zero failures/skips/flaky; do not accept WS5-C.');
+            process.exit(1);
+          }
+          JS
+
+      - name: Upload test evidence and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ws5-c-fix1-official-playwright-evidence
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            _ws5/StrideLab-WS5/suite/results/results.json
+            _ws5/StrideLab-WS5/suite/results/artifacts/
+            _ws5/StrideLab-WS5/evidence/ws5-c/
