@@ -13,7 +13,7 @@ Updated: 2026-10-26. **Private developer-only project. No public launch is plann
 - WS5-A: exercise/asset provenance audit.
 - WS5-B: metadata, image-fit honesty, running session structure, UI; fix2 verified 237/237 in run 40210796282.
 - WS5-C: 21 reference-only guide entries, running drills, carries and calisthenics progression pathways; Fix1 verified **248/248** in run 40245684800.
-- **WS5-D next:** final Workout Library quality, accurate data/attribution, accessibility, handoff, final immutable checkpoint and independent acceptance gate.
+- **WS5-D candidate delivered, official CI pending:** final Workout Library quality, corrected reverse-lunge image-fit accuracy, guide live count semantics, five new regression tests, packaged as immutable recovery ZIP. Complete workstream acceptance only after the exact candidate passes 253 official Playwright/axe cases.
 
 Manual domain review, screen-reader, real Android and other-browser checks remain documented limitations. No public launch is planned.
 
