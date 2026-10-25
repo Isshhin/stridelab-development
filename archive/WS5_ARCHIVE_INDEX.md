@@ -36,3 +36,12 @@ The archival index is not a substitute for the binary release asset. Preserve th
 - Repairs: new spec imports the established p3c-helpers; restore legacy informative accessible tile names; At a glance uses an h2 instead of h3; higher-specificity sheet pill styling fixes foreground/background colors.
 - Local build, Node syntax and archive integrity checks passed; Chromium binary is not available locally. **Official fix1 verification pending.**
 - To verify: upload `StrideLab-WS5-B-fix1.zip` as private prerelease tag `ws5-b-fix1`, then manually dispatch [dedicated WS5-B fix1 workflow](https://github.com/Isshhin/stridelab-development/actions/workflows/ws5-b-fix1-playwright.yml), which requires **237 expected passes with zero failures/skips/flaky**. This is an intermediate WS5-B gate, not Workstream 5 final acceptance.
+
+## WS5-B fix2 — test-only follow-up to official fix1 CI (2026-10-25)
+
+- Official fix1 verification [40209861909](https://github.com/Isshhin/stridelab-development/actions/runs/40209861909) ran full 237-test Playwright/axe suite: **235 passed, 2 failed**; all integrity and axe checks passed.
+- One failure was a stale test expectation of five `lats` search results while the persisted *pull* filter correctly limited them to four. Fix2 checks four with pull active and five after explicitly selecting All patterns, confirming `e5` enters only after disabling that filter.
+- One failure was an inherited test expecting Purpose to be the first `h2` after fix1 correctly added At a glance as the first h2 to satisfy heading-order accessibility. Fix2 asserts both headings in correct order while retaining the broken-image fallback assertions.
+- **Test-only candidate:** `StrideLab-WS5-B-fix2.zip` (19,628,345 bytes; SHA-256 `9c2fe6f720f99f79f79bdc84752ecd30f55e9413d0746ed3fbdf9cf1c70d3940`). ZIP CRC and **578/578** manifest payload hashes verified.
+- Built HTML remains **byte-identical to fix1**: SHA-256 `868a5908dfc8b70e0ceba8066d6123cd157a19540cf4080d7b60daf041d2fad2`; protected engine and 4D.1 baseline unchanged.
+- **Official fix2 verification pending.** Upload exact ZIP to private prerelease tag `ws5-b-fix2`, then manually run [Fix2 237-test gate](https://github.com/Isshhin/stridelab-development/actions/workflows/ws5-b-fix2-playwright.yml). No claim of final WS5 acceptance; that remains WS5-D.
