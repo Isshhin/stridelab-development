@@ -1,6 +1,23 @@
 # StrideLab Phase 4D.2 — Workstream 5 Status
 
-## WS5-C Fix1 — CI regression hotfix candidate (2026-10-26)
+## WS5-C Fix1 — Official intermediate acceptance (2026-10-26)
+
+**ACCEPTED as the latest WS5 intermediate checkpoint. Workstream 5 is NOT yet final.**
+
+- Verified official GitHub Actions: [run 40245684800](https://github.com/Isshhin/stridelab-development/actions/runs/40245684800), completed **success**.
+- Official Playwright Chromium with available axe checks: **248 passed, 0 failed, 0 skipped, 0 flaky** (3.3 min test execution).
+- Exact archived source: [private WS5-C Fix1 prerelease](https://github.com/Isshhin/stridelab-development/releases/tag/ws5-c-fix1), asset `StrideLab-WS5-C-fix1.zip` (20,007,356 bytes), SHA-256 `d781ae49fcad50571f1893f414df498ee8c1588cdb581e25aebbe0dc73c49704`.
+- Release asset checksum, ZIP CRC, **602/602** manifest hashes, deterministic candidate HTML rebuild and protected-source verification all passed.
+- Rebuilt HTML SHA-256 `e4e6514d935a27d5f4280fe453366f621521289ecf0fa7f2c7e286bbcc05bd7e`.
+- Coaching engine `3ae9226a19718925d5a0c59771d13ed85860b4f4cd694490f0cbf668cfb3a3f2` and protected Phase 4D.1 baseline `cffaad8e9856d988f864cb09143a63aeac573b453aa0978abcded3dfb054bd9d` unchanged.
+- Prior WS5-C candidate failed 1/248 due to Library detail scrolling; Fix1 moved the guide invite after the preexisting exercise list, preserving the established modal scroll-lock test, without modifying assertions.
+- Functionality now verified: 23 original trackable Library entries preserved; 21 reference-only educational movement guides and five progression pathways; running preparation, strength carries, calisthenics variants; no new tracked session semantics or adaptive coaching modifications.
+- Remaining before **WS5-D final**: manual instructional accuracy / muscle metadata review, image attribution/fit and 2D mascot design decision, library guide discoverability, 360–430px/200% text, screen-reader/manual accessibility/Android device limitations documented. Prefer surgical corrections and evidence over another major feature expansion.
+
+**Next milestone: WS5-D final quality and integration review, with its own immutable ZIP and independent official CI.**
+
+
+## Historical WS5-C Fix1 pre-verification notes (superseded by successful run)
 
 **NOT OFFICIALLY ACCEPTED.** Prior WS5-C [GitHub Actions run 40244039919](https://github.com/Isshhin/stridelab-development/actions/runs/40244039919) executed the complete 248-test suite: **247 passed, 1 failed**. The failure was the inherited `p4d2-scrolllock.spec.js` Library-detail test, with a 177px background shift before modal lock.
 
