@@ -18,18 +18,20 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Download WS4-C from private release checkpoint
+      - name: Download the existing 53 MB WS4 checkpoint bundle
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p archive
-          gh release download ws4-c --repo "${GITHUB_REPOSITORY}" --pattern 'StrideLab-WS4-C.zip' --dir archive
+          gh release download ws4-c --repo "${GITHUB_REPOSITORY}" --pattern 'stridelab.ws4.c.zip' --dir archive
 
-      - name: Verify release archive checksum and ZIP integrity
+      - name: Verify outer bundle and extract authoritative inner WS4-C
         shell: bash
         run: |
-          test -f archive/StrideLab-WS4-C.zip || { echo "::error::The private ws4-c release must have StrideLab-WS4-C.zip attached"; exit 1; }
+          echo "4b0839decb872d3799f0ab66e34c0a9e51da67e532ca0840f1de9846a1163799  archive/stridelab.ws4.c.zip" | sha256sum -c -
+          unzip -tq archive/stridelab.ws4.c.zip
+          unzip -p archive/stridelab.ws4.c.zip StrideLab-WS4-C.zip > archive/StrideLab-WS4-C.zip
           echo "487c9b0758cfdeb836fe9e6af6bd545395001fa3fa7aa4635f4a9daf04e8ad44  archive/StrideLab-WS4-C.zip" | sha256sum -c -
           unzip -tq archive/StrideLab-WS4-C.zip
 
