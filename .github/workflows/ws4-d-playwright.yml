@@ -1,0 +1,110 @@
+name: WS4-D candidate official Playwright and axe verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-ws4-d:
+    name: Verify WS4-D candidate (not final acceptance)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out private archive repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Download the WS4-D candidate from private release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          mkdir -p archive
+          gh release download ws4-d-candidate --repo "${GITHUB_REPOSITORY}" --pattern 'StrideLab-WS4-D-candidate.zip' --dir archive
+
+      - name: Verify exact candidate SHA-256 and ZIP contents
+        shell: bash
+        run: |
+          echo "885eaac1a9ccb399a0fa0f81d530f6ba1133444d4e7d7710200b4ea6c9d3a972  archive/StrideLab-WS4-D-candidate.zip" | sha256sum -c -
+          unzip -tq archive/StrideLab-WS4-D-candidate.zip
+          mkdir -p _ws4
+          unzip -q archive/StrideLab-WS4-D-candidate.zip -d _ws4
+
+      - name: Verify all 556 manifest payload hashes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib,sys
+          root=pathlib.Path('_ws4/StrideLab-WS4')
+          manifest=json.loads((root/'SHA256-MANIFEST-WS4-D-candidate.json').read_text())
+          errors=[]
+          for rel, expected in manifest.items():
+              f=root/rel
+              if not f.is_file() or hashlib.sha256(f.read_bytes()).hexdigest()!=expected:
+                  errors.append(rel)
+          print(f'WS4-D manifest: {len(manifest)-len(errors)}/{len(manifest)} verified')
+          if errors or len(manifest)!=556:
+              print('Mismatches or unexpected manifest count:', errors[:20])
+              sys.exit(1)
+          PY
+
+      - name: Rebuild candidate and verify protected engine and baseline
+        shell: bash
+        run: |
+          cd _ws4/StrideLab-WS4
+          python3 tools/build_p4d2.py
+          echo "23717f3a7a6cd1a16ff9a1c7669026c4818b522d9632474a3dc2de15b2fe9b85  stridelab-afterglow-phase4d2-wip.html" | sha256sum -c -
+          echo "cffaad8e9856d988f864cb09143a63aeac573b453aa0978abcded3dfb054bd9d  baseline-4d1/stridelab-afterglow-phase4d1-final.html" | sha256sum -c -
+          python3 tools/verify_ws3_integrity.py
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install official test dependencies
+        working-directory: _ws4/StrideLab-WS4/suite
+        run: npm ci --no-audit --no-fund
+
+      - name: Install official Playwright Chromium browser
+        working-directory: _ws4/StrideLab-WS4/suite
+        run: npx playwright install --with-deps chromium
+
+      - name: Run official Playwright suite (including axe)
+        working-directory: _ws4/StrideLab-WS4/suite
+        env:
+          PROTO: ${{ github.workspace }}/_ws4/StrideLab-WS4/stridelab-afterglow-phase4d2-wip.html
+          CI: "true"
+        run: npx playwright test
+
+      - name: Require exact expected Playwright results (228 passing)
+        shell: bash
+        run: |
+          node - <<'JS'
+          const fs=require('fs');
+          const p='_ws4/StrideLab-WS4/suite/results/results.json';
+          if(!fs.existsSync(p)){console.error('Missing official Playwright JSON results');process.exit(1);}
+          const d=JSON.parse(fs.readFileSync(p,'utf8'));
+          const s=d.stats||{};
+          console.log('Official WS4-D results:',JSON.stringify(s));
+          if(s.expected!==228||s.unexpected!==0||s.flaky!==0||s.skipped!==0){
+            console.error('WS4-D requires exactly 228 expected passes, no failures, retries/flakes or skips.');
+            process.exit(1);
+          }
+          JS
+
+      - name: Save official evidence and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ws4-d-candidate-playwright-evidence
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            _ws4/StrideLab-WS4/suite/results/results.json
+            _ws4/StrideLab-WS4/suite/results/artifacts/
+            _ws4/StrideLab-WS4/evidence/ws4/ws4-D-*.json
