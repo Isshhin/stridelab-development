@@ -4,7 +4,7 @@ Updated: 2026-10-25. **Private developer-only project. No public launch is plann
 
 ## Current milestone
 
-Phase 4D.2 **WS5-B Fix2 verified** (intermediate checkpoint) by [GitHub Actions run 40210796282](https://github.com/Isshhin/stridelab-development/actions/runs/40210796282): **237 official Playwright tests passed, 0 failed/skipped/flaky**, including available axe checks. Exact checkpoint in private prerelease `ws5-b-fix2`. **WS5-C candidate implemented, official verification pending; then WS5-D final Workstream 5 acceptance.**
+Phase 4D.2 **WS5-B Fix2 verified** (intermediate checkpoint) by [GitHub Actions run 40210796282](https://github.com/Isshhin/stridelab-development/actions/runs/40210796282): **237 official Playwright tests passed, 0 failed/skipped/flaky**, including available axe checks. Exact checkpoint in private prerelease `ws5-b-fix2`. **WS5-C Fix1 candidate packaged; previous candidate 247/248, dedicated Fix1 CI pending; then WS5-D final Workstream 5 acceptance.**
 
 - WS1: modal scroll lock, checkpoint 2.
 - WS2: mobile guided Plan Builder, checkpoint 3.
@@ -12,7 +12,7 @@ Phase 4D.2 **WS5-B Fix2 verified** (intermediate checkpoint) by [GitHub Actions 
 - WS4: mobile UI consistency and accessibility, verified in official [WS4-D run 40205353927](https://github.com/Isshhin/stridelab-development/actions/runs/40205353927) (228/228).
 - WS5-A: completed Workout Library and exercise-image provenance audit.
 - WS5-B: metadata, accurate image labels, running session structure and Library UX; Fix2 verified 237/237 official tests.
-- WS5-C **candidate delivered; official CI pending**: 21 reference-only guides, five movement ladders, responsive modal discovery. Not added to tracked workout engine; 11 new tests await CI, target 248/248.
+- WS5-C **Fix1 candidate packaged, official CI pending** (original run 247/248 due Library scroll jump): 21 reference-only guides, five movement ladders, responsive modal discovery. Not added to tracked workout engine; 11 new tests await CI, target 248/248.
 - WS5-D: final integration, independent test evidence, handoff and acceptance.
 
 Manual screen-reader, physical Android, other browsers, final coaching-domain verification and full WS5 completion remain outstanding.
