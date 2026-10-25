@@ -26,3 +26,13 @@ The user-uploaded `StrideLab-WS5-B.zip` was independently inspected in the ChatG
 5. Manual coaching/domain review of authored muscle data, licensing/image semantics, gradient contrast, real screen readers and physical devices are outside full suite acceptance. Keep as documented limitations.
 
 The archival index is not a substitute for the binary release asset. Preserve the historical WS4-D baseline and evidence unchanged.
+
+## WS5-B fix1 — ChatGPT regression hotfix candidate (2026-10-25)
+
+- Original official WS5-B [run 40208080911](https://github.com/Isshhin/stridelab-development/actions/runs/40208080911): **224 passed, 13 failed**. Nine new spec cases called unsupported helpers; three axe checks reported detail-sheet contrast/heading failures; one inherited accessible-name test failed.
+- `StrideLab-WS5-B-fix1.zip`: **19,606,574 bytes**, SHA-256 `22d76013694dde4d722f3b82e930101f9a7a3df97a15285b6cfddafd0957f448`. ZIP CRC and **576/576** manifest hashes passed.
+- Rebuilt candidate HTML SHA-256 `868a5908dfc8b70e0ceba8066d6123cd157a19540cf4080d7b60daf041d2fad2`; deterministic build and protected-source checks passed.
+- Protected engine `3ae9226a19718925d5a0c59771d13ed85860b4f4cd694490f0cbf668cfb3a3f2` and baseline `cffaad8e9856d988f864cb09143a63aeac573b453aa0978abcded3dfb054bd9d` unchanged.
+- Repairs: new spec imports the established p3c-helpers; restore legacy informative accessible tile names; At a glance uses an h2 instead of h3; higher-specificity sheet pill styling fixes foreground/background colors.
+- Local build, Node syntax and archive integrity checks passed; Chromium binary is not available locally. **Official fix1 verification pending.**
+- To verify: upload `StrideLab-WS5-B-fix1.zip` as private prerelease tag `ws5-b-fix1`, then manually dispatch [dedicated WS5-B fix1 workflow](https://github.com/Isshhin/stridelab-development/actions/workflows/ws5-b-fix1-playwright.yml), which requires **237 expected passes with zero failures/skips/flaky**. This is an intermediate WS5-B gate, not Workstream 5 final acceptance.
