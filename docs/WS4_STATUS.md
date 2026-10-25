@@ -1,8 +1,19 @@
 # StrideLab Workstream 4 — Status
 
-**Status: Checkpoint C independently CI-verified; Workstream 4 final package D NOT YET DELIVERED.** Updated 2026-10-25.
+**Status: WS4-C CI accepted (221/221); WS4-D candidate DELIVERED, verified for integrity, official D tests pending.** Updated 2026-10-25.
 
 Source: the inner `StrideLab-WS4-C.zip` packaged inside uploaded `stridelab ws4 c.zip`. See `archive/WS4_ARCHIVE_INDEX.md` for checksums.
+
+## New WS4-D candidate (not accepted yet)
+
+- Received `ws4 d.zip` containing `StrideLab-WS4-D-WIP.zip` and `StrideLab-WS4-D-candidate.zip`.
+- Candidate inner archive SHA-256 `885eaac1a9ccb399a0fa0f81d530f6ba1133444d4e7d7710200b4ea6c9d3a972`; CRC passed and 556/556 manifest entries match.
+- Rebuilt candidate `23717f3a7a6cd1a16ff9a1c7669026c4818b522d9632474a3dc2de15b2fe9b85` matches provided HTML exactly; protected 4D.1 and coaching-engine hashes passed integrity script.
+- D fixes bottom-navigation landmarks/current-tab semantics; Whole route touch target; 360px/200% calendar dates; adds 7 official Playwright tests. Reported targeted browser probes passed; the official D run is still pending.
+- **Next:** Upload the extracted 19 MB `StrideLab-WS4-D-candidate.zip` to a private prerelease tagged `ws4-d-candidate`, then manually trigger [dedicated D verification](https://github.com/Isshhin/stridelab-development/actions/workflows/ws4-d-playwright.yml). Workflow downloads that exact release asset, verifies checksum/build and requires 228 official passes, no flaky/failed/skipped cases.
+- D's remaining known UI exception: 12 weekly-load bars are 25–31px wide; accessible alternative 44px previous/next week buttons exist. Gradient/nav contrast, manual screen reader and Android device tests remain outside verified coverage; don't silently call them passes.
+
+See [WS4-D archive index](../archive/WS4_D_ARCHIVE_INDEX.md).
 
 ## Scope implemented in C
 
