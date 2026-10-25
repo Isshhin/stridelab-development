@@ -1,5 +1,7 @@
 # StrideLab Phase 4D.2 — Workstream 5 status
 
+WS5-B Fix2 is the current candidate (NOT accepted): GitHub Actions fix1 run 40209861909 was 235/237 (2 stale test assertions, 0 axe failures). Fix2 changes tests only, preserving identical HTML/engine. ZIP SHA256 `9c2fe6f720f99f79f79bdc84752ecd30f55e9413d0746ed3fbdf9cf1c70d3940`; 578/578 manifest passed. To verify, upload it to private prerelease `ws5-b-fix2`, run [WS5-B Fix2 Actions](https://github.com/Isshhin/stridelab-development/actions/workflows/ws5-b-fix2-playwright.yml). Do not start WS5-C until official 237/237, and do not label WS5 final before WS5-D.
+
 **WS5-B fix1 is now packaged by ChatGPT but NOT accepted.** The failed WS5-B run [40208080911](https://github.com/Isshhin/stridelab-development/actions/runs/40208080911) completed at 224/237. The targeted repair ZIP is `StrideLab-WS5-B-fix1.zip` (SHA-256 `22d76013694dde4d722f3b82e930101f9a7a3df97a15285b6cfddafd0957f448`, 576/576 manifest). The [WS5-B fix1 official CI workflow](https://github.com/Isshhin/stridelab-development/actions/workflows/ws5-b-fix1-playwright.yml) is ready but needs a private prerelease tag `ws5-b-fix1` and the exact ZIP asset to be uploaded, then manually dispatched. Preserve 228/228 WS4-D as the last independently accepted baseline. Never interpret local checks as official WS5-B success.
 
 **Current:** WS5-A audit checkpoint completed; WS5-B functional candidate delivered but **not yet accepted**.
