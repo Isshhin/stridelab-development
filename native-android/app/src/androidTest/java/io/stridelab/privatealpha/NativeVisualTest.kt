@@ -64,7 +64,7 @@ class NativeVisualTest {
             intervals = IntervalConnection(true,"connected",null,1792972800000), lastSync = 1792972800000)
         val actions = NativeActions({}, { checks++ }, { syncs++ }, {}, { _, _ -> })
         show { StrideTheme { NativeStrideContent(fixture, true, actions) } }
-        compose.onNodeWithText("Morning trail run").assertExists()
+        compose.onNodeWithTag("activity-synthetic-visual").assertExists()
         capture("simulation-dashboard")
         compose.onNodeWithTag("screen").performScrollToNode(hasText("RECENT TRAINING TIME"))
         capture("simulation-recorded-duration-chart")

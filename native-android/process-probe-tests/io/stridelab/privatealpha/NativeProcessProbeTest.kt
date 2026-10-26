@@ -57,7 +57,7 @@ class NativeProcessProbeTest {
                 assertEquals(2,app.repository.state.value.activities.size)
                 assertNull(app.repository.state.value.activities.first().averageHr)
                 assertEquals("synthetic-process-access",SessionVault(context).read(account)!!.accessToken)
-                compose.onNodeWithText(title).assertExists()
+                compose.onNodeWithTag("activity-synthetic-process-activity").assertExists()
                 compose.onNodeWithTag("offline-status").assertExists()
                 val directory = File(compose.activity.getExternalFilesDir(null),"native-ui-evidence"); directory.mkdirs()
                 File(directory,"offline-after-process-restart.png").outputStream().use { output ->

@@ -303,7 +303,7 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
 }
 @Composable internal fun ActivityRow(activity: ActivityRecord, onClick: () -> Unit) {
     val accent = when { activity.supportsPace -> Color(0xFF6FB4FF); activity.type.contains("strength", true) || activity.type == "training" -> Color(0xFFFF9A62); else -> Color(0xFFC79BFF) }
-    Surface(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp),
+    Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().testTag("activity-${activity.id}"), shape = RoundedCornerShape(22.dp),
         color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f))) {
         Column(Modifier.background(Brush.horizontalGradient(listOf(accent.copy(alpha = .07f), Color.Transparent))).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
