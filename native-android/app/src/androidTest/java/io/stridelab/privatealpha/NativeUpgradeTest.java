@@ -27,7 +27,7 @@ public class NativeUpgradeTest {
             boolean ready=false;
             for(int n=0;n<100;n++){if(eval(scenario,view[0],"location.origin+'|'+(document.querySelector('#app h1')!==null)").contains("appassets.androidplatform.net|true")){ready=true;break;}SystemClock.sleep(300);}
             assertTrue("Preserved legacy origin did not load",ready);
-            assertEquals("\"synthetic-value-π\"",eval(scenario,view[0],"localStorage.getItem('stride-native-upgrade-fixture')"));
+            assertEquals("synthetic-value-π",new org.json.JSONTokener(eval(scenario,view[0],"localStorage.getItem('stride-native-upgrade-fixture')")).nextValue());
             assertEquals(context.getSharedPreferences("synthetic-upgrade-probe",0).getString("afterglowSnapshotEvaluation",null),eval(scenario,view[0],"localStorage.getItem('afterglow2')"));
         }
     }
