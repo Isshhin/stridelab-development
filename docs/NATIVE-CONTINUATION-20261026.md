@@ -1,3 +1,5 @@
+> **Latest milestone: Native UI/UX Reconstruction implemented and verified.** Tested source 092d1f6884cfac58271d11f6a07af28a436f708f; CI 40321549037 passed (32 JVM / 41 emulator tests, legacy seed and four probes). See [verified UI handoff](NATIVE-UI-VERIFIED-20261026.md). Real-account Phase 2 and physical-phone acceptance remain pending. Earlier sections below retain foundation history.
+
 # Native Android continuation — 2026-10-26
 
 > Current Phase 2 status: [NATIVE-PHASE2-20261026.md](NATIVE-PHASE2-20261026.md). Verified code f23719e, Actions 40308952951; 32 JVM / 36 emulator tests plus the documented probes. This file retains the earlier foundation history.

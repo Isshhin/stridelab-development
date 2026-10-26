@@ -1,3 +1,5 @@
+> **Native UI update:** [Reconstruction is implemented and CI-verified](NATIVE-UI-VERIFIED-20261026.md). Genuine-account acceptance described here is still pending; synthetic UI tests do not close it.
+
 # Native Android Phase 2 — 2026-10-26
 
 ## Verified checkpoint and current acceptance
