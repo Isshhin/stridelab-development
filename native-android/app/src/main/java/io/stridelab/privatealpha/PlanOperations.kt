@@ -23,6 +23,16 @@ internal object PlanOperations {
         if(plan.sessions.any { it.id!=sessionId && it.status !in setOf("missed","skipped") && Engine1.conflict(moved,it) })throw PlanConstraint("This move conflicts with another workout or its recovery spacing. Choose a different date.")
         return plan.copy(sessions=plan.sessions.map { if(it.id==sessionId) moved else it }.sortedBy { it.date })
     }
+    fun linkActivity(plan:PlanSnapshot,sessionId:String,activityId:String?):PlanSnapshot {
+        compatible(plan)
+        if(plan.status !in setOf("approved","paused"))throw PlanConstraint("Use an approved or paused plan when linking a recorded run.")
+        val session=plan.sessions.find { it.id==sessionId } ?: throw PlanConstraint("Workout is unavailable.")
+        if(session.discipline!="run" || session.status in setOf("missed","skipped"))throw PlanConstraint("Choose a planned running session that was not marked missed or skipped.")
+        if(activityId!=null)RecordPolicy.identifier(activityId)
+        val updated=if(activityId==null)session.copy(linkedActivityId=null,status=session.linkPreviousStatus ?: session.status,linkPreviousStatus=null)
+            else session.copy(linkedActivityId=activityId,linkPreviousStatus=session.linkPreviousStatus ?: session.status,status="completed")
+        return plan.copy(sessions=plan.sessions.map { if(it.id==sessionId)updated else it })
+    }
     fun record(plan:PlanSnapshot,sessionId:String,log:WorkoutLog,complete:Boolean):PlanSnapshot {
         compatible(plan)
         if(plan.status !in setOf("approved","paused"))throw PlanConstraint("Approve the plan before recording its workouts.")
@@ -31,6 +41,7 @@ internal object PlanOperations {
         if(s.status in setOf("missed","skipped"))throw PlanConstraint("This session was marked missed or skipped. Keep that record; schedule a separate reviewed session if needed.")
         fun valid(n:Double?,zero:Boolean=false)=n==null || (n.isFinite() && if(zero) n>=0 else n>0)
         if(!valid(log.minutes) || !valid(log.distanceKm) || (log.effort!=null && log.effort !in 1..10) || log.notes.length>2000)throw PlanConstraint("Check actual duration, distance, effort (1–10), and notes. Blank metrics stay unrecorded.")
+        if(log.performedOn!=null && (log.performedOn>LocalDate.now() || log.performedOn<LocalDate.of(1970,1,1)))throw PlanConstraint("Choose the date the workout actually happened, no later than today.")
         if(log.minutes!=null && log.minutes>1440 || log.distanceKm!=null && log.distanceKm>500)throw PlanConstraint("Check the units for actual duration or distance.")
         if(log.sets.map { it.exerciseId to it.set }.distinct().size!=log.sets.size)throw PlanConstraint("Each exercise set can be logged only once.")
         log.sets.forEach { row ->

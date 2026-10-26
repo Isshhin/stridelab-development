@@ -53,7 +53,10 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
         record={id,r,s,log,done->viewModelScope.launch { repo.recordWorkout(id,r,s,log,done) }},
         missed={id,r,s,reason,skipped->viewModelScope.launch { repo.markMissed(id,r,s,reason,skipped) }},
         acceptSuggestion={id,r,s->viewModelScope.launch { repo.acceptSuggestion(id,r,s) }},
-        feedback={id,r,category,text,s->viewModelScope.launch { repo.saveFeedback(id,r,category,text,s) }}
+        feedback={id,r,category,text,s->viewModelScope.launch { repo.saveFeedback(id,r,category,text,s) }},
+        shelf={id,c,remove->viewModelScope.launch { repo.changeShelf(id,c,remove) }},
+        restore={raw->viewModelScope.launch { repo.restorePlans(raw) }},
+        link={id,r,s,a->viewModelScope.launch { repo.linkActivity(id,r,s,a) }}
     )
     fun signOut() { viewModelScope.launch { repo.signOut() } }
 }

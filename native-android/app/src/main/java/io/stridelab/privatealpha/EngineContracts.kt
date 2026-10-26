@@ -46,22 +46,22 @@ internal data class SetRecord(val exerciseId:String,val set:Int,val reps:Int?=nu
     fun encode()=JSONObject().put("exerciseId",exerciseId).put("set",set).put("reps",reps).put("kg",kg).put("seconds",seconds)
     companion object { fun decode(j:JSONObject)=SetRecord(j.getString("exerciseId"),j.getInt("set"),j.nullInt("reps"),j.nullDouble("kg"),j.nullInt("seconds")) }
 }
-internal data class WorkoutLog(val at:Instant,val minutes:Double?=null,val distanceKm:Double?=null,val effort:Int?=null,val sets:List<SetRecord> = emptyList(),val notes:String="") {
-    fun encode()=JSONObject().put("at",at.toString()).put("minutes",minutes).put("distanceKm",distanceKm).put("effort",effort).put("sets",JSONArray(sets.map { it.encode() })).put("notes",notes)
-    companion object { fun decode(j:JSONObject)=WorkoutLog(Instant.parse(j.getString("at")),j.nullDouble("minutes"),j.nullDouble("distanceKm"),j.nullInt("effort"),j.getJSONArray("sets").objects().map(SetRecord::decode),j.getString("notes")) }
+internal data class WorkoutLog(val at:Instant,val minutes:Double?=null,val distanceKm:Double?=null,val effort:Int?=null,val sets:List<SetRecord> = emptyList(),val notes:String="",val performedOn:LocalDate?=null) {
+    fun encode()=JSONObject().put("at",at.toString()).put("minutes",minutes).put("distanceKm",distanceKm).put("effort",effort).put("sets",JSONArray(sets.map { it.encode() })).put("notes",notes).put("performedOn",performedOn?.toString())
+    companion object { fun decode(j:JSONObject)=WorkoutLog(Instant.parse(j.getString("at")),j.nullDouble("minutes"),j.nullDouble("distanceKm"),j.nullInt("effort"),j.getJSONArray("sets").objects().map(SetRecord::decode),j.getString("notes"),j.nullString("performedOn")?.let(LocalDate::parse)) }
 }
 internal data class SessionSuggestion(val minutes:Int,val reason:String,val accepted:Boolean=false) {
     fun encode()=JSONObject().put("minutes",minutes).put("reason",reason).put("accepted",accepted)
     companion object { fun decode(j:JSONObject)=SessionSuggestion(j.getInt("minutes"),j.getString("reason"),j.getBoolean("accepted")) }
 }
 internal data class PlannedSession(val id:String,val date:LocalDate,val discipline:String,val title:String,val minutes:Int,val distanceKm:Double?,val kind:String,val lower:Boolean=false,val quality:Boolean=false,
-    val exercises:List<ExercisePrescription> = emptyList(),val steps:List<String> = emptyList(),val reason:String="",val status:String="planned",val missedReason:String?=null,val log:WorkoutLog?=null,val suggestion:SessionSuggestion?=null) {
+    val exercises:List<ExercisePrescription> = emptyList(),val steps:List<String> = emptyList(),val reason:String="",val status:String="planned",val missedReason:String?=null,val log:WorkoutLog?=null,val suggestion:SessionSuggestion?=null,val linkedActivityId:String?=null,val linkPreviousStatus:String?=null) {
     val effectiveMinutes get()=if(suggestion?.accepted==true) suggestion.minutes else minutes
     val effectiveTitle get()=if(suggestion?.accepted==true) "Lighter alternative · $title" else title
     fun encode()=JSONObject().put("id",id).put("date",date.toString()).put("discipline",discipline).put("title",title).put("minutes",minutes).put("distanceKm",distanceKm).put("kind",kind).put("lower",lower).put("quality",quality)
-        .put("exercises",JSONArray(exercises.map { it.encode() })).put("steps",JSONArray(steps)).put("reason",reason).put("status",status).put("missedReason",missedReason).put("log",log?.encode()).put("suggestion",suggestion?.encode())
+        .put("exercises",JSONArray(exercises.map { it.encode() })).put("steps",JSONArray(steps)).put("reason",reason).put("status",status).put("missedReason",missedReason).put("log",log?.encode()).put("suggestion",suggestion?.encode()).put("linkedActivityId",linkedActivityId).put("linkPreviousStatus",linkPreviousStatus)
     companion object { fun decode(j:JSONObject)=PlannedSession(j.getString("id"),LocalDate.parse(j.getString("date")),j.getString("discipline"),j.getString("title"),j.getInt("minutes"),j.nullDouble("distanceKm"),j.getString("kind"),j.getBoolean("lower"),j.getBoolean("quality"),
-        j.getJSONArray("exercises").objects().map(ExercisePrescription::decode),j.getJSONArray("steps").strings(),j.getString("reason"),j.getString("status"),j.nullString("missedReason"),j.optJSONObject("log")?.let(WorkoutLog::decode),j.optJSONObject("suggestion")?.let(SessionSuggestion::decode)) }
+        j.getJSONArray("exercises").objects().map(ExercisePrescription::decode),j.getJSONArray("steps").strings(),j.getString("reason"),j.getString("status"),j.nullString("missedReason"),j.optJSONObject("log")?.let(WorkoutLog::decode),j.optJSONObject("suggestion")?.let(SessionSuggestion::decode),j.nullString("linkedActivityId"),j.nullString("linkPreviousStatus")) }
 }
 internal data class PlanFeedback(val id:String,val at:Instant,val category:String,val text:String,val sessionId:String?=null) {
     fun encode()=JSONObject().put("id",id).put("at",at.toString()).put("category",category).put("text",text).put("sessionId",sessionId)

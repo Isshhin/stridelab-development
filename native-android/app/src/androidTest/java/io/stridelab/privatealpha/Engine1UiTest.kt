@@ -85,6 +85,25 @@ class Engine1UiTest {
         capture("phase1-library-modal-200pct")
         compose.onNodeWithText("Close",useUnmergedTree=true).performScrollTo().assertIsDisplayed()
     }
+    @Test fun acceptedLibraryFiltersFavoritesCollectionsAndSessionsWorkNatively() {
+        val state=mutableStateOf(TrainingState(initializing=false,account="synthetic-shelf-ui"))
+        val actions=PlanActions(shelf={id,c,remove -> state.value=state.value.copy(shelf=state.value.shelf.change(id,c,remove)) })
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,true,NativeActions({},{},{},{},{_,_->},planning=actions)) } } }
+        compose.onNodeWithTag("nav-library").performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithText("23 curated entries").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Search exercises").performTextInput("Incline")
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Incline push-up"));compose.onNodeWithText("Incline push-up",useUnmergedTree=true).performClick()
+        compose.onNodeWithText("Save favorite",useUnmergedTree=true).performScrollTo().performClick()
+        compose.onNodeWithText("Collection name").performScrollTo().performTextInput("Home practice")
+        compose.onNodeWithText("Add to collection",useUnmergedTree=true).performScrollTo().performClick()
+        assertTrue("ip" in state.value.shelf.favorites);assertEquals(setOf("ip"),state.value.shelf.collections["Home practice"])
+        compose.onNodeWithText("Close",useUnmergedTree=true).performScrollTo().performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Saved"));compose.onNodeWithText("Saved",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Incline push-up ★"));compose.onNodeWithText("Incline push-up ★").assertExists()
+        capture("phase1-saved-library")
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Sessions"));compose.onNodeWithText("Sessions",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("No workout logs saved for this account yet. Start with an approved training plan."))
+    }
     private fun capture(name:String) {
         compose.mainClock.advanceTimeBy(600);compose.waitForIdle();compose.runOnUiThread { compose.activity.window.decorView.invalidate() }
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();android.os.SystemClock.sleep(350)

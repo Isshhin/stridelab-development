@@ -90,4 +90,31 @@ class Engine1Test {
         assertThrows(PlanConstraint::class.java) { PlanOperations.record(p,p.sessions.first().id,WorkoutLog(now,minutes=Double.NaN),true) }
         assertThrows(PlanConstraint::class.java) { PlanOperations.record(p,p.sessions.first().id,WorkoutLog(now,effort=11),true) }
     }
+    @Test fun backupKeepsAcceptedSnapshotsAndSkipsExistingIdsWithoutReplacingLogs() {
+        val p=PlanOperations.approve(generate(PlanRequest(start=start)),emptyList())
+        val done=PlanOperations.record(p,p.sessions.first().id,WorkoutLog(now,minutes=22.0),true)
+        val raw=org.json.JSONObject().put("schemaVersion",1).put("plans",org.json.JSONArray().put(done.encode())).toString()
+        assertEquals(done,PlanBackup.read(raw,"synthetic-owner").single())
+        assertTrue(PlanBackup.additions(listOf(p),listOf(done)).isEmpty())
+        assertThrows(PlanConstraint::class.java) { PlanBackup.read(raw,"different-owner") }
+        assertThrows(PlanConstraint::class.java) { PlanBackup.read(raw+" trailing", "synthetic-owner") }
+        assertThrows(PlanConstraint::class.java) { PlanBackup.additions(listOf(p.copy(id="new")),listOf(p)) }
+    }
+    @Test fun shelfRoundtripIsOwnerBoundedAndCollectionRemovalKeepsFavorites() {
+        val shelf=LibraryShelf().change("sq").change("sq","At home").change("sq","At home",true)
+        assertTrue("sq" in shelf.favorites);assertTrue(shelf.collections.getValue("At home").isEmpty())
+        assertEquals(shelf,LibraryShelf.decode(shelf.encode("synthetic-owner"),"synthetic-owner"))
+        assertThrows(IllegalArgumentException::class.java) { LibraryShelf.decode(shelf.encode("synthetic-owner"),"different-owner") }
+        assertThrows(PlanConstraint::class.java) { shelf.change("sq","Favorites") }
+    }
+    @Test fun explicitActualDateAndManualSourceLinksPreserveOriginalTargets() {
+        val p=PlanOperations.approve(generate(PlanRequest(start=start)),emptyList());val s=p.sessions.first()
+        val linked=PlanOperations.linkActivity(p,s.id,"real-source-id")
+        assertEquals(s.copy(status="completed",linkedActivityId="real-source-id",linkPreviousStatus="planned"),linked.sessions.first())
+        assertEquals(p,PlanOperations.linkActivity(linked,s.id,null))
+        val actual=LocalDate.now().minusDays(1)
+        val done=PlanOperations.record(p,s.id,WorkoutLog(now,minutes=15.0,performedOn=actual),true)
+        assertEquals(actual,PlanSnapshot.decode(done.encode(),"synthetic-owner").sessions.first().log!!.performedOn)
+        assertThrows(PlanConstraint::class.java) { PlanOperations.record(p,s.id,WorkoutLog(now,performedOn=LocalDate.now().plusDays(1)),true) }
+    }
 }

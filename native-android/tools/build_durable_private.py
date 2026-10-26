@@ -9,8 +9,8 @@ from package_private_apk import package
 
 
 def build(root, version, commit, run_url, expected):
-    if int(version) < 8:
-        raise ValueError('Signed versionCode must be at least 8 and newer than the installed build')
+    if int(version) < 10:
+        raise ValueError('Signed versionCode must be at least 10 and newer than the installed build')
     required = ['STRIDELAB_KEYSTORE_BASE64','STRIDELAB_STORE_PASSWORD','STRIDELAB_KEY_ALIAS','STRIDELAB_KEY_PASSWORD']
     if any(not os.environ.get(name) for name in required):
         raise ValueError('Durable signing secrets are not configured; no signed build produced')

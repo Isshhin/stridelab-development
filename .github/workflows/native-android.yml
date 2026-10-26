@@ -10,8 +10,8 @@ on:
         type: boolean
         default: false
       signed_version_code:
-        description: Signed versionCode, higher than installed build (minimum 8)
-        default: '8'
+        description: Signed versionCode, higher than installed build (minimum 10)
+        default: '10'
         required: true
 permissions:
   contents: read

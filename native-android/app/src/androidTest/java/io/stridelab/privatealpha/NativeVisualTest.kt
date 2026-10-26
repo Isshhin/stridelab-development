@@ -105,6 +105,9 @@ class NativeVisualTest {
             RecordedActivityDetail(detail,true)
         } } } }
         compose.onNodeWithText("RECORDED STREAMS").assertIsDisplayed()
+        compose.onNodeWithTag("stream-Pace").performScrollTo().performTouchInput { click(center) }
+        compose.onNodeWithText("Selected source sample 10 · elapsed 1:40").assertExists()
+        compose.onNodeWithText("Selected: 6:00 /km at 1:40").assertExists()
         compose.onNodeWithText("Heart rate",useUnmergedTree=true).performScrollTo().assertIsDisplayed()
         capture("simulation-recorded-streams")
         compose.onNodeWithText("Recorded GPS trace").performScrollTo().assertIsDisplayed()

@@ -37,7 +37,7 @@ import kotlinx.coroutines.withContext
         Text(plan.request.goal,style=MaterialTheme.typography.headlineSmall)
         Text("${plan.request.start} – ${plan.request.start.plusWeeks(plan.request.weeks.toLong()).minusDays(1)} · ${plan.request.weeks} weeks",style=MaterialTheme.typography.bodyMedium)
         Text("${plan.sessions.size} prescribed sessions · ${plan.sessions.count { it.status=="completed" }} completed",style=MaterialTheme.typography.bodyMedium)
-        Text("Saved on this device for this account. Plan cloud synchronization is not available yet.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Account-private · stored on this device · not cloud-synced",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         TextButton(onClick={expanded=!expanded}) { Text(if(expanded) "Hide plan explanation" else "Why this plan") }
         if(expanded) plan.explanations.forEach { Text(it,style=MaterialTheme.typography.bodyMedium) }
     }
@@ -48,9 +48,9 @@ import kotlinx.coroutines.withContext
         Row(Modifier.height(IntrinsicSize.Min)) {
             Box(Modifier.width(4.dp).fillMaxHeight().background(color))
             Column(Modifier.padding(18.dp).weight(1f),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                Text("${disciplineLabel(s.discipline).uppercase()} · ${if(s.status=="completed") s.log?.minutes?.let { "${it.toInt()} RECORDED MIN" } ?: "DURATION UNRECORDED" else "${s.effectiveMinutes} PLANNED MIN"} · ${s.status.uppercase()}",style=MaterialTheme.typography.labelMedium,color=color)
+                Text("${disciplineLabel(s.discipline).uppercase()} · ${if(s.status=="completed") if(s.linkedActivityId!=null) "LINKED SOURCE RUN" else s.log?.minutes?.let { "${it.toInt()} RECORDED MIN" } ?: "DURATION UNRECORDED" else "${s.effectiveMinutes} PLANNED MIN"} · ${s.status.uppercase()}",style=MaterialTheme.typography.labelMedium,color=color)
                 Text(s.effectiveTitle,style=MaterialTheme.typography.headlineSmall)
-                Text(if(s.status=="completed"&&s.log!=null) "Logged "+s.log.at.atZone(java.time.ZoneId.systemDefault()).toLocalDate().format(DateTimeFormatter.ofPattern("EEE, d MMM"))+" · scheduled ${s.date}" else s.date.format(DateTimeFormatter.ofPattern("EEE, d MMM")),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(if(s.status=="completed"&&s.log!=null) (s.log.performedOn?.let { "Performed $it · logged " } ?: "Actual date unrecorded · logged ")+s.log.at.atZone(java.time.ZoneId.systemDefault()).toLocalDate().format(DateTimeFormatter.ofPattern("EEE, d MMM"))+" · scheduled ${s.date}" else s.date.format(DateTimeFormatter.ofPattern("EEE, d MMM")),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 if(s.distanceKm!=null && s.suggestion?.accepted!=true) Text("Target %.1f km · planned, not recorded".format(s.distanceKm),style=MaterialTheme.typography.bodyMedium)
                 if(s.exercises.isNotEmpty()) s.exercises.take(3).forEach { e -> Text("${e.name} · ${e.sets} × ${e.reps?.let { "$it reps" } ?: "${e.seconds} sec"}",style=MaterialTheme.typography.bodyMedium) }
                 else s.steps.take(2).forEach { Text(it,style=MaterialTheme.typography.bodyMedium) }
@@ -75,8 +75,8 @@ import kotlinx.coroutines.withContext
         else if(plan==null) item { SignalCard { Text("Build your training around your life.",style=MaterialTheme.typography.headlineMedium);Text("Running, strength, calisthenics and conditioning share one calendar. Choose your goal, ability, days and equipment. Review real prescriptions before approving.");SignalButton("Create a plan",onBuild) } }
         if(plans.size>1) item { Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) { plans.forEach { p -> SignalChip(p.id==plan?.id,{selectedId=p.id},label={Text(p.request.goal+" · "+p.status)}) } } }
         if(plan!=null) {
-            item { PlanOverview(plan) }
             item { Column(Modifier.testTag("training-calendar")) { TrainingCalendar(plan,date,monthView) { selectedDate=it.toString() } } }
+            item { PlanOverview(plan) }
             item { Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")).uppercase(),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant) }
             val day=plan.sessions.filter { it.date==date }
             if(day.isEmpty()) item { SignalCard { Text("No workout scheduled",style=MaterialTheme.typography.titleLarge);Text("This calendar date has no prescribed session. No workout or completion is assumed.") } }
@@ -85,6 +85,7 @@ import kotlinx.coroutines.withContext
             item { PlanFeedbackForm(plan,actions) }
             item { NativePlanExport(state.plans) }
         }
+        if(state.account!=null) item { NativePlanImport(state,actions) }
         if(state.account!=null && plan!=null) item { OutlinedButton(onClick=onBuild,modifier=Modifier.fillMaxWidth()) { Text("Create / edit a reviewed draft") } }
     }
     if(planMenu&&plan!=null) ModalBottomSheet(onDismissRequest={planMenu=false},containerColor=MaterialTheme.colorScheme.surface) {
@@ -108,7 +109,7 @@ import kotlinx.coroutines.withContext
         }
         Row { (1..7).forEach { d -> Text(dayName(d).take(2),Modifier.weight(1f),style=MaterialTheme.typography.labelSmall) } }
         val gridStart=ym.atDay(1).minusDays((ym.atDay(1).dayOfWeek.value-1).toLong())
-        (0 until 6).forEach { row -> Row(Modifier.fillMaxWidth()) { (0 until 7).forEach { col -> val d=gridStart.plusDays((row*7+col).toLong());DayCell(d,d==selected,plan.sessions.filter { it.date==d },d in first..last && YearMonth.from(d)==ym,{onSelect(d)},Modifier.weight(1f)) } } }
+        (0 until 6).forEach { row -> Row(Modifier.fillMaxWidth()) { (0 until 7).forEach { col -> val d=gridStart.plusDays((row*7+col).toLong());DayCell(d,d==selected,plan.sessions.filter { it.date==d },d in first..last && YearMonth.from(d)==ym,{onSelect(d)},Modifier.weight(1f),showWeekday=false) } } }
     } else {
         val week=ChronoUnit.DAYS.between(first,selected).toInt().coerceAtLeast(0)/7
         val start=first.plusWeeks(week.toLong())
@@ -122,10 +123,10 @@ import kotlinx.coroutines.withContext
         Text("${sessions.size} sessions · ${sessions.count { it.status=="completed" }} completed · ${sessions.sumOf { it.effectiveMinutes }} planned min",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
-@Composable private fun DayCell(date:LocalDate,selected:Boolean,sessions:List<PlannedSession>,enabled:Boolean,onClick:()->Unit,modifier:Modifier) {
+@Composable private fun DayCell(date:LocalDate,selected:Boolean,sessions:List<PlannedSession>,enabled:Boolean,onClick:()->Unit,modifier:Modifier,showWeekday:Boolean=true) {
     Surface(onClick=onClick,enabled=enabled,shape=RoundedCornerShape(18.dp),color=if(selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainer,modifier=modifier.heightIn(min=64.dp).padding(1.dp).semantics { contentDescription="$date, ${sessions.joinToString { it.title+", "+it.status }.ifEmpty { "no scheduled workout" }}" }) {
         Column(Modifier.padding(vertical=8.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(3.dp)) {
-            Text(dayName(date.dayOfWeek.value).take(2),style=MaterialTheme.typography.labelSmall,color=if(selected)MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
+            if(showWeekday) Text(dayName(date.dayOfWeek.value).take(2),style=MaterialTheme.typography.labelSmall,color=if(selected)MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
             Text("${date.dayOfMonth}",style=MaterialTheme.typography.titleMedium,color=if(selected)MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
             if(sessions.isNotEmpty()) Box(Modifier.size(7.dp).background(if(sessions.all { it.status=="completed" }) MaterialTheme.colorScheme.primary else disciplineColor(sessions.first().discipline),RoundedCornerShape(4.dp)))
         }
@@ -165,4 +166,28 @@ import kotlinx.coroutines.withContext
     val start=LocalDate.now().with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
     val week=plan.sessions.filter { it.date in start..start.plusDays(6) }
     if(week.isNotEmpty()) SignalCard { Text("THIS WEEK",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Text("${week.count { it.status=="completed" }} of ${week.size} sessions completed",style=MaterialTheme.typography.titleLarge);LinearProgressIndicator(progress={week.count { it.status=="completed" }.toFloat()/week.size},modifier=Modifier.fillMaxWidth());Text(week.groupingBy { disciplineLabel(it.discipline) }.eachCount().entries.joinToString(" · ") { "${it.value} ${it.key}" },style=MaterialTheme.typography.bodyMedium) }
+}
+
+@Composable internal fun NativePlanImport(state:TrainingState,actions:PlanActions) {
+    val context=LocalContext.current;val scope=rememberCoroutineScope()
+    var raw by remember { mutableStateOf<String?>(null) };var description by remember { mutableStateOf<String?>(null) };var error by remember { mutableStateOf<String?>(null) }
+    val launcher=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if(uri!=null)scope.launch {
+        error=null
+        try {
+            val text=withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { input -> val bytes=readPlanBackupBytes(input);if(bytes.size>RecordPolicy.MAX_PAYLOAD_BYTES)throw PlanConstraint("Choose a plan backup smaller than 2 MB.");String(bytes,Charsets.UTF_8) } ?: throw PlanConstraint("The backup could not be opened.") }
+            val plans=withContext(Dispatchers.Default) { PlanBackup.read(text,state.account ?: "") }
+            val additions=PlanBackup.additions(plans,state.plans)
+            description="${plans.size} plans in this account's backup; ${additions.size} new plans will be restored. Existing plan IDs are skipped, never overwritten. Approval states, original prescriptions, logs and feedback stay attached to their engine versions."
+            raw=text
+        } catch(e:Exception) { error=if(e is PlanConstraint)e.message else "The backup could not be verified. Existing records are unchanged." }
+    } }
+    OutlinedButton(onClick={launcher.launch(arrayOf("application/json","text/plain"))},enabled=!state.busy,modifier=Modifier.fillMaxWidth()) { Text("Restore a plan backup") }
+    error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
+    if(raw!=null) AlertDialog(onDismissRequest={raw=null},title={Text("Review backup restore")},text={Text(description ?: "")},confirmButton={TextButton(onClick={raw?.let(actions.restore);raw=null}) { Text("Restore new plans") }},dismissButton={TextButton(onClick={raw=null}) { Text("Cancel") }})
+}
+
+private fun readPlanBackupBytes(input:java.io.InputStream):ByteArray {
+    val out=java.io.ByteArrayOutputStream();val buffer=ByteArray(8192)
+    while(out.size()<=RecordPolicy.MAX_PAYLOAD_BYTES) { val count=input.read(buffer,0,minOf(buffer.size,RecordPolicy.MAX_PAYLOAD_BYTES+1-out.size()));if(count<0)break;out.write(buffer,0,count) }
+    return out.toByteArray()
 }

@@ -17,7 +17,7 @@ class Engine1RepositoryTest {
     private val database="synthetic-engine1.db";private val prefs="synthetic-engine1";private val owner="synthetic-engine1-owner"
     private lateinit var repo:TrainingRepository;private val gateway=Gateway()
     private fun open()=runBlocking { repo=TrainingRepository(context,gateway,database,prefs);repo.state.first { !it.initializing } }
-    @Before fun setup() { context.deleteDatabase(database);context.getSharedPreferences(prefs,0).edit().clear().commit();SessionVault(context).clear(owner);gateway.owner=owner;gateway.offline=false;open() }
+    @Before fun setup() { context.deleteDatabase(database);context.getSharedPreferences(prefs,0).edit().clear().commit();SessionVault(context).clear(owner);gateway.owner=owner;gateway.offline=false;gateway.rows=JSONArray();open() }
     @After fun cleanup() { repo.close();context.deleteDatabase(database);context.getSharedPreferences(prefs,0).edit().clear().commit();SessionVault(context).clear(owner);SessionVault(context).clear("synthetic-engine1-other") }
     private fun request()=PlanRequest(start=LocalDate.parse("2026-11-02"),runDays=0,strengthDays=2,weeks=4,equipment=mapOf("db" to 1))
     @Test fun generationDraftApprovalCalendarAndActualLoggingSurviveOfflineReopen()=runBlocking {
@@ -62,13 +62,42 @@ class Engine1RepositoryTest {
         assertTrue(repo.saveFeedback(p.id,p.revision,"Inappropriate prescription","Review the session after fatigue",next.id))
         repo.close();open();p=repo.state.value.plans.single();assertEquals(1,p.feedback.size);assertTrue(p.sessions.find { it.id==next.id }!!.suggestion!!.accepted)
     }
+    @Test fun libraryShelfAndNonDestructiveBackupRestoreSurviveOfflineReopen()=runBlocking {
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        assertTrue(repo.changeShelf("sq"));assertTrue(repo.changeShelf("sq","Home practice"))
+        assertTrue(repo.generatePlan(request()));var p=repo.state.value.plans.single()
+        assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single()
+        assertTrue(repo.recordWorkout(p.id,p.revision,p.sessions.first().id,WorkoutLog(Instant.now(),minutes=20.0),true));p=repo.state.value.plans.single()
+        val later=Engine1.generate(request().copy(start=request().start.plusWeeks(5)),owner)
+        val raw=JSONObject().put("schemaVersion",1).put("plans",JSONArray().put(p.copy(feedback=emptyList()).encode()).put(later.encode())).toString()
+        gateway.offline=true
+        assertTrue(repo.restorePlans(raw));assertEquals(2,repo.state.value.plans.size);assertEquals(p,repo.state.value.plans.find { it.id==p.id })
+        assertTrue(repo.restorePlans(raw));assertEquals(2,repo.state.value.plans.size)
+        assertFalse(repo.restorePlans(raw.replace(owner,"different-owner")));assertEquals(2,repo.state.value.plans.size)
+        repo.close();open();assertTrue("sq" in repo.state.value.shelf.favorites);assertEquals(setOf("sq"),repo.state.value.shelf.collections["Home practice"])
+        assertEquals(1,repo.state.value.plans.flatMap { it.sessions }.count { it.status=="completed" })
+        gateway.offline=false;gateway.owner="synthetic-engine1-other";assertTrue(repo.signIn("other@example.invalid","fixture"));assertTrue(repo.state.value.shelf.favorites.isEmpty());assertTrue(repo.state.value.plans.isEmpty())
+    }
+    @Test fun manualSourceRunLinksAreUniqueAndReversibleWithoutLosingOfflineRecords()=runBlocking {
+        gateway.rows=JSONArray().put(JSONObject().put("id","synthetic-source-run").put("user_id",owner).put("title","Source run fixture").put("source","intervals").put("activity_type","run").put("started_at","2026-10-24T00:00:00Z").put("distance_m",3000).put("duration_s",1200))
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"));assertEquals(1,repo.state.value.activities.size)
+        assertTrue(repo.generatePlan(PlanRequest(start=request().start)));var p=repo.state.value.plans.single()
+        assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single();val first=p.sessions.first().id;val second=p.sessions[1].id
+        assertTrue(repo.linkActivity(p.id,p.revision,first,"synthetic-source-run"));p=repo.state.value.plans.single()
+        assertEquals("completed",p.sessions.first { it.id==first }.status);assertNull(p.sessions.first { it.id==first }.log)
+        assertFalse(repo.linkActivity(p.id,p.revision,second,"synthetic-source-run"));assertFalse(repo.linkActivity(p.id,p.revision,second,"unknown-source"))
+        gateway.offline=true;repo.close();open();p=repo.state.value.plans.single()
+        assertEquals("synthetic-source-run",p.sessions.first { it.id==first }.linkedActivityId)
+        assertTrue(repo.linkActivity(p.id,p.revision,first,null));p=repo.state.value.plans.single()
+        assertEquals("planned",p.sessions.first { it.id==first }.status);assertEquals(1,repo.state.value.activities.size)
+    }
     private class Gateway:TrainingGateway {
-        var owner="synthetic-engine1-owner";var offline=false
+        var owner="synthetic-engine1-owner";var offline=false;var rows=JSONArray()
         private fun connected() { if(offline)throw java.io.IOException("Synthetic offline") }
         override fun signIn(email:String,password:String):NativeSession { connected();return NativeSession(owner,"synthetic-token","synthetic-refresh",Long.MAX_VALUE) }
         override fun refresh(session:NativeSession)=session
         override fun verify(session:NativeSession) { connected() }
-        override fun activities(session:NativeSession,before:ActivityRecord?):JSONArray { connected();return JSONArray() }
+        override fun activities(session:NativeSession,before:ActivityRecord?):JSONArray { connected();return if(before==null) rows else JSONArray() }
         override fun intervals(session:NativeSession,action:String):JSONObject { connected();return JSONObject().put("configured",false) }
         override fun signOut(session:NativeSession) { connected() }
     }

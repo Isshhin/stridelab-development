@@ -24,6 +24,7 @@ internal data class TrainingState(
     val loginGeneration: Long = 0,
     val intervals: IntervalConnection? = null,
     val plans: List<PlanSnapshot> = emptyList(),
+    val shelf:LibraryShelf = LibraryShelf(),
     val wellness: List<WellnessRecord> = emptyList(),
     val details: Map<String,ActivityDetail> = emptyMap(),
     val task: String? = null
@@ -80,10 +81,29 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         store.readableDatabase.query("records",arrayOf("payload"),"account=? AND kind=?",arrayOf(account,"plan"),null,null,null).use { c ->
             while(c.moveToNext()) runCatching { PlanSnapshot.decode(JSONObject(c.getString(0)),account) }.onSuccess { plans.add(it) }.onFailure { unsupportedPlans++ }
         }
+        val shelf=store.readableDatabase.query("records",arrayOf("payload"),"account=? AND kind=? AND record_id=?",arrayOf(account,"exercise","library-shelf-v1"),null,null,null).use { c -> if(c.moveToFirst())LibraryShelf.decode(JSONObject(c.getString(0)),account) else LibraryShelf() }
         val cursor = store.cursor(account, "activity")
         val last = cursor?.let { runCatching { JSONObject(it).getLong("completedAt") }.getOrNull() }
-        mutable.value = mutable.value.copy(activities = records.sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id }), lastSync = last, details = details, wellness = wellness, plans = plans.sortedByDescending { it.createdAt },
+        mutable.value = mutable.value.copy(activities = records.sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id }), lastSync = last, details = details, wellness = wellness, shelf=shelf, plans = plans.sortedByDescending { it.createdAt },
             message = if(unsupportedPlans>0) "$unsupportedPlans saved plans require a supported contract and were retained for review." else if(rejected > 0) "$rejected saved activities contain unsupported data and were retained for review." else mutable.value.message)
+    }
+    suspend fun restorePlans(raw:String)=operation("Restoring reviewed plan backup…") {
+        val account=mutable.value.account ?: throw PlanConstraint("Sign in to the backup's original account before restoring.")
+        val additions=PlanBackup.additions(PlanBackup.read(raw,account),mutable.value.plans)
+        val db=store.writableDatabase
+        db.beginTransaction()
+        try {
+            additions.forEach { p -> store.enqueue(account,"plan",p.id,java.util.UUID.randomUUID().toString(),p.encode().toString(),null,System.currentTimeMillis()) }
+            db.setTransactionSuccessful()
+        } finally { db.endTransaction() }
+        loadCache(account)
+        mutable.value=mutable.value.copy(message="Restored ${additions.size} new plans. Existing plan IDs and all saved records were kept unchanged.")
+    }
+    suspend fun changeShelf(id:String,collection:String?=null,remove:Boolean=false)=operation("Saving your library…") {
+        val account=mutable.value.account ?: throw PlanConstraint("Sign in once to keep your saved library isolated to your account; it then works offline.")
+        val shelf=mutable.value.shelf.change(id,collection,remove)
+        store.enqueue(account,"exercise","library-shelf-v1",java.util.UUID.randomUUID().toString(),shelf.encode(account).toString(),null,System.currentTimeMillis())
+        mutable.value=mutable.value.copy(shelf=shelf)
     }
     private fun savePlan(plan:PlanSnapshot) {
         val account=mutable.value.account ?: throw PlanConstraint("Sign in once to keep plans isolated to your account. Planning and logging then work offline.")
@@ -105,6 +125,14 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         val updated=action(plan)
         require(updated.id==plan.id && updated.owner==plan.owner && updated.engineVersion==plan.engineVersion && updated.policyId==plan.policyId)
         if(updated!=plan)savePlan(updated.copy(revision=plan.revision+1))
+    }
+    suspend fun linkActivity(id:String,revision:Int,sessionId:String,activityId:String?)=changePlan(id,revision) { plan ->
+        if(activityId!=null) {
+            val activity=mutable.value.activities.find { it.id==activityId } ?: throw PlanConstraint("This source activity is not cached for your account.")
+            if(!DashboardSummary.isRun(activity))throw PlanConstraint("Only a recorded run can be linked to a planned run.")
+            if(mutable.value.plans.any { p -> p.sessions.any { s -> s.linkedActivityId==activityId && (p.id!=id || s.id!=sessionId) } })throw PlanConstraint("This source run is already linked to another workout. Unlink it there first.")
+        }
+        PlanOperations.linkActivity(plan,sessionId,activityId)
     }
     suspend fun approvePlan(id:String,revision:Int)=changePlan(id,revision) { PlanOperations.approve(it,mutable.value.plans) }
     suspend fun pausePlan(id:String,revision:Int)=changePlan(id,revision) { it.copy(status="paused") }

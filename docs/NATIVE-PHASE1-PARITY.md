@@ -69,6 +69,14 @@ The actual reference has four primary tabs (Overview, Training, Activities, Libr
 | Large fonts / narrow and wide layout | Incomplete | Existing tested foundation; verify new calendar/forms/modals |
 | Transitions, focus, Back, touch feedback | Incomplete | Native modal and navigation behavior; final visual acceptance open |
 
+## Current implementation increment (not full parity acceptance)
+
+The working native increment now contains actual Engine 1.0 multi-discipline generation, saved drafts, explicit approval, week/month calendar, pause/archive/move/conflicts, actual sets/reps/hold/load logging, actual workout dates, missed reasons and explicit recovery choices. Library contains the accepted 23 curated entries, 21 educational references, original licensed images/fit disclosures, filters, favorites, collections and a real Sessions view. Owner-scoped offline plan backup export/validated non-destructive restore preserves snapshots/logs/feedback. Manual source-run links enforce one source per session and retain original targets; unlink restores the prior session state. Source charts offer nearest-sample inspection and missing-value disclosures. All these need the exact final checkpoint gate; the baseline-status column above intentionally remains the historical gap inventory.
+
+Local engineering evidence: 64 JVM tests, 14 Python tests and a 19-test selected emulator suite passed before the final builder scroll reset. Earlier CI 40353150650 failed 2/58 emulator tests (builder step scroll position and a library off-screen loading assertion); it is retained, not promoted. Final full CI remains the promotion gate. Automated fixture evidence is not real-athlete/device acceptance or full design signoff.
+
+Still open: full library template/single-movement practice and workout swap parity, full native settings/profile/equipment/zones/preferences and notifications, validated source-activity JSON import, interactive map/lap parity, dashboard integration of manual logs without duplicates, richer baseline coaching and complete phone/wide/TalkBack/visual acceptance. Advanced Engine 2.0 and benchmarking remain deferred.
+
 ## Explicit replacements of prototype-only behavior
 
 No demo activity, map or wellness record is copied into production. Native real-data sources supersede simulated Garmin/history values. A plan target is never labeled recorded mileage or pace. Unsupported requests must explain conflicts rather than silently removing selected disciplines. Skill progression requires user-reported control rather than automatic elapsed-week promotion. Holds use seconds, not the prototype preview's generic reps label. Generic automatic 2.5 kg progression is not restored. Historical prescriptions and logs survive engine-policy upgrades as immutable saved snapshots.

@@ -41,7 +41,7 @@ import org.json.JSONObject
         preview.sessions.filter { it.date in weekStart..weekStart.plusDays(6) }.forEach { s -> item(key=s.id) { PlannedWorkoutCard(s) { onPreview(preview.id,s.id) } } }
         item { SignalButton("Approve plan",{actions.approve(preview.id,preview.revision);onDone()},!state.busy);OutlinedButton(onClick={step=2},modifier=Modifier.fillMaxWidth()) { Text("Edit inputs and generate a new draft") };TextButton(onClick=onDone) { Text("Keep draft and return to Training") } }
     };return }
-    Screen(when(step) {0->"Choose disciplines";1->"Goals & ability";2->"Your schedule";else->"Review your choices"},"CREATE TRAINING PLAN · ${step+1} / 4") {
+    key(step) { Screen(when(step) {0->"Choose disciplines";1->"Goals & ability";2->"Your schedule";else->"Review your choices"},"CREATE TRAINING PLAN · ${step+1} / 4") {
         item { LinearProgressIndicator(progress={(step+1)/4f},modifier=Modifier.fillMaxWidth());Text("One coordinated plan · Engine 1.0 · no watch required",style=MaterialTheme.typography.bodySmall) }
         if(step==0) {
             item { Text("Pick the disciplines you want to train. All selected disciplines share one calendar.",style=MaterialTheme.typography.bodyLarge) }
@@ -74,7 +74,7 @@ import org.json.JSONObject
             }
         }
         if(step==2) {
-            item { FormText("Start date (YYYY-MM-DD)",start,{start=it});Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick={start=LocalDate.now().toString()}) { Text("Today") };OutlinedButton(onClick={start=LocalDate.now().with(java.time.temporal.TemporalAdjusters.next(java.time.DayOfWeek.MONDAY)).toString()}) { Text("Next Monday") } } }
+            item { NativeDateField("Start date",start,{start=it});Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick={start=LocalDate.now().toString()}) { Text("Today") };OutlinedButton(onClick={start=LocalDate.now().with(java.time.temporal.TemporalAdjusters.next(java.time.DayOfWeek.MONDAY)).toString()}) { Text("Next Monday") } } }
             item { FormText("Plan weeks (1–16)",weeks,{weeks=it},true);FormText("Available minutes per session (15–120)",minutes,{minutes=it},true) }
             item { Text("Available training days · ${input.days.size}",style=MaterialTheme.typography.titleLarge);DayChoices(input.days) { d -> edit(input.copy(days=if(d in input.days)input.days-d else input.days+d)) };Text("Requested: ${input.runDays+input.strengthDays+input.calDays+input.conditioningDays} sessions per week. Conflicts will be explained; sessions are not silently dropped.",style=MaterialTheme.typography.bodySmall) }
             if(input.runDays>0) {
@@ -100,7 +100,7 @@ import org.json.JSONObject
             if(step>0) TextButton(onClick={step--;error=null},modifier=Modifier.fillMaxWidth()) { Text("Back") }
             TextButton(onClick=onDone,modifier=Modifier.fillMaxWidth()) { Text("Close builder") }
         }
-    }
+    } }
 }
 @Composable internal fun FormText(label:String,value:String,onChange:(String)->Unit,numeric:Boolean=false) { OutlinedTextField(value,onChange,label={Text(label)},modifier=Modifier.fillMaxWidth().padding(vertical=4.dp),shape=androidx.compose.foundation.shape.RoundedCornerShape(18.dp),keyboardOptions=KeyboardOptions(keyboardType=if(numeric)KeyboardType.Decimal else KeyboardType.Text)) }
 @Composable internal fun FrequencyChips(value:Int,max:Int,onSelect:(Int)->Unit) { FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) { (0..max).forEach { n -> SignalChip(value==n,{onSelect(n)},label={Text(if(n==0) "Off" else "$n / week")}) } } }
@@ -110,4 +110,15 @@ internal fun dayName(day:Int)=java.time.DayOfWeek.of(day).getDisplayName(java.ti
 internal fun historyWeeklyKm(history:List<ActivityRecord>,now:Instant=Instant.now()):Double? {
     val rows=history.distinctBy { it.id }.filter { DashboardSummary.isRun(it)&&it.startedAt<=now&&it.startedAt>=now.minusSeconds(28*86400L)&&it.distanceM!=null }
     return rows.takeIf { it.size>=3 }?.sumOf { it.distanceM!! }?.div(4000.0)
+}
+
+@Composable internal fun NativeDateField(label:String,value:String,onChange:(String)->Unit,enabled:Boolean=true) {
+    val context=androidx.compose.ui.platform.LocalContext.current
+    Column {
+        OutlinedTextField(value,onChange,label={Text("$label (YYYY-MM-DD)")},enabled=enabled,modifier=Modifier.fillMaxWidth(),singleLine=true)
+        if(enabled) TextButton(onClick={
+            val date=runCatching { LocalDate.parse(value) }.getOrDefault(LocalDate.now())
+            android.app.DatePickerDialog(context,{_,y,m,d->onChange(LocalDate.of(y,m+1,d).toString())},date.year,date.monthValue-1,date.dayOfMonth).show()
+        }) { Text("Choose date") }
+    }
 }

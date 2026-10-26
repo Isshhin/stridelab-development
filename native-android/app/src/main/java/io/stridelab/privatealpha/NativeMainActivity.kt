@@ -182,7 +182,7 @@ private fun NavHostController.openActivity(id: String) {
                         else {
                             item { OutlinedButton(onClick = actions.refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
                             if(state.activities.isEmpty()) item { EmptyState("No activities cached", "Your saved history will appear here after a successful refresh.") }
-                            val logged=state.plans.flatMap { p -> p.sessions.filter { it.status=="completed" }.map { p to it } }.sortedByDescending { it.second.log?.at }
+                            val logged=state.plans.flatMap { p -> p.sessions.filter { it.status=="completed" && (it.linkedActivityId==null || state.activities.none { a->a.id==it.linkedActivityId }) }.map { p to it } }.sortedByDescending { it.second.log?.at }
                             if(logged.isNotEmpty()) item { Text("WORKOUT LOGS · ON THIS DEVICE",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary) }
                             logged.forEach { (p,s) -> item(key="logged-${s.id}") { PlannedWorkoutCard(s) { nav.openWorkout(p.id,s.id) } } }
                             items(state.activities, key = { it.id }) { activity -> ActivityRow(activity) { nav.openActivity(activity.id) } }
@@ -206,6 +206,7 @@ private fun NavHostController.openActivity(id: String) {
                                 "Average heart rate" to (activity.averageHr?.let { "${it.roundToInt()} bpm" } ?: "Not recorded"),
                                 "Maximum heart rate" to (activity.maximumHr?.let { "${it.roundToInt()} bpm" } ?: "Not recorded")) }
                             if(activity.elevationM != null || activity.supportsPace) item { Metric("Elevation gain",activity.elevationM?.let { "${it.roundToInt()} m" } ?: "Not recorded") }
+                            if(DashboardSummary.isRun(activity)) item { ActivityPlanLink(state,activity,actions.planning) }
                             item { OutlinedButton(onClick = { actions.loadDetail(activity.id) }, enabled = online && !state.busy && !state.needsSignIn, modifier = Modifier.fillMaxWidth()) { Text(if(state.details.containsKey(activity.id)) "Refresh recorded streams" else "Load recorded streams & laps") } }
                             state.details[activity.id]?.let { recorded -> item { RecordedActivityDetail(recorded,activity.supportsPace) } }
                             item { SignalCard {
@@ -220,7 +221,7 @@ private fun NavHostController.openActivity(id: String) {
                 }
                 composable("training") { TrainingScreen(state,actions.planning,{nav.navigate("builder/all")},{p,s->nav.openWorkout(p,s)},{nav.navigate("auth")}) }
                 composable("builder/{discipline}") { builder -> PlanBuilder(state,actions.planning,builder.arguments?.getString("discipline") ?: "all",{nav.openTabRoot("training")},{nav.navigate("auth")},{p,s->nav.navigate("workout/${android.net.Uri.encode(p)}/${android.net.Uri.encode(s)}")}) }
-                composable("library") { LibraryScreen { entry -> nav.openTabRoot("training");nav.navigate("builder/${entry.discipline}") } }
+                composable("library") { LibraryScreen(state,actions.planning,{p,s->nav.openWorkout(p,s)}) { entry -> nav.openTabRoot("training");nav.navigate("builder/${entry.discipline}") } }
                 composable("workout/{planId}/{sessionId}") { workout -> WorkoutScreen(state,workout.arguments?.getString("planId") ?: "",workout.arguments?.getString("sessionId") ?: "",actions.planning,{nav.popBackStack()}) }
                 composable("settings") {
                     val context = LocalContext.current

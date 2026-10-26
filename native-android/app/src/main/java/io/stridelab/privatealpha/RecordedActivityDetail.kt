@@ -3,7 +3,11 @@ package io.stridelab.privatealpha
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.contentDescription
@@ -17,15 +21,22 @@ import kotlin.math.abs
 import kotlin.math.cos
 
 @Composable internal fun RecordedActivityDetail(detail: ActivityDetail, supportsPace: Boolean) {
+    var selectedIndex by rememberSaveable(detail.activityId) { mutableStateOf<Int?>(null) }
+    val selected=selectedIndex?.let { detail.samples.getOrNull(it) }
     SignalCard {
         Text("RECORDED STREAMS",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
         val date = DateTimeFormatter.ofPattern("d MMM, HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(detail.fetchedAt))
         Text("Saved $date · ${detail.samples.size} source samples · available offline",style=MaterialTheme.typography.bodySmall)
         if(detail.samples.isEmpty()) Text("No recorded time-series or GPS points were returned. Summary metrics remain available.")
         else {
-            if(supportsPace) SampleGraph("Pace", "sec/km",detail.samples) { it.pace }
-            SampleGraph("Heart rate","bpm",detail.samples) { it.hr }
-            SampleGraph("Elevation","m",detail.samples) { it.altitude }
+            Text(selected?.let { "Selected source sample ${it.index} · elapsed ${ActivityRecord.duration(it.seconds)}" } ?: "Tap a chart to inspect the nearest recorded sample. No interpolation is used.",style=MaterialTheme.typography.bodySmall)
+            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick={selectedIndex=((selectedIndex ?: 1)-1).coerceAtLeast(0)},enabled=selectedIndex!=0) { Text("Previous sample") }
+                TextButton(onClick={selectedIndex=((selectedIndex ?: -1)+1).coerceAtMost(detail.samples.lastIndex)},enabled=selectedIndex!=detail.samples.lastIndex) { Text("Next sample") }
+            }
+            if(supportsPace) SampleGraph("Pace", "sec/km",detail.samples,selected,{selectedIndex=it}) { it.pace }
+            SampleGraph("Heart rate","bpm",detail.samples,selected,{selectedIndex=it}) { it.hr }
+            SampleGraph("Elevation","m",detail.samples,selected,{selectedIndex=it}) { it.altitude }
             val points = detail.samples.filter { it.latitude != null && it.longitude != null }
             if(points.size < 2) Text("No recorded GPS route. Indoor activities and sources without coordinates cannot show a route.")
             else {
@@ -57,7 +68,7 @@ import kotlin.math.cos
     }
 }
 
-@Composable private fun SampleGraph(label: String, unit: String, samples: List<ActivitySample>, value: (ActivitySample)->Double?) {
+@Composable private fun SampleGraph(label: String, unit: String, samples: List<ActivitySample>, selected:ActivitySample?,onSelect:(Int)->Unit,value: (ActivitySample)->Double?) {
     val valid=samples.mapNotNull { p -> value(p)?.let { p.seconds to it } }
     Text(label,style=MaterialTheme.typography.titleMedium)
     if(valid.size<2 || valid.last().first<=valid.first().first) { Text("No usable $label time-series recorded.",style=MaterialTheme.typography.bodySmall); return }
@@ -66,14 +77,23 @@ import kotlin.math.cos
     Text(description,style=MaterialTheme.typography.bodySmall)
     Text(if(label=="Pace") "Faster pace is higher (seconds per km)" else "Higher line = higher recorded value",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     val color=MaterialTheme.colorScheme.primary
-    Canvas(Modifier.fillMaxWidth().height(110.dp).semantics { contentDescription=description }) {
+    selected?.let { sample -> Text(value(sample)?.let { n -> "Selected: "+(if(label=="Pace") ActivityRecord.duration(n)+" /km" else String.format(Locale.getDefault(),"%.1f %s",n,unit))+" at "+ActivityRecord.duration(sample.seconds) } ?: "$label was not recorded at this selected sample.",style=MaterialTheme.typography.bodyMedium) }
+    Canvas(Modifier.fillMaxWidth().height(110.dp).testTag("stream-$label").semantics { contentDescription=description }.pointerInput(samples) {
+        detectTapGestures { tap ->
+            val target=valid.first().first+(tap.x/size.width.coerceAtLeast(1)).coerceIn(0f,1f)*(valid.last().first-valid.first().first)
+            samples.indices.minByOrNull { abs(samples[it].seconds-target) }?.let(onSelect)
+        }
+    }) {
         val span=(high-low).coerceAtLeast(1.0); val time=(valid.last().first-valid.first().first).coerceAtLeast(1.0)
         fun point(s: ActivitySample,n:Double) = Offset(((s.seconds-valid.first().first)/time*size.width).toFloat(),(if(label=="Pace") 6+(n-low)/span*(size.height-12) else size.height-(n-low)/span*(size.height-12)-6).toFloat())
+        for(i in 0..2)drawLine(color.copy(alpha=.15f),Offset(0f,6f+i*(size.height-12)/2),Offset(size.width,6f+i*(size.height-12)/2),1f)
+        selected?.let { sample -> value(sample)?.let { n -> val dot=point(sample,n);drawLine(color.copy(alpha=.5f),Offset(dot.x,0f),Offset(dot.x,size.height),1.dp.toPx());drawCircle(color,4.dp.toPx(),dot) } }
         // Native canvas with bounded input; never bridge missing measurements or long recording gaps.
         for((a,b) in samples.zipWithNext()) {
             val av=value(a); val bv=value(b)
             if(av!=null && bv!=null && b.seconds-a.seconds<=120) drawLine(color,point(a,av),point(b,bv),2.dp.toPx())
         }
     }
+    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { Text(ActivityRecord.duration(valid.first().first),style=MaterialTheme.typography.labelSmall);Text(ActivityRecord.duration(valid.last().first),style=MaterialTheme.typography.labelSmall) }
     Text("Elapsed time → · gaps left blank · recorded values, not an intensity recommendation",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
 }
