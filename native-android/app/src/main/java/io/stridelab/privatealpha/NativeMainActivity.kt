@@ -5,6 +5,20 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,6 +31,7 @@ import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -45,12 +60,20 @@ class NativeMainActivity: ComponentActivity() {
 
 @Composable internal fun StrideTheme(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = darkColorScheme(
-        primary = Color(0xFFC3E889), onPrimary = Color(0xFF20310D),
-        background = Color(0xFF101411), surface = Color(0xFF101411),
-        surfaceVariant = Color(0xFF273027), onSurface = Color(0xFFE3E9DF),
-        secondary = Color(0xFFAECDB8), secondaryContainer = Color(0xFF2D3A26), onSecondaryContainer = Color(0xFFC3E889),
-        surfaceContainer = Color(0xFF171D18), surfaceContainerHigh = Color(0xFF253026)
-    ), content = content)
+        primary = Color(0xFFD6FF4F), onPrimary = Color(0xFF0A0D02),
+        background = Color(0xFF050506), surface = Color(0xFF101013),
+        surfaceVariant = Color(0xFF25252B), onSurface = Color(0xFFF4F1EA),
+        onBackground = Color(0xFFF4F1EA), onSurfaceVariant = Color(0xFFB0B0BA),
+        secondary = Color(0xFF6FB4FF), secondaryContainer = Color(0xFF232F3D), onSecondaryContainer = Color(0xFFCCE4FF),
+        outline = Color(0xFF777780), outlineVariant = Color(0xFF303038),
+        surfaceContainer = Color(0xFF18181C), surfaceContainerHigh = Color(0xFF25252B)
+    ), typography = Typography(
+        headlineLarge = TextStyle(fontSize = 34.sp, lineHeight = 38.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp),
+        headlineMedium = TextStyle(fontSize = 30.sp, lineHeight = 35.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.7).sp),
+        headlineSmall = TextStyle(fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold),
+        titleLarge = TextStyle(fontSize = 21.sp, lineHeight = 27.sp, fontWeight = FontWeight.SemiBold),
+        labelMedium = TextStyle(fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+    ), shapes = Shapes(medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(24.dp)), content = content)
 }
 
 @Composable internal fun NativeStrideApp(model: TrainingViewModel = viewModel()) {
@@ -61,38 +84,43 @@ class NativeMainActivity: ComponentActivity() {
     val route = entry?.destination?.route
     Scaffold(
         bottomBar = {
-            NavigationBar {
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 0.dp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).clip(RoundedCornerShape(28.dp)),
+                windowInsets = WindowInsets.navigationBars) {
                 listOf("home" to "Home", "activities" to "Activities", "settings" to "Settings").forEach { (path, label) ->
                     NavigationBarItem(selected = route == path || (path == "activities" && route == "activity/{id}"), onClick = {
                         nav.navigate(path) { popUpTo(nav.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true }
-                    }, icon = { Icon(when(path) { "home" -> Icons.Default.Home; "activities" -> Icons.Default.DateRange; else -> Icons.Default.Settings }, contentDescription = null) },
-                        label = { Text(label) }, modifier = Modifier.testTag("nav-$path"))
+                    }, icon = { Icon(when(path) { "home" -> Icons.Default.Home; "activities" -> Icons.Default.List; else -> Icons.Default.Settings }, contentDescription = null) },
+                        label = { Text(label, fontWeight = FontWeight.SemiBold) },
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.onSurface, indicatorColor = MaterialTheme.colorScheme.surfaceVariant),
+                        modifier = Modifier.testTag("nav-$path"))
                 }
             }
         }
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
+        Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(padding).imePadding()) {
             if(state.busy || state.initializing) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("loading"))
             if(!online) Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
                 Text("Offline · Saved activities remain available", Modifier.fillMaxWidth().padding(horizontal = 20.dp,vertical = 10.dp).testTag("offline-status"),style = MaterialTheme.typography.bodyMedium)
             }
-            state.message?.let { Surface(color = MaterialTheme.colorScheme.surfaceVariant) { Text(it, Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), style = MaterialTheme.typography.bodyMedium) } }
+            state.message?.let { Surface(color = MaterialTheme.colorScheme.surfaceVariant) { Text(it, Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }.padding(horizontal = 20.dp, vertical = 12.dp), style = MaterialTheme.typography.bodyMedium) } }
             NavHost(navController = nav, startDestination = "home", modifier = Modifier.weight(1f)) {
                 composable("home") {
-                    Screen("Your training", "STRIDELAB") {
+                    Screen("Your training", "STRIDELAB / TRAINING JOURNAL") {
                         if(state.initializing) item { Text("Opening your saved training…") }
                         else if(state.account == null) item {
                             EmptyState("Start with your history", "Sign in to synchronize your activities. Saved history is available offline.")
                             Button(onClick = { nav.navigate("auth") }, modifier = Modifier.fillMaxWidth()) { Text("Sign in") }
                         } else {
                             if(state.account != null) item { SyncStatus(state) }
-                            item { Text(if(state.activities.size == 1) "1 saved activity" else "${state.activities.size} saved activities", style = MaterialTheme.typography.headlineMedium) }
-                            item { FilledTonalButton(onClick = model::refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Refresh history") } }
-                            if(state.needsSignIn) item { Button(onClick = { nav.navigate("auth") }) { Text("Sign in again") } }
                             state.activities.firstOrNull()?.let { activity ->
                                 item { Text("LATEST ACTIVITY", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }
                                 item { ActivityRow(activity) { nav.navigate("activity/${activity.id}") } }
                             }
+                            item { HistoryOverview(state.activities) }
+                            item { FilledTonalButton(onClick = model::refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
+                            if(state.needsSignIn) item { Button(onClick = { nav.navigate("auth") }) { Text("Sign in again") } }
                             if(state.activities.isEmpty()) item { EmptyState("No saved activities yet", "Refresh your history or synchronize your connected Intervals.icu source in Settings. Existing local prototype data remains in the legacy app.") }
                         }
                     }
@@ -102,7 +130,7 @@ class NativeMainActivity: ComponentActivity() {
                         if(state.account != null) item { SyncStatus(state) }
                         if(state.account == null) item { EmptyState("Sign in to view your history", "Only records belonging to your signed-in account are displayed."); Button(onClick = { nav.navigate("auth") }) { Text("Sign in") } }
                         else {
-                            item { OutlinedButton(onClick = model::refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Refresh history") } }
+                            item { OutlinedButton(onClick = model::refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
                             if(state.activities.isEmpty()) item { EmptyState("No activities cached", "Your saved history will appear here after a successful refresh.") }
                             items(state.activities, key = { it.id }) { activity -> ActivityRow(activity) { nav.navigate("activity/${activity.id}") }; HorizontalDivider() }
                         }
@@ -133,10 +161,10 @@ class NativeMainActivity: ComponentActivity() {
                     val context = LocalContext.current
                     var confirmSignOut by remember { mutableStateOf(false) }
                     Screen("Settings", "ACCOUNT & DATA") {
-                        item { Text("Native preview · ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleMedium) }
+                        item { SignalCard { Text("YOUR STRIDELAB", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text(if(state.account == null) "Keep your training close." else "Connected to your history.", style = MaterialTheme.typography.titleLarge); Text("Private preview · ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
                         if(state.account != null) item { SyncStatus(state) }
                         if(state.account != null) {
-                            item { Text("Account identifier", style = MaterialTheme.typography.labelLarge); Text(state.account!!, style = MaterialTheme.typography.bodySmall) }
+                            item { SignalCard { Text("ACCOUNT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text(state.account!!, style = MaterialTheme.typography.bodyMedium) } }
                             item {
                                 Text("Intervals.icu",style = MaterialTheme.typography.titleLarge)
                                 val connection = state.intervals
@@ -151,12 +179,13 @@ class NativeMainActivity: ComponentActivity() {
                             item { Text("Uses your existing source connection. If disconnected, connect Intervals.icu in your existing StrideLab integration settings, then check again here. Source credential setup and provider backfill are not yet available in this native screen.", style = MaterialTheme.typography.bodyMedium) }
                             item { OutlinedButton(onClick = { confirmSignOut = true }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Sign out on this device") } }
                         } else item { Button(onClick = { nav.navigate("auth") }, modifier = Modifier.fillMaxWidth()) { Text("Sign in") } }
-                        item { HorizontalDivider() }
-                        item { Text("Legacy data & backups", style = MaterialTheme.typography.titleLarge) }
-                        item { Text("Your existing prototype storage is preserved. Open its original interface to review records or use its backup and restore tools. Automatic conversion into native training records is not yet implemented.") }
-                        item { OutlinedButton(onClick = { context.startActivity(Intent(context, MainActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) { Text("Open preserved prototype") } }
-                        item { Text("Validation in progress", style = MaterialTheme.typography.titleMedium); Text("This migration build is not yet validated for daily use. Installation updates require the original signing certificate.", style = MaterialTheme.typography.bodyMedium) }
-                    }
+                        item { SignalCard {
+                            Text("LEGACY DATA & BACKUPS", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                            Text("Your earlier training is preserved", style = MaterialTheme.typography.titleLarge)
+                            Text("Review your original records and use the existing backup and restore tools. Legacy records are not yet converted into native history.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            OutlinedButton(onClick = { context.startActivity(Intent(context, MainActivity::class.java)) }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Open preserved prototype") }
+                        } }
+                        item { Text("Private testing", style = MaterialTheme.typography.titleMedium); Text("Real-account and phone acceptance are in progress. Your saved data stays on this device.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }                    }
                     if(confirmSignOut) AlertDialog(onDismissRequest = { confirmSignOut = false }, title = { Text("Sign out?") }, text = { Text("Removes this device’s saved session. Cached records remain private in app storage and are hidden until that account signs in again.") }, confirmButton = { TextButton(onClick = { confirmSignOut = false; model.signOut() }) { Text("Sign out") } }, dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text("Cancel") } })
                 }
                 composable("auth") {
@@ -169,13 +198,13 @@ class NativeMainActivity: ComponentActivity() {
                         if(state.account != null && !state.busy && !state.needsSignIn && state.loginGeneration > initialGeneration) nav.popBackStack()
                     }
                     Screen("Welcome back", "SECURE SIGN-IN") {
-                        item { Text("Sign in with your existing StrideLab account. Saved activities stay on this device for offline viewing.") }
+                        item { SignalCard { Text("YOUR HISTORY. YOUR PACE.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text("One place for the work you put in.", style = MaterialTheme.typography.headlineSmall); Text("Sign in with your existing StrideLab account. Saved activities stay on this device for offline viewing.", color = MaterialTheme.colorScheme.onSurfaceVariant) } }
                         item { OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next), enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("email")) }
                         item { OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Password") }, singleLine = true, visualTransformation = if(showPassword) VisualTransformation.None else PasswordVisualTransformation(),
                             trailingIcon = { TextButton(onClick = { showPassword = !showPassword }) { Text(if(showPassword) "Hide" else "Show") } },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                             keyboardActions = KeyboardActions(onDone = { if(email.isNotBlank() && password.isNotEmpty() && !state.busy) { model.signIn(email,password); password = "" } }), enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("password")) }
-                        item { Button(onClick = { model.signIn(email, password); password = "" }, enabled = email.isNotBlank() && password.isNotEmpty() && !state.busy, modifier = Modifier.fillMaxWidth().testTag("submit-signin")) { Text("Sign in securely") } }
+                        item { Button(onClick = { model.signIn(email, password); password = "" }, enabled = email.isNotBlank() && password.isNotEmpty() && !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp).testTag("submit-signin")) { Text("Sign in securely") } }
                         item { TextButton(onClick = { nav.popBackStack() }) { Text("Back") } }
                     }
                 }
@@ -185,39 +214,93 @@ class NativeMainActivity: ComponentActivity() {
 }
 
 @Composable private fun Screen(title: String, eyebrow: String, compactTitle: Boolean = false, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
-    LazyColumn(Modifier.fillMaxSize().testTag("screen"), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        item { Text(eyebrow, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Spacer(Modifier.height(8.dp)); Text(title, style = if(compactTitle) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.testTag("screen-title")) }
-        content()
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        LazyColumn(Modifier.widthIn(max = 760.dp).fillMaxSize().testTag("screen"), contentPadding = PaddingValues(start = 22.dp, end = 22.dp, top = 24.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    BrandMark(Modifier.size(26.dp))
+                    Text(eyebrow, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                }
+                Spacer(Modifier.height(16.dp))
+                Text(title, style = if(compactTitle) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineLarge,
+                    modifier = Modifier.testTag("screen-title").semantics { heading() })
+            }
+            content()
+        }
+    }
+}
+
+/** Decorative brand strokes; never a route, chart or athlete measurement. */
+@Composable internal fun BrandMark(modifier: Modifier = Modifier) {
+    val signal = MaterialTheme.colorScheme.primary
+    Canvas(modifier) {
+        val w = size.width; val h = size.height
+        drawLine(signal, Offset(w*.12f,h*.72f), Offset(w*.48f,h*.18f), w*.14f, androidx.compose.ui.graphics.StrokeCap.Round)
+        drawLine(signal, Offset(w*.38f,h*.78f), Offset(w*.86f,h*.25f), w*.14f, androidx.compose.ui.graphics.StrokeCap.Round)
+    }
+}
+
+@Composable internal fun SignalCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f))) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
     }
 }
 @Composable private fun EmptyState(title: String, description: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(vertical = 12.dp)) { Text(title, style = MaterialTheme.typography.titleLarge); Text(description, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-}
-@Composable private fun ActivityRow(activity: ActivityRecord, onClick: () -> Unit) {
-    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp).heightIn(min = 48.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(activity.dateLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
-        Text(activity.title, style = MaterialTheme.typography.titleLarge)
-        Text(if(activity.distanceM == null && !activity.supportsPace) activity.durationLabel else "${activity.distanceLabel} · ${activity.durationLabel}", style = MaterialTheme.typography.bodyLarge)
-        Text("${activity.type} · ${activity.sourceLabel}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    SignalCard {
+        Box(Modifier.size(52.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = .10f), RoundedCornerShape(16.dp)).padding(12.dp)) { BrandMark(Modifier.fillMaxSize()) }
+        Text(title, style = MaterialTheme.typography.headlineSmall)
+        Text(description, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
-@Composable private fun MetricPair(first: Pair<String,String>?, second: Pair<String,String>) {
+@Composable internal fun HistoryOverview(activities: List<ActivityRecord>) {
+    SignalCard {
+        Text("ON THIS DEVICE", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        Text(if(activities.size == 1) "1 saved activity" else "${activities.size} saved activities", style = MaterialTheme.typography.headlineMedium)
+        Text("Your synchronized training journal. Open an activity to explore its recorded details.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+@Composable internal fun ActivityRow(activity: ActivityRecord, onClick: () -> Unit) {
+    val accent = when { activity.supportsPace -> Color(0xFF6FB4FF); activity.type.contains("strength", true) || activity.type == "training" -> Color(0xFFFF9A62); else -> Color(0xFFC79BFF) }
+    Surface(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f))) {
+        Column(Modifier.background(Brush.horizontalGradient(listOf(accent.copy(alpha = .07f), Color.Transparent))).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(Modifier.size(8.dp).background(accent, RoundedCornerShape(4.dp)))
+                Text(activity.type.uppercase(), style = MaterialTheme.typography.labelMedium, color = accent, modifier = Modifier.weight(1f))
+                Text("↗", style = MaterialTheme.typography.titleLarge, color = accent)
+            }
+            Text(activity.title, style = MaterialTheme.typography.titleLarge)
+            Text(activity.dateLabel, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Text(if(activity.distanceM == null && !activity.supportsPace) activity.durationLabel else "${activity.distanceLabel} · ${activity.durationLabel}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(activity.sourceLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+@Composable internal fun MetricPair(first: Pair<String,String>?, second: Pair<String,String>) {
     val enlarged = LocalDensity.current.fontScale > 1.15f
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        if(enlarged || maxWidth < 300.dp) Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            first?.let { Metric(it.first,it.second) }; Metric(second.first,second.second)
-        } else Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        if(enlarged || maxWidth < 340.dp) Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            first?.let { Metric(it.first,it.second, Modifier.fillMaxWidth()) }; Metric(second.first,second.second, Modifier.fillMaxWidth())
+        } else Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             first?.let { Metric(it.first,it.second,Modifier.weight(1f)) }
             Metric(second.first,second.second,Modifier.weight(1f))
         }
     }
 }
-@Composable private fun Metric(label: String, value: String, modifier: Modifier = Modifier) {
-    Column(modifier,verticalArrangement = Arrangement.spacedBy(4.dp)) { Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary); Text(value, style = MaterialTheme.typography.titleLarge); HorizontalDivider(Modifier.padding(top = 12.dp)) }
+@Composable internal fun Metric(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(modifier, shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+        Column(Modifier.padding(16.dp),verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.titleLarge)
+        }
+    }
 }
 @Composable private fun SyncStatus(state: TrainingState) {
     val last = state.lastSync?.let(::timestamp)
-    Text(if(state.busy) state.task ?: "Working… Saved data remains on this device." else if(last != null) "Cached on this device · refreshed $last" else "No completed history refresh recorded", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(14.dp)) {
+        Text(if(state.busy) state.task ?: "Working… Saved data remains on this device." else if(last != null) "Saved offline · refreshed $last" else "No completed history refresh recorded", Modifier.fillMaxWidth().padding(14.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }
-
 private fun timestamp(value: Long): String = DateTimeFormatter.ofPattern("d MMM, HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(value))

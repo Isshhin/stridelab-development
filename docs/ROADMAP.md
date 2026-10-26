@@ -1,3 +1,7 @@
+# Current top priority
+
+Native UI/UX Reconstruction precedes new engine/features. See [native milestone](NATIVE-UI-RECONSTRUCTION-20261026.md). Real-account Phase 2 acceptance remains a separate pending gate.
+
 # StrideLab Development Roadmap
 
 Updated: 2026-10-26. **Private developer-only project. No public launch is planned.**
