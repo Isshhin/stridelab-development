@@ -4,6 +4,12 @@ Updated: 2026-10-26. **Private developer-only project. No public launch is plann
 
 ## Current milestone
 
+**Phase 4D final accepted:** [Run 40254593565](https://github.com/Isshhin/stridelab-development/actions/runs/40254593565) completed **273/273 official Playwright/axe passes, 0 failed/skipped/flaky**, protected source and archive integrity green.
+
+**Phase 4E source implementation complete; CI and physical device acceptance pending:** [Status](PHASE4E_STATUS.md), ZIP `StrideLab-Phase4E-Final-candidate.zip` SHA-256 `d1d061d8be9d9dd752a71a40867e2bc00f0fb15b97d88032c0b95f45e4e1c3b3`. Offline Android WebView, same accepted 4D prototype, SAF data backup/restore and private APK build/sign workflow are implemented. The Android emulator/build has not yet run. Phone-level update safety requires a durable signing key and explicit on-device checks.
+
+**Next:** one combined [Android build/emulator gate](https://github.com/Isshhin/stridelab-development/actions/workflows/phase4e-final-android.yml) followed by private phone testing, then Engine 2.0 design/validation. No public release planned.
+
 **Phase 4D.3A-A Running Intelligence foundation accepted as the last VERIFIED checkpoint**, [official GitHub Actions run 40250751272](https://github.com/Isshhin/stridelab-development/actions/runs/40250751272): **258/258 passed (0 failed/skipped/flaky)** including available axe checks, 629/629 manifest hashes, rebuilt HTML and protected engine/baseline verified. Exact private source: [`phase4d3a-a-fix1`](https://github.com/Isshhin/stridelab-development/releases/tag/phase4d3a-a-fix1), SHA-256 `424063a8400e57eebd89012cd71b55bf38218678b78a4ee0f34206619cc81e87`.
 
 - Phase 4D.2 Workstreams 1–5: automated acceptance complete; final WS5-D run 40247262671 was 253/253.
