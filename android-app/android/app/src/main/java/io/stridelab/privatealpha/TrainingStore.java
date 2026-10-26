@@ -4,6 +4,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteDatabaseCorruptException;
 import android.database.sqlite.SQLiteOpenHelper;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -37,7 +38,11 @@ public final class TrainingStore extends SQLiteOpenHelper {
 
     public TrainingStore(Context context) {this(context,DATABASE);}
     public TrainingStore(Context context,String name) {
-        super(context.getApplicationContext(),name,null,1);
+        super(context.getApplicationContext(),name,null,1, database -> {
+            // Android's default handler deletes corrupt databases. Keep unsynced records
+            // and raw files available for explicit recovery instead of silently resetting.
+            throw new SQLiteDatabaseCorruptException("Local database is corrupt; files retained for recovery");
+        });
         setWriteAheadLoggingEnabled(true);
     }
     @Override public void onConfigure(SQLiteDatabase db) {super.onConfigure(db);db.setForeignKeyConstraintsEnabled(true);}

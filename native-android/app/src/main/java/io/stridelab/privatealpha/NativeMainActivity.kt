@@ -139,7 +139,7 @@ class NativeMainActivity: ComponentActivity() {
                     var email by rememberSaveable { mutableStateOf("") }
                     // Never persist passwords through saved state or process recreation.
                     var password by remember { mutableStateOf("") }
-                    val initialGeneration = remember { state.loginGeneration }
+                    val initialGeneration = rememberSaveable { state.loginGeneration }
                     LaunchedEffect(state.loginGeneration, state.busy, state.needsSignIn) {
                         if(state.account != null && !state.busy && !state.needsSignIn && state.loginGeneration > initialGeneration) nav.popBackStack()
                     }
