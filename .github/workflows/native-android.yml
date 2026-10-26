@@ -70,6 +70,20 @@ jobs:
           emulator-options: -accel on -no-snapshot -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
           disable-animations: true
           script: python3 native-android/tools/validate_emulator.py
+      - name: Package private native APK with integrity and signing metadata
+        if: success() && github.event.repository.private == true
+        run: |
+          python3 native-android/tools/package_private_apk.py --apk native-android/app/build/outputs/apk/debug/app-debug.apk --output native-android/app/build/private-apk --commit "$GITHUB_SHA" --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --aapt "$ANDROID_HOME/build-tools/35.0.0/aapt" --apksigner "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          cp native-android/app/build/reports/apk-update-metadata.json native-android/app/build/private-apk/ci-emulator-update-metadata.json
+          cp native-android/tools/check_apk_update.py native-android/app/build/private-apk/
+      - name: Upload private installable native APK
+        if: success() && github.event.repository.private == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: stridelab-native-private-apk-${{ github.sha }}
+          retention-days: 30
+          path: native-android/app/build/private-apk/
+          if-no-files-found: error
       - name: Archive source checkpoint
         if: always()
         run: python3 native-android/checkpoint.py

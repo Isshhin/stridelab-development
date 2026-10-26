@@ -36,3 +36,9 @@ Only after backup/signing checks and a suitable private test installation path a
 8. Verify logout hides the account/history and removes its saved local session even when the service is unreachable. Reauthentication to the same account must restore its retained cache. Do not claim that offline logout immediately revokes a server-side access token.
 
 Record pass/fail for each step, device/Android version, candidate and installed certificate digests, app version and relevant activity IDs privately. Do not include credentials in the report. Any remaining genuine-account/device step keeps the real-world acceptance milestone incomplete.
+
+## Private workflow APK artifact
+
+The native verification workflow now uploads `stridelab-native-private-apk-<commit>` only after all verification steps succeed, and only in a private repository. The ZIP contains the installable native debug APK, `SHA256SUMS`, `apk-metadata.json` (application ID, version code, signer SHA-256 fingerprints and source/run identity), the read-only comparison tool and an installation warning. Retention is 30 days; no public release is created. The separate source/evidence artifact remains intact.
+
+This is an ephemeral-debug-key test candidate. The actual installed phone certificate is unavailable to CI; compatibility is **unknown**. The included CI legacy/native comparison applies only to APKs built with the same key in that job. If the phone certificate differs, do not uninstall or clear data: keep the existing installation and obtain its compatible signing path. Future debug builds may also use different keys. No application identity, version, storage schema or migration is changed by this packaging update.
