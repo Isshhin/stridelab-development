@@ -35,6 +35,7 @@ import kotlinx.coroutines.withContext
     SignalCard {
         Text(plan.status.uppercase()+" · ENGINE ${plan.engineVersion}",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
         Text(plan.name ?: plan.request.goal,style=MaterialTheme.typography.headlineSmall)
+        Text(if(!Engine1Engines.canManage(plan))"Saved engine/policy · read-only here" else when(plan.policyId) {CoordinatedEngine1.policyId->"Coordinated discipline goals";SessionTemplate.POLICY_ID->"User-reviewed session targets";else->"Verified baseline fallback"},style=MaterialTheme.typography.bodySmall)
         Text("${plan.request.start} – ${plan.request.start.plusWeeks(plan.request.weeks.toLong()).minusDays(1)} · ${plan.request.weeks} weeks",style=MaterialTheme.typography.bodyMedium)
         Text("${plan.sessions.size} prescribed sessions · ${plan.sessions.count { it.status=="completed" }} completed",style=MaterialTheme.typography.bodyMedium)
         Text("Account-private · stored on this device · not cloud-synced",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -81,7 +82,7 @@ import kotlinx.coroutines.withContext
             val day=plan.sessions.filter { it.date==date }
             if(day.isEmpty()) item { SignalCard { Text("No workout scheduled",style=MaterialTheme.typography.titleLarge);Text("This calendar date has no prescribed session. No workout or completion is assumed.") } }
             day.forEach { s -> item { PlannedWorkoutCard(s) { onOpen(plan.id,s.id) } } }
-            if(plan.status=="draft"||plan.status=="paused") item { SignalButton(if(plan.status=="draft") "Approve this plan" else "Resume this plan",{actions.approve(plan.id,plan.revision)},!state.busy) }
+            if(plan.status=="draft"||plan.status=="paused") item { SignalButton(if(plan.status=="draft") "Approve this plan" else "Resume this plan",{actions.approve(plan.id,plan.revision)},!state.busy&&Engine1Engines.canManage(plan)) }
             item { PlanFeedbackForm(plan,actions) }
             item { NativePlanExport(state.plans) }
         }
@@ -90,10 +91,11 @@ import kotlinx.coroutines.withContext
     }
     if(planMenu&&plan!=null) ModalBottomSheet(onDismissRequest={planMenu=false},containerColor=MaterialTheme.colorScheme.surface) {
         Column(Modifier.padding(24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-            Text(plan.name ?: plan.request.goal,style=MaterialTheme.typography.headlineSmall);Text("Editing creates a new reviewed draft. Approved prescriptions and previous logs are retained.")
-            SignalButton("Edit inputs / create draft",{planMenu=false;onBuild()})
-            if(plan.status=="approved") OutlinedButton(onClick={actions.pause(plan.id,plan.revision);planMenu=false},modifier=Modifier.fillMaxWidth()) { Text("Pause plan") }
-            OutlinedButton(onClick={actions.archive(plan.id,plan.revision);planMenu=false},modifier=Modifier.fillMaxWidth()) { Text("Archive plan · keep records") }
+            Text(plan.name ?: plan.request.goal,style=MaterialTheme.typography.headlineSmall)
+        Text(if(!Engine1Engines.canManage(plan))"Saved engine/policy · read-only here" else when(plan.policyId) {CoordinatedEngine1.policyId->"Coordinated discipline goals";SessionTemplate.POLICY_ID->"User-reviewed session targets";else->"Verified baseline fallback"},style=MaterialTheme.typography.bodySmall);Text("Editing creates a new reviewed draft. Approved prescriptions and previous logs are retained.")
+            SignalButton("Edit inputs / create draft",{planMenu=false;onBuild()},Engine1Engines.canManage(plan))
+            if(plan.status=="approved") OutlinedButton(onClick={actions.pause(plan.id,plan.revision);planMenu=false},enabled=Engine1Engines.canManage(plan),modifier=Modifier.fillMaxWidth()) { Text("Pause plan") }
+            OutlinedButton(onClick={actions.archive(plan.id,plan.revision);planMenu=false},enabled=Engine1Engines.canManage(plan),modifier=Modifier.fillMaxWidth()) { Text("Archive plan · keep records") }
             TextButton(onClick={planMenu=false}) { Text("Close") }
         }
     }

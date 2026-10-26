@@ -17,7 +17,7 @@ import org.json.JSONObject
 
 @Composable internal fun PlanBuilder(state:TrainingState,actions:PlanActions,discipline:String="all",onDone:()->Unit,onSignIn:()->Unit,onPreview:(String,String)->Unit) {
     if(state.account==null) { Screen("Create a plan","TRAINING") { item { SignalCard { Text("A watch is optional.",style=MaterialTheme.typography.headlineSmall);Text("Sign in once to keep plans and logs private to your account. You can then build, approve and manage plans offline.");SignalButton("Sign in",onSignIn) } } };return }
-    val baseline=remember { state.plans.firstOrNull { it.policyId==ENGINE1_POLICY }?.request ?: PlanRequest(weeklyKm=historyWeeklyKm(state.activities) ?: 0.0,longestKm=state.activities.filter { DashboardSummary.isRun(it) }.mapNotNull { it.distanceM }.maxOrNull()?.div(1000) ?: 0.0) }
+    val baseline=remember { state.plans.firstOrNull { it.policyId in setOf(ENGINE1_POLICY,CoordinatedEngine1.policyId) }?.request ?: PlanRequest(policyChoice="coordinated",weeklyKm=historyWeeklyKm(state.activities) ?: 0.0,longestKm=state.activities.filter { DashboardSummary.isRun(it) }.mapNotNull { it.distanceM }.maxOrNull()?.div(1000) ?: 0.0) }
     val initial=remember { when(discipline) { "run"->baseline.copy(runDays=3,strengthDays=0,calDays=0,conditioningDays=0);"str"->baseline.copy(goal="General strength",runDays=0,strengthDays=2,calDays=0,conditioningDays=0,qualityCount=0);"cal"->baseline.copy(goal="Calisthenics foundation",runDays=0,strengthDays=0,calDays=2,conditioningDays=0,qualityCount=0);else->baseline } }
     var encoded by rememberSaveable { mutableStateOf(initial.encode().toString()) }
     var step by rememberSaveable { mutableIntStateOf(0) }
@@ -58,7 +58,12 @@ import org.json.JSONObject
         }
         if(step==1) {
             listOf("run" to input.runDays,"str" to input.strengthDays,"cal" to input.calDays,"cond" to input.conditioningDays).filter { it.second>0 }.forEach { (d,f) -> item { Text(disciplineLabel(d)+" sessions per week",style=MaterialTheme.typography.titleLarge);FrequencyChips(f,if(d=="run")6 else if(d=="cond")3 else 4) { n -> edit(when(d){"run"->input.copy(runDays=n,qualityCount=0);"str"->input.copy(strengthDays=n);"cal"->input.copy(calDays=n);else->input.copy(conditioningDays=n)}) } } }
-            item { Text("Primary goal",style=MaterialTheme.typography.titleLarge);if(input.goal !in builderGoals(input))Text("Your previous goal needs a discipline you removed. Choose a goal for the selected disciplines.",color=MaterialTheme.colorScheme.error);FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) { builderGoals(input).forEach { goal -> SignalChip(input.goal==goal,{edit(input.copy(goal=goal))},label={Text(goal)}) } } }
+            item { Text("Engine 1.0 planning policy",style=MaterialTheme.typography.titleLarge);ChoiceChips(listOf("Coordinated discipline goals","Verified baseline fallback"),if(input.policyChoice=="coordinated")0 else 1) { edit(input.copy(policyChoice=if(it==0)"coordinated" else "baseline")) };Text("Both are baseline policies. Existing approved prescriptions and workout records are never regenerated when you choose a policy. The frozen fallback uses one primary goal; separate discipline goals apply in coordinated mode.",style=MaterialTheme.typography.bodySmall) }
+            item { Text("Primary goal",style=MaterialTheme.typography.titleLarge);if(input.goal !in builderGoals(input))Text("Your previous goal needs a discipline you removed. Choose a goal for the selected disciplines.",color=MaterialTheme.colorScheme.error);FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) { builderGoals(input).forEach { goal -> SignalChip(input.goal==goal,{val d=Engine1Engines.discipline(goal);edit(input.copy(goal=goal,disciplineGoals=if(d==null)input.disciplineGoals else input.disciplineGoals+(d to goal)))},label={Text(goal)}) } } }
+            if(input.policyChoice=="coordinated")listOf("run" to input.runDays,"str" to input.strengthDays,"cal" to input.calDays,"cond" to input.conditioningDays).filter { it.second>0 }.forEach { (d,_) -> item {
+                Text(disciplineLabel(d)+" goal",style=MaterialTheme.typography.titleMedium)
+                FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) { Engine1Engines.goals.getValue(d).forEach { goal -> SignalChip(Engine1Engines.goal(input,d)==goal,{edit(input.copy(goal=if(Engine1Engines.discipline(input.goal)==d)goal else input.goal,disciplineGoals=input.disciplineGoals+(d to goal)))},label={Text(goal)},modifier=Modifier.testTag("goal-$d-$goal")) } }
+            } }
             item { FormText("Secondary goal notes",input.secondaryGoal,{edit(input.copy(secondaryGoal=it.take(200)))}) }
             item { Text(if(input.runDays>0) "Running experience" else "General training experience",style=MaterialTheme.typography.titleLarge);ChoiceChips(listOf("Starting","Some experience","Experienced"),input.experience) { edit(input.copy(experience=it)) } }
             if(input.runDays>0) {
@@ -95,7 +100,7 @@ import org.json.JSONObject
         error?.let { item { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.testTag("plan-form-error")) } }
         item { SignalButton(if(step<3) "Continue" else "Generate plan",{
             error=null
-            if(step<3) step++ else try { val p=request();if(p.start<LocalDate.now())throw PlanConstraint("Choose today or a future start date.");Engine1.validate(p);beforeId=state.plans.firstOrNull()?.id;awaiting=true;actions.generate(p) } catch(e:PlanConstraint) { error=e.message }
+            if(step<3) step++ else try { val p=request();if(p.start<LocalDate.now())throw PlanConstraint("Choose today or a future start date.");Engine1Engines.resolve(p);Engine1.validate(p);beforeId=state.plans.firstOrNull()?.id;awaiting=true;actions.generate(p) } catch(e:PlanConstraint) { error=e.message }
         },!state.busy&&!awaiting)
             if(step>0) TextButton(onClick={step--;error=null},modifier=Modifier.fillMaxWidth()) { Text("Back") }
             TextButton(onClick=onDone,modifier=Modifier.fillMaxWidth()) { Text("Close builder") }

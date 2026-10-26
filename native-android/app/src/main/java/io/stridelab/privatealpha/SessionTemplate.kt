@@ -38,9 +38,10 @@ internal data class SessionTemplate(val id:String,val name:String,val discipline
         Engine1.validate(p)
         val lower=exercises.any { it.id in setOf("e1","e3","e6","gs","dh","rl","sq","hg") }
         val session=PlannedSession("$id-practice",date,discipline,name.trim(),minutes,null,"practice",lower=lower,exercises=exercises,steps=listOf("5 min comfortable general warm-up","Use the reviewed targets and stop before form breaks","3 min easy finish"),reason="Your selected session targets. Review ability, equipment and recovery before approving; no automatic progression is applied.")
-        return PlanSnapshot(id,owner,ENGINE1_VERSION,"stridelab.engine1.user-session.v1",now,p,listOf(session),listOf("A one-session draft from your selected library movements. These are your reviewed targets, not an automatically optimized training recommendation.","Source: $source. Saving or editing a template never changes an approved session or historical log.","Calendar conflicts and original Engine 1.0 logging safeguards apply. Actual values remain blank until you record them."),name=name.trim())
+        return PlanSnapshot(id,owner,ENGINE1_VERSION,POLICY_ID,now,p,listOf(session),listOf("A one-session draft from your selected library movements. These are your reviewed targets, not an automatically optimized training recommendation.","Source: $source. Saving or editing a template never changes an approved session or historical log.","Calendar conflicts and original Engine 1.0 logging safeguards apply. Actual values remain blank until you record them."),name=name.trim())
     }
     companion object {
+        const val POLICY_ID="stridelab.engine1.user-session.v1"
         fun decode(j:JSONObject,owner:String):SessionTemplate {
             require(j.getInt("schemaVersion")==1 && j.getString("user_id")==owner && j.getString("type")=="session-template")
             return SessionTemplate(j.getString("id"),j.getString("name"),j.getString("discipline"),j.getInt("minutes"),j.getJSONArray("exercises").objects().map(ExercisePrescription::decode),j.getString("source")).also { it.validate() }

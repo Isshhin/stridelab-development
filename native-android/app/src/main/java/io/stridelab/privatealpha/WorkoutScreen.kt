@@ -19,7 +19,7 @@ import kotlinx.coroutines.delay
     val exercises=session.effectiveExercises
     var pendingSwap by rememberSaveable(session.id) { mutableStateOf<String?>(null) }
     var swapId by rememberSaveable(session.id) { mutableStateOf<String?>(null) }
-    val done=session.status=="completed";val active=plan.engineVersion==ENGINE1_VERSION && plan.status in setOf("approved","paused") && session.status !in setOf("completed","missed","skipped")
+    val done=session.status=="completed";val active=Engine1Engines.canManage(plan) && plan.status in setOf("approved","paused") && session.status !in setOf("completed","missed","skipped")
     var minutes by rememberSaveable(session.id) { mutableStateOf(session.log?.minutes?.toString() ?: "") };var distance by rememberSaveable(session.id) { mutableStateOf(session.log?.distanceKm?.toString() ?: "") };var effort by rememberSaveable(session.id) { mutableStateOf(session.log?.effort?.toString() ?: "") };var notes by rememberSaveable(session.id) { mutableStateOf(session.log?.notes ?: "") }
     var performedOn by rememberSaveable(session.id) { mutableStateOf(session.log?.performedOn?.toString() ?: if(session.log==null)LocalDate.now().toString() else "") }
     var entries by rememberSaveable(session.id) { mutableStateOf(JSONObject().apply { session.log?.sets?.forEach { r -> put("${r.exerciseId}|${r.set}|reps",r.reps?.toString() ?: "");put("${r.exerciseId}|${r.set}|kg",r.kg?.toString() ?: "");put("${r.exerciseId}|${r.set}|seconds",r.seconds?.toString() ?: "") } }.toString()) }
@@ -69,7 +69,7 @@ import kotlinx.coroutines.delay
                 Text(ex.cue)
                 session.swaps.find { it.replacement.id==ex.id }?.let { swap -> Text("Easier alternative to "+session.exercises.first { it.id==swap.originalId }.name,style=MaterialTheme.typography.bodySmall);Text(swap.reason,style=MaterialTheme.typography.bodySmall) }
                 if(active && session.log?.sets?.none { it.exerciseId==ex.id }!=false && ExerciseAlternatives.easier(ex)!=null)OutlinedButton(onClick={swapId=ex.id},enabled=!state.busy,modifier=Modifier.fillMaxWidth()) { Text("Choose an easier alternative") }
-                if(!active) Text(if(done) "Actual values below are your saved records. Blank values were not recorded." else "Approve the plan before recording. Targets are not completed sets.",style=MaterialTheme.typography.bodySmall)
+                if(!active) Text(if(done) "Actual values below are your saved records. Blank values were not recorded." else if(!Engine1Engines.canManage(plan))"This saved engine/policy is read-only here. Its original prescription is retained for viewing and export." else "Approve the plan before recording. Targets are not completed sets.",style=MaterialTheme.typography.bodySmall)
             } }
             (1..setCount).forEach { i -> item {
                 val data=JSONObject(entries);val prefix="${ex.id}|$i|"

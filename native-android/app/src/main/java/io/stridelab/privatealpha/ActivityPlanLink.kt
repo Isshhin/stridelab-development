@@ -18,14 +18,14 @@ import androidx.compose.ui.unit.dp
             Text("Planned ${s.effectiveMinutes} min · recorded elapsed ${activity.durationLabel}")
             if(s.suggestion?.accepted!=true)s.distanceKm?.let { Text("Planned %.2f km · recorded %s".format(it,activity.distanceLabel)) }
             Text("Manually linked. Distance/time do not establish interval compliance or fitness improvement. Original targets and any manual log are retained.",style=MaterialTheme.typography.bodySmall)
-            if(p.engineVersion==ENGINE1_VERSION && p.status in setOf("approved","paused"))OutlinedButton(onClick={actions.link(p.id,p.revision,s.id,null)},enabled=!state.busy,modifier=Modifier.fillMaxWidth()) { Text("Unlink recorded run") }
+            if(Engine1Engines.canManage(p) && p.status in setOf("approved","paused"))OutlinedButton(onClick={actions.link(p.id,p.revision,s.id,null)},enabled=!state.busy,modifier=Modifier.fillMaxWidth()) { Text("Unlink recorded run") }
         } else {
             Text("Connect this genuine source run to a workout you planned. No automatic match or duplicate workout log is created.")
             OutlinedButton(onClick={choosing=true},enabled=!state.busy,modifier=Modifier.fillMaxWidth()) { Text("Link to planned run") }
         }
     }
     if(choosing) {
-        val choices=state.plans.filter { it.status in setOf("approved","paused") && it.engineVersion==ENGINE1_VERSION }.flatMap { p->p.sessions.filter { it.discipline=="run" && it.linkedActivityId==null && it.status !in setOf("missed","skipped") }.map { p to it } }.sortedBy { kotlin.math.abs(java.time.temporal.ChronoUnit.DAYS.between(it.second.date,activity.startedAt.atZone(java.time.ZoneId.systemDefault()).toLocalDate())) }
+        val choices=state.plans.filter { it.status in setOf("approved","paused") && Engine1Engines.canManage(it) }.flatMap { p->p.sessions.filter { it.discipline=="run" && it.linkedActivityId==null && it.status !in setOf("missed","skipped") }.map { p to it } }.sortedBy { kotlin.math.abs(java.time.temporal.ChronoUnit.DAYS.between(it.second.date,activity.startedAt.atZone(java.time.ZoneId.systemDefault()).toLocalDate())) }
         AlertDialog(onDismissRequest={choosing=false},title={Text("Choose the planned run")},text={
             androidx.compose.foundation.lazy.LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 item { Text("Confirm the association by selecting a workout. The source date may differ from its scheduled date; targets are never copied into actual metrics.") }

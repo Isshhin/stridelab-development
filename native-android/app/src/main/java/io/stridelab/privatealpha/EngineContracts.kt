@@ -22,19 +22,19 @@ internal data class PlanRequest(
     val longDay:Int=6,val qualityDays:Set<Int> = setOf(2),val qualityCount:Int=0,
     val weeklyKm:Double=0.0,val longestKm:Double=0.0,val planningPace:Double=480.0,
     val equipment:Map<String,Int> = emptyMap(),val calLevel:Int=0,val returning:Boolean=false,
-    val excluded:Set<String> = emptySet(),val limitations:String="",val recoveryNotes:String="",val strengthExperience:Int=0,val pullLevel:Int=0,val coreLevel:Int=0
+    val excluded:Set<String> = emptySet(),val limitations:String="",val recoveryNotes:String="",val strengthExperience:Int=0,val pullLevel:Int=0,val coreLevel:Int=0,val policyChoice:String="baseline",val disciplineGoals:Map<String,String> = emptyMap()
 ) {
     fun encode():JSONObject=JSONObject().put("goal",goal).put("secondaryGoal",secondaryGoal).put("experience",experience).put("start",start.toString()).put("weeks",weeks).put("minutes",minutes)
         .put("days",JSONArray(days.sorted())).put("runDays",runDays).put("strengthDays",strengthDays).put("calDays",calDays).put("conditioningDays",conditioningDays).put("longDay",longDay)
         .put("qualityDays",JSONArray(qualityDays.sorted())).put("qualityCount",qualityCount).put("weeklyKm",weeklyKm).put("longestKm",longestKm).put("planningPace",planningPace)
-        .put("equipment",JSONObject(equipment)).put("calLevel",calLevel).put("returning",returning).put("excluded",JSONArray(excluded.sorted())).put("limitations",limitations).put("recoveryNotes",recoveryNotes).put("strengthExperience",strengthExperience).put("pullLevel",pullLevel).put("coreLevel",coreLevel)
+        .put("equipment",JSONObject(equipment)).put("calLevel",calLevel).put("returning",returning).put("excluded",JSONArray(excluded.sorted())).put("limitations",limitations).put("recoveryNotes",recoveryNotes).put("strengthExperience",strengthExperience).put("pullLevel",pullLevel).put("coreLevel",coreLevel).put("policyChoice",policyChoice).put("disciplineGoals",JSONObject(disciplineGoals))
     companion object {
         fun decode(j:JSONObject):PlanRequest {
             val eq=j.getJSONObject("equipment"); val days=j.getJSONArray("days");val quality=j.getJSONArray("qualityDays");val excluded=j.getJSONArray("excluded")
             return PlanRequest(j.getString("goal"),j.getString("secondaryGoal"),j.getInt("experience"),LocalDate.parse(j.getString("start")),j.getInt("weeks"),j.getInt("minutes"),
                 (0 until days.length()).map { days.getInt(it) }.toSet(),j.getInt("runDays"),j.getInt("strengthDays"),j.getInt("calDays"),j.getInt("conditioningDays"),j.getInt("longDay"),
                 (0 until quality.length()).map { quality.getInt(it) }.toSet(),j.getInt("qualityCount"),j.getDouble("weeklyKm"),j.getDouble("longestKm"),j.getDouble("planningPace"),
-                eq.keys().asSequence().associateWith { eq.getInt(it) },j.getInt("calLevel"),j.getBoolean("returning"),(0 until excluded.length()).map { excluded.getString(it) }.toSet(),j.getString("limitations"),j.getString("recoveryNotes"),j.optInt("strengthExperience",j.getInt("experience")),j.optInt("pullLevel",0),j.optInt("coreLevel",0))
+                eq.keys().asSequence().associateWith { eq.getInt(it) },j.getInt("calLevel"),j.getBoolean("returning"),(0 until excluded.length()).map { excluded.getString(it) }.toSet(),j.getString("limitations"),j.getString("recoveryNotes"),j.optInt("strengthExperience",j.getInt("experience")),j.optInt("pullLevel",0),j.optInt("coreLevel",0),j.optString("policyChoice","baseline"),j.optJSONObject("disciplineGoals")?.let { obj -> obj.keys().asSequence().associateWith { obj.getString(it) } } ?: emptyMap())
         }
     }
 }
@@ -71,7 +71,7 @@ internal data class PlanFeedback(val id:String,val at:Instant,val category:Strin
 /** Prescriptions are persisted snapshots. Loading never re-runs a generation engine. */
 internal data class PlanSnapshot(val id:String,val owner:String,val engineVersion:String,val policyId:String,val createdAt:Instant,val request:PlanRequest,val sessions:List<PlannedSession>,val explanations:List<String>,val status:String="draft",val feedback:List<PlanFeedback> = emptyList(),val revision:Int=1,val foreignSnapshot:String?=null,val name:String?=null) {
     fun encode():JSONObject {
-        if(engineVersion!=ENGINE1_VERSION && foreignSnapshot!=null)return JSONObject(foreignSnapshot)
+        if(!Engine1Engines.canManage(this) && foreignSnapshot!=null)return JSONObject(foreignSnapshot)
         return JSONObject().put("schemaVersion",PLAN_SCHEMA).put("id",id).put("user_id",owner).put("engineVersion",engineVersion).put("policyId",policyId).put("createdAt",createdAt.toString()).put("request",request.encode())
         .put("sessions",JSONArray(sessions.map { it.encode() })).put("explanations",JSONArray(explanations)).put("status",status).put("feedback",JSONArray(feedback.map { it.encode() })).put("revision",revision).put("name",name)
     }
@@ -81,7 +81,7 @@ internal data class PlanSnapshot(val id:String,val owner:String,val engineVersio
             require(j.getString("user_id")==owner) { "Plan owner does not match" }
             val sessions=j.getJSONArray("sessions").objects().map(PlannedSession::decode)
             require(sessions.size<=400 && sessions.map { it.id }.distinct().size==sessions.size)
-            return PlanSnapshot(j.getString("id"),owner,j.getString("engineVersion"),j.getString("policyId"),Instant.parse(j.getString("createdAt")),PlanRequest.decode(j.getJSONObject("request")),sessions,j.getJSONArray("explanations").strings(),j.getString("status"),j.getJSONArray("feedback").objects().map(PlanFeedback::decode),j.getInt("revision"),if(j.getString("engineVersion")!=ENGINE1_VERSION)j.toString()else null,j.nullString("name"))
+            return PlanSnapshot(j.getString("id"),owner,j.getString("engineVersion"),j.getString("policyId"),Instant.parse(j.getString("createdAt")),PlanRequest.decode(j.getJSONObject("request")),sessions,j.getJSONArray("explanations").strings(),j.getString("status"),j.getJSONArray("feedback").objects().map(PlanFeedback::decode),j.getInt("revision"),if(j.getString("engineVersion")!=ENGINE1_VERSION || j.getString("policyId") !in Engine1Engines.knownPolicies)j.toString()else null,j.nullString("name"))
         }
     }
 }

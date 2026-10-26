@@ -110,6 +110,15 @@ class Engine1RepositoryTest {
         repo.close();open();assertEquals(2,repo.state.value.plans.single().sessions.first().exercises.single().sets);assertEquals(3,repo.state.value.templates.single().exercises.single().sets)
         gateway.offline=false;gateway.owner="synthetic-engine1-other";assertTrue(repo.signIn("other@example.invalid","fixture"));assertTrue(repo.state.value.templates.isEmpty());assertTrue(repo.state.value.plans.isEmpty())
     }
+    @Test fun coordinatedGoalsAndFallbackSnapshotsKeepTheirOwnPolicyAndActualRecordsOffline()=runBlocking {
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        val request=request().copy(policyChoice="coordinated",disciplineGoals=mapOf("str" to "Muscle development"),strengthExperience=1)
+        assertTrue(repo.generatePlan(request));var p=repo.state.value.plans.single();assertEquals(CoordinatedEngine1.policyId,p.policyId)
+        assertTrue(p.sessions.flatMap { it.exercises }.filter { it.reps!=null }.all { it.reps==10 })
+        assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single();assertTrue(repo.recordWorkout(p.id,p.revision,p.sessions.first().id,WorkoutLog(Instant.now(),minutes=20.0),true));val saved=repo.state.value.plans.single()
+        gateway.offline=true;assertTrue(repo.generatePlan(request.copy(start=request.start.plusWeeks(5),policyChoice="baseline")));repo.close();open()
+        assertEquals(saved,repo.state.value.plans.find { it.id==saved.id });val fallback=repo.state.value.plans.first { it.id!=saved.id };assertEquals(ENGINE1_POLICY,fallback.policyId);assertTrue(fallback.sessions.flatMap { it.exercises }.filter { it.reps!=null }.all { it.reps==8 })
+    }
     private class Gateway:TrainingGateway {
         var owner="synthetic-engine1-owner";var offline=false;var rows=JSONArray()
         private fun connected() { if(offline)throw java.io.IOException("Synthetic offline") }

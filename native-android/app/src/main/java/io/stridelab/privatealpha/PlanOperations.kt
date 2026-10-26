@@ -5,7 +5,7 @@ import java.time.LocalDate
 import java.util.UUID
 
 internal object PlanOperations {
-    private fun compatible(plan:PlanSnapshot) { if(plan.engineVersion!=ENGINE1_VERSION)throw PlanConstraint("This saved plan belongs to another engine version. Its original snapshot is retained for viewing/export; use a compatible engine before editing it.") }
+    private fun compatible(plan:PlanSnapshot) { if(!Engine1Engines.canManage(plan))throw PlanConstraint("This saved plan belongs to another engine version or policy. Its original snapshot is retained for viewing/export; use a compatible engine before editing it.") }
     fun approve(plan:PlanSnapshot,others:List<PlanSnapshot>):PlanSnapshot {
         compatible(plan)
         if(plan.status!="draft" && plan.status!="paused")throw PlanConstraint("Only a draft or paused plan can be approved.")

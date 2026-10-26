@@ -128,13 +128,13 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         store.enqueue(account,"plan",plan.id,java.util.UUID.randomUUID().toString(),encoded.toString(),null,System.currentTimeMillis())
         mutable.value=mutable.value.copy(plans=(mutable.value.plans.filterNot { it.id==plan.id }+plan).sortedByDescending { it.createdAt })
     }
-    suspend fun generatePlan(request:PlanRequest,engine:PlanGenerationEngine=Engine1) = operation("Building your plan…") {
+    suspend fun generatePlan(request:PlanRequest,engine:PlanGenerationEngine?=null) = operation("Building your plan…") {
         val account=mutable.value.account ?: throw PlanConstraint("Sign in once to create an account-isolated plan. A watch is not required; planning works offline.")
-        savePlan(engine.generate(request,account))
+        savePlan((engine ?: Engine1Engines.resolve(request)).generate(request,account))
     }
     suspend fun changePlan(id:String,revision:Int,action:(PlanSnapshot)->PlanSnapshot) = operation("Saving your plan…") {
         val plan=mutable.value.plans.find { it.id==id } ?: throw PlanConstraint("This plan is unavailable for the current account.")
-        if(plan.engineVersion!=ENGINE1_VERSION)throw PlanConstraint("This saved plan needs its compatible engine before editing. Its original snapshot is retained.")
+        if(!Engine1Engines.canManage(plan))throw PlanConstraint("This saved plan needs its compatible engine before editing. Its original snapshot is retained.")
         if(plan.revision!=revision)throw PlanConstraint("The saved plan changed. Reopen it before editing.")
         val updated=action(plan)
         require(updated.id==plan.id && updated.owner==plan.owner && updated.engineVersion==plan.engineVersion && updated.policyId==plan.policyId)

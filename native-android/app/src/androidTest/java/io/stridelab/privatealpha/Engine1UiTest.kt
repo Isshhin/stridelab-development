@@ -17,7 +17,7 @@ class Engine1UiTest {
     @Test fun beginnerGeneratesReviewsApprovesOpensCalendarAndLogsWithoutWatch() {
         val state=mutableStateOf(TrainingState(initializing=false,account="synthetic-engine1-ui"))
         val planning=PlanActions(
-            generate={p->state.value=state.value.copy(plans=listOf(Engine1.generate(p,"synthetic-engine1-ui")))},
+            generate={p->state.value=state.value.copy(plans=listOf(Engine1Engines.resolve(p).generate(p,"synthetic-engine1-ui")))},
             approve={id,_->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.approve(it,emptyList()).copy(revision=it.revision+1)else it })},
             record={id,_,sid,log,done->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.record(it,sid,log,done).copy(revision=it.revision+1)else it })}
         )
@@ -137,6 +137,30 @@ class Engine1UiTest {
         capture("phase1-practice-preview")
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Approve practice session"));compose.onNodeWithText("Approve practice session",useUnmergedTree=true).performClick()
         compose.onNodeWithTag("screen-title").assertTextEquals("Training");assertEquals("approved",state.value.plans.single().status)
+    }
+    @Test fun runningPrimaryAndStrengthSecondaryGoalProduceActualDifferentPrescriptions() {
+        val state=mutableStateOf(TrainingState(initializing=false,account="synthetic-goals-ui"))
+        val actions=PlanActions(generate={p->state.value=state.value.copy(plans=listOf(Engine1Engines.resolve(p).generate(p,"synthetic-goals-ui")))})
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,true,NativeActions({},{},{},{},{_,_->},planning=actions)) } } }
+        compose.onNodeWithTag("nav-training").performClick();compose.onNodeWithText("Create a plan",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Strength"));compose.onNodeWithText("Strength",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Continue"));compose.onNodeWithText("Continue",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("goal-str-Muscle development"));compose.onNodeWithTag("goal-str-Muscle development").performClick()
+        repeat(2) {compose.onNodeWithTag("screen").performScrollToNode(hasText("Continue"));compose.onNodeWithText("Continue",useUnmergedTree=true).performClick()}
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Generate plan"));compose.onNodeWithText("Generate plan",useUnmergedTree=true).performClick()
+        compose.waitUntil(10000) { state.value.plans.isNotEmpty() };val plan=state.value.plans.single();assertEquals(CoordinatedEngine1.policyId,plan.policyId)
+        assertTrue(plan.sessions.any { it.discipline=="run" });assertTrue(plan.sessions.filter { it.discipline=="str" }.flatMap { it.exercises }.filter { it.reps!=null }.all { it.reps==10 })
+        capture("phase1-coordinated-goals-preview")
+    }
+    @Test fun savedEducationalGuideRemainsVisibleWithoutBecomingAnExecutableWorkout() {
+        val guide=readLibrary(InstrumentationRegistry.getInstrumentation().targetContext).first { it.guide }
+        val state=TrainingState(initializing=false,account="synthetic-guide-ui",shelf=LibraryShelf(favorites=setOf(guide.id)))
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state,true,NativeActions({},{},{},{},{_,_->})) } } }
+        compose.onNodeWithTag("nav-library").performClick();compose.waitUntil(10000) { compose.onAllNodesWithTag("library-ready").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Saved"));compose.onNodeWithText("Saved",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("library-entry-${guide.id}"));compose.onNodeWithTag("library-entry-${guide.id}").performClick()
+        compose.onNodeWithText("Educational reference. This is not an executable workout.").performScrollTo().assertExists()
+        compose.onNodeWithText("Prepare practice session").assertDoesNotExist();compose.onNodeWithText("Build a running plan").assertDoesNotExist()
     }
     private fun capture(name:String) {
         compose.mainClock.advanceTimeBy(600);compose.waitForIdle();compose.runOnUiThread { compose.activity.window.decorView.invalidate() }
