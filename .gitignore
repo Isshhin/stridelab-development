@@ -14,3 +14,5 @@
 /native-android/app/build/
 /native-android/build/
 /native-android/checkpoints/
+
+/native-android/__pycache__/

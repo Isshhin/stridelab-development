@@ -30,7 +30,7 @@ jobs:
           gradle --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
           "${ANDROID_HOME}/build-tools/35.0.0/apksigner" verify app/build/outputs/apk/debug/app-debug.apk
       - name: Build preserved legacy APK and isolated upgrade seed test
-        run: gradle --no-daemon -p android-app/android -I native-android/legacy-upgrade.init.gradle :app:assembleDebug :app:assembleDebugAndroidTest
+        run: gradle --no-daemon -p android-app/android -I "$GITHUB_WORKSPACE/native-android/legacy-upgrade.init.gradle" :app:assembleDebug :app:assembleDebugAndroidTest
       - name: Enable emulator acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -44,6 +44,8 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_3a
+          disk-size: 2048M
+          emulator-boot-timeout: 300
           emulator-options: -accel on -no-snapshot -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
           disable-animations: true
           script: |
