@@ -4,6 +4,15 @@ on:
     branches: ['feature/native-compose-migration-20261026', 'feature/native-real-data-phase2-20261026', 'feature/native-reconstruction-1-20261026']
     paths: ['native-android/**', 'android-app/android/app/src/**', '.github/workflows/native-android.yml']
   workflow_dispatch:
+    inputs:
+      durable_signed_build:
+        description: Build with configured durable private developer signing secrets after all gates pass
+        type: boolean
+        default: false
+      signed_version_code:
+        description: Signed versionCode, higher than installed build (minimum 8)
+        default: '8'
+        required: true
 permissions:
   contents: read
 jobs:
@@ -98,3 +107,37 @@ jobs:
             native-android/app/build/outputs/androidTest-results/
             native-android/app/build/test-results/
           if-no-files-found: warn
+  durable-private-signing:
+    needs: native-android
+    if: github.event_name == 'workflow_dispatch' && inputs.durable_signed_build && github.event.repository.private == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+          log-accepted-android-sdk-licenses: 'false'
+      - run: sdkmanager --install 'platforms;android-36' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Build and verify pinned durable signer without exposing secrets
+        env:
+          STRIDELAB_KEYSTORE_BASE64: ${{ secrets.STRIDELAB_KEYSTORE_BASE64 }}
+          STRIDELAB_STORE_PASSWORD: ${{ secrets.STRIDELAB_STORE_PASSWORD }}
+          STRIDELAB_KEY_ALIAS: ${{ secrets.STRIDELAB_KEY_ALIAS }}
+          STRIDELAB_KEY_PASSWORD: ${{ secrets.STRIDELAB_KEY_PASSWORD }}
+          STRIDELAB_EXPECTED_SIGNER_SHA256: ${{ vars.STRIDELAB_EXPECTED_SIGNER_SHA256 }}
+          SIGNED_VERSION_CODE: ${{ inputs.signed_version_code }}
+        run: python3 native-android/tools/build_durable_private.py --version "$SIGNED_VERSION_CODE"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stridelab-native-durable-private-${{ github.sha }}
+          retention-days: 30
+          path: native-android/app/build/durable-private-apk/
+          if-no-files-found: error

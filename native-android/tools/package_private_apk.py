@@ -18,22 +18,24 @@ Use a separate emulator for testing until phone compatibility is established.
 No genuine-account or physical-device validation is claimed.
 '''
 
-def package(apk, output, info, commit, run_url):
+def package(apk, output, info, commit, run_url, durable_signer=None):
     if info.package != APP_ID:
         raise ValueError('Unexpected application identity; refusing to package')
+    if durable_signer is not None and (len(durable_signer) != 64 or info.certificates != frozenset([durable_signer])):
+        raise ValueError('Durable signing certificate does not match the pinned public fingerprint')
     output.mkdir(parents=True, exist_ok=False)
-    destination = output / 'StrideLab-native-private-test.apk'
+    destination = output / ('StrideLab-native-private-signed.apk' if durable_signer else 'StrideLab-native-private-test.apk')
     shutil.copyfile(apk, destination)
     digest = hashlib.sha256(destination.read_bytes()).hexdigest()
     metadata = dict(applicationId=info.package, versionCode=info.version,
                     apkSha256=digest, signingCertificateSha256=sorted(info.certificates),
-                    buildType='debug', signingKey='ephemeral CI debug key',
+                    buildType='release' if durable_signer else 'debug', signingKey='durable developer key' if durable_signer else 'ephemeral CI debug key',
                     sourceCommit=commit, workflowRun=run_url,
                     installedDeviceCertificateCompared=False, physicalUpgradeValidated=False,
                     updateCompatibility='UNKNOWN — do not uninstall or clear the existing app')
     (output / 'apk-metadata.json').write_text(json.dumps(metadata, indent=2)+'\n')
     (output / 'SHA256SUMS').write_text(f'{digest}  {destination.name}\n')
-    (output / 'READ-BEFORE-INSTALL.txt').write_text(WARNING)
+    (output / 'READ-BEFORE-INSTALL.txt').write_text(WARNING if not durable_signer else 'PRIVATE DEVELOPER-SIGNED BUILD. The pinned developer certificate was verified. Compatibility with your installed phone build is UNKNOWN. Do not uninstall or clear app data. Compare the actual installed certificate and version using check_apk_update.py before any update. No physical-device or genuine-athlete acceptance is claimed.\n')
     return metadata
 
 if __name__ == '__main__':
@@ -47,3 +49,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print(json.dumps(package(args.apk, args.output, inspect(args.apk, args.aapt, args.apksigner),
                              args.commit, args.run_url), indent=2))
+

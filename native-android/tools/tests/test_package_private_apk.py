@@ -30,3 +30,16 @@ class PrivateApkTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 package(pathlib.Path('absent.apk'), output, ApkInfo('wrong.app', 4, frozenset(['a'*64])), 'commit', 'run')
             self.assertFalse(output.exists())
+    def test_durable_signer_pin_and_unknown_phone_compatibility(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=pathlib.Path(directory)
+            apk=root/'input.apk'; apk.write_bytes(b'signed fixture')
+            info=ApkInfo(APP_ID,8,frozenset(['a'*64]))
+            with self.assertRaises(ValueError):
+                package(apk,root/'rejected',info,'commit','run',durable_signer='b'*64)
+            self.assertFalse((root/'rejected').exists())
+            metadata=package(apk,root/'accepted',info,'commit','run',durable_signer='a'*64)
+            self.assertEqual(metadata['buildType'],'release')
+            self.assertFalse(metadata['physicalUpgradeValidated'])
+            self.assertIn('UNKNOWN',metadata['updateCompatibility'])
+            self.assertTrue((root/'accepted/StrideLab-native-private-signed.apk').is_file())

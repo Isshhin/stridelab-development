@@ -97,6 +97,22 @@ class NativeVisualTest {
         capture("simulation-failure-with-cache")
     }
 
+    @Test fun recordedStreamsAndGpsHaveAccessibleUnitsAndOfflineProvenance() {
+        val points=(0..20).map { i -> ActivitySample(i,i*10.0,340.0+i*2,140.0+i,10.0+i,14.5+i*.0001,121.0+i*.00015) }
+        val detail=ActivityDetail("synthetic-visual",points,listOf(ActivityLap(0,1000.0,350.0,350.0,148.0)),1792972800000)
+        show { StrideTheme { Surface { Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp)) {
+            Text("UI SIMULATION · SYNTHETIC STREAMS")
+            RecordedActivityDetail(detail,true)
+        } } } }
+        compose.onNodeWithText("RECORDED STREAMS").assertIsDisplayed()
+        compose.onNodeWithText("Heart rate",useUnmergedTree=true).performScrollTo().assertIsDisplayed()
+        capture("simulation-recorded-streams")
+        compose.onNodeWithText("Recorded GPS trace").performScrollTo().assertIsDisplayed()
+        capture("simulation-recorded-gps-trace")
+        compose.onNodeWithText("Source laps").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Lap 1 · 1.00 km · 5:50").performScrollTo().assertIsDisplayed()
+        capture("simulation-recorded-laps")
+    }
     @Test fun widerLayoutKeepsContentBounded() {
         show {
             CompositionLocalProvider(LocalDensity provides Density(1f, 1f)) {
@@ -119,3 +135,4 @@ class NativeVisualTest {
         }
     }
 }
+
