@@ -92,7 +92,10 @@ class NativeProcessProbeTest {
                     assertTrue(displayBitmap().compress(Bitmap.CompressFormat.PNG,100,output))
                 }
                 InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
-                compose.onNodeWithTag("screen-title").assertTextEquals("Activities")
+                // The restored list intentionally retains its scroll position; its heading may be off-screen.
+                compose.onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.PaneTitle,"Activities"))
+                compose.onNodeWithTag("nav-activities").assertIsSelected()
+                compose.onNodeWithTag("activity-synthetic-process-activity").assertIsDisplayed()
                 compose.onNodeWithTag("screen").performScrollToNode(hasText("Synthetic strength check"))
                 compose.onNodeWithText("Synthetic strength check").performClick()
                 compose.onNodeWithText("Average pace").assertDoesNotExist()
