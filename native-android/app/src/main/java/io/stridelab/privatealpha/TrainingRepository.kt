@@ -100,7 +100,9 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     }
     private fun session(): NativeSession {
         val account = mutable.value.account ?: throw IllegalStateException("Sign in first")
-        val saved = vault.read(account) ?: throw ServiceFailure(401, "Sign in again to synchronize. Saved activities remain available.")
+        val saved = try { vault.read(account) } catch (_: java.io.IOException) {
+            throw ServiceFailure(401,"Your saved session could not be verified. Sign in again; cached activities are retained.")
+        } ?: throw ServiceFailure(401,"Sign in again to synchronize. Saved activities remain available.")
         val current = if(saved.expiresAtSeconds <= System.currentTimeMillis()/1000 + 90) renew(saved) else saved
         return current
     }

@@ -48,14 +48,14 @@ class NativeProcessProbeTest {
                 }
                 withFakeRepository(context) { repository ->
                     assertTrue(repository.signIn("synthetic@example.invalid","synthetic-only"))
-                    assertEquals(1,repository.state.value.activities.size)
+                    assertEquals(2,repository.state.value.activities.size)
                 }
             }
             "offline" -> {
                 waitForConnection(context,false)
                 assertEquals(account,app.repository.state.value.account)
-                assertEquals(1,app.repository.state.value.activities.size)
-                assertNull(app.repository.state.value.activities.single().averageHr)
+                assertEquals(2,app.repository.state.value.activities.size)
+                assertNull(app.repository.state.value.activities.first().averageHr)
                 assertEquals("synthetic-process-access",SessionVault(context).read(account)!!.accessToken)
                 compose.onNodeWithText(title).assertExists()
                 compose.onNodeWithTag("offline-status").assertExists()
@@ -73,18 +73,24 @@ class NativeProcessProbeTest {
                 }
                 InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
                 compose.onNodeWithTag("screen-title").assertTextEquals("Activities")
+                compose.onNodeWithText("Synthetic strength check").performClick()
+                compose.onNodeWithText("Recorded pace").assertDoesNotExist()
+                compose.onNodeWithText("Moving time").assertDoesNotExist()
+                File(directory,"strength-detail-offline.png").outputStream().use { output ->
+                    assertTrue(compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,output))
+                }
                 SessionVault(context).clear(account)
             }
             "reconnected" -> {
                 waitForConnection(context,true)
                 assertTrue(app.repository.state.value.needsSignIn) // fixture token was removed while offline
                 withFakeRepository(context) { repository ->
-                    assertEquals(1,repository.state.value.activities.size)
+                    assertEquals(2,repository.state.value.activities.size)
                     assertTrue(repository.signIn("synthetic@example.invalid","synthetic-only"))
                     assertTrue(repository.refresh()); assertTrue(repository.refresh())
-                    assertEquals(1,repository.state.value.activities.size)
-                    assertEquals(2500.0,repository.state.value.activities.single().distanceM!!,0.0)
-                    assertNull(repository.state.value.activities.single().maximumHr)
+                    assertEquals(2,repository.state.value.activities.size)
+                    assertEquals(2500.0,repository.state.value.activities.first().distanceM!!,0.0)
+                    assertNull(repository.state.value.activities.first().maximumHr)
                 }
                 SessionVault(context).clear(account)
             }
@@ -107,6 +113,10 @@ class NativeProcessProbeTest {
                 return JSONArray().put(JSONObject().put("id","synthetic-process-activity").put("user_id",account)
                     .put("title",title).put("source","manual").put("activity_type","running")
                     .put("started_at","2026-10-26T00:00:00Z").put("distance_m",2500).put("duration_s",900))
+                    .put(JSONObject().put("id","synthetic-strength-activity").put("user_id",account)
+                        .put("title","Synthetic strength check").put("source","manual").put("activity_type","training")
+                        .put("started_at","2026-10-25T00:00:00Z").put("duration_s",1200).put("avg_hr",95).put("max_hr",115)
+                        .put("avg_pace_sec_per_km",123)) // source field is retained, but pace must not be shown for strength
             }
             override fun intervals(session: NativeSession,action: String) = JSONObject().put("configured",false).put("syncStatus","disconnected")
             override fun signOut(session: NativeSession) = Unit

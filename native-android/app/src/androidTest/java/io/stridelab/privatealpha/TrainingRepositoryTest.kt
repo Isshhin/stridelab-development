@@ -161,6 +161,22 @@ class TrainingRepositoryTest {
         } finally { remote.finishLogout!!.countDown() }
         assertTrue(pending.await())
     }
+    @Test fun concurrentForegroundRefreshesRotateExpiredSessionOnlyOnce() = runBlocking {
+        remote.rows = listOf(row()); assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        SessionVault(context).save(NativeSession(account,"fixture-token","fixture-refresh",1))
+        val first = async(kotlinx.coroutines.Dispatchers.IO) { repo.refresh() }
+        val second = async(kotlinx.coroutines.Dispatchers.IO) { repo.refresh() }
+        assertTrue(first.await()); assertTrue(second.await()); assertEquals(1,remote.refreshCount)
+        assertEquals(1,repo.state.value.activities.size)
+    }
+    @Test fun damagedSessionRequiresReauthenticationWithoutLosingCachedHistory() = runBlocking {
+        remote.rows = listOf(row()); assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        val hash = java.security.MessageDigest.getInstance("SHA-256").digest(account.toByteArray()).joinToString("") { "%02x".format(it.toInt() and 255) }
+        val file = java.io.File(context.filesDir,"native-sessions/$hash.vault")
+        val damaged = byteArrayOf(1,2,3); file.writeBytes(damaged)
+        assertFalse(repo.refresh()); assertTrue(repo.state.value.needsSignIn)
+        assertEquals(1,repo.state.value.activities.size); assertArrayEquals(damaged,file.readBytes())
+    }
     private class FakeGateway(val account: String): TrainingGateway {
         var rows: List<JSONObject> = emptyList()
         var offline = false

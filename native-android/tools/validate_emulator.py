@@ -54,7 +54,7 @@ def main():
             except subprocess.SubprocessError:pass
         try:run(ADB+['pull','/sdcard/Android/data/io.stridelab.privatealpha/files/native-ui-evidence',str(REPORTS)],timeout=30)
         except subprocess.SubprocessError:pass
-    required=['home','activities','settings','signin','offline-after-process-restart','activity-detail-offline']
+    required=['home','activities','settings','signin','offline-after-process-restart','activity-detail-offline','strength-detail-offline']
     if any(not (REPORTS/f'native-ui-evidence/{name}.png').is_file() for name in required):raise RuntimeError('Required native UI screenshots were not exported')
 
 if __name__=='__main__':main()
