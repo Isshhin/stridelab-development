@@ -23,6 +23,7 @@ android {
         test.java.srcDirs += '../../android-app/android/app/src/test/java'
         androidTest.java.srcDirs += '../../android-app/android/app/src/androidTest/java'
         androidTest.java.exclude '**/OfflineAppTest.java'
+        if(project.hasProperty('strideProcessProbe')) androidTest.java.srcDirs += '../process-probe-tests'
     }
     buildFeatures { compose true; buildConfig true }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }

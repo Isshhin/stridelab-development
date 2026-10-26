@@ -31,6 +31,9 @@ jobs:
           "${ANDROID_HOME}/build-tools/35.0.0/apksigner" verify app/build/outputs/apk/debug/app-debug.apk
       - name: Build preserved legacy APK and isolated upgrade seed test
         run: gradle --no-daemon -p android-app/android -I "$GITHUB_WORKSPACE/native-android/legacy-upgrade.init.gradle" :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Compile isolated lifecycle probe test APK
+        working-directory: native-android
+        run: gradle --no-daemon :app:assembleDebugAndroidTest -PstrideProcessProbe=true
       - name: Reserve emulator disk space
         run: |
           df -h .
@@ -65,6 +68,25 @@ jobs:
             adb shell am instrument -w -e class io.stridelab.privatealpha.LegacyUpgradeSeedTest io.stridelab.privatealpha.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/legacy-upgrade-seed.txt
             grep -F 'OK (1 test)' /tmp/legacy-upgrade-seed.txt
             cd native-android && gradle --no-daemon --stacktrace :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.expectLegacyUpgrade=true
+            cd native-android && gradle --no-daemon :app:assembleDebugAndroidTest -PstrideProcessProbe=true
+            adb install -r native-android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            mkdir -p native-android/app/build/reports/process-probe
+            adb shell am instrument -w -e class io.stridelab.privatealpha.NativeProcessProbeTest -e processPhase seed io.stridelab.privatealpha.test/androidx.test.runner.AndroidJUnitRunner | tee native-android/app/build/reports/process-probe/seed.txt
+            grep -F 'OK (1 test)' native-android/app/build/reports/process-probe/seed.txt
+            adb shell am force-stop io.stridelab.privatealpha
+            adb shell settings put system font_scale 1.3
+            adb shell cmd connectivity airplane-mode enable
+            adb shell svc wifi disable
+            adb shell svc data disable
+            adb shell am instrument -w -e class io.stridelab.privatealpha.NativeProcessProbeTest -e processPhase offline io.stridelab.privatealpha.test/androidx.test.runner.AndroidJUnitRunner | tee native-android/app/build/reports/process-probe/offline.txt
+            grep -F 'OK (1 test)' native-android/app/build/reports/process-probe/offline.txt
+            adb shell am force-stop io.stridelab.privatealpha
+            adb shell cmd connectivity airplane-mode disable
+            adb shell svc wifi enable
+            adb shell svc data enable
+            adb shell am instrument -w -e class io.stridelab.privatealpha.NativeProcessProbeTest -e processPhase reconnected io.stridelab.privatealpha.test/androidx.test.runner.AndroidJUnitRunner | tee native-android/app/build/reports/process-probe/reconnected.txt
+            grep -F 'OK (1 test)' native-android/app/build/reports/process-probe/reconnected.txt
+            adb shell settings put system font_scale 1.0
             mkdir -p native-android/app/build/reports/native-ui-evidence
             adb pull /sdcard/Android/data/io.stridelab.privatealpha/files/native-ui-evidence/. native-android/app/build/reports/native-ui-evidence/
             test -f native-android/app/build/reports/native-ui-evidence/home.png

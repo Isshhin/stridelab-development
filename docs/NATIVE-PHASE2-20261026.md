@@ -17,3 +17,7 @@ The prior UI tests captured images on the emulator, but the artifact contains no
 ## Acceptance
 
 Real-account native sign-in, genuine activity refresh and offline process reopening remain unverified. Simulated network tests must remain explicitly distinguished. Preserve app ID, installed data, Keystore aliases, SQLite schema and legacy backup compatibility. Do not uninstall/clear data to work around signing differences. No production auth bypass or schema writes are authorized by this milestone.
+
+## Baseline rerun
+
+Actions 40300250236 rebuilt the restored code: 19 JVM and 26 emulator tests passed, plus the legacy seed. The overall run failed during PNG export, not the tests. Investigation identified AGP target cleanup after connected tests as another image-retention problem; leaveApksInstalledAfterRun is now enabled to preserve app data/evidence. Instrumentation tests are restricted to disposable emulators; do not run this suite against the personal installation.
