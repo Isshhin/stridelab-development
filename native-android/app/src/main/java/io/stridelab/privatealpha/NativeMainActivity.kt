@@ -10,6 +10,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -54,7 +58,7 @@ class NativeMainActivity: ComponentActivity() {
                 listOf("home" to "Home", "activities" to "Activities", "settings" to "Settings").forEach { (path, label) ->
                     NavigationBarItem(selected = route == path, onClick = {
                         nav.navigate(path) { popUpTo(nav.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true }
-                    }, icon = { Text(when(path) { "home" -> "⌂"; "activities" -> "≋"; else -> "⚙" }, style = MaterialTheme.typography.titleLarge) },
+                    }, icon = { Icon(when(path) { "home" -> Icons.Default.Home; "activities" -> Icons.Default.DateRange; else -> Icons.Default.Settings }, contentDescription = null) },
                         label = { Text(label) }, modifier = Modifier.testTag("nav-$path"))
                 }
             }
