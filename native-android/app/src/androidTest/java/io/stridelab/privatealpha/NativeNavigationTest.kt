@@ -32,6 +32,11 @@ class NativeNavigationTest {
         compose.onNodeWithTag("password").performTextInput("never-submit-this-fixture")
         compose.onNodeWithTag("submit-signin").assertIsEnabled()
         compose.activityRule.scenario.recreate()
+        // Recreation resumes asynchronously. Require the new credential-free composition,
+        // rather than accidentally asserting against the outgoing Activity's semantics.
+        compose.waitUntil(timeoutMillis = 5000) {
+            runCatching { compose.onNodeWithTag("submit-signin").assertIsNotEnabled(); true }.getOrDefault(false)
+        }
         compose.onNodeWithTag("email").assertTextContains("synthetic@example.invalid")
         compose.onNodeWithTag("submit-signin").assertIsNotEnabled()
     }

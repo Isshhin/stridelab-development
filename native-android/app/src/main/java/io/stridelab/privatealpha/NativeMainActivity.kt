@@ -45,6 +45,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.*
 import java.time.Instant
@@ -204,6 +207,14 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
                     var email by rememberSaveable { mutableStateOf("") }
                     // Never persist passwords through saved state or process recreation.
                     var password by remember { mutableStateOf("") }
+                    val lifecycleOwner = LocalLifecycleOwner.current
+                    DisposableEffect(lifecycleOwner) {
+                        val observer = LifecycleEventObserver { _, event ->
+                            if(event == Lifecycle.Event.ON_STOP) password = ""
+                        }
+                        lifecycleOwner.lifecycle.addObserver(observer)
+                        onDispose { lifecycleOwner.lifecycle.removeObserver(observer); password = "" }
+                    }
                     var showPassword by remember { mutableStateOf(false) }
                     val initialGeneration = rememberSaveable { state.loginGeneration }
                     LaunchedEffect(state.loginGeneration, state.busy, state.needsSignIn) {
