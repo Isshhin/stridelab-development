@@ -1,0 +1,170 @@
+{
+ "barbell-squat": {
+  "file": "assets/barbell-squat.svg",
+  "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0122-relaxation.svg",
+  "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/barbell-squat.md",
+  "author": "Everkinetic / Greg Priday",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "label": "Barbell Squat \u2014 source exercise diagram",
+  "changes": "Unmodified file; contained in a responsive frame",
+  "sha256": "74c5904f5ce3074710921a337d3145d237f0d34cfbde476c0f0da141b838f0ab"
+ },
+ "pull-ups": {
+  "file": "assets/pull-ups.svg",
+  "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0087-relaxation.svg",
+  "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/pull-ups.md",
+  "author": "Everkinetic / Greg Priday",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "label": "Pull Ups \u2014 source exercise diagram",
+  "changes": "Unmodified file; contained in a responsive frame",
+  "sha256": "12078cccf48e29c886dc84653dce07168945fc279ec20ec95a6b944f68816377"
+ },
+ "romanian-dead-lift": {
+  "file": "assets/romanian-dead-lift.svg",
+  "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0118-relaxation.svg",
+  "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/romanian-dead-lift.md",
+  "author": "Everkinetic / Greg Priday",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "label": "Romanian Dead Lift \u2014 source exercise diagram",
+  "changes": "Unmodified file; contained in a responsive frame",
+  "sha256": "a7c2c7418ba458e2776609595ea2cafd23aba4648c959b81b830f1836743bc04"
+ },
+ "push-ups": {
+  "file": "assets/push-ups.svg",
+  "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0077-relaxation.svg",
+  "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/push-ups.md",
+  "author": "Everkinetic / Greg Priday",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "label": "Push Up: Body Weight \u2014 source exercise diagram",
+  "changes": "Unmodified file; contained in a responsive frame",
+  "sha256": "6ce1b11a8f525cc26ef8b12a0ed08de5a69aec533557b86d34d0d47d14e9d4f1"
+ },
+ "squats-using-dumbbells": {
+  "file": "assets/squats-using-dumbbells.svg",
+  "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0130-relaxation.svg",
+  "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/squats-using-dumbbells.md",
+  "author": "Everkinetic / Greg Priday",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "label": "Squats: Dumbbells \u2014 source exercise diagram",
+  "changes": "Unmodified file; contained in a responsive frame",
+  "sha256": "688721b14ec5a5f640cb05ec2fde35cb9b16de66804f6b0c63342e6201f60f39"
+ },
+ "bench-press-dumbbell": {
+  "file": "assets/bench-press-dumbbell.svg",
+  "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0055-relaxation.svg",
+  "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/bench-press-dumbbell.md",
+  "author": "Everkinetic / Greg Priday",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "label": "Bench Press: Dumbbell \u2014 source exercise diagram",
+  "changes": "Unmodified file; contained in a responsive frame",
+  "sha256": "4dde7a1d0292938d740c49448a336a9240cf75e4ec94694513580dc8e99e32ab"
+ },
+ "running": {
+  "file": "assets/running.jpg",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e0/First_Annual_Joint_Jingle_Jog_%288813448%29.jpg/960px-First_Annual_Joint_Jingle_Jog_%288813448%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "source": "https://commons.wikimedia.org/wiki/File:First_Annual_Joint_Jingle_Jog_(8813448).jpg",
+  "author": "U.S. Army photo by Spc. Samuel Signor",
+  "license": "Public domain",
+  "licenseUrl": "https://commons.wikimedia.org/wiki/Template:PD-USGov-Military-Army",
+  "label": "Runners at the First Annual Joint Jingle Jog. Context photograph; not a technique demonstration.",
+  "changes": "Wikimedia thumbnail; responsive presentation",
+  "sha256": "199d726b325773a04a0aa278c4a92ae0e32f9137591e6257668b277fc9b5d202"
+ },
+ "dumbbell-dead-lifts": {
+  "file": "assets/dumbbell-dead-lifts.svg",
+  "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0107-relaxation.svg",
+  "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/dumbbell-dead-lifts.md",
+  "author": "Everkinetic / Greg Priday",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "label": "Dumbbell Dead Lifts \u2014 source exercise diagram",
+  "changes": "Unmodified file; contained in a responsive frame",
+  "sha256": "612881291fe0e7733b4e3de00b9fbcec036c81827bae8cd15ba7a19f0d5276a8"
+ },
+ "rear-lunges-with-dumbbell": {
+  "file": "assets/rear-lunges-with-dumbbell.svg",
+  "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0129-relaxation.svg",
+  "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/rear-lunges-with-dumbbell.md",
+  "author": "Everkinetic / Greg Priday",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "label": "Rear Lunges with Dumbbell \u2014 source exercise diagram",
+  "changes": "Unmodified file; contained in a responsive frame",
+  "sha256": "2214642dee62df0b633e53a60b41639dbf641b813a3b1673f15c8a30834f1d0d"
+ },
+ "rear-deltoid-row-dumbbell": {
+  "file": "assets/rear-deltoid-row-dumbbell.svg",
+  "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0024-relaxation.svg",
+  "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/rear-deltoid-row-dumbbell.md",
+  "author": "Everkinetic / Greg Priday",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "label": "Rear Deltoid Row Dumbbell \u2014 source exercise diagram",
+  "changes": "Unmodified file; contained in a responsive frame",
+  "sha256": "5533c5ab99ff72e5a8f8063697f239dde461ccb1ed0627384a951f4240dc5ae1"
+ },
+ "seated-cable-rows": {
+  "file": "assets/seated-cable-rows.svg",
+  "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0025-relaxation.svg",
+  "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/seated-cable-rows.md",
+  "author": "Everkinetic / Greg Priday",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "label": "Seated Cable Rows \u2014 source exercise diagram",
+  "changes": "Unmodified file; contained in a responsive frame",
+  "sha256": "53dcd08b3979417d36ec09fb7a6db1740494e421078cfa7b87128e917ba0e5bf"
+ },
+ "bent-knee-hip-raise": {
+  "file": "assets/bent-knee-hip-raise.svg",
+  "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0287-relaxation.svg",
+  "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/bent-knee-hip-raise.md",
+  "author": "Everkinetic / Greg Priday",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "label": "Bent Knee Hip Raise \u2014 source exercise diagram",
+  "changes": "Unmodified file; contained in a responsive frame",
+  "sha256": "27df8a8f1baf454c16aad68297f3e299d03ef3e95c4c388f18090c024d489cbb"
+ },
+ "hanging-leg-raise": {
+  "file": "assets/hanging-leg-raise.svg",
+  "url": null,
+  "source": null,
+  "author": "StrideLab (original schematic)",
+  "license": "Original work for this prototype; no third-party rights",
+  "licenseUrl": null,
+  "own": true,
+  "label": "Hanging leg raise \u2014 original schematic",
+  "changes": "Authored for this prototype",
+  "sha256": "39f32172e7cd7d6e1a04faedbb2448403dac5a6d7b20141491e1099c230976ae"
+ },
+ "bulgarian-split-squat": {
+  "file": "assets/bulgarian-split-squat.svg",
+  "url": null,
+  "source": null,
+  "author": "StrideLab (original schematic)",
+  "license": "Original work for this prototype; no third-party rights",
+  "licenseUrl": null,
+  "own": true,
+  "label": "Bulgarian split squat \u2014 original schematic",
+  "changes": "Authored for this prototype",
+  "sha256": "e2dcfdbb79bbb7e1a7380eb1c866c1e628bc674fd92e45fc75342493213842be"
+ },
+ "incline-push-up": {
+  "file": "assets/incline-push-up.svg",
+  "url": null,
+  "source": null,
+  "author": "StrideLab (original schematic)",
+  "license": "Original work for this prototype; no third-party rights",
+  "licenseUrl": null,
+  "own": true,
+  "label": "Incline push-up \u2014 original schematic",
+  "changes": "Authored for this prototype",
+  "sha256": "8d397dd0898e857dd178940867352c11cab5fbcbccb348f2c63fcad83f4ea99e"
+ }
+}

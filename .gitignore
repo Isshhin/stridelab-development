@@ -1,0 +1,11 @@
+/engine2/dist/
+/engine2/node_modules
+/engine2/results/
+/engine2/test-results/
+/engine2/checkpoints/
+/engine2/__pycache__/
+/android-app/android/.gradle/
+/android-app/android/local.properties
+/android-app/android/app/build/
+/android-app/android/build/
+/android-app/checkpoints/
