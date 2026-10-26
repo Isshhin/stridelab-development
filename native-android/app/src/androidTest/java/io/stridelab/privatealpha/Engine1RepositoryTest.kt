@@ -100,6 +100,16 @@ class Engine1RepositoryTest {
         assertEquals(original,p.sessions.first().exercises.first());assertEquals(replacement,p.sessions.first().effectiveExercises.first());assertEquals(replacement.id,p.sessions.first().log!!.sets.single().exerciseId)
         assertFalse(repo.swapExercise(p.id,p.revision,sid,original.id));assertEquals(1,repo.state.value.plans.single().sessions.first().swaps.size)
     }
+    @Test fun savedTemplatePracticeApprovalAndWorkoutRemainIsolatedAndDurableOffline()=runBlocking {
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        val template=SessionTemplate("synthetic-session-template","Squat practice","str",30,listOf(ExercisePrescription("sq","Bodyweight squat",2,6)))
+        assertTrue(repo.saveTemplate(template));gateway.offline=true;repo.close();open();assertEquals(template,repo.state.value.templates.single())
+        assertTrue(repo.prepareSession(template,PlanRequest(),LocalDate.now()));var p=repo.state.value.plans.single();assertEquals("draft",p.status)
+        assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single();assertTrue(repo.recordWorkout(p.id,p.revision,p.sessions.first().id,WorkoutLog(Instant.now(),minutes=20.0),true))
+        assertTrue(repo.saveTemplate(template.copy(name="Changed future template",exercises=listOf(ExercisePrescription("sq","Bodyweight squat",3,8)))))
+        repo.close();open();assertEquals(2,repo.state.value.plans.single().sessions.first().exercises.single().sets);assertEquals(3,repo.state.value.templates.single().exercises.single().sets)
+        gateway.offline=false;gateway.owner="synthetic-engine1-other";assertTrue(repo.signIn("other@example.invalid","fixture"));assertTrue(repo.state.value.templates.isEmpty());assertTrue(repo.state.value.plans.isEmpty())
+    }
     private class Gateway:TrainingGateway {
         var owner="synthetic-engine1-owner";var offline=false;var rows=JSONArray()
         private fun connected() { if(offline)throw java.io.IOException("Synthetic offline") }

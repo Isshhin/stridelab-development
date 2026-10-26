@@ -39,7 +39,7 @@ internal fun readLibrary(context:Context):List<LibraryEntry> = context.assets.op
     val rows=JSONObject(it.readText()).getJSONArray("entries"); (0 until rows.length()).map { i -> LibraryEntry(rows.getJSONObject(i)) }
 }
 
-@Composable internal fun LibraryScreen(state:TrainingState=TrainingState(initializing=false),actions:PlanActions=PlanActions(),onOpen:(String,String)->Unit={_,_->},onPractice:(LibraryEntry)->Unit = {}) {
+@Composable internal fun LibraryScreen(state:TrainingState=TrainingState(initializing=false),actions:PlanActions=PlanActions(),onOpen:(String,String)->Unit={_,_->},onTemplate:(String)->Unit={},onPractice:(LibraryEntry)->Unit = {}) {
     val context=LocalContext.current
     val focus=androidx.compose.ui.platform.LocalFocusManager.current
     val keyboard=androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
@@ -56,11 +56,15 @@ internal fun readLibrary(context:Context):List<LibraryEntry> = context.assets.op
     val logged=state.plans.flatMap { p -> p.sessions.filter { it.log!=null }.map { p to it } }.sortedByDescending { it.second.log?.at }
     Box(Modifier.fillMaxSize().testTag(if(entries.isNotEmpty())"library-ready" else "library-loading")) { Screen("Library","RUN, LIFT, MOVE") {
         item { Text("Explore the purpose, learn the technique and find an option for your setup.",style=MaterialTheme.typography.bodyLarge) }
-        if(view!="Sessions") {
+        if(view !in setOf("Sessions","Templates")) {
         item { Text("${matches.size} ${if(guides) "educational references · not tracked workouts" else "curated entries"}",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        item { FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) { listOf("Workouts","Saved","Sessions","Movement guides").forEach { name -> SignalChip(view==name,{view=name},label={Text(name)}) } } }
-        if(view=="Sessions") {
+        item { FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) { listOf("Workouts","Templates","Saved","Sessions","Movement guides").forEach { name -> SignalChip(view==name,{view=name},label={Text(name)}) } } }
+        if(view=="Templates") {
+            item { Text("Reusable session targets are separate from dated drafts and actual logs. Review ability and equipment before approving a session.");SignalButton("Create session template",{onTemplate("new")}) }
+            item { SignalCard { Text("Lower body strength",style=MaterialTheme.typography.headlineSmall);Text("Accepted Phase 4E template: back squat, Romanian deadlift and Bulgarian split squat. Configure targets and suitable equipment in the native session builder.");OutlinedButton(onClick={onTemplate("lower")}) { Text("Review lower-body template") } } }
+            items(state.templates,key={"template-${it.id}"}) { template -> SignalCard { Text(template.name,style=MaterialTheme.typography.headlineSmall);Text("${template.exercises.size} movements · ${template.minutes} planned minutes");Text(template.exercises.joinToString { it.name });OutlinedButton(onClick={onTemplate("saved-${template.id}")}) { Text("Prepare from saved template") } } }
+        } else if(view=="Sessions") {
             item { Text("Actual saved workout logs, including partially recorded sessions. Targets are never counted as completed.") }
             if(logged.isEmpty())item { Text("No workout logs saved for this account yet. Start with an approved training plan.") }
             items(logged,key={it.second.id}) { (p,session) -> PlannedWorkoutCard(session) { onOpen(p.id,session.id) } }
@@ -69,7 +73,7 @@ internal fun readLibrary(context:Context):List<LibraryEntry> = context.assets.op
             Text(if(state.account==null) "Sign in to keep a private offline library." else "Favorites and collections are stored on this device for your account.",style=MaterialTheme.typography.bodySmall)
             ShelfFilter("Collection",listOf("All saved","Favorites")+state.shelf.collections.keys.sorted(),collectionFilter) { collectionFilter=it }
         }
-        item { OutlinedTextField(query,{query=it},label={Text("Search exercises")},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(18.dp),singleLine=true) }
+        item { OutlinedTextField(query,{query=it},label={Text("Search exercises")},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(18.dp),singleLine=true,keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(imeAction=androidx.compose.ui.text.input.ImeAction.Search),keyboardActions=androidx.compose.foundation.text.KeyboardActions(onSearch={focus.clearFocus();keyboard?.hide()})) }
         item { FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) { listOf("all" to "All","run" to "Running","str" to "Strength","cal" to "Calisthenics").forEach { (id,label) -> SignalChip(selected=filter==id,onClick={filter=id},label={Text(label)}) } } }
         item { FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             ShelfFilter("Level",listOf("All levels")+entries.filter { it.guide==guides }.map { it.text("level") }.distinct().sorted(),level) { level=it }
@@ -79,7 +83,7 @@ internal fun readLibrary(context:Context):List<LibraryEntry> = context.assets.op
         item { if(level!="All levels"||pattern!="All movements"||equipment!="All equipment"||filter!="all"||query.isNotEmpty())TextButton(onClick={level="All levels";pattern="All movements";equipment="All equipment";filter="all";query=""}) { Text("Clear search and filters") } }
         if(failure) item { Text("The offline library could not be opened. Original assets remain preserved in Settings.") }
         if(matches.isEmpty() && entries.isNotEmpty()) item { Text("No entries match. Try a broader search or another discipline.") }
-        items(matches,key={it.id}) { entry -> SignalCard(Modifier.clickable { focus.clearFocus();keyboard?.hide();selected=entry.id }) {
+        items(matches,key={it.id}) { entry -> SignalCard(Modifier.testTag("library-entry-${entry.id}").clickable { focus.clearFocus();keyboard?.hide();selected=entry.id }) {
             Text(disciplineLabel(entry.discipline)+" · "+entry.text("level"),style=MaterialTheme.typography.labelMedium,color=disciplineColor(entry.discipline))
             Text(entry.title+if(entry.id in state.shelf.favorites) " ★" else "",style=MaterialTheme.typography.titleLarge)
             Text(entry.text("eq"),color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -107,7 +111,7 @@ internal fun readLibrary(context:Context):List<LibraryEntry> = context.assets.op
                     alternatives.forEach { other -> OutlinedButton(onClick={selected=other.id},modifier=Modifier.fillMaxWidth()) { Text(other.title+" · "+other.text("eq")) } }
                 }
                 if(entry.guide) Text("Educational reference. This is not an executable workout.",style=MaterialTheme.typography.bodySmall)
-                else SignalButton("Build a plan with this discipline", { focus.clearFocus();keyboard?.hide();selected=null; onPractice(entry) })
+                else SignalButton(if(entry.discipline=="run")"Build a running plan" else "Prepare practice session", { focus.clearFocus();keyboard?.hide();selected=null; onPractice(entry) })
                 if(state.account!=null) {
                     OutlinedButton(onClick={actions.shelf(entry.id,null,false)},enabled=!state.busy,modifier=Modifier.fillMaxWidth()) { Text(if(entry.id in state.shelf.favorites) "Remove favorite" else "Save favorite") }
                     OutlinedTextField(collectionName,{collectionName=it.take(40)},label={Text("Collection name")},modifier=Modifier.fillMaxWidth(),singleLine=true)

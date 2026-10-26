@@ -139,4 +139,22 @@ class Engine1Test {
         val done=PlanOperations.record(p,session.id,WorkoutLog(now),true)
         assertThrows(PlanConstraint::class.java) { PlanOperations.swapExercise(done,session.id,original.id,now) }
     }
+    @Test fun reusableTemplateCreatesNewDatedDraftsWithoutRewritingPriorLogs() {
+        val t=SessionTemplate("synthetic-template","Squat practice","str",30,listOf(ExercisePrescription("sq","Bodyweight squat",2,6)))
+        val first=t.draft("synthetic-owner",PlanRequest(),LocalDate.now(),"practice-one",now)
+        assertEquals("draft",first.status);assertEquals("Squat practice",first.name);assertEquals(1,first.sessions.size)
+        val approved=PlanOperations.approve(first,emptyList());val completed=PlanOperations.record(approved,first.sessions.first().id,WorkoutLog(now,minutes=16.0),true)
+        val second=t.copy(exercises=listOf(ExercisePrescription("sq","Bodyweight squat",3,8))).draft("synthetic-owner",PlanRequest(),LocalDate.now().plusDays(3),"practice-two",now)
+        assertEquals(2,completed.sessions.first().exercises.first().sets);assertEquals(3,second.sessions.first().exercises.first().sets);assertNotEquals(first.sessions.first().id,second.sessions.first().id)
+        assertEquals(t,SessionTemplate.decode(t.encode("synthetic-owner"),"synthetic-owner"))
+        assertEquals(completed,PlanSnapshot.decode(completed.encode(),"synthetic-owner"))
+    }
+    @Test fun practiceRejectsMissingEquipmentUncontrolledSkillsAndImpossibleTimeBudget() {
+        val date=LocalDate.now()
+        val pull=SessionTemplate("pull-template","Pull-up practice","cal",30,listOf(ExercisePrescription("e2","Pull-up",2,1)))
+        assertThrows(PlanConstraint::class.java) { pull.draft("synthetic-owner",PlanRequest(),date) }
+        assertThrows(PlanConstraint::class.java) { pull.draft("synthetic-owner",PlanRequest(equipment=mapOf("bar" to 1)),date) }
+        assertEquals(1,pull.draft("synthetic-owner",PlanRequest(equipment=mapOf("bar" to 1),pullLevel=2),date).sessions.size)
+        assertThrows(PlanConstraint::class.java) { pull.copy(minutes=15,exercises=listOf(ExercisePrescription("e2","Pull-up",10,100))).draft("synthetic-owner",PlanRequest(equipment=mapOf("bar" to 1),pullLevel=2),date) }
+    }
 }

@@ -75,7 +75,7 @@ The working native increment now contains actual Engine 1.0 multi-discipline gen
 
 Local engineering evidence: 64 JVM tests, 14 Python tests and a 19-test selected emulator suite passed before the final builder scroll reset. Earlier CI 40353150650 failed 2/58 emulator tests (builder step scroll position and a library off-screen loading assertion); it is retained, not promoted. Final full CI remains the promotion gate. Automated fixture evidence is not real-athlete/device acceptance or full design signoff.
 
-Still open: full library template/single-movement practice and workout swap parity, full native settings/profile/equipment/zones/preferences and notifications, validated source-activity JSON import, interactive map/lap parity, dashboard integration of manual logs without duplicates, richer baseline coaching and complete phone/wide/TalkBack/visual acceptance. Advanced Engine 2.0 and benchmarking remain deferred.
+The next working increment adds native reusable resistance templates, actual practice drafts with approval, and reviewed exercise regressions; these are pending the exact full gate. Still open: standalone running practice/template parity, full native settings/profile/equipment/zones/preferences and notifications, validated source-activity JSON import, interactive map/lap parity, dashboard integration of manual logs without duplicates, richer baseline coaching and complete phone/wide/TalkBack/visual acceptance. Advanced Engine 2.0 and benchmarking remain deferred.
 
 ## Explicit replacements of prototype-only behavior
 

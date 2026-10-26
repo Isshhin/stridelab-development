@@ -17,7 +17,7 @@ import org.json.JSONObject
 
 @Composable internal fun PlanBuilder(state:TrainingState,actions:PlanActions,discipline:String="all",onDone:()->Unit,onSignIn:()->Unit,onPreview:(String,String)->Unit) {
     if(state.account==null) { Screen("Create a plan","TRAINING") { item { SignalCard { Text("A watch is optional.",style=MaterialTheme.typography.headlineSmall);Text("Sign in once to keep plans and logs private to your account. You can then build, approve and manage plans offline.");SignalButton("Sign in",onSignIn) } } };return }
-    val baseline=remember { state.plans.firstOrNull()?.request ?: PlanRequest(weeklyKm=historyWeeklyKm(state.activities) ?: 0.0,longestKm=state.activities.filter { DashboardSummary.isRun(it) }.mapNotNull { it.distanceM }.maxOrNull()?.div(1000) ?: 0.0) }
+    val baseline=remember { state.plans.firstOrNull { it.policyId==ENGINE1_POLICY }?.request ?: PlanRequest(weeklyKm=historyWeeklyKm(state.activities) ?: 0.0,longestKm=state.activities.filter { DashboardSummary.isRun(it) }.mapNotNull { it.distanceM }.maxOrNull()?.div(1000) ?: 0.0) }
     val initial=remember { when(discipline) { "run"->baseline.copy(runDays=3,strengthDays=0,calDays=0,conditioningDays=0);"str"->baseline.copy(goal="General strength",runDays=0,strengthDays=2,calDays=0,conditioningDays=0,qualityCount=0);"cal"->baseline.copy(goal="Calisthenics foundation",runDays=0,strengthDays=0,calDays=2,conditioningDays=0,qualityCount=0);else->baseline } }
     var encoded by rememberSaveable { mutableStateOf(initial.encode().toString()) }
     var step by rememberSaveable { mutableIntStateOf(0) }

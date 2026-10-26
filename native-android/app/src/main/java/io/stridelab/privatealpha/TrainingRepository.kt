@@ -25,6 +25,7 @@ internal data class TrainingState(
     val intervals: IntervalConnection? = null,
     val plans: List<PlanSnapshot> = emptyList(),
     val shelf:LibraryShelf = LibraryShelf(),
+    val templates:List<SessionTemplate> = emptyList(),
     val wellness: List<WellnessRecord> = emptyList(),
     val details: Map<String,ActivityDetail> = emptyMap(),
     val task: String? = null
@@ -82,9 +83,11 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             while(c.moveToNext()) runCatching { PlanSnapshot.decode(JSONObject(c.getString(0)),account) }.onSuccess { plans.add(it) }.onFailure { unsupportedPlans++ }
         }
         val shelf=store.readableDatabase.query("records",arrayOf("payload"),"account=? AND kind=? AND record_id=?",arrayOf(account,"exercise","library-shelf-v1"),null,null,null).use { c -> if(c.moveToFirst())LibraryShelf.decode(JSONObject(c.getString(0)),account) else LibraryShelf() }
+        val templates=mutableListOf<SessionTemplate>()
+        store.readableDatabase.query("records",arrayOf("payload"),"account=? AND kind=? AND record_id LIKE ?",arrayOf(account,"exercise","session-template-%"),null,null,null).use { c -> while(c.moveToNext())runCatching { SessionTemplate.decode(JSONObject(c.getString(0)),account) }.onSuccess { templates.add(it) } }
         val cursor = store.cursor(account, "activity")
         val last = cursor?.let { runCatching { JSONObject(it).getLong("completedAt") }.getOrNull() }
-        mutable.value = mutable.value.copy(activities = records.sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id }), lastSync = last, details = details, wellness = wellness, shelf=shelf, plans = plans.sortedByDescending { it.createdAt },
+        mutable.value = mutable.value.copy(activities = records.sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id }), lastSync = last, details = details, wellness = wellness, shelf=shelf, templates=templates, plans = plans.sortedByDescending { it.createdAt },
             message = if(unsupportedPlans>0) "$unsupportedPlans saved plans require a supported contract and were retained for review." else if(rejected > 0) "$rejected saved activities contain unsupported data and were retained for review." else mutable.value.message)
     }
     suspend fun restorePlans(raw:String)=operation("Restoring reviewed plan backup…") {
@@ -104,6 +107,17 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         val shelf=mutable.value.shelf.change(id,collection,remove)
         store.enqueue(account,"exercise","library-shelf-v1",java.util.UUID.randomUUID().toString(),shelf.encode(account).toString(),null,System.currentTimeMillis())
         mutable.value=mutable.value.copy(shelf=shelf)
+    }
+    suspend fun saveTemplate(template:SessionTemplate)=operation("Saving your session template…") {
+        val account=mutable.value.account ?: throw PlanConstraint("Sign in once to keep templates private to your account.")
+        template.validate()
+        if(mutable.value.templates.size>=50 && mutable.value.templates.none { it.id==template.id })throw PlanConstraint("This account has fifty saved templates. Reuse an existing template.")
+        store.enqueue(account,"exercise","session-template-${template.id}",java.util.UUID.randomUUID().toString(),template.encode(account).toString(),null,System.currentTimeMillis())
+        mutable.value=mutable.value.copy(templates=mutable.value.templates.filterNot { it.id==template.id }+template)
+    }
+    suspend fun prepareSession(template:SessionTemplate,request:PlanRequest,date:java.time.LocalDate)=operation("Preparing your reviewed session…") {
+        val account=mutable.value.account ?: throw PlanConstraint("Sign in once to create account-isolated workouts.")
+        savePlan(template.draft(account,request,date))
     }
     private fun savePlan(plan:PlanSnapshot) {
         val account=mutable.value.account ?: throw PlanConstraint("Sign in once to keep plans isolated to your account. Planning and logging then work offline.")

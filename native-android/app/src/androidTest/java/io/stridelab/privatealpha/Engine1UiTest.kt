@@ -56,7 +56,7 @@ class Engine1UiTest {
         compose.onNodeWithTag("nav-library").performClick()
         compose.waitUntil(10000) { compose.onAllNodesWithTag("library-ready").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("screen").performScrollToNode(hasText("23 curated entries"));compose.onNodeWithText("23 curated entries").assertExists()
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Search exercises"));compose.onNodeWithText("Search exercises").performTextInput("Incline")
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Search exercises"));compose.onNodeWithText("Search exercises").performTextInput("Incline");compose.onNodeWithText("Search exercises").performImeAction()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Incline push-up"));compose.onNodeWithText("Incline push-up",useUnmergedTree=true).performClick()
         compose.waitUntil(10000) { compose.onAllNodesWithContentDescription("Incline push-up — original schematic").fetchSemanticsNodes().isNotEmpty() }
         capture("phase1-library-modal")
@@ -81,7 +81,7 @@ class Engine1UiTest {
         compose.onNodeWithTag("nav-library").performClick()
         compose.waitUntil(10000) { compose.onAllNodesWithTag("library-ready").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("screen").performScrollToNode(hasText("23 curated entries"));compose.onNodeWithText("23 curated entries").assertExists()
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Search exercises"));compose.onNodeWithText("Search exercises").performTextInput("Incline")
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Search exercises"));compose.onNodeWithText("Search exercises").performTextInput("Incline");compose.onNodeWithText("Search exercises").performImeAction()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Incline push-up"));compose.onNodeWithText("Incline push-up",useUnmergedTree=true).performClick()
         compose.onNodeWithText("MAKE IT EASIER").performScrollTo().assertIsDisplayed()
         capture("phase1-library-modal-200pct")
@@ -94,7 +94,7 @@ class Engine1UiTest {
         compose.onNodeWithTag("nav-library").performClick()
         compose.waitUntil(10000) { compose.onAllNodesWithTag("library-ready").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("screen").performScrollToNode(hasText("23 curated entries"));compose.onNodeWithText("23 curated entries").assertExists()
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Search exercises"));compose.onNodeWithText("Search exercises").performTextInput("Incline")
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Search exercises"));compose.onNodeWithText("Search exercises").performTextInput("Incline");compose.onNodeWithText("Search exercises").performImeAction()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Incline push-up"));compose.onNodeWithText("Incline push-up",useUnmergedTree=true).performClick()
         compose.onNodeWithText("Save favorite",useUnmergedTree=true).performScrollTo().performClick()
         compose.onNodeWithText("Collection name").performScrollTo().performTextInput("Home practice")
@@ -120,6 +120,23 @@ class Engine1UiTest {
         val session=state.value.plans.single().sessions.first();assertEquals(p.sessions.first().exercises,session.exercises);assertEquals(1,session.swaps.size)
         compose.onNodeWithTag("screen").performScrollToNode(hasText(session.effectiveExercises.first().name));compose.onNodeWithText(session.effectiveExercises.first().name).assertExists()
         capture("phase1-reviewed-workout-alternative")
+    }
+    @Test fun libraryPracticeCreatesReviewedDraftAndReusableTemplateBeforeApproval() {
+        val state=mutableStateOf(TrainingState(initializing=false,account="synthetic-practice-ui"))
+        val actions=PlanActions(saveTemplate={t->state.value=state.value.copy(templates=listOf(t))},prepareSession={t,p,d->state.value=state.value.copy(plans=listOf(t.draft("synthetic-practice-ui",p,d)))},approve={id,_->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.approve(it,emptyList())else it })})
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,true,NativeActions({},{},{},{},{_,_->},planning=actions)) } } }
+        compose.onNodeWithTag("nav-library").performClick();compose.waitUntil(10000) { compose.onAllNodesWithTag("library-ready").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Search exercises"));compose.onNodeWithText("Search exercises").performTextInput("Bodyweight squat");compose.onNodeWithText("Search exercises").performImeAction()
+        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("library-entry-sq"));compose.onNodeWithTag("library-entry-sq").performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithText("TECHNIQUE & STRUCTURE").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Prepare practice session",useUnmergedTree=true).performScrollTo().performClick()
+        compose.onNodeWithTag("screen-title").assertTextEquals("Prepare a session")
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Save reusable template"));compose.onNodeWithText("Save reusable template",useUnmergedTree=true).performClick();assertEquals(1,state.value.templates.size)
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Create practice draft"));compose.onNodeWithText("Create practice draft",useUnmergedTree=true).performClick()
+        compose.waitUntil(10000) { state.value.plans.isNotEmpty() };compose.onNodeWithTag("screen-title").assertTextEquals("Practice preview");assertEquals("draft",state.value.plans.single().status)
+        capture("phase1-practice-preview")
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Approve practice session"));compose.onNodeWithText("Approve practice session",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("screen-title").assertTextEquals("Training");assertEquals("approved",state.value.plans.single().status)
     }
     private fun capture(name:String) {
         compose.mainClock.advanceTimeBy(600);compose.waitForIdle();compose.runOnUiThread { compose.activity.window.decorView.invalidate() }

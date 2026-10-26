@@ -69,11 +69,11 @@ internal data class PlanFeedback(val id:String,val at:Instant,val category:Strin
     companion object { fun decode(j:JSONObject)=PlanFeedback(j.getString("id"),Instant.parse(j.getString("at")),j.getString("category"),j.getString("text"),j.nullString("sessionId")) }
 }
 /** Prescriptions are persisted snapshots. Loading never re-runs a generation engine. */
-internal data class PlanSnapshot(val id:String,val owner:String,val engineVersion:String,val policyId:String,val createdAt:Instant,val request:PlanRequest,val sessions:List<PlannedSession>,val explanations:List<String>,val status:String="draft",val feedback:List<PlanFeedback> = emptyList(),val revision:Int=1,val foreignSnapshot:String?=null) {
+internal data class PlanSnapshot(val id:String,val owner:String,val engineVersion:String,val policyId:String,val createdAt:Instant,val request:PlanRequest,val sessions:List<PlannedSession>,val explanations:List<String>,val status:String="draft",val feedback:List<PlanFeedback> = emptyList(),val revision:Int=1,val foreignSnapshot:String?=null,val name:String?=null) {
     fun encode():JSONObject {
         if(engineVersion!=ENGINE1_VERSION && foreignSnapshot!=null)return JSONObject(foreignSnapshot)
         return JSONObject().put("schemaVersion",PLAN_SCHEMA).put("id",id).put("user_id",owner).put("engineVersion",engineVersion).put("policyId",policyId).put("createdAt",createdAt.toString()).put("request",request.encode())
-        .put("sessions",JSONArray(sessions.map { it.encode() })).put("explanations",JSONArray(explanations)).put("status",status).put("feedback",JSONArray(feedback.map { it.encode() })).put("revision",revision)
+        .put("sessions",JSONArray(sessions.map { it.encode() })).put("explanations",JSONArray(explanations)).put("status",status).put("feedback",JSONArray(feedback.map { it.encode() })).put("revision",revision).put("name",name)
     }
     companion object {
         fun decode(j:JSONObject,owner:String):PlanSnapshot {
@@ -81,7 +81,7 @@ internal data class PlanSnapshot(val id:String,val owner:String,val engineVersio
             require(j.getString("user_id")==owner) { "Plan owner does not match" }
             val sessions=j.getJSONArray("sessions").objects().map(PlannedSession::decode)
             require(sessions.size<=400 && sessions.map { it.id }.distinct().size==sessions.size)
-            return PlanSnapshot(j.getString("id"),owner,j.getString("engineVersion"),j.getString("policyId"),Instant.parse(j.getString("createdAt")),PlanRequest.decode(j.getJSONObject("request")),sessions,j.getJSONArray("explanations").strings(),j.getString("status"),j.getJSONArray("feedback").objects().map(PlanFeedback::decode),j.getInt("revision"),if(j.getString("engineVersion")!=ENGINE1_VERSION)j.toString()else null)
+            return PlanSnapshot(j.getString("id"),owner,j.getString("engineVersion"),j.getString("policyId"),Instant.parse(j.getString("createdAt")),PlanRequest.decode(j.getJSONObject("request")),sessions,j.getJSONArray("explanations").strings(),j.getString("status"),j.getJSONArray("feedback").objects().map(PlanFeedback::decode),j.getInt("revision"),if(j.getString("engineVersion")!=ENGINE1_VERSION)j.toString()else null,j.nullString("name"))
         }
     }
 }

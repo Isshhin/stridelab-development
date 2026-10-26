@@ -34,7 +34,7 @@ import kotlinx.coroutines.withContext
     var expanded by rememberSaveable(plan.id) { mutableStateOf(false) }
     SignalCard {
         Text(plan.status.uppercase()+" · ENGINE ${plan.engineVersion}",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
-        Text(plan.request.goal,style=MaterialTheme.typography.headlineSmall)
+        Text(plan.name ?: plan.request.goal,style=MaterialTheme.typography.headlineSmall)
         Text("${plan.request.start} – ${plan.request.start.plusWeeks(plan.request.weeks.toLong()).minusDays(1)} · ${plan.request.weeks} weeks",style=MaterialTheme.typography.bodyMedium)
         Text("${plan.sessions.size} prescribed sessions · ${plan.sessions.count { it.status=="completed" }} completed",style=MaterialTheme.typography.bodyMedium)
         Text("Account-private · stored on this device · not cloud-synced",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -73,7 +73,7 @@ import kotlinx.coroutines.withContext
         } }
         if(state.account==null) item { SignalCard { Text("Plan without a watch",style=MaterialTheme.typography.headlineSmall);Text("Sign in once to create private, account-isolated plans. Generation, calendar and logging then work offline.");SignalButton("Sign in",onSignIn) } }
         else if(plan==null) item { SignalCard { Text("Build your training around your life.",style=MaterialTheme.typography.headlineMedium);Text("Running, strength, calisthenics and conditioning share one calendar. Choose your goal, ability, days and equipment. Review real prescriptions before approving.");SignalButton("Create a plan",onBuild) } }
-        if(plans.size>1) item { Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) { plans.forEach { p -> SignalChip(p.id==plan?.id,{selectedId=p.id},label={Text(p.request.goal+" · "+p.status)}) } } }
+        if(plans.size>1) item { Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) { plans.forEach { p -> SignalChip(p.id==plan?.id,{selectedId=p.id},label={Text((p.name ?: p.request.goal)+" · "+p.status)}) } } }
         if(plan!=null) {
             item { Column(Modifier.testTag("training-calendar")) { TrainingCalendar(plan,date,monthView) { selectedDate=it.toString() } } }
             item { PlanOverview(plan) }
@@ -90,7 +90,7 @@ import kotlinx.coroutines.withContext
     }
     if(planMenu&&plan!=null) ModalBottomSheet(onDismissRequest={planMenu=false},containerColor=MaterialTheme.colorScheme.surface) {
         Column(Modifier.padding(24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-            Text(plan.request.goal,style=MaterialTheme.typography.headlineSmall);Text("Editing creates a new reviewed draft. Approved prescriptions and previous logs are retained.")
+            Text(plan.name ?: plan.request.goal,style=MaterialTheme.typography.headlineSmall);Text("Editing creates a new reviewed draft. Approved prescriptions and previous logs are retained.")
             SignalButton("Edit inputs / create draft",{planMenu=false;onBuild()})
             if(plan.status=="approved") OutlinedButton(onClick={actions.pause(plan.id,plan.revision);planMenu=false},modifier=Modifier.fillMaxWidth()) { Text("Pause plan") }
             OutlinedButton(onClick={actions.archive(plan.id,plan.revision);planMenu=false},modifier=Modifier.fillMaxWidth()) { Text("Archive plan · keep records") }
