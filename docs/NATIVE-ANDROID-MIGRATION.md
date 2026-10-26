@@ -28,7 +28,7 @@ SQLite schema/file and Keystore aliases are unchanged. Room is deferred: the exi
 
 ## Verification and remaining work
 
-The native build and new tests must pass before this slice is described as verified. See private `Native Android migration verification` workflow and continuation notes for actual run IDs and failures. New tests cover metric absence/units/ownership and native navigation/password state; inherited tests cover SQLite rollback, conflicts and Keystore tampering.
+The native build and new tests must pass before this slice is described as verified. See private `Native Android migration verification` workflow and continuation notes for actual run IDs and failures. New tests cover metric absence/units/ownership, native navigation/password state, and the repository against a fake gateway using real isolated SQLite/Keystore (partial import, deduplication, offline recreation, session verification/rotation, offline logout); inherited tests cover SQLite rollback, conflicts and Keystore tampering.
 
 No authenticated real-athlete session or physical Android device is accessible to this development environment. Do not claim genuine-account sign-in, provider sync, history completeness, installation/update compatibility or daily-use readiness based on anonymous queries, fakes or a successful build.
 

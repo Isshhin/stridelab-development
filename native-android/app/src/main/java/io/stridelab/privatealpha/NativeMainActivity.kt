@@ -135,9 +135,9 @@ class NativeMainActivity: ComponentActivity() {
                     var email by rememberSaveable { mutableStateOf("") }
                     // Never persist passwords through saved state or process recreation.
                     var password by remember { mutableStateOf("") }
-                    val initialAccount = remember { state.account }
-                    LaunchedEffect(state.account, state.busy, state.needsSignIn) {
-                        if(state.account != null && !state.busy && !state.needsSignIn && (initialAccount == null || state.message?.startsWith("History refreshed") == true)) nav.popBackStack()
+                    val initialGeneration = remember { state.loginGeneration }
+                    LaunchedEffect(state.loginGeneration, state.busy, state.needsSignIn) {
+                        if(state.account != null && !state.busy && !state.needsSignIn && state.loginGeneration > initialGeneration) nav.popBackStack()
                     }
                     Screen("Welcome back", "SECURE SIGN-IN") {
                         item { Text("Use your existing StrideLab email and password. Your session is encrypted with Android Keystore.") }

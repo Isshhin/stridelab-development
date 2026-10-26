@@ -8,7 +8,7 @@ import java.net.URI
 import java.net.URLEncoder
 import javax.net.ssl.HttpsURLConnection
 
-internal class ServiceFailure(val status: Int, message: String): IOException(message)
+internal class ServiceFailure(val status: Int, message: String, val requiresSignIn: Boolean = status == 401): IOException(message)
 internal interface TrainingGateway {
     fun signIn(email: String, password: String): NativeSession
     fun refresh(session: NativeSession): NativeSession
@@ -24,7 +24,7 @@ internal class SupabaseGateway: TrainingGateway {
         val connection = URI(BackendConfig.URL + path).toURL().openConnection() as HttpsURLConnection
         try {
             connection.instanceFollowRedirects = false
-            connection.connectTimeout = 20_000; connection.readTimeout = 30_000
+            connection.connectTimeout = 20_000; connection.readTimeout = if(path.startsWith("/functions/")) 125_000 else 30_000
             connection.setRequestProperty("apikey", BackendConfig.PUBLISHABLE_KEY)
             connection.setRequestProperty("Accept", "application/json")
             if (token != null) connection.setRequestProperty("Authorization", "Bearer $token")
@@ -36,9 +36,10 @@ internal class SupabaseGateway: TrainingGateway {
             val status = connection.responseCode
             if (status !in 200..299) throw ServiceFailure(status, when(status) {
                 400, 401, 403 -> "Sign-in or data access was not accepted. Check your account and try again."
+                409 -> "This source is not connected or needs attention in your existing integration settings."
                 429 -> "Too many requests. Please try again later."
                 else -> "The service could not complete the request (HTTP $status). Your cached data is retained."
-            })
+            }, requiresSignIn = status == 401 || (path.startsWith("/auth/") && status in setOf(400, 403)))
             val out = java.io.ByteArrayOutputStream()
             connection.inputStream.use { input ->
                 val block = ByteArray(8192)

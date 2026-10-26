@@ -7,6 +7,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -19,14 +20,16 @@ internal data class TrainingState(
     val busy: Boolean = false,
     val message: String? = null,
     val lastSync: Long? = null,
-    val needsSignIn: Boolean = false
+    val needsSignIn: Boolean = false,
+    val loginGeneration: Long = 0
 )
 
 /** All network/database/encryption work is serialized off the main thread, including workers. */
-internal class TrainingRepository(context: Context, private val gateway: TrainingGateway = SupabaseGateway()) {
-    private val store = TrainingStore(context)
+internal class TrainingRepository(context: Context, private val gateway: TrainingGateway = SupabaseGateway(),
+    databaseName: String = TrainingStore.DATABASE, preferencesName: String = "native-account-v1") {
+    private val store = TrainingStore(context, databaseName)
     private val vault = SessionVault(context)
-    private val preferences = context.getSharedPreferences("native-account-v1", Context.MODE_PRIVATE)
+    private val preferences = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
     private val mutex = Mutex()
     private val mutable = MutableStateFlow(TrainingState())
     val state = mutable.asStateFlow()
@@ -34,11 +37,12 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     init { scope.launch { mutex.withLock {
         val account = preferences.getString("active", null)
         try {
-            mutable.value = TrainingState(initializing = false, account = account)
+            mutable.value = TrainingState(initializing = true, account = account)
             if (account != null) {
                 loadCache(account)
                 if(vault.read(account) == null) mutable.value = mutable.value.copy(needsSignIn = true, message = "Sign in again to synchronize. Your saved activities remain available.")
             }
+            mutable.value = mutable.value.copy(initializing = false)
         } catch (_: Exception) {
             mutable.value = mutable.value.copy(initializing = false, needsSignIn = true, message = "Saved data could not be fully loaded. Existing files were retained. Try signing in again.")
         }
@@ -64,7 +68,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             mutable.value = mutable.value.copy(busy = true, message = null)
             try { action(); true }
             catch (e: ServiceFailure) {
-                mutable.value = mutable.value.copy(message = e.message, needsSignIn = e.status in setOf(400, 401, 403)); false
+                mutable.value = mutable.value.copy(message = e.message, needsSignIn = e.requiresSignIn || mutable.value.needsSignIn); false
             } catch (_: java.io.IOException) {
                 mutable.value = mutable.value.copy(message = "Connection or secure storage is unavailable. Saved activities are retained; retry when connected."); false
             } catch (_: Exception) {
@@ -78,7 +82,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         gateway.verify(session)
         vault.save(session) // No account activation unless encryption succeeds.
         check(preferences.edit().putString("active", session.account).commit())
-        mutable.value = TrainingState(initializing = false, account = session.account, busy = true)
+        mutable.value = TrainingState(initializing = false, account = session.account, busy = true, loginGeneration = mutable.value.loginGeneration + 1)
         loadCache(session.account)
         // Authentication is complete even if this first cache refresh fails.
         fetchActivities(session)
@@ -124,6 +128,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         if(result.optBoolean("ok", true).not() || result.has("error")) throw java.io.IOException("Integration sync did not complete")
         fetchActivities(session)
     }
+    internal fun close() { scope.cancel(); store.close() }
+
     suspend fun signOut() = operation {
         val account = mutable.value.account ?: return@operation
         // Always end local access even offline. Server logout is best effort and explicitly reported.
