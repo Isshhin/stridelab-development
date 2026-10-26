@@ -42,7 +42,7 @@ jobs:
           import hashlib,json,zipfile,sys
           with zipfile.ZipFile('archive/StrideLab-Phase4E-Fix1-candidate.zip') as z:
               root='StrideLab-Phase4E/'
-              m=json.loads(z.read(root+'SHA256-MANIFEST-Phase4E-Final-candidate.json'))
+              m=json.loads(z.read(root+'SHA256-MANIFEST-Phase4E-Fix1-candidate.json'))
               errors=[n for n,h in m.items() if hashlib.sha256(z.read(root+n)).hexdigest()!=h]
               print(f'Phase 4E manifest {len(m)-len(errors)}/{len(m)}')
               if errors or len(m)!=41: print(errors[:10]);sys.exit(1)
