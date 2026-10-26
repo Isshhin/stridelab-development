@@ -17,3 +17,5 @@
 
 /native-android/__pycache__/
 /native-android/**/__pycache__/
+
+/native-android/.kotlin/
