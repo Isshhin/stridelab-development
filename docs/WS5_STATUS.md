@@ -1,6 +1,19 @@
 # StrideLab Phase 4D.2 — Workstream 5 Status
 
-## WS5-D final Library candidate (2026-10-26)
+## Workstream 5 automated acceptance — 2026-10-26
+
+**WS5-D is accepted as the final Workstream 5 automated-verification checkpoint. Phase 4D.2 Library work is complete within the tested scope.**
+
+- Authoritative official CI: [WS5-D run 40247262671](https://github.com/Isshhin/stridelab-development/actions/runs/40247262671), **253 passed, 0 failed, 0 skipped, 0 flaky**, official Playwright Chromium including available axe suites.
+- Immutable source: [private WS5-D prerelease](https://github.com/Isshhin/stridelab-development/releases/tag/ws5-d-candidate), asset `StrideLab-WS5-D-candidate.zip`, 20,115,804 bytes, SHA-256 `451d53c3387362b9dd17f61457197373fdd66a8399fd8c58e59d60c267de2271`.
+- ZIP CRC and **607/607** manifest hashes; deterministic HTML rebuild SHA-256 `4de57902e2f5dfaf6b79807bbb01fcc3df540d6151ed3054ff2ff6de6d89e5fb`.
+- Protected engine `3ae9226a19718925d5a0c59771d13ed85860b4f4cd694490f0cbf668cfb3a3f2`, original Phase 4D.1 baseline `cffaad8e9856d988f864cb09143a63aeac573b453aa0978abcded3dfb054bd9d`: unchanged.
+- Library contains **23 trackable workouts plus 21 educational reference-only guides**; five reviewed progression pathways, metadata, image-fit disclosures and appropriate running session descriptions. The 21 guides do not generate workout recordings or coaching prescriptions.
+- Remaining limits: manual real Android/browser testing, manual screen-reader review, professional exercise/muscle metadata validation, and licensing/artwork appropriateness review. Automated accessibility checks do **not** certify those.
+- **Next workstream: Phase 4D.3A Running Intelligence 3.0**, on a separate checkpoint/branch, with no modifications to the accepted protected engine or Phase 4D.1 source. Then 4D.3B Link Run, 4D.3C planned-versus-actual feedback, private Android pre-alpha before Engine 2.0.
+
+
+## Historical WS5-D candidate preparation (superseded by accepted CI)
 
 **Implementation packaged; official acceptance pending.** Latest accepted upstream is **WS5-C Fix1**, [248/248 verified in run 40245684800](https://github.com/Isshhin/stridelab-development/actions/runs/40245684800).
 
