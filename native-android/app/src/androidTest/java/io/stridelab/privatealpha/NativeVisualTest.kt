@@ -108,6 +108,7 @@ class NativeVisualTest {
         compose.onNodeWithText("Heart rate",useUnmergedTree=true).performScrollTo().assertIsDisplayed()
         capture("simulation-recorded-streams")
         compose.onNodeWithText("Recorded GPS trace").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithContentDescription("Recorded GPS route trace",substring=true).performScrollTo().assertIsDisplayed()
         capture("simulation-recorded-gps-trace")
         compose.onNodeWithText("Source laps").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Lap 1 · 1.00 km · 5:50").performScrollTo().assertIsDisplayed()
