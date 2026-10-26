@@ -117,4 +117,10 @@ class Engine1Test {
         assertEquals(actual,PlanSnapshot.decode(done.encode(),"synthetic-owner").sessions.first().log!!.performedOn)
         assertThrows(PlanConstraint::class.java) { PlanOperations.record(p,s.id,WorkoutLog(now,performedOn=LocalDate.now().plusDays(1)),true) }
     }
+    @Test fun assistedPullingNeverAssumesUnselectedFootSupport() {
+        val p=PlanRequest(start=start,goal="Pull-up progression",runDays=0,calDays=2,equipment=mapOf("bar" to 1))
+        assertThrows(PlanConstraint::class.java) { generate(p) }
+        assertTrue(generate(p.copy(equipment=mapOf("bar" to 1,"support" to 1))).sessions.flatMap { it.exercises }.any { it.id=="supported-hang" })
+        assertFalse(generate(p.copy(goal="Calisthenics foundation")).sessions.flatMap { it.exercises }.any { it.id=="supported-hang" })
+    }
 }

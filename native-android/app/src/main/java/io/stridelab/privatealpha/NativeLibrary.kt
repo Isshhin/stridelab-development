@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
@@ -53,7 +54,7 @@ internal fun readLibrary(context:Context):List<LibraryEntry> = context.assets.op
         (level=="All levels" || it.text("level")==level) && (pattern=="All movements" || it.text("pattern")==pattern) && (equipment=="All equipment" || it.text("eq")==equipment) &&
         (view!="Saved" || if(collectionFilter=="All saved") it.id in state.shelf.favorites || state.shelf.collections.values.any { ids->it.id in ids } else if(collectionFilter=="Favorites")it.id in state.shelf.favorites else it.id in (state.shelf.collections[collectionFilter] ?: emptySet())) }
     val logged=state.plans.flatMap { p -> p.sessions.filter { it.log!=null }.map { p to it } }.sortedByDescending { it.second.log?.at }
-    Screen("Library","RUN, LIFT, MOVE") {
+    Box(Modifier.fillMaxSize().testTag(if(entries.isNotEmpty())"library-ready" else "library-loading")) { Screen("Library","RUN, LIFT, MOVE") {
         item { Text("Explore the purpose, learn the technique and find an option for your setup.",style=MaterialTheme.typography.bodyLarge) }
         if(view!="Sessions") {
         item { Text("${matches.size} ${if(guides) "educational references · not tracked workouts" else "curated entries"}",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -85,7 +86,7 @@ internal fun readLibrary(context:Context):List<LibraryEntry> = context.assets.op
             Text(entry.text("purpose"),style=MaterialTheme.typography.bodyMedium)
         } }
         }
-    }
+    } }
     entries.firstOrNull { it.id==selected }?.let { entry ->
         ModalBottomSheet(onDismissRequest={focus.clearFocus();keyboard?.hide();selected=null},sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),containerColor=MaterialTheme.colorScheme.surface) {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal=22.dp).padding(bottom=32.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {

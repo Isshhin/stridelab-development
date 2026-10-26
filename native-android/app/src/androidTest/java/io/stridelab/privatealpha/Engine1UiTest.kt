@@ -54,8 +54,9 @@ class Engine1UiTest {
     @Test fun fourRootsAndAcceptedLibraryModalRemainFunctional() {
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(TrainingState(initializing=false),true,NativeActions({},{},{},{},{_,_->})) } } }
         compose.onNodeWithTag("nav-library").performClick()
-        compose.waitUntil(10000) { compose.onAllNodesWithText("23 curated entries").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Search exercises").performTextInput("Incline")
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("library-ready").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("23 curated entries"));compose.onNodeWithText("23 curated entries").assertExists()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Search exercises"));compose.onNodeWithText("Search exercises").performTextInput("Incline")
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Incline push-up"));compose.onNodeWithText("Incline push-up",useUnmergedTree=true).performClick()
         compose.waitUntil(10000) { compose.onAllNodesWithContentDescription("Incline push-up — original schematic").fetchSemanticsNodes().isNotEmpty() }
         capture("phase1-library-modal")
@@ -78,8 +79,9 @@ class Engine1UiTest {
         compose.onNodeWithTag("screen").performScrollToNode(hasText("PRIVATE TESTING FEEDBACK"))
         compose.onNodeWithText("PRIVATE TESTING FEEDBACK").assertIsDisplayed()
         compose.onNodeWithTag("nav-library").performClick()
-        compose.waitUntil(10000) { compose.onAllNodesWithText("23 curated entries").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Search exercises").performTextInput("Incline")
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("library-ready").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("23 curated entries"));compose.onNodeWithText("23 curated entries").assertExists()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Search exercises"));compose.onNodeWithText("Search exercises").performTextInput("Incline")
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Incline push-up"));compose.onNodeWithText("Incline push-up",useUnmergedTree=true).performClick()
         compose.onNodeWithText("MAKE IT EASIER").performScrollTo().assertIsDisplayed()
         capture("phase1-library-modal-200pct")
@@ -90,8 +92,9 @@ class Engine1UiTest {
         val actions=PlanActions(shelf={id,c,remove -> state.value=state.value.copy(shelf=state.value.shelf.change(id,c,remove)) })
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,true,NativeActions({},{},{},{},{_,_->},planning=actions)) } } }
         compose.onNodeWithTag("nav-library").performClick()
-        compose.waitUntil(10000) { compose.onAllNodesWithText("23 curated entries").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Search exercises").performTextInput("Incline")
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("library-ready").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("23 curated entries"));compose.onNodeWithText("23 curated entries").assertExists()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Search exercises"));compose.onNodeWithText("Search exercises").performTextInput("Incline")
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Incline push-up"));compose.onNodeWithText("Incline push-up",useUnmergedTree=true).performClick()
         compose.onNodeWithText("Save favorite",useUnmergedTree=true).performScrollTo().performClick()
         compose.onNodeWithText("Collection name").performScrollTo().performTextInput("Home practice")
