@@ -74,7 +74,7 @@ class NativeProcessProbeTest {
                 InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
                 compose.onNodeWithTag("screen-title").assertTextEquals("Activities")
                 compose.onNodeWithText("Synthetic strength check").performClick()
-                compose.onNodeWithText("Recorded pace").assertDoesNotExist()
+                compose.onNodeWithText("Average pace").assertDoesNotExist()
                 compose.onNodeWithText("Moving time").assertDoesNotExist()
                 File(directory,"strength-detail-offline.png").outputStream().use { output ->
                     assertTrue(compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,output))

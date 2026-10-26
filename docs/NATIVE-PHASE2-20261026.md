@@ -33,3 +33,11 @@ Actions 40300250236 rebuilt the restored code: 19 JVM and 26 emulator tests pass
 - Read-only APK update checker compares package/version/signers, never installs/uninstalls/clears/signs. Seven Python logic tests passed locally. Matching metadata is not physical upgrade validation.
 
 Intermediate CI: 40302186251 built successfully but hit an input-dispatch ANR during the unchanged legacy WebView seed startup; native emulator tests did not start. 40302823522 built and passed the expanded JVM gate but helper compilation failed because Espresso was not on the compile classpath; fixed using Android Instrumentation's Back event. New orchestration captures emulator logs/screens before shutdown on success or failure. These runs are not recorded as full passes.
+
+## Reviewed native captures
+
+Downloaded the successful run 40303916247 artifact and inspected Home, Activities, Settings, Authentication, offline Home and activity detail at font scale 1.3. Found crowded detail columns at large font, overly large detail title, lost Activities selection on detail routes, repetitive signed-out copy and inconsistent default purple accents. Implemented single-column metrics at larger font/narrow width, compact detail titles, Activities selection for details, clearer average-pace naming, account-neutral signed-out sync status, correct singular activity count and coordinated dark green component colors. Missing values remain explicit.
+
+Run 40303916247 passed 32 JVM, 34 Android, 7 Python, 1 legacy seed and 4 backend/lifecycle executions. Real Android HTTPS anonymous API/RLS checks passed. Tests using account sessions still use a fake gateway. Actual built APK metadata checks passed version 2 → 4 with the same CI debug certificate; this is not evidence about the user's phone certificate.
+
+Source 32fdfc4 added concurrent refresh and damaged-session tests but run 40304313579 hit another legacy seed ANR before native tests. Captured logs show the legacy fixture closing its window during first-frame rendering. Both legacy tests now require a committed frame and window focus after DOM readiness before teardown. This strengthens readiness checks without changing the preserved WebView code or disabling ANR detection. The offline probe now starts the native app and verifies a running PID before force-stop, making unexpected termination explicit.

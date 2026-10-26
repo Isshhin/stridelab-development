@@ -27,9 +27,24 @@ public class NativeUpgradeTest {
             boolean ready=false;
             for(int n=0;n<100;n++){if(eval(scenario,view[0],"location.origin+'|'+(document.querySelector('#app h1')!==null)").contains("appassets.androidplatform.net|true")){ready=true;break;}SystemClock.sleep(300);}
             assertTrue("Preserved legacy origin did not load",ready);
+            waitForInteractiveFrame(scenario,view[0]);
             assertEquals("synthetic-value-π",new org.json.JSONTokener(eval(scenario,view[0],"localStorage.getItem('stride-native-upgrade-fixture')")).nextValue());
             assertEquals(context.getSharedPreferences("synthetic-upgrade-probe",0).getString("afterglowSnapshotEvaluation",null),eval(scenario,view[0],"localStorage.getItem('afterglow2')"));
         }
+    }
+    private static void waitForInteractiveFrame(ActivityScenario<MainActivity> scenario,WebView view) throws Exception {
+        java.util.concurrent.atomic.AtomicBoolean committed=new java.util.concurrent.atomic.AtomicBoolean(android.os.Build.VERSION.SDK_INT<29);
+        scenario.onActivity(activity -> {
+            if(android.os.Build.VERSION.SDK_INT>=29)view.getViewTreeObserver().registerFrameCommitCallback(() -> committed.set(true));
+            view.postInvalidateOnAnimation();
+        });
+        boolean[] focused={false};
+        for(int n=0;n<100;n++) {
+            scenario.onActivity(activity -> focused[0]=activity.hasWindowFocus()&&view.isLaidOut());
+            if(committed.get()&&focused[0])return;
+            SystemClock.sleep(100);
+        }
+        fail("Legacy document loaded but its interactive frame did not become ready");
     }
     private static WebView find(android.view.View view) {
         if(view instanceof WebView)return (WebView)view;
