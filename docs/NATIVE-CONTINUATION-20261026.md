@@ -1,3 +1,5 @@
+> **Latest corrections:** [Navigation roots and silent sync-success feedback are implemented and verified](NATIVE-FEATURE-RECONSTRUCTION.md). Tested source 8c5dae4; CI 40326759340 passed (32 JVM / 45 emulator tests, legacy seed and four probes). Carry these required behaviors into the upcoming unified Native Feature Reconstruction. Existing checkpoints and real-account acceptance boundaries remain intact.
+
 > **Latest milestone: Native UI/UX Reconstruction implemented and verified.** Tested source 092d1f6884cfac58271d11f6a07af28a436f708f; CI 40321549037 passed (32 JVM / 41 emulator tests, legacy seed and four probes). See [verified UI handoff](NATIVE-UI-VERIFIED-20261026.md). Real-account Phase 2 and physical-phone acceptance remain pending. Earlier sections below retain foundation history.
 
 # Native Android continuation — 2026-10-26
