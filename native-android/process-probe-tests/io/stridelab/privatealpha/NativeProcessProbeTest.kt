@@ -9,6 +9,8 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -29,6 +31,14 @@ class NativeProcessProbeTest {
         app.repository.state.first { !it.initializing }
         val phase = InstrumentationRegistry.getArguments().getString("processPhase")
         when(phase) {
+            "reachability" -> withContext(Dispatchers.IO) {
+                // Public key + no bearer: verifies Android HTTPS and RLS boundary, NOT a user login.
+                val transport = HttpsBackendTransport()
+                val rows = JSONArray(transport.execute("/rest/v1/activities?select=id&limit=1",null,null))
+                assertEquals("Anonymous access must not expose athlete history",0,rows.length())
+                try { transport.execute("/auth/v1/user",null,null); fail("Anonymous request must not identify an athlete") }
+                catch(expected: ServiceFailure) { assertEquals(401,expected.status) }
+            }
             "seed" -> {
                 assertNull(app.repository.state.value.account)
                 TrainingStore(context).use { db ->
@@ -61,7 +71,7 @@ class NativeProcessProbeTest {
                 File(directory,"activity-detail-offline.png").outputStream().use { output ->
                     assertTrue(compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,output))
                 }
-                androidx.test.espresso.Espresso.pressBack()
+                InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
                 compose.onNodeWithTag("screen-title").assertTextEquals("Activities")
                 SessionVault(context).clear(account)
             }

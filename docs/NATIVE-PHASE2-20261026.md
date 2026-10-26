@@ -21,3 +21,15 @@ Real-account native sign-in, genuine activity refresh and offline process reopen
 ## Baseline rerun
 
 Actions 40300250236 rebuilt the restored code: 19 JVM and 26 emulator tests passed, plus the legacy seed. The overall run failed during PNG export, not the tests. Investigation identified AGP target cleanup after connected tests as another image-retention problem; leaveApksInstalledAfterRun is now enabled to preserve app data/evidence. Instrumentation tests are restricted to disposable emulators; do not run this suite against the personal installation.
+
+## Reliability changes
+
+- Refreshes a rejected access token once, saves rotation before retry, rejects any renewed owner mismatch. No retries on timeouts/5xx provider mutations.
+- Continues history until an explicit empty page, validates descending timestamp/ID cursor order, keeps prior completion state on partial failure.
+- Intervals status is fetched from the existing edge contract, cached without secret fields and shown with its check timestamp. Disconnected sources cannot trigger a sync.
+- Added max HR, explicit provider labels, timezone checks and discipline-aware pace display. Distances and elapsed/moving time remain source values; missing metrics stay absent.
+- Native link-state banner distinguishes offline cache viewing; sign-out hides account/cache before server revocation can block.
+- Extra CI-only helper tests actual force-stop/reopen with disabled networking and larger font, then reconnects and checks deduplication through a fake gateway. A separate anonymous HTTPS/RLS-boundary phase checks the actual backend; neither is real-account authentication.
+- Read-only APK update checker compares package/version/signers, never installs/uninstalls/clears/signs. Seven Python logic tests passed locally. Matching metadata is not physical upgrade validation.
+
+Intermediate CI: 40302186251 built successfully but hit an input-dispatch ANR during the unchanged legacy WebView seed startup; native emulator tests did not start. 40302823522 built and passed the expanded JVM gate but helper compilation failed because Espresso was not on the compile classpath; fixed using Android Instrumentation's Back event. New orchestration captures emulator logs/screens before shutdown on success or failure. These runs are not recorded as full passes.

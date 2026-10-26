@@ -24,6 +24,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
+      - name: Verify read-only APK compatibility gate
+        run: python3 -m unittest discover -s native-android/tools/tests -v
       - name: Build native APK and run unit tests
         working-directory: native-android
         run: |
@@ -31,6 +33,11 @@ jobs:
           "${ANDROID_HOME}/build-tools/35.0.0/apksigner" verify app/build/outputs/apk/debug/app-debug.apk
       - name: Build preserved legacy APK and isolated upgrade seed test
         run: gradle --no-daemon -p android-app/android -I "$GITHUB_WORKSPACE/native-android/legacy-upgrade.init.gradle" :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Compare actual built legacy and native APK metadata
+        run: |
+          mkdir -p native-android/app/build/reports
+          python3 native-android/tools/check_apk_update.py --installed-apk android-app/android/app/build/outputs/apk/debug/app-debug.apk --candidate native-android/app/build/outputs/apk/debug/app-debug.apk --aapt "$ANDROID_HOME/build-tools/35.0.0/aapt" --apksigner "$ANDROID_HOME/build-tools/35.0.0/apksigner" > native-android/app/build/reports/apk-update-metadata.json
+          cat native-android/app/build/reports/apk-update-metadata.json
       - name: Compile isolated lifecycle probe test APK
         working-directory: native-android
         run: gradle --no-daemon :app:assembleDebugAndroidTest -PstrideProcessProbe=true
@@ -62,34 +69,7 @@ jobs:
           emulator-boot-timeout: 300
           emulator-options: -accel on -no-snapshot -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
           disable-animations: true
-          script: |
-            adb install -r android-app/android/app/build/outputs/apk/debug/app-debug.apk
-            adb install -r android-app/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            adb shell am instrument -w -e class io.stridelab.privatealpha.LegacyUpgradeSeedTest io.stridelab.privatealpha.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/legacy-upgrade-seed.txt
-            grep -F 'OK (1 test)' /tmp/legacy-upgrade-seed.txt
-            cd native-android && gradle --no-daemon --stacktrace :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.expectLegacyUpgrade=true
-            cd native-android && gradle --no-daemon :app:assembleDebugAndroidTest -PstrideProcessProbe=true
-            adb install -r native-android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            mkdir -p native-android/app/build/reports/process-probe
-            adb shell am instrument -w -e class io.stridelab.privatealpha.NativeProcessProbeTest -e processPhase seed io.stridelab.privatealpha.test/androidx.test.runner.AndroidJUnitRunner | tee native-android/app/build/reports/process-probe/seed.txt
-            grep -F 'OK (1 test)' native-android/app/build/reports/process-probe/seed.txt
-            adb shell am force-stop io.stridelab.privatealpha
-            adb shell settings put system font_scale 1.3
-            adb shell cmd connectivity airplane-mode enable
-            adb shell svc wifi disable
-            adb shell svc data disable
-            adb shell am instrument -w -e class io.stridelab.privatealpha.NativeProcessProbeTest -e processPhase offline io.stridelab.privatealpha.test/androidx.test.runner.AndroidJUnitRunner | tee native-android/app/build/reports/process-probe/offline.txt
-            grep -F 'OK (1 test)' native-android/app/build/reports/process-probe/offline.txt
-            adb shell am force-stop io.stridelab.privatealpha
-            adb shell cmd connectivity airplane-mode disable
-            adb shell svc wifi enable
-            adb shell svc data enable
-            adb shell am instrument -w -e class io.stridelab.privatealpha.NativeProcessProbeTest -e processPhase reconnected io.stridelab.privatealpha.test/androidx.test.runner.AndroidJUnitRunner | tee native-android/app/build/reports/process-probe/reconnected.txt
-            grep -F 'OK (1 test)' native-android/app/build/reports/process-probe/reconnected.txt
-            adb shell settings put system font_scale 1.0
-            mkdir -p native-android/app/build/reports/native-ui-evidence
-            adb pull /sdcard/Android/data/io.stridelab.privatealpha/files/native-ui-evidence/. native-android/app/build/reports/native-ui-evidence/
-            test -f native-android/app/build/reports/native-ui-evidence/home.png
+          script: python3 native-android/tools/validate_emulator.py
       - name: Archive source checkpoint
         if: always()
         run: python3 native-android/checkpoint.py
