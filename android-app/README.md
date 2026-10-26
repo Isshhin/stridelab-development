@@ -1,5 +1,7 @@
 # StrideLab Phase 4E — integrated private Android pre-alpha candidate
 
+**Android-first development:** current architecture, implemented native storage/session modules and verification limits are recorded in `../docs/ANDROID-FIRST-ARCHITECTURE.md`. The text below describes the preserved Phase 4E source baseline. The native modules do not yet make its demonstration UI a real-data daily-use application.
+
 This is a *source archive*, not an APK. It builds a private native Android shell over the **GitHub-accepted Phase 4D** prototype without rewriting its coaching engine or inventing new server dependencies.
 
 ## Files

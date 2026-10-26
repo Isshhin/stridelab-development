@@ -13,7 +13,7 @@ archive=out/'StrideLab-Android-Foundation-source.zip'
 with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as z:
     for name in sorted(names):
         info=zipfile.ZipInfo('StrideLab-Android-Foundation/'+name,(2026,10,26,0,0,0));info.compress_type=zipfile.ZIP_DEFLATED;info.external_attr=0o100644<<16;z.writestr(info,(root/name).read_bytes())
-    z.writestr('StrideLab-Android-Foundation/SHA256-MANIFEST.json',payload)
+    info=zipfile.ZipInfo('StrideLab-Android-Foundation/SHA256-MANIFEST.json',(2026,10,26,0,0,0));info.compress_type=zipfile.ZIP_DEFLATED;info.external_attr=0o100644<<16;z.writestr(info,payload)
 with zipfile.ZipFile(archive) as z:assert z.testzip() is None
 digest=hashlib.sha256(archive.read_bytes()).hexdigest()
 (out/(archive.name+'.sha256')).write_text(digest+'  '+archive.name+'\n')

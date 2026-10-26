@@ -31,7 +31,15 @@ Alternatives assessed: loading the remote website alone fails offline requiremen
 - Account identifiers are mandatory on reads and mutations. No implicit current-user global is trusted by the store.
 - A record lacking a server version cannot be blindly updated offline. Backend adapters must provide a conditional-write version before replay is enabled.
 
-These classes are not yet wired into the prototype screens, authentication, a real network sync worker, Health Connect or native backup/export. No UI, automatic synchronization or offline workout logging is claimed complete merely because a storage API exists. Current app manifest still has no network permission; no privileged bridge or credential storage has been introduced.
+These classes are not yet wired into the prototype screens, authentication, a real network sync worker, Health Connect or native backup/export. No UI, automatic synchronization or offline workout logging is claimed complete merely because a storage API exists. Current app manifest still has no network permission and no privileged WebView bridge has been introduced. Native credential persistence is described in the next section.
+
+## Native session storage increment
+
+`NativeSession` and `SessionVault` add native-only session serialization and Android Keystore AES-256-GCM encryption, with separate account-bound keys, associated data and atomic app-private files. Session tokens are not put into WebView storage, SQLite records, archives or logs. A changed ciphertext or another account's encrypted file is rejected. Explicit clearing invalidates that account's key and leaves other accounts untouched.
+
+This is credential persistence infrastructure, not completed login. Native Supabase login, token refresh, explicit account switching, session revocation and the user-facing account screen still need implementation. A native transport must obtain the account from a verified authentication response; the store does not authenticate a supplied identifier.
+
+Local JDK execution: 13/13 JUnit tests passed for backup integrity, record validation and native session serialization. Full Android compilation/emulator checks run in private CI. SQLite tests cover database close/reopen, dependent edits, explicit conflicts, malformed pages, account isolation and an injected transactional write failure. Keystore emulator tests cover reopen, ciphertext tampering, account-bound encryption and invalidation after clearing. Tests are not marked passed until their CI results are recorded. Force-process termination, full application restart with real data, physical device encryption behavior and install-upgrade migration remain unverified.
 
 ## Required next implementation order
 
