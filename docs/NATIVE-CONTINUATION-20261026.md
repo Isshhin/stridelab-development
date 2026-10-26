@@ -1,5 +1,7 @@
 # Native Android continuation — 2026-10-26
 
+> Current Phase 2 status: [NATIVE-PHASE2-20261026.md](NATIVE-PHASE2-20261026.md). Verified code f23719e, Actions 40308952951; 32 JVM / 36 emulator tests plus the documented probes. This file retains the earlier foundation history.
+
 ## Status
 
 Native foundation and first authentication/history slice are implemented. This is **not a validated daily-use application**. Authentication and provider requests use the real Supabase contracts, but no genuine-athlete session has been available for end-to-end verification.

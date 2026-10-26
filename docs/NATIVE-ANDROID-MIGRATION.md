@@ -1,5 +1,7 @@
 # Native Android migration — 2026-10-26
 
+> Current Phase 2 status: [NATIVE-PHASE2-20261026.md](NATIVE-PHASE2-20261026.md). Verified code f23719e, Actions 40308952951; 32 JVM / 36 emulator tests plus the documented probes. This file retains the earlier foundation history.
+
 This directive supersedes the hybrid UI recommendation in ANDROID-FIRST-ARCHITECTURE.md. The web frontend is frozen. The native app uses Kotlin/Compose; the preserved WebView is an explicit legacy-data entry point, never its core renderer.
 
 ## Recovery references
