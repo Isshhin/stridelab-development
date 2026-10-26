@@ -1,0 +1,51 @@
+name: Unified Engine 2 foundation private verification
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  engine2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Retrieve immutable accepted Phase 4D checkpoint
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p inputs accepted
+          gh release download phase4d-final-candidate --repo "$GITHUB_REPOSITORY" --pattern 'StrideLab-Phase4D-Final-candidate.zip' --dir inputs
+          python3 engine2/build.py inputs/StrideLab-Phase4D-Final-candidate.zip
+          unzip -q inputs/StrideLab-Phase4D-Final-candidate.zip -d accepted
+          python3 engine2/harden-test-origin.py accepted/StrideLab-WS5/suite
+      - name: Install official test dependencies and browser
+        run: |
+          npm ci --prefix engine2
+          engine2/node_modules/.bin/playwright install --with-deps chromium
+          ln -s "$GITHUB_WORKSPACE/engine2/node_modules" accepted/StrideLab-WS5/suite/node_modules
+      - name: Deterministic scenarios and invariants
+        run: npm test --prefix engine2
+      - name: Unified approval, persistence and responsive browser tests
+        run: npm run test:browser --prefix engine2
+      - name: Full inherited Phase 4D regression and axe suite
+        working-directory: accepted/StrideLab-WS5/suite
+        env:
+          PROTO: ${{ github.workspace }}/engine2/dist/index.html
+        run: node_modules/.bin/playwright test
+      - name: Strict acceptance counts and archive manifest
+        run: |
+          python3 engine2/checkpoint.py --regression accepted/StrideLab-WS5/suite/results/results.json
+      - name: Retain private source checkpoint and actual test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine2-foundation-checkpoint
+          path: |
+            engine2/results/
+            engine2/checkpoints/
+            accepted/StrideLab-WS5/suite/results/results.json
+          retention-days: 30
+          if-no-files-found: warn

@@ -1,0 +1,6 @@
+engine2/dist/
+engine2/node_modules/
+engine2/results/
+engine2/test-results/
+engine2/checkpoints/
+engine2/__pycache__/

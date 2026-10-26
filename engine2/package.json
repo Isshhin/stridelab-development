@@ -1,0 +1,13 @@
+{
+  "name": "stridelab-unified-engine",
+  "version": "2.0.0-foundation.1",
+  "private": true,
+  "scripts": {
+    "test": "node --test engine.test.cjs",
+    "test:browser": "playwright test --config playwright.config.cjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.0",
+    "axe-core": "4.10.3"
+  }
+}
