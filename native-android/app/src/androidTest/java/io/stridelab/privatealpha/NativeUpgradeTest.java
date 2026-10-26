@@ -30,7 +30,18 @@ public class NativeUpgradeTest {
             waitForInteractiveFrame(scenario,view[0]);
             assertEquals("synthetic-value-π",new org.json.JSONTokener(eval(scenario,view[0],"localStorage.getItem('stride-native-upgrade-fixture')")).nextValue());
             assertEquals(context.getSharedPreferences("synthetic-upgrade-probe",0).getString("afterglowSnapshotEvaluation",null),eval(scenario,view[0],"localStorage.getItem('afterglow2')"));
+            finishAndAwaitDestroyed(scenario);
         }
+    }
+    private static void finishAndAwaitDestroyed(ActivityScenario<MainActivity> scenario) throws Exception {
+        // Exercise the app's real finish path, then verify actual destruction before auto-close.
+        // ActivityScenario's implicit EmptyActivity transition races WebView focus on cold devices.
+        scenario.onActivity(android.app.Activity::finish);
+        for(int n=0;n<100;n++) {
+            if(scenario.getState()==androidx.lifecycle.Lifecycle.State.DESTROYED)return;
+            SystemClock.sleep(100);
+        }
+        assertEquals("Legacy activity must finish without an input-dispatch timeout",androidx.lifecycle.Lifecycle.State.DESTROYED,scenario.getState());
     }
     private static void waitForInteractiveFrame(ActivityScenario<MainActivity> scenario,WebView view) throws Exception {
         java.util.concurrent.atomic.AtomicBoolean committed=new java.util.concurrent.atomic.AtomicBoolean(android.os.Build.VERSION.SDK_INT<29);

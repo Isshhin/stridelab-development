@@ -206,7 +206,24 @@ public class MainActivity extends Activity {
                 .setNegativeButton("Stay",null).setPositiveButton("Exit",(d,w)->finish()).show();
         });
     }
-    @Override public void onPause(){if(webView!=null)webView.onPause();super.onPause();}
+    @Override public void onPause(){
+        super.onPause();
+        Log.d(TAG,"Legacy lifecycle: pausing WebView");
+        if(webView!=null)webView.onPause();
+        Log.d(TAG,"Legacy lifecycle: paused");
+    }
     @Override public void onResume(){super.onResume();if(webView!=null)webView.onResume();}
-    @Override protected void onDestroy(){if(webView!=null){webView.destroy();webView=null;}super.onDestroy();}
+    @Override protected void onDestroy(){
+        pageReady=false;
+        if(webView!=null){
+            Log.d(TAG,"Legacy lifecycle: detaching WebView");
+            android.view.ViewParent parent=webView.getParent();
+            if(parent instanceof android.view.ViewGroup)((android.view.ViewGroup)parent).removeView(webView);
+            // Android requires removal from the view hierarchy before destroy().
+            // This releases rendering/focus resources without clearing any web storage.
+            webView.destroy();webView=null;
+            Log.d(TAG,"Legacy lifecycle: destroyed");
+        }
+        super.onDestroy();
+    }
 }
