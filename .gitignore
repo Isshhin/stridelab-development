@@ -9,3 +9,8 @@
 /android-app/android/app/build/
 /android-app/android/build/
 /android-app/checkpoints/
+/native-android/.gradle/
+/native-android/local.properties
+/native-android/app/build/
+/native-android/build/
+/native-android/checkpoints/
