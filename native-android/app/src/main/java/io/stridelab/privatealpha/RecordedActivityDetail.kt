@@ -64,6 +64,7 @@ import kotlin.math.cos
     val low=valid.minOf { it.second }; val high=valid.maxOf { it.second }
     val description=String.format(Locale.getDefault(),"%s · %.1f–%.1f %s · %d samples · elapsed %s to %s",label,low,high,unit,valid.size,ActivityRecord.duration(valid.first().first),ActivityRecord.duration(valid.last().first))
     Text(description,style=MaterialTheme.typography.bodySmall)
+    Text(if(label=="Pace") "Higher line = slower pace (seconds per km)" else "Higher line = higher recorded value",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     val color=MaterialTheme.colorScheme.primary
     Canvas(Modifier.fillMaxWidth().height(110.dp).semantics { contentDescription=description }) {
         val span=(high-low).coerceAtLeast(1.0); val time=(valid.last().first-valid.first().first).coerceAtLeast(1.0)

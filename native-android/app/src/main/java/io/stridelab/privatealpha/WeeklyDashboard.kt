@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import java.time.Instant
 import java.time.ZoneId
@@ -18,8 +19,14 @@ import java.util.Locale
     SignalCard {
         Text("LAST 7 DAYS",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
         Text("${recent.start} – ${recent.end}",style=MaterialTheme.typography.bodySmall)
-        Text("${recent.activeDays} active days · ${recent.records.size} activities",style=MaterialTheme.typography.titleLarge)
-        MetricPair("Recorded training time" to (recent.durationSeconds?.let { ActivityRecord.duration(it) } ?: "Not recorded"),"Running distance" to (recent.runningDistanceM?.let { String.format(Locale.getDefault(),"%.2f km",it/1000) } ?: "Not recorded"))
+        Text("${recent.activeDays} active ${if(recent.activeDays==1) "day" else "days"} · ${recent.records.size} ${if(recent.records.size==1) "activity" else "activities"}",style=MaterialTheme.typography.titleLarge)
+        val time=recent.durationSeconds?.let { ActivityRecord.duration(it) } ?: "Not recorded"
+        val distance=recent.runningDistanceM?.let { String.format(Locale.getDefault(),"%.2f km",it/1000) } ?: "Not recorded"
+        if(LocalDensity.current.fontScale>1.15f) MetricPair("Recorded training time" to time,"Running distance" to distance)
+        else Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+            Metric("Training time",time,Modifier.weight(1f).fillMaxHeight())
+            Metric("Running distance",distance,Modifier.weight(1f).fillMaxHeight())
+        }
         if(recent.missingDuration>0 || recent.missingRunDistance>0) Text("Partial totals: ${recent.missingDuration} sessions lack duration; ${recent.missingRunDistance} runs lack distance.",style=MaterialTheme.typography.bodySmall)
         val daily=(0L..6L).map { offset -> val date=recent.start.plusDays(offset); date to recent.records.filter { it.startedAt.atZone(zone).toLocalDate()==date } }
         val max=daily.maxOfOrNull { it.second.mapNotNull { row -> row.durationS }.sum() } ?: 0.0
