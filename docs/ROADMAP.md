@@ -15,11 +15,11 @@ Updated: 2026-10-26. **Private developer-only project. No public launch is plann
 - WS5-C: 21 educational guides, carrying and running drills, calisthenics progressions; accepted Fix1 248/248 in run 40245684800.
 - WS5-D: final Library content/a11y correction and five regression tests; **accepted 253/253 in run 40247262671**.
 
-**Phase 4D.3A-A Running Intelligence checkpoint candidate delivered, independent CI pending.** Manual device, screen-reader, exercise guidance and licensing reviews remain open; not falsely recorded as completed.
+**Phase 4D.3A-A Fix1 test-only candidate packaged, independent CI pending (original A 257/258).** Manual device, screen-reader, exercise guidance and licensing reviews remain open; not falsely recorded as completed.
 
 ## Next phases
 
-- **Phase 4D.3A in progress:** Checkpoint A has data-derived demo split analysis, direct chart taps and accessible keyboard selection, and truthful map/no-GPS labeling. Five added official tests (expected 258). Candidate awaiting independent CI before promotion. Later 4D.3A checkpoints can improve interactions/data validation without altering protected engine.
+- **Phase 4D.3A in progress:** Checkpoint A has data-derived demo split analysis, direct chart taps and accessible keyboard selection, and truthful map/no-GPS labeling. Five added official tests (expected 258). Original run 40249781541 passed 257/258; one incorrect keyboard-toggle assertion repaired in test-only Fix1. New CI is pending before promotion. Later 4D.3A checkpoints can improve interactions/data validation without altering protected engine.
 - Phase 4D.3B: Link Run, stable planned/recorded IDs, matching, manual unlink/correction, persistence.
 - Phase 4D.3C: planned-versus-actual comparisons (not adaptive coaching yet).
 - Phase 4E **before Engine 2.0**: private Android developer pre-alpha; stable app ID and signing, offline data, backups/migrations, GitHub-versioned user-approved APK updates; do not expose private APKs via public Releases without explicit approval.
