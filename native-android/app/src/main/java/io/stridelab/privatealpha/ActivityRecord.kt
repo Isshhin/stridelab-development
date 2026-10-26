@@ -10,9 +10,14 @@ import java.util.Locale
 data class ActivityRecord(
     val id: String, val title: String, val type: String, val source: String,
     val startedAt: Instant, val distanceM: Double?, val durationS: Double?,
-    val movingTimeS: Double?, val recordedPace: Double?, val averageHr: Double?, val elevationM: Double?
+    val movingTimeS: Double?, val recordedPace: Double?, val averageHr: Double?, val elevationM: Double?,
+    val maximumHr: Double? = null
 ) {
-    val dateLabel: String get() = DateTimeFormatter.ofPattern("EEE d MMM · HH:mm").withZone(ZoneId.systemDefault()).format(startedAt)
+    val dateLabel: String get() = dateLabel(ZoneId.systemDefault())
+    fun dateLabel(zone: ZoneId): String = DateTimeFormatter.ofPattern("EEE d MMM · HH:mm").withZone(zone).format(startedAt)
+    val supportsPace: Boolean get() = type.lowercase(Locale.ROOT).replace(Regex("[ _-]"), "") in setOf("run","running","trailrun","trailrunning","walk","walking","hike","hiking","treadmill","virtualrun")
+    val sourceLabel: String get() = when(source) { "intervals" -> "Intervals.icu"; "garmin" -> "Garmin"; "fit" -> "FIT import"; "manual" -> "Manual"; "health_connect" -> "Health Connect"; else -> source }
+    fun isBefore(other: ActivityRecord): Boolean = startedAt < other.startedAt || (startedAt == other.startedAt && id < other.id)
     val distanceLabel: String get() = distanceM?.let { String.format(Locale.getDefault(), "%.2f km", it / 1000) } ?: "Not recorded"
     val durationLabel: String get() = durationS?.let { duration(it) } ?: "Not recorded"
     // Do not infer running pace from elapsed time: stopped time and discipline can make it misleading.
@@ -36,7 +41,7 @@ data class ActivityRecord(
             val id = j.getString("id"); RecordPolicy.identifier(id)
             return ActivityRecord(id, j.optString("title").ifBlank { "Untitled activity" }, j.getString("activity_type"),
                 j.getString("source"), Instant.parse(j.getString("started_at")), metric("distance_m"), metric("duration_s"),
-                metric("moving_time_s"), metric("avg_pace_sec_per_km", false), metric("avg_hr", false), metric("elevation_gain_m"))
+                metric("moving_time_s"), metric("avg_pace_sec_per_km", false), metric("avg_hr", false), metric("elevation_gain_m"), metric("max_hr", false))
         }
     }
 }

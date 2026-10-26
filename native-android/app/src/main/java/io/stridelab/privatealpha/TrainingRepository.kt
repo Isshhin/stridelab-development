@@ -21,7 +21,9 @@ internal data class TrainingState(
     val message: String? = null,
     val lastSync: Long? = null,
     val needsSignIn: Boolean = false,
-    val loginGeneration: Long = 0
+    val loginGeneration: Long = 0,
+    val intervals: IntervalConnection? = null,
+    val task: String? = null
 )
 
 /** All network/database/encryption work is serialized off the main thread, including workers. */
@@ -40,6 +42,11 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             mutable.value = TrainingState(initializing = true, account = account)
             if (account != null) {
                 loadCache(account)
+                val cachedConnection = preferences.getString("intervals.$account",null)
+                if(cachedConnection != null) runCatching {
+                    val cached = JSONObject(cachedConnection)
+                    mutable.value = mutable.value.copy(intervals = IntervalConnection.parse(cached,cached.getLong("checkedAt")))
+                }
                 if(vault.read(account) == null) mutable.value = mutable.value.copy(needsSignIn = true, message = "Sign in again to synchronize. Your saved activities remain available.")
             }
             mutable.value = mutable.value.copy(initializing = false)
@@ -63,9 +70,9 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         mutable.value = mutable.value.copy(activities = records.sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id }), lastSync = last,
             message = if(rejected > 0) "$rejected saved activities contain unsupported data and were retained for review." else mutable.value.message)
     }
-    private suspend fun operation(action: () -> Unit): Boolean = withContext(Dispatchers.IO) {
+    private suspend fun operation(label: String, action: () -> Unit): Boolean = withContext(Dispatchers.IO) {
         mutex.withLock {
-            mutable.value = mutable.value.copy(busy = true, message = null)
+            mutable.value = mutable.value.copy(busy = true, message = null, task = label)
             try { action(); true }
             catch (e: ServiceFailure) {
                 mutable.value = mutable.value.copy(message = e.message, needsSignIn = e.requiresSignIn || mutable.value.needsSignIn); false
@@ -73,10 +80,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 mutable.value = mutable.value.copy(message = "Connection or secure storage is unavailable. Saved activities are retained; retry when connected."); false
             } catch (_: Exception) {
                 mutable.value = mutable.value.copy(message = "This operation could not be verified. Existing records were retained. Please retry."); false
-            } finally { mutable.value = mutable.value.copy(busy = false) }
+            } finally { mutable.value = mutable.value.copy(busy = false, task = null) }
         }
     }
-    suspend fun signIn(email: String, password: String) = operation {
+    suspend fun signIn(email: String, password: String) = operation("Signing in securely…") {
         require(email.isNotBlank() && password.isNotEmpty())
         val session = try {
             gateway.signIn(email, password).also { gateway.verify(it) }
@@ -89,57 +96,85 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         mutable.value = TrainingState(initializing = false, account = session.account, busy = true, loginGeneration = mutable.value.loginGeneration + 1)
         loadCache(session.account)
         // Authentication is complete even if this first cache refresh fails.
-        fetchActivities(session)
+        fetchActivities()
     }
     private fun session(): NativeSession {
         val account = mutable.value.account ?: throw IllegalStateException("Sign in first")
         val saved = vault.read(account) ?: throw ServiceFailure(401, "Sign in again to synchronize. Saved activities remain available.")
-        val current = if(saved.expiresAtSeconds <= System.currentTimeMillis()/1000 + 90) gateway.refresh(saved).also { vault.save(it) } else saved
+        val current = if(saved.expiresAtSeconds <= System.currentTimeMillis()/1000 + 90) renew(saved) else saved
         return current
     }
-    private fun fetchActivities(session: NativeSession) {
+    private fun renew(saved: NativeSession): NativeSession {
+        val fresh = gateway.refresh(saved)
+        if(fresh.account != saved.account || fresh.account != mutable.value.account) throw ServiceFailure(401,"The renewed session did not match this account. Sign in again; cached data is retained.")
+        vault.save(fresh)
+        return fresh
+    }
+    private fun <T> authenticated(action: (NativeSession) -> T): T {
+        val current = session()
+        return try { action(current) } catch(e: ServiceFailure) {
+            if(e.status != 401) throw e
+            // Retry exactly once after an authentication rejection, not after timeouts/5xx.
+            action(renew(current))
+        }
+    }
+    private fun fetchActivities() {
+        val account = mutable.value.account ?: throw IllegalStateException("Sign in first")
         var before: ActivityRecord? = null
         var received = 0
         val seen = HashSet<String>()
         while(true) {
-            val page = gateway.activities(session, before)
+            val page = authenticated { gateway.activities(it, before) }
             require(page.length() <= 200)
             val rows = ArrayList<TrainingStore.RemoteRecord>()
             var last: ActivityRecord? = null
             for(i in 0 until page.length()) {
                 val raw = page.getJSONObject(i)
-                val parsed = ActivityRecord.parse(raw.toString(), session.account)
+                val parsed = ActivityRecord.parse(raw.toString(), account)
+                require((last ?: before)?.let { parsed.isBefore(it) } != false) { "History page is not in stable cursor order" }
                 require(seen.add(parsed.id)) { "Repeated page; synchronization stopped safely" }
                 // These server rows have no contractual revision token. Never fabricate one for edits.
                 rows += TrainingStore.RemoteRecord(parsed.id, raw.toString(), null)
                 last = parsed
             }
-            val completed = page.length() < 200
+            val completed = page.length() == 0 // A short page can reflect a lower server page limit.
             val marker = if(completed) JSONObject().put("completedAt", System.currentTimeMillis()).toString() else null
-            store.applyRemotePage(session.account, "activity", rows, marker, System.currentTimeMillis())
+            store.applyRemotePage(account, "activity", rows, marker, System.currentTimeMillis())
             received += page.length()
-            loadCache(session.account) // Each complete page is already durable, including partial failure.
+            mutable.value = mutable.value.copy(task = "Checking history · $received activities")
+            loadCache(account) // Each complete page is already durable, including partial failure.
             if(completed) break
             require(last != null && last != before)
             before = last
         }
         mutable.value = mutable.value.copy(needsSignIn = false, message = "History refreshed · $received activities checked")
     }
-    suspend fun refresh() = operation { fetchActivities(session()) }
-    suspend fun syncIntervals() = operation {
-        val session = session()
-        val result = gateway.intervals(session, "sync")
-        if(result.optBoolean("ok", true).not() || result.has("error")) throw java.io.IOException("Integration sync did not complete")
-        fetchActivities(session)
+    suspend fun refresh() = operation("Refreshing history…") { fetchActivities() }
+    private fun connection(): IntervalConnection {
+        val current = authenticated { gateway.intervals(it,"status") }
+        val parsed = IntervalConnection.parse(current,System.currentTimeMillis())
+        val account = mutable.value.account ?: throw IllegalStateException("Sign in first")
+        check(preferences.edit().putString("intervals.$account",parsed.encode()).commit())
+        mutable.value = mutable.value.copy(intervals = parsed)
+        return parsed
+    }
+    suspend fun checkIntervals() = operation("Checking Intervals.icu…") { connection() }
+    suspend fun syncIntervals() = operation("Synchronizing Intervals.icu…") {
+        if(!connection().configured) throw ServiceFailure(409,"Connect Intervals.icu in your existing integration settings before synchronizing.")
+        val result = authenticated { gateway.intervals(it,"sync") }
+        if(result.optBoolean("ok",false).not() || result.has("error")) throw java.io.IOException("Integration sync did not complete")
+        fetchActivities()
     }
     internal fun close() { scope.cancel(); store.close() }
 
-    suspend fun signOut() = operation {
+    suspend fun signOut() = operation("Signing out…") {
         val account = mutable.value.account ?: return@operation
-        // Always end local access even offline. Server logout is best effort and explicitly reported.
-        val revoked = runCatching { vault.read(account)?.let { gateway.signOut(it) }; true }.getOrDefault(false)
+        val saved = runCatching { vault.read(account) }.getOrNull()
+        // End local access before waiting for an unavailable network to revoke the server session.
         vault.clear(account)
         check(preferences.edit().remove("active").commit())
-        mutable.value = TrainingState(initializing = false, busy = true, message = if(revoked) "Signed out. Saved activity files were retained." else "Signed out on this device. Server session revocation was unavailable; saved files were retained.")
+        mutable.value = TrainingState(initializing = false,busy = true,task = "Finishing sign-out…")
+        val revoked = saved != null && runCatching { gateway.signOut(saved); true }.getOrDefault(false)
+        mutable.value = mutable.value.copy(message = if(revoked) "Signed out. Saved activity files were retained." else "Signed out on this device. Server session revocation was unavailable; saved files were retained.")
     }
 }

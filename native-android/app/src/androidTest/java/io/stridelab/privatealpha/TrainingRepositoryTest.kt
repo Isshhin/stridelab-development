@@ -5,6 +5,10 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.async
+import java.time.Instant
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.*
@@ -102,6 +106,61 @@ class TrainingRepositoryTest {
         assertTrue(repo.signIn("fixture@example.invalid", "fixture"))
         assertEquals(1, repo.state.value.activities.size) // Empty remote page never implies deletion.
     }
+    @Test fun historicalPaginationHandlesShortServerPagesAndTimestampTies() = runBlocking {
+        remote.rows = (0 until 405).map { row("activity-%04d".format(it)) }; remote.pageSize = 37
+        assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        assertEquals(405,repo.state.value.activities.size); assertNotNull(repo.state.value.lastSync)
+        assertEquals(12,remote.requestCount) // 11 data pages + explicit empty end page.
+        assertTrue(repo.refresh()); assertEquals(405,repo.state.value.activities.size)
+    }
+    @Test fun accessTokenRejectionRenewsOnceAndRetriesWithoutSigningOut() = runBlocking {
+        remote.rows = listOf(row()); remote.rejectNextData = true
+        assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        assertEquals(1,remote.refreshCount); assertFalse(repo.state.value.needsSignIn)
+        assertEquals("rotated-token",SessionVault(context).read(account)!!.accessToken)
+    }
+    @Test fun repeated401StopsAfterOneRenewalAndKeepsCache() = runBlocking {
+        remote.rows = listOf(row()); assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        val last = repo.state.value.lastSync; remote.rejectAllData = true
+        assertFalse(repo.refresh()); assertEquals(1,remote.refreshCount)
+        assertTrue(repo.state.value.needsSignIn); assertEquals(1,repo.state.value.activities.size); assertEquals(last,repo.state.value.lastSync)
+    }
+    @Test fun changedRefreshOwnerIsNotSavedOrActivated() = runBlocking {
+        remote.rows = listOf(row()); assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        val oldToken = SessionVault(context).read(account)!!.accessToken
+        remote.rejectNextData = true; remote.changeRefreshOwner = true
+        assertFalse(repo.refresh()); assertEquals(account,repo.state.value.account)
+        assertEquals(oldToken,SessionVault(context).read(account)!!.accessToken)
+    }
+    @Test fun malformedCursorOrderRetainsPreviousCacheAndCompletionMarker() = runBlocking {
+        remote.rows = listOf(row()); assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        val last = repo.state.value.lastSync
+        remote.orderCorrectly = false; remote.rows = listOf(row("a"),row("z"))
+        assertFalse(repo.refresh()); assertEquals(1,repo.state.value.activities.size); assertEquals(last,repo.state.value.lastSync)
+    }
+    @Test fun disconnectedSourceDoesNotTriggerSyncOrClaimSuccess() = runBlocking {
+        remote.rows = listOf(row()); assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        assertTrue(repo.checkIntervals()); assertFalse(repo.state.value.intervals!!.configured)
+        assertFalse(repo.syncIntervals()); assertEquals(0,remote.syncCount)
+        assertEquals(1,repo.state.value.activities.size)
+    }
+    @Test fun realConnectionStateIsCachedPerAccountAndReopenedOffline() = runBlocking {
+        remote.rows = listOf(row()); remote.configured = true
+        assertTrue(repo.signIn("fixture@example.invalid","fixture")); assertTrue(repo.checkIntervals())
+        repo.close(); remote.offline = true; open()
+        assertTrue(repo.state.value.intervals!!.configured); assertTrue(repo.state.value.intervals!!.checkedAt > 0)
+    }
+    @Test fun logoutHidesDataBeforeWaitingForServerRevocation() = runBlocking {
+        remote.rows = listOf(row()); assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        remote.logoutEntered = CountDownLatch(1); remote.finishLogout = CountDownLatch(1)
+        val pending = async(kotlinx.coroutines.Dispatchers.IO) { repo.signOut() }
+        try {
+            assertTrue(remote.logoutEntered!!.await(10,TimeUnit.SECONDS))
+            assertNull(repo.state.value.account); assertTrue(repo.state.value.activities.isEmpty())
+            assertNull(SessionVault(context).read(account))
+        } finally { remote.finishLogout!!.countDown() }
+        assertTrue(pending.await())
+    }
     private class FakeGateway(val account: String): TrainingGateway {
         var rows: List<JSONObject> = emptyList()
         var offline = false
@@ -110,16 +169,35 @@ class TrainingRepositoryTest {
         var refreshCount = 0
         var rejectVerification = false
         var rejectSignIn = false
+        var pageSize = 200
+        var requestCount = 0
+        var rejectNextData = false
+        var rejectAllData = false
+        var changeRefreshOwner = false
+        var orderCorrectly = true
+        var configured = false
+        var syncCount = 0
+        var logoutEntered: CountDownLatch? = null
+        var finishLogout: CountDownLatch? = null
         private fun connected() { if(offline) throw IOException("Synthetic offline") }
         override fun signIn(email: String, password: String): NativeSession { connected(); if(rejectSignIn) throw ServiceFailure(400, "Synthetic rejected credentials", requiresSignIn = true); return NativeSession(account, "fixture-token", "fixture-refresh", expires) }
         override fun verify(session: NativeSession) { connected(); if(rejectVerification) throw ServiceFailure(401, "Synthetic verification rejection") }
-        override fun refresh(session: NativeSession): NativeSession { connected(); refreshCount++; return NativeSession(account, "rotated-token", "rotated-refresh", Long.MAX_VALUE) }
+        override fun refresh(session: NativeSession): NativeSession { connected(); refreshCount++; return NativeSession(if(changeRefreshOwner) "wrong-owner" else account, "rotated-token", "rotated-refresh", Long.MAX_VALUE) }
         override fun activities(session: NativeSession, before: ActivityRecord?): JSONArray {
-            connected(); if(before != null && failAfterFirstPage) throw IOException("Synthetic page interruption")
-            val offset = if(before == null) 0 else rows.indexOfFirst { it.getString("id") == before.id } + 1
-            return JSONArray(rows.drop(offset).take(200))
+            connected(); requestCount++
+            if(rejectNextData || rejectAllData) { rejectNextData = false; throw ServiceFailure(401,"Synthetic expired access") }
+            if(before != null && failAfterFirstPage) throw IOException("Synthetic page interruption")
+            val ordered = if(orderCorrectly) rows.sortedWith(compareByDescending<JSONObject> { Instant.parse(it.getString("started_at")) }.thenByDescending { it.getString("id") }) else rows
+            return JSONArray(ordered.filter {
+                before == null || Instant.parse(it.getString("started_at")) < before.startedAt ||
+                    (Instant.parse(it.getString("started_at")) == before.startedAt && it.getString("id") < before.id)
+            }.take(pageSize))
         }
-        override fun intervals(session: NativeSession, action: String): JSONObject { connected(); return JSONObject().put("ok", true) }
-        override fun signOut(session: NativeSession) { connected() }
+        override fun intervals(session: NativeSession, action: String): JSONObject {
+            connected()
+            if(action == "status") return JSONObject().put("configured",configured).put("syncStatus",if(configured) "connected" else "disconnected")
+            syncCount++; return JSONObject().put("ok",true)
+        }
+        override fun signOut(session: NativeSession) { connected(); logoutEntered?.countDown(); if(finishLogout != null) check(finishLogout!!.await(10,TimeUnit.SECONDS)) }
     }
 }

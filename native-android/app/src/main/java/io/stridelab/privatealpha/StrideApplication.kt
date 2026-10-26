@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
 class StrideApplication: Application() {
+    internal val connectivity by lazy { ConnectivityMonitor(this) }
     internal val repository by lazy { TrainingRepository(this) }
     override fun onCreate() {
         super.onCreate()
@@ -36,8 +37,10 @@ class HistoryRefreshWorker(context: Context, params: WorkerParameters): Coroutin
 class TrainingViewModel(application: Application): AndroidViewModel(application) {
     private val repo = (application as StrideApplication).repository
     internal val state = repo.state
+    internal val online = (application as StrideApplication).connectivity.online
     fun signIn(email: String, password: String) { viewModelScope.launch { repo.signIn(email, password) } }
     fun refresh() { viewModelScope.launch { repo.refresh() } }
+    fun checkIntervals() { viewModelScope.launch { repo.checkIntervals() } }
     fun syncIntervals() { viewModelScope.launch { repo.syncIntervals() } }
     fun signOut() { viewModelScope.launch { repo.signOut() } }
 }

@@ -9,6 +9,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.VisualTransformation
+import kotlin.math.roundToInt
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -49,6 +53,7 @@ class NativeMainActivity: ComponentActivity() {
 
 @Composable internal fun NativeStrideApp(model: TrainingViewModel = viewModel()) {
     val state by model.state.collectAsStateWithLifecycle()
+    val online by model.online.collectAsStateWithLifecycle()
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
@@ -66,6 +71,9 @@ class NativeMainActivity: ComponentActivity() {
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             if(state.busy || state.initializing) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("loading"))
+            if(!online) Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
+                Text("Offline · Saved activities remain available", Modifier.fillMaxWidth().padding(horizontal = 20.dp,vertical = 10.dp).testTag("offline-status"),style = MaterialTheme.typography.bodyMedium)
+            }
             state.message?.let { Surface(color = MaterialTheme.colorScheme.surfaceVariant) { Text(it, Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), style = MaterialTheme.typography.bodyMedium) } }
             NavHost(navController = nav, startDestination = "home", modifier = Modifier.weight(1f)) {
                 composable("home") {
@@ -104,13 +112,20 @@ class NativeMainActivity: ComponentActivity() {
                         item { TextButton(onClick = { nav.popBackStack() }) { Text("Back to history") } }
                         if(activity == null) item { EmptyState("No activity available", "This activity is not in the current account’s local cache.") }
                         else {
-                            item { Text(activity.dateLabel, style = MaterialTheme.typography.bodyLarge); Text("${activity.type} · ${activity.source}", color = MaterialTheme.colorScheme.secondary) }
-                            item { Metric("Distance", activity.distanceLabel) }
-                            item { Metric("Elapsed duration", activity.durationLabel) }
-                            item { Metric("Moving duration", activity.movingTimeS?.let { ActivityRecord.duration(it) } ?: "Not recorded") }
-                            item { Metric("Recorded average pace", activity.paceLabel) }
-                            item { Metric("Average heart rate", activity.averageHr?.let { "${it.toInt()} bpm" } ?: "Not recorded") }
-                            item { Metric("Elevation gain", activity.elevationM?.let { "${it.toInt()} m" } ?: "Not recorded") }
+                            item { Text(activity.dateLabel, style = MaterialTheme.typography.bodyLarge); Text("${activity.type} · ${activity.sourceLabel}", color = MaterialTheme.colorScheme.secondary) }
+                            item { Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                                if(activity.distanceM != null || activity.supportsPace) Metric("Distance",activity.distanceLabel,Modifier.weight(1f))
+                                Metric("Elapsed time",activity.durationLabel,Modifier.weight(1f))
+                            } }
+                            if(activity.supportsPace) item { Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                                Metric("Moving time",activity.movingTimeS?.let { ActivityRecord.duration(it) } ?: "Not recorded",Modifier.weight(1f))
+                                Metric("Recorded pace",activity.paceLabel,Modifier.weight(1f))
+                            } }
+                            item { Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                                Metric("Average heart rate",activity.averageHr?.let { "${it.roundToInt()} bpm" } ?: "Not recorded",Modifier.weight(1f))
+                                Metric("Maximum heart rate",activity.maximumHr?.let { "${it.roundToInt()} bpm" } ?: "Not recorded",Modifier.weight(1f))
+                            } }
+                            if(activity.elevationM != null || activity.supportsPace) item { Metric("Elevation gain",activity.elevationM?.let { "${it.roundToInt()} m" } ?: "Not recorded") }
                             item { Text("Values retain the source’s units and provenance. This native slice uses metric display. GPS samples, charts and contextual analysis have not been connected yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                         }
                     }
@@ -119,12 +134,22 @@ class NativeMainActivity: ComponentActivity() {
                     val context = LocalContext.current
                     var confirmSignOut by remember { mutableStateOf(false) }
                     Screen("Settings", "ACCOUNT & DATA") {
-                        item { Text("Native migration · 0.3.0", style = MaterialTheme.typography.titleMedium) }
+                        item { Text("Native preview · 0.3.1", style = MaterialTheme.typography.titleMedium) }
                         item { SyncStatus(state) }
                         if(state.account != null) {
                             item { Text("Supabase account", style = MaterialTheme.typography.labelLarge); Text(state.account!!, style = MaterialTheme.typography.bodySmall) }
-                            item { Button(onClick = model::syncIntervals, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Sync connected Intervals.icu") } }
-                            item { Text("Uses your existing backend connection. Credentials are not shared with the legacy WebView. Source setup and historical provider backfill are not yet available in this native screen.", style = MaterialTheme.typography.bodyMedium) }
+                            item {
+                                Text("Intervals.icu",style = MaterialTheme.typography.titleLarge)
+                                val connection = state.intervals
+                                Text(when { connection == null -> "Connection not checked"; !connection.configured -> "Not connected"; connection.status == "error" -> "Connected source needs attention"; else -> "Saved connection · ${connection.status}" })
+                                connection?.let {
+                                    Text("Last checked ${timestamp(it.checkedAt)}",style = MaterialTheme.typography.bodySmall)
+                                    it.lastProviderSync?.let { synced -> Text("Source last synchronized ${timestamp(synced.toEpochMilli())}",style = MaterialTheme.typography.bodySmall) }
+                                }
+                            }
+                            item { OutlinedButton(onClick = model::checkIntervals,enabled = !state.busy && !state.needsSignIn,modifier = Modifier.fillMaxWidth()) { Text("Check connection") } }
+                            item { Button(onClick = model::syncIntervals, enabled = !state.busy && !state.needsSignIn && state.intervals?.configured == true, modifier = Modifier.fillMaxWidth()) { Text("Synchronize Intervals.icu") } }
+                            item { Text("Uses your existing source connection. If disconnected, connect Intervals.icu in your existing StrideLab integration settings, then check again here. Source credential setup and provider backfill are not yet available in this native screen.", style = MaterialTheme.typography.bodyMedium) }
                             item { OutlinedButton(onClick = { confirmSignOut = true }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Sign out on this device") } }
                         } else item { Button(onClick = { nav.navigate("auth") }, modifier = Modifier.fillMaxWidth()) { Text("Sign in") } }
                         item { HorizontalDivider() }
@@ -139,14 +164,18 @@ class NativeMainActivity: ComponentActivity() {
                     var email by rememberSaveable { mutableStateOf("") }
                     // Never persist passwords through saved state or process recreation.
                     var password by remember { mutableStateOf("") }
+                    var showPassword by remember { mutableStateOf(false) }
                     val initialGeneration = rememberSaveable { state.loginGeneration }
                     LaunchedEffect(state.loginGeneration, state.busy, state.needsSignIn) {
                         if(state.account != null && !state.busy && !state.needsSignIn && state.loginGeneration > initialGeneration) nav.popBackStack()
                     }
                     Screen("Welcome back", "SECURE SIGN-IN") {
                         item { Text("Use your existing StrideLab email and password. Your session is encrypted with Android Keystore.") }
-                        item { OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("email")) }
-                        item { OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Password") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("password")) }
+                        item { OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next), enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("email")) }
+                        item { OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Password") }, singleLine = true, visualTransformation = if(showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                            trailingIcon = { TextButton(onClick = { showPassword = !showPassword }) { Text(if(showPassword) "Hide" else "Show") } },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { if(email.isNotBlank() && password.isNotEmpty() && !state.busy) { model.signIn(email,password); password = "" } }), enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("password")) }
                         item { Button(onClick = { model.signIn(email, password); password = "" }, enabled = email.isNotBlank() && password.isNotEmpty() && !state.busy, modifier = Modifier.fillMaxWidth().testTag("submit-signin")) { Text("Sign in securely") } }
                         item { TextButton(onClick = { nav.popBackStack() }) { Text("Back") } }
                     }
@@ -169,14 +198,16 @@ class NativeMainActivity: ComponentActivity() {
     Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp).heightIn(min = 48.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(activity.dateLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
         Text(activity.title, style = MaterialTheme.typography.titleLarge)
-        Text("${activity.distanceLabel} · ${activity.durationLabel}", style = MaterialTheme.typography.bodyLarge)
-        Text("${activity.type} · ${activity.source}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(if(activity.distanceM == null && !activity.supportsPace) activity.durationLabel else "${activity.distanceLabel} · ${activity.durationLabel}", style = MaterialTheme.typography.bodyLarge)
+        Text("${activity.type} · ${activity.sourceLabel}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
-@Composable private fun Metric(label: String, value: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary); Text(value, style = MaterialTheme.typography.headlineMedium); HorizontalDivider(Modifier.padding(top = 12.dp)) }
+@Composable private fun Metric(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier,verticalArrangement = Arrangement.spacedBy(4.dp)) { Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary); Text(value, style = MaterialTheme.typography.titleLarge); HorizontalDivider(Modifier.padding(top = 12.dp)) }
 }
 @Composable private fun SyncStatus(state: TrainingState) {
-    val last = state.lastSync?.let { DateTimeFormatter.ofPattern("d MMM, HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(it)) }
-    Text(if(state.busy) "Synchronizing… Saved data remains on this device." else if(last != null) "Cached on this device · refreshed $last" else "No completed history refresh recorded", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val last = state.lastSync?.let(::timestamp)
+    Text(if(state.busy) state.task ?: "Working… Saved data remains on this device." else if(last != null) "Cached on this device · refreshed $last" else "No completed history refresh recorded", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
+
+private fun timestamp(value: Long): String = DateTimeFormatter.ofPattern("d MMM, HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(value))
