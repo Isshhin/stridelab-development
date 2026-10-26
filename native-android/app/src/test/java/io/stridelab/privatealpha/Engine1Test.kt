@@ -157,4 +157,13 @@ class Engine1Test {
         assertEquals(1,pull.draft("synthetic-owner",PlanRequest(equipment=mapOf("bar" to 1),pullLevel=2),date).sessions.size)
         assertThrows(PlanConstraint::class.java) { pull.copy(minutes=15,exercises=listOf(ExercisePrescription("e2","Pull-up",10,100))).draft("synthetic-owner",PlanRequest(equipment=mapOf("bar" to 1),pullLevel=2),date) }
     }
+    @Test fun historicalMissReasonDoesNotRetroactivelyAdaptOldOrCurrentWorkouts() {
+        val plan=PlanOperations.approve(generate(PlanRequest(start=LocalDate.now().minusWeeks(3),weeks=5)),emptyList())
+        val old=PlanOperations.missed(plan,plan.sessions.first().id,"Illness",false)
+        assertTrue(old.sessions.all { it.suggestion==null })
+        val recent=plan.sessions.last { it.date<=LocalDate.now() }
+        val adjusted=PlanOperations.missed(plan,recent.id,"Fatigue",false)
+        assertTrue(adjusted.sessions.filter { it.suggestion!=null }.all { it.date>=LocalDate.now() })
+        assertTrue(adjusted.sessions.any { it.suggestion!=null })
+    }
 }

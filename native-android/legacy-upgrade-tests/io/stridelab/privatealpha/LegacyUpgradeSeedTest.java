@@ -48,9 +48,14 @@ public class LegacyUpgradeSeedTest {
         assertEquals("Legacy activity must finish without an input-dispatch timeout",androidx.lifecycle.Lifecycle.State.DESTROYED,scenario.getState());
     }
     private static void waitForInteractiveFrame(ActivityScenario<MainActivity> scenario,WebView view) throws Exception {
-        java.util.concurrent.atomic.AtomicBoolean committed=new java.util.concurrent.atomic.AtomicBoolean(android.os.Build.VERSION.SDK_INT<29);
+        // WebView owns a separate compositor: an Android root-frame callback can be
+        // missed on a cold focus transition even after this document has rendered.
+        java.util.concurrent.atomic.AtomicBoolean committed=new java.util.concurrent.atomic.AtomicBoolean(false);
         scenario.onActivity(activity -> {
-            if(android.os.Build.VERSION.SDK_INT>=29)view.getViewTreeObserver().registerFrameCommitCallback(() -> committed.set(true));
+            view.postVisualStateCallback(System.nanoTime(),new WebView.VisualStateCallback() {
+                @Override public void onComplete(long requestId) { committed.set(true); }
+            });
+            activity.getWindow().getDecorView().postInvalidateOnAnimation();
             view.postInvalidateOnAnimation();
         });
         boolean[] focused={false};

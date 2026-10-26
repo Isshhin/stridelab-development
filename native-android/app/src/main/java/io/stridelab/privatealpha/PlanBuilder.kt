@@ -58,7 +58,7 @@ import org.json.JSONObject
         }
         if(step==1) {
             listOf("run" to input.runDays,"str" to input.strengthDays,"cal" to input.calDays,"cond" to input.conditioningDays).filter { it.second>0 }.forEach { (d,f) -> item { Text(disciplineLabel(d)+" sessions per week",style=MaterialTheme.typography.titleLarge);FrequencyChips(f,if(d=="run")6 else if(d=="cond")3 else 4) { n -> edit(when(d){"run"->input.copy(runDays=n,qualityCount=0);"str"->input.copy(strengthDays=n);"cal"->input.copy(calDays=n);else->input.copy(conditioningDays=n)}) } } }
-            item { Text("Primary goal",style=MaterialTheme.typography.titleLarge);FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) { ENGINE1_GOALS.forEach { goal -> SignalChip(input.goal==goal,{edit(input.copy(goal=goal))},label={Text(goal)}) } } }
+            item { Text("Primary goal",style=MaterialTheme.typography.titleLarge);if(input.goal !in builderGoals(input))Text("Your previous goal needs a discipline you removed. Choose a goal for the selected disciplines.",color=MaterialTheme.colorScheme.error);FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) { builderGoals(input).forEach { goal -> SignalChip(input.goal==goal,{edit(input.copy(goal=goal))},label={Text(goal)}) } } }
             item { FormText("Secondary goal notes",input.secondaryGoal,{edit(input.copy(secondaryGoal=it.take(200)))}) }
             item { Text(if(input.runDays>0) "Running experience" else "General training experience",style=MaterialTheme.typography.titleLarge);ChoiceChips(listOf("Starting","Some experience","Experienced"),input.experience) { edit(input.copy(experience=it)) } }
             if(input.runDays>0) {
@@ -122,3 +122,12 @@ internal fun historyWeeklyKm(history:List<ActivityRecord>,now:Instant=Instant.no
         }) { Text("Choose date") }
     }
 }
+
+private fun builderGoals(p:PlanRequest)=ENGINE1_GOALS.filter { goal -> when(goal) {
+    "General fitness"->true
+    "Aerobic foundation","Improve 5K","Improve 10K","Half marathon","Marathon"->p.runDays>0
+    "General strength","Muscle development","Strength endurance"->p.strengthDays>0
+    "Calisthenics foundation","Pull-up progression","Push-up progression","Core strength and control","Handstand foundations"->p.calDays>0
+    "Conditioning"->p.conditioningDays>0
+    else->false
+} }

@@ -1,3 +1,11 @@
+# Latest verified core and ongoing reconstruction
+
+Read [ENGINE1-CORE-VERIFIED-20261027.md](ENGINE1-CORE-VERIFIED-20261027.md) first. Verified core `d9f84056b5a224d09e375ee60fb7ae0feda9351d`, checkpoint `checkpoint/native-engine1-core-verified-d9f8405`, CI 40359915819 passed 67 JVM / 63 emulator / 14 Python plus preserved upgrade and forced-process probes. The master has newer resistance-practice/templates and parity corrections; do not reset them to the core checkpoint. Full reconstruction and real-device acceptance remain open. Keep Engine 1.0's original generator/policy as a fallback and preserve all accepted snapshots/logs.
+
+The complete user directive is preserved in NATIVE-PHASE1-MASTER-DIRECTIVE.md. The live parity inventory and ENGINE1-BASELINE.md distinguish implemented increments from remaining work and failures. Source/archive APK signing metadata is attached to the exact tested commit; an ephemeral signer does not establish installed-phone compatibility.
+
+## Earlier continuation notes (retained)
+
 # Active continuation update — Phase 1 native reconstruction
 
 The later master directive requires complete accepted Phase 4E native parity, with functional Engine 1.0 inside reconstruction. Advanced Engine 2.0 and benchmarking follow later. Read `NATIVE-PHASE1-PARITY.md` and `ENGINE1-BASELINE.md` first. The historical stage list below describes the previous verified S1A/S2A baseline; it is not the current implementation status.

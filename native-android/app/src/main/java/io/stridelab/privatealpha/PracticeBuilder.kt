@@ -46,7 +46,7 @@ import java.util.UUID
     LaunchedEffect(preview?.status) { if(preview?.status=="approved")onApproved() }
     if(preview!=null) { Screen("Practice preview","DRAFT · NOT APPROVED") {
         item { PlanOverview(preview) };preview.sessions.forEach { session -> item { PlannedWorkoutCard(session) { onPreview(preview.id,session.id) } } }
-        item { SignalButton("Approve practice session",{actions.approve(preview.id,preview.revision)},!state.busy);TextButton(onClick=onDone) { Text("Keep draft and return") } }
+        item { SignalButton("Approve practice session",{actions.approve(preview.id,preview.revision)},!state.busy);TextButton(onClick={previewId=null;awaiting=false}) { Text("Edit session targets / date") };TextButton(onClick=onDone) { Text("Keep draft and return") } }
     };return }
     Screen("Prepare a session","LIBRARY · YOUR TARGETS") {
         item { Text("Choose a movement or reusable template, review the targets, then create a dated draft. Actual workout values remain blank until you log them.") }

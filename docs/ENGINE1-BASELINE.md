@@ -1,6 +1,6 @@
 # StrideLab Engine 1.0 — implemented baseline contract and acceptance
 
-Status: code implemented, verification in progress. Not complete or athlete-accepted. Advanced Unified Coaching Engine 2.0 remains separate. This baseline is useful without a connected watch; authenticated account ownership is established once, then local planning and logging work offline.
+Status: core workflows automated-verified at d9f84056b5a224d09e375ee60fb7ae0feda9351d (67 JVM / 63 emulator / 14 Python and forced-process probes); newer parity work remains under verification. Not complete reconstruction or athlete-accepted. Advanced Unified Coaching Engine 2.0 remains separate. This baseline is useful without a connected watch; authenticated account ownership is established once, then local planning and logging work offline.
 
 ## Versioned interface and saved contracts
 
@@ -35,3 +35,9 @@ The native Library supports real resistance-practice drafts and reusable session
 These are user-reviewed session targets, identified by policy `stridelab.engine1.user-session.v1`; they are not claimed to be an automatically optimized recommendation. Original `Engine1.generate` and its conservative policy remain unchanged. Plan snapshots gain an optional display name; older snapshots load without one. Templates use separate owner-scoped records in the existing exercise kind, with no database migration. Local checks include 69 JVM tests, real SQLite template persistence/owner isolation/history protection, and the native Library-to-template-to-draft-to-approval workflow. Full exact-source CI remains required.
 
 The fourth full CI attempt (40358791536) failed during the preserved legacy WebView seed with a startup/input-dispatch ANR before native tests; distinguish that infrastructure/preservation failure from the earlier UI/probe assertion failures. Keep its evidence. The corrected forced-process probe passed all four phases locally. No new private APK or full engine acceptance is claimed before all gates pass.
+
+## Subsequent parity corrections
+
+Source and native exercise modals were captured at the same phone size and inspected. The first reference-modal artifact was actually the Library root; the corrected test checks an on-screen dialog and lets its rendered frames commit. Native titles now precede images; fit disclosures remain visible and full source/license/change details remain accessible. Goals are filtered by enabled disciplines without silently rewriting a prior choice. Practice drafts can return to edit targets/date before approval. Recovery suggestions only concern upcoming sessions after a recent missed reason; old reasons do not retroactively alter history.
+
+Local checks: 70 JVM tests, six native Engine1UiTest cases, and the three root-navigation/visible-reference cases passed. Full CI remains required. Navigation regression tests retain exact list-position and Back checks; root identity uses pane/selected-tab semantics when headings are off-screen. Legacy readiness still requires a rendered WebView document, focus and layout; the 10-second deadline and all SQLite/Keystore/localStorage assertions remain intact.

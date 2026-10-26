@@ -94,9 +94,9 @@ internal fun readLibrary(context:Context):List<LibraryEntry> = context.assets.op
     entries.firstOrNull { it.id==selected }?.let { entry ->
         ModalBottomSheet(onDismissRequest={focus.clearFocus();keyboard?.hide();selected=null},sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),containerColor=MaterialTheme.colorScheme.surface) {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal=22.dp).padding(bottom=32.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-                LibraryImage(entry)
                 Text(disciplineLabel(entry.discipline)+" · "+entry.text("level"),style=MaterialTheme.typography.labelMedium,color=disciplineColor(entry.discipline))
                 Text(entry.title,style=MaterialTheme.typography.headlineMedium)
+                LibraryImage(entry)
                 Text(entry.text("eq")+" · "+entry.text("pattern"),color=MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(entry.text("purpose"),style=MaterialTheme.typography.bodyLarge)
                 Text("TECHNIQUE & STRUCTURE",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
@@ -130,8 +130,14 @@ internal fun readLibrary(context:Context):List<LibraryEntry> = context.assets.op
     bitmap?.let { Image(it.asImageBitmap(),contentDescription=metadata.getString("label"),contentScale=ContentScale.Fit,modifier=Modifier.fillMaxWidth().heightIn(max=230.dp).background(Color.White,RoundedCornerShape(20.dp)).padding(12.dp)) }
     val fit=metadata.getJSONArray("fit")
     Text(fit.getString(0).uppercase()+" · "+fit.getString(1),style=MaterialTheme.typography.bodySmall)
-    Text(metadata.getString("label")+"\n"+metadata.getString("author")+" · "+metadata.getString("license"),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-    metadata.optString("source").takeIf { it.startsWith("https://") }?.let { link -> TextButton(onClick={uri.openUri(link)}) { Text("Image source & attribution") } }
+    var details by rememberSaveable(entry.id) { mutableStateOf(false) }
+    Text(metadata.getString("author")+" · "+metadata.getString("license").let { if(it.length<=40)it else "License details below" },style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    TextButton(onClick={details=!details}) { Text(if(details) "Hide image provenance" else "Image source & license") }
+    if(details) {
+        Text(metadata.getString("label")+"\n"+metadata.getString("license")+"\n"+metadata.optString("changes"),style=MaterialTheme.typography.bodySmall)
+        metadata.optString("source").takeIf { it.startsWith("https://") }?.let { link -> TextButton(onClick={uri.openUri(link)}) { Text("Open original image source") } }
+        metadata.optString("licenseUrl").takeIf { it.startsWith("https://") }?.let { link -> TextButton(onClick={uri.openUri(link)}) { Text("Open license") } }
+    }
 }
 internal fun disciplineLabel(id:String)=when(id) { "run"->"Running";"str"->"Strength";"cal"->"Calisthenics";else->"Conditioning" }
 internal fun disciplineColor(id:String)=when(id) { "run"->Color(0xFF6FB4FF);"str"->Color(0xFFFF9A62);else->Color(0xFFC79BFF) }

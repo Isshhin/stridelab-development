@@ -26,7 +26,7 @@ class Engine1UiTest {
         compose.onNodeWithText("Create a plan",useUnmergedTree=true).performClick()
         compose.onNodeWithTag("screen-title").assertTextEquals("Choose disciplines")
         capture("phase1-builder-disciplines")
-        repeat(3) { compose.onNodeWithTag("screen").performScrollToNode(hasText("Continue"));compose.onNodeWithText("Continue",useUnmergedTree=true).performClick() }
+        repeat(3) { index -> if(index==1)compose.onNodeWithText("General strength").assertDoesNotExist();compose.onNodeWithTag("screen").performScrollToNode(hasText("Continue"));compose.onNodeWithText("Continue",useUnmergedTree=true).performClick() }
         compose.onNodeWithTag("screen-title").assertTextEquals("Review your choices")
         capture("phase1-builder-review")
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Generate plan"));compose.onNodeWithText("Generate plan",useUnmergedTree=true).performClick()

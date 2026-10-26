@@ -46,7 +46,8 @@ class NativeTabRootTest {
         }
         tab("activities", "Activities")
         back()
-        compose.onNodeWithTag("screen-title").assertTextEquals("Your training")
+        compose.onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle,"Your training"))
+        compose.onNodeWithTag("nav-home").assertIsSelected()
     }
 
     @Test fun androidBackAlwaysReturnsDetailToHistoryIncludingHomeShortcut() {
@@ -55,12 +56,16 @@ class NativeTabRootTest {
         compose.onNodeWithTag("activity-synthetic-tab-0").performClick()
         compose.onNodeWithTag("screen-title").assertTextEquals("Saved walk 0")
         back()
-        compose.onNodeWithTag("screen-title").assertTextEquals("Activities")
+        compose.onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle,"Activities"))
+        compose.onNodeWithTag("nav-activities").assertIsSelected()
+        compose.onNodeWithTag("activity-synthetic-tab-0").assertIsDisplayed()
         tab("home", "Your training")
         compose.onNodeWithTag("activity-synthetic-tab-0").performClick()
         compose.onNodeWithTag("screen-title").assertTextEquals("Saved walk 0")
         back()
-        compose.onNodeWithTag("screen-title").assertTextEquals("Activities")
+        compose.onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle,"Activities"))
+        compose.onNodeWithTag("nav-activities").assertIsSelected()
+        compose.onNodeWithTag("activity-synthetic-tab-0").assertIsDisplayed()
         compose.onNodeWithTag("activity-synthetic-tab-0").performClick()
         tab("activities", "Activities")
     }

@@ -33,7 +33,11 @@ class PrototypeReferenceTest {
                 eval("document.querySelector('[data-a=tab][data-v=today]').click();true");capture("phase1-reference-overview-demo")
                 eval("document.querySelector('[data-a=tab][data-v=training]').click();true");ready("[data-a='plan']");capture("phase1-reference-training")
                 eval("document.querySelector('[data-a=tab][data-v=lib]').click();true");ready("button[aria-label^='Incline push-up,']")
-                eval("document.querySelector(\"button[aria-label^='Incline push-up,']\").click();true");ready("#shT");capture("phase1-reference-library-modal")
+                eval("document.querySelector(\"button[aria-label^='Incline push-up,']\").click();true");ready("#layer .ov:not(.out) .sh")
+                frame();frame()
+                assertEquals("true",eval("(()=>{const h=document.querySelector('#layer .sh h1'),d=document.querySelector('#layer .ov:not(.out)');if(!h||!d)return false;const r=h.getBoundingClientRect();return h.textContent.includes('Incline push-up')&&r.height>0&&r.top>=0&&r.top<innerHeight&&getComputedStyle(d).opacity==='1'})()"))
+                capture("phase1-reference-library-modal")
+                assertEquals("true",eval("document.querySelector('#layer .ov:not(.out) .sh')!==null"))
             } finally {
                 if(original!=null)eval("Object.keys(S).forEach(k=>delete S[k]);Object.assign(S,JSON.parse(${JSONObject.quote(original)}));localStorage.setItem('afterglow2',${JSONObject.quote(original)});true")
                 else eval("localStorage.removeItem('afterglow2');true")
