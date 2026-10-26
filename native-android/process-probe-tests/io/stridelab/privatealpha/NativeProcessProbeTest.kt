@@ -61,7 +61,7 @@ class NativeProcessProbeTest {
                 compose.onNodeWithTag("offline-status").assertExists()
                 val directory = File(compose.activity.getExternalFilesDir(null),"native-ui-evidence"); directory.mkdirs()
                 File(directory,"offline-after-process-restart.png").outputStream().use { output ->
-                    assertTrue(compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,output))
+                    assertTrue(displayBitmap().compress(Bitmap.CompressFormat.PNG,100,output))
                 }
                 // No fake token can reach production after the CI script restores networking.
                 compose.onNodeWithTag("nav-activities").performClick()
@@ -69,7 +69,7 @@ class NativeProcessProbeTest {
                 compose.onNodeWithTag("screen").performScrollToNode(hasText("Maximum heart rate"))
                 compose.onNodeWithText("Maximum heart rate").assertExists()
                 File(directory,"activity-detail-offline.png").outputStream().use { output ->
-                    assertTrue(compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,output))
+                    assertTrue(displayBitmap().compress(Bitmap.CompressFormat.PNG,100,output))
                 }
                 InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
                 compose.onNodeWithTag("screen-title").assertTextEquals("Activities")
@@ -77,7 +77,7 @@ class NativeProcessProbeTest {
                 compose.onNodeWithText("Average pace").assertDoesNotExist()
                 compose.onNodeWithText("Moving time").assertDoesNotExist()
                 File(directory,"strength-detail-offline.png").outputStream().use { output ->
-                    assertTrue(compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,output))
+                    assertTrue(displayBitmap().compress(Bitmap.CompressFormat.PNG,100,output))
                 }
                 SessionVault(context).clear(account)
             }
@@ -96,6 +96,13 @@ class NativeProcessProbeTest {
             }
             else -> error("Explicit CI processPhase is required")
         }
+    }
+    private fun displayBitmap(): Bitmap {
+        compose.mainClock.advanceTimeBy(600); compose.waitForIdle()
+        compose.runOnUiThread { compose.activity.window.decorView.invalidate() }
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+        android.os.SystemClock.sleep(350)
+        return checkNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
     }
     private fun waitForConnection(context: Context, connected: Boolean) {
         val manager = context.getSystemService(ConnectivityManager::class.java)

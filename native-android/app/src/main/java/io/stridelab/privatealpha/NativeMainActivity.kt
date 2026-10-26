@@ -330,7 +330,7 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
         }
     }
 }
-@Composable internal fun Metric(label: String, value: String, modifier: Modifier = Modifier) {
+@Composable internal fun Metric(label: String, value: String, modifier: Modifier = Modifier.fillMaxWidth()) {
     Surface(modifier, shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
         Column(Modifier.padding(16.dp),verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

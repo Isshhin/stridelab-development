@@ -45,10 +45,13 @@ class NativeNavigationTest {
     }
     private fun capture(name: String) {
         compose.mainClock.advanceTimeBy(600); compose.waitForIdle()
+        compose.runOnUiThread { compose.activity.window.decorView.invalidate() }
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+        android.os.SystemClock.sleep(350) // Let the actual display commit its rendered frame.
         val directory = File(compose.activity.getExternalFilesDir(null), "native-ui-evidence")
         check(directory.isDirectory || directory.mkdirs())
         File(directory, "$name.png").outputStream().use { output ->
-            assertTrue(compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, output))
+            assertTrue(checkNotNull(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()).compress(Bitmap.CompressFormat.PNG, 100, output))
         }
     }
 }

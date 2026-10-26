@@ -110,9 +110,12 @@ class NativeVisualTest {
     }    private fun show(content: @androidx.compose.runtime.Composable () -> Unit) { compose.runOnUiThread { compose.activity.setContent(content = content) } }
     private fun capture(name: String) {
         compose.mainClock.advanceTimeBy(600); compose.waitForIdle()
+        compose.runOnUiThread { compose.activity.window.decorView.invalidate() }
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+        android.os.SystemClock.sleep(350) // Let the actual display commit its rendered frame.
         val folder = File(compose.activity.getExternalFilesDir(null), "native-ui-evidence"); folder.mkdirs()
         File(folder,"$name.png").outputStream().use {
-            assertTrue(compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,it))
+            assertTrue(checkNotNull(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()).compress(Bitmap.CompressFormat.PNG,100,it))
         }
     }
 }
