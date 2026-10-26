@@ -4,18 +4,14 @@ Updated: 2026-10-26. **Private developer-only project. No public launch is plann
 
 ## Current milestone
 
-**Phase 4D.2 Workstream 5 completed for automated acceptance.** Final accepted checkpoint is [WS5-D `ws5-d-candidate`](https://github.com/Isshhin/stridelab-development/releases/tag/ws5-d-candidate), [GitHub Actions run 40247262671](https://github.com/Isshhin/stridelab-development/actions/runs/40247262671): **253/253 passed (0 failed/skipped/flaky)** with available axe, 607/607 integrity manifest and protected engine/baseline unchanged.
+**Phase 4D.3A-A Running Intelligence foundation accepted as an intermediate checkpoint**, [official GitHub Actions run 40250751272](https://github.com/Isshhin/stridelab-development/actions/runs/40250751272): **258/258 passed (0 failed/skipped/flaky)** including available axe checks, 629/629 manifest hashes, rebuilt HTML and protected engine/baseline verified. Exact private source: [`phase4d3a-a-fix1`](https://github.com/Isshhin/stridelab-development/releases/tag/phase4d3a-a-fix1), SHA-256 `424063a8400e57eebd89012cd71b55bf38218678b78a4ee0f34206619cc81e87`.
 
-- WS1: modal scroll lock, accepted.
-- WS2: mobile Guided Plan Builder, accepted.
-- WS3: monthly calendar, arbitrary start dates, multi-workout saves, stable plan/session identity; accepted WS3-E.
-- WS4: mobile UI consistency and accessibility, accepted WS4-D 228/228 in run 40205353927.
-- WS5-A: Workout Library asset/provenance audit.
-- WS5-B: Library metadata, diagram fitness disclosures, running session structure, interface; accepted Fix2 237/237 in run 40210796282.
-- WS5-C: 21 educational guides, carrying and running drills, calisthenics progressions; accepted Fix1 248/248 in run 40245684800.
-- WS5-D: final Library content/a11y correction and five regression tests; **accepted 253/253 in run 40247262671**.
+- Phase 4D.2 Workstreams 1–5: automated acceptance complete; final WS5-D run 40247262671 was 253/253.
+- Phase 4D.3A-A: data-derived demo run insights, direct chart-to-split selection, keyboard support, honest missing-data and simulated route labeling; **accepted 258/258**.
+- **Next: Phase 4D.3A-B**, deeper insight accuracy/edge cases, responsive visualization, map and split interaction refinement. Build on immutable accepted 4D.3A-A Fix1 source, preserve all 258 tests and protected hashes.
+- Subsequent: Phase 4D.3B planned-to-recorded Link Run, 4D.3C planned-versus-actual summaries, then private Android pre-alpha before Engine 2.0.
 
-**Phase 4D.3A-A Fix1 test-only candidate packaged, independent CI pending (original A 257/258).** Manual device, screen-reader, exercise guidance and licensing reviews remain open; not falsely recorded as completed.
+Manual Android, screen-reader, expert coaching/content, map tiles and genuine imported activity validations remain open. No public launch planned.
 
 ## Next phases
 
