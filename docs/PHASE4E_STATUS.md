@@ -1,5 +1,8 @@
 # Phase 4E — Private Android Pre-alpha
 
+> **Phase 4E CI fix (2026-10-26):** [First Android run 40256554078](https://github.com/Isshhin/stridelab-development/actions/runs/40256554078) failed **before compilation** in `android-actions/setup-android@v3` because its default SDK package list requested removed `tools` (`Failed to find package 'tools'`). Source ZIP CRC, 41/41 manifest and accepted Phase 4D provenance checks passed. Upgraded repository workflow to **`android-actions/setup-android@v4`** with `packages: 'platform-tools'`; no source ZIP, version code or accepted Phase 4D files changed. **Re-dispatch the same [Phase 4E Android workflow](https://github.com/Isshhin/stridelab-development/actions/workflows/phase4e-final-android.yml) on `main`, versionCode `1`.** No APK, emulator or unit-test success is claimed before the next run. This is an SDK setup-only failure, not an app runtime failure.
+
+
 **2026-10-26: complete Android source candidate packaged; APK build and emulator tests NOT YET RUN.** Phase 4D Final is independently accepted in [GitHub Actions run 40254593565](https://github.com/Isshhin/stridelab-development/actions/runs/40254593565): **273 passed, zero failed/skipped/flaky**, 630/630 manifest and protected engine unchanged.
 
 ## Exact source and limitations
