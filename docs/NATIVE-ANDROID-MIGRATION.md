@@ -18,7 +18,7 @@ This directive supersedes the hybrid UI recommendation in ANDROID-FIRST-ARCHITEC
 - Real history fetch uses descending timestamp + ID keyset pagination. Every validated page is committed atomically to existing SQLite; no deletion on partial failure. Invalid records stop import and preserve existing cache. No synthetic revision token is assigned to versionless server activities.
 - Cache survives restart; account-scoped reads; logout hides cache and removes local session. Offline logout reports unavailable server revocation. Passwords are never saved in instance state.
 - Manual existing Intervals sync action followed by history refresh. Hourly network-constrained WorkManager refreshes only the Supabase cache; existing backend cron retains provider-ingestion ownership.
-- Local SQLite, SessionVault, accepted HTML/assets, legacy backups and original MainActivity are reused from their original paths. No destructive migration, schema change, remote write, legacy storage deletion, main merge or public release.
+- Local SQLite, SessionVault, accepted HTML/assets, legacy backups and original MainActivity are reused from their original paths. No destructive migration, schema change, remote write, legacy storage deletion, main merge or public release. A custom corruption handler retains damaged database files and requires explicit recovery; see the [Android default handler source](https://android.googlesource.com/platform/frameworks/base/+/master/core/java/android/database/DefaultDatabaseErrorHandler.java) for the deletion behavior avoided here.
 
 ## Data / signing safeguards
 
@@ -28,13 +28,13 @@ SQLite schema/file and Keystore aliases are unchanged. Room is deferred: the exi
 
 ## Verification and remaining work
 
-The native build and new tests must pass before this slice is described as verified. See private `Native Android migration verification` workflow and continuation notes for actual run IDs and failures. New tests cover metric absence/units/ownership, native navigation/password state, and the repository against a fake gateway using real isolated SQLite/Keystore (partial import, deduplication, offline recreation, session verification/rotation, offline logout); inherited tests cover SQLite rollback, conflicts and Keystore tampering.
+The native source at `70e2e2f42c7090d4e90cc2a6a299ef36a388ff12` passed private CI run [40289028829](https://github.com/Isshhin/stridelab-development/actions/runs/40289028829): APK build/signature check, 19 JVM tests and 26 API 35 emulator tests (0 failures/skips), plus a separate legacy seed test. See [NATIVE-CONTINUATION-20261026.md](NATIVE-CONTINUATION-20261026.md) for exact evidence, source archive hashes, earlier failures and remaining blockers. New tests cover metric absence/units/ownership, native navigation/password state, and the repository against a fake gateway using real isolated SQLite/Keystore (partial import, deduplication, offline recreation, session verification/rotation, offline logout); inherited tests cover SQLite rollback, conflicts and Keystore tampering.
 
 No authenticated real-athlete session or physical Android device is accessible to this development environment. Do not claim genuine-account sign-in, provider sync, history completeness, installation/update compatibility or daily-use readiness based on anonymous queries, fakes or a successful build.
 
 Remaining: robust token refresh recovery after interrupted rotation; session expiry/revocation scenarios; integration connection/backfill UI; FIT import; samples/GPS/charts; training plans/calendar/workout execution; wellness; accessibility and performance profiling; legacy import/rollback tests; stable private signing/update pipeline; device tests. OAuth/MFA/password reset are not implemented in native auth. Existing backend remains intact.
 
-Next milestone: validate the real-account vertical slice, add fake-gateway repository/session regression tests, then native GPS/detail ingestion and duplicate-safe legacy backup import. Do not expand Engine 2.0 or web UI ahead of this.
+Next milestone: validate the real-account vertical slice, then native GPS/detail ingestion and duplicate-safe legacy backup import. Repository/session fake-gateway tests now execute against isolated real SQLite/Keystore in the emulator. Do not expand Engine 2.0 or web UI ahead of this.
 
 ## Continue
 
