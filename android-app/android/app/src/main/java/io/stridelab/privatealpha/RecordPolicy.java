@@ -12,7 +12,7 @@ import java.util.Set;
 public final class RecordPolicy {
     public static final int MAX_PAYLOAD_BYTES = 2 * 1024 * 1024;
     private static final Set<String> KINDS = new HashSet<>(Arrays.asList(
-            "activity", "wellness", "plan", "workout", "exercise"));
+            "activity", "activity_detail", "wellness", "plan", "workout", "exercise"));
     private RecordPolicy() { }
     public static void identifier(String value) {
         if (value == null || value.isEmpty() || value.length() > 128 || value.trim().isEmpty())

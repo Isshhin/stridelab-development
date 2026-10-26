@@ -10,8 +10,8 @@ android {
         applicationId 'io.stridelab.privatealpha'
         minSdk 26
         targetSdk 35
-        versionCode = (project.findProperty('strideVersionCode') ?: '6').toInteger()
-        versionName = '0.4.1-native-navigation'
+        versionCode = (project.findProperty('strideVersionCode') ?: '7').toInteger()
+        versionName = '0.5.0-native-reconstruction-s1a'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     // Reuse the exact database, encryption, backup codec and isolated legacy screen.

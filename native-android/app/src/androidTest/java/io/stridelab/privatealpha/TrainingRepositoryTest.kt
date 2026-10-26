@@ -203,7 +203,22 @@ class TrainingRepositoryTest {
         assertFalse(repo.refresh()); assertTrue(repo.state.value.needsSignIn)
         assertEquals(1,repo.state.value.activities.size); assertArrayEquals(damaged,file.readBytes())
     }
+    @Test fun detailsSurviveOfflineRecreationAndRejectCrossAccountReplacement() = runBlocking {
+        remote.rows=listOf(row())
+        assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        assertTrue(repo.loadDetail("activity-1"))
+        assertEquals(1,repo.state.value.details["activity-1"]!!.samples.size)
+        repo.close(); remote.offline=true; open()
+        assertEquals(1,repo.state.value.details["activity-1"]!!.samples.size)
+        assertFalse(repo.loadDetail("activity-1"))
+        assertEquals(1,repo.state.value.details["activity-1"]!!.samples.size)
+        remote.offline=false; remote.wrongDetailOwner=true
+        assertFalse(repo.loadDetail("activity-1"))
+        assertEquals(1,repo.state.value.details["activity-1"]!!.samples.size)
+        assertTrue(repo.signOut()); assertTrue(repo.state.value.details.isEmpty())
+    }
     private class FakeGateway(val account: String): TrainingGateway {
+        var wrongDetailOwner = false
         var rows: List<JSONObject> = emptyList()
         var offline = false
         var failAfterFirstPage = false
@@ -234,6 +249,12 @@ class TrainingRepositoryTest {
                 before == null || Instant.parse(it.getString("started_at")) < before.startedAt ||
                     (Instant.parse(it.getString("started_at")) == before.startedAt && it.getString("id") < before.id)
             }.take(pageSize))
+        }
+        override fun detail(session: NativeSession, id: String): JSONObject {
+            connected()
+            return JSONObject().put("user_id",if(wrongDetailOwner) "another" else account).put("activity_id",id).put("fetched_at",1234)
+                .put("samples",JSONArray().put(JSONObject().put("activity_id",id).put("sample_index",0).put("elapsed_s",0).put("heart_rate",145)))
+                .put("laps",JSONArray())
         }
         override fun intervals(session: NativeSession, action: String): JSONObject {
             connected()

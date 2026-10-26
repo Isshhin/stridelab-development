@@ -42,5 +42,6 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
     fun refresh() { viewModelScope.launch { repo.refresh() } }
     fun checkIntervals() { viewModelScope.launch { repo.checkIntervals() } }
     fun syncIntervals() { viewModelScope.launch { repo.syncIntervals() } }
+    fun loadDetail(id: String) { viewModelScope.launch { repo.loadDetail(id) } }
     fun signOut() { viewModelScope.launch { repo.signOut() } }
 }

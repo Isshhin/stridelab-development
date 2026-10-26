@@ -84,13 +84,13 @@ class NativeMainActivity: ComponentActivity() {
 @Composable internal fun NativeStrideApp(model: TrainingViewModel = viewModel()) {
     val state by model.state.collectAsStateWithLifecycle()
     val online by model.online.collectAsStateWithLifecycle()
-    val actions = remember(model) { NativeActions(model::refresh, model::checkIntervals, model::syncIntervals, model::signOut, model::signIn) }
+    val actions = remember(model) { NativeActions(model::refresh, model::checkIntervals, model::syncIntervals, model::signOut, model::signIn, model::loadDetail) }
     NativeStrideContent(state, online, actions)
 }
 
 /** Presentation boundary allows isolated screenshots without a real session or fake production data. */
 internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: () -> Unit,
-    val syncIntervals: () -> Unit, val signOut: () -> Unit, val signIn: (String, String) -> Unit)
+    val syncIntervals: () -> Unit, val signOut: () -> Unit, val signIn: (String, String) -> Unit, val loadDetail: (String) -> Unit = {})
 
 /** Save each tab's root state, never its transient detail/auth destination. */
 private fun NavHostController.openTabRoot(path: String) {
@@ -187,7 +187,15 @@ private fun NavHostController.openActivity(id: String) {
                                 "Average heart rate" to (activity.averageHr?.let { "${it.roundToInt()} bpm" } ?: "Not recorded"),
                                 "Maximum heart rate" to (activity.maximumHr?.let { "${it.roundToInt()} bpm" } ?: "Not recorded")) }
                             if(activity.elevationM != null || activity.supportsPace) item { Metric("Elevation gain",activity.elevationM?.let { "${it.roundToInt()} m" } ?: "Not recorded") }
-                            item { Text("Values come from the activity source and use metric units. Missing metrics are shown as not recorded. Route and charts are not available in this preview.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                            item { OutlinedButton(onClick = { actions.loadDetail(activity.id) }, enabled = online && !state.busy && !state.needsSignIn, modifier = Modifier.fillMaxWidth()) { Text(if(state.details.containsKey(activity.id)) "Refresh recorded streams" else "Load recorded streams & laps") } }
+                            state.details[activity.id]?.let { recorded -> item { RecordedActivityDetail(recorded,activity.supportsPace) } }
+                            item { SignalCard {
+                                Text(if(activity.supportsPace) "RUNNING INTELLIGENCE" else "SESSION CONTEXT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                                Text(ActivityIntelligence.narrative(activity, state.activities), style = MaterialTheme.typography.bodyLarge)
+                                val comparison = ActivityIntelligence.comparison(activity, state.activities)
+                                if(comparison != null) Text("Based on cached source summaries · ${comparison.count} earlier runs · preceding 90 days · distance ±10%", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            } }
+                            item { Text("Values come from the activity source and use metric units. Missing metrics are shown as not recorded. Load recorded streams and laps when online. Availability depends on your source; summary metrics cannot reconstruct missing routes or charts.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                         }
                     }
                 }

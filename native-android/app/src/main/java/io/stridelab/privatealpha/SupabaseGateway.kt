@@ -14,6 +14,7 @@ internal interface TrainingGateway {
     fun verify(session: NativeSession)
     fun activities(session: NativeSession, before: ActivityRecord?): JSONArray
     fun intervals(session: NativeSession, action: String): JSONObject
+    fun detail(session: NativeSession, id: String): JSONObject = throw java.io.IOException("Activity streams unavailable")
     fun signOut(session: NativeSession)
 }
 internal fun interface BackendTransport {
@@ -101,6 +102,30 @@ internal class SupabaseGateway(private val transport: BackendTransport = HttpsBa
     override fun intervals(session: NativeSession, action: String): JSONObject {
         require(action in setOf("status","sync","backfill"))
         return JSONObject(request("/functions/v1/stridelab-intervals",session.accessToken,JSONObject().put("action",action)))
+    }
+    override fun detail(session: NativeSession, id: String): JSONObject {
+        RecordPolicy.identifier(id)
+        val activity = URLEncoder.encode(id,"UTF-8")
+        val owner = URLEncoder.encode(session.account,"UTF-8")
+        fun rows(table: String, order: String, cap: Int): JSONArray {
+            val all = JSONArray()
+            var offset = 0
+            while(true) {
+                val page = JSONArray(request("/rest/v1/$table?select=*,activities!inner(user_id)&activity_id=eq.$activity&activities.user_id=eq.$owner&order=$order.asc&limit=1000&offset=$offset",session.accessToken))
+                require(page.length() <= 1000)
+                if(page.length() == 0) return all
+                require(all.length()+page.length() <= cap) { "Activity detail exceeds safe size" }
+                for(i in 0 until page.length()) {
+                    val row = page.getJSONObject(i)
+                    require(row.getString("activity_id") == id && row.getJSONObject("activities").getString("user_id") == session.account)
+                    row.remove("activities"); all.put(row)
+                }
+                offset += page.length()
+            }
+        }
+        return JSONObject().put("user_id",session.account).put("activity_id",id)
+            .put("samples",rows("activity_samples","sample_index",20000))
+            .put("laps",rows("activity_laps","lap_index",1000)).put("fetched_at",System.currentTimeMillis())
     }
     override fun signOut(session: NativeSession) { request("/auth/v1/logout?scope=local",session.accessToken,JSONObject()) }
 }
