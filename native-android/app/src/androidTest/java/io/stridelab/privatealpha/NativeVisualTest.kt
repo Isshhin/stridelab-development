@@ -60,7 +60,7 @@ class NativeVisualTest {
         var checks = 0
         var syncs = 0
         val fixture = TrainingState(initializing = false, account = "synthetic-visual-account",
-            activities = listOf(activity, activity.copy(id = "synthetic-second", title = "Evening walk", durationS = 1800.0)),
+            activities = listOf(activity, activity.copy(id = "synthetic-second", title = "Evening walk", type = "Walking", distanceM = 2500.0, durationS = 1800.0)),
             intervals = IntervalConnection(true,"connected",null,1792972800000), lastSync = 1792972800000)
         val actions = NativeActions({}, { checks++ }, { syncs++ }, {}, { _, _ -> })
         show { StrideTheme { NativeStrideContent(fixture, true, actions) } }
@@ -109,6 +109,7 @@ class NativeVisualTest {
         capture("simulation-wide-layout")
     }    private fun show(content: @androidx.compose.runtime.Composable () -> Unit) { compose.runOnUiThread { compose.activity.setContent(content = content) } }
     private fun capture(name: String) {
+        compose.mainClock.advanceTimeBy(600); compose.waitForIdle()
         val folder = File(compose.activity.getExternalFilesDir(null), "native-ui-evidence"); folder.mkdirs()
         File(folder,"$name.png").outputStream().use {
             assertTrue(compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,it))

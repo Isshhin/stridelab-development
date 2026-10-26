@@ -44,6 +44,7 @@ class NativeNavigationTest {
         compose.onNodeWithTag("submit-signin").assertIsNotEnabled()
     }
     private fun capture(name: String) {
+        compose.mainClock.advanceTimeBy(600); compose.waitForIdle()
         val directory = File(compose.activity.getExternalFilesDir(null), "native-ui-evidence")
         check(directory.isDirectory || directory.mkdirs())
         File(directory, "$name.png").outputStream().use { output ->

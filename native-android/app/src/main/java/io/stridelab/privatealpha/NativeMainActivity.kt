@@ -145,7 +145,7 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
                         else {
                             item { OutlinedButton(onClick = actions.refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
                             if(state.activities.isEmpty()) item { EmptyState("No activities cached", "Your saved history will appear here after a successful refresh.") }
-                            items(state.activities, key = { it.id }) { activity -> ActivityRow(activity) { nav.navigate("activity/${activity.id}") }; HorizontalDivider() }
+                            items(state.activities, key = { it.id }) { activity -> ActivityRow(activity) { nav.navigate("activity/${activity.id}") } }
                         }
                     }
                 }
@@ -222,12 +222,12 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
                     }
                     Screen("Welcome back", "SECURE SIGN-IN") {
                         item { SignalCard { Text("YOUR HISTORY. YOUR PACE.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text("One place for the work you put in.", style = MaterialTheme.typography.headlineSmall); Text("Sign in with your existing StrideLab account. Saved activities stay on this device for offline viewing.", color = MaterialTheme.colorScheme.onSurfaceVariant) } }
-                        item { OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, singleLine = true, shape = RoundedCornerShape(16.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next), enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("email")) }
-                        item { OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Password") }, singleLine = true, shape = RoundedCornerShape(16.dp), visualTransformation = if(showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                        item { Column(verticalArrangement = Arrangement.spacedBy(18.dp)) { OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, singleLine = true, shape = RoundedCornerShape(16.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next), enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("email"))
+                        OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Password") }, singleLine = true, shape = RoundedCornerShape(16.dp), visualTransformation = if(showPassword) VisualTransformation.None else PasswordVisualTransformation(),
                             trailingIcon = { TextButton(onClick = { showPassword = !showPassword }) { Text(if(showPassword) "Hide" else "Show") } },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(onDone = { if(email.isNotBlank() && password.isNotEmpty() && !state.busy) { actions.signIn(email,password); password = "" } }), enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("password")) }
-                        item { Button(onClick = { actions.signIn(email, password); password = "" }, enabled = email.isNotBlank() && password.isNotEmpty() && !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp).testTag("submit-signin")) { Text("Sign in securely") } }
+                            keyboardActions = KeyboardActions(onDone = { if(email.isNotBlank() && password.isNotEmpty() && !state.busy) { actions.signIn(email,password); password = "" } }), enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("password"))
+                        Button(onClick = { actions.signIn(email, password); password = "" }, enabled = email.isNotBlank() && password.isNotEmpty() && !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp).testTag("submit-signin")) { Text("Sign in securely") } } }
                         item { TextButton(onClick = { nav.popBackStack() }) { Text("Back") } }
                     }
                 }
