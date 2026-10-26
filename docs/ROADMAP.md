@@ -4,18 +4,18 @@ Updated: 2026-10-26. **Private developer-only project. No public launch is plann
 
 ## Current milestone
 
-**WS5-C Fix1 accepted** as the latest Phase 4D.2 intermediate checkpoint after [GitHub Actions run 40245684800](https://github.com/Isshhin/stridelab-development/actions/runs/40245684800): **248/248 Playwright Chromium tests passed (0 failed/skipped/flaky)** with available axe suites; 602/602 manifest hashes and protected engine/baseline verified. Exact recoverable ZIP is [private release `ws5-c-fix1`](https://github.com/Isshhin/stridelab-development/releases/tag/ws5-c-fix1).
+**Phase 4D.2 Workstream 5 completed for automated acceptance.** Final accepted checkpoint is [WS5-D `ws5-d-candidate`](https://github.com/Isshhin/stridelab-development/releases/tag/ws5-d-candidate), [GitHub Actions run 40247262671](https://github.com/Isshhin/stridelab-development/actions/runs/40247262671): **253/253 passed (0 failed/skipped/flaky)** with available axe, 607/607 integrity manifest and protected engine/baseline unchanged.
 
-- WS1: modal scroll lock.
-- WS2: mobile guided Plan Builder.
-- WS3: calendar, multi-workout date/save identities; historical WS3-E.
-- WS4: mobile UI consistency and accessibility, verified 228/228 in run 40205353927.
-- WS5-A: exercise/asset provenance audit.
-- WS5-B: metadata, image-fit honesty, running session structure, UI; fix2 verified 237/237 in run 40210796282.
-- WS5-C: 21 reference-only guide entries, running drills, carries and calisthenics progression pathways; Fix1 verified **248/248** in run 40245684800.
-- **WS5-D candidate delivered, official CI pending:** final Workout Library quality, corrected reverse-lunge image-fit accuracy, guide live count semantics, five new regression tests, packaged as immutable recovery ZIP. Complete workstream acceptance only after the exact candidate passes 253 official Playwright/axe cases.
+- WS1: modal scroll lock, accepted.
+- WS2: mobile Guided Plan Builder, accepted.
+- WS3: monthly calendar, arbitrary start dates, multi-workout saves, stable plan/session identity; accepted WS3-E.
+- WS4: mobile UI consistency and accessibility, accepted WS4-D 228/228 in run 40205353927.
+- WS5-A: Workout Library asset/provenance audit.
+- WS5-B: Library metadata, diagram fitness disclosures, running session structure, interface; accepted Fix2 237/237 in run 40210796282.
+- WS5-C: 21 educational guides, carrying and running drills, calisthenics progressions; accepted Fix1 248/248 in run 40245684800.
+- WS5-D: final Library content/a11y correction and five regression tests; **accepted 253/253 in run 40247262671**.
 
-Manual domain review, screen-reader, real Android and other-browser checks remain documented limitations. No public launch is planned.
+**Next: Phase 4D.3A — Running Intelligence 3.0.** Manual device, screen-reader, exercise guidance and licensing reviews remain open; not falsely recorded as completed.
 
 ## Next phases
 
