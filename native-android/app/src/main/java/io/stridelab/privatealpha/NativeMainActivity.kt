@@ -31,7 +31,7 @@ import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -79,18 +79,27 @@ class NativeMainActivity: ComponentActivity() {
 @Composable internal fun NativeStrideApp(model: TrainingViewModel = viewModel()) {
     val state by model.state.collectAsStateWithLifecycle()
     val online by model.online.collectAsStateWithLifecycle()
+    val actions = remember(model) { NativeActions(model::refresh, model::checkIntervals, model::syncIntervals, model::signOut, model::signIn) }
+    NativeStrideContent(state, online, actions)
+}
+
+/** Presentation boundary allows isolated screenshots without a real session or fake production data. */
+internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: () -> Unit,
+    val syncIntervals: () -> Unit, val signOut: () -> Unit, val signIn: (String, String) -> Unit)
+
+@Composable internal fun NativeStrideContent(state: TrainingState, online: Boolean, actions: NativeActions) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
     Scaffold(
         bottomBar = {
             NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 0.dp,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).clip(RoundedCornerShape(28.dp)),
-                windowInsets = WindowInsets.navigationBars) {
+                modifier = Modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp).clip(RoundedCornerShape(28.dp)),
+                windowInsets = WindowInsets(0, 0, 0, 0)) {
                 listOf("home" to "Home", "activities" to "Activities", "settings" to "Settings").forEach { (path, label) ->
                     NavigationBarItem(selected = route == path || (path == "activities" && route == "activity/{id}"), onClick = {
                         nav.navigate(path) { popUpTo(nav.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true }
-                    }, icon = { Icon(when(path) { "home" -> Icons.Default.Home; "activities" -> Icons.Default.List; else -> Icons.Default.Settings }, contentDescription = null) },
+                    }, icon = { Icon(when(path) { "home" -> Icons.Default.Home; "activities" -> Icons.AutoMirrored.Filled.List; else -> Icons.Default.Settings }, contentDescription = null) },
                         label = { Text(label, fontWeight = FontWeight.SemiBold) },
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.onSurface, indicatorColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -119,7 +128,8 @@ class NativeMainActivity: ComponentActivity() {
                                 item { ActivityRow(activity) { nav.navigate("activity/${activity.id}") } }
                             }
                             item { HistoryOverview(state.activities) }
-                            item { FilledTonalButton(onClick = model::refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
+                            if(state.activities.count { it.durationS != null } >= 2) item { RecordedDurationChart(state.activities) }
+                            item { FilledTonalButton(onClick = actions.refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
                             if(state.needsSignIn) item { Button(onClick = { nav.navigate("auth") }) { Text("Sign in again") } }
                             if(state.activities.isEmpty()) item { EmptyState("No saved activities yet", "Refresh your history or synchronize your connected Intervals.icu source in Settings. Existing local prototype data remains in the legacy app.") }
                         }
@@ -130,7 +140,7 @@ class NativeMainActivity: ComponentActivity() {
                         if(state.account != null) item { SyncStatus(state) }
                         if(state.account == null) item { EmptyState("Sign in to view your history", "Only records belonging to your signed-in account are displayed."); Button(onClick = { nav.navigate("auth") }) { Text("Sign in") } }
                         else {
-                            item { OutlinedButton(onClick = model::refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
+                            item { OutlinedButton(onClick = actions.refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
                             if(state.activities.isEmpty()) item { EmptyState("No activities cached", "Your saved history will appear here after a successful refresh.") }
                             items(state.activities, key = { it.id }) { activity -> ActivityRow(activity) { nav.navigate("activity/${activity.id}") }; HorizontalDivider() }
                         }
@@ -165,18 +175,19 @@ class NativeMainActivity: ComponentActivity() {
                         if(state.account != null) item { SyncStatus(state) }
                         if(state.account != null) {
                             item { SignalCard { Text("ACCOUNT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text(state.account!!, style = MaterialTheme.typography.bodyMedium) } }
-                            item {
+                            item { SignalCard {
+                                Text("ACTIVITY SOURCE", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                                 Text("Intervals.icu",style = MaterialTheme.typography.titleLarge)
                                 val connection = state.intervals
-                                Text(when { connection == null -> "Connection not checked"; !connection.configured -> "Not connected"; connection.status == "error" -> "Connected source needs attention"; else -> "Saved connection · ${connection.status}" })
+                                Text(when { connection == null -> "Connection not checked"; !connection.configured -> "Not connected"; connection.status == "error" -> "Connected source needs attention"; else -> "Saved connection · ${connection.status}" }, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 connection?.let {
                                     Text("Last checked ${timestamp(it.checkedAt)}",style = MaterialTheme.typography.bodySmall)
                                     it.lastProviderSync?.let { synced -> Text("Source last synchronized ${timestamp(synced.toEpochMilli())}",style = MaterialTheme.typography.bodySmall) }
                                 }
-                            }
-                            item { OutlinedButton(onClick = model::checkIntervals,enabled = !state.busy && !state.needsSignIn,modifier = Modifier.fillMaxWidth()) { Text("Check connection") } }
-                            item { Button(onClick = model::syncIntervals, enabled = !state.busy && !state.needsSignIn && state.intervals?.configured == true, modifier = Modifier.fillMaxWidth()) { Text("Synchronize Intervals.icu") } }
-                            item { Text("Uses your existing source connection. If disconnected, connect Intervals.icu in your existing StrideLab integration settings, then check again here. Source credential setup and provider backfill are not yet available in this native screen.", style = MaterialTheme.typography.bodyMedium) }
+                                OutlinedButton(onClick = actions.checkIntervals,enabled = !state.busy && !state.needsSignIn,modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Check connection") }
+                                Button(onClick = actions.syncIntervals, enabled = !state.busy && !state.needsSignIn && state.intervals?.configured == true, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Synchronize Intervals.icu") }
+                                Text("Uses your existing source connection. Manage credentials in your existing StrideLab integration settings, then check again here. Native setup and backfill are not yet available.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            } }
                             item { OutlinedButton(onClick = { confirmSignOut = true }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Sign out on this device") } }
                         } else item { Button(onClick = { nav.navigate("auth") }, modifier = Modifier.fillMaxWidth()) { Text("Sign in") } }
                         item { SignalCard {
@@ -185,8 +196,9 @@ class NativeMainActivity: ComponentActivity() {
                             Text("Review your original records and use the existing backup and restore tools. Legacy records are not yet converted into native history.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             OutlinedButton(onClick = { context.startActivity(Intent(context, MainActivity::class.java)) }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Open preserved prototype") }
                         } }
-                        item { Text("Private testing", style = MaterialTheme.typography.titleMedium); Text("Real-account and phone acceptance are in progress. Your saved data stays on this device.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }                    }
-                    if(confirmSignOut) AlertDialog(onDismissRequest = { confirmSignOut = false }, title = { Text("Sign out?") }, text = { Text("Removes this device’s saved session. Cached records remain private in app storage and are hidden until that account signs in again.") }, confirmButton = { TextButton(onClick = { confirmSignOut = false; model.signOut() }) { Text("Sign out") } }, dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text("Cancel") } })
+                        item { Text("Private testing", style = MaterialTheme.typography.titleMedium); Text("Real-account and phone acceptance are in progress. Your saved data stays on this device.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    }
+                    if(confirmSignOut) AlertDialog(onDismissRequest = { confirmSignOut = false }, title = { Text("Sign out?") }, text = { Text("Removes this device’s saved session. Cached records remain private in app storage and are hidden until that account signs in again.") }, confirmButton = { TextButton(onClick = { confirmSignOut = false; actions.signOut() }) { Text("Sign out") } }, dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text("Cancel") } })
                 }
                 composable("auth") {
                     var email by rememberSaveable { mutableStateOf("") }
@@ -199,12 +211,12 @@ class NativeMainActivity: ComponentActivity() {
                     }
                     Screen("Welcome back", "SECURE SIGN-IN") {
                         item { SignalCard { Text("YOUR HISTORY. YOUR PACE.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text("One place for the work you put in.", style = MaterialTheme.typography.headlineSmall); Text("Sign in with your existing StrideLab account. Saved activities stay on this device for offline viewing.", color = MaterialTheme.colorScheme.onSurfaceVariant) } }
-                        item { OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next), enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("email")) }
-                        item { OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Password") }, singleLine = true, visualTransformation = if(showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                        item { OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, singleLine = true, shape = RoundedCornerShape(16.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next), enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("email")) }
+                        item { OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Password") }, singleLine = true, shape = RoundedCornerShape(16.dp), visualTransformation = if(showPassword) VisualTransformation.None else PasswordVisualTransformation(),
                             trailingIcon = { TextButton(onClick = { showPassword = !showPassword }) { Text(if(showPassword) "Hide" else "Show") } },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(onDone = { if(email.isNotBlank() && password.isNotEmpty() && !state.busy) { model.signIn(email,password); password = "" } }), enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("password")) }
-                        item { Button(onClick = { model.signIn(email, password); password = "" }, enabled = email.isNotBlank() && password.isNotEmpty() && !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp).testTag("submit-signin")) { Text("Sign in securely") } }
+                            keyboardActions = KeyboardActions(onDone = { if(email.isNotBlank() && password.isNotEmpty() && !state.busy) { actions.signIn(email,password); password = "" } }), enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("password")) }
+                        item { Button(onClick = { actions.signIn(email, password); password = "" }, enabled = email.isNotBlank() && password.isNotEmpty() && !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp).testTag("submit-signin")) { Text("Sign in securely") } }
                         item { TextButton(onClick = { nav.popBackStack() }) { Text("Back") } }
                     }
                 }
@@ -258,6 +270,24 @@ class NativeMainActivity: ComponentActivity() {
         Text("ON THIS DEVICE", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         Text(if(activities.size == 1) "1 saved activity" else "${activities.size} saved activities", style = MaterialTheme.typography.headlineMedium)
         Text("Your synchronized training journal. Open an activity to explore its recorded details.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+/** Only recorded elapsed durations. No target, trend, readiness or missing-value inference. */
+@Composable internal fun RecordedDurationChart(activities: List<ActivityRecord>) {
+    val records = remember(activities) { activities.filter { it.durationS != null }.take(5) }
+    val maximum = records.maxOfOrNull { it.durationS!! } ?: 0.0
+    SignalCard {
+        Text("RECENT TRAINING TIME", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        Text("Elapsed time · recent saved activities", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        records.forEach { activity ->
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(activity.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                Text("${activity.dateLabel} · ${activity.durationLabel}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Box(Modifier.fillMaxWidth().height(5.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(3.dp))) {
+                    if(maximum > 0 && activity.durationS!! > 0) Box(Modifier.fillMaxWidth((activity.durationS / maximum).toFloat()).fillMaxHeight().background(MaterialTheme.colorScheme.secondary, RoundedCornerShape(3.dp)))
+                }
+            }
+        }
     }
 }
 @Composable internal fun ActivityRow(activity: ActivityRecord, onClick: () -> Unit) {
