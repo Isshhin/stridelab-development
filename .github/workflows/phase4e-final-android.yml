@@ -1,0 +1,140 @@
+name: Phase 4E final Android pre-alpha verification and private APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: Stable Android versionCode; increment for signed private updates
+        required: true
+        default: '1'
+
+permissions:
+  contents: read
+
+jobs:
+  phase4e-android:
+    name: Verify provenance, build and test Android private pre-alpha
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    env:
+      STRIDELAB_VERSION_CODE: "${{ inputs.version_code }}"
+    steps:
+      - name: Check out development repo
+        uses: actions/checkout@v4
+
+      - name: Download exact source and accepted Phase 4D release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p archive _p4e
+          gh release download phase4e-final-candidate --repo "${GITHUB_REPOSITORY}" --pattern 'StrideLab-Phase4E-Final-candidate.zip' --dir archive
+          gh release download phase4d-final-candidate --repo "${GITHUB_REPOSITORY}" --pattern 'StrideLab-Phase4D-Final-candidate.zip' --dir archive
+
+      - name: Verify archive hashes, ZIP CRC, and 41 files
+        shell: bash
+        run: |
+          echo "d1d061d8be9d9dd752a71a40867e2bc00f0fb15b97d88032c0b95f45e4e1c3b3  archive/StrideLab-Phase4E-Final-candidate.zip" | sha256sum -c -
+          echo "915c9c37e3816291bfc9ab3ead1f37b400711886056a43fd1af101b602cdaa6b  archive/StrideLab-Phase4D-Final-candidate.zip" | sha256sum -c -
+          unzip -tq archive/StrideLab-Phase4E-Final-candidate.zip
+          unzip -q archive/StrideLab-Phase4E-Final-candidate.zip -d _p4e
+          python3 - <<'PY'
+          import hashlib,json,zipfile,sys
+          with zipfile.ZipFile('archive/StrideLab-Phase4E-Final-candidate.zip') as z:
+              root='StrideLab-Phase4E/'
+              m=json.loads(z.read(root+'SHA256-MANIFEST-Phase4E-Final-candidate.json'))
+              errors=[n for n,h in m.items() if hashlib.sha256(z.read(root+n)).hexdigest()!=h]
+              print(f'Phase 4E manifest {len(m)-len(errors)}/{len(m)}')
+              if errors or len(m)!=41: print(errors[:10]);sys.exit(1)
+          PY
+
+      - name: Verify accepted source, offline HTML, assets and security flags
+        shell: bash
+        run: |
+          python3 _p4e/StrideLab-Phase4E/scripts/verify_phase4e.py archive/StrideLab-Phase4D-Final-candidate.zip
+
+      - name: Install JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK tools
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 36 platform and SDK build tools
+        shell: bash
+        run: |
+          sdkmanager --install "platforms;android-36" "build-tools;35.0.0" "platform-tools"
+
+      - name: Install Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Compile APK and run backup codec unit tests
+        working-directory: _p4e/StrideLab-Phase4E/android
+        shell: bash
+        run: |
+          gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug -PstrideVersionCode="${STRIDELAB_VERSION_CODE}"
+          "${ANDROID_HOME}/build-tools/35.0.0/apksigner" verify --print-certs app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Install and verify offline app in Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_3a
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          disable-animations: true
+          script: cd _p4e/StrideLab-Phase4E/android && gradle --no-daemon :app:connectedDebugAndroidTest -PstrideVersionCode="${STRIDELAB_VERSION_CODE}"
+
+      - name: Optionally build durable privately signed release APK
+        shell: bash
+        working-directory: _p4e/StrideLab-Phase4E/android
+        env:
+          STRIDELAB_KEYSTORE_B64: ${{ secrets.STRIDELAB_KEYSTORE_B64 }}
+          STRIDELAB_STORE_PASSWORD: ${{ secrets.STRIDELAB_STORE_PASSWORD }}
+          STRIDELAB_KEY_ALIAS: ${{ secrets.STRIDELAB_KEY_ALIAS }}
+          STRIDELAB_KEY_PASSWORD: ${{ secrets.STRIDELAB_KEY_PASSWORD }}
+        run: |
+          if [[ -z "${STRIDELAB_KEYSTORE_B64}" || -z "${STRIDELAB_STORE_PASSWORD}" || -z "${STRIDELAB_KEY_ALIAS}" || -z "${STRIDELAB_KEY_PASSWORD}" ]]; then
+            echo "::notice::Stable signing secrets absent: release APK skipped; debug APK cannot be safely updated across independent runners"
+            exit 0
+          fi
+          umask 077
+          STRIDELAB_KEYSTORE_FILE="$(mktemp "${RUNNER_TEMP}/stridelab-signing-XXXXXX.jks")"
+          export STRIDELAB_KEYSTORE_FILE
+          trap 'rm -f "${STRIDELAB_KEYSTORE_FILE}"' EXIT
+          printf '%s' "${STRIDELAB_KEYSTORE_B64}" | base64 --decode > "${STRIDELAB_KEYSTORE_FILE}"
+          gradle --no-daemon :app:assembleRelease -PstrideVersionCode="${STRIDELAB_VERSION_CODE}"
+          "${ANDROID_HOME}/build-tools/35.0.0/apksigner" verify --print-certs app/build/outputs/apk/release/app-release.apk
+
+      - name: Upload private disposable debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: stridelab-4e-debug-apk
+          path: _p4e/StrideLab-Phase4E/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload private signed release APK if available
+        uses: actions/upload-artifact@v4
+        with:
+          name: stridelab-4e-signed-private-apk
+          path: _p4e/StrideLab-Phase4E/android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload test evidence even on failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stridelab-4e-android-test-evidence
+          path: |
+            _p4e/StrideLab-Phase4E/android/app/build/reports/tests/
+            _p4e/StrideLab-Phase4E/android/app/build/outputs/androidTest-results/
+            _p4e/StrideLab-Phase4E/android/app/build/reports/androidTests/
+          if-no-files-found: warn
+          retention-days: 14
