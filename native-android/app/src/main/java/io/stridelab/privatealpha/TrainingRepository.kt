@@ -78,8 +78,12 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     }
     suspend fun signIn(email: String, password: String) = operation {
         require(email.isNotBlank() && password.isNotEmpty())
-        val session = gateway.signIn(email, password)
-        gateway.verify(session)
+        val session = try {
+            gateway.signIn(email, password).also { gateway.verify(it) }
+        } catch(e: ServiceFailure) {
+            // A failed login attempt must not invalidate a different, still-active session.
+            throw ServiceFailure(e.status, e.message ?: "Sign-in was not accepted", requiresSignIn = false)
+        }
         vault.save(session) // No account activation unless encryption succeeds.
         check(preferences.edit().putString("active", session.account).commit())
         mutable.value = TrainingState(initializing = false, account = session.account, busy = true, loginGeneration = mutable.value.loginGeneration + 1)

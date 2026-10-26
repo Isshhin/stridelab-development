@@ -70,6 +70,16 @@ class TrainingRepositoryTest {
         remote.rows = listOf(row("duplicate"), row("duplicate")); assertFalse(repo.refresh())
         assertEquals("activity-1", repo.state.value.activities.single().id)
     }
+    @Test fun rejectedAccountSwitchKeepsExistingSessionAndCacheUsable() = runBlocking {
+        remote.rows = listOf(row())
+        assertTrue(repo.signIn("fixture@example.invalid", "fixture"))
+        remote.rejectSignIn = true
+        assertFalse(repo.signIn("other@example.invalid", "incorrect-fixture"))
+        assertEquals(account, repo.state.value.account)
+        assertFalse(repo.state.value.needsSignIn)
+        assertEquals(1, repo.state.value.activities.size)
+        assertNotNull(SessionVault(context).read(account))
+    }
     @Test fun serverVerificationFailureDoesNotActivateOrSaveSession() = runBlocking {
         remote.rejectVerification = true
         assertFalse(repo.signIn("fixture@example.invalid", "fixture"))
@@ -99,8 +109,9 @@ class TrainingRepositoryTest {
         var expires = Long.MAX_VALUE
         var refreshCount = 0
         var rejectVerification = false
+        var rejectSignIn = false
         private fun connected() { if(offline) throw IOException("Synthetic offline") }
-        override fun signIn(email: String, password: String): NativeSession { connected(); return NativeSession(account, "fixture-token", "fixture-refresh", expires) }
+        override fun signIn(email: String, password: String): NativeSession { connected(); if(rejectSignIn) throw ServiceFailure(400, "Synthetic rejected credentials", requiresSignIn = true); return NativeSession(account, "fixture-token", "fixture-refresh", expires) }
         override fun verify(session: NativeSession) { connected(); if(rejectVerification) throw ServiceFailure(401, "Synthetic verification rejection") }
         override fun refresh(session: NativeSession): NativeSession { connected(); refreshCount++; return NativeSession(account, "rotated-token", "rotated-refresh", Long.MAX_VALUE) }
         override fun activities(session: NativeSession, before: ActivityRecord?): JSONArray {
