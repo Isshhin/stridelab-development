@@ -41,6 +41,8 @@ This is credential persistence infrastructure, not completed login. Native Supab
 
 Local JDK execution: 13/13 JUnit tests passed for backup integrity, record validation and native session serialization. Full Android compilation/emulator checks run in private CI. SQLite tests cover database close/reopen, dependent edits, explicit conflicts, malformed pages, account isolation and an injected transactional write failure. Keystore emulator tests cover reopen, ciphertext tampering, account-bound encryption and invalidation after clearing. Tests are not marked passed until their CI results are recorded. Force-process termination, full application restart with real data, physical device encryption behavior and install-upgrade migration remain unverified.
 
+First Android gate: CI 40281453420 compiled the APK and passed 10 JVM tests. Its 12 emulator checks had one failure in the inherited WebView readiness test; the 10 SQLite scenarios and no-network-permission check passed. Root cause in the test: it accepted about:blank's readyState=complete before the app origin loaded. The readiness predicate now requires the actual appassets origin and rendered app heading. This strengthens the test rather than relaxing origin validation. A fresh full gate must confirm the corrected helper and new session-vault tests.
+
 ## Required next implementation order
 
 1. Execute unit and Android emulator storage/lifecycle regression; preserve exact source hashes and test reports. Local container has JDK 17 but no Android SDK/emulator, so Android execution uses private CI.

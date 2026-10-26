@@ -44,11 +44,13 @@ public class OfflineAppTest {
         return null;
     }
     private static void waitUntilReady(ActivityScenario<MainActivity> s,WebView v) throws Exception {
-        for(int i=0;i<35;i++){String result=eval(s,v,"document.readyState+'|'+(document.querySelector('#app')!==null)");
-            if(result.contains("complete") || result.contains("interactive"))return;
+        // A new WebView starts at about:blank with readyState=complete. That is
+        // not evidence that the app origin or saved-state document has loaded.
+        for(int i=0;i<100;i++){String result=eval(s,v,"location.origin+'|'+document.readyState+'|'+(document.querySelector('#app h1')!==null)");
+            if(result.contains("appassets.androidplatform.net") && result.contains("|true") && (result.contains("complete") || result.contains("interactive")))return;
             SystemClock.sleep(300);
         }
-        fail("Offline document did not become ready");
+        fail("Offline application origin and rendered content did not become ready");
     }
     private static String eval(ActivityScenario<MainActivity> s,WebView v,String js) throws Exception {
         ArrayBlockingQueue<String> q=new ArrayBlockingQueue<>(1);
