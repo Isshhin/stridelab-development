@@ -84,13 +84,13 @@ class NativeMainActivity: ComponentActivity() {
 @Composable internal fun NativeStrideApp(model: TrainingViewModel = viewModel()) {
     val state by model.state.collectAsStateWithLifecycle()
     val online by model.online.collectAsStateWithLifecycle()
-    val actions = remember(model) { NativeActions(model::refresh, model::checkIntervals, model::syncIntervals, model::signOut, model::signIn, model::loadDetail) }
+    val actions = remember(model) { NativeActions(model::refresh, model::checkIntervals, model::syncIntervals, model::signOut, model::signIn, model::loadDetail, model::refreshWellness) }
     NativeStrideContent(state, online, actions)
 }
 
 /** Presentation boundary allows isolated screenshots without a real session or fake production data. */
 internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: () -> Unit,
-    val syncIntervals: () -> Unit, val signOut: () -> Unit, val signIn: (String, String) -> Unit, val loadDetail: (String) -> Unit = {})
+    val syncIntervals: () -> Unit, val signOut: () -> Unit, val signIn: (String, String) -> Unit, val loadDetail: (String) -> Unit = {}, val refreshWellness: () -> Unit = {})
 
 /** Save each tab's root state, never its transient detail/auth destination. */
 private fun NavHostController.openTabRoot(path: String) {
@@ -151,6 +151,8 @@ private fun NavHostController.openActivity(id: String) {
                                 item { Text("LATEST ACTIVITY", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }
                                 item { ActivityRow(activity) { nav.openActivity(activity.id) } }
                             }
+                            item { WeeklyDashboard(state.activities) }
+                            item { WellnessOverview(state.wellness, actions.refreshWellness, online && !state.busy && !state.needsSignIn) }
                             item { HistoryOverview(state.activities) }
                             if(state.activities.count { it.durationS != null } >= 2) item { RecordedDurationChart(state.activities) }
                             item { FilledTonalButton(onClick = actions.refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }

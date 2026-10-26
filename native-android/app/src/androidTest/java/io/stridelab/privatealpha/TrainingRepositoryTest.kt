@@ -217,6 +217,14 @@ class TrainingRepositoryTest {
         assertEquals(1,repo.state.value.details["activity-1"]!!.samples.size)
         assertTrue(repo.signOut()); assertTrue(repo.state.value.details.isEmpty())
     }
+    @Test fun authenticWellnessPersistsOfflineAndIsHiddenOnSignOut() = runBlocking {
+        remote.rows=listOf(row()); assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        assertTrue(repo.refreshWellness()); assertEquals(7.5,repo.state.value.wellness.single().value,0.0)
+        repo.close(); remote.offline=true; open()
+        assertEquals("sleep_duration",repo.state.value.wellness.single().type)
+        assertFalse(repo.refreshWellness()); assertEquals(1,repo.state.value.wellness.size)
+        remote.offline=false; assertTrue(repo.signOut()); assertTrue(repo.state.value.wellness.isEmpty())
+    }
     private class FakeGateway(val account: String): TrainingGateway {
         var wrongDetailOwner = false
         var rows: List<JSONObject> = emptyList()
@@ -249,6 +257,11 @@ class TrainingRepositoryTest {
                 before == null || Instant.parse(it.getString("started_at")) < before.startedAt ||
                     (Instant.parse(it.getString("started_at")) == before.startedAt && it.getString("id") < before.id)
             }.take(pageSize))
+        }
+        override fun wellness(session: NativeSession): JSONArray {
+            connected()
+            return JSONArray().put(JSONObject().put("id","wellness-1").put("user_id",account).put("source","intervals")
+                .put("metric_type","sleep_duration").put("value",7.5).put("unit","hours").put("recorded_at","2026-10-25T12:00:00Z"))
         }
         override fun detail(session: NativeSession, id: String): JSONObject {
             connected()

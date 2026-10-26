@@ -14,6 +14,7 @@ internal interface TrainingGateway {
     fun verify(session: NativeSession)
     fun activities(session: NativeSession, before: ActivityRecord?): JSONArray
     fun intervals(session: NativeSession, action: String): JSONObject
+    fun wellness(session: NativeSession): JSONArray = throw java.io.IOException("Wellness unavailable")
     fun detail(session: NativeSession, id: String): JSONObject = throw java.io.IOException("Activity streams unavailable")
     fun signOut(session: NativeSession)
 }
@@ -102,6 +103,18 @@ internal class SupabaseGateway(private val transport: BackendTransport = HttpsBa
     override fun intervals(session: NativeSession, action: String): JSONObject {
         require(action in setOf("status","sync","backfill"))
         return JSONObject(request("/functions/v1/stridelab-intervals",session.accessToken,JSONObject().put("action",action)))
+    }
+    override fun wellness(session: NativeSession): JSONArray {
+        val all=JSONArray(); var offset=0
+        val owner=URLEncoder.encode(session.account,"UTF-8")
+        val since=URLEncoder.encode(java.time.Instant.ofEpochSecond(now()).minusSeconds(30*86400L).toString(),"UTF-8")
+        while(true) {
+            val page=JSONArray(request("/rest/v1/wellness_metrics?select=*&user_id=eq.$owner&recorded_at=gte.$since&order=recorded_at.desc,id.desc&limit=200&offset=$offset",session.accessToken))
+            require(page.length()<=200 && all.length()+page.length()<=2000)
+            if(page.length()==0) return all
+            for(i in 0 until page.length()) { val row=page.getJSONObject(i); require(row.getString("user_id")==session.account); all.put(row) }
+            offset+=page.length()
+        }
     }
     override fun detail(session: NativeSession, id: String): JSONObject {
         RecordPolicy.identifier(id)

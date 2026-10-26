@@ -113,6 +113,27 @@ class NativeVisualTest {
         compose.onNodeWithText("Lap 1 · 1.00 km · 5:50").performScrollTo().assertIsDisplayed()
         capture("simulation-recorded-laps")
     }
+    @Test fun weeklyDashboardAndSourceDatedWellnessRemainReadableAtLargeText() {
+        val now=Instant.parse("2026-10-26T02:00:00Z")
+        var refreshed=false
+        show {
+            val density=LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density,2f)) {
+                StrideTheme { Surface { Column(Modifier.width(300.dp).verticalScroll(rememberScrollState()).padding(16.dp)) {
+                    Text("UI SIMULATION · SYNTHETIC DASHBOARD")
+                    WeeklyDashboard(listOf(activity),now,java.time.ZoneId.of("Asia/Manila"))
+                    WellnessOverview(listOf(WellnessRecord("synthetic-wellness","sleep_duration",7.5,"hours",now.minusSeconds(86400),"intervals")),{refreshed=true},true)
+                } } }
+            }
+        }
+        compose.onNodeWithText("LAST 7 DAYS").assertExists()
+        compose.onNodeWithText("Running distance").performScrollTo().assertIsDisplayed()
+        capture("simulation-weekly-200pct")
+        compose.onNodeWithText("Sleep duration · 7.5 hours").performScrollTo().assertIsDisplayed()
+        capture("simulation-wellness-200pct")
+        compose.onNodeWithText("Refresh wellness").performScrollTo().performClick()
+        compose.runOnIdle { assertTrue(refreshed) }
+    }
     @Test fun widerLayoutKeepsContentBounded() {
         show {
             CompositionLocalProvider(LocalDensity provides Density(1f, 1f)) {
@@ -135,4 +156,3 @@ class NativeVisualTest {
         }
     }
 }
-

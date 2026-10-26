@@ -23,6 +23,7 @@ internal data class TrainingState(
     val needsSignIn: Boolean = false,
     val loginGeneration: Long = 0,
     val intervals: IntervalConnection? = null,
+    val wellness: List<WellnessRecord> = emptyList(),
     val details: Map<String,ActivityDetail> = emptyMap(),
     val task: String? = null
 )
@@ -70,10 +71,27 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         store.readableDatabase.query("records",arrayOf("record_id","payload"),"account=? AND kind=?",arrayOf(account,"activity_detail"),null,null,null).use { c ->
             while(c.moveToNext()) runCatching { details[c.getString(0)] = ActivityDetail.parse(JSONObject(c.getString(1)),account,c.getString(0)) }
         }
+        val wellness=mutableListOf<WellnessRecord>()
+        store.readableDatabase.query("records",arrayOf("payload"),"account=? AND kind=?",arrayOf(account,"wellness"),null,null,null).use { c ->
+            while(c.moveToNext()) runCatching { WellnessRecord.parse(JSONObject(c.getString(0)),account)?.let { wellness.add(it) } }
+        }
         val cursor = store.cursor(account, "activity")
         val last = cursor?.let { runCatching { JSONObject(it).getLong("completedAt") }.getOrNull() }
-        mutable.value = mutable.value.copy(activities = records.sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id }), lastSync = last, details = details,
+        mutable.value = mutable.value.copy(activities = records.sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id }), lastSync = last, details = details, wellness = wellness,
             message = if(rejected > 0) "$rejected saved activities contain unsupported data and were retained for review." else mutable.value.message)
+    }
+    suspend fun refreshWellness() = operation("Refreshing wellness records…") {
+        val account=mutable.value.account ?: throw IllegalStateException("Sign in first")
+        val raw=authenticated { gateway.wellness(it) }
+        val seen=HashSet<String>(); val rows=ArrayList<TrainingStore.RemoteRecord>()
+        for(i in 0 until raw.length()) {
+            val row=raw.getJSONObject(i)
+            val record=WellnessRecord.parse(row,account) ?: continue
+            require(seen.add(record.id))
+            rows+=TrainingStore.RemoteRecord(record.id,row.toString(),null)
+        }
+        store.applyRemotePage(account,"wellness",rows,null,System.currentTimeMillis())
+        loadCache(account)
     }
     suspend fun loadDetail(id: String) = operation("Loading recorded streams…") {
         val account = mutable.value.account ?: throw IllegalStateException("Sign in first")
