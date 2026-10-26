@@ -4,11 +4,11 @@ Updated: 2026-10-26. **Private developer-only project. No public launch is plann
 
 ## Current milestone
 
-**Phase 4D.3A-A Running Intelligence foundation accepted as an intermediate checkpoint**, [official GitHub Actions run 40250751272](https://github.com/Isshhin/stridelab-development/actions/runs/40250751272): **258/258 passed (0 failed/skipped/flaky)** including available axe checks, 629/629 manifest hashes, rebuilt HTML and protected engine/baseline verified. Exact private source: [`phase4d3a-a-fix1`](https://github.com/Isshhin/stridelab-development/releases/tag/phase4d3a-a-fix1), SHA-256 `424063a8400e57eebd89012cd71b55bf38218678b78a4ee0f34206619cc81e87`.
+**Phase 4D.3A-A Running Intelligence foundation accepted as the last VERIFIED checkpoint**, [official GitHub Actions run 40250751272](https://github.com/Isshhin/stridelab-development/actions/runs/40250751272): **258/258 passed (0 failed/skipped/flaky)** including available axe checks, 629/629 manifest hashes, rebuilt HTML and protected engine/baseline verified. Exact private source: [`phase4d3a-a-fix1`](https://github.com/Isshhin/stridelab-development/releases/tag/phase4d3a-a-fix1), SHA-256 `424063a8400e57eebd89012cd71b55bf38218678b78a4ee0f34206619cc81e87`.
 
 - Phase 4D.2 Workstreams 1–5: automated acceptance complete; final WS5-D run 40247262671 was 253/253.
 - Phase 4D.3A-A: data-derived demo run insights, direct chart-to-split selection, keyboard support, honest missing-data and simulated route labeling; **accepted 258/258**.
-- **Next: Phase 4D.3A-B**, deeper insight accuracy/edge cases, responsive visualization, map and split interaction refinement. Build on immutable accepted 4D.3A-A Fix1 source, preserve all 258 tests and protected hashes.
+- **Phase 4D combined final candidate IMPLEMENTED; official verification pending:** 4D.3A running insights, 4D.3B manual Link Run + validated offline JSON import, 4D.3C honest planned/actual comparison. One integrated candidate ZIP with 15 new tests (expected 273), 630/630 manifest, protected hashes unchanged. [Candidate verification workflow](https://github.com/Isshhin/stridelab-development/actions/workflows/phase4d-final-playwright.yml). Do not mark final accepted before official CI.
 - Subsequent: Phase 4D.3B planned-to-recorded Link Run, 4D.3C planned-versus-actual summaries, then private Android pre-alpha before Engine 2.0.
 
 Manual Android, screen-reader, expert coaching/content, map tiles and genuine imported activity validations remain open. No public launch planned.
