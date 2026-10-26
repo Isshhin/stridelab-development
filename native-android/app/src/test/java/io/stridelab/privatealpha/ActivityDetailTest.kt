@@ -38,4 +38,3 @@ class ActivityDetailTest {
         assertThrows(IllegalArgumentException::class.java) { gateway.detail(NativeSession("owner","fixture","fixture",5000),"run-1") }
     }
 }
-

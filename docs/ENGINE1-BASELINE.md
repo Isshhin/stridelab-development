@@ -1,0 +1,23 @@
+# StrideLab Engine 1.0 — implemented baseline contract and acceptance
+
+Status: code implemented, verification in progress. Not complete or athlete-accepted. Advanced Unified Coaching Engine 2.0 remains separate. This baseline is useful without a connected watch; authenticated account ownership is established once, then local planning and logging work offline.
+
+## Versioned interface and saved contracts
+
+`PlanGenerationEngine.generate(PlanRequest, owner, id, now)` returns an immutable `PlanSnapshot`. Engine version `1.0.0`, policy `stridelab.engine1.conservative-20261026.1`, plan schema `1`. Snapshot IDs, session IDs, owner, engine/policy, request, exact prescriptions, approval state, actual logs, missed reasons, suggestions, feedback and revision persist together in existing owner-scoped SQLite transactions/outbox. No destructive migration or backend change is required. Saved prescriptions are read directly, never regenerated on load or approval. Revisions reject stale edits. Unsupported schema records are retained rather than deleted. A compatible schema from an unknown engine is viewable/exportable with its original JSON, including unknown fields, but read-only to Engine 1.0. Engine 2.0 can implement the interface independently; new policy IDs must identify changed generation rules. Keep Engine 1.0 as a selectable stable fallback in later integration. Historical logs and accepted snapshots must never be recalculated by engine selection.
+
+## Working vertical slice
+
+Running, strength, calisthenics and conditioning share actual dates and selected day budgets. Requests include primary/secondary goals, separate experience/ability, frequencies, one long-run weekday, preferred quality days, editable recent mileage, duration, equipment quantities, exclusions and optional notes. Insufficient day/recovery capacity produces an explanatory error rather than silently dropping a discipline. Time-based beginner run/walk does not fabricate mileage or high-intensity targets. Equipment quantities matter; holds use seconds. No automatic load/skill advancement is inferred from completion. Optional notes remain visible context, not a claim of medical interpretation.
+
+A generated plan is a durable draft. Approval is explicit and checks conflicts with existing approved plans. Calendar movement respects selected days and recovery spacing. Pause/archive retains records. Actual workout fields start blank; partial set logs and completion persist offline. Idempotent completion cannot add duplicate sessions. Missed reasons can offer a pending reduction/rest choice; original prescriptions remain intact, no catch-up volume is added, and acceptance is explicit. Feedback categories cover plan quality, inappropriate prescriptions, workout quality and usability, tied to the plan's engine/policy and optional session. Export is local through the Android document picker; it contains private training data, not authentication secrets. No automatic feedback upload or plan cloud reconciliation is claimed.
+
+## Reuse and provenance
+
+The preserved accepted Phase 4E executable HTML was inspected, including its generator, approval/calendar and per-set workflows. Native Engine 1.0 adapts compatible deterministic scheduling and exercise-selection concepts while preserving that original file and its protected engine. It replaces silent session dropping, generic automatic load increments and hold-as-repetition logging with explicit constraints and units. The accepted 23-entry library plus 21 educational references and original image fit/licensing disclosures are extracted without modifying source assets. Native Bricolage is the unmodified OFL font; asset hashes/provenance accompany the package.
+
+## Acceptance gates and limits
+
+Generation/constraint/contract tests, repository approval/calendar/logging/offline/account tests, native UI generation-to-history tests, forced-process restart tests and legacy/native navigation/sync/security tests must pass for the exact checkpoint. Compare original and native screenshots at matching phone widths and large text. Local synthetic tests are engineering evidence, not athlete acceptance. Durable signing and installed-phone compatibility require actual secret configuration and signer checks. Private on-device users enter credentials only through the real app; feedback must be reviewed without assuming a heuristic policy is an adaptive Engine 2.0.
+
+Remaining parity includes saved library collections/templates/practice, richer filters, exercise swapping, actual-to-planned activity links, fuller settings/import/export, interactive recorded charts and final visual/accessibility acceptance. Track each in NATIVE-PHASE1-PARITY.md. Do not report all five reconstruction stages complete.

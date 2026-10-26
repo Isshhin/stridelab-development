@@ -44,5 +44,16 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
     fun syncIntervals() { viewModelScope.launch { repo.syncIntervals() } }
     fun refreshWellness() { viewModelScope.launch { repo.refreshWellness() } }
     fun loadDetail(id: String) { viewModelScope.launch { repo.loadDetail(id) } }
+    internal fun planActions()=PlanActions(
+        generate={p->viewModelScope.launch { repo.generatePlan(p) }},
+        approve={id,r->viewModelScope.launch { repo.approvePlan(id,r) }},
+        pause={id,r->viewModelScope.launch { repo.pausePlan(id,r) }},
+        archive={id,r->viewModelScope.launch { repo.archivePlan(id,r) }},
+        move={id,r,s,d->viewModelScope.launch { repo.moveSession(id,r,s,d) }},
+        record={id,r,s,log,done->viewModelScope.launch { repo.recordWorkout(id,r,s,log,done) }},
+        missed={id,r,s,reason,skipped->viewModelScope.launch { repo.markMissed(id,r,s,reason,skipped) }},
+        acceptSuggestion={id,r,s->viewModelScope.launch { repo.acceptSuggestion(id,r,s) }},
+        feedback={id,r,category,text,s->viewModelScope.launch { repo.saveFeedback(id,r,category,text,s) }}
+    )
     fun signOut() { viewModelScope.launch { repo.signOut() } }
 }

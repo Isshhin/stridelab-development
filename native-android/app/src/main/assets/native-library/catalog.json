@@ -1,0 +1,1738 @@
+{
+  "schema": 1,
+  "sourceHtmlSha256": "3106ee7dad0c95880a7f8dcc4cd7ec23079b6bee8f36e3dd972841f7088d446e",
+  "entries": [
+    {
+      "id": "e1",
+      "n": "Back squat",
+      "t": "str",
+      "eq": "Barbell + rack",
+      "level": "Intermediate",
+      "pattern": "squat",
+      "purpose": "Build bilateral leg strength with an externally loaded squat.",
+      "tech": [
+        "Set the bar on your upper back and brace",
+        "Sit between the hips with knees following toes",
+        "Stand through the whole foot; use a rack with safeties"
+      ],
+      "mistake": "Avoid collapsing knees or losing your brace.",
+      "reg": "Bodyweight squat",
+      "prog": "Add a small load only after all reps stay controlled",
+      "asset": "barbell-squat",
+      "alts": [
+        "sq",
+        "gs"
+      ],
+      "sets": [
+        [
+          0,
+          8
+        ],
+        [
+          0,
+          8
+        ],
+        [
+          0,
+          8
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "Set the bar on your upper back and brace",
+      "pr": [
+        "Bodyweight squat",
+        "Back squat",
+        "Add a small load only after all reps stay controlled"
+      ],
+      "image": {
+        "file": "assets/barbell-squat.svg",
+        "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0122-relaxation.svg",
+        "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/barbell-squat.md",
+        "author": "Everkinetic / Greg Priday",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "label": "Barbell Squat — source exercise diagram",
+        "changes": "Unmodified file; contained in a responsive frame; rasterized for native display without changing content",
+        "sha256": "74c5904f5ce3074710921a337d3145d237f0d34cfbde476c0f0da141b838f0ab",
+        "nativeFile": "native-library/e1.png",
+        "fit": [
+          "exact",
+          "Shows the barbell back squat."
+        ]
+      }
+    },
+    {
+      "id": "e2",
+      "n": "Pull-up progression",
+      "t": "cal",
+      "eq": "Bar",
+      "level": "Intermediate",
+      "pattern": "vertical pull",
+      "purpose": "Develop vertical pulling strength toward an unassisted pull-up.",
+      "tech": [
+        "Shoulders down; use a secure overhead bar",
+        "Pull elbows toward ribs without kicking",
+        "Lower under control; use a step to reach the start for negatives"
+      ],
+      "mistake": "Avoid dropping into the shoulders or swinging.",
+      "reg": "Assisted pull-up",
+      "prog": "Progress from controlled negatives to full pull-ups",
+      "asset": "pull-ups",
+      "alts": [
+        "ap"
+      ],
+      "sets": [
+        [
+          0,
+          8
+        ],
+        [
+          0,
+          8
+        ],
+        [
+          0,
+          8
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "Shoulders down; use a secure overhead bar",
+      "pr": [
+        "Assisted pull-up",
+        "Pull-up progression",
+        "Progress from controlled negatives to full pull-ups"
+      ],
+      "image": {
+        "file": "assets/pull-ups.svg",
+        "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0087-relaxation.svg",
+        "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/pull-ups.md",
+        "author": "Everkinetic / Greg Priday",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "label": "Pull Ups — source exercise diagram",
+        "changes": "Unmodified file; contained in a responsive frame; rasterized for native display without changing content",
+        "sha256": "12078cccf48e29c886dc84653dce07168945fc279ec20ec95a6b944f68816377",
+        "nativeFile": "native-library/e2.png",
+        "fit": [
+          "progression",
+          "Shows the full pull-up, the end point of this progression. Earlier steps follow the written cues."
+        ]
+      }
+    },
+    {
+      "id": "e3",
+      "n": "Romanian deadlift",
+      "t": "str",
+      "eq": "Barbell",
+      "level": "Intermediate",
+      "pattern": "hinge",
+      "purpose": "Load the hamstrings and glutes through a controlled hip hinge.",
+      "tech": [
+        "Soften knees and brace",
+        "Send hips back with the bar close to your legs",
+        "Stop before your back rounds; stand by extending the hips"
+      ],
+      "mistake": "Avoid chasing the floor with the bar.",
+      "reg": "Dumbbell Romanian deadlift",
+      "prog": "Increase load gradually while keeping the same range",
+      "asset": "romanian-dead-lift",
+      "alts": [
+        "dh",
+        "hg"
+      ],
+      "sets": [
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          10
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "Soften knees and brace",
+      "pr": [
+        "Dumbbell Romanian deadlift",
+        "Romanian deadlift",
+        "Increase load gradually while keeping the same range"
+      ],
+      "image": {
+        "file": "assets/romanian-dead-lift.svg",
+        "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0118-relaxation.svg",
+        "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/romanian-dead-lift.md",
+        "author": "Everkinetic / Greg Priday",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "label": "Romanian Dead Lift — source exercise diagram",
+        "changes": "Unmodified file; contained in a responsive frame; rasterized for native display without changing content",
+        "sha256": "a7c2c7418ba458e2776609595ea2cafd23aba4648c959b81b830f1836743bc04",
+        "nativeFile": "native-library/e3.png",
+        "fit": [
+          "exact",
+          "Shows the barbell Romanian deadlift."
+        ]
+      }
+    },
+    {
+      "id": "e4",
+      "n": "Push-up progression",
+      "t": "cal",
+      "eq": "None",
+      "level": "Beginner",
+      "pattern": "horizontal press",
+      "purpose": "Build pushing strength and whole-body tension.",
+      "tech": [
+        "Keep body in one line, elbows at 45 degrees",
+        "Lower your chest between your hands",
+        "Press away without sagging at the hips"
+      ],
+      "mistake": "Avoid flaring elbows or reaching the chin first.",
+      "reg": "Incline push-up",
+      "prog": "Lower the support, then use full floor push-ups",
+      "asset": "push-ups",
+      "alts": [
+        "ip",
+        "fp"
+      ],
+      "sets": [
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          10
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "Keep body in one line, elbows at 45 degrees",
+      "pr": [
+        "Incline push-up",
+        "Push-up progression",
+        "Lower the support, then use full floor push-ups"
+      ],
+      "image": {
+        "file": "assets/push-ups.svg",
+        "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0077-relaxation.svg",
+        "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/push-ups.md",
+        "author": "Everkinetic / Greg Priday",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "label": "Push Up: Body Weight — source exercise diagram",
+        "changes": "Unmodified file; contained in a responsive frame; rasterized for native display without changing content",
+        "sha256": "6ce1b11a8f525cc26ef8b12a0ed08de5a69aec533557b86d34d0d47d14e9d4f1",
+        "nativeFile": "native-library/e4.png",
+        "fit": [
+          "progression",
+          "Shows the full push-up, the end point of this progression. Earlier steps follow the written cues."
+        ]
+      }
+    },
+    {
+      "id": "e5",
+      "n": "Hanging leg raise",
+      "t": "cal",
+      "eq": "Bar",
+      "level": "Advanced",
+      "pattern": "core",
+      "purpose": "Train trunk control and hip flexion from a stable hang.",
+      "tech": [
+        "Use a secure bar with shoulders active",
+        "Tuck the pelvis and raise legs only as high as controlled",
+        "Lower slowly without swinging"
+      ],
+      "mistake": "Avoid generating momentum from the lower back.",
+      "reg": "Bent-knee leg raise on the floor",
+      "prog": "Straighter legs through a larger controlled range",
+      "asset": "flat-bench-leg-raises",
+      "alts": [
+        "fc"
+      ],
+      "sets": [
+        [
+          0,
+          8
+        ],
+        [
+          0,
+          8
+        ],
+        [
+          0,
+          8
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "Use a secure bar with shoulders active",
+      "pr": [
+        "Bent-knee leg raise on the floor",
+        "Hanging leg raise",
+        "Straighter legs through a larger controlled range"
+      ],
+      "image": {
+        "file": "assets/hanging-leg-raise.svg",
+        "url": null,
+        "source": null,
+        "author": "StrideLab (original schematic)",
+        "license": "Original work for this prototype; no third-party rights",
+        "licenseUrl": null,
+        "own": true,
+        "label": "Hanging leg raise — original schematic",
+        "changes": "Authored for this prototype; rasterized for native display without changing content",
+        "sha256": "39f32172e7cd7d6e1a04faedbb2448403dac5a6d7b20141491e1099c230976ae",
+        "nativeFile": "native-library/e5.png",
+        "fit": [
+          "schematic",
+          "Start with a straight hang, finish with the legs raised to hip height. No licensed hanging-leg-raise diagram was available."
+        ]
+      }
+    },
+    {
+      "id": "e6",
+      "n": "Bulgarian split squat",
+      "t": "str",
+      "eq": "Dumbbells + bench",
+      "level": "Intermediate",
+      "pattern": "unilateral",
+      "purpose": "Develop single-leg strength with the rear foot supported.",
+      "tech": [
+        "Rest the rear foot on a stable low bench",
+        "Lower through the front hip and knee; let the knee follow toes",
+        "Push through the front foot and repeat both sides"
+      ],
+      "mistake": "Avoid an unstable bench or forcing a vertical shin.",
+      "reg": "Reverse lunge",
+      "prog": "Increase range or load while maintaining balance",
+      "asset": "dumbbell-lunges",
+      "alts": [
+        "rl"
+      ],
+      "sets": [
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          10
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "Rest the rear foot on a stable low bench",
+      "pr": [
+        "Reverse lunge",
+        "Bulgarian split squat",
+        "Increase range or load while maintaining balance"
+      ],
+      "image": {
+        "file": "assets/bulgarian-split-squat.svg",
+        "url": null,
+        "source": null,
+        "author": "StrideLab (original schematic)",
+        "license": "Original work for this prototype; no third-party rights",
+        "licenseUrl": null,
+        "own": true,
+        "label": "Bulgarian split squat — original schematic",
+        "changes": "Authored for this prototype; rasterized for native display without changing content",
+        "sha256": "e2dcfdbb79bbb7e1a7380eb1c866c1e628bc674fd92e45fc75342493213842be",
+        "nativeFile": "native-library/e6.png",
+        "fit": [
+          "schematic",
+          "Bottom position with the rear foot on a bench. No licensed Bulgarian split squat diagram was available."
+        ]
+      }
+    },
+    {
+      "id": "gs",
+      "n": "Goblet squat",
+      "t": "str",
+      "eq": "Dumbbells",
+      "level": "Beginner",
+      "pattern": "squat",
+      "purpose": "Learn a loaded squat with weight held close to the chest.",
+      "tech": [
+        "Hold one dumbbell close to your chest",
+        "Brace and squat between the hips",
+        "Stand without letting the heels lift"
+      ],
+      "mistake": "Avoid letting the weight pull your torso forward.",
+      "reg": "Bodyweight squat",
+      "prog": "Back squat with appropriate rack setup",
+      "asset": "squats-using-dumbbells",
+      "alts": [
+        "sq",
+        "e1"
+      ],
+      "sets": [
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          10
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "Hold one dumbbell close to your chest",
+      "pr": [
+        "Bodyweight squat",
+        "Goblet squat",
+        "Back squat with appropriate rack setup"
+      ],
+      "image": {
+        "file": "assets/squats-using-dumbbells.svg",
+        "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0130-relaxation.svg",
+        "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/squats-using-dumbbells.md",
+        "author": "Everkinetic / Greg Priday",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "label": "Squats: Dumbbells — source exercise diagram",
+        "changes": "Unmodified file; contained in a responsive frame; rasterized for native display without changing content",
+        "sha256": "688721b14ec5a5f640cb05ec2fde35cb9b16de66804f6b0c63342e6201f60f39",
+        "nativeFile": "native-library/gs.png",
+        "fit": [
+          "related",
+          "Dumbbell squat reference. For a goblet squat, hold one dumbbell at your chest instead of two at your sides."
+        ]
+      }
+    },
+    {
+      "id": "dh",
+      "n": "Dumbbell Romanian deadlift",
+      "t": "str",
+      "eq": "Dumbbells",
+      "level": "Beginner",
+      "pattern": "hinge",
+      "purpose": "Train the hip hinge with a freely adjustable load.",
+      "tech": [
+        "Hold dumbbells beside the thighs",
+        "Push hips back with soft knees",
+        "Keep weights close and stand tall"
+      ],
+      "mistake": "Avoid turning the hinge into a deep squat.",
+      "reg": "Unloaded hip hinge",
+      "prog": "Barbell Romanian deadlift",
+      "asset": "romanian-dead-lift",
+      "alts": [
+        "e3",
+        "hg"
+      ],
+      "sets": [
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          10
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "Hold dumbbells beside the thighs",
+      "pr": [
+        "Unloaded hip hinge",
+        "Dumbbell Romanian deadlift",
+        "Barbell Romanian deadlift"
+      ],
+      "image": {
+        "file": "assets/dumbbell-dead-lifts.svg",
+        "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0107-relaxation.svg",
+        "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/dumbbell-dead-lifts.md",
+        "author": "Everkinetic / Greg Priday",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "label": "Dumbbell Dead Lifts — source exercise diagram",
+        "changes": "Unmodified file; contained in a responsive frame; rasterized for native display without changing content",
+        "sha256": "612881291fe0e7733b4e3de00b9fbcec036c81827bae8cd15ba7a19f0d5276a8",
+        "nativeFile": "native-library/dh.png",
+        "fit": [
+          "related",
+          "Dumbbell deadlift reference for the same hip hinge. Follow the written cues for depth and knee bend."
+        ]
+      }
+    },
+    {
+      "id": "bp",
+      "n": "Dumbbell bench press",
+      "t": "str",
+      "eq": "Dumbbells + bench",
+      "level": "Intermediate",
+      "pattern": "horizontal press",
+      "purpose": "Develop chest and triceps strength through a horizontal press.",
+      "tech": [
+        "Lie on a stable bench with feet planted",
+        "Lower dumbbells beside the chest with wrists stacked",
+        "Press smoothly without bouncing or clashing weights"
+      ],
+      "mistake": "Avoid lowering beyond a comfortable shoulder range.",
+      "reg": "Dumbbell floor press",
+      "prog": "Increase load only with controlled full sets",
+      "asset": "bench-press-dumbbell",
+      "alts": [
+        "fp",
+        "e4"
+      ],
+      "sets": [
+        [
+          0,
+          8
+        ],
+        [
+          0,
+          8
+        ],
+        [
+          0,
+          8
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "Lie on a stable bench with feet planted",
+      "pr": [
+        "Dumbbell floor press",
+        "Dumbbell bench press",
+        "Increase load only with controlled full sets"
+      ],
+      "image": {
+        "file": "assets/bench-press-dumbbell.svg",
+        "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0055-relaxation.svg",
+        "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/bench-press-dumbbell.md",
+        "author": "Everkinetic / Greg Priday",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "label": "Bench Press: Dumbbell — source exercise diagram",
+        "changes": "Unmodified file; contained in a responsive frame; rasterized for native display without changing content",
+        "sha256": "4dde7a1d0292938d740c49448a336a9240cf75e4ec94694513580dc8e99e32ab",
+        "nativeFile": "native-library/bp.png",
+        "fit": [
+          "exact",
+          "Shows the dumbbell bench press."
+        ]
+      }
+    },
+    {
+      "id": "fp",
+      "n": "Dumbbell floor press",
+      "t": "str",
+      "eq": "Dumbbells",
+      "level": "Beginner",
+      "pattern": "horizontal press",
+      "purpose": "Train horizontal pressing with the floor limiting shoulder extension.",
+      "tech": [
+        "Lie on the floor with knees bent",
+        "Lower elbows gently to the floor",
+        "Press with wrists over elbows; control the return"
+      ],
+      "mistake": "Avoid bouncing elbows off the floor.",
+      "reg": "Incline push-up",
+      "prog": "Dumbbell bench press for more range",
+      "asset": "bench-press-dumbbell",
+      "alts": [
+        "bp",
+        "e4",
+        "ip"
+      ],
+      "sets": [
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          10
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "Lie on the floor with knees bent",
+      "pr": [
+        "Incline push-up",
+        "Dumbbell floor press",
+        "Dumbbell bench press for more range"
+      ],
+      "image": {
+        "file": "assets/bench-press-dumbbell.svg",
+        "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0055-relaxation.svg",
+        "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/bench-press-dumbbell.md",
+        "author": "Everkinetic / Greg Priday",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "label": "Bench Press: Dumbbell — source exercise diagram",
+        "changes": "Unmodified file; contained in a responsive frame; rasterized for native display without changing content",
+        "sha256": "4dde7a1d0292938d740c49448a336a9240cf75e4ec94694513580dc8e99e32ab",
+        "nativeFile": "native-library/fp.png",
+        "fit": [
+          "related",
+          "Dumbbell bench press reference. The floor press uses the floor instead of a bench, so the elbows stop at the floor."
+        ]
+      }
+    },
+    {
+      "id": "dr",
+      "n": "Dumbbell row",
+      "t": "str",
+      "eq": "Dumbbells",
+      "level": "Beginner",
+      "pattern": "horizontal pull",
+      "purpose": "Build upper-back strength with a supported hip hinge.",
+      "tech": [
+        "Hinge and support your free hand on your thigh",
+        "Pull the dumbbell toward your hip",
+        "Lower fully while keeping hips and ribs still"
+      ],
+      "mistake": "Avoid twisting or shrugging to lift more weight.",
+      "reg": "Lighter dumbbell row",
+      "prog": "Add load while keeping the torso steady",
+      "asset": "reverse-grips-bent-over-barbell-rows",
+      "alts": [
+        "br"
+      ],
+      "sets": [
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          10
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "Hinge and support your free hand on your thigh",
+      "pr": [
+        "Lighter dumbbell row",
+        "Dumbbell row",
+        "Add load while keeping the torso steady"
+      ],
+      "image": {
+        "file": "assets/rear-deltoid-row-dumbbell.svg",
+        "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0024-relaxation.svg",
+        "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/rear-deltoid-row-dumbbell.md",
+        "author": "Everkinetic / Greg Priday",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "label": "Rear Deltoid Row Dumbbell — source exercise diagram",
+        "changes": "Unmodified file; contained in a responsive frame; rasterized for native display without changing content",
+        "sha256": "5533c5ab99ff72e5a8f8063697f239dde461ccb1ed0627384a951f4240dc5ae1",
+        "nativeFile": "native-library/dr.png",
+        "fit": [
+          "related",
+          "Bent-over dumbbell row with one hand supported on a bench. Follow the written cues for your setup."
+        ]
+      }
+    },
+    {
+      "id": "br",
+      "n": "Band row",
+      "t": "str",
+      "eq": "Band + secure anchor",
+      "level": "Beginner",
+      "pattern": "horizontal pull",
+      "purpose": "Train horizontal pulling with elastic resistance.",
+      "tech": [
+        "Inspect the band and use a rated secure anchor",
+        "Stand tall and pull elbows back toward ribs",
+        "Return slowly without leaning backward"
+      ],
+      "mistake": "Do not use an insecure door handle as an anchor.",
+      "reg": "Lighter band tension",
+      "prog": "Dumbbell row for more measurable loading",
+      "asset": "reverse-grips-bent-over-barbell-rows",
+      "alts": [
+        "dr"
+      ],
+      "sets": [
+        [
+          0,
+          12
+        ],
+        [
+          0,
+          12
+        ],
+        [
+          0,
+          12
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "Inspect the band and use a rated secure anchor",
+      "pr": [
+        "Lighter band tension",
+        "Band row",
+        "Dumbbell row for more measurable loading"
+      ],
+      "image": {
+        "file": "assets/seated-cable-rows.svg",
+        "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0025-relaxation.svg",
+        "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/seated-cable-rows.md",
+        "author": "Everkinetic / Greg Priday",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "label": "Seated Cable Rows — source exercise diagram",
+        "changes": "Unmodified file; contained in a responsive frame; rasterized for native display without changing content",
+        "sha256": "53dcd08b3979417d36ec09fb7a6db1740494e421078cfa7b87128e917ba0e5bf",
+        "nativeFile": "native-library/br.png",
+        "fit": [
+          "related",
+          "Seated row reference. A band replaces the cable; follow the written steps for a secure anchor."
+        ]
+      }
+    },
+    {
+      "id": "rl",
+      "n": "Reverse lunge",
+      "t": "str",
+      "eq": "None",
+      "level": "Beginner",
+      "pattern": "unilateral",
+      "purpose": "Train single-leg strength and balance without external load.",
+      "tech": [
+        "Stand tall and take a controlled step back",
+        "Lower both knees through a comfortable range",
+        "Push through the front foot; repeat both sides"
+      ],
+      "mistake": "Avoid narrow tightrope steps or losing balance.",
+      "reg": "Shorter range with a wall for balance",
+      "prog": "Add dumbbells or progress to rear-foot elevation",
+      "asset": "walking-lunges",
+      "alts": [
+        "e6"
+      ],
+      "sets": [
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          10
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "Stand tall and take a controlled step back",
+      "pr": [
+        "Shorter range with a wall for balance",
+        "Reverse lunge",
+        "Add dumbbells or progress to rear-foot elevation"
+      ],
+      "image": {
+        "file": "assets/rear-lunges-with-dumbbell.svg",
+        "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0129-relaxation.svg",
+        "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/rear-lunges-with-dumbbell.md",
+        "author": "Everkinetic / Greg Priday",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "label": "Rear Lunges with Dumbbell — source exercise diagram",
+        "changes": "Unmodified file; contained in a responsive frame; rasterized for native display without changing content",
+        "sha256": "2214642dee62df0b633e53a60b41639dbf641b813a3b1673f15c8a30834f1d0d",
+        "nativeFile": "native-library/rl.png",
+        "fit": [
+          "related",
+          "Dumbbell-loaded reverse-lunge reference. This Library entry is unloaded; use no dumbbells and follow the written technique steps."
+        ]
+      }
+    },
+    {
+      "id": "sq",
+      "n": "Bodyweight squat",
+      "t": "cal",
+      "eq": "None",
+      "level": "Beginner",
+      "pattern": "squat",
+      "purpose": "Practice the squat pattern and build lower-body capacity.",
+      "tech": [
+        "Stand with a comfortable foot width",
+        "Brace and lower between the hips, knees following toes",
+        "Stand through the whole foot"
+      ],
+      "mistake": "Avoid forcing depth beyond your controlled range.",
+      "reg": "Shallow squat",
+      "prog": "Goblet squat with a manageable dumbbell",
+      "asset": "barbell-squat",
+      "alts": [
+        "gs",
+        "e1"
+      ],
+      "sets": [
+        [
+          0,
+          12
+        ],
+        [
+          0,
+          12
+        ],
+        [
+          0,
+          12
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "Stand with a comfortable foot width",
+      "pr": [
+        "Shallow squat",
+        "Bodyweight squat",
+        "Goblet squat with a manageable dumbbell"
+      ],
+      "image": {
+        "file": "assets/squats-using-dumbbells.svg",
+        "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0130-relaxation.svg",
+        "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/squats-using-dumbbells.md",
+        "author": "Everkinetic / Greg Priday",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "label": "Squats: Dumbbells — source exercise diagram",
+        "changes": "Unmodified file; contained in a responsive frame; rasterized for native display without changing content",
+        "sha256": "688721b14ec5a5f640cb05ec2fde35cb9b16de66804f6b0c63342e6201f60f39",
+        "nativeFile": "native-library/sq.png",
+        "fit": [
+          "related",
+          "Dumbbell squat reference. Hold no weight for the bodyweight squat."
+        ]
+      }
+    },
+    {
+      "id": "hg",
+      "n": "Unloaded hip hinge",
+      "t": "cal",
+      "eq": "None",
+      "level": "Beginner",
+      "pattern": "hinge",
+      "purpose": "Learn hip movement and trunk control before adding load.",
+      "tech": [
+        "Stand tall with soft knees",
+        "Push hips backward while keeping ribs over pelvis",
+        "Stop at hamstring tension and stand tall"
+      ],
+      "mistake": "Avoid rounding the back or locking the knees.",
+      "reg": "Smaller range hip hinge",
+      "prog": "Dumbbell Romanian deadlift",
+      "asset": "romanian-dead-lift",
+      "alts": [
+        "dh",
+        "e3"
+      ],
+      "sets": [
+        [
+          0,
+          12
+        ],
+        [
+          0,
+          12
+        ],
+        [
+          0,
+          12
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "Stand tall with soft knees",
+      "pr": [
+        "Smaller range hip hinge",
+        "Unloaded hip hinge",
+        "Dumbbell Romanian deadlift"
+      ],
+      "image": {
+        "file": "assets/dumbbell-dead-lifts.svg",
+        "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0107-relaxation.svg",
+        "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/dumbbell-dead-lifts.md",
+        "author": "Everkinetic / Greg Priday",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "label": "Dumbbell Dead Lifts — source exercise diagram",
+        "changes": "Unmodified file; contained in a responsive frame; rasterized for native display without changing content",
+        "sha256": "612881291fe0e7733b4e3de00b9fbcec036c81827bae8cd15ba7a19f0d5276a8",
+        "nativeFile": "native-library/hg.png",
+        "fit": [
+          "related",
+          "Dumbbell deadlift reference for the hip hinge. Practise it with no weight."
+        ]
+      }
+    },
+    {
+      "id": "ip",
+      "n": "Incline push-up",
+      "t": "cal",
+      "eq": "Stable raised surface",
+      "level": "Beginner",
+      "pattern": "horizontal press",
+      "purpose": "Reduce the load of a push-up by elevating the hands.",
+      "tech": [
+        "Use a sturdy immovable surface",
+        "Keep a straight line from head to heels",
+        "Lower the chest to the edge and press away"
+      ],
+      "mistake": "Avoid a surface that slides or tips.",
+      "reg": "Higher stable support",
+      "prog": "Lower the support before moving to the floor",
+      "asset": "push-ups",
+      "alts": [
+        "e4",
+        "fp"
+      ],
+      "sets": [
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          10
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "Use a sturdy immovable surface",
+      "pr": [
+        "Higher stable support",
+        "Incline push-up",
+        "Lower the support before moving to the floor"
+      ],
+      "image": {
+        "file": "assets/incline-push-up.svg",
+        "url": null,
+        "source": null,
+        "author": "StrideLab (original schematic)",
+        "license": "Original work for this prototype; no third-party rights",
+        "licenseUrl": null,
+        "own": true,
+        "label": "Incline push-up — original schematic",
+        "changes": "Authored for this prototype; rasterized for native display without changing content",
+        "sha256": "8d397dd0898e857dd178940867352c11cab5fbcbccb348f2c63fcad83f4ea99e",
+        "nativeFile": "native-library/ip.png",
+        "fit": [
+          "schematic",
+          "Hands on a stable raised surface, body in one straight line. No licensed incline push-up diagram was available."
+        ]
+      }
+    },
+    {
+      "id": "ap",
+      "n": "Assisted pull-up",
+      "t": "cal",
+      "eq": "Bar + band",
+      "level": "Beginner",
+      "pattern": "vertical pull",
+      "purpose": "Practice vertical pulling with band assistance.",
+      "tech": [
+        "Check a secure bar and an undamaged band",
+        "Use assistance to pull chest toward the bar",
+        "Lower under control; enter and exit the band carefully"
+      ],
+      "mistake": "Avoid snapping the band or kicking to finish.",
+      "reg": "Controlled supported practice with a qualified instructor",
+      "prog": "Use less assistance before unassisted pull-ups",
+      "asset": "pull-ups",
+      "alts": [
+        "e2"
+      ],
+      "sets": [
+        [
+          0,
+          6
+        ],
+        [
+          0,
+          6
+        ],
+        [
+          0,
+          6
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "Check a secure bar and an undamaged band",
+      "pr": [
+        "Controlled supported practice with a qualified instructor",
+        "Assisted pull-up",
+        "Use less assistance before unassisted pull-ups"
+      ],
+      "image": {
+        "file": "assets/pull-ups.svg",
+        "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0087-relaxation.svg",
+        "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/pull-ups.md",
+        "author": "Everkinetic / Greg Priday",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "label": "Pull Ups — source exercise diagram",
+        "changes": "Unmodified file; contained in a responsive frame; rasterized for native display without changing content",
+        "sha256": "12078cccf48e29c886dc84653dce07168945fc279ec20ec95a6b944f68816377",
+        "nativeFile": "native-library/ap.png",
+        "fit": [
+          "related",
+          "Pull-up reference. Band or machine assistance is not drawn."
+        ]
+      }
+    },
+    {
+      "id": "fc",
+      "n": "Floor bent-knee leg raise",
+      "t": "cal",
+      "eq": "None",
+      "level": "Beginner",
+      "pattern": "core",
+      "purpose": "Practice pelvic control without a hanging setup.",
+      "tech": [
+        "Lie on your back with knees bent",
+        "Exhale and curl the pelvis as knees move toward the torso",
+        "Lower slowly without arching the back"
+      ],
+      "mistake": "Avoid swinging the legs or holding your breath.",
+      "reg": "Smaller controlled range",
+      "prog": "Straighter legs, then hanging knee raises",
+      "asset": "flat-bench-leg-raises",
+      "alts": [
+        "e5"
+      ],
+      "sets": [
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          10
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "Lie on your back with knees bent",
+      "pr": [
+        "Smaller controlled range",
+        "Floor bent-knee leg raise",
+        "Straighter legs, then hanging knee raises"
+      ],
+      "image": {
+        "file": "assets/bent-knee-hip-raise.svg",
+        "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0287-relaxation.svg",
+        "source": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/bent-knee-hip-raise.md",
+        "author": "Everkinetic / Greg Priday",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "label": "Bent Knee Hip Raise — source exercise diagram",
+        "changes": "Unmodified file; contained in a responsive frame; rasterized for native display without changing content",
+        "sha256": "27df8a8f1baf454c16aad68297f3e299d03ef3e95c4c388f18090c024d489cbb",
+        "nativeFile": "native-library/fc.png",
+        "fit": [
+          "related",
+          "Lying bent-knee hip raise reference. Follow the written cues for the floor version."
+        ]
+      }
+    },
+    {
+      "id": "re",
+      "n": "Easy run",
+      "t": "run",
+      "eq": "Safe running route",
+      "level": "Beginner",
+      "pattern": "running",
+      "purpose": "Aerobic base and recovery between harder sessions.",
+      "tech": [
+        "5 min walk or easy jog",
+        "20 min conversational running",
+        "5 min easy cooldown"
+      ],
+      "mistake": "Avoid chasing a fixed pace when terrain or effort changes.",
+      "reg": "Use run-walk intervals",
+      "prog": "Extend easy duration gradually",
+      "asset": "running",
+      "alts": [
+        "rlg"
+      ],
+      "sets": [
+        [
+          0,
+          8
+        ],
+        [
+          0,
+          8
+        ],
+        [
+          0,
+          8
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "5 min walk or easy jog",
+      "pr": [
+        "Use run-walk intervals",
+        "Easy run",
+        "Extend easy duration gradually"
+      ],
+      "minutes": 30,
+      "image": {
+        "file": "assets/running.jpg",
+        "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e0/First_Annual_Joint_Jingle_Jog_%288813448%29.jpg/960px-First_Annual_Joint_Jingle_Jog_%288813448%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+        "source": "https://commons.wikimedia.org/wiki/File:First_Annual_Joint_Jingle_Jog_(8813448).jpg",
+        "author": "U.S. Army photo by Spc. Samuel Signor",
+        "license": "Public domain",
+        "licenseUrl": "https://commons.wikimedia.org/wiki/Template:PD-USGov-Military-Army",
+        "label": "Runners at the First Annual Joint Jingle Jog. Context photograph; not a technique demonstration.",
+        "changes": "Wikimedia thumbnail; responsive presentation; rasterized for native display without changing content",
+        "sha256": "199d726b325773a04a0aa278c4a92ae0e32f9137591e6257668b277fc9b5d202",
+        "nativeFile": "native-library/re.png",
+        "fit": [
+          "context",
+          "Context photograph, not a technique demonstration"
+        ]
+      }
+    },
+    {
+      "id": "rlg",
+      "n": "Long run",
+      "t": "run",
+      "eq": "Safe running route",
+      "level": "Intermediate",
+      "pattern": "running",
+      "purpose": "Build endurance through time on feet at an easy effort.",
+      "tech": [
+        "10 min easy start",
+        "40 min conversational running",
+        "5 min easy finish"
+      ],
+      "mistake": "Avoid chasing a fixed pace when terrain or effort changes.",
+      "reg": "Shorten duration while keeping the effort easy",
+      "prog": "Extend only when recovery and routine are stable",
+      "asset": "running",
+      "alts": [
+        "re"
+      ],
+      "sets": [
+        [
+          0,
+          8
+        ],
+        [
+          0,
+          8
+        ],
+        [
+          0,
+          8
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "10 min easy start",
+      "pr": [
+        "Shorten duration while keeping the effort easy",
+        "Long run",
+        "Extend only when recovery and routine are stable"
+      ],
+      "minutes": 55,
+      "image": {
+        "file": "assets/running.jpg",
+        "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e0/First_Annual_Joint_Jingle_Jog_%288813448%29.jpg/960px-First_Annual_Joint_Jingle_Jog_%288813448%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+        "source": "https://commons.wikimedia.org/wiki/File:First_Annual_Joint_Jingle_Jog_(8813448).jpg",
+        "author": "U.S. Army photo by Spc. Samuel Signor",
+        "license": "Public domain",
+        "licenseUrl": "https://commons.wikimedia.org/wiki/Template:PD-USGov-Military-Army",
+        "label": "Runners at the First Annual Joint Jingle Jog. Context photograph; not a technique demonstration.",
+        "changes": "Wikimedia thumbnail; responsive presentation; rasterized for native display without changing content",
+        "sha256": "199d726b325773a04a0aa278c4a92ae0e32f9137591e6257668b277fc9b5d202",
+        "nativeFile": "native-library/rlg.png",
+        "fit": [
+          "context",
+          "Context photograph, not a technique demonstration"
+        ]
+      }
+    },
+    {
+      "id": "rt",
+      "n": "Threshold intervals",
+      "t": "run",
+      "eq": "Safe running route",
+      "level": "Intermediate",
+      "pattern": "running",
+      "purpose": "Practice sustained controlled hard running without racing.",
+      "tech": [
+        "10 min easy warm-up",
+        "3 × 5 min controlled hard; 2 min easy jog between",
+        "10 min easy cooldown"
+      ],
+      "mistake": "Avoid chasing a fixed pace when terrain or effort changes.",
+      "reg": "2 × 5 min with full recovery",
+      "prog": "Add one interval only when pace and form remain controlled",
+      "asset": "running",
+      "alts": [
+        "rs"
+      ],
+      "sets": [
+        [
+          0,
+          8
+        ],
+        [
+          0,
+          8
+        ],
+        [
+          0,
+          8
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "10 min easy warm-up",
+      "pr": [
+        "2 × 5 min with full recovery",
+        "Threshold intervals",
+        "Add one interval only when pace and form remain controlled"
+      ],
+      "minutes": 39,
+      "image": {
+        "file": "assets/running.jpg",
+        "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e0/First_Annual_Joint_Jingle_Jog_%288813448%29.jpg/960px-First_Annual_Joint_Jingle_Jog_%288813448%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+        "source": "https://commons.wikimedia.org/wiki/File:First_Annual_Joint_Jingle_Jog_(8813448).jpg",
+        "author": "U.S. Army photo by Spc. Samuel Signor",
+        "license": "Public domain",
+        "licenseUrl": "https://commons.wikimedia.org/wiki/Template:PD-USGov-Military-Army",
+        "label": "Runners at the First Annual Joint Jingle Jog. Context photograph; not a technique demonstration.",
+        "changes": "Wikimedia thumbnail; responsive presentation; rasterized for native display without changing content",
+        "sha256": "199d726b325773a04a0aa278c4a92ae0e32f9137591e6257668b277fc9b5d202",
+        "nativeFile": "native-library/rt.png",
+        "fit": [
+          "context",
+          "Context photograph, not a technique demonstration"
+        ]
+      }
+    },
+    {
+      "id": "rs",
+      "n": "Speed intervals",
+      "t": "run",
+      "eq": "Safe running route",
+      "level": "Advanced",
+      "pattern": "running",
+      "purpose": "Develop fast relaxed running with recovery between repetitions.",
+      "tech": [
+        "12 min easy warm-up and relaxed strides",
+        "6 × 1 min fast, 2 min easy jog between",
+        "10 min easy cooldown"
+      ],
+      "mistake": "Avoid chasing a fixed pace when terrain or effort changes.",
+      "reg": "Fewer reps at a relaxed fast effort",
+      "prog": "Add a rep before increasing speed",
+      "asset": "running",
+      "alts": [
+        "rt",
+        "rh"
+      ],
+      "sets": [
+        [
+          0,
+          8
+        ],
+        [
+          0,
+          8
+        ],
+        [
+          0,
+          8
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "12 min easy warm-up and relaxed strides",
+      "pr": [
+        "Fewer reps at a relaxed fast effort",
+        "Speed intervals",
+        "Add a rep before increasing speed"
+      ],
+      "minutes": 40,
+      "image": {
+        "file": "assets/running.jpg",
+        "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e0/First_Annual_Joint_Jingle_Jog_%288813448%29.jpg/960px-First_Annual_Joint_Jingle_Jog_%288813448%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+        "source": "https://commons.wikimedia.org/wiki/File:First_Annual_Joint_Jingle_Jog_(8813448).jpg",
+        "author": "U.S. Army photo by Spc. Samuel Signor",
+        "license": "Public domain",
+        "licenseUrl": "https://commons.wikimedia.org/wiki/Template:PD-USGov-Military-Army",
+        "label": "Runners at the First Annual Joint Jingle Jog. Context photograph; not a technique demonstration.",
+        "changes": "Wikimedia thumbnail; responsive presentation; rasterized for native display without changing content",
+        "sha256": "199d726b325773a04a0aa278c4a92ae0e32f9137591e6257668b277fc9b5d202",
+        "nativeFile": "native-library/rs.png",
+        "fit": [
+          "context",
+          "Context photograph, not a technique demonstration"
+        ]
+      }
+    },
+    {
+      "id": "rh",
+      "n": "Hill repeats",
+      "t": "run",
+      "eq": "Safe hill route",
+      "level": "Intermediate",
+      "pattern": "running",
+      "purpose": "Practice forceful uphill running without sprinting flat out.",
+      "tech": [
+        "12 min easy warm-up",
+        "6 × 30 sec on a gentle hill; walk or jog down fully",
+        "10 min easy cooldown"
+      ],
+      "mistake": "Avoid chasing a fixed pace when terrain or effort changes.",
+      "reg": "Fewer repetitions on a gentler slope",
+      "prog": "Add one repeat while maintaining relaxed form",
+      "asset": "running",
+      "alts": [
+        "rs"
+      ],
+      "sets": [
+        [
+          0,
+          8
+        ],
+        [
+          0,
+          8
+        ],
+        [
+          0,
+          8
+        ]
+      ],
+      "prev": "Choose a comfortable starting load",
+      "cue": "12 min easy warm-up",
+      "pr": [
+        "Fewer repetitions on a gentler slope",
+        "Hill repeats",
+        "Add one repeat while maintaining relaxed form"
+      ],
+      "minutes": 40,
+      "image": {
+        "file": "assets/running.jpg",
+        "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e0/First_Annual_Joint_Jingle_Jog_%288813448%29.jpg/960px-First_Annual_Joint_Jingle_Jog_%288813448%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+        "source": "https://commons.wikimedia.org/wiki/File:First_Annual_Joint_Jingle_Jog_(8813448).jpg",
+        "author": "U.S. Army photo by Spc. Samuel Signor",
+        "license": "Public domain",
+        "licenseUrl": "https://commons.wikimedia.org/wiki/Template:PD-USGov-Military-Army",
+        "label": "Runners at the First Annual Joint Jingle Jog. Context photograph; not a technique demonstration.",
+        "changes": "Wikimedia thumbnail; responsive presentation; rasterized for native display without changing content",
+        "sha256": "199d726b325773a04a0aa278c4a92ae0e32f9137591e6257668b277fc9b5d202",
+        "nativeFile": "native-library/rh.png",
+        "fit": [
+          "context",
+          "Context photograph, not a technique demonstration"
+        ]
+      }
+    },
+    {
+      "id": "run-warmup",
+      "n": "Pre-run warm-up",
+      "t": "run",
+      "eq": "None",
+      "level": "Beginner",
+      "pattern": "drill",
+      "purpose": "Prepare gradually for running, especially faster sessions.",
+      "tech": [
+        "Walk or jog gently for several minutes, then build to an easy rhythm.",
+        "Use comfortable dynamic movements such as leg swings or marching if helpful.",
+        "Before quality work, add a few short relaxed accelerations only when ready."
+      ],
+      "reg": "Begin with walking and an easy jog; skip accelerations if uncomfortable.",
+      "prog": "You can begin your planned session without feeling rushed or strained.",
+      "mistake": "Do not use a warm-up to push through illness, dizziness or pain.",
+      "guide": true
+    },
+    {
+      "id": "run-strides",
+      "n": "Relaxed running strides",
+      "t": "run",
+      "eq": "None",
+      "level": "Intermediate",
+      "pattern": "drill",
+      "purpose": "Practice relaxed fast running mechanics without an all-out sprint.",
+      "tech": [
+        "After an easy warm-up, accelerate smoothly over roughly 15–20 seconds.",
+        "Stay tall and relaxed; do not force maximum speed or reach ahead with your foot.",
+        "Walk or jog until breathing and form are comfortable before repeating."
+      ],
+      "reg": "Use shorter, gentler accelerations on level, unobstructed ground.",
+      "prog": "Your stride stays smooth without straining or changing gait.",
+      "mistake": "Optional skill drill, not required after every run. Avoid with pain or unusual fatigue.",
+      "guide": true
+    },
+    {
+      "id": "run-march",
+      "n": "A-march running drill",
+      "t": "run",
+      "eq": "None",
+      "level": "Beginner",
+      "pattern": "drill",
+      "purpose": "Coordinate an upright posture and controlled alternating knee lift.",
+      "tech": [
+        "March slowly with tall posture and ribs stacked over hips.",
+        "Lift one knee comfortably while keeping the other leg stable.",
+        "Set the foot underneath you and switch sides at a steady rhythm."
+      ],
+      "reg": "Hold a stable support if balance is limited; reduce knee height.",
+      "prog": "You can alternate sides without rocking or losing balance.",
+      "mistake": "A skill cue, not a promise to improve running economy.",
+      "guide": true
+    },
+    {
+      "id": "run-ankling",
+      "n": "Gentle ankling drill",
+      "t": "run",
+      "eq": "None",
+      "level": "Intermediate",
+      "pattern": "drill",
+      "purpose": "Explore quiet, light foot contacts with controlled ankle movement.",
+      "tech": [
+        "Begin with very small steps on a level surface.",
+        "Keep the movement low amplitude, easy and quiet; do not bounce maximally.",
+        "Stop if calves, Achilles tendon or feet become uncomfortable."
+      ],
+      "reg": "Replace with simple marching or relaxed walking.",
+      "prog": "Foot contacts are comfortable and posture remains upright.",
+      "mistake": "Skip during calf or Achilles symptoms; technique drills do not replace easy mileage.",
+      "guide": true
+    },
+    {
+      "id": "run-cooldown",
+      "n": "Post-run cooldown",
+      "t": "run",
+      "eq": "None",
+      "level": "Beginner",
+      "pattern": "recovery",
+      "purpose": "Transition gradually from harder running to normal activity.",
+      "tech": [
+        "Reduce pace to a comfortable jog or walk.",
+        "Allow breathing to settle without forcing a strict heart-rate target.",
+        "Rehydrate and recover according to conditions and the session."
+      ],
+      "reg": "A comfortable walk can be sufficient.",
+      "prog": "Breathing has settled and you can comfortably stop.",
+      "mistake": "A cooldown is not treatment for chest pain, faintness or other acute symptoms.",
+      "guide": true
+    },
+    {
+      "id": "carry-farmer",
+      "n": "Farmer carry",
+      "t": "str",
+      "eq": "Two suitable weights",
+      "level": "Beginner",
+      "pattern": "carry",
+      "purpose": "Practice loaded carrying with upright posture and grip control.",
+      "tech": [
+        "Hold one manageable weight in each hand and stand tall.",
+        "Walk in a clear path with quiet, even steps; keep shoulders level.",
+        "Stop before grip or posture gives way; set weights down safely."
+      ],
+      "reg": "Use lighter weights or a shorter clear walking path.",
+      "prog": "Control both weights without leaning or rushing.",
+      "mistake": "Check for obstacles and avoid loads you cannot safely pick up and set down.",
+      "guide": true
+    },
+    {
+      "id": "carry-suitcase",
+      "n": "Suitcase carry",
+      "t": "str",
+      "eq": "One suitable weight",
+      "level": "Intermediate",
+      "pattern": "carry",
+      "purpose": "Train controlled walking while resisting a sideways lean.",
+      "tech": [
+        "Hold one manageable weight at your side and stand upright.",
+        "Walk slowly without tilting toward or away from the load.",
+        "Stop, switch hands and repeat with similar control on each side."
+      ],
+      "reg": "Use a lighter weight or practice standing still before walking.",
+      "prog": "Keep trunk upright and walk without compensating.",
+      "mistake": "Not simply an interchangeable replacement for a farmer carry: loading is asymmetrical.",
+      "guide": true
+    },
+    {
+      "id": "row-high",
+      "n": "High-angle inverted row",
+      "t": "cal",
+      "eq": "Secure low bar or rings",
+      "level": "Beginner",
+      "pattern": "pull",
+      "purpose": "Introduce bodyweight horizontal pulling with an easier, more upright angle.",
+      "tech": [
+        "Verify the bar or rings are securely anchored and stable.",
+        "Walk feet forward only as far as you can keep a straight body.",
+        "Pull under control, then lower slowly without shrugging."
+      ],
+      "reg": "Choose a more upright angle and shorten the range.",
+      "prog": "Complete controlled repetitions without arching or swinging.",
+      "mistake": "Do not use unstable furniture or unverified door-frame anchors.",
+      "guide": true
+    },
+    {
+      "id": "row-low",
+      "n": "Lower-angle inverted row",
+      "t": "cal",
+      "eq": "Secure low bar or rings",
+      "level": "Intermediate",
+      "pattern": "pull",
+      "purpose": "Increase demand by moving the body closer to horizontal.",
+      "tech": [
+        "Use a verified stable bar or rings with enough clearance.",
+        "Keep torso and hips aligned as you draw the chest toward the handles.",
+        "Lower under control, stopping before form deteriorates."
+      ],
+      "reg": "Return to a more upright angle.",
+      "prog": "Consistent reps and stable body position at the chosen angle.",
+      "mistake": "An angle progression, not a substitute for an unanchored pull exercise.",
+      "guide": true
+    },
+    {
+      "id": "dip-support",
+      "n": "Parallel-bar support hold",
+      "t": "cal",
+      "eq": "Stable parallel bars",
+      "level": "Beginner",
+      "pattern": "dip",
+      "purpose": "Build upper-body support tolerance before attempting a dip.",
+      "tech": [
+        "Use sturdy parallel bars at an appropriate height.",
+        "Support body weight with straight but not aggressively locked arms.",
+        "Keep shoulders comfortable and lower with assistance when done."
+      ],
+      "reg": "Use feet on the ground for support if the setup permits.",
+      "prog": "Hold a stable supported position without shoulder discomfort.",
+      "mistake": "Avoid forcing shoulder depression or prolonged holds with pain.",
+      "guide": true
+    },
+    {
+      "id": "dip-assisted",
+      "n": "Assisted parallel-bar dip",
+      "t": "cal",
+      "eq": "Stable parallel bars, Assistance setup",
+      "level": "Intermediate",
+      "pattern": "dip",
+      "purpose": "Practice a controlled dip through a comfortable shoulder range.",
+      "tech": [
+        "Use a reliable assistance method and secure bars.",
+        "Bend elbows slowly while keeping the shoulder range comfortable.",
+        "Press back to support without bouncing or forcing deep extension."
+      ],
+      "reg": "Return to supported holds or reduce the movement range.",
+      "prog": "Control a pain-free range without bouncing.",
+      "mistake": "Deep dips can aggravate shoulders; stop at discomfort and do not force depth.",
+      "guide": true
+    },
+    {
+      "id": "dip-full",
+      "n": "Parallel-bar dip",
+      "t": "cal",
+      "eq": "Stable parallel bars",
+      "level": "Advanced",
+      "pattern": "dip",
+      "purpose": "Develop pushing strength with controlled bodyweight support.",
+      "tech": [
+        "Start in stable support with the bars firmly anchored.",
+        "Lower only through a comfortable, controllable shoulder range.",
+        "Press to a stable finish without swinging."
+      ],
+      "reg": "Use a verified assisted dip setup or support-hold progression.",
+      "prog": "Repeated smooth, pain-free repetitions with stable shoulders.",
+      "mistake": "Dips are not suitable for everyone; pain-free depth varies.",
+      "guide": true
+    },
+    {
+      "id": "hand-pike",
+      "n": "Pike support hold",
+      "t": "cal",
+      "eq": "Clear floor space",
+      "level": "Beginner",
+      "pattern": "inversion",
+      "purpose": "Develop shoulder loading tolerance with feet on the floor.",
+      "tech": [
+        "Place hands shoulder-width apart on a firm surface.",
+        "Bring hips up while keeping a comfortable bend at the knees.",
+        "Push the floor away and hold briefly without strain."
+      ],
+      "reg": "Keep more weight on the feet and shorten the hold.",
+      "prog": "Stable shoulders, breathing and balance throughout.",
+      "mistake": "Do not load the neck or force the spine into an inverted shape.",
+      "guide": true
+    },
+    {
+      "id": "hand-wall",
+      "n": "Chest-to-wall handstand hold",
+      "t": "cal",
+      "eq": "Solid wall, Clear floor space",
+      "level": "Intermediate",
+      "pattern": "inversion",
+      "purpose": "Practice alignment and shoulder strength with wall support.",
+      "tech": [
+        "Use clear floor space and a stable wall; start conservatively.",
+        "Move into a comfortable wall-supported position without kicking wildly.",
+        "Keep hands rooted and exit under control when tired."
+      ],
+      "reg": "Return to a pike hold or work with qualified supervision.",
+      "prog": "Controlled entry, comfortable shoulder position and a safe exit.",
+      "mistake": "Inversions carry fall and wrist/shoulder risks; seek appropriate coaching.",
+      "guide": true
+    },
+    {
+      "id": "hand-shift",
+      "n": "Wall handstand weight shifts",
+      "t": "cal",
+      "eq": "Solid wall, Clear floor space",
+      "level": "Advanced",
+      "pattern": "inversion",
+      "purpose": "Build controlled shoulder weight transfer while wall-supported.",
+      "tech": [
+        "Enter an already secure wall-supported handstand.",
+        "Shift a small amount of weight from hand to hand without losing alignment.",
+        "Exit before fatigue compromises balance."
+      ],
+      "reg": "Stay with a static wall-supported hold.",
+      "prog": "Stable shifts and a predictable safe exit.",
+      "mistake": "Not an automatic route to freestanding handstands; use a spotter when needed.",
+      "guide": true
+    },
+    {
+      "id": "core-deadbug",
+      "n": "Dead bug",
+      "t": "cal",
+      "eq": "Comfortable floor mat",
+      "level": "Beginner",
+      "pattern": "core",
+      "purpose": "Practice trunk control during slow alternating limb motion.",
+      "tech": [
+        "Lie on your back and find a comfortable rib and pelvis position.",
+        "Slowly lower an opposite arm and leg only as far as trunk position stays controlled.",
+        "Return, breathe and change sides without rushing."
+      ],
+      "reg": "Keep feet closer to the floor or move only one limb at a time.",
+      "prog": "Alternate sides smoothly without discomfort or large trunk movement.",
+      "mistake": "Avoid forcing a painful flat-back position.",
+      "guide": true
+    },
+    {
+      "id": "core-tuck",
+      "n": "Hollow tuck hold",
+      "t": "cal",
+      "eq": "Comfortable floor mat",
+      "level": "Beginner",
+      "pattern": "core",
+      "purpose": "Build a compact hollow-body position with shorter leverage.",
+      "tech": [
+        "Lie on your back with knees comfortably bent.",
+        "Lift shoulders only as tolerated and maintain controlled breathing.",
+        "Hold briefly without neck strain, then relax."
+      ],
+      "reg": "Keep head supported or reduce hold time.",
+      "prog": "Comfortable, controlled holds without breath-holding.",
+      "mistake": "Stop with neck or lower-back discomfort.",
+      "guide": true
+    },
+    {
+      "id": "core-hollow",
+      "n": "Hollow-body hold",
+      "t": "cal",
+      "eq": "Comfortable floor mat",
+      "level": "Intermediate",
+      "pattern": "core",
+      "purpose": "Increase anti-extension demand by lengthening the body lever.",
+      "tech": [
+        "Start from a comfortable hollow tuck position.",
+        "Extend arms or legs gradually without losing trunk control.",
+        "Shorten the lever as soon as your back or neck feels strained."
+      ],
+      "reg": "Return to a tuck hold and shorter duration.",
+      "prog": "Consistent pain-free breathing and position control.",
+      "mistake": "Not equivalent to hanging leg raises or a weighted core exercise.",
+      "guide": true
+    },
+    {
+      "id": "pull-hang",
+      "n": "Active dead hang",
+      "t": "cal",
+      "eq": "Secure overhead bar",
+      "level": "Beginner",
+      "pattern": "vertical-pull",
+      "purpose": "Develop a comfortable supported hang and grip awareness.",
+      "tech": [
+        "Verify the overhead bar and surrounding clearance.",
+        "Use feet for assistance if needed and maintain a comfortable shoulder position.",
+        "Release safely before grip fails."
+      ],
+      "reg": "Use foot support to offload body weight.",
+      "prog": "Comfortable hangs with controlled entry and exit.",
+      "mistake": "Avoid unsupported hangs if shoulder pain or instability is present.",
+      "guide": true
+    },
+    {
+      "id": "pull-scap",
+      "n": "Scapular pull-up",
+      "t": "cal",
+      "eq": "Secure overhead bar",
+      "level": "Intermediate",
+      "pattern": "vertical-pull",
+      "purpose": "Practice small controlled shoulder movement while hanging.",
+      "tech": [
+        "Start from an appropriately assisted stable hang.",
+        "Move the shoulder blades gently without bending elbows much.",
+        "Return slowly rather than swinging."
+      ],
+      "reg": "Practice with feet supported.",
+      "prog": "Smooth motion without shoulder discomfort or swinging.",
+      "mistake": "This is skill preparation, not a prerequisite everyone must complete.",
+      "guide": true
+    },
+    {
+      "id": "core-lsit",
+      "n": "Supported tuck L-sit",
+      "t": "cal",
+      "eq": "Stable parallettes or parallel bars",
+      "level": "Advanced",
+      "pattern": "support",
+      "purpose": "Practice supported compression and balance as a separate core-support skill.",
+      "tech": [
+        "Use stable supports with clear ground below.",
+        "Lift knees only as high as you can maintain shoulder comfort.",
+        "Lower feet safely before balance or wrist position fails."
+      ],
+      "reg": "Keep toes on the floor, building supported holds first.",
+      "prog": "Short controlled holds with safe entry and exit.",
+      "mistake": "A different skill branch from hollow holds, not the final rung of the same exercise.",
+      "guide": true
+    }
+  ]
+}

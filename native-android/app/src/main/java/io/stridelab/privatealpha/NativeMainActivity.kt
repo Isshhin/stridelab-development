@@ -14,7 +14,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
@@ -63,7 +67,9 @@ class NativeMainActivity: ComponentActivity() {
     }
 }
 
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
 @Composable internal fun StrideTheme(content: @Composable () -> Unit) {
+    val displayFont=remember { FontFamily(Font(R.font.bricolage_variable,weight=FontWeight.Bold,variationSettings=FontVariation.Settings(FontVariation.weight(800)))) }
     MaterialTheme(colorScheme = darkColorScheme(
         primary = Color(0xFFD6FF4F), onPrimary = Color(0xFF0A0D02),
         background = Color(0xFF050506), surface = Color(0xFF101013),
@@ -73,10 +79,10 @@ class NativeMainActivity: ComponentActivity() {
         outline = Color(0xFF777780), outlineVariant = Color(0xFF303038),
         surfaceContainer = Color(0xFF18181C), surfaceContainerHigh = Color(0xFF25252B)
     ), typography = Typography(
-        headlineLarge = TextStyle(fontSize = 34.sp, lineHeight = 38.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp),
-        headlineMedium = TextStyle(fontSize = 30.sp, lineHeight = 35.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.7).sp),
-        headlineSmall = TextStyle(fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold),
-        titleLarge = TextStyle(fontSize = 21.sp, lineHeight = 27.sp, fontWeight = FontWeight.SemiBold),
+        headlineLarge = TextStyle(fontFamily=displayFont,fontSize = 34.sp, lineHeight = 38.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp),
+        headlineMedium = TextStyle(fontFamily=displayFont,fontSize = 30.sp, lineHeight = 35.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.7).sp),
+        headlineSmall = TextStyle(fontFamily=displayFont,fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold),
+        titleLarge = TextStyle(fontFamily=displayFont,fontSize = 21.sp, lineHeight = 27.sp, fontWeight = FontWeight.SemiBold),
         labelMedium = TextStyle(fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
     ), shapes = Shapes(medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(24.dp)), content = content)
 }
@@ -84,17 +90,17 @@ class NativeMainActivity: ComponentActivity() {
 @Composable internal fun NativeStrideApp(model: TrainingViewModel = viewModel()) {
     val state by model.state.collectAsStateWithLifecycle()
     val online by model.online.collectAsStateWithLifecycle()
-    val actions = remember(model) { NativeActions(model::refresh, model::checkIntervals, model::syncIntervals, model::signOut, model::signIn, model::loadDetail, model::refreshWellness) }
+    val actions = remember(model) { NativeActions(model::refresh, model::checkIntervals, model::syncIntervals, model::signOut, model::signIn, model::loadDetail, model::refreshWellness, model.planActions()) }
     NativeStrideContent(state, online, actions)
 }
 
 /** Presentation boundary allows isolated screenshots without a real session or fake production data. */
 internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: () -> Unit,
-    val syncIntervals: () -> Unit, val signOut: () -> Unit, val signIn: (String, String) -> Unit, val loadDetail: (String) -> Unit = {}, val refreshWellness: () -> Unit = {})
+    val syncIntervals: () -> Unit, val signOut: () -> Unit, val signIn: (String, String) -> Unit, val loadDetail: (String) -> Unit = {}, val refreshWellness: () -> Unit = {}, val planning:PlanActions = PlanActions())
 
 /** Save each tab's root state, never its transient detail/auth destination. */
 private fun NavHostController.openTabRoot(path: String) {
-    while(currentDestination?.route in setOf("activity/{id}", "auth")) {
+    while(currentDestination?.route in setOf("activity/{id}", "auth", "builder/{discipline}", "workout/{planId}/{sessionId}")) {
         if(!popBackStack()) break
     }
     navigate(path) {
@@ -106,6 +112,11 @@ private fun NavHostController.openTabRoot(path: String) {
     if(currentDestination?.route != path) popBackStack(path, inclusive = false)
 }
 
+private fun NavHostController.openWorkout(planId:String,sessionId:String) {
+    if(currentDestination?.route!="activities") openTabRoot("training")
+    navigate("workout/${android.net.Uri.encode(planId)}/${android.net.Uri.encode(sessionId)}")
+}
+
 private fun NavHostController.openActivity(id: String) {
     openTabRoot("activities")
     navigate("activity/$id")
@@ -115,19 +126,20 @@ private fun NavHostController.openActivity(id: String) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
+    CompositionLocalProvider(LocalProfileAction provides { nav.openTabRoot("settings") }) {
     Scaffold(
         bottomBar = {
             NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 0.dp,
-                modifier = Modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp).clip(RoundedCornerShape(28.dp)),
+                modifier = Modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp).heightIn(min=80.dp).clip(RoundedCornerShape(28.dp)),
                 windowInsets = WindowInsets(0, 0, 0, 0)) {
-                listOf("home" to "Home", "activities" to "Activities", "settings" to "Settings").forEach { (path, label) ->
-                    NavigationBarItem(selected = route == path || (path == "activities" && route == "activity/{id}"), onClick = {
+                listOf("home" to "Overview", "training" to "Training", "activities" to "Activities", "library" to "Library").forEach { (path, label) ->
+                    NavigationBarItem(selected = route == path || (path == "activities" && route == "activity/{id}") || (path=="training" && route in setOf("builder/{discipline}","workout/{planId}/{sessionId}")), onClick = {
                         nav.openTabRoot(path)
-                    }, icon = { Icon(when(path) { "home" -> Icons.Default.Home; "activities" -> Icons.AutoMirrored.Filled.List; else -> Icons.Default.Settings }, contentDescription = null) },
-                        label = { Text(label, fontWeight = FontWeight.SemiBold) },
+                    }, icon = { if(path=="library") LibraryGrid(Modifier.size(24.dp)) else Icon(when(path) { "home" -> Icons.Default.Home; "training" -> Icons.Default.DateRange; "activities" -> Icons.AutoMirrored.Filled.List; else -> Icons.Default.Settings }, contentDescription = null) },
+                        label = if(androidx.compose.ui.platform.LocalDensity.current.fontScale>1.3f) null else ({ Text(label, fontWeight = FontWeight.SemiBold) }),
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.onSurface, indicatorColor = MaterialTheme.colorScheme.surfaceVariant),
-                        modifier = Modifier.testTag("nav-$path"))
+                        modifier = Modifier.testTag("nav-$path").semantics { contentDescription=label })
                 }
             }
         }
@@ -146,7 +158,9 @@ private fun NavHostController.openActivity(id: String) {
                             EmptyState("Start with your history", "Sign in to synchronize your activities. Saved history is available offline.")
                             Button(onClick = { nav.navigate("auth") }, modifier = Modifier.fillMaxWidth()) { Text("Sign in") }
                         } else {
-                            if(state.account != null) item { SyncStatus(state) }
+                            item { SyncStatus(state) }
+                            state.plans.firstOrNull { it.status=="approved" }?.let { plan -> item { HomePlanHero(plan) { sid -> nav.openWorkout(plan.id,sid) } } }
+                            if(state.plans.none { it.status=="approved" }) item { OutlinedButton(onClick={nav.openTabRoot("training")},modifier=Modifier.fillMaxWidth()) { Text("Create your training plan") } }
                             state.activities.firstOrNull()?.let { activity ->
                                 item { Text("LATEST ACTIVITY", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }
                                 item { ActivityRow(activity) { nav.openActivity(activity.id) } }
@@ -163,11 +177,14 @@ private fun NavHostController.openActivity(id: String) {
                 }
                 composable("activities") {
                     Screen("Activities", "YOUR HISTORY") {
-                        if(state.account != null) item { SyncStatus(state) }
+                        item { SyncStatus(state) }
                         if(state.account == null) item { EmptyState("Sign in to view your history", "Only records belonging to your signed-in account are displayed."); Button(onClick = { nav.navigate("auth") }) { Text("Sign in") } }
                         else {
                             item { OutlinedButton(onClick = actions.refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
                             if(state.activities.isEmpty()) item { EmptyState("No activities cached", "Your saved history will appear here after a successful refresh.") }
+                            val logged=state.plans.flatMap { p -> p.sessions.filter { it.status=="completed" }.map { p to it } }.sortedByDescending { it.second.log?.at }
+                            if(logged.isNotEmpty()) item { Text("WORKOUT LOGS · ON THIS DEVICE",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary) }
+                            logged.forEach { (p,s) -> item(key="logged-${s.id}") { PlannedWorkoutCard(s) { nav.openWorkout(p.id,s.id) } } }
                             items(state.activities, key = { it.id }) { activity -> ActivityRow(activity) { nav.openActivity(activity.id) } }
                         }
                     }
@@ -201,12 +218,16 @@ private fun NavHostController.openActivity(id: String) {
                         }
                     }
                 }
+                composable("training") { TrainingScreen(state,actions.planning,{nav.navigate("builder/all")},{p,s->nav.openWorkout(p,s)},{nav.navigate("auth")}) }
+                composable("builder/{discipline}") { builder -> PlanBuilder(state,actions.planning,builder.arguments?.getString("discipline") ?: "all",{nav.openTabRoot("training")},{nav.navigate("auth")},{p,s->nav.navigate("workout/${android.net.Uri.encode(p)}/${android.net.Uri.encode(s)}")}) }
+                composable("library") { LibraryScreen { entry -> nav.openTabRoot("training");nav.navigate("builder/${entry.discipline}") } }
+                composable("workout/{planId}/{sessionId}") { workout -> WorkoutScreen(state,workout.arguments?.getString("planId") ?: "",workout.arguments?.getString("sessionId") ?: "",actions.planning,{nav.popBackStack()}) }
                 composable("settings") {
                     val context = LocalContext.current
                     var confirmSignOut by remember { mutableStateOf(false) }
                     Screen("Settings", "ACCOUNT & DATA") {
                         item { SignalCard { Text("YOUR STRIDELAB", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text(if(state.account == null) "Keep your training close." else "Connected to your history.", style = MaterialTheme.typography.titleLarge); Text("Private preview · ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
-                        if(state.account != null) item { SyncStatus(state) }
+                        item { SyncStatus(state) }
                         if(state.account != null) {
                             item { SignalCard { Text("ACCOUNT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text(state.account!!, style = MaterialTheme.typography.bodyMedium) } }
                             item { SignalCard {
@@ -267,13 +288,19 @@ private fun NavHostController.openActivity(id: String) {
     }
 }
 
-@Composable private fun Screen(title: String, eyebrow: String, compactTitle: Boolean = false, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+}
+
+internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
+
+@Composable internal fun Screen(title: String, eyebrow: String, compactTitle: Boolean = false, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         LazyColumn(Modifier.widthIn(max = 760.dp).fillMaxSize().testTag("screen").semantics { paneTitle = title }, contentPadding = PaddingValues(start = 22.dp, end = 22.dp, top = 24.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
             item {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     BrandMark(Modifier.size(26.dp))
-                    Text(eyebrow, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Text(eyebrow, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary,modifier=Modifier.weight(1f))
+                    val profile=LocalProfileAction.current
+                    FilledTonalIconButton(onClick=profile,modifier=Modifier.testTag("nav-settings")) { Icon(Icons.Default.Settings,contentDescription="Settings and profile") }
                 }
                 Spacer(Modifier.height(16.dp))
                 Text(title, style = if(compactTitle) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineLarge,
@@ -376,3 +403,12 @@ private fun NavHostController.openActivity(id: String) {
     }
 }
 private fun timestamp(value: Long): String = DateTimeFormatter.ofPattern("d MMM, HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(value))
+
+
+
+@Composable private fun LibraryGrid(modifier:Modifier) {
+    val color=MaterialTheme.colorScheme.onSurface
+    Canvas(modifier) { val gap=size.width*.16f;val cell=(size.width-gap)/2
+        for(x in 0..1)for(y in 0..1) drawRoundRect(color,Offset(x*(cell+gap),y*(cell+gap)),androidx.compose.ui.geometry.Size(cell,cell),androidx.compose.ui.geometry.CornerRadius(size.width*.08f),style=androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx()))
+    }
+}

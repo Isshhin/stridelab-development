@@ -1,3 +1,11 @@
+# Active master milestone — native reconstruction and Engine 1.0
+
+Updated 2026-10-26. This section supersedes the historical sequence below. Complete the accepted Phase 4E functionality in native Compose, including a functional **StrideLab Engine 1.0** baseline, before substantial Advanced Unified Coaching Engine 2.0 development or benchmarking. Follow [the live parity inventory](NATIVE-PHASE1-PARITY.md) and [Engine 1.0 contract](ENGINE1-BASELINE.md). Keep the same master branch `feature/native-reconstruction-1-20261026`, package `io.stridelab.privatealpha`, all checkpoint branches, accepted assets and native security/cache architecture.
+
+Current increment implements actual draft generation, explicit approval, dated calendars, resistance prescriptions, workout logging, missed reasons, optional conservative adaptations, feedback and owner-isolated offline snapshots. This is **implementation under verification**, not completion of reconstruction or Engine 1.0 acceptance. Full exact-source CI, visual review, process restart, and secure real-device acceptance remain gates. Missing parity is tracked explicitly; no public release is authorized.
+
+## Historical roadmap (retained)
+
 # Current top priority
 
 Native UI/UX Reconstruction precedes new engine/features. See [native milestone](NATIVE-UI-RECONSTRUCTION-20261026.md). Real-account Phase 2 acceptance remains a separate pending gate.

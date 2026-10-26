@@ -23,6 +23,7 @@ internal data class TrainingState(
     val needsSignIn: Boolean = false,
     val loginGeneration: Long = 0,
     val intervals: IntervalConnection? = null,
+    val plans: List<PlanSnapshot> = emptyList(),
     val wellness: List<WellnessRecord> = emptyList(),
     val details: Map<String,ActivityDetail> = emptyMap(),
     val task: String? = null
@@ -75,11 +76,44 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         store.readableDatabase.query("records",arrayOf("payload"),"account=? AND kind=?",arrayOf(account,"wellness"),null,null,null).use { c ->
             while(c.moveToNext()) runCatching { WellnessRecord.parse(JSONObject(c.getString(0)),account)?.let { wellness.add(it) } }
         }
+        val plans=mutableListOf<PlanSnapshot>();var unsupportedPlans=0
+        store.readableDatabase.query("records",arrayOf("payload"),"account=? AND kind=?",arrayOf(account,"plan"),null,null,null).use { c ->
+            while(c.moveToNext()) runCatching { PlanSnapshot.decode(JSONObject(c.getString(0)),account) }.onSuccess { plans.add(it) }.onFailure { unsupportedPlans++ }
+        }
         val cursor = store.cursor(account, "activity")
         val last = cursor?.let { runCatching { JSONObject(it).getLong("completedAt") }.getOrNull() }
-        mutable.value = mutable.value.copy(activities = records.sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id }), lastSync = last, details = details, wellness = wellness,
-            message = if(rejected > 0) "$rejected saved activities contain unsupported data and were retained for review." else mutable.value.message)
+        mutable.value = mutable.value.copy(activities = records.sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id }), lastSync = last, details = details, wellness = wellness, plans = plans.sortedByDescending { it.createdAt },
+            message = if(unsupportedPlans>0) "$unsupportedPlans saved plans require a supported contract and were retained for review." else if(rejected > 0) "$rejected saved activities contain unsupported data and were retained for review." else mutable.value.message)
     }
+    private fun savePlan(plan:PlanSnapshot) {
+        val account=mutable.value.account ?: throw PlanConstraint("Sign in once to keep plans isolated to your account. Planning and logging then work offline.")
+        if(plan.owner!=account)throw PlanConstraint("The plan belongs to a different account.")
+        // Existing transactional local-record/outbox contract. No cloud replay is claimed here.
+        val encoded=plan.encode()
+        require(encoded.getString("id")==plan.id && encoded.getString("user_id")==account)
+        store.enqueue(account,"plan",plan.id,java.util.UUID.randomUUID().toString(),encoded.toString(),null,System.currentTimeMillis())
+        mutable.value=mutable.value.copy(plans=(mutable.value.plans.filterNot { it.id==plan.id }+plan).sortedByDescending { it.createdAt })
+    }
+    suspend fun generatePlan(request:PlanRequest,engine:PlanGenerationEngine=Engine1) = operation("Building your plan…") {
+        val account=mutable.value.account ?: throw PlanConstraint("Sign in once to create an account-isolated plan. A watch is not required; planning works offline.")
+        savePlan(engine.generate(request,account))
+    }
+    suspend fun changePlan(id:String,revision:Int,action:(PlanSnapshot)->PlanSnapshot) = operation("Saving your plan…") {
+        val plan=mutable.value.plans.find { it.id==id } ?: throw PlanConstraint("This plan is unavailable for the current account.")
+        if(plan.engineVersion!=ENGINE1_VERSION)throw PlanConstraint("This saved plan needs its compatible engine before editing. Its original snapshot is retained.")
+        if(plan.revision!=revision)throw PlanConstraint("The saved plan changed. Reopen it before editing.")
+        val updated=action(plan)
+        require(updated.id==plan.id && updated.owner==plan.owner && updated.engineVersion==plan.engineVersion && updated.policyId==plan.policyId)
+        if(updated!=plan)savePlan(updated.copy(revision=plan.revision+1))
+    }
+    suspend fun approvePlan(id:String,revision:Int)=changePlan(id,revision) { PlanOperations.approve(it,mutable.value.plans) }
+    suspend fun pausePlan(id:String,revision:Int)=changePlan(id,revision) { it.copy(status="paused") }
+    suspend fun archivePlan(id:String,revision:Int)=changePlan(id,revision) { it.copy(status="archived") }
+    suspend fun moveSession(id:String,revision:Int,sessionId:String,date:java.time.LocalDate)=changePlan(id,revision) { PlanOperations.move(it,sessionId,date) }
+    suspend fun recordWorkout(id:String,revision:Int,sessionId:String,log:WorkoutLog,complete:Boolean)=changePlan(id,revision) { PlanOperations.record(it,sessionId,log,complete) }
+    suspend fun markMissed(id:String,revision:Int,sessionId:String,reason:String,skipped:Boolean)=changePlan(id,revision) { PlanOperations.missed(it,sessionId,reason,skipped) }
+    suspend fun acceptSuggestion(id:String,revision:Int,sessionId:String)=changePlan(id,revision) { PlanOperations.acceptSuggestion(it,sessionId) }
+    suspend fun saveFeedback(id:String,revision:Int,category:String,text:String,sessionId:String?=null)=changePlan(id,revision) { PlanOperations.feedback(it,category,text,sessionId) }
     suspend fun refreshWellness() = operation("Refreshing wellness records…") {
         val account=mutable.value.account ?: throw IllegalStateException("Sign in first")
         val raw=authenticated { gateway.wellness(it) }
@@ -105,6 +139,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         mutex.withLock {
             mutable.value = mutable.value.copy(busy = true, message = null, task = label)
             try { action(); true }
+            catch (e: PlanConstraint) { mutable.value = mutable.value.copy(message=e.message); false }
             catch (e: ServiceFailure) {
                 mutable.value = mutable.value.copy(message = e.message, needsSignIn = e.requiresSignIn || mutable.value.needsSignIn); false
             } catch (_: java.io.IOException) {

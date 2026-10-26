@@ -49,6 +49,13 @@ class NativeProcessProbeTest {
                 withFakeRepository(context) { repository ->
                     assertTrue(repository.signIn("synthetic@example.invalid","synthetic-only"))
                     assertEquals(2,repository.state.value.activities.size)
+                    val request=PlanRequest(start=java.time.LocalDate.now().with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.MONDAY)),weeks=1)
+                    assertTrue(repository.generatePlan(request))
+                    var plan=repository.state.value.plans.single()
+                    assertTrue(repository.approvePlan(plan.id,plan.revision));plan=repository.state.value.plans.single()
+                    assertTrue(repository.recordWorkout(plan.id,plan.revision,plan.sessions.first().id,WorkoutLog(java.time.Instant.now(),minutes=12.0,effort=3,notes="Synthetic offline persistence fixture"),true))
+                    plan=repository.state.value.plans.single()
+                    assertTrue(repository.saveFeedback(plan.id,plan.revision,"Usability","Synthetic private feedback fixture"))
                 }
             }
             "offline" -> {
@@ -57,6 +64,18 @@ class NativeProcessProbeTest {
                 assertEquals(2,app.repository.state.value.activities.size)
                 assertNull(app.repository.state.value.activities.first().averageHr)
                 assertEquals("synthetic-process-access",SessionVault(context).read(account)!!.accessToken)
+                val savedPlan=app.repository.state.value.plans.single()
+                assertEquals("approved",savedPlan.status);assertEquals(ENGINE1_VERSION,savedPlan.engineVersion)
+                assertEquals(12.0,savedPlan.sessions.first().log!!.minutes!!,0.0);assertEquals(1,savedPlan.feedback.size)
+                compose.onNodeWithTag("nav-training").performClick()
+                compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-${savedPlan.sessions.first().id}"))
+                compose.onNodeWithTag("workout-${savedPlan.sessions.first().id}").performClick()
+                compose.onNodeWithTag("screen").performScrollToNode(hasText("Actual duration (minutes), optional"))
+                compose.onNodeWithText("Actual duration (minutes), optional").assertExists()
+                val planDirectory=File(compose.activity.getExternalFilesDir(null),"native-ui-evidence");planDirectory.mkdirs()
+                File(planDirectory,"engine1-workout-after-forced-offline-restart.png").outputStream().use { assertTrue(displayBitmap().compress(Bitmap.CompressFormat.PNG,100,it)) }
+                compose.onNodeWithTag("nav-home").performClick()
+                compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("activity-synthetic-process-activity"))
                 compose.onNodeWithTag("activity-synthetic-process-activity").assertExists()
                 compose.onNodeWithTag("offline-status").assertExists()
                 val directory = File(compose.activity.getExternalFilesDir(null),"native-ui-evidence"); directory.mkdirs()
@@ -65,6 +84,7 @@ class NativeProcessProbeTest {
                 }
                 // No fake token can reach production after the CI script restores networking.
                 compose.onNodeWithTag("nav-activities").performClick()
+                compose.onNodeWithTag("screen").performScrollToNode(hasText(title))
                 compose.onNodeWithText(title).performClick()
                 compose.onNodeWithTag("screen").performScrollToNode(hasText("Maximum heart rate"))
                 compose.onNodeWithText("Maximum heart rate").assertExists()
@@ -73,6 +93,7 @@ class NativeProcessProbeTest {
                 }
                 InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
                 compose.onNodeWithTag("screen-title").assertTextEquals("Activities")
+                compose.onNodeWithTag("screen").performScrollToNode(hasText("Synthetic strength check"))
                 compose.onNodeWithText("Synthetic strength check").performClick()
                 compose.onNodeWithText("Average pace").assertDoesNotExist()
                 compose.onNodeWithText("Moving time").assertDoesNotExist()
@@ -91,6 +112,7 @@ class NativeProcessProbeTest {
                     assertEquals(2,repository.state.value.activities.size)
                     assertEquals(2500.0,repository.state.value.activities.first().distanceM!!,0.0)
                     assertNull(repository.state.value.activities.first().maximumHr)
+                    val plan=repository.state.value.plans.single();assertEquals(1,plan.sessions.count { it.status=="completed" });assertEquals(1,plan.feedback.size)
                 }
                 SessionVault(context).clear(account)
             }

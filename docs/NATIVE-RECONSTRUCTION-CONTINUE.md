@@ -1,3 +1,11 @@
+# Active continuation update — Phase 1 native reconstruction
+
+The later master directive requires complete accepted Phase 4E native parity, with functional Engine 1.0 inside reconstruction. Advanced Engine 2.0 and benchmarking follow later. Read `NATIVE-PHASE1-PARITY.md` and `ENGINE1-BASELINE.md` first. The historical stage list below describes the previous verified S1A/S2A baseline; it is not the current implementation status.
+
+Current working increment adds four roots, accepted Bricolage typography and licensed offline library assets, a versioned deterministic multi-discipline generator, reviewed draft/approval, calendar, workout records and private feedback. Use exact commit/CI evidence before promotion. Plans and logs are local owner-scoped transactional records; plan cloud synchronization is not implemented. Never claim the whole engine or reconstruction is accepted from generation-only tests. Preserve all checkpoint branches and inspect uncommitted work before changing the checkout.
+
+## Earlier continuation record (retained)
+
 # Continue Native Feature Reconstruction 1.0 in this master project
 
 Repository: Isshhin/stridelab-development. Master branch: feature/native-reconstruction-1-20261026. This is an incremental reconstruction, not completion of all five requested stages. Do not restart or merge main. The upstream feature/native-real-data-phase2-20261026 remains at 12e0594e59244cd21d73b24deed4f021434d467f; its native navigation, native UI and Phase 2 checkpoints remain unchanged.

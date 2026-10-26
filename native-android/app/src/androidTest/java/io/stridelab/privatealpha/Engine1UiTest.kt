@@ -1,0 +1,94 @@
+package io.stridelab.privatealpha
+
+import androidx.activity.compose.setContent
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.test.platform.app.InstrumentationRegistry
+import android.graphics.Bitmap
+import org.junit.Rule
+import org.junit.Test
+import org.junit.Assert.*
+import java.io.File
+import java.time.LocalDate
+
+class Engine1UiTest {
+    @get:Rule val compose=createAndroidComposeRule<NativeMainActivity>()
+    @Test fun beginnerGeneratesReviewsApprovesOpensCalendarAndLogsWithoutWatch() {
+        val state=mutableStateOf(TrainingState(initializing=false,account="synthetic-engine1-ui"))
+        val planning=PlanActions(
+            generate={p->state.value=state.value.copy(plans=listOf(Engine1.generate(p,"synthetic-engine1-ui")))},
+            approve={id,_->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.approve(it,emptyList()).copy(revision=it.revision+1)else it })},
+            record={id,_,sid,log,done->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.record(it,sid,log,done).copy(revision=it.revision+1)else it })}
+        )
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,false,NativeActions({},{},{},{},{_,_->},planning=planning)) } } }
+        compose.onNodeWithTag("nav-training").performClick()
+        compose.onNodeWithText("Create a plan",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("screen-title").assertTextEquals("Choose disciplines")
+        capture("phase1-builder-disciplines")
+        repeat(3) { compose.onNodeWithTag("screen").performScrollToNode(hasText("Continue"));compose.onNodeWithText("Continue",useUnmergedTree=true).performClick() }
+        compose.onNodeWithTag("screen-title").assertTextEquals("Review your choices")
+        capture("phase1-builder-review")
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Generate plan"));compose.onNodeWithText("Generate plan",useUnmergedTree=true).performClick()
+        compose.waitUntil(10000) { state.value.plans.isNotEmpty() }
+        compose.onNodeWithTag("screen-title").assertTextEquals("Your plan")
+        assertEquals("draft",state.value.plans.single().status)
+        capture("phase1-generated-preview")
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Approve plan"));compose.onNodeWithText("Approve plan",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("screen-title").assertTextEquals("Training")
+        assertEquals("approved",state.value.plans.single().status)
+        compose.onNodeWithText("Month",useUnmergedTree=true).performClick()
+        capture("phase1-month-calendar")
+        val plan=state.value.plans.single();val session=plan.sessions.first()
+        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-${session.id}"));compose.onNodeWithTag("workout-${session.id}").performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Actual duration (minutes), optional"));compose.onNodeWithText("Actual duration (minutes), optional").performTextInput("18")
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Save completed workout"));compose.onNodeWithText("Save completed workout",useUnmergedTree=true).performClick()
+        assertEquals(1,state.value.plans.single().sessions.count { it.status=="completed" })
+        assertEquals(18.0,state.value.plans.single().sessions.first().log!!.minutes!!,0.0)
+        capture("phase1-saved-workout")
+        compose.onNodeWithTag("nav-activities").performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("WORKOUT LOGS · ON THIS DEVICE"))
+        compose.onNodeWithTag("workout-${session.id}").assertExists()
+        capture("phase1-workout-history")
+    }
+    @Test fun fourRootsAndAcceptedLibraryModalRemainFunctional() {
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(TrainingState(initializing=false),true,NativeActions({},{},{},{},{_,_->})) } } }
+        compose.onNodeWithTag("nav-library").performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithText("23 curated entries").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Search exercises").performTextInput("Incline")
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Incline push-up"));compose.onNodeWithText("Incline push-up",useUnmergedTree=true).performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithContentDescription("Incline push-up — original schematic").fetchSemanticsNodes().isNotEmpty() }
+        capture("phase1-library-modal")
+        compose.onNodeWithText("Close",useUnmergedTree=true).performScrollTo().performClick()
+        listOf("home" to "Your training","training" to "Training","activities" to "Activities","library" to "Library").forEach { (tag,title) -> compose.onNodeWithTag("nav-$tag").performClick();compose.onNodeWithTag("screen-title").assertTextEquals(title) }
+    }
+    @Test fun calendarAndInstructionalModalReflowAtTwoHundredPercentText() {
+        val request=PlanRequest(start=LocalDate.now(),runDays=0,strengthDays=2,calDays=2,days=setOf(1,2,4,6))
+        val plan=Engine1.generate(request,"synthetic-large-ui").copy(status="approved")
+        compose.runOnUiThread { compose.activity.setContent {
+            val density=androidx.compose.ui.platform.LocalDensity.current
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(density.density,2f)) {
+                StrideTheme { NativeStrideContent(TrainingState(initializing=false,account="synthetic-large-ui",plans=listOf(plan)),false,NativeActions({},{},{},{},{_,_->})) }
+            }
+        } }
+        compose.onNodeWithTag("nav-training").performClick()
+        compose.onNodeWithText("Month",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("training-calendar"))
+        capture("phase1-calendar-200pct")
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("PRIVATE TESTING FEEDBACK"))
+        compose.onNodeWithText("PRIVATE TESTING FEEDBACK").assertIsDisplayed()
+        compose.onNodeWithTag("nav-library").performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithText("23 curated entries").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Search exercises").performTextInput("Incline")
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Incline push-up"));compose.onNodeWithText("Incline push-up",useUnmergedTree=true).performClick()
+        compose.onNodeWithText("MAKE IT EASIER").performScrollTo().assertIsDisplayed()
+        capture("phase1-library-modal-200pct")
+        compose.onNodeWithText("Close",useUnmergedTree=true).performScrollTo().assertIsDisplayed()
+    }
+    private fun capture(name:String) {
+        compose.mainClock.advanceTimeBy(600);compose.waitForIdle();compose.runOnUiThread { compose.activity.window.decorView.invalidate() }
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();android.os.SystemClock.sleep(350)
+        val folder=File(compose.activity.getExternalFilesDir(null),"native-ui-evidence");folder.mkdirs()
+        File(folder,"$name.png").outputStream().use { assertTrue(checkNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()).compress(Bitmap.CompressFormat.PNG,100,it)) }
+    }
+}
