@@ -1,7 +1,7 @@
 name: Native Android migration verification
 on:
   push:
-    branches: ['feature/native-compose-migration-20261026']
+    branches: ['feature/native-compose-migration-20261026', 'feature/native-real-data-phase2-20261026']
     paths: ['native-android/**', 'android-app/android/app/src/**', '.github/workflows/native-android.yml']
   workflow_dispatch:
 permissions:
@@ -65,13 +65,9 @@ jobs:
             adb shell am instrument -w -e class io.stridelab.privatealpha.LegacyUpgradeSeedTest io.stridelab.privatealpha.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/legacy-upgrade-seed.txt
             grep -F 'OK (1 test)' /tmp/legacy-upgrade-seed.txt
             cd native-android && gradle --no-daemon --stacktrace :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.expectLegacyUpgrade=true
-      - name: Collect synthetic native UI evidence
-        if: always()
-        run: |
-          if adb shell test -d /sdcard/Android/data/io.stridelab.privatealpha/files/native-ui-evidence; then
             mkdir -p native-android/app/build/reports/native-ui-evidence
             adb pull /sdcard/Android/data/io.stridelab.privatealpha/files/native-ui-evidence/. native-android/app/build/reports/native-ui-evidence/
-          fi
+            test -f native-android/app/build/reports/native-ui-evidence/home.png
       - name: Archive source checkpoint
         if: always()
         run: python3 native-android/checkpoint.py
