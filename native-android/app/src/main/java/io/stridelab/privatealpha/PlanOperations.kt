@@ -23,6 +23,18 @@ internal object PlanOperations {
         if(plan.sessions.any { it.id!=sessionId && it.status !in setOf("missed","skipped") && Engine1.conflict(moved,it) })throw PlanConstraint("This move conflicts with another workout or its recovery spacing. Choose a different date.")
         return plan.copy(sessions=plan.sessions.map { if(it.id==sessionId) moved else it }.sortedBy { it.date })
     }
+    fun swapExercise(plan:PlanSnapshot,sessionId:String,exerciseId:String,now:Instant=Instant.now()):PlanSnapshot {
+        compatible(plan)
+        if(plan.status !in setOf("approved","paused"))throw PlanConstraint("Approve a plan before choosing an alternative.")
+        val s=plan.sessions.find { it.id==sessionId } ?: throw PlanConstraint("Workout is unavailable.")
+        if(s.status !in setOf("planned","in_progress"))throw PlanConstraint("Historical workouts keep their saved exercises.")
+        if(s.swaps.any { it.originalId==exerciseId })throw PlanConstraint("This exercise already has a reviewed alternative.")
+        if(s.log?.sets?.any { it.exerciseId==exerciseId }==true)throw PlanConstraint("Sets were already recorded for this movement. Keep that history; choose a separate reviewed workout instead.")
+        val original=s.exercises.find { it.id==exerciseId } ?: throw PlanConstraint("The original exercise is unavailable.")
+        val replacement=ExerciseAlternatives.easier(original) ?: throw PlanConstraint("No reviewed easier alternative is available for this movement.")
+        val swap=ExerciseSwap(exerciseId,replacement,ExerciseAlternatives.REASON,now)
+        return plan.copy(sessions=plan.sessions.map { if(it.id==sessionId)it.copy(swaps=it.swaps+swap)else it })
+    }
     fun linkActivity(plan:PlanSnapshot,sessionId:String,activityId:String?):PlanSnapshot {
         compatible(plan)
         if(plan.status !in setOf("approved","paused"))throw PlanConstraint("Use an approved or paused plan when linking a recorded run.")
@@ -45,7 +57,7 @@ internal object PlanOperations {
         if(log.minutes!=null && log.minutes>1440 || log.distanceKm!=null && log.distanceKm>500)throw PlanConstraint("Check the units for actual duration or distance.")
         if(log.sets.map { it.exerciseId to it.set }.distinct().size!=log.sets.size)throw PlanConstraint("Each exercise set can be logged only once.")
         log.sets.forEach { row ->
-            val prescription=s.exercises.find { it.id==row.exerciseId } ?: throw PlanConstraint("This exercise is not in the saved prescription.")
+            val prescription=s.effectiveExercises.find { it.id==row.exerciseId } ?: throw PlanConstraint("This exercise is not in the saved prescription.")
             if(row.set !in 1..prescription.sets || row.reps?.let { it !in 0..500 }==true || row.seconds?.let { it !in 0..3600 }==true || !valid(row.kg,true))throw PlanConstraint("Check the actual set number, repetitions, hold seconds and load.")
         }
         val updated=s.copy(status=if(complete) "completed" else "in_progress",log=log)

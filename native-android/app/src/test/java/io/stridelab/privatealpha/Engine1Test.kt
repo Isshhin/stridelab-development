@@ -123,4 +123,20 @@ class Engine1Test {
         assertTrue(generate(p.copy(equipment=mapOf("bar" to 1,"support" to 1))).sessions.flatMap { it.exercises }.any { it.id=="supported-hang" })
         assertFalse(generate(p.copy(goal="Calisthenics foundation")).sessions.flatMap { it.exercises }.any { it.id=="supported-hang" })
     }
+    @Test fun reviewedExerciseSwapPreservesOriginalAndRecordsOnlyTheNewUnits() {
+        val p=PlanOperations.approve(generate(PlanRequest(start=start,runDays=0,strengthDays=2)),emptyList());val session=p.sessions.first();val original=session.exercises.first()
+        val swapped=PlanOperations.swapExercise(p,session.id,original.id,now)
+        val updated=swapped.sessions.first();assertEquals(session.exercises,updated.exercises);assertEquals(1,updated.swaps.size)
+        val replacement=updated.effectiveExercises.first();assertTrue(replacement.id.startsWith("swap-"));assertTrue(replacement.sets<=original.sets)
+        val done=PlanOperations.record(swapped,session.id,WorkoutLog(now,sets=listOf(SetRecord(replacement.id,1,reps=5))),true)
+        assertEquals(done,PlanSnapshot.decode(done.encode(),"synthetic-owner"))
+        assertThrows(PlanConstraint::class.java) { PlanOperations.record(swapped,session.id,WorkoutLog(now,sets=listOf(SetRecord(original.id,1,reps=5))),false) }
+    }
+    @Test fun savedExerciseSetsAndHistoricalWorkoutsCannotBeSwappedAway() {
+        val p=PlanOperations.approve(generate(PlanRequest(start=start,runDays=0,strengthDays=2)),emptyList());val session=p.sessions.first();val original=session.exercises.first()
+        val partial=PlanOperations.record(p,session.id,WorkoutLog(now,sets=listOf(SetRecord(original.id,1,reps=5))),false)
+        assertThrows(PlanConstraint::class.java) { PlanOperations.swapExercise(partial,session.id,original.id,now) }
+        val done=PlanOperations.record(p,session.id,WorkoutLog(now),true)
+        assertThrows(PlanConstraint::class.java) { PlanOperations.swapExercise(done,session.id,original.id,now) }
+    }
 }

@@ -107,6 +107,20 @@ class Engine1UiTest {
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Sessions"));compose.onNodeWithText("Sessions",useUnmergedTree=true).performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("No workout logs saved for this account yet. Start with an approved training plan."))
     }
+    @Test fun workoutAlternativeRequiresReviewAndKeepsOriginalTarget() {
+        val p=PlanOperations.approve(Engine1.generate(PlanRequest(start=LocalDate.now(),weeks=1,runDays=0,strengthDays=2,days=(1..7).toSet()),"synthetic-swap-ui"),emptyList())
+        val state=mutableStateOf(TrainingState(initializing=false,account=p.owner,plans=listOf(p)))
+        val actions=PlanActions(swap={id,_,sid,ex->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.swapExercise(it,sid,ex).copy(revision=it.revision+1)else it })})
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,true,NativeActions({},{},{},{},{_,_->},planning=actions)) } } }
+        compose.onNodeWithTag("nav-training").performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-${p.sessions.first().id}"));compose.onNodeWithTag("workout-${p.sessions.first().id}").performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Choose an easier alternative"));compose.onNodeWithText("Choose an easier alternative",useUnmergedTree=true).performClick()
+        assertTrue(state.value.plans.single().sessions.first().swaps.isEmpty())
+        compose.onNodeWithText("Use easier alternative",useUnmergedTree=true).performClick()
+        val session=state.value.plans.single().sessions.first();assertEquals(p.sessions.first().exercises,session.exercises);assertEquals(1,session.swaps.size)
+        compose.onNodeWithTag("screen").performScrollToNode(hasText(session.effectiveExercises.first().name));compose.onNodeWithText(session.effectiveExercises.first().name).assertExists()
+        capture("phase1-reviewed-workout-alternative")
+    }
     private fun capture(name:String) {
         compose.mainClock.advanceTimeBy(600);compose.waitForIdle();compose.runOnUiThread { compose.activity.window.decorView.invalidate() }
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();android.os.SystemClock.sleep(350)

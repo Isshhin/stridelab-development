@@ -126,6 +126,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         require(updated.id==plan.id && updated.owner==plan.owner && updated.engineVersion==plan.engineVersion && updated.policyId==plan.policyId)
         if(updated!=plan)savePlan(updated.copy(revision=plan.revision+1))
     }
+    suspend fun swapExercise(id:String,revision:Int,sessionId:String,exerciseId:String)=changePlan(id,revision) { PlanOperations.swapExercise(it,sessionId,exerciseId) }
     suspend fun linkActivity(id:String,revision:Int,sessionId:String,activityId:String?)=changePlan(id,revision) { plan ->
         if(activityId!=null) {
             val activity=mutable.value.activities.find { it.id==activityId } ?: throw PlanConstraint("This source activity is not cached for your account.")

@@ -56,7 +56,8 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
         feedback={id,r,category,text,s->viewModelScope.launch { repo.saveFeedback(id,r,category,text,s) }},
         shelf={id,c,remove->viewModelScope.launch { repo.changeShelf(id,c,remove) }},
         restore={raw->viewModelScope.launch { repo.restorePlans(raw) }},
-        link={id,r,s,a->viewModelScope.launch { repo.linkActivity(id,r,s,a) }}
+        link={id,r,s,a->viewModelScope.launch { repo.linkActivity(id,r,s,a) }},
+        swap={id,r,s,e->viewModelScope.launch { repo.swapExercise(id,r,s,e) }}
     )
     fun signOut() { viewModelScope.launch { repo.signOut() } }
 }

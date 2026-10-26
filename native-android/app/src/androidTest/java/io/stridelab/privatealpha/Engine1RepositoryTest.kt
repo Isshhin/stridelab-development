@@ -91,6 +91,15 @@ class Engine1RepositoryTest {
         assertTrue(repo.linkActivity(p.id,p.revision,first,null));p=repo.state.value.plans.single()
         assertEquals("planned",p.sessions.first { it.id==first }.status);assertEquals(1,repo.state.value.activities.size)
     }
+    @Test fun easierExerciseAndItsActualSetReopenOfflineWithOriginalPrescriptionIntact()=runBlocking {
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"));assertTrue(repo.generatePlan(request()));var p=repo.state.value.plans.single()
+        assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single();val original=p.sessions.first().exercises.first();val sid=p.sessions.first().id
+        assertTrue(repo.swapExercise(p.id,p.revision,sid,original.id));p=repo.state.value.plans.single();val replacement=p.sessions.first().effectiveExercises.first()
+        assertTrue(repo.recordWorkout(p.id,p.revision,sid,WorkoutLog(Instant.now(),sets=listOf(SetRecord(replacement.id,1,reps=5))),false))
+        repo.close();gateway.offline=true;open();p=repo.state.value.plans.single()
+        assertEquals(original,p.sessions.first().exercises.first());assertEquals(replacement,p.sessions.first().effectiveExercises.first());assertEquals(replacement.id,p.sessions.first().log!!.sets.single().exerciseId)
+        assertFalse(repo.swapExercise(p.id,p.revision,sid,original.id));assertEquals(1,repo.state.value.plans.single().sessions.first().swaps.size)
+    }
     private class Gateway:TrainingGateway {
         var owner="synthetic-engine1-owner";var offline=false;var rows=JSONArray()
         private fun connected() { if(offline)throw java.io.IOException("Synthetic offline") }

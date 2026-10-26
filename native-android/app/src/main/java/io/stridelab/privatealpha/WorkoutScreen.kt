@@ -16,6 +16,9 @@ import kotlinx.coroutines.delay
 @Composable internal fun WorkoutScreen(state:TrainingState,planId:String,sessionId:String,actions:PlanActions,onBack:()->Unit) {
     val plan=state.plans.find { it.id==planId };val session=plan?.sessions?.find { it.id==sessionId }
     if(plan==null||session==null) { Screen("Workout unavailable","TRAINING") { item { Text("This workout is not saved for the current account.");TextButton(onClick=onBack) { Text("Back to Training") } } };return }
+    val exercises=session.effectiveExercises
+    var pendingSwap by rememberSaveable(session.id) { mutableStateOf<String?>(null) }
+    var swapId by rememberSaveable(session.id) { mutableStateOf<String?>(null) }
     val done=session.status=="completed";val active=plan.engineVersion==ENGINE1_VERSION && plan.status in setOf("approved","paused") && session.status !in setOf("completed","missed","skipped")
     var minutes by rememberSaveable(session.id) { mutableStateOf(session.log?.minutes?.toString() ?: "") };var distance by rememberSaveable(session.id) { mutableStateOf(session.log?.distanceKm?.toString() ?: "") };var effort by rememberSaveable(session.id) { mutableStateOf(session.log?.effort?.toString() ?: "") };var notes by rememberSaveable(session.id) { mutableStateOf(session.log?.notes ?: "") }
     var performedOn by rememberSaveable(session.id) { mutableStateOf(session.log?.performedOn?.toString() ?: if(session.log==null)LocalDate.now().toString() else "") }
@@ -29,12 +32,18 @@ import kotlinx.coroutines.delay
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+    LaunchedEffect(session.swaps) {
+        pendingSwap?.let { id -> if(session.swaps.any { it.originalId==id }) {
+            val values=JSONObject(entries);values.keys().asSequence().filter { it.startsWith("$id|") }.toList().forEach(values::remove)
+            entries=values.toString();restRunning=false;pendingSwap=null
+        } }
+    }
     LaunchedEffect(restSeconds,restRunning) { if(restRunning&&restSeconds>0) { delay(1000);restSeconds--;if(restSeconds==0)restRunning=false } }
     fun number(text:String,label:String):Double?=if(text.isBlank()) null else text.toDoubleOrNull()?.takeIf { it.isFinite() } ?: throw PlanConstraint("Enter a valid $label, or leave it blank.")
     fun whole(text:String,label:String):Int?=if(text.isBlank()) null else text.toIntOrNull() ?: throw PlanConstraint("Enter whole $label, or leave it blank.")
     fun log():WorkoutLog {
         val j=JSONObject(entries)
-        val sets=session.exercises.flatMap { ex -> (1..ex.sets).mapNotNull { i -> val prefix="${ex.id}|$i|";val r=whole(j.optString(prefix+"reps"),"repetitions");val kg=number(j.optString(prefix+"kg"),"load in kg");val seconds=whole(j.optString(prefix+"seconds"),"hold seconds");if(r==null&&kg==null&&seconds==null)null else SetRecord(ex.id,i,r,kg,seconds) } }
+        val sets=exercises.flatMap { ex -> (1..ex.sets).mapNotNull { i -> val prefix="${ex.id}|$i|";val r=whole(j.optString(prefix+"reps"),"repetitions");val kg=number(j.optString(prefix+"kg"),"load in kg");val seconds=whole(j.optString(prefix+"seconds"),"hold seconds");if(r==null&&kg==null&&seconds==null)null else SetRecord(ex.id,i,r,kg,seconds) } }
         return WorkoutLog(Instant.now(),number(minutes,"duration in minutes"),number(distance,"distance in km"),whole(effort,"effort from 1 to 10"),sets,notes,if(performedOn.isBlank())null else try {LocalDate.parse(performedOn)}catch(_:Exception){throw PlanConstraint("Choose a valid actual workout date.")})
     }
     Screen(session.effectiveTitle,"${disciplineLabel(session.discipline).uppercase()} · ${session.status.uppercase()}",compactTitle=true) {
@@ -51,13 +60,15 @@ import kotlinx.coroutines.delay
             else if(session.suggestion?.accepted==true) { Text("Keep any running conversational. Use an easier variation and fewer controlled resistance sets, or rest if needed. Stop at ${session.effectiveMinutes} minutes; do not chase the original distance or hard intervals.");Text("Original target: ${session.minutes} min · ${session.title}",style=MaterialTheme.typography.bodySmall) }
             else {session.steps.forEach { Text(it) };session.distanceKm?.let { Text("Planned target: %.1f km. This is not a recorded distance.".format(it),style=MaterialTheme.typography.bodySmall) } }
         } }
-        if(session.exercises.isNotEmpty()) {
-            val ex=session.exercises[exerciseIndex.coerceIn(0,session.exercises.lastIndex)]
+        if(exercises.isNotEmpty()) {
+            val ex=exercises[exerciseIndex.coerceIn(0,exercises.lastIndex)]
             val setCount=if(session.suggestion?.accepted==true) maxOf(1,(ex.sets*.7).toInt()) else ex.sets
             item { SignalCard {
-                Text("${exerciseIndex+1} OF ${session.exercises.size} · ${ex.equipment.uppercase()}",style=MaterialTheme.typography.labelMedium,color=disciplineColor(session.discipline))
+                Text("${exerciseIndex+1} OF ${exercises.size} · ${ex.equipment.uppercase()}",style=MaterialTheme.typography.labelMedium,color=disciplineColor(session.discipline))
                 Text(ex.name,style=MaterialTheme.typography.headlineSmall);Text("$setCount sets · ${ex.reps?.let { "$it reps" } ?: "${ex.seconds} sec hold"} · rest ${ex.rest} sec")
                 Text(ex.cue)
+                session.swaps.find { it.replacement.id==ex.id }?.let { swap -> Text("Easier alternative to "+session.exercises.first { it.id==swap.originalId }.name,style=MaterialTheme.typography.bodySmall);Text(swap.reason,style=MaterialTheme.typography.bodySmall) }
+                if(active && session.log?.sets?.none { it.exerciseId==ex.id }!=false && ExerciseAlternatives.easier(ex)!=null)OutlinedButton(onClick={swapId=ex.id},enabled=!state.busy,modifier=Modifier.fillMaxWidth()) { Text("Choose an easier alternative") }
                 if(!active) Text(if(done) "Actual values below are your saved records. Blank values were not recorded." else "Approve the plan before recording. Targets are not completed sets.",style=MaterialTheme.typography.bodySmall)
             } }
             (1..setCount).forEach { i -> item {
@@ -71,7 +82,7 @@ import kotlinx.coroutines.delay
             } }
             item { Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick={exerciseIndex--},enabled=exerciseIndex>0,modifier=Modifier.weight(1f)) { Text("Previous") }
-                OutlinedButton(onClick={exerciseIndex++},enabled=exerciseIndex<session.exercises.lastIndex,modifier=Modifier.weight(1f)) { Text("Next exercise") }
+                OutlinedButton(onClick={exerciseIndex++},enabled=exerciseIndex<exercises.lastIndex,modifier=Modifier.weight(1f)) { Text("Next exercise") }
             } }
             if(active) item { SignalCard { Text("Rest timer · ${restSeconds/60}:${(restSeconds%60).toString().padStart(2,'0')}",style=MaterialTheme.typography.titleLarge)
                 Text("Pauses when you leave the app. Resume it here when ready.",style=MaterialTheme.typography.bodySmall)
@@ -97,6 +108,14 @@ import kotlinx.coroutines.delay
         if(done) item { Text("Completion is your recorded confirmation, not a sensor-verified activity. It appears separately in workout history without invented pace, GPS or heart rate.",style=MaterialTheme.typography.bodySmall) }
         item { PlanFeedbackForm(plan,actions,session.id) }
     }
+    swapId?.let { id -> exercises.find { it.id==id }?.let { original -> ExerciseAlternatives.easier(original)?.let { replacement ->
+        AlertDialog(onDismissRequest={swapId=null},title={Text("Review easier alternative")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
+            Text(replacement.name,style=MaterialTheme.typography.titleLarge)
+            Text("${replacement.sets} sets · ${replacement.reps?.let { "$it reps" } ?: "${replacement.seconds} seconds"} · rest ${replacement.rest} seconds")
+            Text(replacement.cue);Text(ExerciseAlternatives.REASON)
+            Text("Any unsaved entries for this exercise will be cleared. Previously saved sets cannot be replaced.",style=MaterialTheme.typography.bodySmall)
+        }},confirmButton={TextButton(onClick={pendingSwap=id;actions.swap(plan.id,plan.revision,session.id,id);swapId=null}) { Text("Use easier alternative") }},dismissButton={TextButton(onClick={swapId=null}) { Text("Keep original") }})
+    } } }
     if(missed) AlertDialog(onDismissRequest={missed=false},title={Text("Why was this session missed?")},text={ Column { ChoiceChips(listOf("Time","Fatigue","Soreness","Illness","Other"),listOf("Time","Fatigue","Soreness","Illness","Other").indexOf(reason)) { reason=listOf("Time","Fatigue","Soreness","Illness","Other")[it] };Text("No catch-up volume is added. Any recovery suggestion requires your explicit choice.") } },confirmButton={TextButton(onClick={actions.missed(plan.id,plan.revision,session.id,reason,false);missed=false}) { Text("Mark missed") }},dismissButton={Row { TextButton(onClick={actions.missed(plan.id,plan.revision,session.id,reason,true);missed=false}) { Text("Skip") };TextButton(onClick={missed=false}) { Text("Cancel") } }})
     if(move) AlertDialog(onDismissRequest={move=false},title={Text("Move workout")},text={Column { NativeDateField("Scheduled date",moveDate,{moveDate=it});Text("Available-day, long-run-day and recovery conflicts are checked before saving.");formError?.let { Text(it) } }},confirmButton={TextButton(onClick={try {actions.move(plan.id,plan.revision,session.id,LocalDate.parse(moveDate));move=false}catch(e:Exception){formError="Enter a valid YYYY-MM-DD date."}}) { Text("Save move") }},dismissButton={TextButton(onClick={move=false}) { Text("Cancel") }})
 }
