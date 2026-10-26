@@ -1,5 +1,19 @@
 # Phase 4D.3A — Running Intelligence 3.0
 
+## Phase 4D.3A-A Fix1 officially accepted (2026-10-26)
+
+**Latest independently accepted intermediate checkpoint: Phase 4D.3A-A Fix1**, [GitHub Actions run 40250751272](https://github.com/Isshhin/stridelab-development/actions/runs/40250751272): **258 passed, 0 failed, 0 skipped, 0 flaky**, using official Playwright Chromium including available axe checks.
+
+- Exact immutable source is the [private prerelease `phase4d3a-a-fix1`](https://github.com/Isshhin/stridelab-development/releases/tag/phase4d3a-a-fix1), asset `StrideLab-4D3A-A-fix1.zip` (20,252,556 bytes), SHA-256 `424063a8400e57eebd89012cd71b55bf38218678b78a4ee0f34206619cc81e87`.
+- ZIP CRC, **629/629** manifest payload hashes, deterministic rebuilt HTML `286f82e08099c13c974845e8a1f4de8b82c2d275b81c241e457ada260ae7ba0b`, protected coaching engine `3ae9226a19718925d5a0c59771d13ed85860b4f4cd694490f0cbf668cfb3a3f2`, and 4D.1 baseline `cffaad8e9856d988f864cb09143a63aeac573b453aa0978abcded3dfb054bd9d` verified.
+- First A run 40249781541 failed one newly added keyboard test (257/258). Fix1 corrected the *test expectation* around intentional Enter/Space selection toggling; **application HTML is unchanged**. No source-engine or workout-record regression was introduced.
+- Implemented scope: data-derived analysis from demo activity splits with explicit missing-data and comparison caveats; chart tap and accessible keyboard split selection; Pace/HR/Cadence/Elevation tabs; existing simulated GPS and treadmill no-GPS states preserved. This is **checkpoint A**, not whole Phase 4D.3A.
+- **Next:** 4D.3A-B refined analysis precision and visualization interaction, verifying split-to-chart/map synchronization, valid data edge cases, UX clarity and mobile accessibility against this exact accepted baseline. 4D.3B Link Run and 4D.3C planned-versus-actual remain later phases.
+- Manual real Android, physical screen-reader, real imported activity ingestion, coaching content review and real map tiles are **not validated by this automated gate**.
+
+Historical candidate/failed-run notes below are superseded by this acceptance record.
+
+
 ## Phase 4D.3A-A Fix1: test-only correction (2026-10-26)
 
 **Pending official verification; not accepted.** [Original A official run 40249781541](https://github.com/Isshhin/stridelab-development/actions/runs/40249781541) finished **257 passed / 1 failed out of 258**. The archive checks, 626/626 manifest, protected engine and build verification succeeded; the single failure is the new elevation keyboard test.
