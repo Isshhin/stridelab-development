@@ -16,6 +16,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -50,6 +51,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.*
+import androidx.navigation.NavHostController
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -90,6 +92,25 @@ class NativeMainActivity: ComponentActivity() {
 internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: () -> Unit,
     val syncIntervals: () -> Unit, val signOut: () -> Unit, val signIn: (String, String) -> Unit)
 
+/** Save each tab's root state, never its transient detail/auth destination. */
+private fun NavHostController.openTabRoot(path: String) {
+    while(currentDestination?.route in setOf("activity/{id}", "auth")) {
+        if(!popBackStack()) break
+    }
+    navigate(path) {
+        popUpTo(graph.startDestinationId) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
+    // Also normalize stacks restored from an older build that saved a child destination.
+    if(currentDestination?.route != path) popBackStack(path, inclusive = false)
+}
+
+private fun NavHostController.openActivity(id: String) {
+    openTabRoot("activities")
+    navigate("activity/$id")
+}
+
 @Composable internal fun NativeStrideContent(state: TrainingState, online: Boolean, actions: NativeActions) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
@@ -101,7 +122,7 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
                 windowInsets = WindowInsets(0, 0, 0, 0)) {
                 listOf("home" to "Home", "activities" to "Activities", "settings" to "Settings").forEach { (path, label) ->
                     NavigationBarItem(selected = route == path || (path == "activities" && route == "activity/{id}"), onClick = {
-                        nav.navigate(path) { popUpTo(nav.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true }
+                        nav.openTabRoot(path)
                     }, icon = { Icon(when(path) { "home" -> Icons.Default.Home; "activities" -> Icons.AutoMirrored.Filled.List; else -> Icons.Default.Settings }, contentDescription = null) },
                         label = { Text(label, fontWeight = FontWeight.SemiBold) },
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary,
@@ -128,7 +149,7 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
                             if(state.account != null) item { SyncStatus(state) }
                             state.activities.firstOrNull()?.let { activity ->
                                 item { Text("LATEST ACTIVITY", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }
-                                item { ActivityRow(activity) { nav.navigate("activity/${activity.id}") } }
+                                item { ActivityRow(activity) { nav.openActivity(activity.id) } }
                             }
                             item { HistoryOverview(state.activities) }
                             if(state.activities.count { it.durationS != null } >= 2) item { RecordedDurationChart(state.activities) }
@@ -145,7 +166,7 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
                         else {
                             item { OutlinedButton(onClick = actions.refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
                             if(state.activities.isEmpty()) item { EmptyState("No activities cached", "Your saved history will appear here after a successful refresh.") }
-                            items(state.activities, key = { it.id }) { activity -> ActivityRow(activity) { nav.navigate("activity/${activity.id}") } }
+                            items(state.activities, key = { it.id }) { activity -> ActivityRow(activity) { nav.openActivity(activity.id) } }
                         }
                     }
                 }
@@ -238,7 +259,7 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
 
 @Composable private fun Screen(title: String, eyebrow: String, compactTitle: Boolean = false, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-        LazyColumn(Modifier.widthIn(max = 760.dp).fillMaxSize().testTag("screen"), contentPadding = PaddingValues(start = 22.dp, end = 22.dp, top = 24.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        LazyColumn(Modifier.widthIn(max = 760.dp).fillMaxSize().testTag("screen").semantics { paneTitle = title }, contentPadding = PaddingValues(start = 22.dp, end = 22.dp, top = 24.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
             item {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     BrandMark(Modifier.size(26.dp))

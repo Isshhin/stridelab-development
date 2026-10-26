@@ -149,7 +149,9 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             require(last != null && last != before)
             before = last
         }
-        mutable.value = mutable.value.copy(needsSignIn = false, message = "History refreshed · $received activities checked")
+        // Shared by manual refresh, sign-in, provider sync and background work.
+        // Success updates the cache timestamp in place; banners are for actionable problems.
+        mutable.value = mutable.value.copy(needsSignIn = false)
     }
     suspend fun refresh() = operation("Refreshing history…") { fetchActivities() }
     private fun connection(): IntervalConnection {
@@ -177,6 +179,6 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         check(preferences.edit().remove("active").commit())
         mutable.value = TrainingState(initializing = false,busy = true,task = "Finishing sign-out…")
         val revoked = saved != null && runCatching { gateway.signOut(saved); true }.getOrDefault(false)
-        mutable.value = mutable.value.copy(message = if(revoked) "Signed out. Saved activity files were retained." else "Signed out on this device. Server session revocation was unavailable; saved files were retained.")
+        mutable.value = mutable.value.copy(message = if(revoked) null else "Signed out on this device. Server session revocation was unavailable; saved files were retained.")
     }
 }

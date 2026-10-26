@@ -59,6 +59,32 @@ class TrainingRepositoryTest {
         assertEquals(1, repo.state.value.activities.size)
         assertNull(repo.state.value.activities.single().recordedPace)
     }
+    @Test fun successfulSharedRefreshAndProviderSyncNeverPublishPersistentSuccessMessages() = runBlocking {
+        remote.rows = listOf(row())
+        assertTrue(repo.signIn("fixture@example.invalid", "fixture"))
+        assertNull(repo.state.value.message)
+        // The background worker calls this same refresh method, with no UI feedback emitter.
+        repeat(2) { assertTrue(repo.refresh()); assertNull(repo.state.value.message) }
+        remote.configured = true
+        assertTrue(repo.syncIntervals())
+        assertNull(repo.state.value.message)
+        assertNotNull(repo.state.value.lastSync)
+        assertEquals(1, repo.state.value.activities.size)
+        assertTrue(repo.signOut())
+        assertNull(repo.state.value.message)
+    }
+    @Test fun failedRefreshKeepsActionableMessageAndCacheAndRecoveryIsSilent() = runBlocking {
+        remote.rows = listOf(row())
+        assertTrue(repo.signIn("fixture@example.invalid", "fixture"))
+        remote.offline = true
+        assertFalse(repo.refresh())
+        assertTrue(repo.state.value.message!!.contains("retained"))
+        assertEquals(1, repo.state.value.activities.size)
+        remote.offline = false
+        assertTrue(repo.refresh())
+        assertNull(repo.state.value.message)
+        assertEquals(1, repo.state.value.activities.size)
+    }
     @Test fun partialImportPersistsCompletedPageWithoutClaimingCompletion() = runBlocking {
         remote.rows = (0..200).map { row("activity-$it") }; remote.failAfterFirstPage = true
         assertFalse(repo.signIn("fixture@example.invalid", "fixture"))
