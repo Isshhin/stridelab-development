@@ -64,6 +64,7 @@ class Engine1UiTest {
         compose.onNodeWithTag("workout-${cal.id}").assertExists()
 
         compose.onNodeWithTag("workout-${cal.id}").performClick()
+        compose.onNodeWithTag("workout-review").performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Move workout"))
         compose.onNodeWithText("Move workout",useUnmergedTree=true).performClick()
         compose.onNodeWithText("Scheduled date (YYYY-MM-DD)").performTextReplacement(
@@ -88,6 +89,16 @@ class Engine1UiTest {
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Back to Training"))
         compose.onNodeWithText("Back to Training",useUnmergedTree=true).performClick()
         compose.onNodeWithTag("workout-${cal.id}").performClick()
+        compose.onNodeWithTag("workout-player").assertExists()
+        val calExercise=state.value.plans.single().sessions.single { it.id==cal.id }.effectiveExercises.first { it.reps!=null }
+        val actual=calExercise.reps!!+1
+        compose.onNodeWithText("Adjust set").performClick()
+        compose.onNodeWithText("Actual reps").performScrollTo().performTextInput(actual.toString())
+        compose.onNodeWithText("Use these values").performScrollTo().performClick()
+        compose.onNodeWithText("Confirm $actual reps & rest").performClick()
+        compose.waitUntil(5000) { state.value.plans.single().sessions.single { it.id==cal.id }.log?.sets?.isNotEmpty()==true }
+        assertEquals("in_progress",state.value.plans.single().sessions.single { it.id==cal.id }.status)
+        compose.onNodeWithTag("workout-review").performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Save completed workout"))
         compose.onNodeWithText("Actual duration (minutes), optional").performTextInput("25")
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
@@ -98,6 +109,7 @@ class Engine1UiTest {
         assertEquals("completed",completed.sessions.single { it.id==cal.id }.status)
         assertEquals(20.0,completed.sessions.single { it.id==run.id }.log!!.minutes!!,0.0)
         assertEquals(25.0,completed.sessions.single { it.id==cal.id }.log!!.minutes!!,0.0)
+        assertEquals(actual,completed.sessions.single { it.id==cal.id }.log!!.sets.single().let { it.seconds ?: it.reps })
     }
 
     @Test fun beginnerGeneratesReviewsApprovesOpensCalendarAndLogsWithoutWatch() {
