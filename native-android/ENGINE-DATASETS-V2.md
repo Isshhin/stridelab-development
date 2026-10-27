@@ -45,7 +45,7 @@ The **materializer** produces dated, source-labeled synthetic workout records, o
 
 The generated order and placement of workouts are synthetic stress inputs, not recommendations for scheduling safe training. The generator can produce close-spaced hard sessions **to challenge** the future engine's conflict handling. The numeric fictional HR, HRV, RPE, distances and loads are *test syntax*, not normative thresholds, measured results, or expected adaptation rates.
 
-Most recipe events are *context annotations*. A corresponding adaptive behavior check can only become executable after a versioned Engine 2.0 response schema defines `proposedChanges`, approvals/rejections, unchanged historical records and evidence citations. Do not mark a candidate invariant as passed just because its identifier is present in the JSON.
+Some adversarial events now materialize **deterministically** as source examples: two adjacent hard-run records, a flagged implausible HR sample, an explicitly chosen rest/skipped row without fabricated actuals, a planned-but-unconfirmed row, an intentionally quarantined invalid-unit input, and a cross-account duplicate identity case. The Python tests require those examples to exist. Other recipe events remain *context annotations*. A corresponding **adaptive behavior** check can only become executable after a versioned Engine 2.0 response schema defines `proposedChanges`, approvals/rejections, unchanged historical records and evidence citations. Do not mark a candidate invariant as passed merely because its identifier or test input exists in JSON.
 
 ## Source-grounded research register
 
