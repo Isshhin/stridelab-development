@@ -1,3 +1,16 @@
+# Latest native UX checkpoint — 27 October 2026
+
+
+## Verified outcome
+
+Exact tested source: `23726a9045b21d7bef82510fdb7bccab8e55337c`; remote checkpoint `checkpoint/native-guided-workout-verified-23726a9`. [CI 40452422488](https://github.com/Isshhin/stridelab-development/actions/runs/40452422488) passed **84 JVM / 76 emulator / 14 Python tests**, with zero suite failures/errors/skips, the actual legacy seed/update path and all four process probes. All 178 canonical archive files were independently matched to Git blobs. Source ZIP SHA-256: `ebac1fd572c24ab42a3d6715df53661e676d8ca28577100d5f9fd2959220edba`.
+
+Private candidate: package `io.stridelab.privatealpha`, version **15**, `0.6.6-guided-workout`. [Private disposable-test APK artifact](https://github.com/Isshhin/stridelab-development/actions/runs/40452422488/artifacts/12711263191). APK SHA-256: `101ab376ae9e6e9f230badbfff5f0c3fcb90d6d7ff51130db76b91d9f99db537`; signer: `efb16d478e0caaef6ff5b3e2060948049c7ea2d385cd509c5d3c503bfacba777`. Actual signature/metadata and both downloaded artifact ZIP digests were independently verified.
+
+A fresh read-only comparison against the connected phone found installed version **14**, signer `fbf186fc95d790c566583830bfca6942c017e77c4968dace023bf490114efe95`. **The signing certificates differ: this build cannot update that installation through the normal in-place update path. Do not uninstall, clear data or replace the installed app.** The phone was not updated, and the new APK was not copied to it. Its original matching signing path remains required. The durable-signing job was skipped; generating a different key would not resolve compatibility. This is an automated-verified native UX slice, not full five-stage reconstruction or physical acceptance of the new player. Engine 2.0 and web work remain frozen.
+
+Continue with broader exact/animated movement guidance, prominent recovery advice in the player, full native backup/recovery and a compatible private signing path before physical player acceptance. See docs/NATIVE-GUIDED-WORKOUT.md and the task outputs/guided-workout/HANDOFF.md. Prior checkpoints and historical notes follow.
+
 # Latest verified core and ongoing reconstruction
 
 Read [ENGINE1-CORE-VERIFIED-20261027.md](ENGINE1-CORE-VERIFIED-20261027.md) first. Verified core `d9f84056b5a224d09e375ee60fb7ae0feda9351d`, checkpoint `checkpoint/native-engine1-core-verified-d9f8405`, CI 40359915819 passed 67 JVM / 63 emulator / 14 Python plus preserved upgrade and forced-process probes. The master has newer resistance-practice/templates and parity corrections; do not reset them to the core checkpoint. Full reconstruction and real-device acceptance remain open. Keep Engine 1.0's original generator/policy as a fallback and preserve all accepted snapshots/logs.
