@@ -4,7 +4,7 @@ import org.junit.Assert.*
 import org.junit.Test
 import java.time.Instant
 import java.time.LocalDate
-import java.util.Random
+import kotlin.random.Random
 
 /**
  * Engine-output assertions grounded in fictional scenario classes.
