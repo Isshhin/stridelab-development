@@ -20,7 +20,8 @@ internal object PlanOperations {
             })throw PlanConstraint("This plan would exceed the shared daily time budget on an approved training day.")
         return plan.copy(status="approved")
     }
-    fun move(plan:PlanSnapshot,sessionId:String,date:LocalDate):PlanSnapshot {
+    fun move(plan:PlanSnapshot,sessionId:String,date:LocalDate):PlanSnapshot = move(plan,sessionId,date,emptyList())
+    fun move(plan:PlanSnapshot,sessionId:String,date:LocalDate,otherPlans:List<PlanSnapshot>):PlanSnapshot {
         compatible(plan)
         val s=plan.sessions.firstOrNull { it.id==sessionId } ?: throw PlanConstraint("Workout is no longer available.")
         if(s.status !in setOf("planned","in_progress") || s.log!=null)throw PlanConstraint("Recorded workouts keep their original scheduled date. Move only an unstarted session.")
@@ -28,8 +29,23 @@ internal object PlanOperations {
         if(date.dayOfWeek.value !in plan.request.days)throw PlanConstraint("That is not an available training day. Edit your availability in a new reviewed plan instead.")
         if(s.kind=="long" && date.dayOfWeek.value!=plan.request.longDay)throw PlanConstraint("This plan has one preferred long-run day. Move this run to that weekday or review a new plan.")
         val moved=s.copy(date=date)
-        if(plan.sessions.any { it.id!=sessionId && it.status !in setOf("missed","skipped") && conflict(moved,it,plan.policyId,plan.policyId) })throw PlanConstraint("This move conflicts with another workout or its recovery spacing. Choose a different date.")
-        if(plan.policyId==MULTI_SESSION_POLICY&&plan.sessions.filter { it.id!=sessionId&&it.date==date&&it.status !in setOf("missed","skipped") }.sumOf { it.effectiveMinutes }+moved.effectiveMinutes>plan.request.dailyMinutes)throw PlanConstraint("This move would exceed the ${plan.request.dailyMinutes}-minute daily time budget.")
+        val approved=otherPlans.filter { it.id!=plan.id&&it.status=="approved" }
+        val sameDayExisting=plan.sessions.filter { it.id!=sessionId&&it.date==date&&it.status !in setOf("missed","skipped") }
+        val conflictsWithinPlan=plan.sessions.filter { it.id!=sessionId&&it.status !in setOf("missed","skipped") }
+            .any { existing->conflict(moved,existing,plan.policyId,plan.policyId) }
+        val conflictsWithApprovedPlan=approved.any { other->
+            other.sessions.filter { it.status !in setOf("missed","skipped") }
+                .any { existing->conflict(moved,existing,plan.policyId,other.policyId) }
+        }
+        if(conflictsWithinPlan||conflictsWithApprovedPlan)throw PlanConstraint("This move conflicts with another workout or its recovery spacing. Choose a different date.")
+        if(plan.policyId==MULTI_SESSION_POLICY&&sameDayExisting.sumOf { it.effectiveMinutes }+moved.effectiveMinutes>plan.request.dailyMinutes)throw PlanConstraint("This move would exceed the ${plan.request.dailyMinutes}-minute daily time budget.")
+        val sharedMultiPlans=(approved.filter { it.policyId==MULTI_SESSION_POLICY&&it.sessions.any { s->s.date==date&&s.status !in setOf("missed","skipped") } }+
+            listOf(plan).filter { it.policyId==MULTI_SESSION_POLICY })
+        if(sharedMultiPlans.size>1) {
+            val combined=sameDayExisting+listOf(moved)+approved.filter { it.policyId==MULTI_SESSION_POLICY }.flatMap { p->p.sessions.filter { it.date==date&&it.status !in setOf("missed","skipped") } }
+            val budget=sharedMultiPlans.minOf { it.request.dailyMinutes }
+            if(combined.sumOf { it.effectiveMinutes }>budget)throw PlanConstraint("This move would exceed the shared $budget-minute daily time budget across approved plans.")
+        }
         return plan.copy(sessions=plan.sessions.map { if(it.id==sessionId) moved else it }.sortedBy { it.date })
     }
     fun swapExercise(plan:PlanSnapshot,sessionId:String,exerciseId:String,now:Instant=Instant.now()):PlanSnapshot {

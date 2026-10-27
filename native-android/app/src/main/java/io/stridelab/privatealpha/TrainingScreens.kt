@@ -36,7 +36,7 @@ import kotlinx.coroutines.withContext
     SignalCard {
         Text(plan.status.uppercase()+" · ENGINE ${plan.engineVersion}",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
         Text(plan.name ?: plan.request.goal,style=MaterialTheme.typography.headlineSmall)
-        Text(if(!Engine1Engines.canManage(plan))"Saved engine/policy · read-only here" else when(plan.policyId) {CoordinatedEngine1.policyId->"Coordinated discipline goals";SessionTemplate.POLICY_ID->"User-reviewed session targets";else->"Verified baseline fallback"},style=MaterialTheme.typography.bodySmall)
+        Text(if(!Engine1Engines.canManage(plan))"Saved engine/policy · read-only here" else when(plan.policyId) {CoordinatedEngine1.policyId->"Coordinated discipline goals";MultiSessionEngine1.policyId->"Multi-session scheduling";SessionTemplate.POLICY_ID->"User-reviewed session targets";else->"Verified baseline fallback"},style=MaterialTheme.typography.bodySmall)
         Text("${plan.request.start} – ${plan.request.start.plusWeeks(plan.request.weeks.toLong()).minusDays(1)} · ${plan.request.weeks} weeks",style=MaterialTheme.typography.bodyMedium)
         if(plan.policyId==MULTI_SESSION_POLICY) {
             val requested=plan.request.runDays+plan.request.strengthDays+plan.request.calDays+plan.request.conditioningDays
@@ -98,7 +98,7 @@ import kotlinx.coroutines.withContext
     if(planMenu&&plan!=null) ModalBottomSheet(onDismissRequest={planMenu=false},containerColor=MaterialTheme.colorScheme.surface) {
         Column(Modifier.padding(24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
             Text(plan.name ?: plan.request.goal,style=MaterialTheme.typography.headlineSmall)
-        Text(if(!Engine1Engines.canManage(plan))"Saved engine/policy · read-only here" else when(plan.policyId) {CoordinatedEngine1.policyId->"Coordinated discipline goals";SessionTemplate.POLICY_ID->"User-reviewed session targets";else->"Verified baseline fallback"},style=MaterialTheme.typography.bodySmall);Text("Editing creates a new reviewed draft. Approved prescriptions and previous logs are retained.")
+        Text(if(!Engine1Engines.canManage(plan))"Saved engine/policy · read-only here" else when(plan.policyId) {CoordinatedEngine1.policyId->"Coordinated discipline goals";MultiSessionEngine1.policyId->"Multi-session scheduling";SessionTemplate.POLICY_ID->"User-reviewed session targets";else->"Verified baseline fallback"},style=MaterialTheme.typography.bodySmall);Text("Editing creates a new reviewed draft. Approved prescriptions and previous logs are retained.")
             SignalButton("Edit inputs / create draft",{planMenu=false;onBuild()},Engine1Engines.canManage(plan))
             if(plan.status=="approved") OutlinedButton(onClick={actions.pause(plan.id,plan.revision);planMenu=false},enabled=Engine1Engines.canManage(plan),modifier=Modifier.fillMaxWidth()) { Text("Pause plan") }
             OutlinedButton(onClick={actions.archive(plan.id,plan.revision);planMenu=false},enabled=Engine1Engines.canManage(plan),modifier=Modifier.fillMaxWidth()) { Text("Archive plan · keep records") }
@@ -132,7 +132,7 @@ import kotlinx.coroutines.withContext
     }
 }
 @Composable private fun DayCell(date:LocalDate,selected:Boolean,sessions:List<PlannedSession>,enabled:Boolean,onClick:()->Unit,modifier:Modifier,showWeekday:Boolean=true) {
-    Surface(onClick=onClick,enabled=enabled,shape=RoundedCornerShape(18.dp),color=if(selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainer,modifier=modifier.heightIn(min=64.dp).padding(1.dp).semantics { contentDescription="$date, ${sessions.joinToString { it.title+", "+it.status }.ifEmpty { "no scheduled workout" }}" }) {
+    Surface(onClick=onClick,enabled=enabled,shape=RoundedCornerShape(18.dp),color=if(selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainer,modifier=modifier.heightIn(min=64.dp).padding(1.dp).testTag("calendar-day-$date").semantics { contentDescription="$date, ${sessions.joinToString { it.title+", "+it.status }.ifEmpty { "no scheduled workout" }}" }) {
         Column(Modifier.padding(vertical=8.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(3.dp)) {
             if(showWeekday) Text(dayName(date.dayOfWeek.value).take(2),style=MaterialTheme.typography.labelSmall,color=if(selected)MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
             Text("${date.dayOfMonth}",style=MaterialTheme.typography.titleMedium,color=if(!enabled)MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=.45f) else if(selected)MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
