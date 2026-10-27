@@ -62,6 +62,27 @@ class Engine2Batch4AcceptanceTest {
             candidate.originalLedgerRevision, candidate.originalPlanRevision, candidate.updated))
     }
 
+    @Test fun forgedLedgerReceiptsAndDuplicatePendingChangesFailClosed() {
+        val p = Engine2PlanView("fictional", "test-plan", 2, Engine2PlanStatus.APPROVED,
+            listOf(Engine2SessionTarget("run", LocalDate.parse("2026-11-02"),
+                Engine2Discipline.RUNNING, 45)))
+        val proposal = Engine2DurationProposal("p-1", "fictional", "test-plan", 2,
+            "run", LocalDate.parse("2026-11-02"), 45, 30,
+            "Fictional owner requested reduced scheduled duration.", setOf("actual-1"), now)
+        val duplicate = proposal.copy(id = "p-2")
+        assertThrows(IllegalArgumentException::class.java) {
+            Engine2ApprovalLedger(p, mapOf(proposal.id to proposal, duplicate.id to duplicate))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            Engine2ApprovalLedger(p, emptyMap(), listOf(
+                Engine2DecisionReceipt("unlisted", Engine2Decision.APPROVE, now, 3)))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            Engine2ApprovalLedger(p, mapOf(proposal.id to proposal), listOf(
+                Engine2DecisionReceipt("p-1", Engine2Decision.APPROVE, now, 3)))
+        }
+    }
+
     @Test fun missingIndependentVerificationAlwaysBlocksDelivery() {
         val unverified = Engine2AcceptanceGate.assess(Engine2VerificationEvidence())
         assertFalse(unverified.eligibleForDomainCodeReview)
