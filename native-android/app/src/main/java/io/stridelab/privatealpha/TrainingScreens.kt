@@ -111,9 +111,9 @@ import kotlinx.coroutines.withContext
     if(month) {
         val ym=YearMonth.from(selected)
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
-            TextButton(onClick={onSelect(maxOf(first,ym.minusMonths(1).atDay(1)))},enabled=ym.atDay(1)>first) { Text("‹") }
+            TextButton(onClick={onSelect(maxOf(first,ym.minusMonths(1).atDay(1)))},enabled=ym.atDay(1)>first,modifier=Modifier.semantics { contentDescription="Previous month" }) { Text("‹") }
             Text(ym.month.toString()+" "+ym.year,style=MaterialTheme.typography.titleMedium)
-            TextButton(onClick={onSelect(minOf(last,ym.plusMonths(1).atDay(1)))},enabled=ym.atEndOfMonth()<last) { Text("›") }
+            TextButton(onClick={onSelect(minOf(last,ym.plusMonths(1).atDay(1)))},enabled=ym.atEndOfMonth()<last,modifier=Modifier.semantics { contentDescription="Next month" }) { Text("›") }
         }
         Row { (1..7).forEach { d -> Text(dayName(d).take(2),Modifier.weight(1f),style=MaterialTheme.typography.labelSmall) } }
         val gridStart=ym.atDay(1).minusDays((ym.atDay(1).dayOfWeek.value-1).toLong())
@@ -122,9 +122,12 @@ import kotlinx.coroutines.withContext
         val week=ChronoUnit.DAYS.between(first,selected).toInt().coerceAtLeast(0)/7
         val start=first.plusWeeks(week.toLong())
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
-            TextButton(onClick={onSelect(maxOf(first,start.minusWeeks(1)))},enabled=start>first) { Text("‹") }
-            Text("Week ${week+1} of ${plan.request.weeks}",style=MaterialTheme.typography.titleMedium)
-            TextButton(onClick={onSelect(minOf(last,start.plusWeeks(1)))},enabled=start.plusWeeks(1)<=last) { Text("›") }
+            TextButton(onClick={onSelect(maxOf(first,start.minusWeeks(1)))},enabled=start>first,modifier=Modifier.semantics { contentDescription="Previous plan week" }) { Text("‹") }
+            Column(horizontalAlignment=Alignment.CenterHorizontally) {
+                Text("Plan week ${week+1} of ${plan.request.weeks}",style=MaterialTheme.typography.titleMedium)
+                Text("$start – ${minOf(last,start.plusDays(6))}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            TextButton(onClick={onSelect(minOf(last,start.plusWeeks(1)))},enabled=start.plusWeeks(1)<=last,modifier=Modifier.semantics { contentDescription="Next plan week" }) { Text("›") }
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(3.dp)) { (0L..6L).forEach { i -> val d=start.plusDays(i);DayCell(d,d==selected,plan.sessions.filter { it.date==d },d<=last,{onSelect(d)},Modifier.width(46.dp)) } }
         val sessions=plan.sessions.filter { it.date in start..start.plusDays(6) }
@@ -132,7 +135,7 @@ import kotlinx.coroutines.withContext
     }
 }
 @Composable private fun DayCell(date:LocalDate,selected:Boolean,sessions:List<PlannedSession>,enabled:Boolean,onClick:()->Unit,modifier:Modifier,showWeekday:Boolean=true) {
-    Surface(onClick=onClick,enabled=enabled,shape=RoundedCornerShape(18.dp),color=if(selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainer,modifier=modifier.heightIn(min=64.dp).padding(1.dp).testTag("calendar-day-$date").semantics { contentDescription="$date, ${sessions.joinToString { it.title+", "+it.status }.ifEmpty { "no scheduled workout" }}" }) {
+    Surface(onClick=onClick,enabled=enabled,shape=RoundedCornerShape(18.dp),color=if(selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainer,modifier=modifier.heightIn(min=64.dp).padding(1.dp).testTag("calendar-day-$date").semantics { contentDescription="$date, ${sessions.joinToString { it.title+", "+it.status.replace('_',' ') }.ifEmpty { "no scheduled workout" }}" }) {
         Column(Modifier.padding(vertical=8.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(3.dp)) {
             if(showWeekday) Text(dayName(date.dayOfWeek.value).take(2),style=MaterialTheme.typography.labelSmall,color=if(selected)MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
             Text("${date.dayOfMonth}",style=MaterialTheme.typography.titleMedium,color=if(!enabled)MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=.45f) else if(selected)MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
