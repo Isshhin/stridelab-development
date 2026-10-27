@@ -140,7 +140,7 @@ import kotlinx.coroutines.flow.drop
             Text("Only enter values you actually performed. Blank values stay unrecorded; no target is copied into your history.",style=MaterialTheme.typography.bodySmall)
             NativeDateField("Actual workout date",performedOn,{performedOn=it.take(32)},active)
             Text("Choose the date you actually trained. It may differ from the scheduled date; older logs may have no recorded workout date.",style=MaterialTheme.typography.bodySmall)
-            OutlinedTextField(minutes,{minutes=it.take(64)},label={Text("Actual duration (minutes), optional")},enabled=active,modifier=Modifier.fillMaxWidth())
+            OutlinedTextField(minutes,{minutes=it.take(64)},label={Text("Actual duration (minutes), optional")},enabled=active,modifier=Modifier.fillMaxWidth().testTag("workout-actual-minutes"))
             if(session.discipline=="run"||session.discipline=="cond") OutlinedTextField(distance,{distance=it.take(64)},label={Text("Actual distance (km), optional")},enabled=active,modifier=Modifier.fillMaxWidth())
             OutlinedTextField(effort,{effort=it.take(64)},label={Text("Effort 1–10, optional")},enabled=active,modifier=Modifier.fillMaxWidth())
             OutlinedTextField(notes,{notes=it.take(2000)},label={Text("How did it feel?")},enabled=active,modifier=Modifier.fillMaxWidth())

@@ -2,7 +2,7 @@
 
 ## Status
 
-The integration is implemented on `feature/native-guided-multisession-integration-20261027`. The implementation commit `110cfe80683aa47d0db479adf39a73c2c661194a` passed the complete native Android workflow on its exact head in run #46, attempt 2. The first attempt failed during legacy WebView frame readiness; the complete rerun passed without source changes. The final report-only branch head must also have a successful exact-head workflow before it is checkpointed.
+The integration is implemented on `feature/native-guided-multisession-integration-20261027`. Implementation commit `110cfe80683aa47d0db479adf39a73c2c661194a` passed the complete native Android workflow on its exact head in run #46, attempt 2. A later exact-head run on `baabed5d46faa56189f5598fd3feb65001f42901` exposed unreliable duration entry in the combined UI regression; the test hardening is included in this follow-up and requires another exact-head run before checkpointing.
 
 ## Verified sources and ancestry
 
@@ -36,6 +36,7 @@ Source A's guided player, offline entry drafts, stale-write protection, licensed
 | `:app:assembleDebugAndroidTest` | Passed |
 | `:app:connectedDebugAndroidTest` | Passed on isolated `emulator-5554`: 79 tests reported, 0 failures, 1 CI-gated legacy-upgrade test skipped |
 | Updated `Engine1UiTest` class | Passed on isolated `emulator-5554`: 10 tests, 0 failures |
+| Combined multi-session UI regression after duration-entry hardening | Passed on isolated `StrideNativeUI35(AVD) - 15`: 1 test, 0 failures |
 | Python verification suite | Passed: 14 tests |
 | `git diff --check` | Passed |
 
@@ -57,6 +58,8 @@ The complete native workflow tested implementation SHA `110cfe80683aa47d0db479ad
 | Source/evidence archive | Passed |
 
 Attempt 1 of the same run failed in `LegacyUpgradeSeedTest.waitForInteractiveFrame` after the legacy document loaded but its WebView frame did not become ready. Emulator boot had initially reported ADB offline. No legacy launcher, upgrade test, or scheduling implementation files changed between the two attempts; the second complete run passed the seed and all subsequent probes. This is classified as a transient emulator/WebView readiness failure, not evidence of an integration regression. The test was not skipped or weakened.
+
+Run #47 tested report commit `baabed5d46faa56189f5598fd3feb65001f42901` and failed one of 79 connected instrumentation tests. The combined UI regression completed the workout but its optional run duration was absent, causing a null assertion at `Engine1UiTest.kt:110`. The test now targets the duration field by a nonvisual test tag, uses text replacement, asserts the `EditableText` value before saving, and reports missing saved durations explicitly. This changes no visible UI behavior. The focused regression passed locally (1/1), and the complete `Engine1UiTest` class passed locally (10/10) on the isolated emulator after the change; the next exact-head workflow is the required final verification.
 
 ## CI APK artifact
 

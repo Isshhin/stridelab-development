@@ -4,6 +4,8 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.text.AnnotatedString
 import androidx.test.platform.app.InstrumentationRegistry
 import android.view.KeyEvent
 import android.graphics.Bitmap
@@ -15,6 +17,12 @@ import java.time.LocalDate
 
 class Engine1UiTest {
     @get:Rule val compose=createAndroidComposeRule<NativeMainActivity>()
+    private fun enterActualDuration(value:String) {
+        val field=compose.onNodeWithTag("workout-actual-minutes")
+        field.performTextReplacement(value)
+        field.assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText,AnnotatedString(value)))
+    }
+
     @Test fun multiSessionPlanBuilderGeneratesEightSessionsAndKeepsSameDayLogsIndependent() {
         val state=mutableStateOf(TrainingState(initializing=false,account="synthetic-multi-builder-ui"))
         val actions=PlanActions(
@@ -80,7 +88,7 @@ class Engine1UiTest {
         compose.onNodeWithText("Back to Training",useUnmergedTree=true).performClick()
         compose.onNodeWithTag("workout-${run.id}").performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Save completed workout"))
-        compose.onNodeWithText("Actual duration (minutes), optional").performTextInput("20")
+        enterActualDuration("20")
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Save completed workout"))
         compose.onNodeWithText("Save completed workout",useUnmergedTree=true).performClick()
@@ -100,15 +108,19 @@ class Engine1UiTest {
         assertEquals("in_progress",state.value.plans.single().sessions.single { it.id==cal.id }.status)
         compose.onNodeWithTag("workout-review").performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Save completed workout"))
-        compose.onNodeWithText("Actual duration (minutes), optional").performTextInput("25")
+        enterActualDuration("25")
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Save completed workout"))
         compose.onNodeWithText("Save completed workout",useUnmergedTree=true).performClick()
         val completed=state.value.plans.single()
         assertEquals("completed",completed.sessions.single { it.id==run.id }.status)
         assertEquals("completed",completed.sessions.single { it.id==cal.id }.status)
-        assertEquals(20.0,completed.sessions.single { it.id==run.id }.log!!.minutes!!,0.0)
-        assertEquals(25.0,completed.sessions.single { it.id==cal.id }.log!!.minutes!!,0.0)
+        val runMinutes=completed.sessions.single { it.id==run.id }.log?.minutes
+        val calMinutes=completed.sessions.single { it.id==cal.id }.log?.minutes
+        assertNotNull("Actual run duration should be saved",runMinutes)
+        assertNotNull("Actual calisthenics duration should be saved",calMinutes)
+        assertEquals(20.0,runMinutes ?: 0.0,0.0)
+        assertEquals(25.0,calMinutes ?: 0.0,0.0)
         assertEquals(actual,completed.sessions.single { it.id==cal.id }.log!!.sets.single().let { it.seconds ?: it.reps })
     }
 
@@ -140,7 +152,7 @@ class Engine1UiTest {
         val plan=state.value.plans.single();val session=plan.sessions.first()
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-${session.id}"));compose.onNodeWithTag("workout-${session.id}").performClick()
         if(compose.onAllNodesWithTag("workout-player").fetchSemanticsNodes().isNotEmpty())compose.onNodeWithTag("workout-review").performClick()
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Actual duration (minutes), optional"));compose.onNodeWithText("Actual duration (minutes), optional").performTextInput("18")
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Actual duration (minutes), optional"));enterActualDuration("18")
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Save completed workout"));compose.onNodeWithText("Save completed workout",useUnmergedTree=true).performClick()
         assertEquals(1,state.value.plans.single().sessions.count { it.status=="completed" })
         assertEquals(18.0,state.value.plans.single().sessions.first().log!!.minutes!!,0.0)
