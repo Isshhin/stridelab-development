@@ -2,7 +2,7 @@ name: Native Android migration verification
 on:
   push:
     branches: ['feature/native-compose-migration-20261026', 'feature/native-real-data-phase2-20261026', 'feature/native-reconstruction-1-20261026', 'feature/native-guided-multisession-integration-20261027']
-    paths: ['native-android/**', 'android-app/android/app/src/**', '.github/workflows/native-android.yml']
+    paths: ['native-android/**', 'android-app/android/app/src/**', 'docs/NATIVE-GUIDED-MULTISESSION-INTEGRATION.md', '.github/workflows/native-android.yml']
   workflow_dispatch:
     inputs:
       durable_signed_build:
