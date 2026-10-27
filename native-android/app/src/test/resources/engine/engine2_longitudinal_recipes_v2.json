@@ -1,0 +1,2277 @@
+{
+  "schemaVersion": 2,
+  "datasetId": "stridelab-engine2-longitudinal-recipe-matrix-v2",
+  "classification": "synthetic-only",
+  "purpose": "Input histories and future software safety invariants; not validated physiological targets, real athletes, training recommendation labels, or an implemented coaching engine.",
+  "basedOn": {
+    "repo": "Isshhin/stridelab-development",
+    "v1DraftPr": 11,
+    "checkpoint": "25be8f3828374d1e539c7e825afa20fbcb652b56"
+  },
+  "invariantIds": [
+    "account_isolation",
+    "correct_measurement_units",
+    "cross_discipline_conflicts",
+    "deduplicate_source_events",
+    "do_not_diagnose",
+    "equipment_aware",
+    "missing_is_unknown",
+    "no_auto_intensity_change",
+    "no_auto_missed",
+    "no_auto_skill_promotion",
+    "no_catchup_volume",
+    "no_fabricated_load",
+    "no_invented_sensor_values",
+    "no_single_metric_readiness",
+    "no_unverified_strength_max",
+    "one_unified_plan",
+    "partial_work_is_not_failure",
+    "preserve_historical_actuals",
+    "reject_invalid_units",
+    "require_approval",
+    "respect_user_override",
+    "revision_safety",
+    "source_provenance"
+  ],
+  "missingData": "Missing fields are unknown, not zero. Planned/absent session is never automatically missed.",
+  "scenarios": [
+    {
+      "id": "E2-001",
+      "dimension": "running",
+      "title": "New runner, no pace data",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 3,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [],
+      "checks": [
+        "no_invented_sensor_values",
+        "missing_is_unknown"
+      ]
+    },
+    {
+      "id": "E2-002",
+      "dimension": "running",
+      "title": "Consistent 10K buildup",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 4,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "connected",
+        "equipment": []
+      },
+      "wellnessCoverage": "regular",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [],
+      "checks": [
+        "preserve_historical_actuals",
+        "require_approval"
+      ]
+    },
+    {
+      "id": "E2-003",
+      "dimension": "running",
+      "title": "High weekly volume then lost week",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 6,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "connected",
+        "equipment": []
+      },
+      "wellnessCoverage": "partial",
+      "missingWeeks": [
+        5
+      ],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "travel",
+          "value": "Fictional event: high weekly volume then lost week. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "no_catchup_volume",
+        "no_auto_missed"
+      ]
+    },
+    {
+      "id": "E2-004",
+      "dimension": "running",
+      "title": "Recorded easy run without GPS",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 4,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "connected",
+        "equipment": []
+      },
+      "wellnessCoverage": "sparse",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": true,
+      "omitLoad": false,
+      "events": [],
+      "checks": [
+        "missing_is_unknown",
+        "no_invented_sensor_values"
+      ]
+    },
+    {
+      "id": "E2-005",
+      "dimension": "running",
+      "title": "Training intensities conflict with notes",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 5,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "connected",
+        "equipment": []
+      },
+      "wellnessCoverage": "partial",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "user_disagreement",
+          "value": "Fictional event: training intensities conflict with notes. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "respect_user_override",
+        "no_auto_intensity_change"
+      ]
+    },
+    {
+      "id": "E2-006",
+      "dimension": "running",
+      "title": "Two quality runs on adjacent days",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 5,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "quality_overlap",
+          "value": "Fictional event: two quality runs on adjacent days. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "cross_discipline_conflicts",
+        "require_approval"
+      ]
+    },
+    {
+      "id": "E2-007",
+      "dimension": "running",
+      "title": "Race goal changes mid-block",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 4,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "goal_change",
+          "value": "Fictional event: race goal changes mid-block. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "require_approval",
+        "preserve_historical_actuals"
+      ]
+    },
+    {
+      "id": "E2-008",
+      "dimension": "running",
+      "title": "Long run absent without status",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 4,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [
+        7
+      ],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "sync_disconnected",
+          "value": "Fictional event: long run absent without status. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "no_auto_missed",
+        "missing_is_unknown"
+      ]
+    },
+    {
+      "id": "E2-009",
+      "dimension": "strength",
+      "title": "Beginner with bodyweight only",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 0,
+        "str": 2,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "beginner",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [],
+      "checks": [
+        "equipment_aware",
+        "no_fabricated_load"
+      ]
+    },
+    {
+      "id": "E2-010",
+      "dimension": "strength",
+      "title": "One dumbbell setup",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 0,
+        "str": 3,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "beginner",
+        "device": "none",
+        "equipment": [
+          "dumbbells"
+        ]
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [],
+      "checks": [
+        "equipment_aware",
+        "require_approval"
+      ]
+    },
+    {
+      "id": "E2-011",
+      "dimension": "strength",
+      "title": "Travel removes weights",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 0,
+        "str": 2,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "beginner",
+        "device": "none",
+        "equipment": [
+          "dumbbells"
+        ]
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "equipment_removed",
+          "value": "Fictional event: travel removes weights. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "equipment_aware",
+        "preserve_historical_actuals"
+      ]
+    },
+    {
+      "id": "E2-012",
+      "dimension": "strength",
+      "title": "Manual logs omit weight",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 0,
+        "str": 3,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "beginner",
+        "device": "none",
+        "equipment": [
+          "dumbbells"
+        ]
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": true,
+      "events": [],
+      "checks": [
+        "no_fabricated_load",
+        "missing_is_unknown"
+      ]
+    },
+    {
+      "id": "E2-013",
+      "dimension": "strength",
+      "title": "Load increases but reps fall",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 0,
+        "str": 2,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "beginner",
+        "device": "none",
+        "equipment": [
+          "dumbbells"
+        ]
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "load_rep_tradeoff",
+          "value": "Fictional event: load increases but reps fall. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "no_unverified_strength_max",
+        "require_approval"
+      ]
+    },
+    {
+      "id": "E2-014",
+      "dimension": "strength",
+      "title": "Two sessions with unequal set counts",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 0,
+        "str": 2,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "beginner",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "partial_set",
+          "value": "Fictional event: two sessions with unequal set counts. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "partial_work_is_not_failure",
+        "preserve_historical_actuals"
+      ]
+    },
+    {
+      "id": "E2-015",
+      "dimension": "strength",
+      "title": "Incorrect units entered in journal",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 0,
+        "str": 3,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "beginner",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "invalid_units",
+          "value": "Fictional event: incorrect units entered in journal. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "reject_invalid_units",
+        "no_fabricated_load"
+      ]
+    },
+    {
+      "id": "E2-016",
+      "dimension": "strength",
+      "title": "Old manual log edited later",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 0,
+        "str": 2,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "beginner",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "retroactive_edit",
+          "value": "Fictional event: old manual log edited later. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "preserve_historical_actuals",
+        "revision_safety"
+      ]
+    },
+    {
+      "id": "E2-017",
+      "dimension": "calisthenics",
+      "title": "First push-up progression",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 0,
+        "str": 0,
+        "cal": 3,
+        "cond": 0
+      },
+      "profile": {
+        "level": "beginner",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [],
+      "checks": [
+        "no_auto_skill_promotion",
+        "equipment_aware"
+      ]
+    },
+    {
+      "id": "E2-018",
+      "dimension": "calisthenics",
+      "title": "Hollow-body hold with missing seconds",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 0,
+        "str": 0,
+        "cal": 3,
+        "cond": 0
+      },
+      "profile": {
+        "level": "beginner",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "missing_hold",
+          "value": "Fictional event: hollow-body hold with missing seconds. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "missing_is_unknown",
+        "no_auto_skill_promotion"
+      ]
+    },
+    {
+      "id": "E2-019",
+      "dimension": "calisthenics",
+      "title": "Bar skill without bar at home",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 0,
+        "str": 0,
+        "cal": 2,
+        "cond": 0
+      },
+      "profile": {
+        "level": "beginner",
+        "device": "none",
+        "equipment": [
+          "bar"
+        ]
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "equipment_removed",
+          "value": "Fictional event: bar skill without bar at home. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "equipment_aware",
+        "no_auto_skill_promotion"
+      ]
+    },
+    {
+      "id": "E2-020",
+      "dimension": "calisthenics",
+      "title": "Progression plateau",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 0,
+        "str": 0,
+        "cal": 3,
+        "cond": 0
+      },
+      "profile": {
+        "level": "beginner",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "plateau",
+          "value": "Fictional event: progression plateau. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "no_auto_skill_promotion",
+        "require_approval"
+      ]
+    },
+    {
+      "id": "E2-021",
+      "dimension": "calisthenics",
+      "title": "Skipped movement from form concern",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 0,
+        "str": 0,
+        "cal": 3,
+        "cond": 0
+      },
+      "profile": {
+        "level": "beginner",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "self_report_discomfort",
+          "value": "Fictional event: skipped movement from form concern. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "no_auto_skill_promotion",
+        "do_not_diagnose"
+      ]
+    },
+    {
+      "id": "E2-022",
+      "dimension": "calisthenics",
+      "title": "Recorded holds rather than reps",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 0,
+        "str": 0,
+        "cal": 2,
+        "cond": 0
+      },
+      "profile": {
+        "level": "beginner",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "hold_only",
+          "value": "Fictional event: recorded holds rather than reps. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "correct_measurement_units",
+        "no_fabricated_load"
+      ]
+    },
+    {
+      "id": "E2-023",
+      "dimension": "calisthenics",
+      "title": "Skill test remains unconfirmed",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 0,
+        "str": 0,
+        "cal": 2,
+        "cond": 0
+      },
+      "profile": {
+        "level": "beginner",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "assessment_pending",
+          "value": "Fictional event: skill test remains unconfirmed. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "no_auto_skill_promotion",
+        "require_approval"
+      ]
+    },
+    {
+      "id": "E2-024",
+      "dimension": "calisthenics",
+      "title": "Equipment-assisted version becomes unavailable",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 0,
+        "str": 0,
+        "cal": 3,
+        "cond": 0
+      },
+      "profile": {
+        "level": "beginner",
+        "device": "none",
+        "equipment": [
+          "bar"
+        ]
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "equipment_removed",
+          "value": "Fictional event: equipment-assisted version becomes unavailable. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "equipment_aware",
+        "preserve_historical_actuals"
+      ]
+    },
+    {
+      "id": "E2-025",
+      "dimension": "hybrid",
+      "title": "Running plus lower-body lifting",
+      "fictional": true,
+      "weeks": 16,
+      "weeklySessions": {
+        "run": 4,
+        "str": 2,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "none",
+        "equipment": [
+          "dumbbells"
+        ]
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [],
+      "checks": [
+        "cross_discipline_conflicts",
+        "one_unified_plan"
+      ]
+    },
+    {
+      "id": "E2-026",
+      "dimension": "hybrid",
+      "title": "Easy run plus calisthenics same day",
+      "fictional": true,
+      "weeks": 16,
+      "weeklySessions": {
+        "run": 4,
+        "str": 0,
+        "cal": 3,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [],
+      "checks": [
+        "one_unified_plan",
+        "require_approval"
+      ]
+    },
+    {
+      "id": "E2-027",
+      "dimension": "hybrid",
+      "title": "Running strength calisthenics and conditioning",
+      "fictional": true,
+      "weeks": 16,
+      "weeklySessions": {
+        "run": 4,
+        "str": 2,
+        "cal": 2,
+        "cond": 1
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "none",
+        "equipment": [
+          "dumbbells"
+        ]
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "schedule_change",
+          "value": "Fictional event: running strength calisthenics and conditioning. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "cross_discipline_conflicts",
+        "one_unified_plan"
+      ]
+    },
+    {
+      "id": "E2-028",
+      "dimension": "hybrid",
+      "title": "Gym sessions around long runs",
+      "fictional": true,
+      "weeks": 16,
+      "weeklySessions": {
+        "run": 5,
+        "str": 3,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "none",
+        "equipment": [
+          "dumbbells"
+        ]
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [],
+      "checks": [
+        "cross_discipline_conflicts",
+        "no_catchup_volume"
+      ]
+    },
+    {
+      "id": "E2-029",
+      "dimension": "hybrid",
+      "title": "High gym volume with little running",
+      "fictional": true,
+      "weeks": 16,
+      "weeklySessions": {
+        "run": 2,
+        "str": 4,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "none",
+        "equipment": [
+          "dumbbells"
+        ]
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [],
+      "checks": [
+        "one_unified_plan",
+        "no_unverified_strength_max"
+      ]
+    },
+    {
+      "id": "E2-030",
+      "dimension": "hybrid",
+      "title": "Calisthenics priorities change",
+      "fictional": true,
+      "weeks": 16,
+      "weeklySessions": {
+        "run": 2,
+        "str": 1,
+        "cal": 3,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "goal_change",
+          "value": "Fictional event: calisthenics priorities change. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "require_approval",
+        "one_unified_plan"
+      ]
+    },
+    {
+      "id": "E2-031",
+      "dimension": "hybrid",
+      "title": "Travel changes equipment and schedule",
+      "fictional": true,
+      "weeks": 16,
+      "weeklySessions": {
+        "run": 3,
+        "str": 2,
+        "cal": 2,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "none",
+        "equipment": [
+          "dumbbells"
+        ]
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "equipment_removed",
+          "value": "Fictional event: travel changes equipment and schedule. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "equipment_aware",
+        "cross_discipline_conflicts"
+      ]
+    },
+    {
+      "id": "E2-032",
+      "dimension": "hybrid",
+      "title": "Two-week training interruption across disciplines",
+      "fictional": true,
+      "weeks": 16,
+      "weeklySessions": {
+        "run": 3,
+        "str": 2,
+        "cal": 2,
+        "cond": 1
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [
+        4,
+        5
+      ],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "travel",
+          "value": "Fictional event: two-week training interruption across disciplines. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "no_catchup_volume",
+        "no_auto_missed"
+      ]
+    },
+    {
+      "id": "E2-033",
+      "dimension": "recovery",
+      "title": "Self-reported illness",
+      "fictional": true,
+      "weeks": 16,
+      "weeklySessions": {
+        "run": 4,
+        "str": 1,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "connected",
+        "equipment": []
+      },
+      "wellnessCoverage": "regular",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "illness_self_report",
+          "value": "Fictional event: self-reported illness. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "do_not_diagnose",
+        "no_catchup_volume"
+      ]
+    },
+    {
+      "id": "E2-034",
+      "dimension": "recovery",
+      "title": "Persistently short reported sleep",
+      "fictional": true,
+      "weeks": 16,
+      "weeklySessions": {
+        "run": 3,
+        "str": 2,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "connected",
+        "equipment": []
+      },
+      "wellnessCoverage": "regular",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "sleep_interruption",
+          "value": "Fictional event: persistently short reported sleep. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "missing_is_unknown",
+        "require_approval"
+      ]
+    },
+    {
+      "id": "E2-035",
+      "dimension": "recovery",
+      "title": "Elevated RHR with missing baseline",
+      "fictional": true,
+      "weeks": 16,
+      "weeklySessions": {
+        "run": 4,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "connected",
+        "equipment": []
+      },
+      "wellnessCoverage": "partial",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "baseline_missing",
+          "value": "Fictional event: elevated rhr with missing baseline. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "do_not_diagnose",
+        "no_single_metric_readiness"
+      ]
+    },
+    {
+      "id": "E2-036",
+      "dimension": "recovery",
+      "title": "HRV absent for one month",
+      "fictional": true,
+      "weeks": 16,
+      "weeklySessions": {
+        "run": 4,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "connected",
+        "equipment": []
+      },
+      "wellnessCoverage": "partial",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "hrv_missing",
+          "value": "Fictional event: hrv absent for one month. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "missing_is_unknown",
+        "no_single_metric_readiness"
+      ]
+    },
+    {
+      "id": "E2-037",
+      "dimension": "recovery",
+      "title": "High subjective effort but normal device readings",
+      "fictional": true,
+      "weeks": 16,
+      "weeklySessions": {
+        "run": 3,
+        "str": 2,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "connected",
+        "equipment": []
+      },
+      "wellnessCoverage": "regular",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "subjective_fatigue",
+          "value": "Fictional event: high subjective effort but normal device readings. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "respect_user_override",
+        "no_single_metric_readiness"
+      ]
+    },
+    {
+      "id": "E2-038",
+      "dimension": "recovery",
+      "title": "User requests a lighter training week",
+      "fictional": true,
+      "weeks": 16,
+      "weeklySessions": {
+        "run": 4,
+        "str": 2,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "connected",
+        "equipment": []
+      },
+      "wellnessCoverage": "partial",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "user_reduction_request",
+          "value": "Fictional event: user requests a lighter training week. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "require_approval",
+        "no_catchup_volume"
+      ]
+    },
+    {
+      "id": "E2-039",
+      "dimension": "recovery",
+      "title": "Return from a break",
+      "fictional": true,
+      "weeks": 16,
+      "weeklySessions": {
+        "run": 3,
+        "str": 1,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "connected",
+        "equipment": []
+      },
+      "wellnessCoverage": "partial",
+      "missingWeeks": [
+        3,
+        4
+      ],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "return_request",
+          "value": "Fictional event: return from a break. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "no_catchup_volume",
+        "require_approval"
+      ]
+    },
+    {
+      "id": "E2-040",
+      "dimension": "recovery",
+      "title": "Training done while sensor unavailable",
+      "fictional": true,
+      "weeks": 16,
+      "weeklySessions": {
+        "run": 3,
+        "str": 2,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "sensor_unavailable",
+          "value": "Fictional event: training done while sensor unavailable. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "missing_is_unknown",
+        "no_invented_sensor_values"
+      ]
+    },
+    {
+      "id": "E2-041",
+      "dimension": "provenance",
+      "title": "Two providers report same run",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 4,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "connected",
+        "equipment": []
+      },
+      "wellnessCoverage": "sparse",
+      "missingWeeks": [],
+      "duplicateImport": true,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [],
+      "checks": [
+        "deduplicate_source_events",
+        "source_provenance"
+      ]
+    },
+    {
+      "id": "E2-042",
+      "dimension": "provenance",
+      "title": "Delayed provider import after manual logging",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 4,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "connected",
+        "equipment": []
+      },
+      "wellnessCoverage": "sparse",
+      "missingWeeks": [],
+      "duplicateImport": true,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "late_import",
+          "value": "Fictional event: delayed provider import after manual logging. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "deduplicate_source_events",
+        "preserve_historical_actuals"
+      ]
+    },
+    {
+      "id": "E2-043",
+      "dimension": "provenance",
+      "title": "Provider reconnect returns old history",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 3,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "connected",
+        "equipment": []
+      },
+      "wellnessCoverage": "sparse",
+      "missingWeeks": [],
+      "duplicateImport": true,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "sync_reconnect",
+          "value": "Fictional event: provider reconnect returns old history. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "deduplicate_source_events",
+        "source_provenance"
+      ]
+    },
+    {
+      "id": "E2-044",
+      "dimension": "provenance",
+      "title": "Source records sorted out of order",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 4,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "connected",
+        "equipment": []
+      },
+      "wellnessCoverage": "sparse",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "out_of_order_import",
+          "value": "Fictional event: source records sorted out of order. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "source_provenance",
+        "preserve_historical_actuals"
+      ]
+    },
+    {
+      "id": "E2-045",
+      "dimension": "provenance",
+      "title": "Clock drift on recorded activity",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 3,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "connected",
+        "equipment": []
+      },
+      "wellnessCoverage": "sparse",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "clock_skew",
+          "value": "Fictional event: clock drift on recorded activity. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "source_provenance",
+        "missing_is_unknown"
+      ]
+    },
+    {
+      "id": "E2-046",
+      "dimension": "provenance",
+      "title": "GPS sample discontinuity and no street tiles",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 4,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "connected",
+        "equipment": []
+      },
+      "wellnessCoverage": "sparse",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "gps_gap",
+          "value": "Fictional event: gps sample discontinuity and no street tiles. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "no_invented_sensor_values",
+        "source_provenance"
+      ]
+    },
+    {
+      "id": "E2-047",
+      "dimension": "provenance",
+      "title": "Suspicious HR sample is flagged",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 4,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "connected",
+        "equipment": []
+      },
+      "wellnessCoverage": "sparse",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "hr_outlier",
+          "value": "Fictional event: suspicious hr sample is flagged. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "no_single_metric_readiness",
+        "source_provenance"
+      ]
+    },
+    {
+      "id": "E2-048",
+      "dimension": "provenance",
+      "title": "Duplicate source IDs from two accounts",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 3,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "connected",
+        "equipment": []
+      },
+      "wellnessCoverage": "sparse",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "cross_account_duplicate",
+          "value": "Fictional event: duplicate source ids from two accounts. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "account_isolation",
+        "source_provenance"
+      ]
+    },
+    {
+      "id": "E2-049",
+      "dimension": "plan_lifecycle",
+      "title": "Proposed plan not approved",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 4,
+        "str": 2,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "approval_pending",
+          "value": "Fictional event: proposed plan not approved. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "require_approval",
+        "preserve_historical_actuals"
+      ]
+    },
+    {
+      "id": "E2-050",
+      "dimension": "plan_lifecycle",
+      "title": "User declines progression",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 3,
+        "str": 2,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "proposal_rejected",
+          "value": "Fictional event: user declines progression. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "require_approval",
+        "respect_user_override"
+      ]
+    },
+    {
+      "id": "E2-051",
+      "dimension": "plan_lifecycle",
+      "title": "User postpones a workout",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 4,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "user_postpone",
+          "value": "Fictional event: user postpones a workout. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "require_approval",
+        "no_auto_missed"
+      ]
+    },
+    {
+      "id": "E2-052",
+      "dimension": "plan_lifecycle",
+      "title": "Backdated workout logged after offline reopen",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 3,
+        "str": 2,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "retroactive_edit",
+          "value": "Fictional event: backdated workout logged after offline reopen. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "revision_safety",
+        "preserve_historical_actuals"
+      ]
+    },
+    {
+      "id": "E2-053",
+      "dimension": "plan_lifecycle",
+      "title": "Planned run linked to wrong source",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 4,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "link_correction",
+          "value": "Fictional event: planned run linked to wrong source. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "deduplicate_source_events",
+        "revision_safety"
+      ]
+    },
+    {
+      "id": "E2-054",
+      "dimension": "plan_lifecycle",
+      "title": "Conflicting multi-plan schedules",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 4,
+        "str": 2,
+        "cal": 1,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "plan_conflict",
+          "value": "Fictional event: conflicting multi-plan schedules. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "one_unified_plan",
+        "require_approval"
+      ]
+    },
+    {
+      "id": "E2-055",
+      "dimension": "plan_lifecycle",
+      "title": "Partial workout saved but not completed",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 3,
+        "str": 2,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "partial_set",
+          "value": "Fictional event: partial workout saved but not completed. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "partial_work_is_not_failure",
+        "preserve_historical_actuals"
+      ]
+    },
+    {
+      "id": "E2-056",
+      "dimension": "plan_lifecycle",
+      "title": "User archives a plan with existing logs",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 3,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "intermediate",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "archive_plan",
+          "value": "Fictional event: user archives a plan with existing logs. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "preserve_historical_actuals",
+        "account_isolation"
+      ]
+    },
+    {
+      "id": "E2-057",
+      "dimension": "edge_conditions",
+      "title": "No data for twelve weeks",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 0,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "mixed",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": true,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [],
+      "checks": [
+        "missing_is_unknown",
+        "no_auto_missed"
+      ]
+    },
+    {
+      "id": "E2-058",
+      "dimension": "edge_conditions",
+      "title": "Conditioning-only beginner",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 0,
+        "str": 0,
+        "cal": 0,
+        "cond": 2
+      },
+      "profile": {
+        "level": "mixed",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [],
+      "checks": [
+        "one_unified_plan",
+        "missing_is_unknown"
+      ]
+    },
+    {
+      "id": "E2-059",
+      "dimension": "edge_conditions",
+      "title": "Very low training time budget",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 2,
+        "str": 1,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "mixed",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "time_budget_reduction",
+          "value": "Fictional event: very low training time budget. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "require_approval",
+        "one_unified_plan"
+      ]
+    },
+    {
+      "id": "E2-060",
+      "dimension": "edge_conditions",
+      "title": "High volume user chooses rest",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 6,
+        "str": 1,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "mixed",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "user_rest_request",
+          "value": "Fictional event: high volume user chooses rest. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "respect_user_override",
+        "no_catchup_volume"
+      ]
+    },
+    {
+      "id": "E2-061",
+      "dimension": "edge_conditions",
+      "title": "Incompatible intensity labels",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 3,
+        "str": 2,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "mixed",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "invalid_units",
+          "value": "Fictional event: incompatible intensity labels. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "reject_invalid_units",
+        "missing_is_unknown"
+      ]
+    },
+    {
+      "id": "E2-062",
+      "dimension": "edge_conditions",
+      "title": "Workout import after a timezone change",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 4,
+        "str": 0,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "mixed",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "timezone_change",
+          "value": "Fictional event: workout import after a timezone change. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "source_provenance",
+        "revision_safety"
+      ]
+    },
+    {
+      "id": "E2-063",
+      "dimension": "edge_conditions",
+      "title": "No equipment and several preferences excluded",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 0,
+        "str": 2,
+        "cal": 2,
+        "cond": 0
+      },
+      "profile": {
+        "level": "mixed",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "exclusion_change",
+          "value": "Fictional event: no equipment and several preferences excluded. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "equipment_aware",
+        "require_approval"
+      ]
+    },
+    {
+      "id": "E2-064",
+      "dimension": "edge_conditions",
+      "title": "Cross-account stale cache after sign in switch",
+      "fictional": true,
+      "weeks": 12,
+      "weeklySessions": {
+        "run": 3,
+        "str": 1,
+        "cal": 0,
+        "cond": 0
+      },
+      "profile": {
+        "level": "mixed",
+        "device": "none",
+        "equipment": []
+      },
+      "wellnessCoverage": "none",
+      "missingWeeks": [],
+      "duplicateImport": false,
+      "noHistory": false,
+      "omitDistance": false,
+      "omitLoad": false,
+      "events": [
+        {
+          "week": 6,
+          "day": 2,
+          "type": "account_switch",
+          "value": "Fictional event: cross-account stale cache after sign in switch. Requires review; no automatic coaching action."
+        }
+      ],
+      "checks": [
+        "account_isolation",
+        "preserve_historical_actuals"
+      ]
+    }
+  ]
+}
