@@ -86,9 +86,23 @@ def materialize(seed=20261027, variants=1, limit=8):
                         continue
                     # Different disciplines can occupy the same calendar day as real history can.
                     days = rng.sample(range(7), count)
+                    if discipline == "run" and count >= 2 and any(
+                        e["type"] == "quality_overlap" and week == e["week"]
+                        for e in recipe["events"]
+                    ):
+                        days = [1, 2] + rng.sample([0, 3, 4, 5, 6], count - 2)
                     for ordinal, day in enumerate(sorted(days)):
                         scheduled = week_start + timedelta(days=day)
                         rid = f"{athlete}-W{week:02d}-{discipline}-D{day}"
+                        if any(e["type"] == "user_rest_request" and e["week"] == week
+                               for e in recipe["events"]) and ordinal == 0:
+                            recorded.append({
+                                "id": rid, "date": scheduled.isoformat(),
+                                "discipline": discipline, "kind": "user_chose_rest",
+                                "status": "skipped", "source": "synthetic-manual",
+                                "reason": "Fictional athlete explicitly chose rest",
+                            })
+                            continue
                         if any(e["type"] == "approval_pending" and e["week"] == week
                                for e in recipe["events"]) and ordinal == 0:
                             recorded.append({
@@ -111,14 +125,24 @@ def materialize(seed=20261027, variants=1, limit=8):
                             "status": "recorded", "source": "synthetic-manual",
                             "durationMinutes": minutes, "effortRpe": effort,
                         }
+                        if any(e["type"] == "invalid_units" and e["week"] == week
+                               for e in recipe["events"]) and ordinal == 0:
+                            row["quarantinedInput"] = {
+                                "field": "distance", "raw": "12 bananas",
+                                "status": "rejected", "reason": "fictional unit mismatch",
+                            }
                         if discipline == "run":
+                            if any(e["type"] == "quality_overlap" and week == e["week"]
+                                   and day in (1, 2) for e in recipe["events"]):
+                                row["kind"] = "quality"
                             if not recipe["omitDistance"] and rng.random() < .84:
                                 row["distanceKm"] = round(rng.uniform(2.0, 17.0), 2)
-                            if options["device"] == "connected" and rng.random() < .72:
-                                row["avgHrBpm"] = rng.randint(110, 181)
-                                if any(e["type"] == "hr_outlier" and e["week"] == week
-                                       for e in recipe["events"]) and ordinal == 0:
-                                    row["avgHrBpm"] = 248
+                            outlier_case = any(
+                                e["type"] == "hr_outlier" and e["week"] == week and ordinal == 0
+                                for e in recipe["events"])
+                            if options["device"] == "connected" and (outlier_case or rng.random() < .72):
+                                row["avgHrBpm"] = 248 if outlier_case else rng.randint(110, 181)
+                                if outlier_case:
                                     row["qualityFlag"] = "suspicious-synthetic-sensor-value"
                             if options["device"] == "connected" and (
                                 recipe["duplicateImport"] or rng.random() < .35
@@ -131,6 +155,20 @@ def materialize(seed=20261027, variants=1, limit=8):
                             if any(e["type"] == "timezone_change" and e["week"] <= week
                                    for e in recipe["events"]):
                                 row["rawTimeZoneOffsetMinutes"] = 540
+                            if any(e["type"] == "cross_account_duplicate" and e["week"] == week
+                                   for e in recipe["events"]) and ordinal == 0:
+                                row.update({
+                                    "source": "synthetic-provider-a",
+                                    "providerActivityId": f"a-{rid}",
+                                    "physicalEventKey": f"fictional-event-{rid}",
+                                    "accountScope": "synthetic-account-A",
+                                })
+                                other_account = dict(row)
+                                other_account.update({
+                                    "id": rid + "-other-account",
+                                    "accountScope": "synthetic-account-B",
+                                })
+                                recorded.append(other_account)
                             if recipe["duplicateImport"] and week == 2 and ordinal == 0:
                                 # Two provider records claiming a common *fictional* event.
                                 row.update({
