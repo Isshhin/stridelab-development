@@ -27,14 +27,14 @@ internal object Engine2Timeline {
     fun summarize(context: Engine2AthleteContext, startInclusive: Instant,
                   endExclusive: Instant): Engine2TrainingWindow {
         require(startInclusive.isBefore(endExclusive))
-        require(!endExclusive.isAfter(context.asOf.plusNanos(1))) {
+        require(!endExclusive.isAfter(context.asOf)) {
             "The window cannot include dates later than the available context"
         }
         val confirmed = context.workouts.filter {
             it.status == Engine2RecordStatus.CONFIRMED &&
                 !it.occurredAt.isBefore(startInclusive) && it.occurredAt.isBefore(endExclusive)
         }
-        val map = Engine2Discipline.entries.associateWith { discipline ->
+        val map = Engine2Discipline.values().associateWith { discipline ->
             val workouts = confirmed.filter { it.discipline == discipline }
             val measured = workouts.mapNotNull { workout ->
                 workout.measurements.firstOrNull { it.metric == Engine2Metric.DURATION_SECONDS }?.value
@@ -60,7 +60,7 @@ internal object Engine2Timeline {
                 distances.takeIf { it.isNotEmpty() }?.sum(),
                 runs.isNotEmpty() && distances.size == runs.size
             ),
-            Engine2ProvenanceAudit.inspect(context).sourceCollisions.isNotEmpty()
+            Engine2ProvenanceAudit.inspect(context.copy(workouts = confirmed)).sourceCollisions.isNotEmpty()
         )
     }
 }
