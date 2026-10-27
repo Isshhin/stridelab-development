@@ -122,11 +122,15 @@ class Engine2ScenarioMatrixTest(unittest.TestCase):
                 self.assertTrue(from_day <= date.fromisoformat(record["date"]) <= to_day)
                 self.assertTrue(record["source"].startswith("synthetic-"))
                 self.assertIn(record["discipline"], DISCIPLINES)
-                self.assertIn(record["status"], ("recorded", "planned"))
+                self.assertIn(record["status"], ("recorded", "planned", "skipped"))
                 if record["status"] == "planned":
                     missing += 1
                     self.assertFalse({"durationMinutes", "distanceKm", "avgHrBpm", "sets"} & record.keys())
                     self.assertGreater(record["plannedTargetMinutes"], 0)
+                elif record["status"] == "skipped":
+                    missing += 1
+                    self.assertTrue(record["reason"])
+                    self.assertFalse({"durationMinutes", "distanceKm", "avgHrBpm", "sets"} & record.keys())
                 else:
                     self.assertGreater(record["durationMinutes"], 0)
                     self.assertTrue(1 <= record["effortRpe"] <= 10)
@@ -161,6 +165,36 @@ class Engine2ScenarioMatrixTest(unittest.TestCase):
         self.assertGreater(n_records, 1000)
         self.assertGreater(missing, 0)
         self.assertTrue(any(len(sources) >= 2 for sources in duplicates.values()))
+        by_recipe = {s["recipeId"]: s for s in doc["scenarios"]}
+        # A recipe must actually produce its advertised adversarial evidence, not
+        # merely repeat its name in event metadata.
+        overlap = [
+            r for r in by_recipe["E2-006"]["records"]
+            if r["kind"] == "quality" and r["date"] in ("2026-12-15", "2026-12-16")
+        ]
+        self.assertEqual(2, len(overlap))
+        self.assertTrue(any(
+            r.get("qualityFlag") == "suspicious-synthetic-sensor-value"
+            and r.get("avgHrBpm") == 248
+            for r in by_recipe["E2-047"]["records"]
+        ))
+        self.assertTrue(any(
+            r.get("quarantinedInput", {}).get("status") == "rejected"
+            for r in by_recipe["E2-015"]["records"]
+        ))
+        self.assertTrue(any(
+            r["status"] == "planned" and "durationMinutes" not in r
+            for r in by_recipe["E2-049"]["records"]
+        ))
+        self.assertTrue(any(
+            r["status"] == "skipped" and "durationMinutes" not in r
+            for r in by_recipe["E2-060"]["records"]
+        ))
+        scoped = defaultdict(set)
+        for row in by_recipe["E2-048"]["records"]:
+            if row.get("accountScope"):
+                scoped[row["physicalEventKey"]].add(row["accountScope"])
+        self.assertTrue(any(len(accounts) == 2 for accounts in scoped.values()))
 
     def test_rejected_unsafe_scale_inputs_do_not_produce_json(self):
         for args in [
