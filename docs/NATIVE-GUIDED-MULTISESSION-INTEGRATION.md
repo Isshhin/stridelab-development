@@ -2,7 +2,7 @@
 
 ## Status
 
-The integration is implemented on `feature/native-guided-multisession-integration-20261027`. It is not a verified checkpoint until the complete native Android workflow passes on the exact pushed head.
+The integration is implemented on `feature/native-guided-multisession-integration-20261027`. The implementation commit `110cfe80683aa47d0db479adf39a73c2c661194a` passed the complete native Android workflow on its exact head in run #46, attempt 2. The first attempt failed during legacy WebView frame readiness; the complete rerun passed without source changes. The final report-only branch head must also have a successful exact-head workflow before it is checkpointed.
 
 ## Verified sources and ancestry
 
@@ -41,7 +41,33 @@ Source A's guided player, offline entry drafts, stale-write protection, licensed
 
 The first local instrumentation install was rejected because the emulator already had app version code 16 while the default candidate was code 15. No app data was cleared. Instrumentation was rerun on the same isolated emulator with the temporary Gradle property `-PstrideVersionCode=17`. No physical device was connected or modified.
 
-The exact-head GitHub Actions run, including the legacy upgrade seed and process/offline probes, is still required. The locally skipped upgrade test is exercised only through the workflow's upgrade fixture.
+The locally skipped upgrade test is exercised through the workflow's upgrade fixture.
+
+## GitHub Actions exact-head verification
+
+The complete native workflow tested implementation SHA `110cfe80683aa47d0db479adf39a73c2c661194a` in [run #46](https://github.com/Isshhin/stridelab-development/actions/runs/40463343363), attempt 2. Every step in `native-android` passed; the durable-private-signing job was skipped by its configured condition.
+
+| CI check | Result |
+|---|---|
+| Native APK build and JVM unit-test task | Passed |
+| Legacy upgrade seed | Passed: 1 test |
+| Native emulator instrumentation | Passed: 79 tests, 0 skipped, 0 failed |
+| Offline/process lifecycle probes | Passed: four invocations, 1 test each |
+| Private APK package and upload | Passed |
+| Source/evidence archive | Passed |
+
+Attempt 1 of the same run failed in `LegacyUpgradeSeedTest.waitForInteractiveFrame` after the legacy document loaded but its WebView frame did not become ready. Emulator boot had initially reported ADB offline. No legacy launcher, upgrade test, or scheduling implementation files changed between the two attempts; the second complete run passed the seed and all subsequent probes. This is classified as a transient emulator/WebView readiness failure, not evidence of an integration regression. The test was not skipped or weakened.
+
+## CI APK artifact
+
+Run #46 uploaded the private artifact `stridelab-native-private-apk-110cfe80683aa47d0db479adf39a73c2c661194a` (30-day retention):
+
+- Application ID: `io.stridelab.privatealpha`
+- Version name/code: `0.6.6-guided-workout` / `15`
+- APK SHA-256: `0babc375f3da31e1bdf2772215f307287103a11f4b76a07e18b131c64e810ec4`
+- Signing certificate SHA-256: `467c723ba6de11b850f68288625304a351154723f4e94bfd98884266377150eb` (ephemeral CI debug key)
+- Source commit: `110cfe80683aa47d0db479adf39a73c2c661194a`
+- Existing-phone signer compatibility: unknown; in-place update is not verified. The APK is unsuitable for an in-place phone update.
 
 ## APK and signing
 
@@ -54,9 +80,8 @@ Existing installed-phone signing compatibility is unknown; this APK is unsuitabl
 
 ## Known limitations and next action
 
-- Do not create a verified checkpoint branch until the complete exact-head GitHub Actions run succeeds.
-- If exact-head CI fails, classify the evidence, fix genuine integration regressions, push only this feature branch, and rerun CI against the new head.
-- After exact-head success, create a uniquely named verified checkpoint branch and a new draft PR targeting `checkpoint/native-engine1-goals-verified-7d5acdf`. Do not merge it or alter PR #2.
+- Create a verified checkpoint only after the latest pushed integration head has a successful exact-head workflow; confirm the SHA and run linked from PR #3 match.
+- Keep PR #3 in draft and do not merge it or alter PR #2.
 - Garmin, Engine 2.0, web frontend, and visual redesign work are out of scope.
 
 ## Resume instructions
