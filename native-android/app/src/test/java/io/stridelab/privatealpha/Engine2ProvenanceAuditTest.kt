@@ -20,7 +20,7 @@ class Engine2ProvenanceAuditTest {
         val a = workout("first", "synthetic-provider-a", "raw-123")
         val b = workout("second", "synthetic-provider-a", "raw-123")
         val report = Engine2ProvenanceAudit.inspect(context(a, b))
-        assertFalse(report.safelyIndexed)
+        assertFalse(report.hasNoExactProviderIdCollisions)
         assertEquals(1, report.distinctProviderRecords)
         assertEquals(2, report.workoutRecordsWithSource)
         assertEquals(setOf("first", "second"), report.sourceCollisions.single().workoutIds)
@@ -33,7 +33,7 @@ class Engine2ProvenanceAuditTest {
         val report = Engine2ProvenanceAudit.inspect(context(a, b))
         assertEquals(2, report.distinctProviderRecords)
         assertTrue(report.sourceCollisions.isEmpty())
-        assertTrue(report.safelyIndexed)
+        assertTrue(report.hasNoExactProviderIdCollisions)
         // This does NOT assert they are separate physical activities.
         // It only refuses an unsafe automatic provider-identity merge.
     }
@@ -52,7 +52,7 @@ class Engine2ProvenanceAuditTest {
         val same = ctx.copy()
         val a = Engine2ProvenanceAudit.inspect(ctx)
         assertEquals(ctx, same)
-        assertTrue(a.safelyIndexed)
+        assertTrue(a.hasNoExactProviderIdCollisions)
         assertEquals(1, a.distinctProviderRecords)
     }
 }
