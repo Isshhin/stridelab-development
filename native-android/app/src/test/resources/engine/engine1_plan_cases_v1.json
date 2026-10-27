@@ -1,0 +1,509 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "stridelab-engine1-plan-contracts-v1",
+  "classification": "synthetic-only",
+  "purpose": "Regression against implemented Engine 1.0 baseline/coordinated/multi-session policies, not scientific exercise efficacy or future Engine 2.0 readiness.",
+  "baselineSha": "25be8f3828374d1e539c7e825afa20fbcb652b56",
+  "seed": {
+    "owner": "synthetic-engine-dataset-owner",
+    "planId": "synthetic-engine-dataset-plan",
+    "at": "2026-10-27T00:00:00Z",
+    "start": "2026-11-02"
+  },
+  "cases": [
+    {
+      "id": "E1-001",
+      "description": "beginner-no-device",
+      "policy": "baseline",
+      "expected": "accept",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "baseline",
+        "goal": "Aerobic foundation",
+        "runDays": 3,
+        "experience": 0,
+        "weeklyKm": 0,
+        "days": [
+          1,
+          2,
+          4,
+          5,
+          6
+        ],
+        "weeks": 4
+      },
+      "guarantees": [
+        "no_fabricated_running_distance",
+        "no_hard_quality",
+        "session_counts"
+      ]
+    },
+    {
+      "id": "E1-002",
+      "description": "experienced-five-k",
+      "policy": "baseline",
+      "expected": "accept",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "baseline",
+        "goal": "Improve 5K",
+        "runDays": 4,
+        "experience": 2,
+        "weeklyKm": 30,
+        "longestKm": 10,
+        "qualityCount": 1,
+        "qualityDays": [
+          2
+        ],
+        "days": [
+          1,
+          2,
+          4,
+          5,
+          6
+        ],
+        "longDay": 6,
+        "weeks": 4
+      },
+      "guarantees": [
+        "session_counts",
+        "quality_day_and_long_day"
+      ]
+    },
+    {
+      "id": "E1-003",
+      "description": "experienced-ten-k",
+      "policy": "baseline",
+      "expected": "accept",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "baseline",
+        "goal": "Improve 10K",
+        "runDays": 4,
+        "experience": 2,
+        "weeklyKm": 40,
+        "longestKm": 12,
+        "qualityCount": 1,
+        "qualityDays": [
+          2
+        ],
+        "days": [
+          1,
+          2,
+          4,
+          5,
+          6
+        ],
+        "longDay": 6,
+        "minutes": 75,
+        "weeks": 4
+      },
+      "guarantees": [
+        "session_counts",
+        "quality_day_and_long_day"
+      ]
+    },
+    {
+      "id": "E1-004",
+      "description": "strength-with-limited-equipment",
+      "policy": "baseline",
+      "expected": "accept",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "baseline",
+        "goal": "General strength",
+        "runDays": 0,
+        "strengthDays": 2,
+        "experience": 0,
+        "strengthExperience": 0,
+        "equipment": {
+          "db": 1
+        },
+        "weeks": 4
+      },
+      "guarantees": [
+        "session_counts",
+        "no_invented_actuals"
+      ]
+    },
+    {
+      "id": "E1-005",
+      "description": "calisthenics-foundations",
+      "policy": "baseline",
+      "expected": "accept",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "baseline",
+        "goal": "Calisthenics foundation",
+        "runDays": 0,
+        "calDays": 2,
+        "calLevel": 0,
+        "weeks": 8
+      },
+      "guarantees": [
+        "session_counts",
+        "no_automatic_skill_promotion"
+      ]
+    },
+    {
+      "id": "E1-006",
+      "description": "mixed-four-disciplines",
+      "policy": "baseline",
+      "expected": "accept",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "baseline",
+        "goal": "General fitness",
+        "experience": 1,
+        "weeklyKm": 25,
+        "longestKm": 8,
+        "runDays": 3,
+        "strengthDays": 2,
+        "calDays": 1,
+        "conditioningDays": 1,
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "qualityCount": 1,
+        "qualityDays": [
+          2
+        ],
+        "minutes": 60
+      },
+      "guarantees": [
+        "session_counts",
+        "no_overlapping_conflicts"
+      ]
+    },
+    {
+      "id": "E1-007",
+      "description": "coordinated-goals",
+      "policy": "coordinated",
+      "expected": "accept",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "coordinated",
+        "goal": "General fitness",
+        "experience": 1,
+        "strengthExperience": 1,
+        "runDays": 3,
+        "strengthDays": 2,
+        "calDays": 1,
+        "weeklyKm": 25,
+        "longestKm": 8,
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "minutes": 60,
+        "disciplineGoals": {
+          "run": "Aerobic foundation",
+          "str": "Muscle development",
+          "cal": "Calisthenics foundation"
+        }
+      },
+      "guarantees": [
+        "session_counts",
+        "no_automatic_skill_promotion"
+      ]
+    },
+    {
+      "id": "E1-008",
+      "description": "multi-session-seven-day",
+      "policy": "multi-session",
+      "expected": "accept",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "multi-session",
+        "goal": "Improve 5K",
+        "runDays": 5,
+        "calDays": 3,
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "weeklyKm": 30,
+        "longestKm": 12,
+        "longDay": 6,
+        "dailyMinutes": 90,
+        "weeks": 4
+      },
+      "guarantees": [
+        "session_counts",
+        "daily_time_budget",
+        "compatible_same_day_only"
+      ]
+    },
+    {
+      "id": "E1-009",
+      "description": "returning-runner",
+      "policy": "baseline",
+      "expected": "accept",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "baseline",
+        "goal": "Aerobic foundation",
+        "experience": 1,
+        "runDays": 3,
+        "weeklyKm": 20,
+        "longestKm": 8,
+        "returning": true,
+        "weeks": 6
+      },
+      "guarantees": [
+        "session_counts",
+        "no_hard_quality"
+      ]
+    },
+    {
+      "id": "E1-010",
+      "description": "insufficient-available-days",
+      "policy": "baseline",
+      "expected": "reject",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "baseline",
+        "goal": "General fitness",
+        "runDays": 5,
+        "strengthDays": 1,
+        "days": [
+          1,
+          2,
+          4,
+          5,
+          6
+        ]
+      },
+      "reason": "weekly sessions exceed available training days"
+    },
+    {
+      "id": "E1-011",
+      "description": "pull-up-without-bar",
+      "policy": "baseline",
+      "expected": "reject",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "baseline",
+        "goal": "Pull-up progression",
+        "runDays": 0,
+        "calDays": 2,
+        "equipment": {}
+      },
+      "reason": "required equipment unavailable"
+    },
+    {
+      "id": "E1-012",
+      "description": "quality-day-conflicts-with-long-day",
+      "policy": "baseline",
+      "expected": "reject",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "baseline",
+        "goal": "Improve 5K",
+        "experience": 2,
+        "runDays": 4,
+        "weeklyKm": 30,
+        "qualityCount": 1,
+        "qualityDays": [
+          6
+        ],
+        "longDay": 6
+      },
+      "reason": "quality day equals long-run day"
+    },
+    {
+      "id": "E1-013",
+      "description": "two-hard-sessions-for-novice",
+      "policy": "baseline",
+      "expected": "reject",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "baseline",
+        "goal": "Improve 5K",
+        "experience": 1,
+        "runDays": 4,
+        "weeklyKm": 22,
+        "qualityCount": 2
+      },
+      "reason": "two quality sessions without required experience/volume"
+    },
+    {
+      "id": "E1-014",
+      "description": "unsupported-goal",
+      "policy": "baseline",
+      "expected": "reject",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "baseline",
+        "goal": "Record world championship",
+        "runDays": 3
+      },
+      "reason": "unsupported goal label"
+    },
+    {
+      "id": "E1-015",
+      "description": "invalid-week-range",
+      "policy": "baseline",
+      "expected": "reject",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "baseline",
+        "goal": "Aerobic foundation",
+        "runDays": 3,
+        "weeks": 17
+      },
+      "reason": "exceeds 16-week Engine 1 maximum"
+    },
+    {
+      "id": "E1-016",
+      "description": "no-selected-discipline",
+      "policy": "baseline",
+      "expected": "reject",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "baseline",
+        "goal": "General fitness",
+        "runDays": 0,
+        "strengthDays": 0,
+        "calDays": 0,
+        "conditioningDays": 0
+      },
+      "reason": "empty weekly schedule"
+    },
+    {
+      "id": "E1-017",
+      "description": "multi-session-below-time-budget",
+      "policy": "multi-session",
+      "expected": "reject",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "multi-session",
+        "goal": "Improve 5K",
+        "runDays": 5,
+        "calDays": 3,
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "weeklyKm": 30,
+        "dailyMinutes": 10
+      },
+      "reason": "invalid per-day budget"
+    },
+    {
+      "id": "E1-018",
+      "description": "multi-session-count-exceeds-days",
+      "policy": "multi-session",
+      "expected": "reject",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "multi-session",
+        "goal": "General fitness",
+        "runDays": 3,
+        "calDays": 1,
+        "days": [
+          1,
+          2
+        ]
+      },
+      "reason": "more sessions for discipline than available days"
+    },
+    {
+      "id": "E1-019",
+      "description": "unsupported-policy",
+      "policy": "unrecognized",
+      "expected": "reject",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "unrecognized",
+        "goal": "General fitness",
+        "runDays": 3
+      },
+      "reason": "policy unsupported"
+    },
+    {
+      "id": "E1-020",
+      "description": "negative-mileage",
+      "policy": "baseline",
+      "expected": "reject",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "baseline",
+        "goal": "Aerobic foundation",
+        "runDays": 3,
+        "weeklyKm": -1
+      },
+      "reason": "nonnegative recent mileage required"
+    },
+    {
+      "id": "E1-021",
+      "description": "advanced-five-k-volume",
+      "policy": "baseline",
+      "expected": "accept",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "baseline",
+        "goal": "Improve 5K",
+        "experience": 2,
+        "runDays": 4,
+        "weeklyKm": 60,
+        "longestKm": 18,
+        "qualityCount": 1,
+        "qualityDays": [
+          2
+        ],
+        "longDay": 6,
+        "minutes": 105,
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "weeks": 4
+      },
+      "guarantees": [
+        "session_counts",
+        "quality_day_and_long_day"
+      ]
+    },
+    {
+      "id": "E1-022",
+      "description": "invalid-planning-pace",
+      "policy": "baseline",
+      "expected": "reject",
+      "request": {
+        "start": "2026-11-02",
+        "policyChoice": "baseline",
+        "goal": "Improve 10K",
+        "runDays": 3,
+        "planningPace": 1201
+      },
+      "reason": "outside supported planning pace range"
+    }
+  ]
+}

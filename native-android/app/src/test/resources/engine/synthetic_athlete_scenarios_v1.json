@@ -1,0 +1,1926 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "stridelab-adaptive-athlete-simulations-v1",
+  "classification": "synthetic-only",
+  "intent": "Scenario input fixtures and behavioral safety expectations for *future* unified offline adaptive coaching validation. Not model training data, real activity evidence, clinical guidance, or proof of efficacy.",
+  "units": {
+    "durationMinutes": "min",
+    "distanceKm": "km",
+    "avgHrBpm": "beats/min",
+    "restingHrBpm": "beats/min",
+    "hrvMs": "ms",
+    "sleepHours": "h",
+    "effortRpe": "synthetic ordinal 1-10",
+    "loadKg": "kg"
+  },
+  "unknownMetricPolicy": "A missing/null field is unavailable, never zero.",
+  "physicalEventKeyPolicy": "Synthetic identity hint for dedup test only; production provider IDs cannot be linked solely using coincident timestamps/distances.",
+  "scenarios": [
+    {
+      "id": "S-001",
+      "focus": "beginner-no-watch",
+      "profile": {
+        "experience": "beginner",
+        "goals": [
+          "Aerobic foundation"
+        ],
+        "equipment": [],
+        "wearableConnected": false
+      },
+      "period": {
+        "start": "2026-09-28",
+        "end": "2026-10-25"
+      },
+      "records": [
+        {
+          "id": "B-0-0",
+          "date": "2026-09-28",
+          "discipline": "run",
+          "kind": "run_walk",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 20,
+          "effortRpe": 3
+        },
+        {
+          "id": "B-0-2",
+          "date": "2026-09-30",
+          "discipline": "run",
+          "kind": "run_walk",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 20,
+          "effortRpe": 3
+        },
+        {
+          "id": "B-0-5",
+          "date": "2026-10-03",
+          "discipline": "run",
+          "kind": "run_walk",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 20,
+          "effortRpe": 3
+        },
+        {
+          "id": "B-1-0",
+          "date": "2026-10-05",
+          "discipline": "run",
+          "kind": "run_walk",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 22,
+          "effortRpe": 3
+        },
+        {
+          "id": "B-1-2",
+          "date": "2026-10-07",
+          "discipline": "run",
+          "kind": "run_walk",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 22,
+          "effortRpe": 3
+        },
+        {
+          "id": "B-1-5",
+          "date": "2026-10-10",
+          "discipline": "run",
+          "kind": "run_walk",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 22,
+          "effortRpe": 3
+        },
+        {
+          "id": "B-2-0",
+          "date": "2026-10-12",
+          "discipline": "run",
+          "kind": "run_walk",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 24,
+          "effortRpe": 3
+        },
+        {
+          "id": "B-2-2",
+          "date": "2026-10-14",
+          "discipline": "run",
+          "kind": "run_walk",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 24,
+          "effortRpe": 3
+        },
+        {
+          "id": "B-2-5",
+          "date": "2026-10-17",
+          "discipline": "run",
+          "kind": "run_walk",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 24,
+          "effortRpe": 3
+        },
+        {
+          "id": "B-3-0",
+          "date": "2026-10-19",
+          "discipline": "run",
+          "kind": "run_walk",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 26,
+          "effortRpe": 3
+        },
+        {
+          "id": "B-3-2",
+          "date": "2026-10-21",
+          "discipline": "run",
+          "kind": "run_walk",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 26,
+          "effortRpe": 3
+        },
+        {
+          "id": "B-3-5",
+          "date": "2026-10-24",
+          "discipline": "run",
+          "kind": "run_walk",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 26,
+          "effortRpe": 3
+        }
+      ],
+      "wellness": [],
+      "events": [],
+      "requiredChecks": [
+        "unknown-data-is-not-zero",
+        "do-not-invent-distance-hr-pace",
+        "no-quality-without-confirmed-base",
+        "one-plan-user-approved"
+      ]
+    },
+    {
+      "id": "S-002",
+      "focus": "recreational-runner-consistent",
+      "profile": {
+        "experience": "intermediate",
+        "goals": [
+          "Improve 10K"
+        ],
+        "equipment": [],
+        "wearableConnected": true
+      },
+      "period": {
+        "start": "2026-09-28",
+        "end": "2026-10-25"
+      },
+      "records": [
+        {
+          "id": "R-0-0",
+          "date": "2026-09-28",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 42,
+          "distanceKm": 6,
+          "effortRpe": 3,
+          "avgHrBpm": 142
+        },
+        {
+          "id": "R-0-2",
+          "date": "2026-09-30",
+          "discipline": "run",
+          "kind": "tempo",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 43,
+          "distanceKm": 7,
+          "effortRpe": 7,
+          "avgHrBpm": 168
+        },
+        {
+          "id": "R-0-4",
+          "date": "2026-10-02",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 44,
+          "distanceKm": 6,
+          "effortRpe": 3,
+          "avgHrBpm": 142
+        },
+        {
+          "id": "R-0-6",
+          "date": "2026-10-04",
+          "discipline": "run",
+          "kind": "long",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 87,
+          "distanceKm": 12,
+          "effortRpe": 3,
+          "avgHrBpm": 142
+        },
+        {
+          "id": "R-1-0",
+          "date": "2026-10-05",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 42,
+          "distanceKm": 6,
+          "effortRpe": 3,
+          "avgHrBpm": 142
+        },
+        {
+          "id": "R-1-2",
+          "date": "2026-10-07",
+          "discipline": "run",
+          "kind": "tempo",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 43,
+          "distanceKm": 7,
+          "effortRpe": 7,
+          "avgHrBpm": 168
+        },
+        {
+          "id": "R-1-4",
+          "date": "2026-10-09",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 44,
+          "distanceKm": 6,
+          "effortRpe": 3,
+          "avgHrBpm": 142
+        },
+        {
+          "id": "R-1-6",
+          "date": "2026-10-11",
+          "discipline": "run",
+          "kind": "long",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 93,
+          "distanceKm": 13,
+          "effortRpe": 3,
+          "avgHrBpm": 142
+        },
+        {
+          "id": "R-2-0",
+          "date": "2026-10-12",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 42,
+          "distanceKm": 6,
+          "effortRpe": 3,
+          "avgHrBpm": 142
+        },
+        {
+          "id": "R-2-2",
+          "date": "2026-10-14",
+          "discipline": "run",
+          "kind": "tempo",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 43,
+          "distanceKm": 7,
+          "effortRpe": 7,
+          "avgHrBpm": 168
+        },
+        {
+          "id": "R-2-4",
+          "date": "2026-10-16",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 44,
+          "distanceKm": 6,
+          "effortRpe": 3,
+          "avgHrBpm": 142
+        },
+        {
+          "id": "R-2-6",
+          "date": "2026-10-18",
+          "discipline": "run",
+          "kind": "long",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 99,
+          "distanceKm": 14,
+          "effortRpe": 3,
+          "avgHrBpm": 142
+        },
+        {
+          "id": "R-3-0",
+          "date": "2026-10-19",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 42,
+          "distanceKm": 6,
+          "effortRpe": 3,
+          "avgHrBpm": 142
+        },
+        {
+          "id": "R-3-2",
+          "date": "2026-10-21",
+          "discipline": "run",
+          "kind": "tempo",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 43,
+          "distanceKm": 7,
+          "effortRpe": 7,
+          "avgHrBpm": 168
+        },
+        {
+          "id": "R-3-4",
+          "date": "2026-10-23",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 44,
+          "distanceKm": 6,
+          "effortRpe": 3,
+          "avgHrBpm": 142
+        },
+        {
+          "id": "R-3-6",
+          "date": "2026-10-25",
+          "discipline": "run",
+          "kind": "long",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 105,
+          "distanceKm": 15,
+          "effortRpe": 3,
+          "avgHrBpm": 142
+        }
+      ],
+      "wellness": [
+        {
+          "date": "2026-09-28",
+          "restingHrBpm": 53,
+          "hrvMs": 61,
+          "sleepHours": 7.2,
+          "selfReportedIllness": false
+        },
+        {
+          "date": "2026-10-05",
+          "restingHrBpm": 53,
+          "hrvMs": 61,
+          "sleepHours": 7.2,
+          "selfReportedIllness": false
+        },
+        {
+          "date": "2026-10-12",
+          "restingHrBpm": 53,
+          "hrvMs": 61,
+          "sleepHours": 7.2,
+          "selfReportedIllness": false
+        },
+        {
+          "date": "2026-10-19",
+          "restingHrBpm": 53,
+          "hrvMs": 61,
+          "sleepHours": 7.2,
+          "selfReportedIllness": false
+        }
+      ],
+      "events": [],
+      "requiredChecks": [
+        "respect-observed-base-not-goal-pace",
+        "preserve-long-run-day",
+        "avoid-stacking-hard-days",
+        "no-unsupported-vo2max-estimate"
+      ]
+    },
+    {
+      "id": "S-003",
+      "focus": "cross-discipline-load-and-recovery",
+      "profile": {
+        "experience": "intermediate",
+        "goals": [
+          "Improve 5K",
+          "General strength",
+          "Calisthenics foundation"
+        ],
+        "equipment": [
+          "mat"
+        ],
+        "wearableConnected": false
+      },
+      "period": {
+        "start": "2026-09-28",
+        "end": "2026-10-25"
+      },
+      "records": [
+        {
+          "id": "M-run-0-0",
+          "date": "2026-09-28",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 45,
+          "distanceKm": 6.5,
+          "effortRpe": 3
+        },
+        {
+          "id": "M-str-0-1",
+          "date": "2026-09-29",
+          "discipline": "str",
+          "kind": "strength",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 36,
+          "effortRpe": 6,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 8,
+              "loadKg": 0
+            },
+            {
+              "exerciseId": "rl",
+              "reps": 10,
+              "loadKg": 0
+            }
+          ]
+        },
+        {
+          "id": "M-run-0-3",
+          "date": "2026-10-01",
+          "discipline": "run",
+          "kind": "quality",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 40,
+          "distanceKm": 7,
+          "effortRpe": 7
+        },
+        {
+          "id": "M-cal-0-4",
+          "date": "2026-10-02",
+          "discipline": "cal",
+          "kind": "skill",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 30,
+          "effortRpe": 5,
+          "sets": [
+            {
+              "exerciseId": "e4",
+              "reps": 8
+            }
+          ]
+        },
+        {
+          "id": "M-run-0-6",
+          "date": "2026-10-04",
+          "discipline": "run",
+          "kind": "long",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 88,
+          "distanceKm": 12.5,
+          "effortRpe": 4
+        },
+        {
+          "id": "M-run-1-0",
+          "date": "2026-10-05",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 45,
+          "distanceKm": 6.5,
+          "effortRpe": 3
+        },
+        {
+          "id": "M-str-1-1",
+          "date": "2026-10-06",
+          "discipline": "str",
+          "kind": "strength",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 36,
+          "effortRpe": 6,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 8,
+              "loadKg": 0
+            },
+            {
+              "exerciseId": "rl",
+              "reps": 10,
+              "loadKg": 0
+            }
+          ]
+        },
+        {
+          "id": "M-run-1-3",
+          "date": "2026-10-08",
+          "discipline": "run",
+          "kind": "quality",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 40,
+          "distanceKm": 7,
+          "effortRpe": 7
+        },
+        {
+          "id": "M-cal-1-4",
+          "date": "2026-10-09",
+          "discipline": "cal",
+          "kind": "skill",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 30,
+          "effortRpe": 5,
+          "sets": [
+            {
+              "exerciseId": "e4",
+              "reps": 8
+            }
+          ]
+        },
+        {
+          "id": "M-run-1-6",
+          "date": "2026-10-11",
+          "discipline": "run",
+          "kind": "long",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 88,
+          "distanceKm": 12.5,
+          "effortRpe": 4
+        },
+        {
+          "id": "M-run-2-0",
+          "date": "2026-10-12",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 45,
+          "distanceKm": 6.5,
+          "effortRpe": 3
+        },
+        {
+          "id": "M-str-2-1",
+          "date": "2026-10-13",
+          "discipline": "str",
+          "kind": "strength",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 36,
+          "effortRpe": 6,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 8,
+              "loadKg": 0
+            },
+            {
+              "exerciseId": "rl",
+              "reps": 10,
+              "loadKg": 0
+            }
+          ]
+        },
+        {
+          "id": "M-run-2-3",
+          "date": "2026-10-15",
+          "discipline": "run",
+          "kind": "quality",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 40,
+          "distanceKm": 7,
+          "effortRpe": 7
+        },
+        {
+          "id": "M-cal-2-4",
+          "date": "2026-10-16",
+          "discipline": "cal",
+          "kind": "skill",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 30,
+          "effortRpe": 5,
+          "sets": [
+            {
+              "exerciseId": "e4",
+              "reps": 8
+            }
+          ]
+        },
+        {
+          "id": "M-run-2-6",
+          "date": "2026-10-18",
+          "discipline": "run",
+          "kind": "long",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 88,
+          "distanceKm": 12.5,
+          "effortRpe": 4
+        },
+        {
+          "id": "M-run-3-0",
+          "date": "2026-10-19",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 45,
+          "distanceKm": 6.5,
+          "effortRpe": 3
+        },
+        {
+          "id": "M-str-3-1",
+          "date": "2026-10-20",
+          "discipline": "str",
+          "kind": "strength",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 36,
+          "effortRpe": 6,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 8,
+              "loadKg": 0
+            },
+            {
+              "exerciseId": "rl",
+              "reps": 10,
+              "loadKg": 0
+            }
+          ]
+        },
+        {
+          "id": "M-run-3-3",
+          "date": "2026-10-22",
+          "discipline": "run",
+          "kind": "quality",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 40,
+          "distanceKm": 7,
+          "effortRpe": 7
+        },
+        {
+          "id": "M-cal-3-4",
+          "date": "2026-10-23",
+          "discipline": "cal",
+          "kind": "skill",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 30,
+          "effortRpe": 5,
+          "sets": [
+            {
+              "exerciseId": "e4",
+              "reps": 8
+            }
+          ]
+        },
+        {
+          "id": "M-run-3-6",
+          "date": "2026-10-25",
+          "discipline": "run",
+          "kind": "long",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 88,
+          "distanceKm": 12.5,
+          "effortRpe": 4
+        }
+      ],
+      "wellness": [],
+      "events": [],
+      "requiredChecks": [
+        "coordinate-lower-body-vs-quality",
+        "do-not-sum-km-and-sets",
+        "do-not-invent-hr",
+        "no-unapproved-plan-changes"
+      ]
+    },
+    {
+      "id": "S-004",
+      "focus": "self-reported-illness-and-return",
+      "profile": {
+        "experience": "intermediate",
+        "goals": [
+          "Aerobic foundation"
+        ],
+        "equipment": [],
+        "wearableConnected": true
+      },
+      "period": {
+        "start": "2026-09-28",
+        "end": "2026-10-25"
+      },
+      "records": [
+        {
+          "id": "P-0-1",
+          "date": "2026-09-29",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 44,
+          "effortRpe": 3,
+          "distanceKm": 6
+        },
+        {
+          "id": "P-0-5",
+          "date": "2026-10-03",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 44,
+          "effortRpe": 3,
+          "distanceKm": 6
+        },
+        {
+          "id": "P-break-1",
+          "date": "2026-10-07",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "skipped",
+          "source": "synthetic-manual",
+          "reason": "self-reported illness"
+        },
+        {
+          "id": "P-2-1",
+          "date": "2026-10-13",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 24,
+          "effortRpe": 3,
+          "distanceKm": null
+        },
+        {
+          "id": "P-2-5",
+          "date": "2026-10-17",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 24,
+          "effortRpe": 3,
+          "distanceKm": null
+        },
+        {
+          "id": "P-3-1",
+          "date": "2026-10-20",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 24,
+          "effortRpe": 3,
+          "distanceKm": null
+        },
+        {
+          "id": "P-3-5",
+          "date": "2026-10-24",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 24,
+          "effortRpe": 3,
+          "distanceKm": null
+        }
+      ],
+      "wellness": [
+        {
+          "date": "2026-09-28",
+          "restingHrBpm": 52,
+          "hrvMs": 65,
+          "sleepHours": 7.3,
+          "selfReportedIllness": false
+        },
+        {
+          "date": "2026-10-07",
+          "restingHrBpm": 61,
+          "hrvMs": 44,
+          "sleepHours": 5.2,
+          "selfReportedIllness": true
+        },
+        {
+          "date": "2026-10-12",
+          "restingHrBpm": null,
+          "hrvMs": null,
+          "sleepHours": null,
+          "selfReportedIllness": false
+        }
+      ],
+      "events": [
+        {
+          "date": "2026-10-06",
+          "type": "self_report",
+          "value": "Illness and no training this week"
+        },
+        {
+          "date": "2026-10-12",
+          "type": "user_return_request",
+          "value": "Requests gradual resumption"
+        }
+      ],
+      "requiredChecks": [
+        "illness-requires-caution-not-diagnosis",
+        "rest-does-not-trigger-catch-up",
+        "return-gradual-with-user-approval",
+        "missing-wellness-does-not-mean-recovered"
+      ]
+    },
+    {
+      "id": "S-005",
+      "focus": "two-provider-duplicate-event",
+      "profile": {
+        "experience": "intermediate",
+        "goals": [
+          "Improve 5K"
+        ],
+        "equipment": [],
+        "wearableConnected": true
+      },
+      "period": {
+        "start": "2026-09-28",
+        "end": "2026-10-25"
+      },
+      "records": [
+        {
+          "id": "D-0",
+          "date": "2026-09-30",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 46,
+          "distanceKm": 6.8,
+          "providerActivityId": "a-0",
+          "physicalEventKey": "event-0"
+        },
+        {
+          "id": "D-1",
+          "date": "2026-10-07",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 46,
+          "distanceKm": 6.8,
+          "providerActivityId": "a-1",
+          "physicalEventKey": "event-1"
+        },
+        {
+          "id": "D-1-duplicate",
+          "date": "2026-10-07",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-b",
+          "durationMinutes": 46,
+          "distanceKm": 6.8,
+          "providerActivityId": "b-1",
+          "physicalEventKey": "event-1"
+        },
+        {
+          "id": "D-2",
+          "date": "2026-10-14",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 46,
+          "distanceKm": 6.8,
+          "providerActivityId": "a-2",
+          "physicalEventKey": "event-2"
+        },
+        {
+          "id": "D-3",
+          "date": "2026-10-21",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 46,
+          "distanceKm": 6.8,
+          "providerActivityId": "a-3",
+          "physicalEventKey": "event-3"
+        }
+      ],
+      "wellness": [],
+      "events": [],
+      "requiredChecks": [
+        "do-not-double-count-same-physical-event",
+        "raw-provider-ids-are-not-canonical",
+        "keep-provenance",
+        "do-not-auto-link-ambiguous-runs"
+      ]
+    },
+    {
+      "id": "S-006",
+      "focus": "strength-only-progressive-logging",
+      "profile": {
+        "experience": "intermediate",
+        "goals": [
+          "General strength"
+        ],
+        "equipment": [
+          "dumbbells"
+        ],
+        "wearableConnected": false
+      },
+      "period": {
+        "start": "2026-09-28",
+        "end": "2026-10-25"
+      },
+      "records": [
+        {
+          "id": "ST-0-1",
+          "date": "2026-09-29",
+          "discipline": "str",
+          "kind": "strength",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 40,
+          "effortRpe": 6,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 8,
+              "loadKg": 0
+            },
+            {
+              "exerciseId": "gs",
+              "reps": 8,
+              "loadKg": 8
+            }
+          ]
+        },
+        {
+          "id": "ST-0-4",
+          "date": "2026-10-02",
+          "discipline": "str",
+          "kind": "strength",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 40,
+          "effortRpe": 6,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 8,
+              "loadKg": 0
+            },
+            {
+              "exerciseId": "gs",
+              "reps": 8,
+              "loadKg": 8
+            }
+          ]
+        },
+        {
+          "id": "ST-1-1",
+          "date": "2026-10-06",
+          "discipline": "str",
+          "kind": "strength",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 40,
+          "effortRpe": 6,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 8,
+              "loadKg": 0
+            },
+            {
+              "exerciseId": "gs",
+              "reps": 8,
+              "loadKg": 8.5
+            }
+          ]
+        },
+        {
+          "id": "ST-1-4",
+          "date": "2026-10-09",
+          "discipline": "str",
+          "kind": "strength",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 40,
+          "effortRpe": 6,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 8,
+              "loadKg": 0
+            },
+            {
+              "exerciseId": "gs",
+              "reps": 8,
+              "loadKg": 8.5
+            }
+          ]
+        },
+        {
+          "id": "ST-2-1",
+          "date": "2026-10-13",
+          "discipline": "str",
+          "kind": "strength",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 40,
+          "effortRpe": 6,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 8,
+              "loadKg": 0
+            },
+            {
+              "exerciseId": "gs",
+              "reps": 8,
+              "loadKg": 9
+            }
+          ]
+        },
+        {
+          "id": "ST-2-4",
+          "date": "2026-10-16",
+          "discipline": "str",
+          "kind": "strength",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 40,
+          "effortRpe": 6,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 8,
+              "loadKg": 0
+            },
+            {
+              "exerciseId": "gs",
+              "reps": 8,
+              "loadKg": 9
+            }
+          ]
+        },
+        {
+          "id": "ST-3-1",
+          "date": "2026-10-20",
+          "discipline": "str",
+          "kind": "strength",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 40,
+          "effortRpe": 6,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 8,
+              "loadKg": 0
+            },
+            {
+              "exerciseId": "gs",
+              "reps": 8,
+              "loadKg": 9.5
+            }
+          ]
+        },
+        {
+          "id": "ST-3-4",
+          "date": "2026-10-23",
+          "discipline": "str",
+          "kind": "strength",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 40,
+          "effortRpe": 6,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 8,
+              "loadKg": 0
+            },
+            {
+              "exerciseId": "gs",
+              "reps": 8,
+              "loadKg": 9.5
+            }
+          ]
+        }
+      ],
+      "wellness": [],
+      "events": [],
+      "requiredChecks": [
+        "use-actual-reps-and-load-not-planned",
+        "do-not-infer-1rm-from-incomplete-set-metadata",
+        "respect-equipment",
+        "allow-user-to-decline-increases"
+      ]
+    },
+    {
+      "id": "S-007",
+      "focus": "calisthenics-skill-progress-not-auto-promoted",
+      "profile": {
+        "experience": "beginner",
+        "goals": [
+          "Calisthenics foundation"
+        ],
+        "equipment": [],
+        "wearableConnected": false
+      },
+      "period": {
+        "start": "2026-09-28",
+        "end": "2026-10-25"
+      },
+      "records": [
+        {
+          "id": "C-0-0",
+          "date": "2026-09-28",
+          "discipline": "cal",
+          "kind": "skill",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 29,
+          "effortRpe": 5,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 10
+            },
+            {
+              "exerciseId": "e4",
+              "reps": 5
+            }
+          ]
+        },
+        {
+          "id": "C-0-3",
+          "date": "2026-10-01",
+          "discipline": "cal",
+          "kind": "skill",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 29,
+          "effortRpe": 5,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 10
+            },
+            {
+              "exerciseId": "e4",
+              "reps": 5
+            }
+          ]
+        },
+        {
+          "id": "C-1-0",
+          "date": "2026-10-05",
+          "discipline": "cal",
+          "kind": "skill",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 29,
+          "effortRpe": 5,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 10
+            },
+            {
+              "exerciseId": "e4",
+              "reps": 6
+            }
+          ]
+        },
+        {
+          "id": "C-1-3",
+          "date": "2026-10-08",
+          "discipline": "cal",
+          "kind": "skill",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 29,
+          "effortRpe": 5,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 10
+            },
+            {
+              "exerciseId": "e4",
+              "reps": 6
+            }
+          ]
+        },
+        {
+          "id": "C-2-0",
+          "date": "2026-10-12",
+          "discipline": "cal",
+          "kind": "skill",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 29,
+          "effortRpe": 5,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 10
+            },
+            {
+              "exerciseId": "e4",
+              "reps": 7
+            }
+          ]
+        },
+        {
+          "id": "C-2-3",
+          "date": "2026-10-15",
+          "discipline": "cal",
+          "kind": "skill",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 29,
+          "effortRpe": 5,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 10
+            },
+            {
+              "exerciseId": "e4",
+              "reps": 7
+            }
+          ]
+        },
+        {
+          "id": "C-3-0",
+          "date": "2026-10-19",
+          "discipline": "cal",
+          "kind": "skill",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 29,
+          "effortRpe": 5,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 10
+            },
+            {
+              "exerciseId": "e4",
+              "reps": 8
+            }
+          ]
+        },
+        {
+          "id": "C-3-3",
+          "date": "2026-10-22",
+          "discipline": "cal",
+          "kind": "skill",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 29,
+          "effortRpe": 5,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 10
+            },
+            {
+              "exerciseId": "e4",
+              "reps": 8
+            }
+          ]
+        }
+      ],
+      "wellness": [],
+      "events": [],
+      "requiredChecks": [
+        "no-automatic-skill-level-promotion",
+        "preserve-exercise-progression-identity",
+        "actual-reps-different-from-targets",
+        "respect-form-and-assessment"
+      ]
+    },
+    {
+      "id": "S-008",
+      "focus": "offline-missing-streams",
+      "profile": {
+        "experience": "intermediate",
+        "goals": [
+          "Half marathon"
+        ],
+        "equipment": [],
+        "wearableConnected": false
+      },
+      "period": {
+        "start": "2026-09-28",
+        "end": "2026-10-25"
+      },
+      "records": [
+        {
+          "id": "N-0-1",
+          "date": "2026-09-29",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 45,
+          "distanceKm": 6,
+          "effortRpe": 4
+        },
+        {
+          "id": "N-0-6",
+          "date": "2026-10-04",
+          "discipline": "run",
+          "kind": "long",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 80,
+          "distanceKm": 11,
+          "effortRpe": 4
+        },
+        {
+          "id": "N-1-1",
+          "date": "2026-10-06",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 45,
+          "distanceKm": 6,
+          "effortRpe": 4
+        },
+        {
+          "id": "N-1-6",
+          "date": "2026-10-11",
+          "discipline": "run",
+          "kind": "long",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 80,
+          "distanceKm": 11,
+          "effortRpe": 4
+        },
+        {
+          "id": "N-2-1",
+          "date": "2026-10-13",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 45,
+          "distanceKm": 6,
+          "effortRpe": 4
+        },
+        {
+          "id": "N-2-6",
+          "date": "2026-10-18",
+          "discipline": "run",
+          "kind": "long",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 80,
+          "distanceKm": 11,
+          "effortRpe": 4
+        },
+        {
+          "id": "N-3-1",
+          "date": "2026-10-20",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 45,
+          "distanceKm": 6,
+          "effortRpe": 4
+        },
+        {
+          "id": "N-3-6",
+          "date": "2026-10-25",
+          "discipline": "run",
+          "kind": "long",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 80,
+          "distanceKm": 11,
+          "effortRpe": 4
+        }
+      ],
+      "wellness": [],
+      "events": [
+        {
+          "date": "2026-10-12",
+          "type": "sync_unavailable",
+          "value": "Provider disconnected; old locally recorded sessions remain accessible"
+        }
+      ],
+      "requiredChecks": [
+        "offline-deterministic",
+        "absence-of-heart-rate-is-unknown",
+        "no-gps-map-invention",
+        "do-not-reclassify-missing-sync-as-missed"
+      ]
+    },
+    {
+      "id": "S-009",
+      "focus": "travel-equipment-changed",
+      "profile": {
+        "experience": "intermediate",
+        "goals": [
+          "General fitness"
+        ],
+        "equipment": [
+          "dumbbells"
+        ],
+        "wearableConnected": false
+      },
+      "period": {
+        "start": "2026-09-28",
+        "end": "2026-10-25"
+      },
+      "records": [
+        {
+          "id": "EQ-0-run",
+          "date": "2026-09-29",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 42,
+          "distanceKm": 6,
+          "effortRpe": 3
+        },
+        {
+          "id": "EQ-0-str",
+          "date": "2026-10-02",
+          "discipline": "str",
+          "kind": "strength",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 30,
+          "effortRpe": 5,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 12
+            }
+          ]
+        },
+        {
+          "id": "EQ-1-run",
+          "date": "2026-10-06",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 42,
+          "distanceKm": 6,
+          "effortRpe": 3
+        },
+        {
+          "id": "EQ-1-str",
+          "date": "2026-10-09",
+          "discipline": "str",
+          "kind": "strength",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 30,
+          "effortRpe": 5,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 12
+            }
+          ]
+        },
+        {
+          "id": "EQ-2-run",
+          "date": "2026-10-13",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 42,
+          "distanceKm": 6,
+          "effortRpe": 3
+        },
+        {
+          "id": "EQ-2-str",
+          "date": "2026-10-16",
+          "discipline": "str",
+          "kind": "strength",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 30,
+          "effortRpe": 5,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 12
+            }
+          ]
+        },
+        {
+          "id": "EQ-3-run",
+          "date": "2026-10-20",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 42,
+          "distanceKm": 6,
+          "effortRpe": 3
+        },
+        {
+          "id": "EQ-3-str",
+          "date": "2026-10-23",
+          "discipline": "str",
+          "kind": "strength",
+          "status": "recorded",
+          "source": "synthetic-manual",
+          "durationMinutes": 30,
+          "effortRpe": 5,
+          "sets": [
+            {
+              "exerciseId": "sq",
+              "reps": 12
+            }
+          ]
+        }
+      ],
+      "wellness": [],
+      "events": [
+        {
+          "date": "2026-10-12",
+          "type": "equipment_change",
+          "value": "Dumbbells unavailable; bodyweight only"
+        },
+        {
+          "date": "2026-10-19",
+          "type": "equipment_change",
+          "value": "Dumbbells restored"
+        }
+      ],
+      "requiredChecks": [
+        "never-prescribe-unavailable-equipment",
+        "preserve-existing-plan-until-user-approves-change",
+        "provide-bodyweight-alternative",
+        "no-generic-ml-adaptation-required"
+      ]
+    },
+    {
+      "id": "S-010",
+      "focus": "higher-volume-trend-with-missing-week",
+      "profile": {
+        "experience": "advanced",
+        "goals": [
+          "Marathon"
+        ],
+        "equipment": [],
+        "wearableConnected": true
+      },
+      "period": {
+        "start": "2026-09-28",
+        "end": "2026-10-25"
+      },
+      "records": [
+        {
+          "id": "O-0-0",
+          "date": "2026-09-28",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 61,
+          "distanceKm": 9,
+          "effortRpe": 4
+        },
+        {
+          "id": "O-0-1",
+          "date": "2026-09-29",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 68,
+          "distanceKm": 10,
+          "effortRpe": 4
+        },
+        {
+          "id": "O-0-2",
+          "date": "2026-09-30",
+          "discipline": "run",
+          "kind": "quality",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 61,
+          "distanceKm": 9,
+          "effortRpe": 8
+        },
+        {
+          "id": "O-0-3",
+          "date": "2026-10-01",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 61,
+          "distanceKm": 9,
+          "effortRpe": 4
+        },
+        {
+          "id": "O-0-4",
+          "date": "2026-10-02",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 61,
+          "distanceKm": 9,
+          "effortRpe": 4
+        },
+        {
+          "id": "O-0-5",
+          "date": "2026-10-03",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 54,
+          "distanceKm": 8,
+          "effortRpe": 4
+        },
+        {
+          "id": "O-0-6",
+          "date": "2026-10-04",
+          "discipline": "run",
+          "kind": "long",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 135,
+          "distanceKm": 20,
+          "effortRpe": 4
+        },
+        {
+          "id": "O-1-0",
+          "date": "2026-10-05",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 61,
+          "distanceKm": 9,
+          "effortRpe": 4
+        },
+        {
+          "id": "O-1-1",
+          "date": "2026-10-06",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 68,
+          "distanceKm": 10,
+          "effortRpe": 4
+        },
+        {
+          "id": "O-1-2",
+          "date": "2026-10-07",
+          "discipline": "run",
+          "kind": "quality",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 61,
+          "distanceKm": 9,
+          "effortRpe": 8
+        },
+        {
+          "id": "O-1-3",
+          "date": "2026-10-08",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 61,
+          "distanceKm": 9,
+          "effortRpe": 4
+        },
+        {
+          "id": "O-1-4",
+          "date": "2026-10-09",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 61,
+          "distanceKm": 9,
+          "effortRpe": 4
+        },
+        {
+          "id": "O-1-5",
+          "date": "2026-10-10",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 54,
+          "distanceKm": 8,
+          "effortRpe": 4
+        },
+        {
+          "id": "O-1-6",
+          "date": "2026-10-11",
+          "discipline": "run",
+          "kind": "long",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 135,
+          "distanceKm": 20,
+          "effortRpe": 4
+        },
+        {
+          "id": "O-2-0",
+          "date": "2026-10-12",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 61,
+          "distanceKm": 9,
+          "effortRpe": 4
+        },
+        {
+          "id": "O-2-1",
+          "date": "2026-10-13",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 68,
+          "distanceKm": 10,
+          "effortRpe": 4
+        },
+        {
+          "id": "O-2-2",
+          "date": "2026-10-14",
+          "discipline": "run",
+          "kind": "quality",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 61,
+          "distanceKm": 9,
+          "effortRpe": 8
+        },
+        {
+          "id": "O-2-3",
+          "date": "2026-10-15",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 61,
+          "distanceKm": 9,
+          "effortRpe": 4
+        },
+        {
+          "id": "O-2-4",
+          "date": "2026-10-16",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 61,
+          "distanceKm": 9,
+          "effortRpe": 4
+        },
+        {
+          "id": "O-2-5",
+          "date": "2026-10-17",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 54,
+          "distanceKm": 8,
+          "effortRpe": 4
+        },
+        {
+          "id": "O-2-6",
+          "date": "2026-10-18",
+          "discipline": "run",
+          "kind": "long",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 135,
+          "distanceKm": 20,
+          "effortRpe": 4
+        },
+        {
+          "id": "O-3-0",
+          "date": "2026-10-19",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 61,
+          "distanceKm": 9,
+          "effortRpe": 4
+        },
+        {
+          "id": "O-3-1",
+          "date": "2026-10-20",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 68,
+          "distanceKm": 10,
+          "effortRpe": 4
+        },
+        {
+          "id": "O-3-2",
+          "date": "2026-10-21",
+          "discipline": "run",
+          "kind": "quality",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 61,
+          "distanceKm": 9,
+          "effortRpe": 8
+        },
+        {
+          "id": "O-3-3",
+          "date": "2026-10-22",
+          "discipline": "run",
+          "kind": "easy",
+          "status": "recorded",
+          "source": "synthetic-provider-a",
+          "durationMinutes": 61,
+          "distanceKm": 9,
+          "effortRpe": 4
+        }
+      ],
+      "wellness": [
+        {
+          "date": "2026-10-12",
+          "restingHrBpm": 51,
+          "hrvMs": 68,
+          "sleepHours": 7.6,
+          "selfReportedIllness": false
+        },
+        {
+          "date": "2026-10-19",
+          "restingHrBpm": null,
+          "hrvMs": null,
+          "sleepHours": null,
+          "selfReportedIllness": false
+        }
+      ],
+      "events": [
+        {
+          "date": "2026-10-20",
+          "type": "user_note",
+          "value": "Travel interrupted training; do not compensate automatically"
+        }
+      ],
+      "requiredChecks": [
+        "no-catchup-volume",
+        "dont-presume-readiness-from-high-mileage-alone",
+        "no-fabricated-data-for-partial-week",
+        "one-quality-priority-is-user-configurable"
+      ]
+    }
+  ]
+}
