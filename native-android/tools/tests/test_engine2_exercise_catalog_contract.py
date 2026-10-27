@@ -32,7 +32,10 @@ class Engine2ExerciseCatalogContractTest(unittest.TestCase):
         # End the constructor at its line before the next record.
         segments = self.source.split("Engine2ExerciseOption(")[1:]
         for segment in segments:
-            item_id = re.match(r'"([^"]+)"', segment).group(1)
+            match = re.match(r'"([^"]+)"', segment)
+            if match is None:  # data-class definition, not a catalog entry
+                continue
+            item_id = match.group(1)
             body = segment.split("Engine2ExerciseOption(")[0]
             if by_id[item_id].get("guide", False):
                 self.assertIn("executable = false", body,
