@@ -119,7 +119,7 @@ User may combine **one primary and a compatible secondary goal** (e.g. build 40â
 
 ## Planned delivery and review practice
 
-1. **One active implementation branch per non-overlapping workstream.** Copilot codes, builds and tests; Claude may work ahead on product/design/architecture; ChatGPT can review GitHub evidence and coordinate priorities.
+1. **Direct GitHub first; delegate only when necessary (owner-approved workflow).** For accessible repository tasks, ChatGPT should inspect, implement, edit tests/docs/workflows, commit on separate branches, review CI evidence, and open draft PRs through the connected GitHub integration **without requiring ChatGPT Work or Copilot**. Reserve Work/Copilot for capabilities unavailable through that connection or substantial tasks that genuinely need their execution environments (for example local toolchains, emulator/device execution, complex repository-wide development). Preserve one active implementation branch per non-overlapping workstream; protect verified checkpoints and other agents' branches. Treat source edits as unverified until appropriate automated CI/tests pass. No automatic merge, installation, release, or APK packaging; the owner requests APK delivery explicitly.
 2. **No speculative implementation claim.** Link each milestone to an exact commit, CI run, PR and documented acceptance result when its state changes.
 3. **Implement cohesive user journeys in small testable increments**; group related low-risk UI fixes, but isolate data-model and engine changes.
 4. **Emulator/CI first; phone tests only with owner consent and signing/data safety confirmed.** Keep existing private app data.
