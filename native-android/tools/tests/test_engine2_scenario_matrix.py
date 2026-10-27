@@ -11,6 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 MATRIX = ROOT / "app/src/test/resources/engine/engine2_longitudinal_recipes_v2.json"
 GENERATOR = ROOT / "tools/build_engine2_scenarios.py"
+COVERAGE = ROOT / "tools/report_engine2_coverage.py"
 CATALOG = ROOT / "app/src/main/assets/native-library/catalog.json"
 DIMENSIONS = {
     "running", "strength", "calisthenics", "hybrid",
@@ -195,6 +196,28 @@ class Engine2ScenarioMatrixTest(unittest.TestCase):
             if row.get("accountScope"):
                 scoped[row["physicalEventKey"]].add(row["accountScope"])
         self.assertTrue(any(len(accounts) == 2 for accounts in scoped.values()))
+
+    def test_coverage_report_proves_edge_inputs_not_adaptive_coaching(self):
+        result = subprocess.run(
+            [sys.executable, str(COVERAGE), "--limit", "64", "--variants", "1",
+             "--seed", "20261027"],
+            capture_output=True, text=True, timeout=35, check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        report = json.loads(result.stdout)
+        self.assertEqual("synthetic-only", report["classification"])
+        self.assertEqual(64, report["scenarioCount"])
+        self.assertGreater(report["activityRecordCount"], 1000)
+        self.assertGreater(report["wellnessObservationCount"], 0)
+        self.assertGreater(report["missingCalendarWeeks"], 0)
+        self.assertGreaterEqual(report["distinctCandidateInvariantIds"], 20)
+        self.assertEqual(set(report["byDimension"]), DIMENSIONS)
+        self.assertGreater(report["providerDuplicateGroupsWithinAccount"], 0)
+        self.assertGreater(report["flaggedSuspiciousSensorRows"], 0)
+        self.assertGreater(report["quarantinedInvalidInputRows"], 0)
+        self.assertGreater(report["byRecordStatus"].get("planned", 0), 0)
+        self.assertGreater(report["byRecordStatus"].get("skipped", 0), 0)
+        self.assertIn("do not demonstrate clinical safety", report["note"])
 
     def test_rejected_unsafe_scale_inputs_do_not_produce_json(self):
         for args in [
