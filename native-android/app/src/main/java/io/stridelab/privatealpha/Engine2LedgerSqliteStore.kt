@@ -109,6 +109,38 @@ internal class Engine2LedgerSqliteStore(
         }
     }
 
+    /** Atomically stage a pending proposal without modifying any approved workouts. */
+    fun stageIfRevision(
+        accountId: String, planId: String, expectedLedgerRevision: Long,
+        proposal: Engine2DurationProposal
+    ): Boolean {
+        key(accountId, planId)
+        require(proposal.ownerId == accountId && proposal.planId == planId)
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            val previous = readInside(db, accountId, planId) ?: return false
+            if (previous.ledgerRevision != expectedLedgerRevision) return false
+            require(proposal.id !in previous.proposals) {
+                "Existing proposal IDs may not be silently replaced"
+            }
+            val staged = Engine2ApprovalLedgerReducer.stage(previous, proposal)
+            val values = ContentValues().apply {
+                put("ledger_revision", staged.ledgerRevision)
+                put("payload", Engine2LedgerCodec.encode(staged))
+            }
+            val affected = db.update(TABLE, values,
+                "account=? AND plan_id=? AND ledger_revision=?",
+                arrayOf(accountId, planId, expectedLedgerRevision.toString()))
+            require(affected in 0..1)
+            if (affected != 1) return false
+            db.setTransactionSuccessful()
+            return true
+        } finally {
+            db.endTransaction()
+        }
+    }
+
     /**
      * Atomic compare-and-swap of all proposal/receipt/plan changes. Revision
      * expectations and persisted source are checked in the SAME transaction.
