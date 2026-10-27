@@ -104,6 +104,46 @@ class Engine2LedgerSqliteInstrumentedTest {
         }
     }
 
+    @Test fun userConfirmationFacadeRejectsSilentDecisionsAndSurvivesReopen() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val name = "engine2-coordinator-test-" + System.nanoTime() + ".db"
+        try {
+            Engine2LedgerSqliteStore(context, name).use { store ->
+                assertTrue(store.seedIfAbsent(initial("account-c")))
+                val source = Engine2Source("account-c", "synthetic-provider", "actual-1",
+                    now.minusSeconds(3600), now.minusSeconds(60))
+                val athlete = Engine2AthleteContext("account-c", now,
+                    listOf(Engine2WorkoutEvidence("actual-1", Engine2Discipline.RUNNING,
+                        now.minusSeconds(3600), Engine2RecordStatus.CONFIRMED,
+                        listOf(Engine2Measurement(Engine2Metric.DISTANCE_KM, 5.0, source)))),
+                    emptyList())
+                val coordinator = Engine2ApprovalCoordinator(store)
+                val staged = coordinator.prepareForReview("account-c", "training", athlete,
+                    "review-1", "run", 35,
+                    "Athlete explicitly requested a shorter future session.",
+                    setOf("actual-1"), now)
+                assertTrue(staged is Engine2ApprovalCoordinator.Result.Saved)
+                assertThrows(IllegalArgumentException::class.java) {
+                    coordinator.decideAfterExplicitUserConfirmation(
+                        "account-c", "training", "review-1",
+                        Engine2Decision.APPROVE, now.plusSeconds(1), false)
+                }
+                assertEquals(60, store.read("account-c", "training")!!.plan.sessions.first().minutes)
+                val accepted = coordinator.decideAfterExplicitUserConfirmation(
+                    "account-c", "training", "review-1",
+                    Engine2Decision.APPROVE, now.plusSeconds(1), true)
+                assertTrue(accepted is Engine2ApprovalCoordinator.Result.Saved)
+                assertEquals(35, store.read("account-c", "training")!!.plan.sessions.first().minutes)
+            }
+            Engine2LedgerSqliteStore(context, name).use { reopened ->
+                assertEquals(35,
+                    reopened.read("account-c", "training")!!.plan.sessions.first().minutes)
+            }
+        } finally {
+            context.deleteDatabase(name)
+        }
+    }
+
     @Test fun legacyDatabaseNameIsNeverAcceptedAsEngine2LedgerDestination() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         assertThrows(IllegalArgumentException::class.java) {
