@@ -48,7 +48,7 @@ import org.json.JSONObject
     LaunchedEffect(ex.id,set,resting) { playerScroll.scrollToItem(0) }
     val context=LocalContext.current
     var catalog by remember { mutableStateOf<List<LibraryEntry>>(emptyList()) }
-    LaunchedEffect(Unit) { catalog=withContext(Dispatchers.IO) { runCatching { readLibrary(context) }.getOrDefault(emptyList()) } }
+    LaunchedEffect(Unit) { withContext(Dispatchers.Main.immediate) { catalog=withContext(Dispatchers.IO) { runCatching { readLibrary(context) }.getOrDefault(emptyList()) } } }
     // Never display a full/progression movement as a demonstration of an easier saved variant.
     val guide=catalog.firstOrNull { it.id==ex.id && !it.guide }
     val image=guide?.raw?.optJSONObject("image")

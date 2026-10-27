@@ -45,7 +45,7 @@ internal fun readLibrary(context:Context):List<LibraryEntry> = context.assets.op
     val keyboard=androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     var entries by remember { mutableStateOf<List<LibraryEntry>>(emptyList()) }
     var failure by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { runCatching { withContext(Dispatchers.IO) { readLibrary(context) } }.onSuccess { entries=it }.onFailure { failure=true } }
+    LaunchedEffect(Unit) { withContext(Dispatchers.Main.immediate) { runCatching { withContext(Dispatchers.IO) { readLibrary(context) } }.onSuccess { entries=it }.onFailure { failure=true } } }
     var query by rememberSaveable { mutableStateOf("") }; var filter by rememberSaveable { mutableStateOf("all") }
     var view by rememberSaveable { mutableStateOf("Exercises") };val guides=view=="Movement guides"
     var level by rememberSaveable { mutableStateOf("All levels") };var pattern by rememberSaveable { mutableStateOf("All movements") };var equipment by rememberSaveable { mutableStateOf("All equipment") };var collectionFilter by rememberSaveable { mutableStateOf("All saved") }
@@ -129,7 +129,7 @@ internal fun readLibrary(context:Context):List<LibraryEntry> = context.assets.op
 @Composable internal fun LibraryImage(entry:LibraryEntry,compact:Boolean=false) {
     val metadata=entry.raw.optJSONObject("image") ?: return
     val context=LocalContext.current; val uri=LocalUriHandler.current
-    val bitmap by produceState<android.graphics.Bitmap?>(null,entry.id) { value=withContext(Dispatchers.IO) { runCatching { context.assets.open(metadata.getString("nativeFile")).use(BitmapFactory::decodeStream) }.getOrNull() } }
+    val bitmap by produceState<android.graphics.Bitmap?>(null,entry.id) { withContext(Dispatchers.Main.immediate) { value=withContext(Dispatchers.IO) { runCatching { context.assets.open(metadata.getString("nativeFile")).use(BitmapFactory::decodeStream) }.getOrNull() } } }
     bitmap?.let { Image(it.asImageBitmap(),contentDescription=metadata.getString("label"),contentScale=ContentScale.Fit,modifier=Modifier.fillMaxWidth().heightIn(max=if(compact)180.dp else 230.dp).background(Color.White,RoundedCornerShape(20.dp)).padding(12.dp)) }
     val fit=metadata.getJSONArray("fit")
     if(!compact || fit.getString(0)!="exact")Text(fit.getString(1),style=MaterialTheme.typography.bodySmall)

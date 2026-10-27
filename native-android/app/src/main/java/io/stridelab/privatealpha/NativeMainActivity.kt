@@ -88,8 +88,8 @@ class NativeMainActivity: ComponentActivity() {
 }
 
 @Composable internal fun NativeStrideApp(model: TrainingViewModel = viewModel()) {
-    val state by model.state.collectAsStateWithLifecycle()
-    val online by model.online.collectAsStateWithLifecycle()
+    val state by model.state.collectAsStateWithLifecycle(context=kotlinx.coroutines.Dispatchers.Main.immediate)
+    val online by model.online.collectAsStateWithLifecycle(context=kotlinx.coroutines.Dispatchers.Main.immediate)
     val actions = remember(model) { NativeActions(model::refresh, model::checkIntervals, model::syncIntervals, model::signOut, model::signIn, model::loadDetail, model::refreshWellness, model.planActions()) }
     NativeStrideContent(state, online, actions)
 }
