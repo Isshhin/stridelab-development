@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
+import android.view.KeyEvent
 import android.graphics.Bitmap
 import org.junit.Rule
 import org.junit.Test
@@ -14,6 +15,91 @@ import java.time.LocalDate
 
 class Engine1UiTest {
     @get:Rule val compose=createAndroidComposeRule<NativeMainActivity>()
+    @Test fun multiSessionPlanBuilderGeneratesEightSessionsAndKeepsSameDayLogsIndependent() {
+        val state=mutableStateOf(TrainingState(initializing=false,account="synthetic-multi-builder-ui"))
+        val actions=PlanActions(
+            generate={p->Engine1Engines.validate(p);state.value=state.value.copy(plans=state.value.plans+Engine1Engines.resolve(p).generate(p,"synthetic-multi-builder-ui"))},
+            approve={id,_->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.approve(it,state.value.plans).copy(revision=it.revision+1)else it })},
+            move={id,_,sid,date->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.move(it,sid,date,state.value.plans).copy(revision=it.revision+1)else it })},
+            record={id,_,sid,log,done->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.record(it,sid,log,done).copy(revision=it.revision+1)else it })}
+        )
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,false,NativeActions({},{},{},{},{_,_->},planning=actions)) } } }
+        compose.onNodeWithTag("nav-training").performClick()
+        compose.onNodeWithText("Create a plan",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("discipline-cal").performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Continue"))
+        compose.onNodeWithText("Continue",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("frequency-run-5").performClick()
+        compose.onNodeWithTag("frequency-cal-3").performClick()
+        compose.onNodeWithText("Multi-session scheduling",useUnmergedTree=true).performClick()
+        repeat(1) {
+            compose.onNodeWithTag("screen").performScrollToNode(hasText("Continue"))
+            compose.onNodeWithText("Continue",useUnmergedTree=true).performClick()
+        }
+        compose.onNodeWithTag("available-day-3").performClick()
+        compose.onNodeWithTag("available-day-7").performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Continue"))
+        compose.onNodeWithText("Continue",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Generate plan"))
+        compose.onNodeWithText("Generate plan",useUnmergedTree=true).performClick()
+        compose.waitUntil(15000) { state.value.plans.isNotEmpty() }
+        val draft=state.value.plans.single()
+        assertEquals(MULTI_SESSION_POLICY,draft.policyId)
+        assertEquals(8*draft.request.weeks,draft.sessions.size)
+        val firstWeek=draft.sessions.filter { it.date in draft.request.start..draft.request.start.plusDays(6) }
+        assertEquals(8,firstWeek.size)
+        assertEquals(7,firstWeek.map { it.date }.distinct().size)
+        compose.onNodeWithTag("screen-title").assertTextEquals("Your plan")
+        compose.onNodeWithText("Multi-session scheduling").assertExists()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Approve plan"))
+        compose.onNodeWithText("Approve plan",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("screen-title").assertTextEquals("Training")
+        val approved=state.value.plans.single()
+        val sameDay=firstWeek.groupBy { it.date }.values.single { it.size==2 }
+        val run=sameDay.single { it.discipline=="run" }
+        val cal=sameDay.single { it.discipline=="cal" }
+        compose.onNodeWithTag("calendar-day-${run.date}").performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-${run.id}"))
+        compose.onNodeWithTag("workout-${run.id}").assertExists()
+        compose.onNodeWithTag("workout-${cal.id}").assertExists()
+
+        compose.onNodeWithTag("workout-${cal.id}").performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Move workout"))
+        compose.onNodeWithText("Move workout",useUnmergedTree=true).performClick()
+        compose.onNodeWithText("Scheduled date (YYYY-MM-DD)").performTextReplacement(
+            firstWeek.single { it.discipline=="run"&&it.kind=="long" }.date.toString()
+        )
+        compose.onNodeWithText("Save move",useUnmergedTree=true).performClick()
+        assertEquals(run.date,state.value.plans.single().sessions.single { it.id==cal.id }.date)
+        assertNotNull(state.value.plans.single().sessions.single { it.id==cal.id })
+        compose.onAllNodesWithText("This move conflicts with another workout or its recovery spacing. Choose a different date.").assertCountEquals(2)
+        compose.onNodeWithText("Cancel",useUnmergedTree=true).performClick()
+
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Back to Training"))
+        compose.onNodeWithText("Back to Training",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("workout-${run.id}").performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Save completed workout"))
+        compose.onNodeWithText("Actual duration (minutes), optional").performTextInput("20")
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Save completed workout"))
+        compose.onNodeWithText("Save completed workout",useUnmergedTree=true).performClick()
+        assertEquals("completed",state.value.plans.single().sessions.single { it.id==run.id }.status)
+        assertEquals("planned",state.value.plans.single().sessions.single { it.id==cal.id }.status)
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Back to Training"))
+        compose.onNodeWithText("Back to Training",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("workout-${cal.id}").performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Save completed workout"))
+        compose.onNodeWithText("Actual duration (minutes), optional").performTextInput("25")
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Save completed workout"))
+        compose.onNodeWithText("Save completed workout",useUnmergedTree=true).performClick()
+        val completed=state.value.plans.single()
+        assertEquals("completed",completed.sessions.single { it.id==run.id }.status)
+        assertEquals("completed",completed.sessions.single { it.id==cal.id }.status)
+        assertEquals(20.0,completed.sessions.single { it.id==run.id }.log!!.minutes!!,0.0)
+        assertEquals(25.0,completed.sessions.single { it.id==cal.id }.log!!.minutes!!,0.0)
+    }
+
     @Test fun beginnerGeneratesReviewsApprovesOpensCalendarAndLogsWithoutWatch() {
         val state=mutableStateOf(TrainingState(initializing=false,account="synthetic-engine1-ui"))
         val planning=PlanActions(
