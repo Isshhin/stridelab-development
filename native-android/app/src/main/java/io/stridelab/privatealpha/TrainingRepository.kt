@@ -26,6 +26,7 @@ internal data class TrainingState(
     val plans: List<PlanSnapshot> = emptyList(),
     val shelf:LibraryShelf = LibraryShelf(),
     val templates:List<SessionTemplate> = emptyList(),
+    val workoutDrafts:Map<Pair<String,String>,WorkoutEntryDraft> = emptyMap(),
     val wellness: List<WellnessRecord> = emptyList(),
     val details: Map<String,ActivityDetail> = emptyMap(),
     val task: String? = null
@@ -85,9 +86,11 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         val shelf=store.readableDatabase.query("records",arrayOf("payload"),"account=? AND kind=? AND record_id=?",arrayOf(account,"exercise","library-shelf-v1"),null,null,null).use { c -> if(c.moveToFirst())LibraryShelf.decode(JSONObject(c.getString(0)),account) else LibraryShelf() }
         val templates=mutableListOf<SessionTemplate>()
         store.readableDatabase.query("records",arrayOf("payload"),"account=? AND kind=? AND record_id LIKE ?",arrayOf(account,"exercise","session-template-%"),null,null,null).use { c -> while(c.moveToNext())runCatching { SessionTemplate.decode(JSONObject(c.getString(0)),account) }.onSuccess { templates.add(it) } }
+        val drafts=mutableMapOf<Pair<String,String>,WorkoutEntryDraft>()
+        store.readableDatabase.query("records",arrayOf("record_id","payload"),"account=? AND kind=? AND record_id LIKE ?",arrayOf(account,"workout","entry-draft-%"),null,null,null).use { c -> while(c.moveToNext())runCatching { WorkoutEntryDraft.decode(JSONObject(c.getString(1)),account).also { require(it.recordId==c.getString(0)) } }.onSuccess { if(validDraft(it,plans))drafts[it.key]=it } }
         val cursor = store.cursor(account, "activity")
         val last = cursor?.let { runCatching { JSONObject(it).getLong("completedAt") }.getOrNull() }
-        mutable.value = mutable.value.copy(activities = records.sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id }), lastSync = last, details = details, wellness = wellness, shelf=shelf, templates=templates, plans = plans.sortedByDescending { it.createdAt },
+        mutable.value = mutable.value.copy(activities = records.sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id }), lastSync = last, details = details, wellness = wellness, shelf=shelf, templates=templates, workoutDrafts=drafts, plans = plans.sortedByDescending { it.createdAt },
             message = if(unsupportedPlans>0) "$unsupportedPlans saved plans require a supported contract and were retained for review." else if(rejected > 0) "$rejected saved activities contain unsupported data and were retained for review." else mutable.value.message)
     }
     suspend fun restorePlans(raw:String)=operation("Restoring reviewed plan backup…") {
@@ -119,6 +122,29 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         val account=mutable.value.account ?: throw PlanConstraint("Sign in once to create account-isolated workouts.")
         savePlan(template.draft(account,request,date))
     }
+    private fun validDraft(draft:WorkoutEntryDraft,plans:List<PlanSnapshot>):Boolean {
+        val p=plans.find { it.id==draft.planId && it.owner==draft.owner } ?: return false
+        val s=p.sessions.find { it.id==draft.sessionId } ?: return false
+        return Engine1Engines.canManage(p) && p.status in setOf("approved","paused") && s.status in setOf("planned","in_progress") && s.logRevision==draft.logRevision
+    }
+    /** Local input staging is deliberately not a confirmed workout or a cloud mutation. */
+    suspend fun stageWorkoutDraft(draft:WorkoutEntryDraft):Boolean=withContext(Dispatchers.IO) { mutex.withLock {
+        val account=mutable.value.account
+        if(account==null || draft.owner!=account || !validDraft(draft,mutable.value.plans))return@withLock false
+        try {
+            draft.validate()
+            val previous=store.get(account,"workout",draft.recordId)
+            val saved=if(previous!=null)try { WorkoutEntryDraft.decode(JSONObject(previous.payload),account) }catch(_:Exception){throw PlanConstraint("Existing entry data requires a supported version and was retained. Use explicit Save progress for your current entries.")}else null
+            if(saved!=null && saved.logRevision==draft.logRevision && draft.editedAt<saved.editedAt)return@withLock false
+            if(saved==draft)return@withLock true
+            store.applyRemotePage(account,"workout",listOf(TrainingStore.RemoteRecord(draft.recordId,draft.encode().toString(),null)),null,System.currentTimeMillis())
+            mutable.value=mutable.value.copy(workoutDrafts=mutable.value.workoutDrafts+(draft.key to draft))
+            true
+        } catch(e:Exception) {
+            mutable.value=mutable.value.copy(message=if(e is PlanConstraint)e.message else "Entry autosave could not finish. Existing records are retained; use Save progress and retry.")
+            false
+        }
+    } }
     private fun savePlan(plan:PlanSnapshot) {
         val account=mutable.value.account ?: throw PlanConstraint("Sign in once to keep plans isolated to your account. Planning and logging then work offline.")
         if(plan.owner!=account)throw PlanConstraint("The plan belongs to a different account.")
@@ -126,7 +152,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         val encoded=plan.encode()
         require(encoded.getString("id")==plan.id && encoded.getString("user_id")==account)
         store.enqueue(account,"plan",plan.id,java.util.UUID.randomUUID().toString(),encoded.toString(),null,System.currentTimeMillis())
-        mutable.value=mutable.value.copy(plans=(mutable.value.plans.filterNot { it.id==plan.id }+plan).sortedByDescending { it.createdAt })
+        val all=(mutable.value.plans.filterNot { it.id==plan.id }+plan).sortedByDescending { it.createdAt }
+        mutable.value=mutable.value.copy(plans=all,workoutDrafts=mutable.value.workoutDrafts.filterValues { validDraft(it,all) })
     }
     suspend fun generatePlan(request:PlanRequest,engine:PlanGenerationEngine?=null) = operation("Building your plan…") {
         val account=mutable.value.account ?: throw PlanConstraint("Sign in once to create an account-isolated plan. A watch is not required; planning works offline.")
@@ -152,7 +179,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     suspend fun approvePlan(id:String,revision:Int)=changePlan(id,revision) { PlanOperations.approve(it,mutable.value.plans) }
     suspend fun pausePlan(id:String,revision:Int)=changePlan(id,revision) { it.copy(status="paused") }
     suspend fun archivePlan(id:String,revision:Int)=changePlan(id,revision) { it.copy(status="archived") }
-    suspend fun moveSession(id:String,revision:Int,sessionId:String,date:java.time.LocalDate)=changePlan(id,revision) { PlanOperations.move(it,sessionId,date) }
+    suspend fun moveSession(id:String,revision:Int,sessionId:String,date:java.time.LocalDate)=changePlan(id,revision) { plan->PlanOperations.move(plan,sessionId,date,mutable.value.plans) }
     suspend fun recordWorkout(id:String,revision:Int,sessionId:String,log:WorkoutLog,complete:Boolean)=changePlan(id,revision) { PlanOperations.record(it,sessionId,log,complete) }
     suspend fun markMissed(id:String,revision:Int,sessionId:String,reason:String,skipped:Boolean)=changePlan(id,revision) { PlanOperations.missed(it,sessionId,reason,skipped) }
     suspend fun acceptSuggestion(id:String,revision:Int,sessionId:String)=changePlan(id,revision) { PlanOperations.acceptSuggestion(it,sessionId) }

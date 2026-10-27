@@ -88,8 +88,8 @@ class NativeMainActivity: ComponentActivity() {
 }
 
 @Composable internal fun NativeStrideApp(model: TrainingViewModel = viewModel()) {
-    val state by model.state.collectAsStateWithLifecycle()
-    val online by model.online.collectAsStateWithLifecycle()
+    val state by model.state.collectAsStateWithLifecycle(context=kotlinx.coroutines.Dispatchers.Main.immediate)
+    val online by model.online.collectAsStateWithLifecycle(context=kotlinx.coroutines.Dispatchers.Main.immediate)
     val actions = remember(model) { NativeActions(model::refresh, model::checkIntervals, model::syncIntervals, model::signOut, model::signIn, model::loadDetail, model::refreshWellness, model.planActions()) }
     NativeStrideContent(state, online, actions)
 }
@@ -165,7 +165,7 @@ private fun NavHostController.openActivity(id: String) {
                                 item { Text("LATEST ACTIVITY", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }
                                 item { ActivityRow(activity) { nav.openActivity(activity.id) } }
                             }
-                            item { WeeklyDashboard(state.activities) }
+                            item { WeeklyDashboard(state.activities,plans=state.plans) }
                             item { WellnessOverview(state.wellness, actions.refreshWellness, online && !state.busy && !state.needsSignIn) }
                             item { HistoryOverview(state.activities) }
                             if(state.activities.count { it.durationS != null } >= 2) item { RecordedDurationChart(state.activities) }

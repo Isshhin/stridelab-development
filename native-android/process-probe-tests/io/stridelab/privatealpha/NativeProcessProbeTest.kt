@@ -56,6 +56,8 @@ class NativeProcessProbeTest {
                     assertTrue(repository.recordWorkout(plan.id,plan.revision,plan.sessions.first().id,WorkoutLog(java.time.Instant.now(),minutes=12.0,effort=3,notes="Synthetic offline persistence fixture"),true))
                     plan=repository.state.value.plans.single()
                     assertTrue(repository.saveFeedback(plan.id,plan.revision,"Usability","Synthetic private feedback fixture"))
+                    val pending=repository.state.value.plans.single().sessions[1]
+                    assertTrue(repository.stageWorkoutDraft(WorkoutEntryDraft(account,plan.id,pending.id,pending.logRevision,"","","","Synthetic unconfirmed entry after process restart",java.time.LocalDate.now().toString(),"{}",System.currentTimeMillis())))
                 }
             }
             "offline" -> {
@@ -74,6 +76,18 @@ class NativeProcessProbeTest {
                 compose.onNodeWithText("Actual duration (minutes), optional").assertExists()
                 val planDirectory=File(compose.activity.getExternalFilesDir(null),"native-ui-evidence");planDirectory.mkdirs()
                 File(planDirectory,"engine1-workout-after-forced-offline-restart.png").outputStream().use { assertTrue(displayBitmap().compress(Bitmap.CompressFormat.PNG,100,it)) }
+                val pendingSession=savedPlan.sessions[1]
+                assertNull(pendingSession.log)
+                assertEquals("Synthetic unconfirmed entry after process restart",app.repository.state.value.workoutDrafts[savedPlan.id to pendingSession.id]?.notes)
+                compose.onNodeWithTag("nav-training").performClick()
+                compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("training-calendar"))
+                compose.onNodeWithContentDescription("${pendingSession.date}, ${pendingSession.title}, ${pendingSession.status}").performScrollTo().performClick()
+                compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-${pendingSession.id}"))
+                compose.onNodeWithTag("workout-${pendingSession.id}").performClick()
+                if(compose.onAllNodesWithTag("workout-player").fetchSemanticsNodes().isNotEmpty())compose.onNodeWithTag("workout-review").performClick()
+                compose.onNodeWithTag("screen").performScrollToNode(hasText("How did it feel?"))
+                compose.onNodeWithText("Synthetic unconfirmed entry after process restart").assertExists()
+                File(planDirectory,"entry-draft-after-forced-offline-restart.png").outputStream().use { assertTrue(displayBitmap().compress(Bitmap.CompressFormat.PNG,100,it)) }
                 compose.onNodeWithTag("nav-home").performClick()
                 compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("activity-synthetic-process-activity"))
                 compose.onNodeWithTag("activity-synthetic-process-activity").assertExists()
@@ -116,6 +130,8 @@ class NativeProcessProbeTest {
                     assertEquals(2500.0,repository.state.value.activities.first().distanceM!!,0.0)
                     assertNull(repository.state.value.activities.first().maximumHr)
                     val plan=repository.state.value.plans.single();assertEquals(1,plan.sessions.count { it.status=="completed" });assertEquals(1,plan.feedback.size)
+                    assertNull(plan.sessions[1].log)
+                    assertEquals("Synthetic unconfirmed entry after process restart",repository.state.value.workoutDrafts[plan.id to plan.sessions[1].id]?.notes)
                 }
                 SessionVault(context).clear(account)
             }

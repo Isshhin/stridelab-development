@@ -9,14 +9,21 @@ internal object Engine1Engines {
         "str" to listOf("General strength","Muscle development","Strength endurance"),
         "cal" to listOf("Calisthenics foundation","Pull-up progression","Push-up progression","Core strength and control","Handstand foundations"),
         "cond" to listOf("Conditioning"))
-    val knownPolicies=setOf(ENGINE1_POLICY,CoordinatedEngine1.policyId,SessionTemplate.POLICY_ID)
+    val knownPolicies=setOf(ENGINE1_POLICY,CoordinatedEngine1.policyId,MultiSessionEngine1.policyId,SessionTemplate.POLICY_ID)
     fun canManage(plan:PlanSnapshot)=plan.engineVersion==ENGINE1_VERSION && plan.policyId in knownPolicies
     fun discipline(goal:String)=goals.entries.find { goal in it.value }?.key
     fun goal(p:PlanRequest,discipline:String):String=p.disciplineGoals[discipline] ?: p.goal.takeIf { it in goals.getValue(discipline) } ?: goals.getValue(discipline).first()
     fun resolve(p:PlanRequest):PlanGenerationEngine=when(p.policyChoice) {
         "baseline"->Engine1
         "coordinated"->CoordinatedEngine1
+        "multi-session"->MultiSessionEngine1
         else->throw PlanConstraint("Choose a supported Engine 1.0 planning policy.")
+    }
+    fun validate(p:PlanRequest) {
+        when(resolve(p)) {
+            MultiSessionEngine1->MultiSessionEngine1.validate(p)
+            else->Engine1.validate(p)
+        }
     }
 }
 /** Additional explicit discipline goals, not response-learning or Advanced Engine 2.0. */

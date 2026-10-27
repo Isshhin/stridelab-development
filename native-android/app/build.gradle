@@ -10,8 +10,8 @@ android {
         applicationId 'io.stridelab.privatealpha'
         minSdk 26
         targetSdk 35
-        versionCode = (project.findProperty('strideVersionCode') ?: '14').toInteger()
-        versionName = '0.6.5-engine1-goals'
+        versionCode = (project.findProperty('strideVersionCode') ?: '15').toInteger()
+        versionName = '0.6.6-guided-workout'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     // Reuse the exact database, encryption, backup codec and isolated legacy screen.

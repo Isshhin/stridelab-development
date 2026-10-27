@@ -1,8 +1,8 @@
 name: Native Android migration verification
 on:
   push:
-    branches: ['feature/native-compose-migration-20261026', 'feature/native-real-data-phase2-20261026', 'feature/native-reconstruction-1-20261026']
-    paths: ['native-android/**', 'android-app/android/app/src/**', '.github/workflows/native-android.yml']
+    branches: ['feature/native-compose-migration-20261026', 'feature/native-real-data-phase2-20261026', 'feature/native-reconstruction-1-20261026', 'feature/native-guided-multisession-integration-20261027']
+    paths: ['native-android/**', 'android-app/android/app/src/**', 'docs/NATIVE-GUIDED-MULTISESSION-INTEGRATION.md', '.github/workflows/native-android.yml']
   workflow_dispatch:
     inputs:
       durable_signed_build:
@@ -10,8 +10,8 @@ on:
         type: boolean
         default: false
       signed_version_code:
-        description: Signed versionCode, higher than installed build (minimum 14)
-        default: '14'
+        description: Signed versionCode, higher than installed build (minimum 15)
+        default: '15'
         required: true
 permissions:
   contents: read

@@ -18,7 +18,7 @@ import java.util.UUID
 @Composable internal fun PracticeBuilder(state:TrainingState,actions:PlanActions,key:String,onDone:()->Unit,onPreview:(String,String)->Unit,onApproved:()->Unit) {
     val context=LocalContext.current
     var catalog by remember { mutableStateOf<List<LibraryEntry>>(emptyList()) };var failed by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { runCatching { withContext(Dispatchers.IO) { readLibrary(context) } }.onSuccess { catalog=it }.onFailure { failed=true } }
+    LaunchedEffect(Unit) { withContext(Dispatchers.Main.immediate) { runCatching { withContext(Dispatchers.IO) { readLibrary(context) } }.onSuccess { catalog=it }.onFailure { failed=true } } }
     if(state.account==null || catalog.isEmpty()) { Screen("Prepare a session","LIBRARY") { item { Text(if(state.account==null)"Sign in once through Settings to keep practice and templates private to your account." else if(failed)"The preserved library could not be opened." else "Opening offline movement library…");TextButton(onClick=onDone) { Text("Back") } } };return }
     val saved=state.templates.find { "saved-${it.id}"==key }
     val entry=catalog.find { "entry-${it.id}"==key }
