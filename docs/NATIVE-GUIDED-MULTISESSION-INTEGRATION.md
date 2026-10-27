@@ -2,7 +2,7 @@
 
 ## Status
 
-The integration is implemented on `feature/native-guided-multisession-integration-20261027`. Implementation commit `110cfe80683aa47d0db479adf39a73c2c661194a` passed the complete native Android workflow on its exact head in run #46, attempt 2. A later exact-head run on `baabed5d46faa56189f5598fd3feb65001f42901` exposed unreliable duration entry in the combined UI regression; the test hardening is included in this follow-up and requires another exact-head run before checkpointing.
+The integration is implemented on `feature/native-guided-multisession-integration-20261027`. Implementation commit `fcc0d9cad4fae68052772b2eb2542b8b094a9d56` passed the complete native Android workflow on its exact head in [run #48](https://github.com/Isshhin/stridelab-development/actions/runs/40469589357). The report-only follow-up must also pass its exact-head workflow before being checkpointed.
 
 ## Verified sources and ancestry
 
@@ -46,7 +46,7 @@ The locally skipped upgrade test is exercised through the workflow's upgrade fix
 
 ## GitHub Actions exact-head verification
 
-The complete native workflow tested implementation SHA `110cfe80683aa47d0db479adf39a73c2c661194a` in [run #46](https://github.com/Isshhin/stridelab-development/actions/runs/40463343363), attempt 2. Every step in `native-android` passed; the durable-private-signing job was skipped by its configured condition.
+The latest complete workflow tested implementation SHA `fcc0d9cad4fae68052772b2eb2542b8b094a9d56` in [run #48](https://github.com/Isshhin/stridelab-development/actions/runs/40469589357). Every step in `native-android` passed; the durable-private-signing job was skipped by its configured condition.
 
 | CI check | Result |
 |---|---|
@@ -57,19 +57,19 @@ The complete native workflow tested implementation SHA `110cfe80683aa47d0db479ad
 | Private APK package and upload | Passed |
 | Source/evidence archive | Passed |
 
-Attempt 1 of the same run failed in `LegacyUpgradeSeedTest.waitForInteractiveFrame` after the legacy document loaded but its WebView frame did not become ready. Emulator boot had initially reported ADB offline. No legacy launcher, upgrade test, or scheduling implementation files changed between the two attempts; the second complete run passed the seed and all subsequent probes. This is classified as a transient emulator/WebView readiness failure, not evidence of an integration regression. The test was not skipped or weakened.
+Run #46 attempt 1 failed in `LegacyUpgradeSeedTest.waitForInteractiveFrame` after the legacy document loaded but its WebView frame did not become ready. Emulator boot had initially reported ADB offline. No legacy launcher, upgrade test, or scheduling implementation files changed between attempts; attempt 2 passed the seed and all subsequent probes. This is classified as a transient emulator/WebView readiness failure, not evidence of an integration regression. The test was not skipped or weakened.
 
-Run #47 tested report commit `baabed5d46faa56189f5598fd3feb65001f42901` and failed one of 79 connected instrumentation tests. The combined UI regression completed the workout but its optional run duration was absent, causing a null assertion at `Engine1UiTest.kt:110`. The test now targets the duration field by a nonvisual test tag, uses text replacement, asserts the `EditableText` value before saving, and reports missing saved durations explicitly. This changes no visible UI behavior. The focused regression passed locally (1/1), and the complete `Engine1UiTest` class passed locally (10/10) on the isolated emulator after the change; the next exact-head workflow is the required final verification.
+Run #47 tested report commit `baabed5d46faa56189f5598fd3feb65001f42901` and failed one of 79 connected instrumentation tests. The combined UI regression completed the workout but its optional run duration was absent, causing a null assertion at `Engine1UiTest.kt:110`. The test now targets the duration field by a nonvisual test tag, uses text replacement, asserts the `EditableText` value before saving, and reports missing saved durations explicitly. This changes no visible UI behavior. The focused regression passed locally (1/1), the complete `Engine1UiTest` class passed locally (10/10), and the follow-up exact-head run #48 passed all checks.
 
 ## CI APK artifact
 
-Run #46 uploaded the private artifact `stridelab-native-private-apk-110cfe80683aa47d0db479adf39a73c2c661194a` (30-day retention):
+Run #48 uploaded the private artifact `stridelab-native-private-apk-fcc0d9cad4fae68052772b2eb2542b8b094a9d56` (30-day retention):
 
 - Application ID: `io.stridelab.privatealpha`
 - Version name/code: `0.6.6-guided-workout` / `15`
-- APK SHA-256: `0babc375f3da31e1bdf2772215f307287103a11f4b76a07e18b131c64e810ec4`
-- Signing certificate SHA-256: `467c723ba6de11b850f68288625304a351154723f4e94bfd98884266377150eb` (ephemeral CI debug key)
-- Source commit: `110cfe80683aa47d0db479adf39a73c2c661194a`
+- APK SHA-256: `d8dd6e00908e3c936ac32fbebd54945ab631a2f476f73e921aa6ec289f996648`
+- Signing certificate SHA-256: `7a71818200866e4bb3af43b9d6bee59048a95a08907795dba85237a27583bfed` (ephemeral CI debug key)
+- Source commit: `fcc0d9cad4fae68052772b2eb2542b8b094a9d56`
 - Existing-phone signer compatibility: unknown; in-place update is not verified. The APK is unsuitable for an in-place phone update.
 
 ## APK and signing
