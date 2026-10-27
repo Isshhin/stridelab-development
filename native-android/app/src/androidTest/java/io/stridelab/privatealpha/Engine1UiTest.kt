@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
+import android.view.KeyEvent
 import android.graphics.Bitmap
 import org.junit.Rule
 import org.junit.Test
@@ -79,6 +80,7 @@ class Engine1UiTest {
         compose.onNodeWithTag("workout-${run.id}").performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Save completed workout"))
         compose.onNodeWithText("Actual duration (minutes), optional").performTextInput("20")
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Save completed workout"))
         compose.onNodeWithText("Save completed workout",useUnmergedTree=true).performClick()
         assertEquals("completed",state.value.plans.single().sessions.single { it.id==run.id }.status)
@@ -88,6 +90,7 @@ class Engine1UiTest {
         compose.onNodeWithTag("workout-${cal.id}").performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Save completed workout"))
         compose.onNodeWithText("Actual duration (minutes), optional").performTextInput("25")
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Save completed workout"))
         compose.onNodeWithText("Save completed workout",useUnmergedTree=true).performClick()
         val completed=state.value.plans.single()
