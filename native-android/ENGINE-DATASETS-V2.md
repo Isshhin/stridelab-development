@@ -11,6 +11,7 @@
 | `app/src/test/resources/engine/engine2_longitudinal_recipes_v2.json` | Human-reviewable long-horizon cases | **64** distinct recipes, each **12–16 weeks** |
 | `tools/build_engine2_scenarios.py` | Generate data from recipes with deterministic seed and optional variants | 1–20 variants per recipe; **maximum 1,280 fictional athlete histories** |
 | `tools/tests/test_engine2_scenario_matrix.py` | Validate recipe contracts, generated observations, missingness, equipment IDs, duplicate sources and seed stability | Runs with Python standard library in normal CI |
+| `tools/report_engine2_coverage.py` | Inspect the generated test corpus without dumping raw data | Compact deterministic counts by discipline, source, missing measurement, missing week, duplicate group, flagged sensor and rejected unit input |
 | `app/src/test/java/io/stridelab/privatealpha/Engine2RecipeContractTest.kt` | Assert Kotlin/JVM compatibility with recipe and evidence metadata | Runs as part of `:app:testDebugUnitTest` |
 | `app/src/test/resources/engine/engine2_evidence_registry_v1.json` | Source-scoped research metadata, not coaching parameters | WHO physical-activity guidelines, ACSM 2026 resistance-training position, IOC training-load consensus |
 
@@ -29,6 +30,9 @@ python3 tools/build_engine2_scenarios.py --seed 20261027 --limit 64 --variants 1
 
 # Stress run: 640 entirely fictional histories. Output can be large.
 python3 tools/build_engine2_scenarios.py --seed 20261027 --limit 64 --variants 10 --output /tmp/stride-fixtures-stress.json
+
+# Lightweight coverage inspection without emitting full athlete histories
+python3 tools/report_engine2_coverage.py --seed 20261027 --limit 64 --variants 1
 
 # Automated input and provenance tests, including all 64 scenarios
 python3 -m unittest discover -s tools/tests -p 'test_engine2_scenario_matrix.py' -v
