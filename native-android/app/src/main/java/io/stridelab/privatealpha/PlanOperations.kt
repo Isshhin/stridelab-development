@@ -85,10 +85,18 @@ internal object PlanOperations {
             val prescription=s.effectiveExercises.find { it.id==row.exerciseId } ?: throw PlanConstraint("This exercise is not in the saved prescription.")
             if(row.set !in 1..prescription.sets || row.reps?.let { it !in 0..500 }==true || row.seconds?.let { it !in 0..3600 }==true || !valid(row.kg,true))throw PlanConstraint("Check the actual set number, repetitions, hold seconds and load.")
         }
-        // Actual performed sets, not prescribed targets or duration alone, establish strength/calisthenics completion.
-        // Partially completed sessions remain valid when at least one actual set has positive reps or hold time.
-        if(complete && s.discipline in setOf("str","cal") && log.sets.none { (it.reps ?: 0)>0 || (it.seconds ?: 0)>0 })
-            throw PlanConstraint("Record at least one performed set before completing this strength or calisthenics workout. Otherwise save progress without marking it completed.")
+        // A performed set must record the exercise's actual measurement type. Duration,
+        // planned targets, load-only rows, and mismatched reps/hold values cannot prove completion.
+        // A deliberately shortened workout remains valid with even one matching positive actual set.
+        if(complete && s.discipline in setOf("str","cal") && log.sets.none { row ->
+                val prescribed=s.effectiveExercises.firstOrNull { it.id==row.exerciseId }
+                when {
+                    prescribed?.seconds!=null -> (row.seconds ?: 0)>0
+                    prescribed?.reps!=null -> (row.reps ?: 0)>0
+                    else -> false
+                }
+            })
+            throw PlanConstraint("Record at least one performed set with actual reps or hold seconds before completing this strength or calisthenics workout. Otherwise save progress without marking it completed.")
         val desiredStatus=if(complete) "completed" else "in_progress"
         if(s.status==desiredStatus && s.log==log)return plan
         if(s.logRevision==Int.MAX_VALUE)throw PlanConstraint("This saved log needs a supported revision before editing.")
