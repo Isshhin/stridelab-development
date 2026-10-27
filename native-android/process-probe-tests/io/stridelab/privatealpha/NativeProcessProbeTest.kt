@@ -80,6 +80,8 @@ class NativeProcessProbeTest {
                 assertNull(pendingSession.log)
                 assertEquals("Synthetic unconfirmed entry after process restart",app.repository.state.value.workoutDrafts[savedPlan.id to pendingSession.id]?.notes)
                 compose.onNodeWithTag("nav-training").performClick()
+                compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("training-calendar"))
+                compose.onNodeWithContentDescription("${pendingSession.date}, ${pendingSession.title}, ${pendingSession.status}").performScrollTo().performClick()
                 compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-${pendingSession.id}"))
                 compose.onNodeWithTag("workout-${pendingSession.id}").performClick()
                 if(compose.onAllNodesWithTag("workout-player").fetchSemanticsNodes().isNotEmpty())compose.onNodeWithTag("workout-review").performClick()
