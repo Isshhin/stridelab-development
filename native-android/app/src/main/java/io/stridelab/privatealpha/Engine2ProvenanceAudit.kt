@@ -20,7 +20,7 @@ internal data class Engine2ProvenanceReport(
     val sourceCollisions: List<Engine2SourceCollision>,
     val runsWithoutProviderMeasurements: Int
 ) {
-    val safelyIndexed: Boolean get() = sourceCollisions.isEmpty()
+    val hasNoExactProviderIdCollisions: Boolean get() = sourceCollisions.isEmpty()
 }
 
 internal object Engine2ProvenanceAudit {
