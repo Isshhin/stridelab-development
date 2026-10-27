@@ -19,6 +19,12 @@ internal object Engine1Engines {
         "multi-session"->MultiSessionEngine1
         else->throw PlanConstraint("Choose a supported Engine 1.0 planning policy.")
     }
+    fun validate(p:PlanRequest) {
+        when(resolve(p)) {
+            MultiSessionEngine1->MultiSessionEngine1.validate(p)
+            else->Engine1.validate(p)
+        }
+    }
 }
 /** Additional explicit discipline goals, not response-learning or Advanced Engine 2.0. */
 internal object CoordinatedEngine1:PlanGenerationEngine {

@@ -137,6 +137,55 @@ class MultiSessionEngine1Test {
         }
     }
 
+    @Test fun calendarMovementChecksOtherApprovedPlansUnderBothPolicies() {
+        val selected = MultiSessionEngine1.generate(request().copy(
+            weeks = 1, runDays = 0, calDays = 1
+        ), "synthetic-owner", "selected", now)
+        val baselineRequest = PlanRequest(
+            goal = "Improve 5K", start = start, weeks = 1, days = (1..7).toSet(),
+            runDays = 1, longDay = 6, policyChoice = "baseline"
+        )
+        val other = Engine1.generate(baselineRequest, "synthetic-owner", "other", now)
+        val approvedSelected = PlanOperations.approve(selected, emptyList())
+        val approvedOther = PlanOperations.approve(other, listOf(approvedSelected))
+        val cal = approvedSelected.sessions.single()
+        val longRun = approvedOther.sessions.single { it.kind == "long" }
+        assertThrows(PlanConstraint::class.java) {
+            PlanOperations.move(approvedSelected, cal.id, longRun.date, listOf(approvedSelected, approvedOther))
+        }
+
+        val easyRunPlan = MultiSessionEngine1.generate(request().copy(
+            weeks = 1, runDays = 2, calDays = 0
+        ), "synthetic-owner", "easy-approved", now)
+        val easyRun = easyRunPlan.sessions.single { it.kind != "long" }
+        val compatibleCal = selected.sessions.single().copy(date = easyRun.date)
+        val compatiblePlan = approvedSelected.copy(sessions = listOf(compatibleCal))
+        val approvedEasy = PlanOperations.approve(easyRunPlan, emptyList())
+        val moved = PlanOperations.move(compatiblePlan, compatibleCal.id, easyRun.date, listOf(compatiblePlan, approvedEasy))
+        assertEquals(easyRun.date, moved.sessions.single().date)
+    }
+
+    @Test fun movementEnforcesSharedDailyBudgetAgainstApprovedCompatiblePlan() {
+        val generated=MultiSessionEngine1.generate(request().copy(
+            weeks=1,runDays=2,calDays=1,dailyMinutes=120
+        ),"synthetic-owner","budget-cross",now)
+        val cal=generated.sessions.single { it.discipline=="cal" }
+        val easy=generated.sessions.single { it.discipline=="run"&&it.kind!="long" }
+        assertNotEquals(cal.date,easy.date)
+        val budget=cal.minutes+easy.minutes-1
+        val moving=generated.copy(
+            sessions=listOf(cal),status="approved",
+            request=generated.request.copy(dailyMinutes=budget)
+        )
+        val other=generated.copy(
+            id="approved-easy",sessions=listOf(easy),status="approved",
+            request=generated.request.copy(dailyMinutes=budget)
+        )
+        assertThrows(PlanConstraint::class.java) {
+            PlanOperations.move(moving,cal.id,easy.date,listOf(moving,other))
+        }
+    }
+
     @Test fun approvalAllowsCompatibleCrossPlanPairButRejectsIncompatibilityAndSharedBudgetOverflow() {
         val plan = MultiSessionEngine1.generate(request().copy(
             weeks = 1, runDays = 2, calDays = 1
@@ -201,6 +250,11 @@ class MultiSessionEngine1Test {
             Engine1.generate(baselineRequest.copy(runDays = 5, calDays = 3), "synthetic-owner", "legacy")
         }
         assertSame(MultiSessionEngine1, Engine1Engines.resolve(request()))
+        Engine1Engines.validate(request())
+        assertThrows(PlanConstraint::class.java) { Engine1.validate(request()) }
+        assertThrows(PlanConstraint::class.java) {
+            Engine1Engines.validate(baselineRequest.copy(runDays = 5, calDays = 3))
+        }
 
         val oldJson = baseline.encode()
         oldJson.getJSONObject("request").remove("dailyMinutes")

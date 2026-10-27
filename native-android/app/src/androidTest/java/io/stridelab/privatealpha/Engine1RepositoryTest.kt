@@ -10,15 +10,17 @@ import org.junit.*
 import org.junit.Assert.*
 import java.time.Instant
 import java.time.LocalDate
+import java.time.DayOfWeek
+import java.time.temporal.TemporalAdjusters
 
 /** Isolated real SQLite/Keystore and fake auth transport. Never contacts an athlete backend. */
 class Engine1RepositoryTest {
     private val context=ApplicationProvider.getApplicationContext<Context>()
-    private val database="synthetic-engine1.db";private val prefs="synthetic-engine1";private val owner="synthetic-engine1-owner"
+    private val databaseName="synthetic-engine1.db";private val prefs="synthetic-engine1";private val owner="synthetic-engine1-owner"
     private lateinit var repo:TrainingRepository;private val gateway=Gateway()
-    private fun open()=runBlocking { repo=TrainingRepository(context,gateway,database,prefs);repo.state.first { !it.initializing } }
-    @Before fun setup() { context.deleteDatabase(database);context.getSharedPreferences(prefs,0).edit().clear().commit();SessionVault(context).clear(owner);gateway.owner=owner;gateway.offline=false;gateway.rows=JSONArray();open() }
-    @After fun cleanup() { repo.close();context.deleteDatabase(database);context.getSharedPreferences(prefs,0).edit().clear().commit();SessionVault(context).clear(owner);SessionVault(context).clear("synthetic-engine1-other") }
+    private fun open()=runBlocking { repo=TrainingRepository(context,gateway,databaseName,prefs);repo.state.first { !it.initializing } }
+    @Before fun setup() { context.deleteDatabase(databaseName);context.getSharedPreferences(prefs,0).edit().clear().commit();SessionVault(context).clear(owner);gateway.owner=owner;gateway.offline=false;gateway.rows=JSONArray();open() }
+    @After fun cleanup() { repo.close();context.deleteDatabase(databaseName);context.getSharedPreferences(prefs,0).edit().clear().commit();SessionVault(context).clear(owner);SessionVault(context).clear("synthetic-engine1-other") }
     private fun request()=PlanRequest(start=LocalDate.parse("2026-11-02"),runDays=0,strengthDays=2,weeks=4,equipment=mapOf("db" to 1))
     @Test fun generationDraftApprovalCalendarAndActualLoggingSurviveOfflineReopen()=runBlocking {
         assertTrue(repo.signIn("synthetic@example.invalid","fixture"));assertTrue(repo.generatePlan(request()))
@@ -33,6 +35,61 @@ class Engine1RepositoryTest {
         assertEquals(1,done.sessions.count { it.status=="completed" });assertNull(done.sessions.first().log!!.distanceKm)
         assertFalse(repo.recordWorkout(reopened.id,reopened.revision,session.id,log,true));assertEquals(1,repo.state.value.plans.single().sessions.count { it.status=="completed" })
         repo.close();open();assertEquals("completed",repo.state.value.plans.single().sessions.first().status)
+    }
+    @Test fun multiSessionPlanIndependentLogsPersistInSqliteAndReopenOffline()=runBlocking {
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)
+        val request=PlanRequest(goal="Improve 5K",start=start,weeks=1,days=(1..7).toSet(),runDays=5,calDays=3,longDay=6,weeklyKm=30.0,longestKm=12.0,policyChoice="multi-session",dailyMinutes=90)
+        assertTrue(repo.generatePlan(request))
+        var plan=repo.state.value.plans.single()
+        assertEquals(8,plan.sessions.size)
+        assertEquals(7,plan.sessions.map { it.date }.distinct().size)
+        assertTrue(repo.approvePlan(plan.id,plan.revision));plan=repo.state.value.plans.single()
+        val pair=plan.sessions.groupBy { it.date }.values.single { it.size==2 }
+        val run=pair.single { it.discipline=="run" };val cal=pair.single { it.discipline=="cal" }
+        assertTrue(repo.recordWorkout(plan.id,plan.revision,run.id,WorkoutLog(Instant.now(),minutes=20.0,distanceKm=3.1),true))
+        plan=repo.state.value.plans.single()
+        assertTrue(repo.recordWorkout(plan.id,plan.revision,cal.id,WorkoutLog(Instant.now(),minutes=25.0,effort=4),true))
+        plan=repo.state.value.plans.single()
+        assertEquals("completed",plan.sessions.single { it.id==run.id }.status)
+        assertEquals("completed",plan.sessions.single { it.id==cal.id }.status)
+        assertEquals(3.1,plan.sessions.single { it.id==run.id }.log!!.distanceKm!!,0.0)
+        assertNull(plan.sessions.single { it.id==cal.id }.log!!.distanceKm)
+
+        val persistedDatabase=context.openOrCreateDatabase(databaseName,Context.MODE_PRIVATE,null)
+        try {
+            persistedDatabase.query("records",arrayOf("payload"),"account=? AND kind=? AND record_id=?",arrayOf(owner,"plan",plan.id),null,null,null).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                val persisted=PlanSnapshot.decode(JSONObject(cursor.getString(0)),owner)
+                assertEquals("completed",persisted.sessions.single { it.id==run.id }.status)
+                assertEquals(20.0,persisted.sessions.single { it.id==run.id }.log!!.minutes!!,0.0)
+                assertEquals("completed",persisted.sessions.single { it.id==cal.id }.status)
+                assertEquals(25.0,persisted.sessions.single { it.id==cal.id }.log!!.minutes!!,0.0)
+            }
+        } finally { persistedDatabase.close() }
+
+        repo.close();gateway.offline=true;open()
+        val reopened=repo.state.value.plans.single()
+        assertEquals(plan,reopened)
+        assertEquals(2,reopened.sessions.count { it.status=="completed" })
+    }
+    @Test fun repositoryMovementRejectsAnotherApprovedPlansIncompatibleSession()=runBlocking {
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)
+        val calRequest=PlanRequest(goal="Calisthenics foundation",start=start,weeks=1,days=(1..7).toSet(),runDays=0,calDays=1,policyChoice="multi-session",dailyMinutes=90)
+        assertTrue(repo.generatePlan(calRequest))
+        var calPlan=repo.state.value.plans.single()
+        assertTrue(repo.approvePlan(calPlan.id,calPlan.revision));calPlan=repo.state.value.plans.single()
+        val runRequest=PlanRequest(goal="Improve 5K",start=start,weeks=1,days=(1..7).toSet(),runDays=1,longDay=6,policyChoice="baseline")
+        assertTrue(repo.generatePlan(runRequest))
+        var runPlan=repo.state.value.plans.first { it.id!=calPlan.id }
+        assertTrue(repo.approvePlan(runPlan.id,runPlan.revision));runPlan=repo.state.value.plans.first { it.id==runPlan.id }
+        val cal=calPlan.sessions.single()
+        val longRun=runPlan.sessions.single { it.kind=="long" }
+        assertNotEquals(cal.date,longRun.date)
+        assertFalse(repo.moveSession(calPlan.id,calPlan.revision,cal.id,longRun.date))
+        assertEquals(cal.date,repo.state.value.plans.single { it.id==calPlan.id }.sessions.single { it.id==cal.id }.date)
+        assertTrue(repo.state.value.plans.single { it.id==runPlan.id }.sessions.single { it.id==longRun.id }.date==longRun.date)
     }
     @Test fun plansAndPrivateFeedbackAreOwnerIsolatedAndPreservedAcrossAccountSwitches()=runBlocking {
         assertTrue(repo.signIn("synthetic@example.invalid","fixture"));assertTrue(repo.generatePlan(request()))
