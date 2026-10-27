@@ -111,7 +111,12 @@ class Engine1Test {
         val p=PlanOperations.approve(generate(PlanRequest(start=start)),emptyList());val s=p.sessions.first()
         val linked=PlanOperations.linkActivity(p,s.id,"real-source-id")
         assertEquals(s.copy(status="completed",linkedActivityId="real-source-id",linkPreviousStatus="planned"),linked.sessions.first())
-        assertEquals(p,PlanOperations.linkActivity(linked,s.id,null))
+        assertEquals(linked,PlanOperations.linkActivity(linked,s.id,"real-source-id"))
+        assertThrows(PlanConstraint::class.java) { PlanOperations.linkActivity(linked,s.id,"different-source-id") }
+        val unlinked=PlanOperations.linkActivity(linked,s.id,null)
+        assertEquals(p,unlinked)
+        assertEquals(p,PlanOperations.linkActivity(p,s.id,null))
+        assertEquals("different-source-id",PlanOperations.linkActivity(unlinked,s.id,"different-source-id").sessions.first().linkedActivityId)
         val actual=LocalDate.now().minusDays(1)
         val done=PlanOperations.record(p,s.id,WorkoutLog(now,minutes=15.0,performedOn=actual),true)
         assertEquals(actual,PlanSnapshot.decode(done.encode(),"synthetic-owner").sessions.first().log!!.performedOn)
