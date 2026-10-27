@@ -49,7 +49,6 @@
     {
       "id": "IOC-2016-LOAD-AND-INJURY",
       "issuer": "International Olympic Committee consensus authors",
-      "issued": "2016-01-01",
       "title": "How much is too much? Part 1: load in sport and risk of injury",
       "url": "https://doi.org/10.1136/BJSPORTS-2016-096581",
       "scope": "Sport-load monitoring consensus; older evidence and population-specific limitations",
@@ -65,12 +64,12 @@
         "no_single_metric_readiness",
         "cross_discipline_conflicts",
         "do_not_diagnose"
-      ]
+      ],
+      "publicationYear": 2016
     },
     {
       "id": "IOC-2016-LOAD-AND-ILLNESS",
       "issuer": "International Olympic Committee consensus authors",
-      "issued": "2016-01-01",
       "title": "How much is too much? Part 2: load in sport and risk of illness",
       "url": "https://doi.org/10.1136/BJSPORTS-2016-096572",
       "scope": "Sport illness/load consensus; limited evidence for risk quantification across sports and populations",
@@ -86,7 +85,8 @@
         "do_not_diagnose",
         "no_catchup_volume",
         "missing_is_unknown"
-      ]
+      ],
+      "publicationYear": 2016
     }
   ],
   "governance": {
