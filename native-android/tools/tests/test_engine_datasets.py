@@ -79,7 +79,7 @@ class EngineDatasetValidationTest(unittest.TestCase):
         doc = load("synthetic_athlete_scenarios_v1.json")
         self.assertEqual((1, "synthetic-only"),
                          (doc["schemaVersion"], doc["classification"]))
-        self.assertIn("not model training data", doc["intent"])
+        self.assertIn("not model training data", doc["intent"].lower())
         scenario_ids, record_ids = set(), set()
         sources_by_event = defaultdict(set)
         total = 0
