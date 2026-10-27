@@ -152,6 +152,29 @@ class Engine1RepositoryTest {
         assertTrue(repo.linkActivity(p.id,p.revision,first,null));p=repo.state.value.plans.single()
         assertEquals("planned",p.sessions.first { it.id==first }.status);assertEquals(1,repo.state.value.activities.size)
     }
+    @Test fun linkedRunCannotBeSilentlyReplacedAndOriginalSurvivesOfflineReopen()=runBlocking {
+        val first=JSONObject().put("id","source-run-first").put("user_id",owner).put("title","First actual run")
+            .put("source","intervals").put("activity_type","run").put("started_at","2026-10-24T00:00:00Z").put("distance_m",3000).put("duration_s",1200)
+        val other=JSONObject().put("id","source-run-other").put("user_id",owner).put("title","Other actual run")
+            .put("source","intervals").put("activity_type","run").put("started_at","2026-10-25T00:00:00Z").put("distance_m",5000).put("duration_s",1800)
+        gateway.rows=JSONArray().put(first).put(other)
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        assertEquals(2,repo.state.value.activities.size)
+        assertTrue(repo.generatePlan(PlanRequest(start=request().start)))
+        var plan=repo.state.value.plans.single()
+        assertTrue(repo.approvePlan(plan.id,plan.revision))
+        plan=repo.state.value.plans.single()
+        val session=plan.sessions.first()
+        assertTrue(repo.linkActivity(plan.id,plan.revision,session.id,"source-run-first"))
+        plan=repo.state.value.plans.single()
+        assertFalse(repo.linkActivity(plan.id,plan.revision,session.id,"source-run-other"))
+        assertEquals(plan,repo.state.value.plans.single())
+        repo.close();gateway.offline=true;open()
+        plan=repo.state.value.plans.single()
+        assertEquals("source-run-first",plan.sessions.first { it.id==session.id }.linkedActivityId)
+        assertEquals("completed",plan.sessions.first { it.id==session.id }.status)
+        assertEquals(2,repo.state.value.activities.size)
+    }
     @Test fun easierExerciseAndItsActualSetReopenOfflineWithOriginalPrescriptionIntact()=runBlocking {
         assertTrue(repo.signIn("synthetic@example.invalid","fixture"));assertTrue(repo.generatePlan(request()));var p=repo.state.value.plans.single()
         assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single();val original=p.sessions.first().exercises.first();val sid=p.sessions.first().id
