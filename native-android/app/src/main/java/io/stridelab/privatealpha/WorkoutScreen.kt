@@ -147,6 +147,7 @@ import kotlinx.coroutines.flow.drop
             session.log?.let { Text("Saved ${it.at} · ${it.sets.size} sets with recorded values",style=MaterialTheme.typography.bodySmall) }
         } }
         formError?.let { item { Text(it,color=MaterialTheme.colorScheme.error) } }
+        if(active && session.discipline in setOf("str","cal")) item { Text("To complete this workout, record at least one performed set with actual reps or hold time. Otherwise save your progress; planned targets do not count as recorded work.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant) }
         if(active) item { SignalButton("Save completed workout",{try {formError=null;actions.record(plan.id,plan.revision,session.id,log(),true)}catch(e:PlanConstraint){formError=e.message}},!state.busy)
             OutlinedButton(onClick={try {formError=null;actions.record(plan.id,plan.revision,session.id,log(),false)}catch(e:PlanConstraint){formError=e.message}},enabled=!state.busy,modifier=Modifier.fillMaxWidth()) { Text("Save progress for offline reopening") }
             Row { TextButton(onClick={missed=true}) { Text("Missed / skipped") };TextButton(onClick={move=true},enabled=session.log==null) { Text("Move workout") } }
