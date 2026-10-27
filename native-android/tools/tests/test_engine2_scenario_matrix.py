@@ -62,6 +62,25 @@ class Engine2ScenarioMatrixTest(unittest.TestCase):
         self.assertEqual(DIMENSIONS, set(dimensions))
         self.assertEqual(set(dimensions.values()), {8})
 
+    def test_evidence_register_is_scoped_not_unreviewed_rule_parameters(self):
+        evidence = json.loads((ROOT / "app/src/test/resources/engine/engine2_evidence_registry_v1.json").read_text(encoding="utf-8"))
+        matrix = json.loads(MATRIX.read_text(encoding="utf-8"))
+        self.assertEqual(1, evidence["schemaVersion"])
+        self.assertEqual("engineering-reference-only", evidence["reviewStatus"])
+        self.assertGreaterEqual(len(evidence["sources"]), 3)
+        ids = set()
+        known_checks = set(matrix["invariantIds"])
+        for source in evidence["sources"]:
+            self.assertNotIn(source["id"], ids)
+            ids.add(source["id"])
+            self.assertTrue(source["url"].startswith("https://"))
+            self.assertTrue(source["issuer"])
+            self.assertTrue(source["takeaways"])
+            self.assertTrue(source["prohibitedUses"])
+            self.assertTrue(set(source["invariants"]) <= known_checks)
+            self.assertNotIn("autoApproved", source)
+        self.assertGreaterEqual(len(evidence["governance"]["promoteToExecutableRuleOnlyAfter"]), 4)
+
     def test_generator_is_deterministic_across_variants_and_does_not_overwrite(self):
         args = ("--seed", 290, "--limit", 8, "--variants", 2)
         first, second = run(*args), run(*args)
