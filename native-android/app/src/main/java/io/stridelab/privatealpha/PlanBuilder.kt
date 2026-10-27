@@ -17,7 +17,7 @@ import org.json.JSONObject
 
 @Composable internal fun PlanBuilder(state:TrainingState,actions:PlanActions,discipline:String="all",onDone:()->Unit,onSignIn:()->Unit,onPreview:(String,String)->Unit) {
     if(state.account==null) { Screen("Create a plan","TRAINING") { item { SignalCard { Text("A watch is optional.",style=MaterialTheme.typography.headlineSmall);Text("Sign in once to keep plans and logs private to your account. You can then build, approve and manage plans offline.");SignalButton("Sign in",onSignIn) } } };return }
-    val baseline=remember { state.plans.firstOrNull { it.policyId in setOf(ENGINE1_POLICY,CoordinatedEngine1.policyId) }?.request ?: PlanRequest(policyChoice="coordinated",weeklyKm=historyWeeklyKm(state.activities) ?: 0.0,longestKm=state.activities.filter { DashboardSummary.isRun(it) }.mapNotNull { it.distanceM }.maxOrNull()?.div(1000) ?: 0.0) }
+    val baseline=remember { state.plans.firstOrNull { it.policyId in setOf(ENGINE1_POLICY,CoordinatedEngine1.policyId) }?.request ?: PlanRequest(policyChoice="coordinated",weeklyKm=historyWeeklyKm(state.activities,plans=state.plans) ?: 0.0,longestKm=state.activities.filter { DashboardSummary.isRun(it) }.mapNotNull { it.distanceM }.maxOrNull()?.div(1000) ?: 0.0) }
     val initial=remember { when(discipline) { "run"->baseline.copy(runDays=3,strengthDays=0,calDays=0,conditioningDays=0);"str"->baseline.copy(goal="General strength",runDays=0,strengthDays=2,calDays=0,conditioningDays=0,qualityCount=0);"cal"->baseline.copy(goal="Calisthenics foundation",runDays=0,strengthDays=0,calDays=2,conditioningDays=0,qualityCount=0);else->baseline } }
     var encoded by rememberSaveable { mutableStateOf(initial.encode().toString()) }
     var step by rememberSaveable { mutableIntStateOf(0) }
@@ -67,7 +67,7 @@ import org.json.JSONObject
             item { FormText("Secondary goal notes",input.secondaryGoal,{edit(input.copy(secondaryGoal=it.take(200)))}) }
             item { Text(if(input.runDays>0) "Running experience" else "General training experience",style=MaterialTheme.typography.titleLarge);ChoiceChips(listOf("Starting","Some experience","Experienced"),input.experience) { edit(input.copy(experience=it)) } }
             if(input.runDays>0) {
-                item { FormText("Recent weekly running distance (km)",km,{km=it},true);Text(historyWeeklyKm(state.activities)?.let { "Saved-record average over the last 28 days: %.1f km/week. History may be incomplete; edit this value.".format(it) } ?: "No history estimate available. Enter your own distance, or use 0 for a time-based beginner block.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { FormText("Recent weekly running distance (km)",km,{km=it},true);Text(historyWeeklyKm(state.activities,plans=state.plans)?.let { "Recorded source / dated-native average over the last 28 days: %.1f km/week. History may be incomplete; edit this value.".format(it) } ?: "No history estimate available. Enter your own distance, or use 0 for a time-based beginner block.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant) }
                 item { FormText("Longest recent run (km)",longest,{longest=it},true);FormText("Planning pace estimate (min/km)",pace,{pace=it},true);Text("An editable planning assumption, not a recorded pace. Use effort and your available time; a watch is optional.",style=MaterialTheme.typography.bodySmall) }
                 item { Text("Quality sessions per week");FrequencyChips(input.qualityCount,2) { edit(input.copy(qualityCount=it)) };Text("Beginners and return-to-running weeks remain easy. Hard sessions require adequate running history and recovery spacing.",style=MaterialTheme.typography.bodySmall) }
             }
@@ -112,9 +112,10 @@ import org.json.JSONObject
 @Composable internal fun ChoiceChips(values:List<String>,selected:Int,onSelect:(Int)->Unit) { FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) { values.forEachIndexed { i,label -> SignalChip(i==selected,{onSelect(i)},label={Text(label)}) } } }
 @Composable internal fun DayChoices(selected:Set<Int>,onSelect:(Int)->Unit) { FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) { (1..7).forEach { d -> SignalChip(d in selected,{onSelect(d)},label={Text(dayName(d))}) } } }
 internal fun dayName(day:Int)=java.time.DayOfWeek.of(day).getDisplayName(java.time.format.TextStyle.SHORT,java.util.Locale.getDefault())
-internal fun historyWeeklyKm(history:List<ActivityRecord>,now:Instant=Instant.now()):Double? {
+internal fun historyWeeklyKm(history:List<ActivityRecord>,now:Instant=Instant.now(),plans:List<PlanSnapshot> = emptyList(),zone:ZoneId=ZoneId.systemDefault()):Double? {
     val rows=history.distinctBy { it.id }.filter { DashboardSummary.isRun(it)&&it.startedAt<=now&&it.startedAt>=now.minusSeconds(28*86400L)&&it.distanceM!=null }
-    return rows.takeIf { it.size>=3 }?.sumOf { it.distanceM!! }?.div(4000.0)
+    val end=now.atZone(zone).toLocalDate();val native=DashboardSummary.confirmedWorkouts(plans,history,now).filter { it.discipline=="run" && it.distanceM!=null && it.date in end.minusDays(27)..end }
+    return if(rows.size+native.size>=3)(rows.sumOf { it.distanceM!! }+native.sumOf { it.distanceM!! })/4000.0 else null
 }
 
 @Composable internal fun NativeDateField(label:String,value:String,onChange:(String)->Unit,enabled:Boolean=true) {

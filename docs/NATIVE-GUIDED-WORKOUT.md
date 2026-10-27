@@ -1,0 +1,23 @@
+# Native guided workout iteration — 27 October 2026
+
+The user reported that the installed version-14 ongoing-workout UI is cumbersome despite working plan/sync flows. They requested inspiration from Leap Fitness Group and specifically selected (1) one exercise at a time with rest/next controls and (2) movement demonstrations/form guidance.
+
+Reference reviewed: the developer's [Home Workout Google Play listing](https://play.google.com/store/apps/details?hl=en_US&id=homeworkout.homeworkouts.noequipment), including its official screenshots. Its emphasis on exercise guidance informed the presentation. No Leap code, images, branding, videos, animation or training claims are copied. StrideLab retains its Afterglow Signal native theme and existing approved prescriptions.
+
+## Implemented slice
+
+Approved/paused, editable resistance and calisthenics sessions with saved exercises open in a native guided player. One movement/set is prominent, with progress based only on actual saved set records. The persistent main action explicitly confirms actual reps/hold time; different actual values and optional load can be entered. Only that set is saved, without marking the entire workout complete or copying planned duration/distance. Rest starts only after the saved log revision confirms the write. Browsing/next does not mark skipped sets performed. Failed/invalid writes cannot start rest.
+
+Rest has pause/resume, +15 seconds and explicit continue. Timed holds have start/pause/reset; countdown completion never records performance. Timers pause in the background. Review & finish opens the existing actual record, completion, alternatives, scheduling and feedback controls. Running sessions without resistance prescriptions retain their existing flow in this slice.
+
+The offline library supplies technique steps and licensed movement figures where appropriate. Related diagrams are not shown as exact demonstrations of different prescribed variants. Full-movement progression images are shown only for the saved full movement; existing labeled schematics remain labeled. Source/author/license details are preserved in the form sheet; compact figures retain attribution. Missing exact guidance stays text-only. Animated/video demonstration coverage is not claimed.
+
+Existing in-progress entry work is integrated: raw editable input drafts are owner scoped, local only, version checked against actual logs, debounced and flushed on exit/background. Drafts never count as actual performance. Old asynchronous drafts cannot replace newer confirmed logs. No destructive schema migration was introduced. Confirmed native workout volume uses only actual dated logs and avoids counting linked source activities twice.
+
+## Verification and delivery
+
+Initial local checks: 84 JVM tests and 14 packaging/signing Python tests passed; 34 targeted emulator tests passed before final visual refinement. Final affected UI rerun and full CI must pass before naming a new verified checkpoint. New tests cover explicit single-set logging, rest, adjusted actuals, invalid input, timer completion without auto-logging, and 200% text. Existing root navigation, quiet sync, account/cache tests remain. Forced-process probes additionally check unconfirmed input reopening offline without a confirmed workout.
+
+Version candidate: 15, `0.6.6-guided-workout`. The user's phone remains on exact verified version 14; no new APK/test APK was installed on it. Tests target only the explicitly selected emulator. The installed certificate matches the prior ephemeral CI job, whose private key availability has not been established. A new CI artifact is a disposable test artifact unless its installed-certificate gate passes. Do not uninstall or clear the phone, claim update compatibility, or start Engine 2.0. Web and preserved legacy assets remain frozen.
+
+Recovery anchor before this iteration: `checkpoint/native-engine1-goals-verified-7d5acdf` (`7d5acdf4bec15f8d95ee07d75fe152532e765d95`), successful run [40372696555](https://github.com/Isshhin/stridelab-development/actions/runs/40372696555). Preserve all earlier checkpoints. Recover the new source from its feature-branch commit and private canonical source archive only after its exact CI evidence is checked.

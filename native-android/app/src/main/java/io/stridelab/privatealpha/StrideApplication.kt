@@ -59,7 +59,8 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
         link={id,r,s,a->viewModelScope.launch { repo.linkActivity(id,r,s,a) }},
         swap={id,r,s,e->viewModelScope.launch { repo.swapExercise(id,r,s,e) }},
         saveTemplate={t->viewModelScope.launch { repo.saveTemplate(t) }},
-        prepareSession={t,p,d->viewModelScope.launch { repo.prepareSession(t,p,d) }}
+        prepareSession={t,p,d->viewModelScope.launch { repo.prepareSession(t,p,d) }},
+        stageWorkoutDraft={draft->viewModelScope.launch { repo.stageWorkoutDraft(draft) }}
     )
     fun signOut() { viewModelScope.launch { repo.signOut() } }
 }

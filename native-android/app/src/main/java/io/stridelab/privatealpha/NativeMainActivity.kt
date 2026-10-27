@@ -165,7 +165,7 @@ private fun NavHostController.openActivity(id: String) {
                                 item { Text("LATEST ACTIVITY", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }
                                 item { ActivityRow(activity) { nav.openActivity(activity.id) } }
                             }
-                            item { WeeklyDashboard(state.activities) }
+                            item { WeeklyDashboard(state.activities,plans=state.plans) }
                             item { WellnessOverview(state.wellness, actions.refreshWellness, online && !state.busy && !state.needsSignIn) }
                             item { HistoryOverview(state.activities) }
                             if(state.activities.count { it.durationS != null } >= 2) item { RecordedDurationChart(state.activities) }

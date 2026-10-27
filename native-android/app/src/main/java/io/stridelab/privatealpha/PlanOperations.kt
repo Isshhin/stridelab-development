@@ -60,7 +60,10 @@ internal object PlanOperations {
             val prescription=s.effectiveExercises.find { it.id==row.exerciseId } ?: throw PlanConstraint("This exercise is not in the saved prescription.")
             if(row.set !in 1..prescription.sets || row.reps?.let { it !in 0..500 }==true || row.seconds?.let { it !in 0..3600 }==true || !valid(row.kg,true))throw PlanConstraint("Check the actual set number, repetitions, hold seconds and load.")
         }
-        val updated=s.copy(status=if(complete) "completed" else "in_progress",log=log)
+        val desiredStatus=if(complete) "completed" else "in_progress"
+        if(s.status==desiredStatus && s.log==log)return plan
+        if(s.logRevision==Int.MAX_VALUE)throw PlanConstraint("This saved log needs a supported revision before editing.")
+        val updated=s.copy(status=desiredStatus,log=log,logRevision=s.logRevision+1)
         return plan.copy(sessions=plan.sessions.map { if(it.id==sessionId) updated else it })
     }
     fun missed(plan:PlanSnapshot,sessionId:String,reason:String,skipped:Boolean):PlanSnapshot {

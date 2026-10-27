@@ -1,4 +1,4 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class,androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class,androidx.compose.foundation.layout.ExperimentalLayoutApi::class,kotlinx.coroutines.FlowPreview::class)
 package io.stridelab.privatealpha
 
 import androidx.compose.foundation.layout.*
@@ -12,25 +12,45 @@ import org.json.JSONObject
 import java.time.Instant
 import java.time.LocalDate
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
 
 @Composable internal fun WorkoutScreen(state:TrainingState,planId:String,sessionId:String,actions:PlanActions,onBack:()->Unit) {
     val plan=state.plans.find { it.id==planId };val session=plan?.sessions?.find { it.id==sessionId }
     if(plan==null||session==null) { Screen("Workout unavailable","TRAINING") { item { Text("This workout is not saved for the current account.");TextButton(onClick=onBack) { Text("Back to Training") } } };return }
     val exercises=session.effectiveExercises
-    var pendingSwap by rememberSaveable(session.id) { mutableStateOf<String?>(null) }
-    var swapId by rememberSaveable(session.id) { mutableStateOf<String?>(null) }
+    val entryDraft=state.workoutDrafts[plan.id to session.id]?.takeIf { it.owner==plan.owner && it.logRevision==session.logRevision }
+    var pendingSwap by rememberSaveable(plan.owner,session.id) { mutableStateOf<String?>(null) }
+    var swapId by rememberSaveable(plan.owner,session.id) { mutableStateOf<String?>(null) }
     val done=session.status=="completed";val active=Engine1Engines.canManage(plan) && plan.status in setOf("approved","paused") && session.status !in setOf("completed","missed","skipped")
-    var minutes by rememberSaveable(session.id) { mutableStateOf(session.log?.minutes?.toString() ?: "") };var distance by rememberSaveable(session.id) { mutableStateOf(session.log?.distanceKm?.toString() ?: "") };var effort by rememberSaveable(session.id) { mutableStateOf(session.log?.effort?.toString() ?: "") };var notes by rememberSaveable(session.id) { mutableStateOf(session.log?.notes ?: "") }
-    var performedOn by rememberSaveable(session.id) { mutableStateOf(session.log?.performedOn?.toString() ?: if(session.log==null)LocalDate.now().toString() else "") }
-    var entries by rememberSaveable(session.id) { mutableStateOf(JSONObject().apply { session.log?.sets?.forEach { r -> put("${r.exerciseId}|${r.set}|reps",r.reps?.toString() ?: "");put("${r.exerciseId}|${r.set}|kg",r.kg?.toString() ?: "");put("${r.exerciseId}|${r.set}|seconds",r.seconds?.toString() ?: "") } }.toString()) }
-    var exerciseIndex by rememberSaveable(session.id) { mutableIntStateOf(0) };var formError by rememberSaveable(session.id) { mutableStateOf<String?>(null) }
-    var missed by rememberSaveable(session.id) { mutableStateOf(false) };var reason by rememberSaveable(session.id) { mutableStateOf("Time") };var move by rememberSaveable(session.id) { mutableStateOf(false) };var moveDate by rememberSaveable(session.id) { mutableStateOf(session.date.toString()) }
-    var restSeconds by rememberSaveable(session.id) { mutableIntStateOf(0) };var restRunning by rememberSaveable(session.id) { mutableStateOf(false) }
+    var minutes by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.minutes ?: session.log?.minutes?.toString() ?: "") };var distance by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.distance ?: session.log?.distanceKm?.toString() ?: "") };var effort by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.effort ?: session.log?.effort?.toString() ?: "") };var notes by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.notes ?: session.log?.notes ?: "") }
+    var performedOn by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.performedOn ?: session.log?.performedOn?.toString() ?: if(session.log==null)LocalDate.now().toString() else "") }
+    var entries by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.visibleEntries(exercises) ?: JSONObject().apply { session.log?.sets?.forEach { r -> put("${r.exerciseId}|${r.set}|reps",r.reps?.toString() ?: "");put("${r.exerciseId}|${r.set}|kg",r.kg?.toString() ?: "");put("${r.exerciseId}|${r.set}|seconds",r.seconds?.toString() ?: "") } }.toString()) }
+    var exerciseIndex by rememberSaveable(plan.owner,session.id) { mutableIntStateOf(0) };var formError by rememberSaveable(plan.owner,session.id) { mutableStateOf<String?>(null) }
+    var missed by rememberSaveable(plan.owner,session.id) { mutableStateOf(false) };var reason by rememberSaveable(plan.owner,session.id) { mutableStateOf("Time") };var move by rememberSaveable(plan.owner,session.id) { mutableStateOf(false) };var moveDate by rememberSaveable(plan.owner,session.id) { mutableStateOf(session.date.toString()) }
+    var restSeconds by rememberSaveable(plan.owner,session.id) { mutableIntStateOf(0) };var restRunning by rememberSaveable(plan.owner,session.id) { mutableStateOf(false) }
+    var guided by rememberSaveable(plan.owner,session.id) { mutableStateOf(true) }
+    val initialContent=remember(plan.owner,session.id) { listOf(minutes,distance,effort,notes,performedOn,entries) }
+    val currentCandidate=if(active)WorkoutEntryDraft(plan.owner,plan.id,session.id,session.logRevision,minutes,distance,effort,notes,performedOn,entries,System.currentTimeMillis())else null
+    val latestCandidate=rememberUpdatedState(currentCandidate)
+    val latestStagingInfo=rememberUpdatedState(active to session.logRevision)
+    val savedInputKey=rememberUpdatedState(entryDraft?.contentKey)
+    val flushInputs=rememberUpdatedState<()->Unit>({
+        if(latestStagingInfo.value.first) {
+            val value=WorkoutEntryDraft(plan.owner,plan.id,session.id,latestStagingInfo.value.second,minutes,distance,effort,notes,performedOn,entries,System.currentTimeMillis())
+            if(value.contentKey!=initialContent || savedInputKey.value?.let { it!=value.contentKey }==true)actions.stageWorkoutDraft(value)
+        }
+    })
+    LaunchedEffect(plan.owner,session.id) {
+        snapshotFlow { listOf(minutes,distance,effort,notes,performedOn,entries) }.drop(1).debounce(500).collect {
+            latestCandidate.value?.let(actions.stageWorkoutDraft)
+        }
+    }
     val lifecycleOwner=androidx.lifecycle.compose.LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer=androidx.lifecycle.LifecycleEventObserver { _,event -> if(event==androidx.lifecycle.Lifecycle.Event.ON_STOP)restRunning=false }
+    DisposableEffect(lifecycleOwner,plan.owner,session.id) {
+        val observer=androidx.lifecycle.LifecycleEventObserver { _,event -> if(event==androidx.lifecycle.Lifecycle.Event.ON_STOP) {restRunning=false;flushInputs.value()} }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        onDispose { restRunning=false;flushInputs.value();lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     LaunchedEffect(session.swaps) {
         pendingSwap?.let { id -> if(session.swaps.any { it.originalId==id }) {
@@ -43,10 +63,32 @@ import kotlinx.coroutines.delay
     fun whole(text:String,label:String):Int?=if(text.isBlank()) null else text.toIntOrNull() ?: throw PlanConstraint("Enter whole $label, or leave it blank.")
     fun log():WorkoutLog {
         val j=JSONObject(entries)
-        val sets=exercises.flatMap { ex -> (1..ex.sets).mapNotNull { i -> val prefix="${ex.id}|$i|";val r=whole(j.optString(prefix+"reps"),"repetitions");val kg=number(j.optString(prefix+"kg"),"load in kg");val seconds=whole(j.optString(prefix+"seconds"),"hold seconds");if(r==null&&kg==null&&seconds==null)null else SetRecord(ex.id,i,r,kg,seconds) } }
+        val sets=exercises.flatMap { ex -> val count=if(session.suggestion?.accepted==true)maxOf(1,(ex.sets*.7).toInt())else ex.sets;(1..count).mapNotNull { i -> val prefix="${ex.id}|$i|";val r=whole(j.optString(prefix+"reps"),"repetitions");val kg=number(j.optString(prefix+"kg"),"load in kg");val seconds=whole(j.optString(prefix+"seconds"),"hold seconds");if(r==null&&kg==null&&seconds==null)null else SetRecord(ex.id,i,r,kg,seconds) } }
         return WorkoutLog(Instant.now(),number(minutes,"duration in minutes"),number(distance,"distance in km"),whole(effort,"effort from 1 to 10"),sets,notes,if(performedOn.isBlank())null else try {LocalDate.parse(performedOn)}catch(_:Exception){throw PlanConstraint("Choose a valid actual workout date.")})
     }
+    if(active && exercises.isNotEmpty() && guided) {
+        WorkoutPlayer(plan.owner,session,state.busy,entries,{entries=it},restSeconds,restRunning,
+            onStartRest={restSeconds=it;restRunning=it>0},onRestRunning={restRunning=it},
+            onRestSeconds={restSeconds=it},onBack=onBack,onReview={restRunning=false;guided=false},
+            onConfirm={ exercise,set ->
+                try {
+                    formError=null
+                    val values=JSONObject(entries);val prefix="${exercise.id}|$set|"
+                    if(values.optString(prefix+"reps").isBlank() && values.optString(prefix+"seconds").isBlank()) {
+                        values.put(prefix+if(exercise.seconds!=null)"seconds" else "reps",(exercise.seconds ?: exercise.reps).toString())
+                        entries=values.toString()
+                    }
+                    val row=SetRecord(exercise.id,set,whole(values.optString(prefix+"reps"),"repetitions"),number(values.optString(prefix+"kg"),"load in kg"),whole(values.optString(prefix+"seconds"),"hold seconds"))
+                    val actualDate=if(performedOn.isBlank())null else try {LocalDate.parse(performedOn)}catch(_:Exception){throw PlanConstraint("Choose a valid actual workout date.")}
+                    val previous=session.log ?: WorkoutLog(Instant.now(),performedOn=actualDate)
+                    val updated=previous.copy(at=Instant.now(),sets=previous.sets.filterNot { it.exerciseId==exercise.id&&it.set==set }+row)
+                    actions.record(plan.id,plan.revision,session.id,updated,false)
+                    true
+                } catch(e:PlanConstraint) {formError=e.message;false}
+            },error=formError)
+    } else {
     Screen(session.effectiveTitle,"${disciplineLabel(session.discipline).uppercase()} · ${session.status.uppercase()}",compactTitle=true) {
+        if(active && exercises.isNotEmpty()) item { SignalButton("Return to guided workout",{guided=true}) }
         item { TextButton(onClick=onBack) { Text("Back to Training") };Text("${session.date} · ${session.effectiveMinutes} planned min",style=MaterialTheme.typography.bodyMedium);Text(session.reason,style=MaterialTheme.typography.bodyLarge) }
         session.linkedActivityId?.let { activityId -> item { SignalCard { Text("LINKED SOURCE RUN",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary);val source=state.activities.find { it.id==activityId };Text(source?.let { "${it.title} · ${it.dateLabel} · ${it.distanceLabel} · ${it.durationLabel}" } ?: "The linked source is not currently cached. Its link and original prescription remain saved.");Text("The manual link confirms your association, not whether every prescribed interval or effort was performed. Manage the link in Activities.",style=MaterialTheme.typography.bodySmall) } } }
         session.suggestion?.let { suggestion -> item { SignalCard {
@@ -73,7 +115,7 @@ import kotlinx.coroutines.delay
             } }
             (1..setCount).forEach { i -> item {
                 val data=JSONObject(entries);val prefix="${ex.id}|$i|"
-                fun set(key:String,value:String) { entries=JSONObject(entries).put(prefix+key,value).toString() }
+                fun set(key:String,value:String) { entries=JSONObject(entries).put(prefix+key,value.take(64)).toString() }
                 SignalCard { Text("Set $i",style=MaterialTheme.typography.titleMedium)
                     if(ex.seconds!=null) OutlinedTextField(data.optString(prefix+"seconds"),{set("seconds",it)},label={Text("Actual hold seconds")},enabled=active,modifier=Modifier.fillMaxWidth(),keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Number))
                     else OutlinedTextField(data.optString(prefix+"reps"),{set("reps",it)},label={Text("Actual reps")},enabled=active,modifier=Modifier.fillMaxWidth(),keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Number))
@@ -91,12 +133,13 @@ import kotlinx.coroutines.delay
         }
         item { SignalCard {
             Text(if(done) "SAVED WORKOUT" else "ACTUAL WORKOUT RECORD",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
+            if(active)Text(if(entryDraft?.contentKey==currentCandidate?.contentKey)"Entry draft saved on this device · not yet confirmed as training" else "Entries auto-save on this device. Save progress or completion to confirm what you performed.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Only enter values you actually performed. Blank values stay unrecorded; no target is copied into your history.",style=MaterialTheme.typography.bodySmall)
-            NativeDateField("Actual workout date",performedOn,{performedOn=it},active)
+            NativeDateField("Actual workout date",performedOn,{performedOn=it.take(32)},active)
             Text("Choose the date you actually trained. It may differ from the scheduled date; older logs may have no recorded workout date.",style=MaterialTheme.typography.bodySmall)
-            OutlinedTextField(minutes,{minutes=it},label={Text("Actual duration (minutes), optional")},enabled=active,modifier=Modifier.fillMaxWidth())
-            if(session.discipline=="run"||session.discipline=="cond") OutlinedTextField(distance,{distance=it},label={Text("Actual distance (km), optional")},enabled=active,modifier=Modifier.fillMaxWidth())
-            OutlinedTextField(effort,{effort=it},label={Text("Effort 1–10, optional")},enabled=active,modifier=Modifier.fillMaxWidth())
+            OutlinedTextField(minutes,{minutes=it.take(64)},label={Text("Actual duration (minutes), optional")},enabled=active,modifier=Modifier.fillMaxWidth())
+            if(session.discipline=="run"||session.discipline=="cond") OutlinedTextField(distance,{distance=it.take(64)},label={Text("Actual distance (km), optional")},enabled=active,modifier=Modifier.fillMaxWidth())
+            OutlinedTextField(effort,{effort=it.take(64)},label={Text("Effort 1–10, optional")},enabled=active,modifier=Modifier.fillMaxWidth())
             OutlinedTextField(notes,{notes=it.take(2000)},label={Text("How did it feel?")},enabled=active,modifier=Modifier.fillMaxWidth())
             session.log?.let { Text("Saved ${it.at} · ${it.sets.size} sets with recorded values",style=MaterialTheme.typography.bodySmall) }
         } }
@@ -107,6 +150,7 @@ import kotlinx.coroutines.delay
         }
         if(done) item { Text("Completion is your recorded confirmation, not a sensor-verified activity. It appears separately in workout history without invented pace, GPS or heart rate.",style=MaterialTheme.typography.bodySmall) }
         item { PlanFeedbackForm(plan,actions,session.id) }
+    }
     }
     swapId?.let { id -> exercises.find { it.id==id }?.let { original -> ExerciseAlternatives.easier(original)?.let { replacement ->
         AlertDialog(onDismissRequest={swapId=null},title={Text("Review easier alternative")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {

@@ -54,7 +54,7 @@ internal fun readLibrary(context:Context):List<LibraryEntry> = context.assets.op
     val matches=entries.filter { (view=="Saved" || it.guide==guides) && (filter=="all" || it.discipline==filter) && (it.title+" "+it.text("eq")+" "+it.text("pattern")).contains(query,true) &&
         (level=="All levels" || it.text("level")==level) && (pattern=="All movements" || it.text("pattern")==pattern) && (equipment=="All equipment" || it.text("eq")==equipment) &&
         (view!="Saved" || if(collectionFilter=="All saved") it.id in state.shelf.favorites || state.shelf.collections.values.any { ids->it.id in ids } else if(collectionFilter=="Favorites")it.id in state.shelf.favorites else it.id in (state.shelf.collections[collectionFilter] ?: emptySet())) }
-    val logged=state.plans.flatMap { p -> p.sessions.filter { it.log!=null }.map { p to it } }.sortedByDescending { it.second.log?.at }
+    val logged=state.plans.flatMap { p -> p.sessions.filter { it.log!=null || state.workoutDrafts.containsKey(p.id to it.id) }.map { p to it } }.sortedByDescending { it.second.log?.at }
     Box(Modifier.fillMaxSize().testTag(if(entries.isNotEmpty())"library-ready" else "library-loading")) { Screen("Library","RUN, LIFT, MOVE") {
         item { Text("Explore the purpose, learn the technique and find an option for your setup.",style=MaterialTheme.typography.bodyLarge) }
         if(view !in setOf("Sessions","Templates")) {
@@ -66,9 +66,9 @@ internal fun readLibrary(context:Context):List<LibraryEntry> = context.assets.op
             item { SignalCard { Text("Lower body strength",style=MaterialTheme.typography.headlineSmall);Text("Accepted Phase 4E template: back squat, Romanian deadlift and Bulgarian split squat. Configure targets and suitable equipment in the native session builder.");OutlinedButton(onClick={onTemplate("lower")}) { Text("Review lower-body template") } } }
             items(state.templates,key={"template-${it.id}"}) { template -> SignalCard { Text(template.name,style=MaterialTheme.typography.headlineSmall);Text("${template.exercises.size} movements · ${template.minutes} planned minutes");Text(template.exercises.joinToString { it.name });OutlinedButton(onClick={onTemplate("saved-${template.id}")}) { Text("Prepare from saved template") } } }
         } else if(view=="Sessions") {
-            item { Text("Actual saved workout logs, including partially recorded sessions. Targets are never counted as completed.") }
+            item { Text("Workout records and saved entry drafts. Only confirmed completions count as completed training.") }
             if(logged.isEmpty())item { Text("No workout logs saved for this account yet. Start with an approved training plan.") }
-            items(logged,key={it.second.id}) { (p,session) -> PlannedWorkoutCard(session) { onOpen(p.id,session.id) } }
+            items(logged,key={it.second.id}) { (p,session) -> PlannedWorkoutCard(session,state.workoutDrafts.containsKey(p.id to session.id)) { onOpen(p.id,session.id) } }
         } else {
         if(view=="Saved") item {
             Text(if(state.account==null) "Sign in to keep a private offline library." else "Favorites and collections are stored on this device for your account.",style=MaterialTheme.typography.bodySmall)
@@ -126,16 +126,16 @@ internal fun readLibrary(context:Context):List<LibraryEntry> = context.assets.op
         }
     }
 }
-@Composable private fun LibraryImage(entry:LibraryEntry) {
+@Composable internal fun LibraryImage(entry:LibraryEntry,compact:Boolean=false) {
     val metadata=entry.raw.optJSONObject("image") ?: return
     val context=LocalContext.current; val uri=LocalUriHandler.current
     val bitmap by produceState<android.graphics.Bitmap?>(null,entry.id) { value=withContext(Dispatchers.IO) { runCatching { context.assets.open(metadata.getString("nativeFile")).use(BitmapFactory::decodeStream) }.getOrNull() } }
-    bitmap?.let { Image(it.asImageBitmap(),contentDescription=metadata.getString("label"),contentScale=ContentScale.Fit,modifier=Modifier.fillMaxWidth().heightIn(max=230.dp).background(Color.White,RoundedCornerShape(20.dp)).padding(12.dp)) }
+    bitmap?.let { Image(it.asImageBitmap(),contentDescription=metadata.getString("label"),contentScale=ContentScale.Fit,modifier=Modifier.fillMaxWidth().heightIn(max=if(compact)180.dp else 230.dp).background(Color.White,RoundedCornerShape(20.dp)).padding(12.dp)) }
     val fit=metadata.getJSONArray("fit")
-    Text(fit.getString(0).uppercase()+" · "+fit.getString(1),style=MaterialTheme.typography.bodySmall)
+    if(!compact || fit.getString(0)!="exact")Text(fit.getString(1),style=MaterialTheme.typography.bodySmall)
     var details by rememberSaveable(entry.id) { mutableStateOf(false) }
     Text(metadata.getString("author")+" · "+metadata.getString("license").let { if(it.length<=40)it else "License details below" },style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-    TextButton(onClick={details=!details}) { Text(if(details) "Hide image provenance" else "Image source & license") }
+    if(!compact)TextButton(onClick={details=!details}) { Text(if(details) "Hide image provenance" else "Image source & license") }
     if(details) {
         Text(metadata.getString("label")+"\n"+metadata.getString("license")+"\n"+metadata.optString("changes"),style=MaterialTheme.typography.bodySmall)
         metadata.optString("source").takeIf { it.startsWith("https://") }?.let { link -> TextButton(onClick={uri.openUri(link)}) { Text("Open original image source") } }

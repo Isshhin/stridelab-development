@@ -55,14 +55,14 @@ internal data class SessionSuggestion(val minutes:Int,val reason:String,val acce
     companion object { fun decode(j:JSONObject)=SessionSuggestion(j.getInt("minutes"),j.getString("reason"),j.getBoolean("accepted")) }
 }
 internal data class PlannedSession(val id:String,val date:LocalDate,val discipline:String,val title:String,val minutes:Int,val distanceKm:Double?,val kind:String,val lower:Boolean=false,val quality:Boolean=false,
-    val exercises:List<ExercisePrescription> = emptyList(),val steps:List<String> = emptyList(),val reason:String="",val status:String="planned",val missedReason:String?=null,val log:WorkoutLog?=null,val suggestion:SessionSuggestion?=null,val linkedActivityId:String?=null,val linkPreviousStatus:String?=null,val swaps:List<ExerciseSwap> = emptyList()) {
+    val exercises:List<ExercisePrescription> = emptyList(),val steps:List<String> = emptyList(),val reason:String="",val status:String="planned",val missedReason:String?=null,val log:WorkoutLog?=null,val suggestion:SessionSuggestion?=null,val linkedActivityId:String?=null,val linkPreviousStatus:String?=null,val swaps:List<ExerciseSwap> = emptyList(),val logRevision:Int=0) {
     val effectiveExercises get()=exercises.map { original -> swaps.find { it.originalId==original.id }?.replacement ?: original }
     val effectiveMinutes get()=if(suggestion?.accepted==true) suggestion.minutes else minutes
     val effectiveTitle get()=if(suggestion?.accepted==true) "Lighter alternative · $title" else title
     fun encode()=JSONObject().put("id",id).put("date",date.toString()).put("discipline",discipline).put("title",title).put("minutes",minutes).put("distanceKm",distanceKm).put("kind",kind).put("lower",lower).put("quality",quality)
-        .put("exercises",JSONArray(exercises.map { it.encode() })).put("steps",JSONArray(steps)).put("reason",reason).put("status",status).put("missedReason",missedReason).put("log",log?.encode()).put("suggestion",suggestion?.encode()).put("linkedActivityId",linkedActivityId).put("linkPreviousStatus",linkPreviousStatus).put("swaps",JSONArray(swaps.map { it.encode() }))
+        .put("exercises",JSONArray(exercises.map { it.encode() })).put("steps",JSONArray(steps)).put("reason",reason).put("status",status).put("missedReason",missedReason).put("log",log?.encode()).put("suggestion",suggestion?.encode()).put("linkedActivityId",linkedActivityId).put("linkPreviousStatus",linkPreviousStatus).put("swaps",JSONArray(swaps.map { it.encode() })).put("logRevision",logRevision)
     companion object { fun decode(j:JSONObject)=PlannedSession(j.getString("id"),LocalDate.parse(j.getString("date")),j.getString("discipline"),j.getString("title"),j.getInt("minutes"),j.nullDouble("distanceKm"),j.getString("kind"),j.getBoolean("lower"),j.getBoolean("quality"),
-        j.getJSONArray("exercises").objects().map(ExercisePrescription::decode),j.getJSONArray("steps").strings(),j.getString("reason"),j.getString("status"),j.nullString("missedReason"),j.optJSONObject("log")?.let(WorkoutLog::decode),j.optJSONObject("suggestion")?.let(SessionSuggestion::decode),j.nullString("linkedActivityId"),j.nullString("linkPreviousStatus"),j.optJSONArray("swaps")?.objects()?.map(ExerciseSwap::decode) ?: emptyList()) }
+        j.getJSONArray("exercises").objects().map(ExercisePrescription::decode),j.getJSONArray("steps").strings(),j.getString("reason"),j.getString("status"),j.nullString("missedReason"),j.optJSONObject("log")?.let(WorkoutLog::decode),j.optJSONObject("suggestion")?.let(SessionSuggestion::decode),j.nullString("linkedActivityId"),j.nullString("linkPreviousStatus"),j.optJSONArray("swaps")?.objects()?.map(ExerciseSwap::decode) ?: emptyList(),j.optInt("logRevision",0)) }
 }
 internal data class PlanFeedback(val id:String,val at:Instant,val category:String,val text:String,val sessionId:String?=null) {
     fun encode()=JSONObject().put("id",id).put("at",at.toString()).put("category",category).put("text",text).put("sessionId",sessionId)
@@ -80,7 +80,7 @@ internal data class PlanSnapshot(val id:String,val owner:String,val engineVersio
             require(j.getInt("schemaVersion")==PLAN_SCHEMA) { "Unsupported plan schema; saved snapshot retained" }
             require(j.getString("user_id")==owner) { "Plan owner does not match" }
             val sessions=j.getJSONArray("sessions").objects().map(PlannedSession::decode)
-            require(sessions.size<=400 && sessions.map { it.id }.distinct().size==sessions.size)
+            require(sessions.size<=400 && sessions.map { it.id }.distinct().size==sessions.size && sessions.all { it.logRevision>=0 })
             return PlanSnapshot(j.getString("id"),owner,j.getString("engineVersion"),j.getString("policyId"),Instant.parse(j.getString("createdAt")),PlanRequest.decode(j.getJSONObject("request")),sessions,j.getJSONArray("explanations").strings(),j.getString("status"),j.getJSONArray("feedback").objects().map(PlanFeedback::decode),j.getInt("revision"),if(j.getString("engineVersion")!=ENGINE1_VERSION || j.getString("policyId") !in Engine1Engines.knownPolicies)j.toString()else null,j.nullString("name"))
         }
     }

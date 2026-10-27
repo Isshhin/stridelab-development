@@ -148,7 +148,16 @@ class NativeVisualTest {
         val bounds = compose.onNodeWithTag("screen").fetchSemanticsNode().boundsInRoot
         assertTrue("Reading column must be bounded", bounds.width <= 761f)
         capture("simulation-wide-layout")
-    }    private fun show(content: @androidx.compose.runtime.Composable () -> Unit) { compose.runOnUiThread { compose.activity.setContent(content = content) } }
+    }    @Test fun datedNativeWorkoutAppearsInDashboardAsUserConfirmationWithoutSourceActivityFabrication() {
+        val now=Instant.parse("2026-10-26T02:00:00Z");val date=java.time.LocalDate.parse("2026-10-25")
+        val session=PlannedSession("native-summary",date,"str","Confirmed strength",45,null,"practice",status="completed",log=WorkoutLog(now,minutes=20.0,performedOn=date))
+        val plan=PlanSnapshot("native-summary-plan","synthetic-dashboard",ENGINE1_VERSION,ENGINE1_POLICY,now,PlanRequest(start=date),listOf(session),emptyList())
+        show { StrideTheme { Surface { Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp)) { WeeklyDashboard(emptyList(),now,java.time.ZoneId.of("UTC"),listOf(plan)) } } } }
+        compose.onNodeWithText("1 active day · 1 activity").assertExists();compose.onNodeWithText("20:00").assertExists()
+        compose.onNodeWithText("1 dated, user-confirmed workout logs included.",substring=true).performScrollTo().assertExists()
+        capture("simulation-native-confirmed-volume")
+    }
+    private fun show(content: @androidx.compose.runtime.Composable () -> Unit) { compose.runOnUiThread { compose.activity.setContent(content = content) } }
     private fun capture(name: String) {
         compose.mainClock.advanceTimeBy(600); compose.waitForIdle()
         compose.runOnUiThread { compose.activity.window.decorView.invalidate() }

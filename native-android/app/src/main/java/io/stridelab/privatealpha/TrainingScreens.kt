@@ -43,7 +43,7 @@ import kotlinx.coroutines.withContext
         if(expanded) plan.explanations.forEach { Text(it,style=MaterialTheme.typography.bodyMedium) }
     }
 }
-@Composable internal fun PlannedWorkoutCard(s:PlannedSession,onClick:()->Unit) {
+@Composable internal fun PlannedWorkoutCard(s:PlannedSession,hasDraft:Boolean=false,onClick:()->Unit) {
     val color=disciplineColor(s.discipline)
     Surface(onClick=onClick,shape=RoundedCornerShape(24.dp),color=MaterialTheme.colorScheme.surface,border=BorderStroke(1.dp,MaterialTheme.colorScheme.outlineVariant),modifier=Modifier.fillMaxWidth().testTag("workout-${s.id}")) {
         Row(Modifier.height(IntrinsicSize.Min)) {
@@ -51,6 +51,7 @@ import kotlinx.coroutines.withContext
             Column(Modifier.padding(18.dp).weight(1f),verticalArrangement=Arrangement.spacedBy(10.dp)) {
                 Text("${disciplineLabel(s.discipline).uppercase()} · ${if(s.status=="completed") if(s.linkedActivityId!=null) "LINKED SOURCE RUN" else s.log?.minutes?.let { "${it.toInt()} RECORDED MIN" } ?: "DURATION UNRECORDED" else "${s.effectiveMinutes} PLANNED MIN"} · ${s.status.uppercase()}",style=MaterialTheme.typography.labelMedium,color=color)
                 Text(s.effectiveTitle,style=MaterialTheme.typography.headlineSmall)
+                if(hasDraft)Text("Saved entry draft · resume without marking complete",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.primary)
                 Text(if(s.status=="completed"&&s.log!=null) (s.log.performedOn?.let { "Performed $it · logged " } ?: "Actual date unrecorded · logged ")+s.log.at.atZone(java.time.ZoneId.systemDefault()).toLocalDate().format(DateTimeFormatter.ofPattern("EEE, d MMM"))+" · scheduled ${s.date}" else s.date.format(DateTimeFormatter.ofPattern("EEE, d MMM")),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 if(s.distanceKm!=null && s.suggestion?.accepted!=true) Text("Target %.1f km · planned, not recorded".format(s.distanceKm),style=MaterialTheme.typography.bodyMedium)
                 if(s.effectiveExercises.isNotEmpty()) s.effectiveExercises.take(3).forEach { e -> Text("${e.name} · ${e.sets} × ${e.reps?.let { "$it reps" } ?: "${e.seconds} sec"}",style=MaterialTheme.typography.bodyMedium) }
@@ -81,7 +82,7 @@ import kotlinx.coroutines.withContext
             item { Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")).uppercase(),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant) }
             val day=plan.sessions.filter { it.date==date }
             if(day.isEmpty()) item { SignalCard { Text("No workout scheduled",style=MaterialTheme.typography.titleLarge);Text("This calendar date has no prescribed session. No workout or completion is assumed.") } }
-            day.forEach { s -> item { PlannedWorkoutCard(s) { onOpen(plan.id,s.id) } } }
+            day.forEach { s -> item { PlannedWorkoutCard(s,state.workoutDrafts.containsKey(plan.id to s.id)) { onOpen(plan.id,s.id) } } }
             if(plan.status=="draft"||plan.status=="paused") item { SignalButton(if(plan.status=="draft") "Approve this plan" else "Resume this plan",{actions.approve(plan.id,plan.revision)},!state.busy&&Engine1Engines.canManage(plan)) }
             item { PlanFeedbackForm(plan,actions) }
             item { NativePlanExport(state.plans) }

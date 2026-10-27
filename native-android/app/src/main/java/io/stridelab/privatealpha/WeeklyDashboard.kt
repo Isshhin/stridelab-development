@@ -13,13 +13,13 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-@Composable internal fun WeeklyDashboard(history: List<ActivityRecord>, now: Instant = Instant.now(), zone: ZoneId = ZoneId.systemDefault()) {
-    val recent=DashboardSummary.window(history,now,zone)
-    val previous=DashboardSummary.window(history,now,zone,7)
+@Composable internal fun WeeklyDashboard(history: List<ActivityRecord>, now: Instant = Instant.now(), zone: ZoneId = ZoneId.systemDefault(),plans:List<PlanSnapshot> = emptyList()) {
+    val recent=DashboardSummary.window(history,now,zone,plans=plans)
+    val previous=DashboardSummary.window(history,now,zone,7,plans)
     SignalCard {
         Text("LAST 7 DAYS",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
         Text("${recent.start} – ${recent.end}",style=MaterialTheme.typography.bodySmall)
-        Text("${recent.activeDays} active ${if(recent.activeDays==1) "day" else "days"} · ${recent.records.size} ${if(recent.records.size==1) "activity" else "activities"}",style=MaterialTheme.typography.titleLarge)
+        Text("${recent.activeDays} active ${if(recent.activeDays==1) "day" else "days"} · ${recent.sessionCount} ${if(recent.sessionCount==1) "activity" else "activities"}",style=MaterialTheme.typography.titleLarge)
         val time=recent.durationSeconds?.let { ActivityRecord.duration(it) } ?: "Not recorded"
         val distance=recent.runningDistanceM?.let { String.format(Locale.getDefault(),"%.2f km",it/1000) } ?: "Not recorded"
         if(LocalDensity.current.fontScale>1.15f) MetricPair("Recorded training time" to time,"Running distance" to distance)
@@ -28,11 +28,12 @@ import java.util.Locale
             Metric("Running distance",distance,Modifier.weight(1f).fillMaxHeight())
         }
         if(recent.missingDuration>0 || recent.missingRunDistance>0) Text("Partial totals: ${recent.missingDuration} sessions lack duration; ${recent.missingRunDistance} runs lack distance.",style=MaterialTheme.typography.bodySmall)
-        val daily=(0L..6L).map { offset -> val date=recent.start.plusDays(offset); date to recent.records.filter { it.startedAt.atZone(zone).toLocalDate()==date } }
-        val max=daily.maxOfOrNull { it.second.mapNotNull { row -> row.durationS }.sum() } ?: 0.0
-        daily.forEach { (day,rows) ->
-            val values=rows.mapNotNull { it.durationS }; val seconds=values.sum()
-            val label=when { rows.isEmpty() -> "No cached activity"; values.isEmpty() -> "Duration not recorded"; else -> ActivityRecord.duration(seconds) + if(values.size<rows.size) " · partial" else "" }
+        if(plans.any { p->p.sessions.any { it.status=="completed"&&it.log!=null } })Text("${recent.nativeLogs.size} dated, user-confirmed workout logs included. Linked synced activities are counted once. ${recent.omittedUndatedLogs} workout logs without an actual workout date are excluded.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        val daily=recent.daily(zone)
+        val max=daily.maxOfOrNull { it.durations.sum() } ?: 0.0
+        daily.forEach { row ->
+            val day=row.date;val values=row.durations;val seconds=values.sum()
+            val label=when { row.sessions==0 -> "No cached activity"; values.isEmpty() -> "Duration not recorded"; else -> ActivityRecord.duration(seconds) + if(values.size<row.sessions) " · partial" else "" }
             Text("${day.dayOfWeek.name.take(3)} · $label",style=MaterialTheme.typography.bodySmall)
             Box(Modifier.fillMaxWidth().height(4.dp).background(MaterialTheme.colorScheme.surfaceVariant,RoundedCornerShape(3.dp))) {
                 if(max>0 && seconds>0) Box(Modifier.fillMaxWidth((seconds/max).toFloat()).fillMaxHeight().background(MaterialTheme.colorScheme.primary,RoundedCornerShape(3.dp)))

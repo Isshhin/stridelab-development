@@ -41,6 +41,7 @@ class Engine1UiTest {
         capture("phase1-month-calendar")
         val plan=state.value.plans.single();val session=plan.sessions.first()
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-${session.id}"));compose.onNodeWithTag("workout-${session.id}").performClick()
+        if(compose.onAllNodesWithTag("workout-player").fetchSemanticsNodes().isNotEmpty())compose.onNodeWithTag("workout-review").performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Actual duration (minutes), optional"));compose.onNodeWithText("Actual duration (minutes), optional").performTextInput("18")
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Save completed workout"));compose.onNodeWithText("Save completed workout",useUnmergedTree=true).performClick()
         assertEquals(1,state.value.plans.single().sessions.count { it.status=="completed" })
@@ -114,6 +115,7 @@ class Engine1UiTest {
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,true,NativeActions({},{},{},{},{_,_->},planning=actions)) } } }
         compose.onNodeWithTag("nav-training").performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-${p.sessions.first().id}"));compose.onNodeWithTag("workout-${p.sessions.first().id}").performClick()
+        if(compose.onAllNodesWithTag("workout-player").fetchSemanticsNodes().isNotEmpty())compose.onNodeWithTag("workout-review").performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Choose an easier alternative"));compose.onNodeWithText("Choose an easier alternative",useUnmergedTree=true).performClick()
         assertTrue(state.value.plans.single().sessions.first().swaps.isEmpty())
         compose.onNodeWithText("Use easier alternative",useUnmergedTree=true).performClick()
@@ -161,6 +163,22 @@ class Engine1UiTest {
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("library-entry-${guide.id}"));compose.onNodeWithTag("library-entry-${guide.id}").performClick()
         compose.onNodeWithText("Educational reference. This is not an executable workout.").performScrollTo().assertExists()
         compose.onNodeWithText("Prepare practice session").assertDoesNotExist();compose.onNodeWithText("Build a running plan").assertDoesNotExist()
+    }
+    @Test fun switchingTabsRestoresUnconfirmedWorkoutEntryWithoutMarkingItPerformed() {
+        val plan=PlanOperations.approve(Engine1.generate(PlanRequest(start=LocalDate.now(),weeks=1,runDays=0,strengthDays=1,days=(1..7).toSet()),"synthetic-entry-ui"),emptyList());val session=plan.sessions.first()
+        val state=mutableStateOf(TrainingState(initializing=false,account=plan.owner,plans=listOf(plan)))
+        val actions=PlanActions(stageWorkoutDraft={draft -> state.value=state.value.copy(workoutDrafts=state.value.workoutDrafts+(draft.key to draft))})
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,true,NativeActions({},{},{},{},{_,_->},planning=actions)) } } }
+        compose.onNodeWithTag("nav-training").performClick();compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-${session.id}"));compose.onNodeWithTag("workout-${session.id}").performClick()
+        if(compose.onAllNodesWithTag("workout-player").fetchSemanticsNodes().isNotEmpty())compose.onNodeWithTag("workout-review").performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("How did it feel?"));compose.onNodeWithText("How did it feel?").performTextInput("Unconfirmed entry survives tab change")
+        compose.onNodeWithTag("nav-home").performClick()
+        compose.waitUntil(10000) { state.value.workoutDrafts.isNotEmpty() }
+        assertNull(state.value.plans.single().sessions.first().log);assertEquals("planned",state.value.plans.single().sessions.first().status)
+        compose.onNodeWithTag("nav-training").performClick();compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-${session.id}"));compose.onNodeWithTag("workout-${session.id}").performClick()
+        if(compose.onAllNodesWithTag("workout-player").fetchSemanticsNodes().isNotEmpty())compose.onNodeWithTag("workout-review").performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("How did it feel?"));compose.onNodeWithText("Unconfirmed entry survives tab change").assertExists()
+        capture("phase1-restored-entry-draft")
     }
     private fun capture(name:String) {
         compose.mainClock.advanceTimeBy(600);compose.waitForIdle();compose.runOnUiThread { compose.activity.window.decorView.invalidate() }

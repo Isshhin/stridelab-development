@@ -119,6 +119,18 @@ class Engine1RepositoryTest {
         gateway.offline=true;assertTrue(repo.generatePlan(request.copy(start=request.start.plusWeeks(5),policyChoice="baseline")));repo.close();open()
         assertEquals(saved,repo.state.value.plans.find { it.id==saved.id });val fallback=repo.state.value.plans.first { it.id!=saved.id };assertEquals(ENGINE1_POLICY,fallback.policyId);assertTrue(fallback.sessions.flatMap { it.exercises }.filter { it.reps!=null }.all { it.reps==8 })
     }
+    @Test fun unconfirmedEntryDraftSurvivesOfflineButLateDraftCannotReplaceANewerActualLog()=runBlocking {
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"));assertTrue(repo.generatePlan(request()));var p=repo.state.value.plans.single();assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single();val s=p.sessions.first();val ex=s.exercises.first()
+        val draft=WorkoutEntryDraft(owner,p.id,s.id,s.logRevision,"1.","","","Unfinished private entry",LocalDate.now().toString(),JSONObject().put("${ex.id}|1|reps","1.").toString(),1)
+        assertTrue(repo.stageWorkoutDraft(draft));assertNull(repo.state.value.plans.single().sessions.first().log);assertEquals("planned",repo.state.value.plans.single().sessions.first().status)
+        repo.close();gateway.offline=true;open();assertEquals(draft,repo.state.value.workoutDrafts[draft.key]);p=repo.state.value.plans.single()
+        val log=WorkoutLog(Instant.now(),minutes=20.0,sets=listOf(SetRecord(ex.id,1,reps=8)),performedOn=LocalDate.now())
+        assertTrue(repo.recordWorkout(p.id,p.revision,s.id,log,false));assertTrue(repo.state.value.workoutDrafts.isEmpty());assertFalse(repo.stageWorkoutDraft(draft))
+        assertEquals(8,repo.state.value.plans.single().sessions.first().log!!.sets.single().reps)
+        p=repo.state.value.plans.single();assertTrue(repo.stageWorkoutDraft(draft.copy(logRevision=p.sessions.first().logRevision,notes="Next entry")))
+        assertTrue(repo.recordWorkout(p.id,p.revision,s.id,log,true));assertTrue(repo.state.value.workoutDrafts.isEmpty())
+        gateway.offline=false;gateway.owner="synthetic-engine1-other";assertTrue(repo.signIn("other@example.invalid","fixture"));assertTrue(repo.state.value.workoutDrafts.isEmpty())
+    }
     private class Gateway:TrainingGateway {
         var owner="synthetic-engine1-owner";var offline=false;var rows=JSONArray()
         private fun connected() { if(offline)throw java.io.IOException("Synthetic offline") }
