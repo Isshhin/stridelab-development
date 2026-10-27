@@ -29,7 +29,7 @@ import kotlin.math.cos
         Text("Saved $date · ${detail.samples.size} source samples · available offline",style=MaterialTheme.typography.bodySmall)
         if(detail.samples.isEmpty()) Text("No recorded time-series or GPS points were returned. Summary metrics remain available.")
         else {
-            Text(selected?.let { "Selected source sample ${it.index} · elapsed ${ActivityRecord.duration(it.seconds)}" } ?: "Tap a chart to inspect the nearest recorded sample. No interpolation is used.",style=MaterialTheme.typography.bodySmall)
+            Text(selected?.let { "Selected source sample ${it.index} · elapsed ${ActivityRecord.duration(it.seconds)}" } ?: "Tap a chart or use the Previous/Next sample controls to inspect recorded values. No interpolation is used.",style=MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick={selectedIndex=((selectedIndex ?: 1)-1).coerceAtLeast(0)},enabled=selectedIndex!=0) { Text("Previous sample") }
                 TextButton(onClick={selectedIndex=((selectedIndex ?: -1)+1).coerceAtMost(detail.samples.lastIndex)},enabled=selectedIndex!=detail.samples.lastIndex) { Text("Next sample") }
@@ -75,7 +75,7 @@ import kotlin.math.cos
     val low=valid.minOf { it.second }; val high=valid.maxOf { it.second }
     val description=String.format(Locale.getDefault(),"%s · %.1f–%.1f %s · %d samples · elapsed %s to %s",label,low,high,unit,valid.size,ActivityRecord.duration(valid.first().first),ActivityRecord.duration(valid.last().first))
     Text(description,style=MaterialTheme.typography.bodySmall)
-    Text(if(label=="Pace") "Faster pace is higher (seconds per km)" else "Higher line = higher recorded value",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(if(label=="Pace") "Faster pace appears higher on this chart (lower seconds per km)" else "Higher line = higher recorded value",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     val color=MaterialTheme.colorScheme.primary
     selected?.let { sample -> Text(value(sample)?.let { n -> "Selected: "+(if(label=="Pace") ActivityRecord.duration(n)+" /km" else String.format(Locale.getDefault(),"%.1f %s",n,unit))+" at "+ActivityRecord.duration(sample.seconds) } ?: "$label was not recorded at this selected sample.",style=MaterialTheme.typography.bodyMedium) }
     Canvas(Modifier.fillMaxWidth().height(110.dp).testTag("stream-$label").semantics { contentDescription=description }.pointerInput(samples) {

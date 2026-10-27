@@ -105,6 +105,10 @@ class NativeVisualTest {
             RecordedActivityDetail(detail,true)
         } } } }
         compose.onNodeWithText("RECORDED STREAMS").assertIsDisplayed()
+        compose.onNodeWithText("Tap a chart or use the Previous/Next sample controls to inspect recorded values. No interpolation is used.").assertExists()
+        compose.onNodeWithText("Faster pace appears higher on this chart (lower seconds per km)").assertExists()
+        compose.onNodeWithText("Next sample").performScrollTo().performClick()
+        compose.onNodeWithText("Selected source sample 0 · elapsed 0:00").assertExists()
         compose.onNodeWithTag("stream-Pace").performScrollTo().performTouchInput { click(center) }
         compose.onNodeWithText("Selected source sample 10 · elapsed 1:40").assertExists()
         compose.onNodeWithText("Selected: 6:00 /km at 1:40").assertExists()
@@ -137,6 +141,26 @@ class NativeVisualTest {
         capture("simulation-wellness-200pct")
         compose.onNodeWithText("Refresh wellness").performScrollTo().performClick()
         compose.runOnIdle { assertTrue(refreshed) }
+    }
+    @Test fun planWeekHasVisibleDatesAndAccessibleNavigationLabels() {
+        val start=java.time.LocalDate.parse("2026-11-02")
+        val session=PlannedSession("synthetic-calendar",start,"cal","Calisthenics practice",30,null,"practice",status="in_progress")
+        val plan=PlanSnapshot("synthetic-calendar-plan","synthetic-visual-account",ENGINE1_VERSION,ENGINE1_POLICY,
+            Instant.parse("2026-10-26T00:00:00Z"),PlanRequest(start=start,weeks=2),listOf(session),emptyList())
+        show {
+            val selected=androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(start) }
+            StrideTheme { Surface { Column(Modifier.width(360.dp).padding(12.dp)) {
+                TrainingCalendar(plan,selected.value,false) { selected.value=it }
+            } } }
+        }
+        compose.onNodeWithText("Plan week 1 of 2").assertExists()
+        compose.onNodeWithText("2026-11-02 – 2026-11-08").assertExists()
+        compose.onNodeWithContentDescription("Calisthenics practice, in progress",substring=true).assertExists()
+        compose.onNodeWithContentDescription("Next plan week").performClick()
+        compose.onNodeWithText("Plan week 2 of 2").assertExists()
+        compose.onNodeWithText("2026-11-09 – 2026-11-15").assertExists()
+        compose.onNodeWithContentDescription("Previous plan week").performClick()
+        compose.onNodeWithText("Plan week 1 of 2").assertExists()
     }
     @Test fun widerLayoutKeepsContentBounded() {
         show {
