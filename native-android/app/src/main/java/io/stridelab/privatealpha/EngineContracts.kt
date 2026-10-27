@@ -22,19 +22,23 @@ internal data class PlanRequest(
     val longDay:Int=6,val qualityDays:Set<Int> = setOf(2),val qualityCount:Int=0,
     val weeklyKm:Double=0.0,val longestKm:Double=0.0,val planningPace:Double=480.0,
     val equipment:Map<String,Int> = emptyMap(),val calLevel:Int=0,val returning:Boolean=false,
-    val excluded:Set<String> = emptySet(),val limitations:String="",val recoveryNotes:String="",val strengthExperience:Int=0,val pullLevel:Int=0,val coreLevel:Int=0,val policyChoice:String="baseline",val disciplineGoals:Map<String,String> = emptyMap()
+    val excluded:Set<String> = emptySet(),val limitations:String="",val recoveryNotes:String="",val strengthExperience:Int=0,val pullLevel:Int=0,val coreLevel:Int=0,val policyChoice:String="baseline",val disciplineGoals:Map<String,String> = emptyMap(),val dailyMinutes:Int=90
 ) {
-    fun encode():JSONObject=JSONObject().put("goal",goal).put("secondaryGoal",secondaryGoal).put("experience",experience).put("start",start.toString()).put("weeks",weeks).put("minutes",minutes)
-        .put("days",JSONArray(days.sorted())).put("runDays",runDays).put("strengthDays",strengthDays).put("calDays",calDays).put("conditioningDays",conditioningDays).put("longDay",longDay)
-        .put("qualityDays",JSONArray(qualityDays.sorted())).put("qualityCount",qualityCount).put("weeklyKm",weeklyKm).put("longestKm",longestKm).put("planningPace",planningPace)
-        .put("equipment",JSONObject(equipment)).put("calLevel",calLevel).put("returning",returning).put("excluded",JSONArray(excluded.sorted())).put("limitations",limitations).put("recoveryNotes",recoveryNotes).put("strengthExperience",strengthExperience).put("pullLevel",pullLevel).put("coreLevel",coreLevel).put("policyChoice",policyChoice).put("disciplineGoals",JSONObject(disciplineGoals))
+    fun encode():JSONObject {
+        val encoded=JSONObject().put("goal",goal).put("secondaryGoal",secondaryGoal).put("experience",experience).put("start",start.toString()).put("weeks",weeks).put("minutes",minutes)
+            .put("days",JSONArray(days.sorted())).put("runDays",runDays).put("strengthDays",strengthDays).put("calDays",calDays).put("conditioningDays",conditioningDays).put("longDay",longDay)
+            .put("qualityDays",JSONArray(qualityDays.sorted())).put("qualityCount",qualityCount).put("weeklyKm",weeklyKm).put("longestKm",longestKm).put("planningPace",planningPace)
+            .put("equipment",JSONObject(equipment)).put("calLevel",calLevel).put("returning",returning).put("excluded",JSONArray(excluded.sorted())).put("limitations",limitations).put("recoveryNotes",recoveryNotes).put("strengthExperience",strengthExperience).put("pullLevel",pullLevel).put("coreLevel",coreLevel).put("policyChoice",policyChoice).put("disciplineGoals",JSONObject(disciplineGoals))
+        if(policyChoice=="multi-session")encoded.put("dailyMinutes",dailyMinutes)
+        return encoded
+    }
     companion object {
         fun decode(j:JSONObject):PlanRequest {
             val eq=j.getJSONObject("equipment"); val days=j.getJSONArray("days");val quality=j.getJSONArray("qualityDays");val excluded=j.getJSONArray("excluded")
             return PlanRequest(j.getString("goal"),j.getString("secondaryGoal"),j.getInt("experience"),LocalDate.parse(j.getString("start")),j.getInt("weeks"),j.getInt("minutes"),
                 (0 until days.length()).map { days.getInt(it) }.toSet(),j.getInt("runDays"),j.getInt("strengthDays"),j.getInt("calDays"),j.getInt("conditioningDays"),j.getInt("longDay"),
                 (0 until quality.length()).map { quality.getInt(it) }.toSet(),j.getInt("qualityCount"),j.getDouble("weeklyKm"),j.getDouble("longestKm"),j.getDouble("planningPace"),
-                eq.keys().asSequence().associateWith { eq.getInt(it) },j.getInt("calLevel"),j.getBoolean("returning"),(0 until excluded.length()).map { excluded.getString(it) }.toSet(),j.getString("limitations"),j.getString("recoveryNotes"),j.optInt("strengthExperience",j.getInt("experience")),j.optInt("pullLevel",0),j.optInt("coreLevel",0),j.optString("policyChoice","baseline"),j.optJSONObject("disciplineGoals")?.let { obj -> obj.keys().asSequence().associateWith { obj.getString(it) } } ?: emptyMap())
+                eq.keys().asSequence().associateWith { eq.getInt(it) },j.getInt("calLevel"),j.getBoolean("returning"),(0 until excluded.length()).map { excluded.getString(it) }.toSet(),j.getString("limitations"),j.getString("recoveryNotes"),j.optInt("strengthExperience",j.getInt("experience")),j.optInt("pullLevel",0),j.optInt("coreLevel",0),j.optString("policyChoice","baseline"),j.optJSONObject("disciplineGoals")?.let { obj -> obj.keys().asSequence().associateWith { obj.getString(it) } } ?: emptyMap(),j.optInt("dailyMinutes",90))
         }
     }
 }
