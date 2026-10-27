@@ -3,6 +3,7 @@ package io.stridelab.privatealpha
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.ui.Modifier
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
@@ -31,7 +32,8 @@ class WorkoutPlayerTest {
         compose.onNodeWithTag("workout-player").assertExists()
         compose.onNodeWithTag("player-exercise").assertTextEquals("Back squat")
         capture("simulation-workout-focus")
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("How to do this exercise"));compose.onNodeWithText("How to do this exercise").performClick()
+        compose.onNodeWithText("Form guide").assertIsDisplayed().performClick()
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Back to workout").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Back to workout").performScrollTo().assertExists();capture("simulation-workout-form-guide")
         compose.onNodeWithText("Back to workout").performClick()
         assertNull(state.value.plans.single().sessions.first().log)
@@ -51,7 +53,7 @@ class WorkoutPlayerTest {
         val initial=plan();val state=mutableStateOf(TrainingState(initializing=false,account=initial.owner,plans=listOf(initial)))
         val actions=PlanActions(record={_,_,sid,log,complete -> state.value=state.value.copy(plans=listOf(PlanOperations.record(state.value.plans.single(),sid,log,complete).copy(revision=1))) })
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { TestWorkout(state.value,initial.id,initial.sessions.first().id,actions,{}) } } }
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Enter different reps, time or load"));compose.onNodeWithText("Enter different reps, time or load").performClick()
+        compose.onNodeWithText("Adjust set").assertIsDisplayed().performClick()
         compose.waitUntil(5000) { compose.onAllNodesWithText("Actual reps").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Actual reps").performScrollTo().performTextInput("5")
         compose.onNodeWithText("Actual load (kg), optional").performScrollTo().performTextInput("12.5")
@@ -67,7 +69,7 @@ class WorkoutPlayerTest {
     @Test fun invalidActualInputDoesNotRecordOrBeginRest() {
         val initial=plan();var writes=0
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { TestWorkout(TrainingState(initializing=false,account=initial.owner,plans=listOf(initial)),initial.id,initial.sessions.first().id,PlanActions(record={_,_,_,_,_->writes++}),{}) } } }
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Enter different reps, time or load"));compose.onNodeWithText("Enter different reps, time or load").performClick()
+        compose.onNodeWithText("Adjust set").assertIsDisplayed().performClick()
         compose.waitUntil(5000) { compose.onAllNodesWithText("Actual reps").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Actual reps").performScrollTo().performTextInput("1.")
         compose.onNodeWithText("Use these values").performScrollTo().performClick()
@@ -91,12 +93,13 @@ class WorkoutPlayerTest {
         val initial=plan()
         compose.runOnUiThread { compose.activity.setContent { val density=LocalDensity.current;CompositionLocalProvider(LocalDensity provides Density(density.density,2f)) { StrideTheme { TestWorkout(TrainingState(initializing=false,account=initial.owner,plans=listOf(initial)),initial.id,initial.sessions.first().id,PlanActions(),{}) } } } }
         compose.onNodeWithText("Confirm 8 reps & rest").assertIsDisplayed()
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("How to do this exercise"));compose.onNodeWithText("How to do this exercise").performClick()
+        compose.onNodeWithText("Form guide").assertIsDisplayed().performClick()
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Back to workout").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Back to workout").performScrollTo().assertIsDisplayed()
         capture("simulation-workout-guide-large-text")
     }
     @androidx.compose.runtime.Composable private fun TestWorkout(state:TrainingState,plan:String,session:String,actions:PlanActions,onBack:()->Unit) {
-        androidx.compose.material3.Surface(Modifier.systemBarsPadding()) { WorkoutScreen(state,plan,session,actions,onBack) }
+        androidx.compose.material3.Surface(Modifier.systemBarsPadding().imePadding()) { WorkoutScreen(state,plan,session,actions,onBack) }
     }
     private fun capture(name:String) {
         compose.waitForIdle();android.os.SystemClock.sleep(350)

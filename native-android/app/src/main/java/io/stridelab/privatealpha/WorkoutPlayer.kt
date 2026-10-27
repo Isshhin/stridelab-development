@@ -114,7 +114,6 @@ import org.json.JSONObject
                     Text(ex.cue,style=MaterialTheme.typography.bodyLarge)
                     if(exactImage && guide!=null)LibraryImage(guide,compact=true)
                     else Text("Follow the written cues. An exact movement demonstration is not available offline.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                    OutlinedButton(onClick={holdRunning=false;showGuide=true},modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)) { Text("How to do this exercise") }
                     if(ex.seconds!=null) {
                         Text("Hold timer · $holdSeconds sec",style=MaterialTheme.typography.titleLarge)
                         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -127,7 +126,6 @@ import org.json.JSONObject
                 item {
                     if(saved!=null)Text("Set saved · ${saved.seconds ?: saved.reps ?: "Not recorded"} $unit${saved.kg?.let { " · $it kg" } ?: ""}",color=MaterialTheme.colorScheme.primary,modifier=Modifier.testTag("player-set-saved"))
                     else Text("Confirm only the reps or hold you actually performed. You can enter a different value.",style=MaterialTheme.typography.bodyMedium)
-                    TextButton(onClick={if(saved!=null)onReview()else editing=true}) { Text(if(saved!=null)"Edit saved set in review" else "Enter different reps, time or load") }
                 }
                 item { Text(if(index<exercises.lastIndex)"UP NEXT · ${exercises[index+1].name}" else "LAST EXERCISE · Review your actual workout when ready",style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onSurfaceVariant) }
                 item { Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -137,7 +135,12 @@ import org.json.JSONObject
             }
             (error ?: saveNotice)?.let { item { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.semantics { liveRegion=LiveRegionMode.Polite }) } }
         }
-        Surface(tonalElevation=3.dp) { Column(Modifier.padding(horizontal=22.dp,vertical=12.dp)) {
+        Surface(tonalElevation=3.dp) { Column(Modifier.padding(horizontal=22.dp,vertical=12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+            // Stable touch targets: image decoding and scrolling must not move these controls.
+            if(!resting)Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick={holdRunning=false;showGuide=true},modifier=Modifier.weight(1f).heightIn(min=48.dp)) { Text("Form guide") }
+                OutlinedButton(onClick={if(saved!=null)onReview()else editing=true},modifier=Modifier.weight(1f).heightIn(min=48.dp),enabled=!busy&&waitingForSave==null) { Text(if(saved!=null)"Review set" else "Adjust set") }
+            }
             SignalButton(if(resting) { if(restSeconds>0)"Finish rest & continue" else "Continue" } else if(saved!=null)"Continue to next set" else if(busy||waitingForSave!=null)"Saving set…" else "Confirm $confirmation $unit & rest",{
                 if(resting||saved!=null)advance() else {saveNotice=null;observedSaving=false;savingRevision=session.logRevision;waitingForSave="${ex.id}|$set";holdRunning=false;if(!onConfirm(ex,set))waitingForSave=null}
             },!busy&&(waitingForSave==null||resting))
