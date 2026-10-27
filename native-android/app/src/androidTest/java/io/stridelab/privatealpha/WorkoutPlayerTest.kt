@@ -52,8 +52,12 @@ class WorkoutPlayerTest {
         val actions=PlanActions(record={_,_,sid,log,complete -> state.value=state.value.copy(plans=listOf(PlanOperations.record(state.value.plans.single(),sid,log,complete).copy(revision=1))) })
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { TestWorkout(state.value,initial.id,initial.sessions.first().id,actions,{}) } } }
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Enter different reps, time or load"));compose.onNodeWithText("Enter different reps, time or load").performClick()
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Actual reps").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Actual reps").performScrollTo().performTextInput("5")
         compose.onNodeWithText("Actual load (kg), optional").performScrollTo().performTextInput("12.5")
+        assertNull(state.value.plans.single().sessions.first().log)
+        capture("simulation-workout-set-entry")
+        compose.onNodeWithText("Use these values").performScrollTo().performClick()
         compose.onNodeWithText("Confirm 5 reps & rest").performClick()
         val session=state.value.plans.single().sessions.first();assertEquals(5,session.log!!.sets.single().reps);assertEquals(12.5,session.log!!.sets.single().kg!!,0.0)
         assertEquals(8,session.exercises.first().reps)
@@ -64,7 +68,9 @@ class WorkoutPlayerTest {
         val initial=plan();var writes=0
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { TestWorkout(TrainingState(initializing=false,account=initial.owner,plans=listOf(initial)),initial.id,initial.sessions.first().id,PlanActions(record={_,_,_,_,_->writes++}),{}) } } }
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Enter different reps, time or load"));compose.onNodeWithText("Enter different reps, time or load").performClick()
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Actual reps").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Actual reps").performScrollTo().performTextInput("1.")
+        compose.onNodeWithText("Use these values").performScrollTo().performClick()
         compose.onNodeWithText("Confirm 1. reps & rest").performClick()
         assertEquals(0,writes);compose.onNodeWithTag("player-rest").assertDoesNotExist()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Enter whole repetitions, or leave it blank."))

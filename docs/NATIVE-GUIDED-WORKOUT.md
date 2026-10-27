@@ -21,3 +21,10 @@ Initial local checks: 84 JVM tests and 14 packaging/signing Python tests passed;
 Version candidate: 15, `0.6.6-guided-workout`. The user's phone remains on exact verified version 14; no new APK/test APK was installed on it. Tests target only the explicitly selected emulator. The installed certificate matches the prior ephemeral CI job, whose private key availability has not been established. A new CI artifact is a disposable test artifact unless its installed-certificate gate passes. Do not uninstall or clear the phone, claim update compatibility, or start Engine 2.0. Web and preserved legacy assets remain frozen.
 
 Recovery anchor before this iteration: `checkpoint/native-engine1-goals-verified-7d5acdf` (`7d5acdf4bec15f8d95ee07d75fe152532e765d95`), successful run [40372696555](https://github.com/Isshhin/stridelab-development/actions/runs/40372696555). Preserve all earlier checkpoints. Recover the new source from its feature-branch commit and private canonical source archive only after its exact CI evidence is checked.
+
+
+## Set-entry refinement after CI
+
+Run 40443610373 at f5b4f26 passed 84 JVM tests but had one intermittent UI failure opening inline actual-rep fields (75 of 76 emulator suite cases passed); no installable artifact was produced. Actual set entry is now a dedicated keyboard-aware sheet instead of expanding inside the scrolling guide. Its regression assertions retain adjusted reps/load, unchanged original targets, and no performance record before explicit confirmation. The editor waits for the actual field semantics rather than relying on a transient inline layout.
+
+Draft ordering also now uses a local monotonic edit stamp seeded from the saved draft. Storage rejects an older same-log-revision write, and newer identical-content writes advance the stored stamp. The repository regression verifies that a deliberately delayed obsolete edit cannot replace newer text and that the newer text reopens offline. The actual-log revision guard remains separate. This is local entry durability, not plan cloud synchronization or Engine 2.0.

@@ -127,13 +127,7 @@ import org.json.JSONObject
                 item {
                     if(saved!=null)Text("Set saved · ${saved.seconds ?: saved.reps ?: "Not recorded"} $unit${saved.kg?.let { " · $it kg" } ?: ""}",color=MaterialTheme.colorScheme.primary,modifier=Modifier.testTag("player-set-saved"))
                     else Text("Confirm only the reps or hold you actually performed. You can enter a different value.",style=MaterialTheme.typography.bodyMedium)
-                    TextButton(onClick={editing=!editing}) { Text(if(editing)"Hide set entry" else "Enter different reps, time or load") }
-                    if(editing) {
-                        fun write(key:String,value:String) {onEntries(JSONObject(entries).put(prefix+key,value.take(64)).toString())}
-                        OutlinedTextField(actualText,{write(if(ex.seconds!=null)"seconds" else "reps",it)},label={Text(if(ex.seconds!=null)"Actual hold seconds" else "Actual reps")},modifier=Modifier.fillMaxWidth(),keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Number))
-                        OutlinedTextField(input.optString(prefix+"kg"),{write("kg",it)},label={Text("Actual load (kg), optional")},modifier=Modifier.fillMaxWidth(),keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Decimal))
-                        if(saved!=null)Text("Use Review & finish to edit a saved set.",style=MaterialTheme.typography.bodySmall)
-                    }
+                    TextButton(onClick={if(saved!=null)onReview()else editing=true}) { Text(if(saved!=null)"Edit saved set in review" else "Enter different reps, time or load") }
                 }
                 item { Text(if(index<exercises.lastIndex)"UP NEXT · ${exercises[index+1].name}" else "LAST EXERCISE · Review your actual workout when ready",style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onSurfaceVariant) }
                 item { Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -149,6 +143,17 @@ import org.json.JSONObject
             },!busy&&(waitingForSave==null||resting))
         } }
     }
+    }
+    if(editing)ModalBottomSheet(onDismissRequest={editing=false},sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true)) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal=22.dp).padding(bottom=32.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
+            Text("Your actual set",style=MaterialTheme.typography.headlineMedium)
+            Text("${ex.name} · set $set",style=MaterialTheme.typography.titleMedium)
+            Text("Enter what you performed. These entries remain a draft until you confirm the set in the workout.")
+            fun write(key:String,value:String) {onEntries(JSONObject(entries).put(prefix+key,value.take(64)).toString())}
+            OutlinedTextField(actualText,{write(if(ex.seconds!=null)"seconds" else "reps",it)},label={Text(if(ex.seconds!=null)"Actual hold seconds" else "Actual reps")},modifier=Modifier.fillMaxWidth(),keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Number))
+            OutlinedTextField(input.optString(prefix+"kg"),{write("kg",it)},label={Text("Actual load (kg), optional")},modifier=Modifier.fillMaxWidth(),keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Decimal))
+            SignalButton("Use these values",{editing=false})
+        }
     }
     if(showGuide)ModalBottomSheet(onDismissRequest={showGuide=false},sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal=22.dp).padding(bottom=32.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {

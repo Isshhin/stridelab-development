@@ -31,13 +31,16 @@ import kotlinx.coroutines.flow.drop
     var restSeconds by rememberSaveable(plan.owner,session.id) { mutableIntStateOf(0) };var restRunning by rememberSaveable(plan.owner,session.id) { mutableStateOf(false) }
     var guided by rememberSaveable(plan.owner,session.id) { mutableStateOf(true) }
     val initialContent=remember(plan.owner,session.id) { listOf(minutes,distance,effort,notes,performedOn,entries) }
-    val currentCandidate=if(active)WorkoutEntryDraft(plan.owner,plan.id,session.id,session.logRevision,minutes,distance,effort,notes,performedOn,entries,System.currentTimeMillis())else null
+    val editClock=remember(plan.owner,session.id) { java.util.concurrent.atomic.AtomicLong(entryDraft?.editedAt ?: 0L) }
+    fun nextInputStamp()=editClock.updateAndGet { maxOf(System.currentTimeMillis(),it+1) }
+    val inputStamp=remember(minutes,distance,effort,notes,performedOn,entries,session.logRevision) { nextInputStamp() }
+    val currentCandidate=if(active)WorkoutEntryDraft(plan.owner,plan.id,session.id,session.logRevision,minutes,distance,effort,notes,performedOn,entries,inputStamp)else null
     val latestCandidate=rememberUpdatedState(currentCandidate)
     val latestStagingInfo=rememberUpdatedState(active to session.logRevision)
     val savedInputKey=rememberUpdatedState(entryDraft?.contentKey)
     val flushInputs=rememberUpdatedState<()->Unit>({
         if(latestStagingInfo.value.first) {
-            val value=WorkoutEntryDraft(plan.owner,plan.id,session.id,latestStagingInfo.value.second,minutes,distance,effort,notes,performedOn,entries,System.currentTimeMillis())
+            val value=WorkoutEntryDraft(plan.owner,plan.id,session.id,latestStagingInfo.value.second,minutes,distance,effort,notes,performedOn,entries,nextInputStamp())
             if(value.contentKey!=initialContent || savedInputKey.value?.let { it!=value.contentKey }==true)actions.stageWorkoutDraft(value)
         }
     })
