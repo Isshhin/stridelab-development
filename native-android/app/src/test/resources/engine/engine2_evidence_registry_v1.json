@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "stridelab-engine2-evidence-metadata-v1",
+  "purpose": "Source catalog and scope controls; not a clinical protocol, automatic prescription table, efficacy labels or expert-approved algorithm.",
+  "reviewStatus": "engineering-reference-only",
+  "retrievedOn": "2026-10-27",
+  "sources": [
+    {
+      "id": "WHO-2020-ADULT-ACTIVITY",
+      "issuer": "World Health Organization",
+      "issued": "2020-11-25",
+      "title": "WHO guidelines on physical activity and sedentary behaviour",
+      "url": "https://www.who.int/publications/i/item/9789240014886",
+      "scope": "General public-health guidance for population groups; not individualized performance coaching",
+      "takeaways": [
+        "Adults gain benefit from aerobic activity and muscle-strengthening work; begin gradually.",
+        "Guideline frequency/volume categories are population recommendations, not validated individual training-load ceilings."
+      ],
+      "prohibitedUses": [
+        "Do not infer safety, readiness, or individual optimal mileage from weekly time alone.",
+        "Do not treat absence of source activity as inactivity."
+      ],
+      "invariants": [
+        "missing_is_unknown",
+        "require_approval"
+      ]
+    },
+    {
+      "id": "ACSM-2026-RESISTANCE",
+      "issuer": "American College of Sports Medicine",
+      "issued": "2026-03-17",
+      "title": "2026 resistance training position stand update",
+      "url": "https://acsm.org/resistance-training-guidelines-update-2026/",
+      "scope": "Resistance exercise outcomes in healthy adults, with evidence review and goal-specific dose variables",
+      "takeaways": [
+        "Consistency and gradual participation are central, including home and bodyweight exercise.",
+        "Resistance prescriptions may be goal-dependent, while some advanced techniques are optional."
+      ],
+      "prohibitedUses": [
+        "Do not invent an athlete's tested 1RM or automatically require maximal loading.",
+        "Do not equate one generic rep target with a proven individual hypertrophy or strength response."
+      ],
+      "invariants": [
+        "equipment_aware",
+        "no_unverified_strength_max",
+        "require_approval"
+      ]
+    },
+    {
+      "id": "IOC-2016-LOAD-AND-INJURY",
+      "issuer": "International Olympic Committee consensus authors",
+      "issued": "2016-01-01",
+      "title": "How much is too much? Part 1: load in sport and risk of injury",
+      "url": "https://doi.org/10.1136/BJSPORTS-2016-096581",
+      "scope": "Sport-load monitoring consensus; older evidence and population-specific limitations",
+      "takeaways": [
+        "Individual training-load interpretation involves external training, internal response, and context.",
+        "No single marker reliably identifies all maladaptation or injury risks."
+      ],
+      "prohibitedUses": [
+        "Do not hardcode a universal mileage increment or acute:chronic ratio as a proven injury-prevention threshold.",
+        "Do not diagnose overtraining or injury from isolated HRV/RHR/sleep values."
+      ],
+      "invariants": [
+        "no_single_metric_readiness",
+        "cross_discipline_conflicts",
+        "do_not_diagnose"
+      ]
+    },
+    {
+      "id": "IOC-2016-LOAD-AND-ILLNESS",
+      "issuer": "International Olympic Committee consensus authors",
+      "issued": "2016-01-01",
+      "title": "How much is too much? Part 2: load in sport and risk of illness",
+      "url": "https://doi.org/10.1136/BJSPORTS-2016-096572",
+      "scope": "Sport illness/load consensus; limited evidence for risk quantification across sports and populations",
+      "takeaways": [
+        "Internal and external monitoring are complementary, with variability between athletes.",
+        "Life stress, travel and recovery are relevant context; evidence does not support universal illness thresholds."
+      ],
+      "prohibitedUses": [
+        "Do not infer clinical illness from a synthetic readiness score.",
+        "Do not automatically add missed training volume after interruptions."
+      ],
+      "invariants": [
+        "do_not_diagnose",
+        "no_catchup_volume",
+        "missing_is_unknown"
+      ]
+    }
+  ],
+  "governance": {
+    "promoteToExecutableRuleOnlyAfter": [
+      "source relevance to target user population reviewed",
+      "all assumption and measurement requirements documented",
+      "units and unsupported data cases specified",
+      "individual consent/approval lifecycle designed",
+      "independent expert review where health/safety consequences require it",
+      "negative/edge-case and reproducible offline tests added"
+    ],
+    "rule": "A URL or publication date is metadata, not evidence that a proposed coaching threshold is effective or safe for a particular athlete."
+  }
+}
