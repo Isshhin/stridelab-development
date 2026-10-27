@@ -20,6 +20,8 @@ StrideLab is designed as **one deterministic offline coach** coordinating runnin
 | `app/src/test/resources/engine/synthetic_athlete_scenarios_v1.json` | Future Engine 2.0 behavior/safety fixtures | **10** independent four-week scenarios, **117** synthetic activity rows and **9** synthetic wellness observations. No data science validity is claimed. |
 | `app/src/test/java/io/stridelab/privatealpha/EngineDatasetTest.kt` | JVM acceptance and structure checks | Runs accepted/rejected cases through actual Engine 1.0 policy selection and generation. Checks determinism, session counts, bounded dates, policy IDs, no fabricated actuals/mileage, quality/long-day rules, daily budgets and compatibility; parses synthetic history structure. |
 | `tools/tests/test_engine_datasets.py` | Lightweight cross-platform checks | Validates fixture IDs, version, required data, absence of invented values on unrecorded rows, exercise IDs against the shipped catalog, duplicate provider identity test cases and explicit synthetic disclaimers. |
+| `tools/generate_engine_synthetic.py` | Scalable adversarial fixtures (generated on demand, not checked into app assets) | Fixed-seed generator for **1–1000** fictional athlete histories; varies activity availability, discipline combinations, wellness missingness, explicit skipped sessions, and sometimes duplicate synthetic provider IDs. Never generates approved "optimal" coaching labels. |
+| `tools/tests/test_engine_synthetic_generator.py` | Seed/volume/privacy invariants | Same seed produces identical bytes; different seeds vary outputs; invalid counts are refused and nonrecorded activities have no fabricated actual values. |
 
 ### Athlete scenarios included
 
@@ -50,8 +52,12 @@ From `native-android/`:
 
 ```bash
 python3 -m unittest discover -s tools/tests -p 'test_engine_datasets.py' -v
+python3 -m unittest discover -s tools/tests -p 'test_engine_synthetic_generator.py' -v
+python3 tools/generate_engine_synthetic.py --seed 20261027 --count 100 --output /tmp/stridelab-synthetic-scenarios.json
 gradle --no-daemon :app:testDebugUnitTest --tests 'io.stridelab.privatealpha.EngineDatasetTest'
 ```
+
+The seeded generator's default output is standard output; `--output` writes a **new file only** and refuses overwriting existing fixtures. Generated cases are deliberately noisy software stress inputs, not calibrated populations; **never train a clinical or sports-science prediction model on them** or interpret fabricated wellness trends as validated effects.
 
 The existing full native workflow already runs Python tests under `native-android/tools/tests` and `:app:testDebugUnitTest`. A dedicated PR must still pass **exact-head CI** before its JVM assertions and input expectations are accepted. The normal build may create ephemeral debug binaries needed to test, but packaging/upload of an installable private APK artifact is **opt-in only**, not required for dataset work.
 
