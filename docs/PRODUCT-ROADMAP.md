@@ -21,6 +21,7 @@ Build one adaptive, offline-capable fitness application across **running, streng
 - **Real data and provenance.** Track provider identities, timestamps, units, available sensor streams, duplicates and sync freshness. A disconnected source does not mean zero training.
 - **Preserve user data.** Verify signing compatibility and migrations before offering an APK update; do not uninstall the existing app to bypass a signing conflict.
 - **Developer-only releases.** No public APKs, public coaching claims or premature Engine 2.0 launch.
+- **Owner-requested APK delivery only.** Routine development and CI should still compile and test the Android project, but should **not package or upload distributable APK artifacts on every commit**. Produce and retain an installable APK only after the owner explicitly asks for one. Keep manual/private artifact packaging separate from normal verification; when requested, require signing/update-compatibility checks, version metadata and SHA-256 evidence. No public release.
 
 ## Milestones
 
@@ -119,6 +120,7 @@ User may combine **one primary and a compatible secondary goal** (e.g. build 40â
 4. **Emulator/CI first; phone tests only with owner consent and signing/data safety confirmed.** Keep existing private app data.
 5. **No automatic merging** or public release. Failed tests are investigated, not removed to claim success.
 6. Archive approved design/engineering specifications in GitHub as separate, versioned reference documents when practical; this roadmap summarizes decisions rather than replacing detailed acceptance documents.
+7. **Release workflow follow-up:** At the next dedicated CI maintenance change, gate the existing automatic APK packaging and upload steps behind an explicit owner-triggered/manual option. Do not skip regular Android builds or automated tests. The current native workflow still uploads a debug artifact on normal successful runs until this gate is implemented; the roadmap decision alone does not change CI behavior.
 
 ## Decisions and open technical checks
 
