@@ -81,6 +81,7 @@ internal object Engine2ProposalWorkflow {
         require(context.ownerId == plan.ownerId) { "Athlete account differs from plan" }
         require(plan.status == Engine2PlanStatus.APPROVED) { "Only an approved plan can be revised" }
         require(id !in plan.appliedProposalIds) { "Proposal ID has already been applied" }
+        require(evidenceRecordIds.isNotEmpty()) { "Coach-authored proposals require at least one genuine referenced observation" }
         val target = plan.sessions.singleOrNull { it.id == sessionId }
             ?: throw IllegalArgumentException("Session not found")
         require(target.status == Engine2SessionStatus.PLANNED) { "Historical or active sessions are protected" }
@@ -88,9 +89,13 @@ internal object Engine2ProposalWorkflow {
             context.workouts.any {
                 it.id == ref && it.status == Engine2RecordStatus.CONFIRMED &&
                     !it.occurredAt.isAfter(at) &&
-                    it.measurements.none { m -> m.source.observedAt.isAfter(at) }
+                    it.measurements.none { m ->
+                        m.source.observedAt.isAfter(at) ||
+                            m.source.receivedAt?.isAfter(at) == true
+                    }
             } || context.wellness.any {
-                it.id == ref && !it.metric.source.observedAt.isAfter(at)
+                it.id == ref && !it.metric.source.observedAt.isAfter(at) &&
+                    it.metric.source.receivedAt?.isAfter(at) != true
             }
         }) { "Proposal cites unavailable, draft, planned or future evidence" }
         require(!at.isAfter(context.asOf)) { "Proposal time must be covered by the context snapshot" }
