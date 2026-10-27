@@ -68,7 +68,10 @@ class Engine2Batch2Test {
         val confirmed = Engine2ExerciseSelection.available(
             Engine2ExerciseDiscipline.CALISTHENICS, Engine2Movement.CORE,
             setOf(Engine2Equipment.MAT), setOf("core-tuck"), Engine2Skill.DEVELOPING)
-        assertTrue(confirmed.any { it.catalogId == "core-hollow" })
+        assertFalse(confirmed.any { it.catalogId == "core-hollow" })
+        assertTrue(Engine2ExerciseSelection.reviewed.single {
+            it.catalogId == "core-hollow"
+        }.let { !it.executable })
     }
 
     @Test fun providerNormalizationKeepsMissingMeasurementsAbsentAndConvertsMeters() {
