@@ -66,6 +66,9 @@ internal object PlanOperations {
         val session=plan.sessions.find { it.id==sessionId } ?: throw PlanConstraint("Workout is unavailable.")
         if(session.discipline!="run" || session.status in setOf("missed","skipped"))throw PlanConstraint("Choose a planned running session that was not marked missed or skipped.")
         if(activityId!=null)RecordPolicy.identifier(activityId)
+        if(session.linkedActivityId==activityId)return plan // Idempotent link/unlink; no false revision increment.
+        if(session.linkedActivityId!=null && activityId!=null)
+            throw PlanConstraint("This planned run is already linked to another recorded activity. Unlink it first before choosing a replacement.")
         val updated=if(activityId==null)session.copy(linkedActivityId=null,status=session.linkPreviousStatus ?: session.status,linkPreviousStatus=null)
             else session.copy(linkedActivityId=activityId,linkPreviousStatus=session.linkPreviousStatus ?: session.status,status="completed")
         return plan.copy(sessions=plan.sessions.map { if(it.id==sessionId)updated else it })
