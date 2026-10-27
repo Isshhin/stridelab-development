@@ -143,6 +143,8 @@ class Engine1Test {
             assertThrows(PlanConstraint::class.java) { PlanOperations.record(p,session.id,WorkoutLog(now,sets=listOf(SetRecord(exercise.id,1,kg=4.0))),true) }
             val saved=PlanOperations.record(p,session.id,WorkoutLog(now,minutes=10.0),false)
             assertEquals("in_progress",saved.sessions.first().status)
+            val wrongUnits=if(exercise.seconds!=null)SetRecord(exercise.id,1,reps=1)else SetRecord(exercise.id,1,seconds=1)
+            assertThrows(PlanConstraint::class.java) { PlanOperations.record(p,session.id,WorkoutLog(now,sets=listOf(wrongUnits)),true) }
             val actual=SetRecord(exercise.id,1,reps=if(exercise.seconds==null) 1 else null,seconds=if(exercise.seconds!=null) 1 else null)
             val completed=PlanOperations.record(saved,session.id,WorkoutLog(now,minutes=10.0,sets=listOf(actual)),true)
             assertEquals("completed",completed.sessions.first().status)
