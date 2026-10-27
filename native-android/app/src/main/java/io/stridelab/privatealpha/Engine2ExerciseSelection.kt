@@ -12,7 +12,9 @@ internal data class Engine2ExerciseOption(
     val movement: Engine2Movement,
     val skill: Engine2Skill,
     val needs: Set<Engine2Equipment> = emptySet(),
-    val confirmedPrerequisites: Set<String> = emptySet()
+    val confirmedPrerequisites: Set<String> = emptySet(),
+    /** Guide assets explain a progression but MUST NOT become executable prescriptions. */
+    val executable: Boolean = true
 )
 
 /**
@@ -33,17 +35,17 @@ internal object Engine2ExerciseSelection {
         Engine2ExerciseOption("ip", Engine2ExerciseDiscipline.CALISTHENICS, Engine2Movement.PRESS, Engine2Skill.FOUNDATION, setOf(Engine2Equipment.RAISED_SURFACE)),
         Engine2ExerciseOption("e4", Engine2ExerciseDiscipline.CALISTHENICS, Engine2Movement.PRESS, Engine2Skill.DEVELOPING),
         Engine2ExerciseOption("fc", Engine2ExerciseDiscipline.CALISTHENICS, Engine2Movement.CORE, Engine2Skill.FOUNDATION),
-        Engine2ExerciseOption("core-tuck", Engine2ExerciseDiscipline.CALISTHENICS, Engine2Movement.CORE, Engine2Skill.FOUNDATION, setOf(Engine2Equipment.MAT)),
+        Engine2ExerciseOption("core-tuck", Engine2ExerciseDiscipline.CALISTHENICS, Engine2Movement.CORE, Engine2Skill.FOUNDATION, setOf(Engine2Equipment.MAT), executable = false),
         Engine2ExerciseOption("core-hollow", Engine2ExerciseDiscipline.CALISTHENICS, Engine2Movement.CORE, Engine2Skill.DEVELOPING,
-            setOf(Engine2Equipment.MAT), setOf("core-tuck")),
-        Engine2ExerciseOption("pull-hang", Engine2ExerciseDiscipline.CALISTHENICS, Engine2Movement.PULL, Engine2Skill.FOUNDATION, setOf(Engine2Equipment.PULLUP_BAR)),
+            setOf(Engine2Equipment.MAT), setOf("core-tuck"), executable = false),
+        Engine2ExerciseOption("pull-hang", Engine2ExerciseDiscipline.CALISTHENICS, Engine2Movement.PULL, Engine2Skill.FOUNDATION, setOf(Engine2Equipment.PULLUP_BAR), executable = false),
         Engine2ExerciseOption("pull-scap", Engine2ExerciseDiscipline.CALISTHENICS, Engine2Movement.PULL, Engine2Skill.DEVELOPING,
-            setOf(Engine2Equipment.PULLUP_BAR), setOf("pull-hang")),
+            setOf(Engine2Equipment.PULLUP_BAR), setOf("pull-hang"), executable = false),
         Engine2ExerciseOption("ap", Engine2ExerciseDiscipline.CALISTHENICS, Engine2Movement.PULL, Engine2Skill.FOUNDATION,
             setOf(Engine2Equipment.PULLUP_BAR, Engine2Equipment.BAND)),
-        Engine2ExerciseOption("hand-pike", Engine2ExerciseDiscipline.CALISTHENICS, Engine2Movement.SKILL, Engine2Skill.FOUNDATION),
+        Engine2ExerciseOption("hand-pike", Engine2ExerciseDiscipline.CALISTHENICS, Engine2Movement.SKILL, Engine2Skill.FOUNDATION, executable = false),
         Engine2ExerciseOption("hand-wall", Engine2ExerciseDiscipline.CALISTHENICS, Engine2Movement.SKILL, Engine2Skill.DEVELOPING,
-            setOf(Engine2Equipment.WALL), setOf("hand-pike"))
+            setOf(Engine2Equipment.WALL), setOf("hand-pike"), executable = false)
     )
     init {
         require(reviewed.map { it.catalogId }.distinct().size == reviewed.size)
@@ -51,6 +53,10 @@ internal object Engine2ExerciseSelection {
             reviewed.any { candidate -> candidate.catalogId == previous }
         } })
     }
+
+    /** All source catalog guide IDs are discoverable, but are never returned as workouts. */
+    val guideOnlyIds = setOf("core-tuck", "core-hollow", "pull-hang", "pull-scap",
+        "hand-pike", "hand-wall")
 
     /** Returned options are suitable to review, not automatically assigned prescriptions. */
     fun available(
@@ -61,7 +67,7 @@ internal object Engine2ExerciseSelection {
         maximumSkill: Engine2Skill = Engine2Skill.FOUNDATION
     ): List<Engine2ExerciseOption> = reviewed.filter { option ->
         option.discipline == discipline && option.movement == movement &&
-            option.skill.ordinal <= maximumSkill.ordinal &&
+            option.executable && option.skill.ordinal <= maximumSkill.ordinal &&
             equipment.containsAll(option.needs) &&
             confirmedSkills.containsAll(option.confirmedPrerequisites)
     }.sortedWith(compareBy<Engine2ExerciseOption> { it.skill.ordinal }.thenBy { it.catalogId })
