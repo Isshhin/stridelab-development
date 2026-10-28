@@ -25,8 +25,9 @@ internal object Engine2CoachExplanations {
             val wellness=wellnessById[id]
             when {
                 workout!=null && workout.status==Engine2RecordStatus.CONFIRMED ->
-                    "Confirmed ${workout.discipline.name.lowercase()} workout " +
-                        "on ${workout.occurredAt}. Measurement fields available: " +
+                    "Confirmed ${workout.discipline.name.lowercase()} workout ${workout.id} " +
+                        "on ${workout.occurredAt}, source " +
+                        "${workout.measurements.firstOrNull()?.source?.provider ?: "unavailable"}. Measurement fields: " +
                         workout.measurements.map { it.metric.name }.distinct().sorted().joinToString()
                 wellness!=null -> "Observed wellness record on ${wellness.metric.source.observedAt}. " +
                     "Metric: ${wellness.metric.metric.name}."
