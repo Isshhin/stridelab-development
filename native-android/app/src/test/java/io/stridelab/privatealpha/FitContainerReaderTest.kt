@@ -46,7 +46,7 @@ class FitContainerReaderTest {
 
     @Test fun rejectsBadChecksumWithoutCreatingAnyWorkout() {
         val raw=envelope(fileIdDef+fileIdActivity)
-        raw[raw.lastIndex]=(raw.last() xor 1)
+        raw[raw.lastIndex]=(raw.last().toInt() xor 1).toByte()
         assertThrows(IllegalArgumentException::class.java) {
             FitContainerReader.decode(raw,"account-a")
         }
