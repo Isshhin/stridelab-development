@@ -119,6 +119,16 @@ def validate(library=None, media=None, catalog=None):
         for url in a['verificationUrls'] + a['candidateUrls']:
             if not url.startswith('https://'):
                 raise ValueError('Invalid verification URL')
+        for candidate in a.get('licensedCandidates', []):
+            if not all(candidate.get(k) for k in ['author','license','licenseUrl','licenseVerificationUrl','sourcePage','fitReview','decision']):
+                raise ValueError('Incomplete licensed candidate provenance')
+            if candidate.get('packaged') is not False or a['status'] != 'placeholder':
+                raise ValueError('Unreviewed candidate must remain an unpackaged placeholder')
+            for item in candidate['assets']:
+                if not item['url'].startswith('https://') or item['fetchStatus'] not in ['verified-bytes','unavailable']:
+                    raise ValueError('Invalid candidate verification')
+                if item['fetchStatus'] == 'verified-bytes' and not re.fullmatch('[0-9a-f]{64}',item.get('sha256','')):
+                    raise ValueError('Candidate source checksum missing')
         if a['status'] == 'placeholder':
             if a['bundledFile'] is not None or a['license'] is not None:
                 raise ValueError('Placeholder must not imply asset or license')

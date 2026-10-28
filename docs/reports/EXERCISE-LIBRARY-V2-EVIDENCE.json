@@ -1,0 +1,281 @@
+{
+  "baselineCommit": "25be8f3828374d1e539c7e825afa20fbcb652b56",
+  "mainAtInspection": "368b202128b0df46e76328e188dd971bafa501b7",
+  "branch": "feature/exercise-library-v2-cloud-20261029",
+  "pr": "https://github.com/Isshhin/stridelab-development/pull/28",
+  "implementationCheckpoint": "710d8d5fee9dc19329039bc8e2b9d49cf6ab5e75",
+  "environment": "Cloud Work container only; no user PC, device, account or background continuation.",
+  "preservation": {
+    "materializedBaselineFiles": 150,
+    "materializedGitBlobMismatches": 0,
+    "publishedBaselineBlobs": 205,
+    "publishedBaselineBlobChanges": 0,
+    "checkpointAdditionsOnly": 18
+  },
+  "checks": [
+    {
+      "command": "python3 native-android/tools/validate_exercise_library.py",
+      "exitCode": 0,
+      "result": "Schema, baseline bytes/IDs/instructions, ordering, provenance, media hashes/claims and graph integrity passed.",
+      "executedCommand": "python3 repo/native-android/tools/validate_exercise_library.py"
+    },
+    {
+      "command": "python3 -m unittest discover -s native-android/tools/tests -v",
+      "exitCode": 0,
+      "tests": 31,
+      "baselineTests": 13,
+      "newTests": 18,
+      "failures": 0,
+      "executedCommand": "python3 -m unittest discover -s repo/native-android/tools/tests -v"
+    },
+    {
+      "command": "python3 native-android/tools/run_library_jvm_checks.py --cache ../work/jvm --offline",
+      "exitCode": 0,
+      "tests": 105,
+      "baselineTests": 94,
+      "newTests": 11,
+      "failures": 0,
+      "compiler": "Kotlin 2.2.21 / Java 17.0.20",
+      "notes": "Exact source helper extraction from PlanBuilder.kt is documented; not an Android compile. Includes exact pinned PR #25 selector and 73,728 exhaustive queries.",
+      "executedCommand": "python3 repo/native-android/tools/run_library_jvm_checks.py --cache work/jvm --offline"
+    },
+    {
+      "command": "gradle --no-daemon --max-workers=4 --stacktrace -Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=36629 -Dhttp.proxyHost=127.0.0.1 -Dhttp.proxyPort=36629 -Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts \"-Dorg.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8\" -Pkotlin.compiler.execution.strategy=in-process -p native-android :app:testDebugUnitTest",
+      "exitCode": 0,
+      "result": "BUILD SUCCESSFUL; 25 tasks executed. Actual Android/Compose and Java/Kotlin unit compilation.",
+      "gradle": "8.13",
+      "java": "Temurin 17.0.21+9",
+      "sdk": "Android 36 / build-tools 35.0.0",
+      "tests": {
+        "tests": 104,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "notes": "Proxy port is session-specific, not a repository setting. JAVA_HOME, ANDROID_HOME and GRADLE_USER_HOME pointed to transient cloud dependencies. No product build configuration changed.",
+      "executedCommand": "work/android/gradle/gradle-8.13/bin/gradle --no-daemon --max-workers=4 --stacktrace -Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=36629 -Dhttp.proxyHost=127.0.0.1 -Dhttp.proxyPort=36629 -Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts \"-Dorg.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8\" -Pkotlin.compiler.execution.strategy=in-process -p repo/native-android :app:testDebugUnitTest"
+    },
+    {
+      "command": "git diff --cached --check (explicit deliverable paths only)",
+      "exitCode": 0,
+      "result": "No whitespace defects"
+    }
+  ],
+  "androidSuites": [
+    {
+      "suite": "io.stridelab.privatealpha.ActivityDetailTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "io.stridelab.privatealpha.ActivityIntelligenceTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "io.stridelab.privatealpha.ActivityRecordTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "io.stridelab.privatealpha.BackupCodecTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "io.stridelab.privatealpha.CoordinatedEngine1Test",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "io.stridelab.privatealpha.DashboardSummaryTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "io.stridelab.privatealpha.Engine1Test",
+      "tests": 21,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "io.stridelab.privatealpha.ExerciseLibraryV2Test",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "io.stridelab.privatealpha.IntervalConnectionTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "io.stridelab.privatealpha.MultiSessionEngine1Test",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "io.stridelab.privatealpha.NativeSessionTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "io.stridelab.privatealpha.RecordPolicyTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "io.stridelab.privatealpha.SupabaseGatewayTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "io.stridelab.privatealpha.WellnessRecordTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "io.stridelab.privatealpha.WorkoutEntryDraftTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "githubActions": [
+    {
+      "runId": 40741014993,
+      "url": "https://github.com/Isshhin/stridelab-development/actions/runs/40741014993",
+      "head": "710d8d5fee9dc19329039bc8e2b9d49cf6ab5e75",
+      "conclusion": "failure",
+      "jobs": [
+        {
+          "name": "offline-library",
+          "stepsExecuted": 0,
+          "runnerId": 0
+        },
+        {
+          "name": "android-unit",
+          "stepsExecuted": 0,
+          "runnerId": 0
+        }
+      ]
+    },
+    {
+      "runId": 40741075225,
+      "url": "https://github.com/Isshhin/stridelab-development/actions/runs/40741075225",
+      "head": "710d8d5fee9dc19329039bc8e2b9d49cf6ab5e75",
+      "conclusion": "failure",
+      "jobs": [
+        {
+          "name": "offline-library",
+          "stepsExecuted": 0,
+          "runnerId": 0
+        },
+        {
+          "name": "android-unit",
+          "stepsExecuted": 0,
+          "runnerId": 0
+        }
+      ]
+    }
+  ],
+  "ciFailureEvidence": "Logs returned 404 BlobNotFound. Check-run summaries had no message; annotation endpoint was rejected as unsupported. Exact cause unconfirmed; do not claim a billing diagnosis or passing GitHub CI.",
+  "resolvedFailures": [
+    "Initial new cycle-test fixture interfered with reciprocal stage edges; corrected fixture.",
+    "Text materialization added terminal whitespace; restored exact bytes and checked Git blob hashes.",
+    "Initial pure JVM harness omitted original Java dependencies and historyWeeklyKm helper; compiled exact dependencies/source, without stubs or product changes.",
+    "Initial Work Gradle attempts could not resolve plugins through the default proxy route; explicit Gradle proxy properties resolved routing.",
+    "Next Work Gradle attempt failed JAVA_COMPILER capability because the preinstalled runtime lacked compiler executables; full official JDK installed in scratch, verified against release SHA-256."
+  ],
+  "jdk": {
+    "source": "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.21%2B9/OpenJDK17U-jdk_x64_linux_hotspot_17.0.21_9.tar.gz",
+    "sha256": "sha256:8b9b611d917e3dfd8419d3566b5949226f69b052fed7e109c1368add1dfe8711"
+  },
+  "coverage": {
+    "total": 66,
+    "preserved": 44,
+    "added": 22,
+    "kind": {
+      "exercise": 45,
+      "guide": 21
+    },
+    "categories": {
+      "strength_gym": 17,
+      "calisthenics": 22,
+      "bodyweight": 15,
+      "running": 10,
+      "mobility": 6,
+      "conditioning": 4
+    },
+    "media": {
+      "inherited-unverified": 23,
+      "placeholder": 43
+    }
+  },
+  "mediaAudit": {
+    "legacyImageUses": 23,
+    "legacyEverkineticUsesWithMatchedSourceHashes": 15,
+    "legacyDistinctUpstreamFilesFetched": 11,
+    "licensedCandidatesForNewRecords": 4,
+    "candidateSourceFilesFetched": 8,
+    "newDemonstrationsBundled": 0,
+    "verifiedDisplayRecords": 0
+  },
+  "unavailableOrUnexecuted": [
+    "GitHub Actions job execution unavailable (pre-step failures); no green exact-head CI claimed.",
+    "No emulator, device, instrumentation, APK packaging, lifecycle or upgrade test was executed by this workstream.",
+    "No native UI adoption or coaching reviewed-whitelist expansion; those require separate approval."
+  ],
+  "testedPayloadSha256": {
+    ".github/workflows/exercise-library-v2.yml": "59483151a66526a7d3cb099ad9123e82d2eff21a5d302bb50a6ac29700445e8f",
+    "native-android/app/src/main/assets/native-library/exercise-library-v2.json": "b9dc5ac535b17c548936d7d34ba8112c11b674f2b92fe50101f70ec489c16008",
+    "native-android/app/src/main/assets/native-library/exercise-library-v2.schema.json": "7143123135ac189550439981b1696e7b5a3f74d194105b5e3cd4b0dc603a053f",
+    "native-android/app/src/main/assets/native-library/exercise-media-v2.json": "cf995370fe779a1ae13ccb4055d06b5e390a9b5df6ff25640ccb8cc07fd099e8",
+    "native-android/app/src/main/java/io/stridelab/privatealpha/ExerciseLibraryV2.kt": "2e76765d8dd4f8e162360b1fb2484497cbc57dc809cb4df22466ad801b7c7cb8",
+    "native-android/app/src/test/java/io/stridelab/privatealpha/ExerciseLibraryV2Test.kt": "a14c1b47331f174d56e1bc35558ca7989efa5aa69b2ef641c54e8399703cf8ea",
+    "native-android/tools/fixtures/Engine2ExerciseSelection-245349c.kt": "d7883325efed4cb9383a3455a3abfd238421d2a3693c84f89f26a5377e203d6b",
+    "native-android/tools/fixtures/baseline-protected-files.json": "238717c87f8df8bb7397328f6422284f449dfa7bc6f4c01ee8d9d031c6528e53",
+    "native-android/tools/fixtures/exercise-library-v1-baseline.json": "512aed8841f99878b5cddc272869bf1e9f0ad86252d9706bd07d7586b8cae666",
+    "native-android/tools/fixtures/jvm-dependencies.json": "b8b6d707750b07b55a81c4a9236bbffcab9c9016426884fd8514e93c4086281e",
+    "native-android/tools/fixtures/library-v2-coverage.json": "0a992fae610b530470b50d59a25eeec466d5831f258b29aff4d7f3fd1503ddc6",
+    "native-android/tools/jvm/ExerciseLibrarySelectionCompatibilityTest.kt": "ee0d68f46694836d680d173428b3e9ba7a5e9071bcc11d8e8b892015c412b0dd",
+    "native-android/tools/run_library_jvm_checks.py": "13ec8ac576f5477d9d3080094ea07b242a50327ccea1d1d0afaab5a8684ed6de",
+    "native-android/tools/tests/test_exercise_library_v2.py": "a69eaf2d21b3d0b372e99750a62c0c9d83d49104aa07e78d1a4d3f3452fecb09",
+    "native-android/tools/validate_exercise_library.py": "964aaa95583adebb4e148fcb1d799c8088a996a070f750c8685a61fae092923a"
+  },
+  "logSha256": {
+    "schema-check.log": "6bd888cfa6f96c3a95d0db947ef762f59eae9655e88189512b158d633cfb795f",
+    "python-check.log": "e07574c3f9d000d4d8f135f9a6fdfaccb38654b961cd2aebf200cc39a94eadb9",
+    "jvm-check.log": "059a5643629453f0b7187c2bc8f86886d4bbb513d6eaaef23dab7f6c67eac6a7",
+    "android-gradle-full-jdk.log": "e313dee5c68883abdf36703422e9176e1b0053d7d36bba4c1c3425b33e0243df"
+  },
+  "executionWorkingDirectory": "/workspace/scratch/f75b304dd159",
+  "pinnedSelectorFixtureGitBlob": "416dc9174ad561aa2483c7609be9f02bf04dd5af"
+}

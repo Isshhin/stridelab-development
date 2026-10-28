@@ -73,6 +73,13 @@ class ExerciseLibraryV2Test {
         assertFalse(library.discover("calisthenics", equipment, skills, "advanced").any { it.id == "hand-wall" })
     }
 
+    @Test fun advancedTierDoesNotGrantNamedPrerequisites() {
+        val library=load(); val equipment=setOf("pullup_bar")
+        assertFalse(library.discover("calisthenics",equipment,maximumDifficulty="advanced").any { it.id=="e5" })
+        assertFalse(library.discover("calisthenics",equipment,setOf("fc"),"advanced").any { it.id=="e5" })
+        assertTrue(library.discover("calisthenics",equipment,setOf("fc","pull-hang"),"advanced").any { it.id=="e5" })
+    }
+
     @Test fun mediaClaimsNeverTriggerNetworkOrDisplayUnverifiedArt() {
         val library = load()
         assertTrue(library.records.all { it.media.verifiedDisplayFile == null })

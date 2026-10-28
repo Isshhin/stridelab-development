@@ -83,6 +83,22 @@ class ExerciseLibraryV2Test(unittest.TestCase):
             media=copy.deepcopy(self.media);asset=next(a for a in media['assets'] if a['bundledFile']);asset[key]=value
             with self.assertRaisesRegex(ValueError,message):v.validate(media=media)
 
+    def test_licensed_candidates_remain_explicitly_unbundled_placeholders(self):
+        candidates=[a for a in self.media['assets'] if a.get('licensedCandidates')]
+        self.assertEqual(4,len(candidates))
+        self.assertTrue(all(a['status']=='placeholder' for a in candidates))
+        self.assertTrue(all(not c['packaged'] for a in candidates for c in a['licensedCandidates']))
+        candidates[0]['licensedCandidates'][0]['packaged']=True
+        with self.assertRaisesRegex(ValueError,'unpackaged placeholder'):v.validate(media=self.media)
+
+    def test_licensed_candidates_remain_explicitly_unbundled_placeholders(self):
+        candidates=[a for a in self.media['assets'] if a.get('licensedCandidates')]
+        self.assertEqual(4,len(candidates))
+        self.assertTrue(all(a['status']=='placeholder' for a in candidates))
+        self.assertTrue(all(not c['packaged'] for a in candidates for c in a['licensedCandidates']))
+        candidates[0]['licensedCandidates'][0]['packaged']=True
+        with self.assertRaisesRegex(ValueError,'unpackaged placeholder'):v.validate(media=self.media)
+
     def test_deterministic_order_required(self):
         self.library['records'].reverse()
         with self.assertRaisesRegex(ValueError,'ordered'):v.validate(self.library,self.media)

@@ -272,9 +272,39 @@
       "verificationUrls": [],
       "changes": "No new demonstration copied.",
       "fit": "none",
-      "reason": "Technique page inspected; public access is not image reuse permission. No demonstration downloaded. Obtain explicit asset license or commission original art.",
+      "reason": "Licensed upstream candidate researched and byte-checked; not bundled. Exercise-specific visual fit review remains unresolved, so display a placeholder.",
       "candidateUrls": [
-        "https://www.nhs.uk/live-well/exercise/strength-exercises/"
+        "https://www.nhs.uk/live-well/exercise/strength-exercises/",
+        "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/biceps-curl-with-dumbbell.md"
+      ],
+      "licensedCandidates": [
+        {
+          "author": "Everkinetic / Greg Priday",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "licenseVerificationUrl": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/LICENSE.md",
+          "sourcePage": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/biceps-curl-with-dumbbell.md",
+          "checked": "2026-10-29",
+          "licenseCheck": "Pinned repository LICENSE.md inspected; applies to upstream illustrations, attribution and ShareAlike obligations must be retained.",
+          "fitReview": "Candidate standing two-arm curl; visual fit not independently reviewed.",
+          "changes": "None; inspected source bytes only. Not bundled or displayed.",
+          "packaged": false,
+          "assets": [
+            {
+              "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0224-relaxation.svg",
+              "sha256": "2bd2e38775b6627566cd3aa88a9b9cce8ebcd95b9ddcf6f37ed0a3b3ad1a6bc2",
+              "bytes": 22349,
+              "fetchStatus": "verified-bytes"
+            },
+            {
+              "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0224-tension.svg",
+              "sha256": "51a8c62ff519b46fcf1e03d4c389bf442e1cc2042cd8ec19b95bd8d6b0fb7080",
+              "bytes": 18076,
+              "fetchStatus": "verified-bytes"
+            }
+          ],
+          "decision": "Keep placeholder until exact fit/attribution review and approved integration."
+        }
       ]
     },
     {
@@ -665,9 +695,39 @@
       "verificationUrls": [],
       "changes": "No new demonstration copied.",
       "fit": "none",
-      "reason": "Technique page inspected; public access is not image reuse permission. No demonstration downloaded. Obtain explicit asset license or commission original art.",
+      "reason": "Licensed upstream candidate researched and byte-checked; not bundled. Exercise-specific visual fit review remains unresolved, so display a placeholder.",
       "candidateUrls": [
-        "https://www.nasm.org/resource-center/exercise-library/seated-leg-curl"
+        "https://www.nasm.org/resource-center/exercise-library/seated-leg-curl",
+        "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/seated-leg-curl.md"
+      ],
+      "licensedCandidates": [
+        {
+          "author": "Everkinetic / Greg Priday",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "licenseVerificationUrl": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/LICENSE.md",
+          "sourcePage": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/seated-leg-curl.md",
+          "checked": "2026-10-29",
+          "licenseCheck": "Pinned repository LICENSE.md inspected; applies to upstream illustrations, attribution and ShareAlike obligations must be retained.",
+          "fitReview": "Candidate seated curl; verify machine pads and illustrated joint alignment.",
+          "changes": "None; inspected source bytes only. Not bundled or displayed.",
+          "packaged": false,
+          "assets": [
+            {
+              "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0119-relaxation.svg",
+              "sha256": "812b715ec31065069be1e5724777c8302ce3720ebcf2abb2817cc0cee61d3914",
+              "bytes": 20791,
+              "fetchStatus": "verified-bytes"
+            },
+            {
+              "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0119-tension.svg",
+              "sha256": "59b102b5ae6f6d7807e6bf45cb7a299ad95dede220533491a9cf90520c7fbf11",
+              "bytes": 20790,
+              "fetchStatus": "verified-bytes"
+            }
+          ],
+          "decision": "Keep placeholder until exact fit/attribution review and approved integration."
+        }
       ]
     },
     {
@@ -681,9 +741,39 @@
       "verificationUrls": [],
       "changes": "No new demonstration copied.",
       "fit": "none",
-      "reason": "Technique page inspected; public access is not image reuse permission. No demonstration downloaded. Obtain explicit asset license or commission original art.",
+      "reason": "Licensed upstream candidate researched and byte-checked; not bundled. Exercise-specific visual fit review remains unresolved, so display a placeholder.",
       "candidateUrls": [
-        "https://www.nasm.org/resource-center/exercise-library/leg-press"
+        "https://www.nasm.org/resource-center/exercise-library/leg-press",
+        "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/leg-press.md"
+      ],
+      "licensedCandidates": [
+        {
+          "author": "Everkinetic / Greg Priday",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "licenseVerificationUrl": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/LICENSE.md",
+          "sourcePage": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/leg-press.md",
+          "checked": "2026-10-29",
+          "licenseCheck": "Pinned repository LICENSE.md inspected; applies to upstream illustrations, attribution and ShareAlike obligations must be retained.",
+          "fitReview": "Machine geometry varies; source movement appears relevant, visual fit not independently reviewed.",
+          "changes": "None; inspected source bytes only. Not bundled or displayed.",
+          "packaged": false,
+          "assets": [
+            {
+              "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0127-relaxation.svg",
+              "sha256": "60d0ca21ed1af6adabe2ee2abbcd02aacf3054bed5f87445dfeb710a39d8d883",
+              "bytes": 23093,
+              "fetchStatus": "verified-bytes"
+            },
+            {
+              "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0127-tension.svg",
+              "sha256": "8eef18a3dc3ba73338e73853a1a3aef73003aa5c760d0e5c74988fb67b7f2020",
+              "bytes": 25256,
+              "fetchStatus": "verified-bytes"
+            }
+          ],
+          "decision": "Keep placeholder until exact fit/attribution review and approved integration."
+        }
       ]
     },
     {
@@ -1056,9 +1146,39 @@
       "verificationUrls": [],
       "changes": "No new demonstration copied.",
       "fit": "none",
-      "reason": "Technique page inspected; public access is not image reuse permission. No demonstration downloaded. Obtain explicit asset license or commission original art.",
+      "reason": "Licensed upstream candidate researched and byte-checked; not bundled. Exercise-specific visual fit review remains unresolved, so display a placeholder.",
       "candidateUrls": [
-        "https://www.nasm.org/workout-exercise-guidance"
+        "https://www.nasm.org/workout-exercise-guidance",
+        "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/side-plank.md"
+      ],
+      "licensedCandidates": [
+        {
+          "author": "Everkinetic / Greg Priday",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "licenseVerificationUrl": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/LICENSE.md",
+          "sourcePage": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/side-plank.md",
+          "checked": "2026-10-29",
+          "licenseCheck": "Pinned repository LICENSE.md inspected; applies to upstream illustrations, attribution and ShareAlike obligations must be retained.",
+          "fitReview": "Related full side plank; NOT an exact demonstration of this kneeling variant. Do not substitute without explicit mismatch labeling.",
+          "changes": "None; inspected source bytes only. Not bundled or displayed.",
+          "packaged": false,
+          "assets": [
+            {
+              "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0113-relaxation.svg",
+              "sha256": "42455be466556ad557ceb013850a71ed05a2c944a23ebb865a7f7cd8c638391d",
+              "bytes": 16695,
+              "fetchStatus": "verified-bytes"
+            },
+            {
+              "url": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0113-tension.svg",
+              "sha256": "4776e64caa985535205e8665a04990e2640247f4dd5b39faa32715662efd267b",
+              "bytes": 16910,
+              "fetchStatus": "verified-bytes"
+            }
+          ],
+          "decision": "Keep placeholder until exact fit/attribution review and approved integration."
+        }
       ]
     },
     {
