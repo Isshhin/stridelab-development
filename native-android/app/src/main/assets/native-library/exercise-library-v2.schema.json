@@ -1,0 +1,348 @@
+{
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "const": 2
+    },
+    "libraryVersion": {
+      "const": "2.0.0"
+    },
+    "baselineCommit": {
+      "const": "25be8f3828374d1e539c7e825afa20fbcb652b56"
+    },
+    "baselineCatalogSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "editorialPolicy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "url": {
+            "type": "string",
+            "pattern": "^https://"
+          },
+          "accessed": {
+            "type": "string",
+            "format": "date"
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "textRights": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "url",
+          "accessed",
+          "scope",
+          "textRights"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "exercise",
+              "guide"
+            ]
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "strength_gym",
+                "calisthenics",
+                "bodyweight",
+                "conditioning",
+                "mobility",
+                "running"
+              ]
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "movementPatterns": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "ankle_mobility",
+                "anti_extension",
+                "anti_lateral_flexion",
+                "calf_raise",
+                "carry",
+                "chest_mobility",
+                "core",
+                "cyclic_cardio",
+                "dip",
+                "elbow_flexion",
+                "gait",
+                "hinge",
+                "hip_extension",
+                "horizontal_press",
+                "horizontal_pull",
+                "inversion",
+                "jumping",
+                "knee_flexion",
+                "lateral_flexion",
+                "neck_rotation",
+                "quadruped_control",
+                "squat",
+                "stepping",
+                "support",
+                "thoracic_rotation",
+                "unilateral",
+                "vertical_pull"
+              ]
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "primaryMuscles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "secondaryMuscles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 0,
+            "uniqueItems": true
+          },
+          "equipmentOptions": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "anchor",
+                  "assistance_setup",
+                  "band",
+                  "barbell",
+                  "bench",
+                  "chair",
+                  "chest_press_machine",
+                  "dumbbells",
+                  "lat_pulldown_machine",
+                  "leg_curl_machine",
+                  "leg_press_machine",
+                  "low_bar",
+                  "one_weight",
+                  "parallel_bars",
+                  "parallettes",
+                  "pullup_bar",
+                  "rack",
+                  "raised_surface",
+                  "rings",
+                  "safe_hill_route",
+                  "safe_route",
+                  "safeties",
+                  "stationary_bike",
+                  "two_weights",
+                  "wall"
+                ]
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "setupNotes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "difficulty": {
+            "enum": [
+              "foundation",
+              "developing",
+              "advanced"
+            ]
+          },
+          "prerequisites": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*$"
+            },
+            "minItems": 0,
+            "uniqueItems": true
+          },
+          "regressions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*$"
+            },
+            "minItems": 0,
+            "uniqueItems": true
+          },
+          "progressions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*$"
+            },
+            "minItems": 0,
+            "uniqueItems": true
+          },
+          "alternatives": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*$"
+            },
+            "minItems": 0,
+            "uniqueItems": true
+          },
+          "prerequisiteNotes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "technique": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 2,
+            "uniqueItems": true
+          },
+          "easier": {
+            "type": "string",
+            "minLength": 1
+          },
+          "harder": {
+            "type": "string",
+            "minLength": 1
+          },
+          "caveats": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "provenance": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sourceId": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9-]*$"
+                },
+                "scope": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "sourceId",
+                "scope"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "mediaId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "categories",
+          "movementPatterns",
+          "primaryMuscles",
+          "secondaryMuscles",
+          "equipmentOptions",
+          "setupNotes",
+          "difficulty",
+          "prerequisites",
+          "regressions",
+          "progressions",
+          "alternatives",
+          "prerequisiteNotes",
+          "technique",
+          "easier",
+          "harder",
+          "caveats",
+          "provenance",
+          "mediaId"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "libraryVersion",
+    "baselineCommit",
+    "baselineCatalogSha256",
+    "editorialPolicy",
+    "sources",
+    "records"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stridelab.invalid/schemas/exercise-library-v2.schema.json",
+  "title": "StrideLab Exercise Library 2.0 companion"
+}
