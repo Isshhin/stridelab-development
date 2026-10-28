@@ -226,7 +226,7 @@ class MultiSessionEngine1Test {
             approved, run.id, WorkoutLog(now, minutes = 27.0, distanceKm = 4.2), true
         )
         val withBoth = PlanOperations.record(
-            withRun, cal.id, WorkoutLog(now.plusSeconds(60), minutes = 24.0, effort = 4), true
+            withRun, cal.id, WorkoutLog(now.plusSeconds(60), minutes = 24.0, effort = 4, sets = listOf(SetRecord(cal.effectiveExercises.first().id,1,reps=5))), true
         )
         assertEquals(2, withBoth.sessions.count { it.status == "completed" })
         assertEquals(4.2, withBoth.sessions.single { it.id == run.id }.log!!.distanceKm!!, 0.0)
