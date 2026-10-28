@@ -25,7 +25,22 @@ internal data class Engine2ApprovalLedger(
             id == p.id && p.ownerId == plan.ownerId && p.planId == plan.planId
         })
         require(decisions.map { it.proposalId }.distinct().size == decisions.size)
-        require(decisions.all { proposals[it.proposalId]?.status != Engine2ProposalStatus.PENDING })
+        require(proposals.values.filter { it.status == Engine2ProposalStatus.PENDING }
+            .map { it.sessionId }.distinct().size ==
+            proposals.values.count { it.status == Engine2ProposalStatus.PENDING })
+        require(decisions.all { receipt ->
+            val proposal = proposals[receipt.proposalId]
+            val expected = when (receipt.decision) {
+                Engine2Decision.APPROVE -> Engine2ProposalStatus.APPROVED
+                Engine2Decision.REJECT -> Engine2ProposalStatus.REJECTED
+                Engine2Decision.POSTPONE -> Engine2ProposalStatus.POSTPONED
+            }
+            proposal != null && proposal.status == expected &&
+                proposal.decidedAt == receipt.at &&
+                receipt.resultingPlanRevision <= plan.revision &&
+                (receipt.decision != Engine2Decision.APPROVE ||
+                    proposal.id in plan.appliedProposalIds)
+        })
     }
 }
 
