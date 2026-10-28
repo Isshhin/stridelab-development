@@ -119,6 +119,27 @@ class NativeVisualTest {
         compose.onNodeWithText("Lap 1 · 1.00 km · 5:50").performScrollTo().assertIsDisplayed()
         capture("simulation-recorded-laps")
     }
+    @Test fun manuallyLoggedStrengthSessionShowsActualSetsNotInventedMetrics() {
+        val local=ActivityDetailPresentation.LocallyLogged(
+            accountId="fictional-account",
+            title="Strength practice",kind="str",
+            planId="fictional-plan",sessionId="fictional-session",
+            performedOn=java.time.LocalDate.parse("2026-10-27"),
+            recordedAt=Instant.parse("2026-10-27T16:00:00Z"),
+            status="in_progress",minutes=25.0,distanceKm=null,effort=6,
+            sets=listOf(SetRecord("squat",1,8,30.0,null)),
+            notes="Stopped after the first set",
+            linkedActivityId=null
+        )
+        show { StrideTheme { Surface { Column(Modifier.verticalScroll(rememberScrollState())) {
+            LoggedActivityDetail(local) {}
+        } } } }
+        compose.onNodeWithText("ACTUAL WORKOUT LOG").assertExists()
+        compose.onNodeWithText("Actual distance: Not recorded").assertExists()
+        compose.onNodeWithText("Exercise squat · set 1 · 8 reps · 30.0 kg").assertExists()
+        compose.onNodeWithText("Stopped after the first set").assertExists()
+    }
+
     @Test fun weeklyDashboardAndSourceDatedWellnessRemainReadableAtLargeText() {
         val now=Instant.parse("2026-10-26T02:00:00Z")
         var refreshed=false
