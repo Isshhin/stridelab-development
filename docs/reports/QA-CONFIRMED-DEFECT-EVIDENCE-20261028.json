@@ -1,0 +1,65 @@
+{
+  "baseline": "25be8f3828374d1e539c7e825afa20fbcb652b56",
+  "code_commit": "e9a69c2a8aa5da56303a9e11ac84066efd157993",
+  "branch": "fix/confirmed-qa-defects-20261028",
+  "pull_request": 26,
+  "preservation": "Original AutonomousReliabilityRegressionTest.kt and AutonomousEngineMatrixTest.kt unchanged from local QA checkpoint 90d6a623052196b22f4fa30593f2dabceb1b4236; local git diff for those files was empty before publishing.",
+  "before": {
+    "command": "python run_direct_jvm.py --regressions",
+    "java_compile_exit": 0,
+    "kotlin_compile_exit": 0,
+    "junit_exit": 1,
+    "tests": 113,
+    "failures": 7,
+    "evidence_type": "Executed local command; original full QA logs also preserved in prior QA archive"
+  },
+  "original_failing_assertions": [
+    "completionRejectsEmptyResistanceLog",
+    "completionRejectsLoadOnlySet",
+    "completionRejectsSecondsForRepPrescription",
+    "completionRejectsZeroPerformedReps",
+    "restoreRejectsUnknownExerciseInActualLog",
+    "restoreRejectsDuplicateActualSets",
+    "restoreRejectsConflictingSessionsInsideApprovedPlan"
+  ],
+  "after": {
+    "command": "python run_direct_jvm.py --regressions",
+    "java_compile_exit": 0,
+    "kotlin_compile_exit": 0,
+    "junit_exit": 0,
+    "tests": 127,
+    "failures": 0,
+    "junit_seconds": 1.104,
+    "seed": 20261028,
+    "matrix_requests": 300,
+    "matrix_generated": 290,
+    "matrix_explicitly_rejected": 10
+  },
+  "python": {
+    "command": "python -m unittest discover -s stridelab-qa/native-android/tools/tests -v",
+    "tests": 14,
+    "failures": 0,
+    "seconds": 0.138
+  },
+  "android_attempt": {
+    "run": 40713015201,
+    "job": 122903077234,
+    "status": "completed",
+    "conclusion": "failure",
+    "steps": null,
+    "annotations_count": 2,
+    "logs": "BlobNotFound",
+    "annotation_access": "connector endpoint unsupported",
+    "fresh_build_executed": false,
+    "fresh_instrumentation_executed": false,
+    "fresh_compose_executed": false,
+    "precise_cause": "unavailable"
+  },
+  "limitations": [
+    "Local execution host disconnected after passing local tests; cannot presently resume Gradle/ADB there.",
+    "Android repository and Compose additions are source-prepared but not runtime verified.",
+    "Direct JVM execution is not an Android build.",
+    "Unknown-policy snapshots remain opaque/read-only; no new engine semantics are inferred."
+  ],
+  "recommendation": "Ready for code review; retain draft and require exact-source Android build/instrumentation before integration."
+}
