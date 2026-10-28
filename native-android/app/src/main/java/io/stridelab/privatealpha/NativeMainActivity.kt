@@ -165,6 +165,12 @@ private fun NavHostController.openActivity(id: String) {
                                 item { Text("LATEST ACTIVITY", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }
                                 item { ActivityRow(activity) { nav.openActivity(activity.id) } }
                             }
+                            val lastRecordedRun=state.activities.firstOrNull { DashboardSummary.isRun(it) }
+                            if(lastRecordedRun!=null && lastRecordedRun.id!=state.activities.firstOrNull()?.id) {
+                                item { Text("LATEST RECORDED RUN", style=MaterialTheme.typography.labelLarge,
+                                    color=MaterialTheme.colorScheme.primary) }
+                                item { ActivityRow(lastRecordedRun) { nav.openActivity(lastRecordedRun.id) } }
+                            }
                             item { WeeklyDashboard(state.activities,plans=state.plans) }
                             item { WellnessOverview(state.wellness, actions.refreshWellness, online && !state.busy && !state.needsSignIn) }
                             item { HistoryOverview(state.activities) }
@@ -184,7 +190,7 @@ private fun NavHostController.openActivity(id: String) {
                             if(state.activities.isEmpty()) item { EmptyState("No activities cached", "Your saved history will appear here after a successful refresh.") }
                             val logged=state.plans.flatMap { p -> p.sessions.filter { it.status=="completed" && (it.linkedActivityId==null || state.activities.none { a->a.id==it.linkedActivityId }) }.map { p to it } }.sortedByDescending { it.second.log?.at }
                             if(logged.isNotEmpty()) item { Text("WORKOUT LOGS · ON THIS DEVICE",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary) }
-                            logged.forEach { (p,s) -> item(key="logged-${s.id}") { PlannedWorkoutCard(s) { nav.openWorkout(p.id,s.id) } } }
+                            logged.forEach { (p,s) -> item(key="logged-${s.id}") { PlannedWorkoutCard(s) { nav.navigate("log/${android.net.Uri.encode(p.id)}/${android.net.Uri.encode(s.id)}") } } }
                             items(state.activities, key = { it.id }) { activity -> ActivityRow(activity) { nav.openActivity(activity.id) } }
                         }
                     }
@@ -217,6 +223,22 @@ private fun NavHostController.openActivity(id: String) {
                             } }
                             item { Text("Values come from the activity source and use metric units. Missing metrics are shown as not recorded. Load recorded streams and laps when online. Availability depends on your source; summary metrics cannot reconstruct missing routes or charts.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                         }
+                    }
+                }
+                composable("log/{planId}/{sessionId}") { backStack ->
+                    val planId=backStack.arguments?.getString("planId")
+                    val sessionId=backStack.arguments?.getString("sessionId")
+                    val owner=state.account
+                    val plan=state.plans.firstOrNull { it.id==planId && it.owner==owner }
+                    val session=plan?.sessions?.firstOrNull { it.id==sessionId }
+                    val actual=if(plan!=null && sessionId!=null && session!=null &&
+                        (session.log!=null || session.linkedActivityId!=null))
+                        ActivityDetailPresentationFactory.logged(plan,sessionId) else null
+                    Screen(session?.title ?: "Saved session unavailable","WORKOUT LOG",compactTitle=true) {
+                        item { TextButton(onClick={nav.popBackStack()}) { Text("Back to history") } }
+                        if(actual==null) item { EmptyState("No saved workout log",
+                            "This workout is unavailable or does not contain an actual log for this account.") }
+                        else item { LoggedActivityDetail(actual) { nav.openWorkout(plan!!.id,sessionId!!) } }
                     }
                 }
                 composable("training") { TrainingScreen(state,actions.planning,{nav.navigate("builder/all")},{p,s->nav.openWorkout(p,s)},{nav.navigate("auth")}) }

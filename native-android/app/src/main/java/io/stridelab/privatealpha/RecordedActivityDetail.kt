@@ -22,11 +22,18 @@ import kotlin.math.cos
 
 @Composable internal fun RecordedActivityDetail(detail: ActivityDetail, supportsPace: Boolean) {
     var selectedIndex by rememberSaveable(detail.activityId) { mutableStateOf<Int?>(null) }
+    var section by rememberSaveable(detail.activityId) { mutableStateOf("Charts") }
     val selected=selectedIndex?.let { detail.samples.getOrNull(it) }
     SignalCard {
         Text("RECORDED STREAMS",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
         val date = DateTimeFormatter.ofPattern("d MMM, HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(detail.fetchedAt))
         Text("Saved $date · ${detail.samples.size} source samples · available offline",style=MaterialTheme.typography.bodySmall)
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            listOf("Charts","Splits","Route").forEach { name ->
+                FilterChip(selected=section==name,onClick={section=name},label={Text(name)})
+            }
+        }
+        if(section=="Charts") {
         if(detail.samples.isEmpty()) Text("No recorded time-series or GPS points were returned. Summary metrics remain available.")
         else {
             Text(selected?.let { "Selected source sample ${it.index} · elapsed ${ActivityRecord.duration(it.seconds)}" } ?: "Tap a chart to inspect the nearest recorded sample. No interpolation is used.",style=MaterialTheme.typography.bodySmall)
@@ -37,6 +44,9 @@ import kotlin.math.cos
             if(supportsPace) SampleGraph("Pace", "sec/km",detail.samples,selected,{selectedIndex=it}) { it.pace }
             SampleGraph("Heart rate","bpm",detail.samples,selected,{selectedIndex=it}) { it.hr }
             SampleGraph("Elevation","m",detail.samples,selected,{selectedIndex=it}) { it.altitude }
+            }
+        }
+        if(section=="Route") {
             val points = detail.samples.filter { it.latitude != null && it.longitude != null }
             if(points.size < 2) Text("No recorded GPS route. Indoor activities and sources without coordinates cannot show a route.")
             else {
@@ -54,6 +64,7 @@ import kotlin.math.cos
                 }
             }
         }
+        if(section=="Splits") {
         Text("Source laps",style=MaterialTheme.typography.titleMedium)
         if(detail.laps.isEmpty()) Text("No recorded laps returned. No kilometer splits have been invented.")
         // Keep the detail list bounded; the source may include many tiny device laps.
@@ -65,6 +76,7 @@ import kotlin.math.cos
             Text(listOfNotNull(pace,lap.hr?.let { String.format(Locale.getDefault(),"%.0f bpm",it) }).joinToString(" · ").ifEmpty { "Pace / heart rate not recorded" },style=MaterialTheme.typography.bodySmall)
         }
         if(detail.laps.size>100) Text("Showing first 100 of ${detail.laps.size} recorded laps.")
+        }
     }
 }
 
@@ -75,7 +87,7 @@ import kotlin.math.cos
     val low=valid.minOf { it.second }; val high=valid.maxOf { it.second }
     val description=String.format(Locale.getDefault(),"%s · %.1f–%.1f %s · %d samples · elapsed %s to %s",label,low,high,unit,valid.size,ActivityRecord.duration(valid.first().first),ActivityRecord.duration(valid.last().first))
     Text(description,style=MaterialTheme.typography.bodySmall)
-    Text(if(label=="Pace") "Faster pace is higher (seconds per km)" else "Higher line = higher recorded value",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(if(label=="Pace") "Faster pace is higher on this chart; lower seconds/km is faster" else "Higher line = higher recorded value",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     val color=MaterialTheme.colorScheme.primary
     selected?.let { sample -> Text(value(sample)?.let { n -> "Selected: "+(if(label=="Pace") ActivityRecord.duration(n)+" /km" else String.format(Locale.getDefault(),"%.1f %s",n,unit))+" at "+ActivityRecord.duration(sample.seconds) } ?: "$label was not recorded at this selected sample.",style=MaterialTheme.typography.bodyMedium) }
     Canvas(Modifier.fillMaxWidth().height(110.dp).testTag("stream-$label").semantics { contentDescription=description }.pointerInput(samples) {
