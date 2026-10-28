@@ -132,18 +132,37 @@ class Engine1Test {
         assertEquals(done,PlanSnapshot.decode(done.encode(),"synthetic-owner"))
         assertThrows(PlanConstraint::class.java) { PlanOperations.record(swapped,session.id,WorkoutLog(now,sets=listOf(SetRecord(original.id,1,reps=5))),false) }
     }
+    @Test fun completionRequiresPerformedStrengthAndCalisthenicsSetsWithoutRejectingPartialWork() {
+        for(discipline in listOf("str","cal")) {
+            val request=PlanRequest(start=start,runDays=0,strengthDays=if(discipline=="str") 2 else 0,calDays=if(discipline=="cal") 2 else 0)
+            val p=PlanOperations.approve(generate(request),emptyList())
+            val session=p.sessions.first()
+            val exercise=session.effectiveExercises.first()
+            assertThrows(PlanConstraint::class.java) { PlanOperations.record(p,session.id,WorkoutLog(now),true) }
+            assertThrows(PlanConstraint::class.java) { PlanOperations.record(p,session.id,WorkoutLog(now,minutes=20.0,notes="Finished"),true) }
+            assertThrows(PlanConstraint::class.java) { PlanOperations.record(p,session.id,WorkoutLog(now,sets=listOf(SetRecord(exercise.id,1,kg=4.0))),true) }
+            val saved=PlanOperations.record(p,session.id,WorkoutLog(now,minutes=10.0),false)
+            assertEquals("in_progress",saved.sessions.first().status)
+            val wrongUnits=if(exercise.seconds!=null)SetRecord(exercise.id,1,reps=1)else SetRecord(exercise.id,1,seconds=1)
+            assertThrows(PlanConstraint::class.java) { PlanOperations.record(p,session.id,WorkoutLog(now,sets=listOf(wrongUnits)),true) }
+            val actual=SetRecord(exercise.id,1,reps=if(exercise.seconds==null) 1 else null,seconds=if(exercise.seconds!=null) 1 else null)
+            val completed=PlanOperations.record(saved,session.id,WorkoutLog(now,minutes=10.0,sets=listOf(actual)),true)
+            assertEquals("completed",completed.sessions.first().status)
+            assertEquals(listOf(actual),completed.sessions.first().log!!.sets)
+        }
+    }
     @Test fun savedExerciseSetsAndHistoricalWorkoutsCannotBeSwappedAway() {
         val p=PlanOperations.approve(generate(PlanRequest(start=start,runDays=0,strengthDays=2)),emptyList());val session=p.sessions.first();val original=session.exercises.first()
         val partial=PlanOperations.record(p,session.id,WorkoutLog(now,sets=listOf(SetRecord(original.id,1,reps=5))),false)
         assertThrows(PlanConstraint::class.java) { PlanOperations.swapExercise(partial,session.id,original.id,now) }
-        val done=PlanOperations.record(p,session.id,WorkoutLog(now),true)
+        val done=PlanOperations.record(p,session.id,WorkoutLog(now,sets=listOf(SetRecord(original.id,1,reps=5))),true)
         assertThrows(PlanConstraint::class.java) { PlanOperations.swapExercise(done,session.id,original.id,now) }
     }
     @Test fun reusableTemplateCreatesNewDatedDraftsWithoutRewritingPriorLogs() {
         val t=SessionTemplate("synthetic-template","Squat practice","str",30,listOf(ExercisePrescription("sq","Bodyweight squat",2,6)))
         val first=t.draft("synthetic-owner",PlanRequest(),LocalDate.now(),"practice-one",now)
         assertEquals("draft",first.status);assertEquals("Squat practice",first.name);assertEquals(1,first.sessions.size)
-        val approved=PlanOperations.approve(first,emptyList());val completed=PlanOperations.record(approved,first.sessions.first().id,WorkoutLog(now,minutes=16.0),true)
+        val approved=PlanOperations.approve(first,emptyList());val completed=PlanOperations.record(approved,first.sessions.first().id,WorkoutLog(now,minutes=16.0,sets=listOf(SetRecord("sq",1,reps=6))),true)
         val second=t.copy(exercises=listOf(ExercisePrescription("sq","Bodyweight squat",3,8))).draft("synthetic-owner",PlanRequest(),LocalDate.now().plusDays(3),"practice-two",now)
         assertEquals(2,completed.sessions.first().exercises.first().sets);assertEquals(3,second.sessions.first().exercises.first().sets);assertNotEquals(first.sessions.first().id,second.sessions.first().id)
         assertEquals(t,SessionTemplate.decode(t.encode("synthetic-owner"),"synthetic-owner"))
