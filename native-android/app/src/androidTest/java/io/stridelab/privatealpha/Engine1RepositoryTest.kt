@@ -157,7 +157,8 @@ class Engine1RepositoryTest {
             .put("source","intervals").put("activity_type","run").put("started_at","2026-10-24T00:00:00Z").put("distance_m",3000).put("duration_s",1200)
         val other=JSONObject().put("id","source-run-other").put("user_id",owner).put("title","Other actual run")
             .put("source","intervals").put("activity_type","run").put("started_at","2026-10-25T00:00:00Z").put("distance_m",5000).put("duration_s",1800)
-        gateway.rows=JSONArray().put(first).put(other)
+        // The production history boundary requires newest-first cursor order.
+        gateway.rows=JSONArray().put(other).put(first)
         assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
         assertEquals(2,repo.state.value.activities.size)
         assertTrue(repo.generatePlan(PlanRequest(start=request().start)))
