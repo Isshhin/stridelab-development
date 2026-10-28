@@ -127,10 +127,27 @@ internal fun readLibrary(context:Context):List<LibraryEntry> = context.assets.op
     }
 }
 @Composable internal fun LibraryImage(entry:LibraryEntry,compact:Boolean=false) {
-    val metadata=entry.raw.optJSONObject("image") ?: return
+    val metadata=entry.raw.optJSONObject("image")
+    if(metadata==null) {
+        Surface(shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surfaceVariant,
+            modifier=Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(5.dp)) {
+                Text(if(entry.guide) "Movement guide" else "Exercise illustration unavailable",
+                    style=MaterialTheme.typography.titleMedium)
+                Text(if(entry.guide)
+                    "Text reference only. No representative exercise image is claimed."
+                else "No image asset is available. Technique text remains accessible.",
+                    style=MaterialTheme.typography.bodySmall,
+                    color=MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        return
+    }
     val context=LocalContext.current; val uri=LocalUriHandler.current
     val bitmap by produceState<android.graphics.Bitmap?>(null,entry.id) { withContext(Dispatchers.Main.immediate) { value=withContext(Dispatchers.IO) { runCatching { context.assets.open(metadata.getString("nativeFile")).use(BitmapFactory::decodeStream) }.getOrNull() } } }
     bitmap?.let { Image(it.asImageBitmap(),contentDescription=metadata.getString("label"),contentScale=ContentScale.Fit,modifier=Modifier.fillMaxWidth().heightIn(max=if(compact)180.dp else 230.dp).background(Color.White,RoundedCornerShape(20.dp)).padding(12.dp)) }
+    if(bitmap==null) Text("Illustration loading or unavailable; exercise guidance below remains usable.",
+        style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     val fit=metadata.getJSONArray("fit")
     if(!compact || fit.getString(0)!="exact")Text(fit.getString(1),style=MaterialTheme.typography.bodySmall)
     var details by rememberSaveable(entry.id) { mutableStateOf(false) }
