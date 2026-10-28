@@ -36,6 +36,20 @@ class Engine1RepositoryTest {
         assertFalse(repo.recordWorkout(reopened.id,reopened.revision,session.id,log,true));assertEquals(1,repo.state.value.plans.single().sessions.count { it.status=="completed" })
         repo.close();open();assertEquals("completed",repo.state.value.plans.single().sessions.first().status)
     }
+    @Test fun rejectedEmptyCompletedStrengthLogDoesNotOverwriteOfflinePlan()=runBlocking {
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        assertTrue(repo.generatePlan(request()))
+        var plan=repo.state.value.plans.single()
+        assertTrue(repo.approvePlan(plan.id,plan.revision))
+        plan=repo.state.value.plans.single()
+        val session=plan.sessions.first()
+        assertFalse(repo.recordWorkout(plan.id,plan.revision,session.id,WorkoutLog(Instant.now(),minutes=20.0),true))
+        assertEquals("planned",repo.state.value.plans.single().sessions.first().status)
+        assertNull(repo.state.value.plans.single().sessions.first().log)
+        repo.close();gateway.offline=true;open()
+        assertEquals("planned",repo.state.value.plans.single().sessions.first().status)
+        assertNull(repo.state.value.plans.single().sessions.first().log)
+    }
     @Test fun multiSessionPlanIndependentLogsPersistInSqliteAndReopenOffline()=runBlocking {
         assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
         val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)
@@ -49,7 +63,7 @@ class Engine1RepositoryTest {
         val run=pair.single { it.discipline=="run" };val cal=pair.single { it.discipline=="cal" }
         assertTrue(repo.recordWorkout(plan.id,plan.revision,run.id,WorkoutLog(Instant.now(),minutes=20.0,distanceKm=3.1),true))
         plan=repo.state.value.plans.single()
-        assertTrue(repo.recordWorkout(plan.id,plan.revision,cal.id,WorkoutLog(Instant.now(),minutes=25.0,effort=4),true))
+        assertTrue(repo.recordWorkout(plan.id,plan.revision,cal.id,WorkoutLog(Instant.now(),minutes=25.0,effort=4,sets=listOf(cal.effectiveExercises.first().let { SetRecord(it.id,1,reps=it.reps,seconds=it.seconds) })),true))
         plan=repo.state.value.plans.single()
         assertEquals("completed",plan.sessions.single { it.id==run.id }.status)
         assertEquals("completed",plan.sessions.single { it.id==cal.id }.status)
@@ -124,7 +138,7 @@ class Engine1RepositoryTest {
         assertTrue(repo.changeShelf("sq"));assertTrue(repo.changeShelf("sq","Home practice"))
         assertTrue(repo.generatePlan(request()));var p=repo.state.value.plans.single()
         assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single()
-        assertTrue(repo.recordWorkout(p.id,p.revision,p.sessions.first().id,WorkoutLog(Instant.now(),minutes=20.0),true));p=repo.state.value.plans.single()
+        assertTrue(repo.recordWorkout(p.id,p.revision,p.sessions.first().id,WorkoutLog(Instant.now(),minutes=20.0,sets=listOf(p.sessions.first().effectiveExercises.first().let { SetRecord(it.id,1,reps=it.reps,seconds=it.seconds) })),true));p=repo.state.value.plans.single()
         val later=Engine1.generate(request().copy(start=request().start.plusWeeks(5)),owner)
         val raw=JSONObject().put("schemaVersion",1).put("plans",JSONArray().put(p.copy(feedback=emptyList()).encode()).put(later.encode())).toString()
         gateway.offline=true
@@ -162,7 +176,7 @@ class Engine1RepositoryTest {
         val template=SessionTemplate("synthetic-session-template","Squat practice","str",30,listOf(ExercisePrescription("sq","Bodyweight squat",2,6)))
         assertTrue(repo.saveTemplate(template));gateway.offline=true;repo.close();open();assertEquals(template,repo.state.value.templates.single())
         assertTrue(repo.prepareSession(template,PlanRequest(),LocalDate.now()));var p=repo.state.value.plans.single();assertEquals("draft",p.status)
-        assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single();assertTrue(repo.recordWorkout(p.id,p.revision,p.sessions.first().id,WorkoutLog(Instant.now(),minutes=20.0),true))
+        assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single();assertTrue(repo.recordWorkout(p.id,p.revision,p.sessions.first().id,WorkoutLog(Instant.now(),minutes=20.0,sets=listOf(p.sessions.first().effectiveExercises.first().let { SetRecord(it.id,1,reps=it.reps,seconds=it.seconds) })),true))
         assertTrue(repo.saveTemplate(template.copy(name="Changed future template",exercises=listOf(ExercisePrescription("sq","Bodyweight squat",3,8)))))
         repo.close();open();assertEquals(2,repo.state.value.plans.single().sessions.first().exercises.single().sets);assertEquals(3,repo.state.value.templates.single().exercises.single().sets)
         gateway.offline=false;gateway.owner="synthetic-engine1-other";assertTrue(repo.signIn("other@example.invalid","fixture"));assertTrue(repo.state.value.templates.isEmpty());assertTrue(repo.state.value.plans.isEmpty())
@@ -172,7 +186,7 @@ class Engine1RepositoryTest {
         val request=request().copy(policyChoice="coordinated",disciplineGoals=mapOf("str" to "Muscle development"),strengthExperience=1)
         assertTrue(repo.generatePlan(request));var p=repo.state.value.plans.single();assertEquals(CoordinatedEngine1.policyId,p.policyId)
         assertTrue(p.sessions.flatMap { it.exercises }.filter { it.reps!=null }.all { it.reps==10 })
-        assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single();assertTrue(repo.recordWorkout(p.id,p.revision,p.sessions.first().id,WorkoutLog(Instant.now(),minutes=20.0),true));val saved=repo.state.value.plans.single()
+        assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single();assertTrue(repo.recordWorkout(p.id,p.revision,p.sessions.first().id,WorkoutLog(Instant.now(),minutes=20.0,sets=listOf(p.sessions.first().effectiveExercises.first().let { SetRecord(it.id,1,reps=it.reps,seconds=it.seconds) })),true));val saved=repo.state.value.plans.single()
         gateway.offline=true;assertTrue(repo.generatePlan(request.copy(start=request.start.plusWeeks(5),policyChoice="baseline")));repo.close();open()
         assertEquals(saved,repo.state.value.plans.find { it.id==saved.id });val fallback=repo.state.value.plans.first { it.id!=saved.id };assertEquals(ENGINE1_POLICY,fallback.policyId);assertTrue(fallback.sessions.flatMap { it.exercises }.filter { it.reps!=null }.all { it.reps==8 })
     }
