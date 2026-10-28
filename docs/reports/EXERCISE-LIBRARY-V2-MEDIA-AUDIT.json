@@ -1,0 +1,451 @@
+{
+  "checked": "2026-10-29",
+  "licenseVerificationUrl": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/LICENSE.md",
+  "licenseVerified": "CC BY-SA 4.0 at pinned source commit; baseline attribution/change notices retained. No new distribution right asserted for unrelated or schematically drawn assets.",
+  "assets": [
+    {
+      "exerciseId": "e1",
+      "sourceUrl": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0122-relaxation.svg",
+      "sourcePage": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/barbell-squat.md",
+      "claimedLicense": "CC BY-SA 4.0",
+      "claimedSha256": "74c5904f5ce3074710921a337d3145d237f0d34cfbde476c0f0da141b838f0ab",
+      "upstream": {
+        "status": "fetched",
+        "sha256": "74c5904f5ce3074710921a337d3145d237f0d34cfbde476c0f0da141b838f0ab",
+        "bytes": 20037
+      },
+      "sourceBytesMatch": true,
+      "bundledFile": "native-library/e1.png",
+      "bundledSha256": "848d712354a4dd00fa9c2cbce1f02f972f41dbe861e93116a5f9a3751f3491ff",
+      "fit": [
+        "exact",
+        "Shows the barbell back squat."
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "e2",
+      "sourceUrl": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0087-relaxation.svg",
+      "sourcePage": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/pull-ups.md",
+      "claimedLicense": "CC BY-SA 4.0",
+      "claimedSha256": "12078cccf48e29c886dc84653dce07168945fc279ec20ec95a6b944f68816377",
+      "upstream": {
+        "status": "fetched",
+        "sha256": "12078cccf48e29c886dc84653dce07168945fc279ec20ec95a6b944f68816377",
+        "bytes": 18803
+      },
+      "sourceBytesMatch": true,
+      "bundledFile": "native-library/e2.png",
+      "bundledSha256": "f266842a4d9a9f0dc6d1f84537be669aa86fa909cac55b89f8316e1b11880789",
+      "fit": [
+        "progression",
+        "Shows the full pull-up, the end point of this progression. Earlier steps follow the written cues."
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "e3",
+      "sourceUrl": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0118-relaxation.svg",
+      "sourcePage": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/romanian-dead-lift.md",
+      "claimedLicense": "CC BY-SA 4.0",
+      "claimedSha256": "a7c2c7418ba458e2776609595ea2cafd23aba4648c959b81b830f1836743bc04",
+      "upstream": {
+        "status": "fetched",
+        "sha256": "a7c2c7418ba458e2776609595ea2cafd23aba4648c959b81b830f1836743bc04",
+        "bytes": 15788
+      },
+      "sourceBytesMatch": true,
+      "bundledFile": "native-library/e3.png",
+      "bundledSha256": "6c5543dd836ec516676b21fa0190dafeb477fd12e910d5b6be1f33a21aeac388",
+      "fit": [
+        "exact",
+        "Shows the barbell Romanian deadlift."
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "e4",
+      "sourceUrl": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0077-relaxation.svg",
+      "sourcePage": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/push-ups.md",
+      "claimedLicense": "CC BY-SA 4.0",
+      "claimedSha256": "6ce1b11a8f525cc26ef8b12a0ed08de5a69aec533557b86d34d0d47d14e9d4f1",
+      "upstream": {
+        "status": "fetched",
+        "sha256": "6ce1b11a8f525cc26ef8b12a0ed08de5a69aec533557b86d34d0d47d14e9d4f1",
+        "bytes": 15487
+      },
+      "sourceBytesMatch": true,
+      "bundledFile": "native-library/e4.png",
+      "bundledSha256": "bb4b10ade42c36ae64da182cd7d9762f6c1279f321f602fb312a911c805b2ec3",
+      "fit": [
+        "progression",
+        "Shows the full push-up, the end point of this progression. Earlier steps follow the written cues."
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "e5",
+      "sourceUrl": null,
+      "sourcePage": null,
+      "claimedLicense": "Original work for this prototype; no third-party rights",
+      "claimedSha256": "39f32172e7cd7d6e1a04faedbb2448403dac5a6d7b20141491e1099c230976ae",
+      "upstream": {
+        "status": "not-fetched"
+      },
+      "sourceBytesMatch": false,
+      "bundledFile": "native-library/e5.png",
+      "bundledSha256": "3f8ce4a48dfc0c1955b8e0f56bae314379c1ccfe6c0af8dd7e1a7c1974d81707",
+      "fit": [
+        "schematic",
+        "Start with a straight hang, finish with the legs raised to hip height. No licensed hanging-leg-raise diagram was available."
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "e6",
+      "sourceUrl": null,
+      "sourcePage": null,
+      "claimedLicense": "Original work for this prototype; no third-party rights",
+      "claimedSha256": "e2dcfdbb79bbb7e1a7380eb1c866c1e628bc674fd92e45fc75342493213842be",
+      "upstream": {
+        "status": "not-fetched"
+      },
+      "sourceBytesMatch": false,
+      "bundledFile": "native-library/e6.png",
+      "bundledSha256": "4de5ab4cb5c3e55a5757951527c9e23ae2da310b6cadf5c37f85c0b74ea2e8d6",
+      "fit": [
+        "schematic",
+        "Bottom position with the rear foot on a bench. No licensed Bulgarian split squat diagram was available."
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "gs",
+      "sourceUrl": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0130-relaxation.svg",
+      "sourcePage": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/squats-using-dumbbells.md",
+      "claimedLicense": "CC BY-SA 4.0",
+      "claimedSha256": "688721b14ec5a5f640cb05ec2fde35cb9b16de66804f6b0c63342e6201f60f39",
+      "upstream": {
+        "status": "fetched",
+        "sha256": "688721b14ec5a5f640cb05ec2fde35cb9b16de66804f6b0c63342e6201f60f39",
+        "bytes": 14652
+      },
+      "sourceBytesMatch": true,
+      "bundledFile": "native-library/gs.png",
+      "bundledSha256": "d4c49a0651f153d6a1193ee096c9189722f3c011da78a10a1d4b43be0e9af62f",
+      "fit": [
+        "related",
+        "Dumbbell squat reference. For a goblet squat, hold one dumbbell at your chest instead of two at your sides."
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "dh",
+      "sourceUrl": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0107-relaxation.svg",
+      "sourcePage": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/dumbbell-dead-lifts.md",
+      "claimedLicense": "CC BY-SA 4.0",
+      "claimedSha256": "612881291fe0e7733b4e3de00b9fbcec036c81827bae8cd15ba7a19f0d5276a8",
+      "upstream": {
+        "status": "fetched",
+        "sha256": "612881291fe0e7733b4e3de00b9fbcec036c81827bae8cd15ba7a19f0d5276a8",
+        "bytes": 14463
+      },
+      "sourceBytesMatch": true,
+      "bundledFile": "native-library/dh.png",
+      "bundledSha256": "d18cb76ff8586dbc055af3b8d864216c9f29f582a817d37ed0820cb38ca8da50",
+      "fit": [
+        "related",
+        "Dumbbell deadlift reference for the same hip hinge. Follow the written cues for depth and knee bend."
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "bp",
+      "sourceUrl": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0055-relaxation.svg",
+      "sourcePage": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/bench-press-dumbbell.md",
+      "claimedLicense": "CC BY-SA 4.0",
+      "claimedSha256": "4dde7a1d0292938d740c49448a336a9240cf75e4ec94694513580dc8e99e32ab",
+      "upstream": {
+        "status": "fetched",
+        "sha256": "4dde7a1d0292938d740c49448a336a9240cf75e4ec94694513580dc8e99e32ab",
+        "bytes": 23660
+      },
+      "sourceBytesMatch": true,
+      "bundledFile": "native-library/bp.png",
+      "bundledSha256": "af2a4cabc1c851cc821119f8b96549f01a015178967404b8a2982d78017c5fd1",
+      "fit": [
+        "exact",
+        "Shows the dumbbell bench press."
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "fp",
+      "sourceUrl": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0055-relaxation.svg",
+      "sourcePage": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/bench-press-dumbbell.md",
+      "claimedLicense": "CC BY-SA 4.0",
+      "claimedSha256": "4dde7a1d0292938d740c49448a336a9240cf75e4ec94694513580dc8e99e32ab",
+      "upstream": {
+        "status": "fetched",
+        "sha256": "4dde7a1d0292938d740c49448a336a9240cf75e4ec94694513580dc8e99e32ab",
+        "bytes": 23660
+      },
+      "sourceBytesMatch": true,
+      "bundledFile": "native-library/fp.png",
+      "bundledSha256": "af2a4cabc1c851cc821119f8b96549f01a015178967404b8a2982d78017c5fd1",
+      "fit": [
+        "related",
+        "Dumbbell bench press reference. The floor press uses the floor instead of a bench, so the elbows stop at the floor."
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "dr",
+      "sourceUrl": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0024-relaxation.svg",
+      "sourcePage": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/rear-deltoid-row-dumbbell.md",
+      "claimedLicense": "CC BY-SA 4.0",
+      "claimedSha256": "5533c5ab99ff72e5a8f8063697f239dde461ccb1ed0627384a951f4240dc5ae1",
+      "upstream": {
+        "status": "fetched",
+        "sha256": "5533c5ab99ff72e5a8f8063697f239dde461ccb1ed0627384a951f4240dc5ae1",
+        "bytes": 19439
+      },
+      "sourceBytesMatch": true,
+      "bundledFile": "native-library/dr.png",
+      "bundledSha256": "fd6845fd5d958b27602b8bec03a1abd8836cc5472c825e48ff002668ff8f9b5d",
+      "fit": [
+        "related",
+        "Bent-over dumbbell row with one hand supported on a bench. Follow the written cues for your setup."
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "br",
+      "sourceUrl": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0025-relaxation.svg",
+      "sourcePage": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/seated-cable-rows.md",
+      "claimedLicense": "CC BY-SA 4.0",
+      "claimedSha256": "53dcd08b3979417d36ec09fb7a6db1740494e421078cfa7b87128e917ba0e5bf",
+      "upstream": {
+        "status": "fetched",
+        "sha256": "53dcd08b3979417d36ec09fb7a6db1740494e421078cfa7b87128e917ba0e5bf",
+        "bytes": 18344
+      },
+      "sourceBytesMatch": true,
+      "bundledFile": "native-library/br.png",
+      "bundledSha256": "c59045bc4d4507d3d50cb685d92eb2199449a6dd92d0e55737cc5d87865b49c4",
+      "fit": [
+        "related",
+        "Seated row reference. A band replaces the cable; follow the written steps for a secure anchor."
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "rl",
+      "sourceUrl": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0129-relaxation.svg",
+      "sourcePage": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/rear-lunges-with-dumbbell.md",
+      "claimedLicense": "CC BY-SA 4.0",
+      "claimedSha256": "2214642dee62df0b633e53a60b41639dbf641b813a3b1673f15c8a30834f1d0d",
+      "upstream": {
+        "status": "fetched",
+        "sha256": "2214642dee62df0b633e53a60b41639dbf641b813a3b1673f15c8a30834f1d0d",
+        "bytes": 21339
+      },
+      "sourceBytesMatch": true,
+      "bundledFile": "native-library/rl.png",
+      "bundledSha256": "7a7895b4dffa82deac97abcb07b9458ddcda4b786e64872e483de5bf4bddf361",
+      "fit": [
+        "related",
+        "Dumbbell-loaded reverse-lunge reference. This Library entry is unloaded; use no dumbbells and follow the written technique steps."
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "sq",
+      "sourceUrl": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0130-relaxation.svg",
+      "sourcePage": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/squats-using-dumbbells.md",
+      "claimedLicense": "CC BY-SA 4.0",
+      "claimedSha256": "688721b14ec5a5f640cb05ec2fde35cb9b16de66804f6b0c63342e6201f60f39",
+      "upstream": {
+        "status": "fetched",
+        "sha256": "688721b14ec5a5f640cb05ec2fde35cb9b16de66804f6b0c63342e6201f60f39",
+        "bytes": 14652
+      },
+      "sourceBytesMatch": true,
+      "bundledFile": "native-library/sq.png",
+      "bundledSha256": "d4c49a0651f153d6a1193ee096c9189722f3c011da78a10a1d4b43be0e9af62f",
+      "fit": [
+        "related",
+        "Dumbbell squat reference. Hold no weight for the bodyweight squat."
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "hg",
+      "sourceUrl": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0107-relaxation.svg",
+      "sourcePage": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/dumbbell-dead-lifts.md",
+      "claimedLicense": "CC BY-SA 4.0",
+      "claimedSha256": "612881291fe0e7733b4e3de00b9fbcec036c81827bae8cd15ba7a19f0d5276a8",
+      "upstream": {
+        "status": "fetched",
+        "sha256": "612881291fe0e7733b4e3de00b9fbcec036c81827bae8cd15ba7a19f0d5276a8",
+        "bytes": 14463
+      },
+      "sourceBytesMatch": true,
+      "bundledFile": "native-library/hg.png",
+      "bundledSha256": "d18cb76ff8586dbc055af3b8d864216c9f29f582a817d37ed0820cb38ca8da50",
+      "fit": [
+        "related",
+        "Dumbbell deadlift reference for the hip hinge. Practise it with no weight."
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "ip",
+      "sourceUrl": null,
+      "sourcePage": null,
+      "claimedLicense": "Original work for this prototype; no third-party rights",
+      "claimedSha256": "8d397dd0898e857dd178940867352c11cab5fbcbccb348f2c63fcad83f4ea99e",
+      "upstream": {
+        "status": "not-fetched"
+      },
+      "sourceBytesMatch": false,
+      "bundledFile": "native-library/ip.png",
+      "bundledSha256": "80ca9f66c410f08a7ef1e24b0caf6affbc1a1e421bd41f1a31aeca117b137e0d",
+      "fit": [
+        "schematic",
+        "Hands on a stable raised surface, body in one straight line. No licensed incline push-up diagram was available."
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "ap",
+      "sourceUrl": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0087-relaxation.svg",
+      "sourcePage": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/pull-ups.md",
+      "claimedLicense": "CC BY-SA 4.0",
+      "claimedSha256": "12078cccf48e29c886dc84653dce07168945fc279ec20ec95a6b944f68816377",
+      "upstream": {
+        "status": "fetched",
+        "sha256": "12078cccf48e29c886dc84653dce07168945fc279ec20ec95a6b944f68816377",
+        "bytes": 18803
+      },
+      "sourceBytesMatch": true,
+      "bundledFile": "native-library/ap.png",
+      "bundledSha256": "f266842a4d9a9f0dc6d1f84537be669aa86fa909cac55b89f8316e1b11880789",
+      "fit": [
+        "related",
+        "Pull-up reference. Band or machine assistance is not drawn."
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "fc",
+      "sourceUrl": "https://raw.githubusercontent.com/everkinetic/data/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg/0287-relaxation.svg",
+      "sourcePage": "https://github.com/everkinetic/data/blob/446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/md/bent-knee-hip-raise.md",
+      "claimedLicense": "CC BY-SA 4.0",
+      "claimedSha256": "27df8a8f1baf454c16aad68297f3e299d03ef3e95c4c388f18090c024d489cbb",
+      "upstream": {
+        "status": "fetched",
+        "sha256": "27df8a8f1baf454c16aad68297f3e299d03ef3e95c4c388f18090c024d489cbb",
+        "bytes": 15624
+      },
+      "sourceBytesMatch": true,
+      "bundledFile": "native-library/fc.png",
+      "bundledSha256": "aa056cfb5f6317c47064ce0b0e3f19a28d4376af4b89faf52b9a182d581d322a",
+      "fit": [
+        "related",
+        "Lying bent-knee hip raise reference. Follow the written cues for the floor version."
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "re",
+      "sourceUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e0/First_Annual_Joint_Jingle_Jog_%288813448%29.jpg/960px-First_Annual_Joint_Jingle_Jog_%288813448%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:First_Annual_Joint_Jingle_Jog_(8813448).jpg",
+      "claimedLicense": "Public domain",
+      "claimedSha256": "199d726b325773a04a0aa278c4a92ae0e32f9137591e6257668b277fc9b5d202",
+      "upstream": {
+        "status": "not-fetched"
+      },
+      "sourceBytesMatch": false,
+      "bundledFile": "native-library/re.png",
+      "bundledSha256": "23d792c4df978b54a908a53e4f1813ab4139071d7d0ea5d52966f46ac54c6539",
+      "fit": [
+        "context",
+        "Context photograph, not a technique demonstration"
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "rlg",
+      "sourceUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e0/First_Annual_Joint_Jingle_Jog_%288813448%29.jpg/960px-First_Annual_Joint_Jingle_Jog_%288813448%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:First_Annual_Joint_Jingle_Jog_(8813448).jpg",
+      "claimedLicense": "Public domain",
+      "claimedSha256": "199d726b325773a04a0aa278c4a92ae0e32f9137591e6257668b277fc9b5d202",
+      "upstream": {
+        "status": "not-fetched"
+      },
+      "sourceBytesMatch": false,
+      "bundledFile": "native-library/rlg.png",
+      "bundledSha256": "23d792c4df978b54a908a53e4f1813ab4139071d7d0ea5d52966f46ac54c6539",
+      "fit": [
+        "context",
+        "Context photograph, not a technique demonstration"
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "rt",
+      "sourceUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e0/First_Annual_Joint_Jingle_Jog_%288813448%29.jpg/960px-First_Annual_Joint_Jingle_Jog_%288813448%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:First_Annual_Joint_Jingle_Jog_(8813448).jpg",
+      "claimedLicense": "Public domain",
+      "claimedSha256": "199d726b325773a04a0aa278c4a92ae0e32f9137591e6257668b277fc9b5d202",
+      "upstream": {
+        "status": "not-fetched"
+      },
+      "sourceBytesMatch": false,
+      "bundledFile": "native-library/rt.png",
+      "bundledSha256": "23d792c4df978b54a908a53e4f1813ab4139071d7d0ea5d52966f46ac54c6539",
+      "fit": [
+        "context",
+        "Context photograph, not a technique demonstration"
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "rs",
+      "sourceUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e0/First_Annual_Joint_Jingle_Jog_%288813448%29.jpg/960px-First_Annual_Joint_Jingle_Jog_%288813448%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:First_Annual_Joint_Jingle_Jog_(8813448).jpg",
+      "claimedLicense": "Public domain",
+      "claimedSha256": "199d726b325773a04a0aa278c4a92ae0e32f9137591e6257668b277fc9b5d202",
+      "upstream": {
+        "status": "not-fetched"
+      },
+      "sourceBytesMatch": false,
+      "bundledFile": "native-library/rs.png",
+      "bundledSha256": "23d792c4df978b54a908a53e4f1813ab4139071d7d0ea5d52966f46ac54c6539",
+      "fit": [
+        "context",
+        "Context photograph, not a technique demonstration"
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    },
+    {
+      "exerciseId": "rh",
+      "sourceUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e0/First_Annual_Joint_Jingle_Jog_%288813448%29.jpg/960px-First_Annual_Joint_Jingle_Jog_%288813448%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:First_Annual_Joint_Jingle_Jog_(8813448).jpg",
+      "claimedLicense": "Public domain",
+      "claimedSha256": "199d726b325773a04a0aa278c4a92ae0e32f9137591e6257668b277fc9b5d202",
+      "upstream": {
+        "status": "not-fetched"
+      },
+      "sourceBytesMatch": false,
+      "bundledFile": "native-library/rh.png",
+      "bundledSha256": "23d792c4df978b54a908a53e4f1813ab4139071d7d0ea5d52966f46ac54c6539",
+      "fit": [
+        "context",
+        "Context photograph, not a technique demonstration"
+      ],
+      "decision": "Preserve existing bytes; unverified display status. Source-byte match does not certify technique fit or authorship."
+    }
+  ]
+}

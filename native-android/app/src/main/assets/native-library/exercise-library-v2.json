@@ -1,0 +1,4039 @@
+{
+  "schemaVersion": 2,
+  "libraryVersion": "2.0.0",
+  "baselineCommit": "25be8f3828374d1e539c7e825afa20fbcb652b56",
+  "baselineCatalogSha256": "c526dc59a1423d4b32005cc7358285d45db8485f7d3bd774c123638b31f0ec91",
+  "editorialPolicy": "Curated educational records, not prescriptions or clinical clearance. Prerequisites, muscle roles, alternatives and stages are editorial. No exercise completion automatically unlocks a stage. No dose, loading or equivalent-stimulus inference.",
+  "sources": [
+    {
+      "id": "baseline",
+      "title": "Accepted native catalog",
+      "url": "https://github.com/Isshhin/stridelab-development/blob/25be8f3828374d1e539c7e825afa20fbcb652b56/native-android/app/src/main/assets/native-library/catalog.json",
+      "accessed": "2026-10-29",
+      "scope": "Inherited wording and identity, not external scientific validation.",
+      "textRights": "Reference only; no media rights granted; instructions independently paraphrased."
+    },
+    {
+      "id": "nhs-strength",
+      "title": "NHS strength exercises",
+      "url": "https://www.nhs.uk/live-well/exercise/strength-exercises/",
+      "accessed": "2026-10-29",
+      "scope": "Sit-to-stand, wall press-up, calf raise and biceps curl technique.",
+      "textRights": "Reference only; no media rights granted; instructions independently paraphrased."
+    },
+    {
+      "id": "nhs-flex",
+      "title": "NHS flexibility exercises",
+      "url": "https://www.nhs.uk/live-well/exercise/flexibility-exercises/",
+      "accessed": "2026-10-29",
+      "scope": "Comfortable neck rotation, side bend and calf stretch.",
+      "textRights": "Reference only; no media rights granted; instructions independently paraphrased."
+    },
+    {
+      "id": "nhs-sitting",
+      "title": "NHS sitting exercises",
+      "url": "https://www.nhs.uk/live-well/exercise/sitting-exercises/",
+      "accessed": "2026-10-29",
+      "scope": "Seated chest stretch, trunk turn and ankle movement.",
+      "textRights": "Reference only; no media rights granted; instructions independently paraphrased."
+    },
+    {
+      "id": "nasm-index",
+      "title": "NASM exercise library",
+      "url": "https://www.nasm.org/workout-exercise-guidance",
+      "accessed": "2026-10-29",
+      "scope": "Movement/equipment/anatomy context only. Taxonomy, staging and safety gates are StrideLab editorial judgments.",
+      "textRights": "Reference only; no media rights granted; instructions independently paraphrased."
+    },
+    {
+      "id": "nasm-legpress",
+      "title": "NASM Leg Press",
+      "url": "https://www.nasm.org/resource-center/exercise-library/leg-press",
+      "accessed": "2026-10-29",
+      "scope": "Technique and movement description; no injury-prevention or clinical claims adopted.",
+      "textRights": "Reference only; no media rights granted; instructions independently paraphrased."
+    },
+    {
+      "id": "nasm-chestpress",
+      "title": "NASM Chest Press Machine",
+      "url": "https://www.nasm.org/resource-center/exercise-library/chest-press-machine",
+      "accessed": "2026-10-29",
+      "scope": "Technique and movement description; no injury-prevention or clinical claims adopted.",
+      "textRights": "Reference only; no media rights granted; instructions independently paraphrased."
+    },
+    {
+      "id": "nasm-legcurl",
+      "title": "NASM Seated Leg Curl",
+      "url": "https://www.nasm.org/resource-center/exercise-library/seated-leg-curl",
+      "accessed": "2026-10-29",
+      "scope": "Technique and movement description; no injury-prevention or clinical claims adopted.",
+      "textRights": "Reference only; no media rights granted; instructions independently paraphrased."
+    },
+    {
+      "id": "nasm-jacks",
+      "title": "NASM Jumping Jacks",
+      "url": "https://www.nasm.org/resource-center/exercise-library/jumping-jacks",
+      "accessed": "2026-10-29",
+      "scope": "Technique and movement description; no injury-prevention or clinical claims adopted.",
+      "textRights": "Reference only; no media rights granted; instructions independently paraphrased."
+    },
+    {
+      "id": "ace-pulldown",
+      "title": "ACE Seated lat pulldown",
+      "url": "https://www.acefitness.org/resources/everyone/exercise-library/158/seated-lat-pulldown/",
+      "accessed": "2026-10-29",
+      "scope": "Technique reference, independently paraphrased; images not licensed for reuse.",
+      "textRights": "Reference only; no media rights granted; instructions independently paraphrased."
+    },
+    {
+      "id": "ace-bridge",
+      "title": "ACE Glute bridge",
+      "url": "https://www.acefitness.org/resources/everyone/exercise-library/49/glute-bridge/",
+      "accessed": "2026-10-29",
+      "scope": "Technique reference, independently paraphrased; images not licensed for reuse.",
+      "textRights": "Reference only; no media rights granted; instructions independently paraphrased."
+    },
+    {
+      "id": "ace-birddog",
+      "title": "ACE Bird-dog",
+      "url": "https://www.acefitness.org/resources/everyone/exercise-library/14/bird-dog/",
+      "accessed": "2026-10-29",
+      "scope": "Technique reference, independently paraphrased; images not licensed for reuse.",
+      "textRights": "Reference only; no media rights granted; instructions independently paraphrased."
+    },
+    {
+      "id": "cdc-intensity",
+      "title": "CDC measuring activity intensity",
+      "url": "https://www.cdc.gov/physical-activity-basics/measuring/index.html",
+      "accessed": "2026-10-29",
+      "scope": "Talk test and walking/cycling examples only; setup and progression are editorial.",
+      "textRights": "Reference only; no media rights granted; instructions independently paraphrased."
+    }
+  ],
+  "records": [
+    {
+      "id": "ap",
+      "name": "Assisted pull-up",
+      "kind": "exercise",
+      "categories": [
+        "calisthenics"
+      ],
+      "movementPatterns": [
+        "vertical_pull"
+      ],
+      "primaryMuscles": [
+        "latissimus_dorsi"
+      ],
+      "secondaryMuscles": [
+        "elbow_flexors",
+        "lower_trapezius",
+        "forearm_grip"
+      ],
+      "equipmentOptions": [
+        [
+          "pullup_bar",
+          "band"
+        ]
+      ],
+      "setupNotes": [
+        "Bar + band",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [
+        "pull-scap"
+      ],
+      "progressions": [
+        "e2"
+      ],
+      "alternatives": [
+        "e2"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Check a secure bar and an undamaged band",
+        "Use assistance to pull chest toward the bar",
+        "Lower under control; enter and exit the band carefully"
+      ],
+      "easier": "Controlled supported practice with a qualified instructor",
+      "harder": "Use less assistance before unassisted pull-ups",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Check the bar and band attachment; use a stable step for entry and exit. Do not drop when grip fades."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-ap"
+    },
+    {
+      "id": "bird-dog",
+      "name": "Quadruped bird dog",
+      "kind": "exercise",
+      "categories": [
+        "bodyweight"
+      ],
+      "movementPatterns": [
+        "quadruped_control"
+      ],
+      "primaryMuscles": [
+        "trunk_stabilizers",
+        "spinal_extensors"
+      ],
+      "secondaryMuscles": [
+        "gluteus_maximus",
+        "shoulder_stabilizers"
+      ],
+      "equipmentOptions": [
+        []
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "developing",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [
+        "core-deadbug"
+      ],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Place hands under shoulders and knees under hips.",
+        "Reach an opposite arm and leg while keeping the trunk steady; return and change sides."
+      ],
+      "easier": "Slide one limb while keeping other points grounded.",
+      "harder": "Extend farther only while maintaining control.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use padding for knees; do not arch to reach higher."
+      ],
+      "provenance": [
+        {
+          "sourceId": "ace-birddog",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-bird-dog"
+    },
+    {
+      "id": "bp",
+      "name": "Dumbbell bench press",
+      "kind": "exercise",
+      "categories": [
+        "strength_gym"
+      ],
+      "movementPatterns": [
+        "horizontal_press"
+      ],
+      "primaryMuscles": [
+        "pectoralis_major"
+      ],
+      "secondaryMuscles": [
+        "triceps",
+        "anterior_deltoid",
+        "serratus_anterior"
+      ],
+      "equipmentOptions": [
+        [
+          "dumbbells",
+          "bench"
+        ]
+      ],
+      "setupNotes": [
+        "Dumbbells + bench",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "developing",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [
+        "fp",
+        "e4"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Lie on a stable bench with feet planted",
+        "Lower dumbbells beside the chest with wrists stacked",
+        "Press smoothly without bouncing or clashing weights"
+      ],
+      "easier": "Dumbbell floor press",
+      "harder": "Increase load only with controlled full sets",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use secure supports and comfortable wrist and shoulder positions. Set weights down safely."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-bp"
+    },
+    {
+      "id": "br",
+      "name": "Band row",
+      "kind": "exercise",
+      "categories": [
+        "strength_gym"
+      ],
+      "movementPatterns": [
+        "horizontal_pull"
+      ],
+      "primaryMuscles": [
+        "latissimus_dorsi",
+        "rhomboids"
+      ],
+      "secondaryMuscles": [
+        "elbow_flexors",
+        "posterior_deltoid",
+        "trapezius"
+      ],
+      "equipmentOptions": [
+        [
+          "band",
+          "anchor"
+        ]
+      ],
+      "setupNotes": [
+        "Band + secure anchor",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [
+        "dr"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Inspect the band and use a rated secure anchor",
+        "Stand tall and pull elbows back toward ribs",
+        "Return slowly without leaning backward"
+      ],
+      "easier": "Lighter band tension",
+      "harder": "Dumbbell row for more measurable loading",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Verify anchors before loading. A lighter row is not an equivalent substitute for every vertical pull."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-br"
+    },
+    {
+      "id": "cable-lat-pulldown",
+      "name": "Seated lat pulldown",
+      "kind": "exercise",
+      "categories": [
+        "strength_gym"
+      ],
+      "movementPatterns": [
+        "vertical_pull"
+      ],
+      "primaryMuscles": [
+        "latissimus_dorsi"
+      ],
+      "secondaryMuscles": [
+        "elbow_flexors",
+        "lower_trapezius",
+        "forearm_grip"
+      ],
+      "equipmentOptions": [
+        [
+          "lat_pulldown_machine"
+        ]
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [
+        "ap",
+        "dr"
+      ],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Set the thigh pad and grasp the overhead handle with a comfortable grip.",
+        "Pull toward the upper chest with a steady torso; return overhead slowly."
+      ],
+      "easier": "Use less resistance.",
+      "harder": "Add a small load with the same controlled path.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Do not pull behind the neck or swing backward."
+      ],
+      "provenance": [
+        {
+          "sourceId": "ace-pulldown",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-cable-lat-pulldown"
+    },
+    {
+      "id": "calf-raise-supported",
+      "name": "Supported calf raise",
+      "kind": "exercise",
+      "categories": [
+        "bodyweight"
+      ],
+      "movementPatterns": [
+        "calf_raise"
+      ],
+      "primaryMuscles": [
+        "calves"
+      ],
+      "secondaryMuscles": [
+        "foot_stabilizers"
+      ],
+      "equipmentOptions": [
+        [
+          "chair"
+        ]
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Hold a stable chair lightly.",
+        "Lift both heels, then lower them slowly."
+      ],
+      "easier": "Use a smaller lift.",
+      "harder": "Reduce hand assistance when balance allows.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Do not bounce or use an unstable support."
+      ],
+      "provenance": [
+        {
+          "sourceId": "nhs-strength",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-calf-raise-supported"
+    },
+    {
+      "id": "carry-farmer",
+      "name": "Farmer carry",
+      "kind": "guide",
+      "categories": [
+        "strength_gym"
+      ],
+      "movementPatterns": [
+        "carry"
+      ],
+      "primaryMuscles": [
+        "forearm_grip",
+        "trunk_stabilizers"
+      ],
+      "secondaryMuscles": [
+        "trapezius",
+        "gluteus_medius"
+      ],
+      "equipmentOptions": [
+        [
+          "two_weights"
+        ]
+      ],
+      "setupNotes": [
+        "Two suitable weights",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Hold one manageable weight in each hand and stand tall.",
+        "Walk in a clear path with quiet, even steps; keep shoulders level.",
+        "Stop before grip or posture gives way; set weights down safely."
+      ],
+      "easier": "Use lighter weights or a shorter clear walking path.",
+      "harder": "Control both weights without leaning or rushing.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Clear the path and use weights you can pick up and put down without losing control."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-carry-farmer"
+    },
+    {
+      "id": "carry-suitcase",
+      "name": "Suitcase carry",
+      "kind": "guide",
+      "categories": [
+        "strength_gym"
+      ],
+      "movementPatterns": [
+        "carry"
+      ],
+      "primaryMuscles": [
+        "forearm_grip",
+        "trunk_stabilizers"
+      ],
+      "secondaryMuscles": [
+        "trapezius",
+        "gluteus_medius"
+      ],
+      "equipmentOptions": [
+        [
+          "one_weight"
+        ]
+      ],
+      "setupNotes": [
+        "One suitable weight",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "developing",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Hold one manageable weight at your side and stand upright.",
+        "Walk slowly without tilting toward or away from the load.",
+        "Stop, switch hands and repeat with similar control on each side."
+      ],
+      "easier": "Use a lighter weight or practice standing still before walking.",
+      "harder": "Keep trunk upright and walk without compensating.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Clear the path and use weights you can pick up and put down without losing control."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-carry-suitcase"
+    },
+    {
+      "id": "cond-cycle",
+      "name": "Stationary cycling",
+      "kind": "exercise",
+      "categories": [
+        "conditioning"
+      ],
+      "movementPatterns": [
+        "cyclic_cardio"
+      ],
+      "primaryMuscles": [
+        "quadriceps",
+        "gluteus_maximus"
+      ],
+      "secondaryMuscles": [
+        "hamstrings",
+        "calves"
+      ],
+      "equipmentOptions": [
+        [
+          "stationary_bike"
+        ]
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [
+        "cond-walk"
+      ],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Adjust the bike so the knee remains slightly bent at the bottom of the pedal stroke.",
+        "Pedal smoothly with light resistance; monitor breathing and slow down when needed."
+      ],
+      "easier": "Reduce resistance or take breaks.",
+      "harder": "Build comfortable duration before adding resistance.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Bike setup is editorial guidance; follow the manufacturer and seek help for fit-related pain."
+      ],
+      "provenance": [
+        {
+          "sourceId": "cdc-intensity",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-cond-cycle"
+    },
+    {
+      "id": "cond-jumping-jack",
+      "name": "Jumping jack",
+      "kind": "exercise",
+      "categories": [
+        "conditioning"
+      ],
+      "movementPatterns": [
+        "jumping"
+      ],
+      "primaryMuscles": [
+        "quadriceps",
+        "gluteus_maximus"
+      ],
+      "secondaryMuscles": [
+        "calves",
+        "shoulder_stabilizers"
+      ],
+      "equipmentOptions": [
+        []
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "developing",
+      "prerequisites": [],
+      "regressions": [
+        "cond-step-jack"
+      ],
+      "progressions": [],
+      "alternatives": [
+        "cond-step-jack"
+      ],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Start upright with clear floor and overhead space.",
+        "Jump the feet apart as arms rise; land softly, then return with control."
+      ],
+      "easier": "Use alternating step jacks.",
+      "harder": "Build short controlled bouts before increasing duration.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Choose a no-jump option if impact or overhead motion is uncomfortable."
+      ],
+      "provenance": [
+        {
+          "sourceId": "nasm-jacks",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-cond-jumping-jack"
+    },
+    {
+      "id": "cond-step-jack",
+      "name": "Low-impact step jack",
+      "kind": "exercise",
+      "categories": [
+        "conditioning"
+      ],
+      "movementPatterns": [
+        "stepping"
+      ],
+      "primaryMuscles": [
+        "quadriceps",
+        "gluteus_maximus"
+      ],
+      "secondaryMuscles": [
+        "calves",
+        "shoulder_stabilizers"
+      ],
+      "equipmentOptions": [
+        []
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [
+        "cond-jumping-jack"
+      ],
+      "alternatives": [
+        "cond-walk"
+      ],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Stand in clear space with arms relaxed.",
+        "Step one foot sideways while lifting the arms comfortably; return and alternate feet without jumping."
+      ],
+      "easier": "Keep arms low and steps small.",
+      "harder": "Increase rhythm without losing balance.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "This editorial no-jump variation is not equivalent to jumping; use stable footing."
+      ],
+      "provenance": [
+        {
+          "sourceId": "nasm-jacks",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-cond-step-jack"
+    },
+    {
+      "id": "cond-walk",
+      "name": "Brisk walking",
+      "kind": "exercise",
+      "categories": [
+        "conditioning"
+      ],
+      "movementPatterns": [
+        "gait"
+      ],
+      "primaryMuscles": [
+        "quadriceps",
+        "gluteus_maximus",
+        "calves"
+      ],
+      "secondaryMuscles": [
+        "hamstrings",
+        "hip_flexors"
+      ],
+      "equipmentOptions": [
+        [
+          "safe_route"
+        ]
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [
+        "re"
+      ],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Choose a clear route and begin at an easy pace.",
+        "Build to purposeful walking; use breathing and the talk test to moderate effort."
+      ],
+      "easier": "Walk slower or take breaks.",
+      "harder": "Extend comfortable duration before increasing pace.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Adjust for heat, traffic and footing; moderate effort varies by person."
+      ],
+      "provenance": [
+        {
+          "sourceId": "cdc-intensity",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-cond-walk"
+    },
+    {
+      "id": "core-deadbug",
+      "name": "Dead bug",
+      "kind": "guide",
+      "categories": [
+        "calisthenics",
+        "bodyweight"
+      ],
+      "movementPatterns": [
+        "core"
+      ],
+      "primaryMuscles": [
+        "abdominals"
+      ],
+      "secondaryMuscles": [
+        "trunk_stabilizers"
+      ],
+      "equipmentOptions": [
+        []
+      ],
+      "setupNotes": [
+        "Comfortable floor mat",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [
+        "core-tuck"
+      ],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Lie on your back and find a comfortable rib and pelvis position.",
+        "Slowly lower an opposite arm and leg only as far as trunk position stays controlled.",
+        "Return, breathe and change sides without rushing."
+      ],
+      "easier": "Keep feet closer to the floor or move only one limb at a time.",
+      "harder": "Alternate sides smoothly without discomfort or large trunk movement.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Shorten the lever if the back or neck strains; avoid breath holding."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-core-deadbug"
+    },
+    {
+      "id": "core-hollow",
+      "name": "Hollow-body hold",
+      "kind": "guide",
+      "categories": [
+        "calisthenics",
+        "bodyweight"
+      ],
+      "movementPatterns": [
+        "core"
+      ],
+      "primaryMuscles": [
+        "abdominals"
+      ],
+      "secondaryMuscles": [
+        "hip_flexors",
+        "trunk_stabilizers"
+      ],
+      "equipmentOptions": [
+        []
+      ],
+      "setupNotes": [
+        "Comfortable floor mat",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "developing",
+      "prerequisites": [
+        "core-tuck"
+      ],
+      "regressions": [
+        "core-tuck"
+      ],
+      "progressions": [],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Start from a comfortable hollow tuck position.",
+        "Extend arms or legs gradually without losing trunk control.",
+        "Shorten the lever as soon as your back or neck feels strained."
+      ],
+      "easier": "Return to a tuck hold and shorter duration.",
+      "harder": "Consistent pain-free breathing and position control.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Shorten the lever if the back or neck strains; avoid breath holding."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-core-hollow"
+    },
+    {
+      "id": "core-lsit",
+      "name": "Supported tuck L-sit",
+      "kind": "guide",
+      "categories": [
+        "calisthenics"
+      ],
+      "movementPatterns": [
+        "support"
+      ],
+      "primaryMuscles": [
+        "triceps",
+        "shoulder_stabilizers"
+      ],
+      "secondaryMuscles": [
+        "abdominals",
+        "hip_flexors"
+      ],
+      "equipmentOptions": [
+        [
+          "parallettes"
+        ],
+        [
+          "parallel_bars"
+        ]
+      ],
+      "setupNotes": [
+        "Stable parallettes or parallel bars",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "advanced",
+      "prerequisites": [
+        "dip-support",
+        "core-tuck"
+      ],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill.",
+        "Confirm comfortable straight-arm support, wrist tolerance and a safe foot-supported entry; parallettes and bars need different setups."
+      ],
+      "technique": [
+        "Use stable supports with clear ground below.",
+        "Lift knees only as high as you can maintain shoulder comfort.",
+        "Lower feet safely before balance or wrist position fails."
+      ],
+      "easier": "Keep toes on the floor, building supported holds first.",
+      "harder": "Short controlled holds with safe entry and exit.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Check support stability; shorten the hold before wrist, shoulder or grip control fails."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-core-lsit"
+    },
+    {
+      "id": "core-tuck",
+      "name": "Hollow tuck hold",
+      "kind": "guide",
+      "categories": [
+        "calisthenics",
+        "bodyweight"
+      ],
+      "movementPatterns": [
+        "core"
+      ],
+      "primaryMuscles": [
+        "abdominals"
+      ],
+      "secondaryMuscles": [
+        "hip_flexors",
+        "trunk_stabilizers"
+      ],
+      "equipmentOptions": [
+        []
+      ],
+      "setupNotes": [
+        "Comfortable floor mat",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [
+        "core-deadbug"
+      ],
+      "progressions": [
+        "core-hollow"
+      ],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Lie on your back with knees comfortably bent.",
+        "Lift shoulders only as tolerated and maintain controlled breathing.",
+        "Hold briefly without neck strain, then relax."
+      ],
+      "easier": "Keep head supported or reduce hold time.",
+      "harder": "Comfortable, controlled holds without breath-holding.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Shorten the lever if the back or neck strains; avoid breath holding."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-core-tuck"
+    },
+    {
+      "id": "curl-db",
+      "name": "Standing dumbbell curl",
+      "kind": "exercise",
+      "categories": [
+        "strength_gym"
+      ],
+      "movementPatterns": [
+        "elbow_flexion"
+      ],
+      "primaryMuscles": [
+        "elbow_flexors"
+      ],
+      "secondaryMuscles": [
+        "forearm_grip"
+      ],
+      "equipmentOptions": [
+        [
+          "dumbbells"
+        ]
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Stand with elbows by your sides and light weights in hand.",
+        "Bend the elbows without swinging, then lower slowly."
+      ],
+      "easier": "Use lighter weights.",
+      "harder": "Add a little resistance after controlled repetitions.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Avoid rocking the trunk to lift the weights."
+      ],
+      "provenance": [
+        {
+          "sourceId": "nhs-strength",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-curl-db"
+    },
+    {
+      "id": "dh",
+      "name": "Dumbbell Romanian deadlift",
+      "kind": "exercise",
+      "categories": [
+        "strength_gym"
+      ],
+      "movementPatterns": [
+        "hinge"
+      ],
+      "primaryMuscles": [
+        "hamstrings",
+        "gluteus_maximus"
+      ],
+      "secondaryMuscles": [
+        "spinal_extensors",
+        "trunk_stabilizers"
+      ],
+      "equipmentOptions": [
+        [
+          "dumbbells"
+        ]
+      ],
+      "setupNotes": [
+        "Dumbbells",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [
+        "hg"
+      ],
+      "progressions": [
+        "e3"
+      ],
+      "alternatives": [
+        "e3",
+        "hg"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Hold dumbbells beside the thighs",
+        "Push hips back with soft knees",
+        "Keep weights close and stand tall"
+      ],
+      "easier": "Unloaded hip hinge",
+      "harder": "Barbell Romanian deadlift",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Keep the load close; reduce depth before the trunk loses control. A hinge is not a treatment for back pain."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-dh"
+    },
+    {
+      "id": "dip-assisted",
+      "name": "Assisted parallel-bar dip",
+      "kind": "guide",
+      "categories": [
+        "calisthenics"
+      ],
+      "movementPatterns": [
+        "dip"
+      ],
+      "primaryMuscles": [
+        "triceps",
+        "pectoralis_major"
+      ],
+      "secondaryMuscles": [
+        "anterior_deltoid",
+        "shoulder_stabilizers"
+      ],
+      "equipmentOptions": [
+        [
+          "parallel_bars",
+          "assistance_setup"
+        ]
+      ],
+      "setupNotes": [
+        "Stable parallel bars, Assistance setup",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "developing",
+      "prerequisites": [
+        "dip-support"
+      ],
+      "regressions": [
+        "dip-support"
+      ],
+      "progressions": [
+        "dip-full"
+      ],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Use a reliable assistance method and secure bars.",
+        "Bend elbows slowly while keeping the shoulder range comfortable.",
+        "Press back to support without bouncing or forcing deep extension."
+      ],
+      "easier": "Return to supported holds or reduce the movement range.",
+      "harder": "Control a pain-free range without bouncing.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Do not force deep shoulder extension; use assistance and exit before support fails."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-dip-assisted"
+    },
+    {
+      "id": "dip-full",
+      "name": "Parallel-bar dip",
+      "kind": "guide",
+      "categories": [
+        "calisthenics"
+      ],
+      "movementPatterns": [
+        "dip"
+      ],
+      "primaryMuscles": [
+        "triceps",
+        "pectoralis_major"
+      ],
+      "secondaryMuscles": [
+        "anterior_deltoid",
+        "shoulder_stabilizers"
+      ],
+      "equipmentOptions": [
+        [
+          "parallel_bars"
+        ]
+      ],
+      "setupNotes": [
+        "Stable parallel bars",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "advanced",
+      "prerequisites": [
+        "dip-assisted"
+      ],
+      "regressions": [
+        "dip-assisted"
+      ],
+      "progressions": [],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Start in stable support with the bars firmly anchored.",
+        "Lower only through a comfortable, controllable shoulder range.",
+        "Press to a stable finish without swinging."
+      ],
+      "easier": "Use a verified assisted dip setup or support-hold progression.",
+      "harder": "Repeated smooth, pain-free repetitions with stable shoulders.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Do not force deep shoulder extension; use assistance and exit before support fails."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-dip-full"
+    },
+    {
+      "id": "dip-support",
+      "name": "Parallel-bar support hold",
+      "kind": "guide",
+      "categories": [
+        "calisthenics"
+      ],
+      "movementPatterns": [
+        "dip"
+      ],
+      "primaryMuscles": [
+        "triceps",
+        "pectoralis_major"
+      ],
+      "secondaryMuscles": [
+        "anterior_deltoid",
+        "shoulder_stabilizers"
+      ],
+      "equipmentOptions": [
+        [
+          "parallel_bars"
+        ]
+      ],
+      "setupNotes": [
+        "Stable parallel bars",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [
+        "dip-assisted"
+      ],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Use sturdy parallel bars at an appropriate height.",
+        "Support body weight with straight but not aggressively locked arms.",
+        "Keep shoulders comfortable and lower with assistance when done."
+      ],
+      "easier": "Use feet on the ground for support if the setup permits.",
+      "harder": "Hold a stable supported position without shoulder discomfort.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Do not force deep shoulder extension; use assistance and exit before support fails."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-dip-support"
+    },
+    {
+      "id": "dr",
+      "name": "Dumbbell row",
+      "kind": "exercise",
+      "categories": [
+        "strength_gym"
+      ],
+      "movementPatterns": [
+        "horizontal_pull"
+      ],
+      "primaryMuscles": [
+        "latissimus_dorsi",
+        "rhomboids"
+      ],
+      "secondaryMuscles": [
+        "elbow_flexors",
+        "posterior_deltoid",
+        "trapezius"
+      ],
+      "equipmentOptions": [
+        [
+          "dumbbells"
+        ]
+      ],
+      "setupNotes": [
+        "Dumbbells",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [
+        "br"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Hinge and support your free hand on your thigh",
+        "Pull the dumbbell toward your hip",
+        "Lower fully while keeping hips and ribs still"
+      ],
+      "easier": "Lighter dumbbell row",
+      "harder": "Add load while keeping the torso steady",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Verify anchors before loading. A lighter row is not an equivalent substitute for every vertical pull."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-dr"
+    },
+    {
+      "id": "e1",
+      "name": "Back squat",
+      "kind": "exercise",
+      "categories": [
+        "strength_gym"
+      ],
+      "movementPatterns": [
+        "squat"
+      ],
+      "primaryMuscles": [
+        "quadriceps",
+        "gluteus_maximus"
+      ],
+      "secondaryMuscles": [
+        "adductors",
+        "trunk_stabilizers"
+      ],
+      "equipmentOptions": [
+        [
+          "barbell",
+          "rack",
+          "safeties"
+        ]
+      ],
+      "setupNotes": [
+        "Barbell + rack",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "developing",
+      "prerequisites": [],
+      "regressions": [
+        "gs"
+      ],
+      "progressions": [],
+      "alternatives": [
+        "sq",
+        "gs"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Set the bar on your upper back and brace",
+        "Sit between the hips with knees following toes",
+        "Stand through the whole foot; use a rack with safeties"
+      ],
+      "easier": "Bodyweight squat",
+      "harder": "Add a small load only after all reps stay controlled",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use a stable stance and only a range you control; loaded rack work needs correctly set safeties and a practiced exit."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-e1"
+    },
+    {
+      "id": "e2",
+      "name": "Pull-up progression",
+      "kind": "exercise",
+      "categories": [
+        "calisthenics"
+      ],
+      "movementPatterns": [
+        "vertical_pull"
+      ],
+      "primaryMuscles": [
+        "latissimus_dorsi"
+      ],
+      "secondaryMuscles": [
+        "elbow_flexors",
+        "lower_trapezius",
+        "forearm_grip"
+      ],
+      "equipmentOptions": [
+        [
+          "pullup_bar"
+        ]
+      ],
+      "setupNotes": [
+        "Bar",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "developing",
+      "prerequisites": [],
+      "regressions": [
+        "ap"
+      ],
+      "progressions": [],
+      "alternatives": [
+        "ap"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Shoulders down; use a secure overhead bar",
+        "Pull elbows toward ribs without kicking",
+        "Lower under control; use a step to reach the start for negatives"
+      ],
+      "easier": "Assisted pull-up",
+      "harder": "Progress from controlled negatives to full pull-ups",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Check the bar and band attachment; use a stable step for entry and exit. Do not drop when grip fades."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-e2"
+    },
+    {
+      "id": "e3",
+      "name": "Romanian deadlift",
+      "kind": "exercise",
+      "categories": [
+        "strength_gym"
+      ],
+      "movementPatterns": [
+        "hinge"
+      ],
+      "primaryMuscles": [
+        "hamstrings",
+        "gluteus_maximus"
+      ],
+      "secondaryMuscles": [
+        "spinal_extensors",
+        "trunk_stabilizers"
+      ],
+      "equipmentOptions": [
+        [
+          "barbell"
+        ]
+      ],
+      "setupNotes": [
+        "Barbell",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "developing",
+      "prerequisites": [],
+      "regressions": [
+        "dh"
+      ],
+      "progressions": [],
+      "alternatives": [
+        "dh",
+        "hg"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Soften knees and brace",
+        "Send hips back with the bar close to your legs",
+        "Stop before your back rounds; stand by extending the hips"
+      ],
+      "easier": "Dumbbell Romanian deadlift",
+      "harder": "Increase load gradually while keeping the same range",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Keep the load close; reduce depth before the trunk loses control. A hinge is not a treatment for back pain."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-e3"
+    },
+    {
+      "id": "e4",
+      "name": "Push-up progression",
+      "kind": "exercise",
+      "categories": [
+        "calisthenics",
+        "bodyweight"
+      ],
+      "movementPatterns": [
+        "horizontal_press"
+      ],
+      "primaryMuscles": [
+        "pectoralis_major"
+      ],
+      "secondaryMuscles": [
+        "triceps",
+        "anterior_deltoid",
+        "serratus_anterior"
+      ],
+      "equipmentOptions": [
+        []
+      ],
+      "setupNotes": [
+        "None",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [
+        "ip"
+      ],
+      "progressions": [],
+      "alternatives": [
+        "ip",
+        "fp"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Keep body in one line, elbows at 45 degrees",
+        "Lower your chest between your hands",
+        "Press away without sagging at the hips"
+      ],
+      "easier": "Incline push-up",
+      "harder": "Lower the support, then use full floor push-ups",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use secure supports and comfortable wrist and shoulder positions. Set weights down safely."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-e4"
+    },
+    {
+      "id": "e5",
+      "name": "Hanging leg raise",
+      "kind": "exercise",
+      "categories": [
+        "calisthenics"
+      ],
+      "movementPatterns": [
+        "core"
+      ],
+      "primaryMuscles": [
+        "hip_flexors",
+        "abdominals"
+      ],
+      "secondaryMuscles": [
+        "forearm_grip",
+        "shoulder_stabilizers"
+      ],
+      "equipmentOptions": [
+        [
+          "pullup_bar"
+        ]
+      ],
+      "setupNotes": [
+        "Bar",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "advanced",
+      "prerequisites": [
+        "fc",
+        "pull-hang"
+      ],
+      "regressions": [
+        "fc"
+      ],
+      "progressions": [],
+      "alternatives": [
+        "fc"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Use a secure bar with shoulders active",
+        "Tuck the pelvis and raise legs only as high as controlled",
+        "Lower slowly without swinging"
+      ],
+      "easier": "Bent-knee leg raise on the floor",
+      "harder": "Straighter legs through a larger controlled range",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Shorten the lever if the back or neck strains; avoid breath holding."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-e5"
+    },
+    {
+      "id": "e6",
+      "name": "Bulgarian split squat",
+      "kind": "exercise",
+      "categories": [
+        "strength_gym"
+      ],
+      "movementPatterns": [
+        "unilateral"
+      ],
+      "primaryMuscles": [
+        "quadriceps",
+        "gluteus_maximus"
+      ],
+      "secondaryMuscles": [
+        "gluteus_medius",
+        "adductors",
+        "calves"
+      ],
+      "equipmentOptions": [
+        [
+          "dumbbells",
+          "bench"
+        ]
+      ],
+      "setupNotes": [
+        "Dumbbells + bench",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "developing",
+      "prerequisites": [],
+      "regressions": [
+        "rl"
+      ],
+      "progressions": [],
+      "alternatives": [
+        "rl"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Rest the rear foot on a stable low bench",
+        "Lower through the front hip and knee; let the knee follow toes",
+        "Push through the front foot and repeat both sides"
+      ],
+      "easier": "Reverse lunge",
+      "harder": "Increase range or load while maintaining balance",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use stable support if balance is uncertain; do not force knee or hip range."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-e6"
+    },
+    {
+      "id": "fc",
+      "name": "Floor bent-knee leg raise",
+      "kind": "exercise",
+      "categories": [
+        "calisthenics",
+        "bodyweight"
+      ],
+      "movementPatterns": [
+        "core"
+      ],
+      "primaryMuscles": [
+        "abdominals"
+      ],
+      "secondaryMuscles": [
+        "hip_flexors",
+        "trunk_stabilizers"
+      ],
+      "equipmentOptions": [
+        []
+      ],
+      "setupNotes": [
+        "None",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [
+        "e5"
+      ],
+      "alternatives": [
+        "e5"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Lie on your back with knees bent",
+        "Exhale and curl the pelvis as knees move toward the torso",
+        "Lower slowly without arching the back"
+      ],
+      "easier": "Smaller controlled range",
+      "harder": "Straighter legs, then hanging knee raises",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Shorten the lever if the back or neck strains; avoid breath holding."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-fc"
+    },
+    {
+      "id": "fp",
+      "name": "Dumbbell floor press",
+      "kind": "exercise",
+      "categories": [
+        "strength_gym"
+      ],
+      "movementPatterns": [
+        "horizontal_press"
+      ],
+      "primaryMuscles": [
+        "pectoralis_major"
+      ],
+      "secondaryMuscles": [
+        "triceps",
+        "anterior_deltoid",
+        "serratus_anterior"
+      ],
+      "equipmentOptions": [
+        [
+          "dumbbells"
+        ]
+      ],
+      "setupNotes": [
+        "Dumbbells",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [
+        "bp",
+        "e4",
+        "ip"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Lie on the floor with knees bent",
+        "Lower elbows gently to the floor",
+        "Press with wrists over elbows; control the return"
+      ],
+      "easier": "Incline push-up",
+      "harder": "Dumbbell bench press for more range",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use secure supports and comfortable wrist and shoulder positions. Set weights down safely."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-fp"
+    },
+    {
+      "id": "glute-bridge",
+      "name": "Floor glute bridge",
+      "kind": "exercise",
+      "categories": [
+        "bodyweight"
+      ],
+      "movementPatterns": [
+        "hip_extension"
+      ],
+      "primaryMuscles": [
+        "gluteus_maximus"
+      ],
+      "secondaryMuscles": [
+        "hamstrings",
+        "abdominals"
+      ],
+      "equipmentOptions": [
+        []
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [
+        "hg"
+      ],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Lie on your back with knees bent and feet planted.",
+        "Brace gently, lift the hips without overarching the back, then lower slowly."
+      ],
+      "easier": "Lift through a smaller range.",
+      "harder": "Pause briefly at the top before considering harder variations.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Stop if the back feels compressed; do not push for maximum height."
+      ],
+      "provenance": [
+        {
+          "sourceId": "ace-bridge",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-glute-bridge"
+    },
+    {
+      "id": "gs",
+      "name": "Goblet squat",
+      "kind": "exercise",
+      "categories": [
+        "strength_gym"
+      ],
+      "movementPatterns": [
+        "squat"
+      ],
+      "primaryMuscles": [
+        "quadriceps",
+        "gluteus_maximus"
+      ],
+      "secondaryMuscles": [
+        "adductors",
+        "trunk_stabilizers"
+      ],
+      "equipmentOptions": [
+        [
+          "dumbbells"
+        ]
+      ],
+      "setupNotes": [
+        "Dumbbells",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [
+        "sq"
+      ],
+      "progressions": [
+        "e1"
+      ],
+      "alternatives": [
+        "sq",
+        "e1"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Hold one dumbbell close to your chest",
+        "Brace and squat between the hips",
+        "Stand without letting the heels lift"
+      ],
+      "easier": "Bodyweight squat",
+      "harder": "Back squat with appropriate rack setup",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use a stable stance and only a range you control; loaded rack work needs correctly set safeties and a practiced exit."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-gs"
+    },
+    {
+      "id": "hand-pike",
+      "name": "Pike support hold",
+      "kind": "guide",
+      "categories": [
+        "calisthenics",
+        "bodyweight"
+      ],
+      "movementPatterns": [
+        "inversion"
+      ],
+      "primaryMuscles": [
+        "shoulder_stabilizers",
+        "triceps"
+      ],
+      "secondaryMuscles": [
+        "abdominals",
+        "serratus_anterior"
+      ],
+      "equipmentOptions": [
+        []
+      ],
+      "setupNotes": [
+        "Clear floor space",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [
+        "hand-wall"
+      ],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Place hands shoulder-width apart on a firm surface.",
+        "Bring hips up while keeping a comfortable bend at the knees.",
+        "Push the floor away and hold briefly without strain."
+      ],
+      "easier": "Keep more weight on the feet and shorten the hold.",
+      "harder": "Stable shoulders, breathing and balance throughout.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Do not load the head or neck. Learn a safe exit with qualified supervision; avoid inversion with relevant medical restrictions."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-hand-pike"
+    },
+    {
+      "id": "hand-shift",
+      "name": "Wall handstand weight shifts",
+      "kind": "guide",
+      "categories": [
+        "calisthenics"
+      ],
+      "movementPatterns": [
+        "inversion"
+      ],
+      "primaryMuscles": [
+        "shoulder_stabilizers",
+        "triceps"
+      ],
+      "secondaryMuscles": [
+        "abdominals",
+        "serratus_anterior"
+      ],
+      "equipmentOptions": [
+        [
+          "wall"
+        ]
+      ],
+      "setupNotes": [
+        "Solid wall, Clear floor space",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "advanced",
+      "prerequisites": [
+        "hand-wall"
+      ],
+      "regressions": [
+        "hand-wall"
+      ],
+      "progressions": [],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Enter an already secure wall-supported handstand.",
+        "Shift a small amount of weight from hand to hand without losing alignment.",
+        "Exit before fatigue compromises balance."
+      ],
+      "easier": "Stay with a static wall-supported hold.",
+      "harder": "Stable shifts and a predictable safe exit.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Do not load the head or neck. Learn a safe exit with qualified supervision; avoid inversion with relevant medical restrictions."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-hand-shift"
+    },
+    {
+      "id": "hand-wall",
+      "name": "Chest-to-wall handstand hold",
+      "kind": "guide",
+      "categories": [
+        "calisthenics"
+      ],
+      "movementPatterns": [
+        "inversion"
+      ],
+      "primaryMuscles": [
+        "shoulder_stabilizers",
+        "triceps"
+      ],
+      "secondaryMuscles": [
+        "abdominals",
+        "serratus_anterior"
+      ],
+      "equipmentOptions": [
+        [
+          "wall"
+        ]
+      ],
+      "setupNotes": [
+        "Solid wall, Clear floor space",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "developing",
+      "prerequisites": [
+        "hand-pike"
+      ],
+      "regressions": [
+        "hand-pike"
+      ],
+      "progressions": [
+        "hand-shift"
+      ],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Use clear floor space and a stable wall; start conservatively.",
+        "Move into a comfortable wall-supported position without kicking wildly.",
+        "Keep hands rooted and exit under control when tired."
+      ],
+      "easier": "Return to a pike hold or work with qualified supervision.",
+      "harder": "Controlled entry, comfortable shoulder position and a safe exit.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Do not load the head or neck. Learn a safe exit with qualified supervision; avoid inversion with relevant medical restrictions."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-hand-wall"
+    },
+    {
+      "id": "hg",
+      "name": "Unloaded hip hinge",
+      "kind": "exercise",
+      "categories": [
+        "calisthenics",
+        "bodyweight"
+      ],
+      "movementPatterns": [
+        "hinge"
+      ],
+      "primaryMuscles": [
+        "hamstrings",
+        "gluteus_maximus"
+      ],
+      "secondaryMuscles": [
+        "spinal_extensors",
+        "trunk_stabilizers"
+      ],
+      "equipmentOptions": [
+        []
+      ],
+      "setupNotes": [
+        "None",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [
+        "dh"
+      ],
+      "alternatives": [
+        "dh",
+        "e3"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Stand tall with soft knees",
+        "Push hips backward while keeping ribs over pelvis",
+        "Stop at hamstring tension and stand tall"
+      ],
+      "easier": "Smaller range hip hinge",
+      "harder": "Dumbbell Romanian deadlift",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Keep the load close; reduce depth before the trunk loses control. A hinge is not a treatment for back pain."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-hg"
+    },
+    {
+      "id": "ip",
+      "name": "Incline push-up",
+      "kind": "exercise",
+      "categories": [
+        "calisthenics"
+      ],
+      "movementPatterns": [
+        "horizontal_press"
+      ],
+      "primaryMuscles": [
+        "pectoralis_major"
+      ],
+      "secondaryMuscles": [
+        "triceps",
+        "anterior_deltoid",
+        "serratus_anterior"
+      ],
+      "equipmentOptions": [
+        [
+          "raised_surface"
+        ]
+      ],
+      "setupNotes": [
+        "Stable raised surface",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [
+        "wall-push"
+      ],
+      "progressions": [
+        "e4"
+      ],
+      "alternatives": [
+        "e4",
+        "fp"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Use a sturdy immovable surface",
+        "Keep a straight line from head to heels",
+        "Lower the chest to the edge and press away"
+      ],
+      "easier": "Higher stable support",
+      "harder": "Lower the support before moving to the floor",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use secure supports and comfortable wrist and shoulder positions. Set weights down safely."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-ip"
+    },
+    {
+      "id": "machine-chest-press",
+      "name": "Seated machine chest press",
+      "kind": "exercise",
+      "categories": [
+        "strength_gym"
+      ],
+      "movementPatterns": [
+        "horizontal_press"
+      ],
+      "primaryMuscles": [
+        "pectoralis_major"
+      ],
+      "secondaryMuscles": [
+        "triceps",
+        "anterior_deltoid",
+        "serratus_anterior"
+      ],
+      "equipmentOptions": [
+        [
+          "chest_press_machine"
+        ]
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [
+        "fp",
+        "wall-push"
+      ],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Adjust the seat so handles align near mid chest, with feet grounded.",
+        "Press forward smoothly, then return without letting the shoulders roll forward."
+      ],
+      "easier": "Use less resistance and a comfortable start position.",
+      "harder": "Add a small load after controlled repetitions.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Do not force the handles behind a comfortable shoulder range."
+      ],
+      "provenance": [
+        {
+          "sourceId": "nasm-chestpress",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-machine-chest-press"
+    },
+    {
+      "id": "machine-leg-curl",
+      "name": "Seated machine leg curl",
+      "kind": "exercise",
+      "categories": [
+        "strength_gym"
+      ],
+      "movementPatterns": [
+        "knee_flexion"
+      ],
+      "primaryMuscles": [
+        "hamstrings"
+      ],
+      "secondaryMuscles": [
+        "calves"
+      ],
+      "equipmentOptions": [
+        [
+          "leg_curl_machine"
+        ]
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Adjust the machine to your limb length; secure the thigh restraint and ankle pad.",
+        "Bend the knees against the pad, then extend slowly without slamming the stack."
+      ],
+      "easier": "Reduce resistance and range.",
+      "harder": "Increase resistance slightly while keeping the hips still.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Follow machine setup instructions; avoid painful knee flexion."
+      ],
+      "provenance": [
+        {
+          "sourceId": "nasm-legcurl",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-machine-leg-curl"
+    },
+    {
+      "id": "machine-leg-press",
+      "name": "Seated machine leg press",
+      "kind": "exercise",
+      "categories": [
+        "strength_gym"
+      ],
+      "movementPatterns": [
+        "squat"
+      ],
+      "primaryMuscles": [
+        "quadriceps",
+        "gluteus_maximus"
+      ],
+      "secondaryMuscles": [
+        "adductors",
+        "trunk_stabilizers"
+      ],
+      "equipmentOptions": [
+        [
+          "leg_press_machine"
+        ]
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [
+        "gs",
+        "sit-to-stand"
+      ],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Adjust the seat and stops; keep the back supported and feet on the platform.",
+        "Press smoothly without snapping the knees; return only as far as the pelvis stays supported."
+      ],
+      "easier": "Reduce load and depth.",
+      "harder": "Increase load slightly after repeatable control.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Learn the machine safety stops; do not let the pelvis roll off the pad."
+      ],
+      "provenance": [
+        {
+          "sourceId": "nasm-legpress",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-machine-leg-press"
+    },
+    {
+      "id": "mob-ankle-pumps",
+      "name": "Seated ankle pumps",
+      "kind": "exercise",
+      "categories": [
+        "mobility"
+      ],
+      "movementPatterns": [
+        "ankle_mobility"
+      ],
+      "primaryMuscles": [
+        "calves",
+        "tibialis_anterior"
+      ],
+      "secondaryMuscles": [],
+      "equipmentOptions": [
+        [
+          "chair"
+        ]
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Sit securely and support a leg out in front.",
+        "Alternate pointing the toes away and drawing them toward you."
+      ],
+      "easier": "Keep the heel supported.",
+      "harder": "Move through more comfortable ankle range.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "This is mobility practice; it does not diagnose or treat circulation problems."
+      ],
+      "provenance": [
+        {
+          "sourceId": "nhs-sitting",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-mob-ankle-pumps"
+    },
+    {
+      "id": "mob-calf-wall",
+      "name": "Wall calf stretch",
+      "kind": "exercise",
+      "categories": [
+        "mobility"
+      ],
+      "movementPatterns": [
+        "ankle_mobility"
+      ],
+      "primaryMuscles": [
+        "calves"
+      ],
+      "secondaryMuscles": [],
+      "equipmentOptions": [
+        [
+          "wall"
+        ]
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Use the wall for balance with one foot behind.",
+        "Keep the rear heel down and rear knee straight; gently shift forward, then switch."
+      ],
+      "easier": "Shorten the stance.",
+      "harder": "Increase the stance slightly if comfortable.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Avoid bouncing or stretching into Achilles pain."
+      ],
+      "provenance": [
+        {
+          "sourceId": "nhs-flex",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-mob-calf-wall"
+    },
+    {
+      "id": "mob-chest-open",
+      "name": "Seated chest opening",
+      "kind": "exercise",
+      "categories": [
+        "mobility"
+      ],
+      "movementPatterns": [
+        "chest_mobility"
+      ],
+      "primaryMuscles": [
+        "pectoralis_major"
+      ],
+      "secondaryMuscles": [
+        "anterior_deltoid"
+      ],
+      "equipmentOptions": [
+        [
+          "chair"
+        ]
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Sit upright away from the chair back.",
+        "Open the arms gently and lift the chest slightly without forcing the shoulders."
+      ],
+      "easier": "Lower the arms and reduce the opening.",
+      "harder": "Increase comfortable range gradually.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Do not force the arms behind the body or arch the lower back."
+      ],
+      "provenance": [
+        {
+          "sourceId": "nhs-sitting",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-mob-chest-open"
+    },
+    {
+      "id": "mob-neck-turn",
+      "name": "Comfortable neck rotation",
+      "kind": "exercise",
+      "categories": [
+        "mobility"
+      ],
+      "movementPatterns": [
+        "neck_rotation"
+      ],
+      "primaryMuscles": [
+        "neck_rotators"
+      ],
+      "secondaryMuscles": [],
+      "equipmentOptions": [
+        [
+          "chair"
+        ]
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Sit tall with shoulders relaxed.",
+        "Turn the head gently each way; return to center between turns."
+      ],
+      "easier": "Use less rotation.",
+      "harder": "Explore a little more comfortable range without forcing it.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Stop for dizziness, tingling or pain; do not force the end position."
+      ],
+      "provenance": [
+        {
+          "sourceId": "nhs-flex",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-mob-neck-turn"
+    },
+    {
+      "id": "mob-seated-turn",
+      "name": "Seated trunk turn",
+      "kind": "exercise",
+      "categories": [
+        "mobility"
+      ],
+      "movementPatterns": [
+        "thoracic_rotation"
+      ],
+      "primaryMuscles": [
+        "trunk_rotators"
+      ],
+      "secondaryMuscles": [],
+      "equipmentOptions": [
+        [
+          "chair"
+        ]
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Sit upright with feet grounded and arms across the chest.",
+        "Keep hips still while turning gently left and right."
+      ],
+      "easier": "Turn less.",
+      "harder": "Explore more range without moving the pelvis.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use a stable chair; never wrench into a painful twist."
+      ],
+      "provenance": [
+        {
+          "sourceId": "nhs-sitting",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-mob-seated-turn"
+    },
+    {
+      "id": "mob-side-bend",
+      "name": "Standing side bend",
+      "kind": "exercise",
+      "categories": [
+        "mobility"
+      ],
+      "movementPatterns": [
+        "lateral_flexion"
+      ],
+      "primaryMuscles": [
+        "lateral_trunk_muscles"
+      ],
+      "secondaryMuscles": [],
+      "equipmentOptions": [
+        []
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Stand with feet apart and arms relaxed.",
+        "Slide one hand down the side, return upright, then change sides."
+      ],
+      "easier": "Use a smaller bend.",
+      "harder": "Increase comfortable range gradually.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Do not twist or force the spine to reach farther."
+      ],
+      "provenance": [
+        {
+          "sourceId": "nhs-flex",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-mob-side-bend"
+    },
+    {
+      "id": "plank",
+      "name": "Forearm plank",
+      "kind": "exercise",
+      "categories": [
+        "bodyweight"
+      ],
+      "movementPatterns": [
+        "anti_extension"
+      ],
+      "primaryMuscles": [
+        "abdominals"
+      ],
+      "secondaryMuscles": [
+        "shoulder_stabilizers",
+        "gluteus_maximus"
+      ],
+      "equipmentOptions": [
+        []
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "developing",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [
+        "core-deadbug"
+      ],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Support yourself on forearms and toes with elbows below shoulders.",
+        "Keep the trunk steady and breathe; lower before position deteriorates."
+      ],
+      "easier": "Keep the knees down or shorten the hold.",
+      "harder": "Extend the hold slightly while breathing comfortably.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Avoid breath holding and sagging into the lower back."
+      ],
+      "provenance": [
+        {
+          "sourceId": "nasm-index",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-plank"
+    },
+    {
+      "id": "pull-hang",
+      "name": "Active dead hang",
+      "kind": "guide",
+      "categories": [
+        "calisthenics"
+      ],
+      "movementPatterns": [
+        "vertical_pull"
+      ],
+      "primaryMuscles": [
+        "latissimus_dorsi"
+      ],
+      "secondaryMuscles": [
+        "elbow_flexors",
+        "lower_trapezius",
+        "forearm_grip"
+      ],
+      "equipmentOptions": [
+        [
+          "pullup_bar"
+        ]
+      ],
+      "setupNotes": [
+        "Secure overhead bar",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [
+        "pull-scap"
+      ],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Verify the overhead bar and surrounding clearance.",
+        "Use feet for assistance if needed and maintain a comfortable shoulder position.",
+        "Release safely before grip fails."
+      ],
+      "easier": "Use foot support to offload body weight.",
+      "harder": "Comfortable hangs with controlled entry and exit.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Check the bar and band attachment; use a stable step for entry and exit. Do not drop when grip fades."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-pull-hang"
+    },
+    {
+      "id": "pull-scap",
+      "name": "Scapular pull-up",
+      "kind": "guide",
+      "categories": [
+        "calisthenics"
+      ],
+      "movementPatterns": [
+        "vertical_pull"
+      ],
+      "primaryMuscles": [
+        "latissimus_dorsi"
+      ],
+      "secondaryMuscles": [
+        "elbow_flexors",
+        "lower_trapezius",
+        "forearm_grip"
+      ],
+      "equipmentOptions": [
+        [
+          "pullup_bar"
+        ]
+      ],
+      "setupNotes": [
+        "Secure overhead bar",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "developing",
+      "prerequisites": [
+        "pull-hang"
+      ],
+      "regressions": [
+        "pull-hang"
+      ],
+      "progressions": [
+        "ap"
+      ],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Start from an appropriately assisted stable hang.",
+        "Move the shoulder blades gently without bending elbows much.",
+        "Return slowly rather than swinging."
+      ],
+      "easier": "Practice with feet supported.",
+      "harder": "Smooth motion without shoulder discomfort or swinging.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Check the bar and band attachment; use a stable step for entry and exit. Do not drop when grip fades."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-pull-scap"
+    },
+    {
+      "id": "re",
+      "name": "Easy run",
+      "kind": "exercise",
+      "categories": [
+        "running"
+      ],
+      "movementPatterns": [
+        "gait"
+      ],
+      "primaryMuscles": [
+        "quadriceps",
+        "gluteus_maximus",
+        "calves"
+      ],
+      "secondaryMuscles": [
+        "hamstrings",
+        "hip_flexors"
+      ],
+      "equipmentOptions": [
+        [
+          "safe_route"
+        ]
+      ],
+      "setupNotes": [
+        "Safe running route",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [
+        "rlg"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "5 min walk or easy jog",
+        "20 min conversational running",
+        "5 min easy cooldown"
+      ],
+      "easier": "Use run-walk intervals",
+      "harder": "Extend easy duration gradually",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use clear footing and adjust effort to heat and humidity; stop if gait changes or symptoms develop."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-re"
+    },
+    {
+      "id": "rh",
+      "name": "Hill repeats",
+      "kind": "exercise",
+      "categories": [
+        "running"
+      ],
+      "movementPatterns": [
+        "gait"
+      ],
+      "primaryMuscles": [
+        "quadriceps",
+        "gluteus_maximus",
+        "calves"
+      ],
+      "secondaryMuscles": [
+        "hamstrings",
+        "hip_flexors"
+      ],
+      "equipmentOptions": [
+        [
+          "safe_hill_route"
+        ]
+      ],
+      "setupNotes": [
+        "Safe hill route",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "developing",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [
+        "rs"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "12 min easy warm-up",
+        "6 × 30 sec on a gentle hill; walk or jog down fully",
+        "10 min easy cooldown"
+      ],
+      "easier": "Fewer repetitions on a gentler slope",
+      "harder": "Add one repeat while maintaining relaxed form",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use clear footing and adjust effort to heat and humidity; stop if gait changes or symptoms develop."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-rh"
+    },
+    {
+      "id": "rl",
+      "name": "Reverse lunge",
+      "kind": "exercise",
+      "categories": [
+        "strength_gym"
+      ],
+      "movementPatterns": [
+        "unilateral"
+      ],
+      "primaryMuscles": [
+        "quadriceps",
+        "gluteus_maximus"
+      ],
+      "secondaryMuscles": [
+        "gluteus_medius",
+        "adductors",
+        "calves"
+      ],
+      "equipmentOptions": [
+        []
+      ],
+      "setupNotes": [
+        "None",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [
+        "e6"
+      ],
+      "alternatives": [
+        "e6"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Stand tall and take a controlled step back",
+        "Lower both knees through a comfortable range",
+        "Push through the front foot; repeat both sides"
+      ],
+      "easier": "Shorter range with a wall for balance",
+      "harder": "Add dumbbells or progress to rear-foot elevation",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use stable support if balance is uncertain; do not force knee or hip range."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-rl"
+    },
+    {
+      "id": "rlg",
+      "name": "Long run",
+      "kind": "exercise",
+      "categories": [
+        "running"
+      ],
+      "movementPatterns": [
+        "gait"
+      ],
+      "primaryMuscles": [
+        "quadriceps",
+        "gluteus_maximus",
+        "calves"
+      ],
+      "secondaryMuscles": [
+        "hamstrings",
+        "hip_flexors"
+      ],
+      "equipmentOptions": [
+        [
+          "safe_route"
+        ]
+      ],
+      "setupNotes": [
+        "Safe running route",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "developing",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [
+        "re"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "10 min easy start",
+        "40 min conversational running",
+        "5 min easy finish"
+      ],
+      "easier": "Shorten duration while keeping the effort easy",
+      "harder": "Extend only when recovery and routine are stable",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use clear footing and adjust effort to heat and humidity; stop if gait changes or symptoms develop."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-rlg"
+    },
+    {
+      "id": "row-high",
+      "name": "High-angle inverted row",
+      "kind": "guide",
+      "categories": [
+        "calisthenics"
+      ],
+      "movementPatterns": [
+        "horizontal_pull"
+      ],
+      "primaryMuscles": [
+        "latissimus_dorsi",
+        "rhomboids"
+      ],
+      "secondaryMuscles": [
+        "elbow_flexors",
+        "posterior_deltoid",
+        "trapezius"
+      ],
+      "equipmentOptions": [
+        [
+          "low_bar"
+        ],
+        [
+          "rings",
+          "anchor"
+        ]
+      ],
+      "setupNotes": [
+        "Secure low bar or rings",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [
+        "row-low"
+      ],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Verify the bar or rings are securely anchored and stable.",
+        "Walk feet forward only as far as you can keep a straight body.",
+        "Pull under control, then lower slowly without shrugging."
+      ],
+      "easier": "Choose a more upright angle and shorten the range.",
+      "harder": "Complete controlled repetitions without arching or swinging.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Verify anchors before loading. A lighter row is not an equivalent substitute for every vertical pull."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-row-high"
+    },
+    {
+      "id": "row-low",
+      "name": "Lower-angle inverted row",
+      "kind": "guide",
+      "categories": [
+        "calisthenics"
+      ],
+      "movementPatterns": [
+        "horizontal_pull"
+      ],
+      "primaryMuscles": [
+        "latissimus_dorsi",
+        "rhomboids"
+      ],
+      "secondaryMuscles": [
+        "elbow_flexors",
+        "posterior_deltoid",
+        "trapezius"
+      ],
+      "equipmentOptions": [
+        [
+          "low_bar"
+        ],
+        [
+          "rings",
+          "anchor"
+        ]
+      ],
+      "setupNotes": [
+        "Secure low bar or rings",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "developing",
+      "prerequisites": [],
+      "regressions": [
+        "row-high"
+      ],
+      "progressions": [],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Use a verified stable bar or rings with enough clearance.",
+        "Keep torso and hips aligned as you draw the chest toward the handles.",
+        "Lower under control, stopping before form deteriorates."
+      ],
+      "easier": "Return to a more upright angle.",
+      "harder": "Consistent reps and stable body position at the chosen angle.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Verify anchors before loading. A lighter row is not an equivalent substitute for every vertical pull."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-row-low"
+    },
+    {
+      "id": "rs",
+      "name": "Speed intervals",
+      "kind": "exercise",
+      "categories": [
+        "running"
+      ],
+      "movementPatterns": [
+        "gait"
+      ],
+      "primaryMuscles": [
+        "quadriceps",
+        "gluteus_maximus",
+        "calves"
+      ],
+      "secondaryMuscles": [
+        "hamstrings",
+        "hip_flexors"
+      ],
+      "equipmentOptions": [
+        [
+          "safe_route"
+        ]
+      ],
+      "setupNotes": [
+        "Safe running route",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "advanced",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [
+        "rt",
+        "rh"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "12 min easy warm-up and relaxed strides",
+        "6 × 1 min fast, 2 min easy jog between",
+        "10 min easy cooldown"
+      ],
+      "easier": "Fewer reps at a relaxed fast effort",
+      "harder": "Add a rep before increasing speed",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use clear footing and adjust effort to heat and humidity; stop if gait changes or symptoms develop."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-rs"
+    },
+    {
+      "id": "rt",
+      "name": "Threshold intervals",
+      "kind": "exercise",
+      "categories": [
+        "running"
+      ],
+      "movementPatterns": [
+        "gait"
+      ],
+      "primaryMuscles": [
+        "quadriceps",
+        "gluteus_maximus",
+        "calves"
+      ],
+      "secondaryMuscles": [
+        "hamstrings",
+        "hip_flexors"
+      ],
+      "equipmentOptions": [
+        [
+          "safe_route"
+        ]
+      ],
+      "setupNotes": [
+        "Safe running route",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "developing",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [
+        "rs"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "10 min easy warm-up",
+        "3 × 5 min controlled hard; 2 min easy jog between",
+        "10 min easy cooldown"
+      ],
+      "easier": "2 × 5 min with full recovery",
+      "harder": "Add one interval only when pace and form remain controlled",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use clear footing and adjust effort to heat and humidity; stop if gait changes or symptoms develop."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-rt"
+    },
+    {
+      "id": "run-ankling",
+      "name": "Gentle ankling drill",
+      "kind": "guide",
+      "categories": [
+        "running"
+      ],
+      "movementPatterns": [
+        "gait"
+      ],
+      "primaryMuscles": [
+        "quadriceps",
+        "gluteus_maximus",
+        "calves"
+      ],
+      "secondaryMuscles": [
+        "hamstrings",
+        "hip_flexors"
+      ],
+      "equipmentOptions": [
+        [
+          "safe_route"
+        ]
+      ],
+      "setupNotes": [
+        "None",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "developing",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Begin with very small steps on a level surface.",
+        "Keep the movement low amplitude, easy and quiet; do not bounce maximally.",
+        "Stop if calves, Achilles tendon or feet become uncomfortable."
+      ],
+      "easier": "Replace with simple marching or relaxed walking.",
+      "harder": "Foot contacts are comfortable and posture remains upright.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use clear footing and adjust effort to heat and humidity; stop if gait changes or symptoms develop."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-run-ankling"
+    },
+    {
+      "id": "run-cooldown",
+      "name": "Post-run cooldown",
+      "kind": "guide",
+      "categories": [
+        "running"
+      ],
+      "movementPatterns": [
+        "gait"
+      ],
+      "primaryMuscles": [
+        "quadriceps",
+        "gluteus_maximus",
+        "calves"
+      ],
+      "secondaryMuscles": [
+        "hamstrings",
+        "hip_flexors"
+      ],
+      "equipmentOptions": [
+        [
+          "safe_route"
+        ]
+      ],
+      "setupNotes": [
+        "None",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Reduce pace to a comfortable jog or walk.",
+        "Allow breathing to settle without forcing a strict heart-rate target.",
+        "Rehydrate and recover according to conditions and the session."
+      ],
+      "easier": "A comfortable walk can be sufficient.",
+      "harder": "Breathing has settled and you can comfortably stop.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use clear footing and adjust effort to heat and humidity; stop if gait changes or symptoms develop."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-run-cooldown"
+    },
+    {
+      "id": "run-march",
+      "name": "A-march running drill",
+      "kind": "guide",
+      "categories": [
+        "running"
+      ],
+      "movementPatterns": [
+        "gait"
+      ],
+      "primaryMuscles": [
+        "quadriceps",
+        "gluteus_maximus",
+        "calves"
+      ],
+      "secondaryMuscles": [
+        "hamstrings",
+        "hip_flexors"
+      ],
+      "equipmentOptions": [
+        [
+          "safe_route"
+        ]
+      ],
+      "setupNotes": [
+        "None",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "March slowly with tall posture and ribs stacked over hips.",
+        "Lift one knee comfortably while keeping the other leg stable.",
+        "Set the foot underneath you and switch sides at a steady rhythm."
+      ],
+      "easier": "Hold a stable support if balance is limited; reduce knee height.",
+      "harder": "You can alternate sides without rocking or losing balance.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use clear footing and adjust effort to heat and humidity; stop if gait changes or symptoms develop."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-run-march"
+    },
+    {
+      "id": "run-strides",
+      "name": "Relaxed running strides",
+      "kind": "guide",
+      "categories": [
+        "running"
+      ],
+      "movementPatterns": [
+        "gait"
+      ],
+      "primaryMuscles": [
+        "quadriceps",
+        "gluteus_maximus",
+        "calves"
+      ],
+      "secondaryMuscles": [
+        "hamstrings",
+        "hip_flexors"
+      ],
+      "equipmentOptions": [
+        [
+          "safe_route"
+        ]
+      ],
+      "setupNotes": [
+        "None",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "developing",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "After an easy warm-up, accelerate smoothly over roughly 15–20 seconds.",
+        "Stay tall and relaxed; do not force maximum speed or reach ahead with your foot.",
+        "Walk or jog until breathing and form are comfortable before repeating."
+      ],
+      "easier": "Use shorter, gentler accelerations on level, unobstructed ground.",
+      "harder": "Your stride stays smooth without straining or changing gait.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use clear footing and adjust effort to heat and humidity; stop if gait changes or symptoms develop."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-run-strides"
+    },
+    {
+      "id": "run-warmup",
+      "name": "Pre-run warm-up",
+      "kind": "guide",
+      "categories": [
+        "running"
+      ],
+      "movementPatterns": [
+        "gait"
+      ],
+      "primaryMuscles": [
+        "quadriceps",
+        "gluteus_maximus",
+        "calves"
+      ],
+      "secondaryMuscles": [
+        "hamstrings",
+        "hip_flexors"
+      ],
+      "equipmentOptions": [
+        [
+          "safe_route"
+        ]
+      ],
+      "setupNotes": [
+        "None",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Walk or jog gently for several minutes, then build to an easy rhythm.",
+        "Use comfortable dynamic movements such as leg swings or marching if helpful.",
+        "Before quality work, add a few short relaxed accelerations only when ready."
+      ],
+      "easier": "Begin with walking and an easy jog; skip accelerations if uncomfortable.",
+      "harder": "You can begin your planned session without feeling rushed or strained.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use clear footing and adjust effort to heat and humidity; stop if gait changes or symptoms develop."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-run-warmup"
+    },
+    {
+      "id": "side-plank",
+      "name": "Kneeling side plank",
+      "kind": "exercise",
+      "categories": [
+        "bodyweight"
+      ],
+      "movementPatterns": [
+        "anti_lateral_flexion"
+      ],
+      "primaryMuscles": [
+        "obliques"
+      ],
+      "secondaryMuscles": [
+        "gluteus_medius",
+        "shoulder_stabilizers"
+      ],
+      "equipmentOptions": [
+        []
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [],
+      "alternatives": [
+        "core-deadbug"
+      ],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Lie on one side with knees bent and elbow under shoulder.",
+        "Lift the hips into a short straight line from shoulders to knees, then lower; change sides."
+      ],
+      "easier": "Lift only a little or shorten the hold.",
+      "harder": "Lengthen the lever only after stable short-lever holds.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Avoid hanging on the shoulder; stop for joint pain."
+      ],
+      "provenance": [
+        {
+          "sourceId": "nasm-index",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-side-plank"
+    },
+    {
+      "id": "sit-to-stand",
+      "name": "Chair sit-to-stand",
+      "kind": "exercise",
+      "categories": [
+        "bodyweight"
+      ],
+      "movementPatterns": [
+        "squat"
+      ],
+      "primaryMuscles": [
+        "quadriceps",
+        "gluteus_maximus"
+      ],
+      "secondaryMuscles": [
+        "adductors",
+        "trunk_stabilizers"
+      ],
+      "equipmentOptions": [
+        [
+          "chair"
+        ]
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [
+        "sq"
+      ],
+      "alternatives": [
+        "sq"
+      ],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Sit near the front of a stable chair, feet planted.",
+        "Lean forward slightly, stand smoothly, then sit with control."
+      ],
+      "easier": "Use light hand support.",
+      "harder": "Reduce hand support before adding resistance.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use a chair without wheels on a nonslip surface."
+      ],
+      "provenance": [
+        {
+          "sourceId": "nhs-strength",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-sit-to-stand"
+    },
+    {
+      "id": "sq",
+      "name": "Bodyweight squat",
+      "kind": "exercise",
+      "categories": [
+        "calisthenics",
+        "bodyweight"
+      ],
+      "movementPatterns": [
+        "squat"
+      ],
+      "primaryMuscles": [
+        "quadriceps",
+        "gluteus_maximus"
+      ],
+      "secondaryMuscles": [
+        "adductors",
+        "trunk_stabilizers"
+      ],
+      "equipmentOptions": [
+        []
+      ],
+      "setupNotes": [
+        "None",
+        "Clear space, secure equipment and a controlled exit are required where relevant."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [
+        "sit-to-stand"
+      ],
+      "progressions": [
+        "gs"
+      ],
+      "alternatives": [
+        "gs",
+        "e1"
+      ],
+      "prerequisiteNotes": [
+        "Demonstrate comfortable entry, controlled movement and a safe exit before adding difficulty. Completion does not certify skill."
+      ],
+      "technique": [
+        "Stand with a comfortable foot width",
+        "Brace and lower between the hips, knees following toes",
+        "Stand through the whole foot"
+      ],
+      "easier": "Shallow squat",
+      "harder": "Goblet squat with a manageable dumbbell",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Use a stable stance and only a range you control; loaded rack work needs correctly set safeties and a practiced exit."
+      ],
+      "provenance": [
+        {
+          "sourceId": "baseline",
+          "scope": "Inherited instructions and title; preserved without claiming independent clinical review."
+        },
+        {
+          "sourceId": "nasm-index",
+          "scope": "General anatomy context; muscle tags and staged links are editorial, not measured recruitment or validated prerequisites."
+        }
+      ],
+      "mediaId": "media-sq"
+    },
+    {
+      "id": "wall-push",
+      "name": "Wall push-up",
+      "kind": "exercise",
+      "categories": [
+        "bodyweight"
+      ],
+      "movementPatterns": [
+        "horizontal_press"
+      ],
+      "primaryMuscles": [
+        "pectoralis_major"
+      ],
+      "secondaryMuscles": [
+        "triceps",
+        "anterior_deltoid",
+        "serratus_anterior"
+      ],
+      "equipmentOptions": [
+        [
+          "wall"
+        ]
+      ],
+      "setupNotes": [
+        "Check the space and equipment before starting."
+      ],
+      "difficulty": "foundation",
+      "prerequisites": [],
+      "regressions": [],
+      "progressions": [
+        "ip"
+      ],
+      "alternatives": [
+        "ip"
+      ],
+      "prerequisiteNotes": [
+        "Start with a comfortable range and confirm control before increasing difficulty."
+      ],
+      "technique": [
+        "Place palms against a solid wall near chest height.",
+        "Bend elbows, bring the body toward the wall, then press away."
+      ],
+      "easier": "Stand closer to the wall.",
+      "harder": "Move the feet back slightly while maintaining control.",
+      "caveats": [
+        "Stop for sharp or worsening pain, dizziness or unusual breathlessness; seek appropriate help if symptoms persist.",
+        "Use a comfortable range and normal breathing. Existing restrictions or recent surgery need individualized professional guidance; this record cannot clear participation.",
+        "Keep hands secure; choose a comfortable shoulder range."
+      ],
+      "provenance": [
+        {
+          "sourceId": "nhs-strength",
+          "scope": "Technique reference, independently paraphrased. Difficulty, relationships, muscle roles and progression choices are StrideLab editorial judgments, not clinical clearance."
+        }
+      ],
+      "mediaId": "media-wall-push"
+    }
+  ]
+}
