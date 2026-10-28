@@ -70,6 +70,7 @@ class Engine1UiTest {
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-${run.id}"))
         compose.onNodeWithTag("workout-${run.id}").assertExists()
         compose.onNodeWithTag("workout-${cal.id}").assertExists()
+        compose.onNodeWithText("View run plan and logging options →",useUnmergedTree=true).assertExists()
 
         compose.onNodeWithTag("workout-${cal.id}").performClick()
         compose.onNodeWithTag("workout-review").performClick()
