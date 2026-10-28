@@ -1,0 +1,32 @@
+package io.stridelab.privatealpha
+
+/** Read-only checks for imported schedules; historical facts and opaque policies are retained. */
+internal object PlanScheduleValidation {
+    fun conflict(a:PlannedSession,b:PlannedSession,policyA:String,policyB:String)=
+        if(policyA==MULTI_SESSION_POLICY && policyB==MULTI_SESSION_POLICY)MultiSessionScheduling.conflict(a,b) else Engine1.conflict(a,b)
+
+    private fun scheduled(plan:PlanSnapshot)=plan.sessions.filter { it.status in setOf("planned","in_progress") }
+
+    fun validatePlan(plan:PlanSnapshot) {
+        if(plan.status!="approved" || !Engine1Engines.canManage(plan))return
+        val sessions=scheduled(plan)
+        for(i in sessions.indices)for(k in i+1 until sessions.size) {
+            if(conflict(sessions[i],sessions[k],plan.policyId,plan.policyId))throw PlanConstraint("The backup contains conflicting sessions inside an approved plan. No records were changed.")
+        }
+        if(plan.policyId==MULTI_SESSION_POLICY && sessions.groupBy { it.date }.values.any { day -> day.sumOf { it.effectiveMinutes }>plan.request.dailyMinutes })throw PlanConstraint("The backup exceeds an approved plan's daily time budget. No records were changed.")
+    }
+
+    fun validateRestoration(plans:List<PlanSnapshot>) {
+        val active=plans.filter { it.status=="approved" }
+        active.forEach(::validatePlan)
+        for(i in active.indices)for(k in i+1 until active.size) {
+            val a=active[i];val b=active[k]
+            if(scheduled(a).any { x -> scheduled(b).any { y -> conflict(x,y,a.policyId,b.policyId) } })throw PlanConstraint("The backup's approved calendar conflicts with another approved plan. No records were changed.")
+        }
+        val multi=active.filter { Engine1Engines.canManage(it) && it.policyId==MULTI_SESSION_POLICY }
+        val days=multi.flatMap { p -> scheduled(p).map { p to it } }.groupBy { it.second.date }
+        for(day in days.values) {
+            if(day.sumOf { it.second.effectiveMinutes }>day.minOf { it.first.request.dailyMinutes })throw PlanConstraint("The backup exceeds an approved plan's shared daily time budget. No records were changed.")
+        }
+    }
+}
