@@ -121,8 +121,8 @@ internal object FitContainerReader {
             } else {
                 val definition=definitions[local]
                     ?: throw IllegalArgumentException("FIT data without prior local message definition.")
-                // Compressed timestamp headers replace field 253's four bytes.
-                val fields=definition.fields.filterNot { compressed && it.first==253 }.map { (number,typed) ->
+                // Compressed timestamp messages use a definition without field 253.
+                val fields=definition.fields.map { (number,typed) ->
                     Field(number,typed.second,take(typed.first))
                 }
                 definition.developerByteLengths.forEach { take(it) }

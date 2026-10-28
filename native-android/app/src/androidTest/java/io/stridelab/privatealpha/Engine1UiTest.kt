@@ -39,7 +39,8 @@ class Engine1UiTest {
         compose.onNodeWithText("Continue",useUnmergedTree=true).performClick()
         compose.onNodeWithTag("frequency-run-5").performClick()
         compose.onNodeWithTag("frequency-cal-3").performClick()
-        compose.onNodeWithText("Multi-session scheduling",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Multi-session scheduling"))
+        compose.onNodeWithText("Multi-session scheduling").performClick().assertIsSelected()
         repeat(1) {
             compose.onNodeWithTag("screen").performScrollToNode(hasText("Continue"))
             compose.onNodeWithText("Continue",useUnmergedTree=true).performClick()
@@ -48,13 +49,15 @@ class Engine1UiTest {
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Next Monday"))
         compose.onNodeWithText("Next Monday",useUnmergedTree=true).performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("available-day-3"))
-        compose.onNodeWithTag("available-day-3").performClick()
-        compose.onNodeWithTag("available-day-7").performClick()
+        compose.onNodeWithTag("available-day-3").performClick().assertIsSelected()
+        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("available-day-7"))
+        compose.onNodeWithTag("available-day-7").performClick().assertIsSelected()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Continue"))
         compose.onNodeWithText("Continue",useUnmergedTree=true).performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Generate plan"))
         compose.onNodeWithText("Generate plan",useUnmergedTree=true).performClick()
-        compose.waitUntil(15000) { state.value.plans.isNotEmpty() }
+        compose.waitUntil(15000) { state.value.plans.isNotEmpty() || compose.onAllNodesWithTag("plan-form-error").fetchSemanticsNodes().isNotEmpty() }
+        assertTrue("Plan builder failed: "+compose.onNodeWithTag("screen").printToString(),state.value.plans.isNotEmpty())
         val draft=state.value.plans.single()
         assertEquals(MULTI_SESSION_POLICY,draft.policyId)
         assertEquals(8*draft.request.weeks,draft.sessions.size)
