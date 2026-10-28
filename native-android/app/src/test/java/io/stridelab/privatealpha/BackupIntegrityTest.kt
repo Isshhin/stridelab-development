@@ -85,7 +85,7 @@ class BackupIntegrityTest {
     @Test fun unknownPolicyRetainsOpaqueSnapshotAndRemainsReadOnly() {
         val j=plan().encode().put("policyId","future-readonly-policy").put("futureExtra",JSONObject().put("value",7))
         val p=PlanBackup.read(JSONObject().put("schemaVersion",1).put("plans",JSONArray().put(j)).toString(),owner).single()
-        assertFalse(Engine1Engines.canManage(p));assertTrue(j.similar(p.encode()))
+        assertFalse(Engine1Engines.canManage(p));assertEquals(j.toString(),p.encode().toString())
         assertThrows(PlanConstraint::class.java) { PlanOperations.record(p,p.sessions.first().id,WorkoutLog(now),false) }
     }
     @Test fun existingPlanIdentityIsSkippedWithoutReplacingHistoricalLogs() {

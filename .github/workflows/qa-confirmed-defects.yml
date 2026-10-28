@@ -1,7 +1,7 @@
 name: Confirmed QA defect verification
 on:
   push:
-    branches: [fix/confirmed-qa-defects-20261028]
+    branches: [fix/confirmed-qa-defects-20261028, integration/priorities3-6-20261029]
     paths: [native-android/**, .github/workflows/qa-confirmed-defects.yml]
 permissions:
   contents: read
