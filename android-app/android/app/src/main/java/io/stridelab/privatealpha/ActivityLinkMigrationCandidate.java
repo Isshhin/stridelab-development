@@ -14,17 +14,17 @@ import org.json.JSONObject;
  * Intentionally not called from TrainingStore.onUpgrade or any app startup path.
  * The legacy schema remains version 1 until exact-head migration acceptance.
  */
-final class ActivityLinkMigrationCandidate {
+public final class ActivityLinkMigrationCandidate {
     private ActivityLinkMigrationCandidate() {}
 
-    static final class Audit {
-        final int plans;
-        final int links;
+    public static final class Audit {
+        public final int plans;
+        public final int links;
         Audit(int plans, int links) { this.plans=plans; this.links=links; }
     }
 
     /** Throws and rolls back if any plan cannot be safely interpreted. */
-    static Audit migrateIsolatedCopy(SQLiteDatabase database) {
+    public static Audit migrateIsolatedCopy(SQLiteDatabase database) {
         if(database.inTransaction()) throw new IllegalStateException("The migration owns its isolated copy transaction");
         database.beginTransaction();
         try {
