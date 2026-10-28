@@ -35,7 +35,7 @@ class CoordinatedEngine1Test {
     }
     @Test fun acceptedGoalsAndActualLogsRoundtripWithoutRegenerationAndOldInputsStayReadable() {
         val draft=CoordinatedEngine1.generate(request(),"synthetic-owner","saved",now);val approved=PlanOperations.approve(draft,emptyList())
-        val done=PlanOperations.record(approved,approved.sessions.first().id,WorkoutLog(now,minutes=24.0),true)
+        val done=PlanOperations.record(approved,approved.sessions.first().id,WorkoutLog(now,minutes=24.0,sets=listOf(SetRecord(approved.sessions.first().effectiveExercises.first().id,1,reps=5))),true)
         assertEquals(done,PlanSnapshot.decode(done.encode(),"synthetic-owner"))
         val old=Engine1.generate(PlanRequest(start=start),"synthetic-owner","old",now).encode()
         old.getJSONObject("request").remove("policyChoice");old.getJSONObject("request").remove("disciplineGoals")

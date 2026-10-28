@@ -7,7 +7,7 @@ import java.util.UUID
 internal object PlanOperations {
     private fun compatible(plan:PlanSnapshot) { if(!Engine1Engines.canManage(plan))throw PlanConstraint("This saved plan belongs to another engine version or policy. Its original snapshot is retained for viewing/export; use a compatible engine before editing it.") }
     private fun conflict(a:PlannedSession,b:PlannedSession,policyA:String,policyB:String)=
-        if(policyA==MULTI_SESSION_POLICY&&policyB==MULTI_SESSION_POLICY)MultiSessionScheduling.conflict(a,b) else Engine1.conflict(a,b)
+        PlanScheduleValidation.conflict(a,b,policyA,policyB)
     fun approve(plan:PlanSnapshot,others:List<PlanSnapshot>):PlanSnapshot {
         compatible(plan)
         if(plan.status!="draft" && plan.status!="paused")throw PlanConstraint("Only a draft or paused plan can be approved.")
@@ -66,6 +66,9 @@ internal object PlanOperations {
         val session=plan.sessions.find { it.id==sessionId } ?: throw PlanConstraint("Workout is unavailable.")
         if(session.discipline!="run" || session.status in setOf("missed","skipped"))throw PlanConstraint("Choose a planned running session that was not marked missed or skipped.")
         if(activityId!=null)RecordPolicy.identifier(activityId)
+        if(session.linkedActivityId==activityId)return plan // Idempotent link/unlink; no false revision increment.
+        if(session.linkedActivityId!=null && activityId!=null)
+            throw PlanConstraint("This planned run is already linked to another recorded activity. Unlink it first before choosing a replacement.")
         val updated=if(activityId==null)session.copy(linkedActivityId=null,status=session.linkPreviousStatus ?: session.status,linkPreviousStatus=null)
             else session.copy(linkedActivityId=activityId,linkPreviousStatus=session.linkPreviousStatus ?: session.status,status="completed")
         return plan.copy(sessions=plan.sessions.map { if(it.id==sessionId)updated else it })
@@ -76,15 +79,8 @@ internal object PlanOperations {
         val s=plan.sessions.firstOrNull { it.id==sessionId } ?: throw PlanConstraint("Workout is unavailable.")
         if(s.status=="completed")return plan
         if(s.status in setOf("missed","skipped"))throw PlanConstraint("This session was marked missed or skipped. Keep that record; schedule a separate reviewed session if needed.")
-        fun valid(n:Double?,zero:Boolean=false)=n==null || (n.isFinite() && if(zero) n>=0 else n>0)
-        if(!valid(log.minutes) || !valid(log.distanceKm) || (log.effort!=null && log.effort !in 1..10) || log.notes.length>2000)throw PlanConstraint("Check actual duration, distance, effort (1–10), and notes. Blank metrics stay unrecorded.")
-        if(log.performedOn!=null && (log.performedOn>LocalDate.now() || log.performedOn<LocalDate.of(1970,1,1)))throw PlanConstraint("Choose the date the workout actually happened, no later than today.")
-        if(log.minutes!=null && log.minutes>1440 || log.distanceKm!=null && log.distanceKm>500)throw PlanConstraint("Check the units for actual duration or distance.")
-        if(log.sets.map { it.exerciseId to it.set }.distinct().size!=log.sets.size)throw PlanConstraint("Each exercise set can be logged only once.")
-        log.sets.forEach { row ->
-            val prescription=s.effectiveExercises.find { it.id==row.exerciseId } ?: throw PlanConstraint("This exercise is not in the saved prescription.")
-            if(row.set !in 1..prescription.sets || row.reps?.let { it !in 0..500 }==true || row.seconds?.let { it !in 0..3600 }==true || !valid(row.kg,true))throw PlanConstraint("Check the actual set number, repetitions, hold seconds and load.")
-        }
+        WorkoutLogValidation.validate(s,log)
+        if(complete && s.discipline in setOf("str","cal") && !WorkoutLogValidation.hasPerformedSet(s,log))throw PlanConstraint("Record at least one performed set with actual repetitions or hold seconds before completing this workout. You can save unfinished progress instead.")
         val desiredStatus=if(complete) "completed" else "in_progress"
         if(s.status==desiredStatus && s.log==log)return plan
         if(s.logRevision==Int.MAX_VALUE)throw PlanConstraint("This saved log needs a supported revision before editing.")

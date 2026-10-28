@@ -111,7 +111,12 @@ class Engine1Test {
         val p=PlanOperations.approve(generate(PlanRequest(start=start)),emptyList());val s=p.sessions.first()
         val linked=PlanOperations.linkActivity(p,s.id,"real-source-id")
         assertEquals(s.copy(status="completed",linkedActivityId="real-source-id",linkPreviousStatus="planned"),linked.sessions.first())
-        assertEquals(p,PlanOperations.linkActivity(linked,s.id,null))
+        assertEquals(linked,PlanOperations.linkActivity(linked,s.id,"real-source-id"))
+        assertThrows(PlanConstraint::class.java) { PlanOperations.linkActivity(linked,s.id,"different-source-id") }
+        val unlinked=PlanOperations.linkActivity(linked,s.id,null)
+        assertEquals(p,unlinked)
+        assertEquals(p,PlanOperations.linkActivity(p,s.id,null))
+        assertEquals("different-source-id",PlanOperations.linkActivity(unlinked,s.id,"different-source-id").sessions.first().linkedActivityId)
         val actual=LocalDate.now().minusDays(1)
         val done=PlanOperations.record(p,s.id,WorkoutLog(now,minutes=15.0,performedOn=actual),true)
         assertEquals(actual,PlanSnapshot.decode(done.encode(),"synthetic-owner").sessions.first().log!!.performedOn)
@@ -136,14 +141,14 @@ class Engine1Test {
         val p=PlanOperations.approve(generate(PlanRequest(start=start,runDays=0,strengthDays=2)),emptyList());val session=p.sessions.first();val original=session.exercises.first()
         val partial=PlanOperations.record(p,session.id,WorkoutLog(now,sets=listOf(SetRecord(original.id,1,reps=5))),false)
         assertThrows(PlanConstraint::class.java) { PlanOperations.swapExercise(partial,session.id,original.id,now) }
-        val done=PlanOperations.record(p,session.id,WorkoutLog(now),true)
+        val done=PlanOperations.record(p,session.id,WorkoutLog(now,sets=listOf(SetRecord(original.id,1,reps=5))),true)
         assertThrows(PlanConstraint::class.java) { PlanOperations.swapExercise(done,session.id,original.id,now) }
     }
     @Test fun reusableTemplateCreatesNewDatedDraftsWithoutRewritingPriorLogs() {
         val t=SessionTemplate("synthetic-template","Squat practice","str",30,listOf(ExercisePrescription("sq","Bodyweight squat",2,6)))
         val first=t.draft("synthetic-owner",PlanRequest(),LocalDate.now(),"practice-one",now)
         assertEquals("draft",first.status);assertEquals("Squat practice",first.name);assertEquals(1,first.sessions.size)
-        val approved=PlanOperations.approve(first,emptyList());val completed=PlanOperations.record(approved,first.sessions.first().id,WorkoutLog(now,minutes=16.0),true)
+        val approved=PlanOperations.approve(first,emptyList());val completed=PlanOperations.record(approved,first.sessions.first().id,WorkoutLog(now,minutes=16.0,sets=listOf(SetRecord("sq",1,reps=5))),true)
         val second=t.copy(exercises=listOf(ExercisePrescription("sq","Bodyweight squat",3,8))).draft("synthetic-owner",PlanRequest(),LocalDate.now().plusDays(3),"practice-two",now)
         assertEquals(2,completed.sessions.first().exercises.first().sets);assertEquals(3,second.sessions.first().exercises.first().sets);assertNotEquals(first.sessions.first().id,second.sessions.first().id)
         assertEquals(t,SessionTemplate.decode(t.encode("synthetic-owner"),"synthetic-owner"))

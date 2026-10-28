@@ -39,18 +39,25 @@ class Engine1UiTest {
         compose.onNodeWithText("Continue",useUnmergedTree=true).performClick()
         compose.onNodeWithTag("frequency-run-5").performClick()
         compose.onNodeWithTag("frequency-cal-3").performClick()
-        compose.onNodeWithText("Multi-session scheduling",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Multi-session scheduling"))
+        compose.onNodeWithText("Multi-session scheduling").performClick().assertIsSelected()
         repeat(1) {
             compose.onNodeWithTag("screen").performScrollToNode(hasText("Continue"))
             compose.onNodeWithText("Continue",useUnmergedTree=true).performClick()
         }
-        compose.onNodeWithTag("available-day-3").performClick()
-        compose.onNodeWithTag("available-day-7").performClick()
+        // Pin a whole Monday-based week; do not let wall-clock weekday change this fixture.
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Next Monday"))
+        compose.onNodeWithText("Next Monday",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("available-day-3"))
+        compose.onNodeWithTag("available-day-3").performClick().assertIsSelected()
+        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("available-day-7"))
+        compose.onNodeWithTag("available-day-7").performClick().assertIsSelected()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Continue"))
         compose.onNodeWithText("Continue",useUnmergedTree=true).performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Generate plan"))
         compose.onNodeWithText("Generate plan",useUnmergedTree=true).performClick()
-        compose.waitUntil(15000) { state.value.plans.isNotEmpty() }
+        compose.waitUntil(15000) { state.value.plans.isNotEmpty() || compose.onAllNodesWithTag("plan-form-error").fetchSemanticsNodes().isNotEmpty() }
+        assertTrue("Plan builder failed: "+compose.onNodeWithTag("screen").printToString(),state.value.plans.isNotEmpty())
         val draft=state.value.plans.single()
         assertEquals(MULTI_SESSION_POLICY,draft.policyId)
         assertEquals(8*draft.request.weeks,draft.sessions.size)
@@ -150,6 +157,10 @@ class Engine1UiTest {
         compose.onNodeWithText("Month",useUnmergedTree=true).performClick()
         capture("phase1-month-calendar")
         val plan=state.value.plans.single();val session=plan.sessions.first()
+        // A rest day may be selected by default; explicitly choose the workout date.
+        compose.onNodeWithText("Week",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("calendar-day-${session.date}"))
+        compose.onNodeWithTag("calendar-day-${session.date}").performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-${session.id}"));compose.onNodeWithTag("workout-${session.id}").performClick()
         if(compose.onAllNodesWithTag("workout-player").fetchSemanticsNodes().isNotEmpty())compose.onNodeWithTag("workout-review").performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Actual duration (minutes), optional"));enterActualDuration("18")
