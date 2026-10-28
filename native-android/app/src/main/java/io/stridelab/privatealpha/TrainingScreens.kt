@@ -62,7 +62,7 @@ import kotlinx.coroutines.withContext
                 if(s.effectiveExercises.isNotEmpty()) s.effectiveExercises.take(3).forEach { e -> Text("${e.name} · ${e.sets} × ${e.reps?.let { "$it reps" } ?: "${e.seconds} sec"}",style=MaterialTheme.typography.bodyMedium) }
                 else s.steps.take(2).forEach { Text(it,style=MaterialTheme.typography.bodyMedium) }
                 if(s.suggestion!=null&&!s.suggestion.accepted) Text("Recovery suggestion awaiting your review",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.primary)
-                Text(if(s.status=="completed") "Open saved workout →" else "Preview, start or manage →",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(when { s.status=="completed" -> "Open saved workout →"; s.discipline=="run" -> "View run plan and logging options →"; hasDraft -> "Resume saved workout draft →"; else -> "Preview, start or manage →" },style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
