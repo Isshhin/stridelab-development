@@ -20,13 +20,11 @@ import androidx.compose.ui.unit.dp
  */
 @Composable
 internal fun Engine2ProposalReviewCard(
-    preview: Engine2ProposalPreview,
-    persistenceVerified: Boolean = false,
-    onApprove: () -> Unit = {},
-    onReject: () -> Unit = {},
-    onPostpone: () -> Unit = {}
+    preview: Engine2ProposalPreview
 ) {
-    val canDecide = persistenceVerified && preview.eligibleForApproval
+    // Deliberately not wired to approve/reject callbacks. Reintroduce only
+    // after a real persistent adapter, migration and offline reopen test pass.
+    val canDecide = false
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Review proposed adjustment", style = MaterialTheme.typography.titleMedium)
@@ -41,15 +39,15 @@ internal fun Engine2ProposalReviewCard(
             if (!preview.eligibleForApproval) {
                 Text("This proposal is no longer current. Review the latest saved plan before deciding.",
                     color = MaterialTheme.colorScheme.error)
-            } else if (!persistenceVerified) {
+            } else {
                 Text("Preview only. Approvals require verified offline saving and revision protection.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onApprove, enabled = canDecide) { Text("Approve") }
-                OutlinedButton(onClick = onReject, enabled = canDecide) { Text("Keep original") }
+                Button(onClick = {}, enabled = canDecide) { Text("Approve") }
+                OutlinedButton(onClick = {}, enabled = canDecide) { Text("Keep original") }
             }
-            OutlinedButton(onClick = onPostpone, enabled = canDecide) {
+            OutlinedButton(onClick = {}, enabled = canDecide) {
                 Text("Postpone decision")
             }
         }

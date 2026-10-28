@@ -23,6 +23,15 @@ internal data class Engine2PlanningRequest(
         require(sessionsPerWeek.values.sum() > 0)
         require(preferredLongRunDay == null || preferredLongRunDay in availableDays)
         require(preferredQualityDays.all { it in availableDays })
+        require(preferredQualityDays.size <= 1) {
+            "This first Engine 2.0 generator supports at most one quality day; never silently drop a requested session."
+        }
+        require(preferredQualityDays.isEmpty() || (sessionsPerWeek[Engine2Discipline.RUNNING] ?: 0) >= 2) {
+            "Quality running requires at least two weekly runs in this conservative planner."
+        }
+        require(preferredLongRunDay == null || preferredLongRunDay !in preferredQualityDays) {
+            "The long-run and quality-day preferences cannot silently overlap."
+        }
         require(maximumDailyMinutes in 20..240)
         if (requireRestDay) require(availableDays.size < 7 || sessionsPerWeek.values.sum() <= 6)
         require(sessionsPerWeek.values.sum() <= availableDays.size) {
@@ -71,7 +80,7 @@ internal object Engine2UnifiedPlanGenerator {
             placements += Triple(hardDay, Engine2Discipline.RUNNING, Engine2StressTag.HARD)
             occupied += hardDay
         }
-        var reservedRunning = placements.count { it.second == Engine2Discipline.RUNNING }
+        val reservedRunning = placements.count { it.second == Engine2Discipline.RUNNING }
         for (discipline in disciplineOrder) {
             val count = request.sessionsPerWeek[discipline] ?: 0
             val needed = count - if (discipline == Engine2Discipline.RUNNING) reservedRunning else 0
