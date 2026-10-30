@@ -3,15 +3,38 @@ package io.stridelab.privatealpha
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.graphics.asAndroidBitmap
+import android.os.Build
 import android.graphics.Bitmap
 import java.io.File
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
 /** Isolated emulator: does not sign in, read a real account or submit provider requests. */
 class NativeNavigationTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
+
+    @Before fun ensureUnauthenticatedStart() {
+        assumeTrue("NativeNavigationTest requires an isolated Android emulator", isEmulator())
+        compose.waitUntil(timeoutMillis = 5000) {
+            compose.onAllNodesWithTag("nav-settings").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("nav-settings").performClick()
+        compose.waitUntil(timeoutMillis = 5000) {
+            compose.onAllNodesWithText("Sign out on this device", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodesWithText("Sign in", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        if (compose.onAllNodesWithText("Sign out on this device", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithText("Sign out on this device", useUnmergedTree = true).performClick()
+            compose.onNodeWithText("Sign out", useUnmergedTree = true).performClick()
+            compose.waitUntil(timeoutMillis = 5000) {
+                compose.onAllNodesWithText("Sign in", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+            }
+        }
+        compose.onNodeWithTag("nav-home").performClick()
+    }
     @Test fun nativeEmptyStateAndNavigationSurviveRecreation() {
         capture("home")
         compose.onNodeWithTag("nav-activities").performClick()
@@ -43,6 +66,19 @@ class NativeNavigationTest {
         }
         compose.onNodeWithTag("submit-signin").assertIsNotEnabled()
     }
+
+    private fun isEmulator(): Boolean {
+        val fingerprint = Build.FINGERPRINT
+        val model = Build.MODEL
+        return fingerprint.startsWith("generic") ||
+            fingerprint.startsWith("unknown") ||
+            fingerprint.contains("emulator", ignoreCase = true) ||
+            fingerprint.contains("sdk_gphone", ignoreCase = true) ||
+            model.contains("Emulator", ignoreCase = true) ||
+            model.contains("Android SDK built for", ignoreCase = true) ||
+            Build.MANUFACTURER.contains("Genymotion", ignoreCase = true)
+    }
+
     private fun capture(name: String) {
         compose.mainClock.advanceTimeBy(600); compose.waitForIdle()
         compose.runOnUiThread { compose.activity.window.decorView.invalidate() }
