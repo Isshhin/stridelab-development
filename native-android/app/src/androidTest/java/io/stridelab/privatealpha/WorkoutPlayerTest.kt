@@ -77,6 +77,19 @@ class WorkoutPlayerTest {
         assertEquals(0,writes);compose.onNodeWithTag("player-rest").assertDoesNotExist()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Enter whole repetitions, or leave it blank."))
     }
+    @Test fun reviewRejectsEmptyCompletionButStillSavesUnfinishedProgress() {
+        val initial=plan();val state=mutableStateOf(TrainingState(initializing=false,account=initial.owner,plans=listOf(initial)))
+        val actions=PlanActions(record={_,_,sid,log,done -> state.value=state.value.copy(plans=listOf(PlanOperations.record(state.value.plans.single(),sid,log,done))) })
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { TestWorkout(state.value,initial.id,initial.sessions.first().id,actions,{}) } } }
+        compose.onNodeWithTag("workout-review").performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Save completed workout"))
+        compose.onNodeWithText("Save completed workout",useUnmergedTree=true).performClick()
+        compose.waitForIdle();assertEquals("planned",state.value.plans.single().sessions.first().status);assertNull(state.value.plans.single().sessions.first().log)
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Record at least one performed set with actual repetitions or hold seconds before completing this workout. You can save unfinished progress instead."))
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Save progress for offline reopening"))
+        compose.onNodeWithText("Save progress for offline reopening",useUnmergedTree=true).performClick()
+        compose.waitForIdle();assertEquals("in_progress",state.value.plans.single().sessions.first().status)
+    }
     @Test fun completedHoldTimerRequiresExplicitActualConfirmation() {
         val base=plan();val initial=base.copy(sessions=base.sessions.map { it.copy(exercises=listOf(ExercisePrescription("hollow-tuck","Hollow tuck hold",1,seconds=1))) })
         val state=mutableStateOf(TrainingState(initializing=false,account=initial.owner,plans=listOf(initial)))

@@ -1,0 +1,82 @@
+name: Confirmed QA defect verification
+on:
+  push:
+    branches: [fix/confirmed-qa-defects-20261028, integration/priorities3-6-20261029]
+    paths: [native-android/**, .github/workflows/qa-confirmed-defects.yml]
+permissions:
+  contents: read
+jobs:
+  native-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+          log-accepted-android-sdk-licenses: 'false'
+      - run: sdkmanager --install 'platforms;android-36' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Verify read-only APK compatibility gate
+        run: python3 -m unittest discover -s native-android/tools/tests -v
+      - name: Build native APK and run unit tests
+        working-directory: native-android
+        run: |
+          gradle --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
+          "${ANDROID_HOME}/build-tools/35.0.0/apksigner" verify app/build/outputs/apk/debug/app-debug.apk
+      - name: Build preserved legacy APK and isolated upgrade seed test
+        run: gradle --no-daemon -p android-app/android -I "$GITHUB_WORKSPACE/native-android/legacy-upgrade.init.gradle" :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Compare actual built legacy and native APK metadata
+        run: |
+          mkdir -p native-android/app/build/reports
+          python3 native-android/tools/check_apk_update.py --installed-apk android-app/android/app/build/outputs/apk/debug/app-debug.apk --candidate native-android/app/build/outputs/apk/debug/app-debug.apk --aapt "$ANDROID_HOME/build-tools/35.0.0/aapt" --apksigner "$ANDROID_HOME/build-tools/35.0.0/apksigner" > native-android/app/build/reports/apk-update-metadata.json
+          cat native-android/app/build/reports/apk-update-metadata.json
+      - name: Compile isolated lifecycle probe test APK
+        working-directory: native-android
+        run: gradle --no-daemon :app:assembleDebugAndroidTest -PstrideProcessProbe=true
+      - name: Reserve emulator disk space
+        run: |
+          df -h .
+          # This disposable job needs Android, not the preinstalled .NET/CodeQL SDKs.
+          sudo rm -rf /usr/share/dotnet /opt/hostedtoolcache/CodeQL
+          df -h .
+          android_available_kb=$(df -Pk . | awk 'NR==2 {print $4}')
+          test "$android_available_kb" -gt 9000000
+      - name: Enable emulator acceleration
+        run: |
+          if [ ! -e /dev/kvm ]; then
+            sudo modprobe kvm
+            sudo mknod /dev/kvm c 10 232
+          fi
+          sudo chmod a+rw /dev/kvm
+          ls -l /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+      - name: Test native navigation, saved state, SQLite and Keystore
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_3a
+          disk-size: 2048M
+          emulator-boot-timeout: 300
+          emulator-options: -accel on -no-snapshot -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          disable-animations: true
+          script: python3 native-android/tools/validate_emulator.py
+      - name: Preserve QA reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: confirmed-qa-defects-evidence
+          retention-days: 30
+          path: |
+            native-android/app/build/reports/
+            native-android/app/build/test-results/
+            native-android/app/build/outputs/androidTest-results/
+          if-no-files-found: warn

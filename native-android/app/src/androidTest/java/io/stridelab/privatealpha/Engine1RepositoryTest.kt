@@ -22,6 +22,10 @@ class Engine1RepositoryTest {
     @Before fun setup() { context.deleteDatabase(databaseName);context.getSharedPreferences(prefs,0).edit().clear().commit();SessionVault(context).clear(owner);gateway.owner=owner;gateway.offline=false;gateway.rows=JSONArray();open() }
     @After fun cleanup() { repo.close();context.deleteDatabase(databaseName);context.getSharedPreferences(prefs,0).edit().clear().commit();SessionVault(context).clear(owner);SessionVault(context).clear("synthetic-engine1-other") }
     private fun request()=PlanRequest(start=LocalDate.parse("2026-11-02"),runDays=0,strengthDays=2,weeks=4,equipment=mapOf("db" to 1))
+    private fun actualLog(session:PlannedSession,minutes:Double=20.0,effort:Int?=null):WorkoutLog {
+        val ex=session.effectiveExercises.first()
+        return WorkoutLog(Instant.now(),minutes=minutes,effort=effort,sets=listOf(SetRecord(ex.id,1,reps=if(ex.seconds==null)5 else null,seconds=if(ex.seconds!=null)5 else null)))
+    }
     @Test fun generationDraftApprovalCalendarAndActualLoggingSurviveOfflineReopen()=runBlocking {
         assertTrue(repo.signIn("synthetic@example.invalid","fixture"));assertTrue(repo.generatePlan(request()))
         val draft=repo.state.value.plans.single();assertEquals("draft",draft.status);assertEquals(8,draft.sessions.size)
@@ -49,7 +53,7 @@ class Engine1RepositoryTest {
         val run=pair.single { it.discipline=="run" };val cal=pair.single { it.discipline=="cal" }
         assertTrue(repo.recordWorkout(plan.id,plan.revision,run.id,WorkoutLog(Instant.now(),minutes=20.0,distanceKm=3.1),true))
         plan=repo.state.value.plans.single()
-        assertTrue(repo.recordWorkout(plan.id,plan.revision,cal.id,WorkoutLog(Instant.now(),minutes=25.0,effort=4),true))
+        assertTrue(repo.recordWorkout(plan.id,plan.revision,cal.id,actualLog(cal,minutes=25.0,effort=4),true))
         plan=repo.state.value.plans.single()
         assertEquals("completed",plan.sessions.single { it.id==run.id }.status)
         assertEquals("completed",plan.sessions.single { it.id==cal.id }.status)
@@ -124,7 +128,7 @@ class Engine1RepositoryTest {
         assertTrue(repo.changeShelf("sq"));assertTrue(repo.changeShelf("sq","Home practice"))
         assertTrue(repo.generatePlan(request()));var p=repo.state.value.plans.single()
         assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single()
-        assertTrue(repo.recordWorkout(p.id,p.revision,p.sessions.first().id,WorkoutLog(Instant.now(),minutes=20.0),true));p=repo.state.value.plans.single()
+        assertTrue(repo.recordWorkout(p.id,p.revision,p.sessions.first().id,actualLog(p.sessions.first()),true));p=repo.state.value.plans.single()
         val later=Engine1.generate(request().copy(start=request().start.plusWeeks(5)),owner)
         val raw=JSONObject().put("schemaVersion",1).put("plans",JSONArray().put(p.copy(feedback=emptyList()).encode()).put(later.encode())).toString()
         gateway.offline=true
@@ -148,6 +152,30 @@ class Engine1RepositoryTest {
         assertTrue(repo.linkActivity(p.id,p.revision,first,null));p=repo.state.value.plans.single()
         assertEquals("planned",p.sessions.first { it.id==first }.status);assertEquals(1,repo.state.value.activities.size)
     }
+    @Test fun linkedRunCannotBeSilentlyReplacedAndOriginalSurvivesOfflineReopen()=runBlocking {
+        val first=JSONObject().put("id","source-run-first").put("user_id",owner).put("title","First actual run")
+            .put("source","intervals").put("activity_type","run").put("started_at","2026-10-24T00:00:00Z").put("distance_m",3000).put("duration_s",1200)
+        val other=JSONObject().put("id","source-run-other").put("user_id",owner).put("title","Other actual run")
+            .put("source","intervals").put("activity_type","run").put("started_at","2026-10-25T00:00:00Z").put("distance_m",5000).put("duration_s",1800)
+        // The production history boundary requires newest-first cursor order.
+        gateway.rows=JSONArray().put(other).put(first)
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        assertEquals(2,repo.state.value.activities.size)
+        assertTrue(repo.generatePlan(PlanRequest(start=request().start)))
+        var plan=repo.state.value.plans.single()
+        assertTrue(repo.approvePlan(plan.id,plan.revision))
+        plan=repo.state.value.plans.single()
+        val session=plan.sessions.first()
+        assertTrue(repo.linkActivity(plan.id,plan.revision,session.id,"source-run-first"))
+        plan=repo.state.value.plans.single()
+        assertFalse(repo.linkActivity(plan.id,plan.revision,session.id,"source-run-other"))
+        assertEquals(plan,repo.state.value.plans.single())
+        repo.close();gateway.offline=true;open()
+        plan=repo.state.value.plans.single()
+        assertEquals("source-run-first",plan.sessions.first { it.id==session.id }.linkedActivityId)
+        assertEquals("completed",plan.sessions.first { it.id==session.id }.status)
+        assertEquals(2,repo.state.value.activities.size)
+    }
     @Test fun easierExerciseAndItsActualSetReopenOfflineWithOriginalPrescriptionIntact()=runBlocking {
         assertTrue(repo.signIn("synthetic@example.invalid","fixture"));assertTrue(repo.generatePlan(request()));var p=repo.state.value.plans.single()
         assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single();val original=p.sessions.first().exercises.first();val sid=p.sessions.first().id
@@ -162,7 +190,7 @@ class Engine1RepositoryTest {
         val template=SessionTemplate("synthetic-session-template","Squat practice","str",30,listOf(ExercisePrescription("sq","Bodyweight squat",2,6)))
         assertTrue(repo.saveTemplate(template));gateway.offline=true;repo.close();open();assertEquals(template,repo.state.value.templates.single())
         assertTrue(repo.prepareSession(template,PlanRequest(),LocalDate.now()));var p=repo.state.value.plans.single();assertEquals("draft",p.status)
-        assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single();assertTrue(repo.recordWorkout(p.id,p.revision,p.sessions.first().id,WorkoutLog(Instant.now(),minutes=20.0),true))
+        assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single();assertTrue(repo.recordWorkout(p.id,p.revision,p.sessions.first().id,actualLog(p.sessions.first()),true))
         assertTrue(repo.saveTemplate(template.copy(name="Changed future template",exercises=listOf(ExercisePrescription("sq","Bodyweight squat",3,8)))))
         repo.close();open();assertEquals(2,repo.state.value.plans.single().sessions.first().exercises.single().sets);assertEquals(3,repo.state.value.templates.single().exercises.single().sets)
         gateway.offline=false;gateway.owner="synthetic-engine1-other";assertTrue(repo.signIn("other@example.invalid","fixture"));assertTrue(repo.state.value.templates.isEmpty());assertTrue(repo.state.value.plans.isEmpty())
@@ -172,7 +200,7 @@ class Engine1RepositoryTest {
         val request=request().copy(policyChoice="coordinated",disciplineGoals=mapOf("str" to "Muscle development"),strengthExperience=1)
         assertTrue(repo.generatePlan(request));var p=repo.state.value.plans.single();assertEquals(CoordinatedEngine1.policyId,p.policyId)
         assertTrue(p.sessions.flatMap { it.exercises }.filter { it.reps!=null }.all { it.reps==10 })
-        assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single();assertTrue(repo.recordWorkout(p.id,p.revision,p.sessions.first().id,WorkoutLog(Instant.now(),minutes=20.0),true));val saved=repo.state.value.plans.single()
+        assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single();assertTrue(repo.recordWorkout(p.id,p.revision,p.sessions.first().id,actualLog(p.sessions.first()),true));val saved=repo.state.value.plans.single()
         gateway.offline=true;assertTrue(repo.generatePlan(request.copy(start=request.start.plusWeeks(5),policyChoice="baseline")));repo.close();open()
         assertEquals(saved,repo.state.value.plans.find { it.id==saved.id });val fallback=repo.state.value.plans.first { it.id!=saved.id };assertEquals(ENGINE1_POLICY,fallback.policyId);assertTrue(fallback.sessions.flatMap { it.exercises }.filter { it.reps!=null }.all { it.reps==8 })
     }
@@ -190,6 +218,73 @@ class Engine1RepositoryTest {
         assertTrue(repo.recordWorkout(p.id,p.revision,s.id,log,true));assertTrue(repo.state.value.workoutDrafts.isEmpty())
         gateway.offline=false;gateway.owner="synthetic-engine1-other";assertTrue(repo.signIn("other@example.invalid","fixture"));assertTrue(repo.state.value.workoutDrafts.isEmpty())
     }
+    @Test fun invalidCompletionAndBackupRestoreLeaveSqliteAndOutboxUnchanged()=runBlocking {
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"));assertTrue(repo.generatePlan(request()))
+        var p=repo.state.value.plans.single();assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single()
+        val s=p.sessions.first();assertTrue(repo.recordWorkout(p.id,p.revision,s.id,actualLog(s),false))
+        val saved=repo.state.value.plans.single()
+        fun queued()=context.openOrCreateDatabase(databaseName,Context.MODE_PRIVATE,null).use { db -> db.rawQuery("SELECT COUNT(*) FROM outbox",null).use { c -> check(c.moveToFirst());c.getInt(0) } }
+        val count=queued()
+        assertFalse(repo.recordWorkout(saved.id,saved.revision,s.id,WorkoutLog(Instant.now(),minutes=20.0),true))
+        assertEquals(saved,repo.state.value.plans.single());assertEquals(count,queued())
+        val incoming=Engine1.generate(request().copy(start=request().start.plusWeeks(5)),owner,"invalid-import").copy(status="approved")
+        val first=incoming.sessions.first();val row=SetRecord(first.effectiveExercises.first().id,1,reps=5)
+        val duplicate=incoming.copy(sessions=listOf(first.copy(log=WorkoutLog(Instant.now(),sets=listOf(row,row))))+incoming.sessions.drop(1))
+        val conflict=incoming.copy(sessions=listOf(first,incoming.sessions[1].copy(date=first.date))+incoming.sessions.drop(2))
+        for(bad in listOf(duplicate,conflict)) {
+            assertFalse(repo.restorePlans(JSONObject().put("schemaVersion",1).put("plans",JSONArray().put(bad.encode())).toString()))
+            assertEquals(listOf(saved),repo.state.value.plans);assertEquals(count,queued())
+        }
+        repo.close();gateway.offline=true;open();assertEquals(listOf(saved),repo.state.value.plans);assertEquals(count,queued())
+    }
+    @Test fun opaqueRetainedPlanIdCannotBeOverwrittenByBackupRestore()=runBlocking {
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        val protectedPlan=Engine1.generate(request().copy(start=request().start.plusWeeks(5)),owner,"opaque-retained")
+        val retainedRaw=protectedPlan.encode().put("schemaVersion",999).toString()
+        TrainingStore(context,databaseName).let { store ->
+            try {
+                store.enqueue(owner,"plan",protectedPlan.id,"synthetic-retained-operation",
+                    retainedRaw,null,System.currentTimeMillis())
+            } finally { store.close() }
+        }
+        // Re-open so the older/unknown format is retained but absent from the decoded view.
+        repo.close();gateway.offline=true;open()
+        assertTrue(repo.state.value.plans.isEmpty())
+        assertTrue(repo.state.value.message!!.contains("retained"))
+
+        fun rawAndOutbox():Pair<String,Int> {
+            val db=context.openOrCreateDatabase(databaseName,Context.MODE_PRIVATE,null)
+            try {
+                val raw=db.query("records",arrayOf("payload"),
+                    "account=? AND kind=? AND record_id=?",arrayOf(owner,"plan",protectedPlan.id),
+                    null,null,null).use { cursor -> assertTrue(cursor.moveToFirst());cursor.getString(0) }
+                val queued=db.rawQuery("SELECT COUNT(*) FROM outbox WHERE account=?",
+                    arrayOf(owner)).use { cursor -> assertTrue(cursor.moveToFirst());cursor.getInt(0) }
+                return raw to queued
+            } finally { db.close() }
+        }
+
+        val before=rawAndOutbox()
+        assertEquals(retainedRaw,before.first)
+        val ordinary=Engine1.generate(request().copy(start=request().start.plusWeeks(10)),owner,"ordinary-import")
+        // Valid entry comes first: rejection must be atomic for the entire backup.
+        val combined=JSONObject().put("schemaVersion",1)
+            .put("plans",JSONArray().put(ordinary.encode()).put(protectedPlan.encode())).toString()
+        assertFalse(repo.restorePlans(combined))
+        assertEquals(before,rawAndOutbox())
+        assertTrue(repo.state.value.plans.isEmpty())
+
+        // Unrelated ID still restores normally; the opaque record remains untouched.
+        val safe=JSONObject().put("schemaVersion",1)
+            .put("plans",JSONArray().put(ordinary.encode())).toString()
+        assertTrue(repo.restorePlans(safe))
+        assertEquals(listOf(ordinary.id),repo.state.value.plans.map { it.id })
+        assertEquals(retainedRaw,rawAndOutbox().first)
+        repo.close();open()
+        assertEquals(retainedRaw,rawAndOutbox().first)
+        assertEquals(listOf(ordinary.id),repo.state.value.plans.map { it.id })
+    }
+
     private class Gateway:TrainingGateway {
         var owner="synthetic-engine1-owner";var offline=false;var rows=JSONArray()
         private fun connected() { if(offline)throw java.io.IOException("Synthetic offline") }
