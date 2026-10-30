@@ -1,0 +1,21 @@
+{
+  "total": 66,
+  "preserved": 44,
+  "added": 22,
+  "kind": {
+    "exercise": 45,
+    "guide": 21
+  },
+  "categories": {
+    "strength_gym": 17,
+    "calisthenics": 22,
+    "bodyweight": 15,
+    "running": 10,
+    "mobility": 6,
+    "conditioning": 4
+  },
+  "media": {
+    "inherited-unverified": 23,
+    "placeholder": 43
+  }
+}
