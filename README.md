@@ -15,6 +15,7 @@ StrideLab is an **offline-first Android fitness/coaching application** built wit
 
 - [#27 — QA guards, official FIT decoding and offline source cache](https://github.com/Isshhin/stridelab-development/pull/27): locally/emulator-tested integration candidate; not a live Garmin integration or finished import UI. Exact-head GitHub CI is blocked by a job-start/account issue.
 - [#28 — Exercise Library 2.0](https://github.com/Isshhin/stridelab-development/pull/28): independent 66-record offline companion, with preserved old catalog; new records are not yet offered automatically by coaching or the native screens. Exact-head GitHub CI remains blocked.
+- [#29 — protect retained opaque plan IDs during backup restore](https://github.com/Isshhin/stridelab-development/pull/29): isolated draft based on #27 with source guard and real-SQLite regression test; **not Android-tested or merged**. See the [repository-wide audit](https://github.com/Isshhin/stridelab-development/blob/fix/native-opaque-backup-id-guard-20261030/docs/reports/REPOSITORY-SOURCE-REVIEW-20261030.md).
 - [#13–#20](https://github.com/Isshhin/stridelab-development/pull/20) and [#25](https://github.com/Isshhin/stridelab-development/pull/25): experimental Engine 2.0 stack. Do not make its separate proposal database a second writable approved-plan authority.
 - [#8](https://github.com/Isshhin/stridelab-development/pull/8) / [#23](https://github.com/Isshhin/stridelab-development/pull/23): UI/accessibility work held pending reviewed native reconstruction.
 
