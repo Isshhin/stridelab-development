@@ -99,6 +99,18 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         val db=store.writableDatabase
         db.beginTransaction()
         try {
+            // Some stored plan formats intentionally remain on disk when this build cannot
+            // decode them. Such IDs are absent from mutable.value.plans and must never
+            // be overwritten by a backup with the same ID.
+            additions.forEach { p ->
+                db.query("records",arrayOf("record_id"),"account=? AND kind=? AND record_id=?",
+                    arrayOf(account,"plan",p.id),null,null,null).use { cursor ->
+                    if(cursor.moveToFirst())throw PlanConstraint(
+                        "A saved plan already uses this ID but could not be restored into the current view. " +
+                            "Its original record was retained; no backup records were changed."
+                    )
+                }
+            }
             additions.forEach { p -> store.enqueue(account,"plan",p.id,java.util.UUID.randomUUID().toString(),p.encode().toString(),null,System.currentTimeMillis()) }
             db.setTransactionSuccessful()
         } finally { db.endTransaction() }
