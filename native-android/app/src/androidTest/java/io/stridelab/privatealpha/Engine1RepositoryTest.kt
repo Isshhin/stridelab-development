@@ -237,6 +237,54 @@ class Engine1RepositoryTest {
         }
         repo.close();gateway.offline=true;open();assertEquals(listOf(saved),repo.state.value.plans);assertEquals(count,queued())
     }
+    @Test fun opaqueRetainedPlanIdCannotBeOverwrittenByBackupRestore()=runBlocking {
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        val protectedPlan=Engine1.generate(request().copy(start=request().start.plusWeeks(5)),owner,"opaque-retained")
+        val retainedRaw=protectedPlan.encode().put("schemaVersion",999).toString()
+        TrainingStore(context,databaseName).let { store ->
+            try {
+                store.enqueue(owner,"plan",protectedPlan.id,"synthetic-retained-operation",
+                    retainedRaw,null,System.currentTimeMillis())
+            } finally { store.close() }
+        }
+        // Re-open so the older/unknown format is retained but absent from the decoded view.
+        repo.close();gateway.offline=true;open()
+        assertTrue(repo.state.value.plans.isEmpty())
+        assertTrue(repo.state.value.message!!.contains("retained"))
+
+        fun rawAndOutbox():Pair<String,Int> {
+            val db=context.openOrCreateDatabase(databaseName,Context.MODE_PRIVATE,null)
+            try {
+                val raw=db.query("records",arrayOf("payload"),
+                    "account=? AND kind=? AND record_id=?",arrayOf(owner,"plan",protectedPlan.id),
+                    null,null,null).use { cursor -> assertTrue(cursor.moveToFirst());cursor.getString(0) }
+                val queued=db.rawQuery("SELECT COUNT(*) FROM outbox WHERE account=?",
+                    arrayOf(owner)).use { cursor -> assertTrue(cursor.moveToFirst());cursor.getInt(0) }
+                return raw to queued
+            } finally { db.close() }
+        }
+
+        val before=rawAndOutbox()
+        assertEquals(retainedRaw,before.first)
+        val ordinary=Engine1.generate(request().copy(start=request().start.plusWeeks(10)),owner,"ordinary-import")
+        // Valid entry comes first: rejection must be atomic for the entire backup.
+        val combined=JSONObject().put("schemaVersion",1)
+            .put("plans",JSONArray().put(ordinary.encode()).put(protectedPlan.encode())).toString()
+        assertFalse(repo.restorePlans(combined))
+        assertEquals(before,rawAndOutbox())
+        assertTrue(repo.state.value.plans.isEmpty())
+
+        // Unrelated ID still restores normally; the opaque record remains untouched.
+        val safe=JSONObject().put("schemaVersion",1)
+            .put("plans",JSONArray().put(ordinary.encode())).toString()
+        assertTrue(repo.restorePlans(safe))
+        assertEquals(listOf(ordinary.id),repo.state.value.plans.map { it.id })
+        assertEquals(retainedRaw,rawAndOutbox().first)
+        repo.close();open()
+        assertEquals(retainedRaw,rawAndOutbox().first)
+        assertEquals(listOf(ordinary.id),repo.state.value.plans.map { it.id })
+    }
+
     private class Gateway:TrainingGateway {
         var owner="synthetic-engine1-owner";var offline=false;var rows=JSONArray()
         private fun connected() { if(offline)throw java.io.IOException("Synthetic offline") }
