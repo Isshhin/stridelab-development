@@ -71,8 +71,22 @@ import kotlinx.coroutines.withContext
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) };var selectedDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) };var monthView by rememberSaveable { mutableStateOf(false) };var agendaView by rememberSaveable { mutableStateOf(false) };var planMenu by rememberSaveable { mutableStateOf(false) }
     val plans=state.plans.filter { it.status!="archived" }
     val plan=plans.find { it.id==selectedId } ?: plans.find { it.status=="approved" } ?: plans.firstOrNull()
-    LaunchedEffect(plan?.id) { if(plan!=null) { val end=plan.request.start.plusWeeks(plan.request.weeks.toLong()).minusDays(1);selectedDate=LocalDate.now().coerceIn(plan.request.start,end).toString() } }
-    val date=LocalDate.parse(selectedDate)
+    // Keep the selected day when returning from Workout or Manage. Switch/reset only
+    // when choosing a different plan, or when a stored day leaves the plan interval.
+    var selectionPlanId by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(plan?.id) {
+        if(plan!=null) {
+            val first=plan.request.start
+            val last=first.plusWeeks(plan.request.weeks.toLong()).minusDays(1)
+            val existing=runCatching { LocalDate.parse(selectedDate) }.getOrNull()
+            val chosen=if(selectionPlanId!=plan.id) LocalDate.now() else existing ?: LocalDate.now()
+            selectedDate=chosen.coerceIn(first,last).toString()
+            selectionPlanId=plan.id
+        }
+    }
+    val date=LocalDate.parse(selectedDate).let { stored ->
+        plan?.let { stored.coerceIn(it.request.start,it.request.start.plusWeeks(it.request.weeks.toLong()).minusDays(1)) } ?: stored
+    }
     Screen("Training","YOUR SHARED CALENDAR") {
         item { FlowRow(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
             FilterChip(selected=!agendaView&&!monthView,onClick={agendaView=false;monthView=false},label={Text("Day")},modifier=Modifier.testTag("training-view-day"))
