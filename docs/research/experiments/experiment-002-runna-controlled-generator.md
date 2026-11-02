@@ -80,6 +80,12 @@ For EACH generated draft:
 - Protect account ownership, training history and credentials. Do not share secrets or publish athlete personally identifying data in GitHub.
 - Do not alter the user's real Runna plan, make training commitments or send real activities to force app behavior.
 
+### Additional testable lower bound: lowest Difficulty is not speed-free
+
+Runna's [Drafts/plan-management FAQ](https://support.runna.com/en/articles/15586762-managing-your-current-upcoming-and-draft-plans) states that even the lowest difficulty includes **at least one speed session every other week**. This is a **vendor-documented minimum frequency for its supported plans**, not proof that every selected two-week calendar window contains an exact hard-session count. In the DC (Comfortable) condition, record all quality-labeled sessions and check the number of two-week blocks without any speed workout. If the plan does not support Difficulty or belongs to a beginner/return family, the prediction may not apply.
+
+The same source states **Instant Workouts currently do not count toward plan mileage**, while other Runna material describes free runs contributing to some Mileage Insights calculations. Distinguish `plan_target_mileage`, `logged_mileage`, and `insights_eligible_mileage` rather than assuming one rolling counter. This is a comparison of feature scopes, not verified access to the vendor's database schema.
+
 ## 6. What we can conclude today
 
 Confirmed **by current Runna documentation**:
