@@ -118,6 +118,127 @@ Each future observed finding should record:
 - Hypothesis, confounders, contradicting evidence, confidence and source class.
 - Whether medically relevant coaching constraints have been independently reviewed.
 
+
+## Additional verified findings (2026-11-02)
+
+### Runna: separate adaptation channels
+
+**Vendor-documented; exact detection thresholds UNKNOWN.**
+
+| Channel | Qualifying evidence | Trigger / output | Constraints |
+| --- | --- | --- | --- |
+| **Mileage Insights** | Planned sessions **and** free/instant runs, including completed mileage | States such as on-track, ahead, behind or significantly behind; may recommend changes to weekly mileage, long-run distance, run days, or rebuilding | Currently race plans only. Recommendations can exceed limits allowed by ability level and scheduled days. Accepting/dismissing or manually editing a plan resets insight state. [R9] |
+| **Pace Insights** | Eligible target-pace sessions: intervals, tempos, time trials and some long runs; consistency of target vs achieved reps | Suggests higher/lower pace targets only after patterns; runner must accept | Free runs/manual uploads are not eligible; updates **only pace targets**, not session schedule; does not yet account fully for weather, terrain, poor sleep or fueling. [R8] |
+| **Plan Realignment** | More than 3 missed workouts or a missed week, with sessions left uncompleted rather than explicitly skipped; usually checks around Monday | May offer skip, rearrange, extend, rebuild or restart depending on plan type, length and absence | Options are situational; not proof of automatic workout-type adaptation; previous action cannot necessarily be undone. [R7] |
+
+**Interpretation (INFERRED design decomposition):** planned workload, pace performance, and interruption recovery appear to be *separate observable decision problems*. This does not prove the vendor's internal code architecture.
+
+**Additional training-preference constraints:** v7.2+ eligible plans can cap easy-run, long-run and hard-session length separately; set hard-session count and structured long-run difficulty; volume and difficulty settings do **not** directly change interval pace targets. Some preferences are rejected when the combination cannot meet a near-term race goal. The documented default is Progressive volume + Challenging difficulty; these defaults should not be assumed physiologically optimal for all athletes. Runna's non-running strength/yoga sessions are not changed by these preferences. [R3]
+
+**Researchable state-machine hypothesis:** Maintain three independent status estimators:
+1. **Capacity / exposure:** actual vs prescribed recent mileage and longest-run history.
+2. **Performance calibration:** achieved vs prescribed work-interval pace with consistent repeated evidence.
+3. **Plan validity:** interrupted training and feasibility against race date, recent exposure and available run days.
+
+Never reduce these into a single arbitrary readiness score without validation. This is a proposed StrideLab research design, **not** verified Runna source logic.
+
+### Garmin: weighted load and event phase constraints
+
+**Vendor-documented; device/version support varies.**
+
+- Garmin's newer acute-load explanation describes a **weighted moving average** of workout load whose contribution gradually expires over about **10 days** and is normalized to a **7-day** perspective. Older devices may use an unweighted rolling 7-day sum. This is not identical to counting mileage, and a FIT workout alone does not expose all proprietary load computations. [G2]
+- Garmin Customer Support additionally describes **chronic load** as a weighted average of acute load across the preceding **28 days**. Interpretations must be tagged by device and firmware since not every watch exposes these metrics. [G3]
+- Garmin Run Coach's event-oriented periodization describes **base 3–9 weeks; build 3–9; peak 3–6; taper 10 days**. When an event is more than six months away, Garmin says event-specific periodization begins in the final six months, with general development beforehand; closer events condense the phases. [G1]
+- Garmin's documented Run Coach plan offerings can cover **6–52 weeks** with eligible race/custom-distance goals and may use pace or HR targets; availability and details depend on device. The named expert plans and DSW are distinct outputs. [G4]
+- Garmin's load-focus balancing is not simply an instruction to schedule the most underrepresented intensity category next. Recovery, race period and session sequencing are plausible interacting factors, but exact priority/weights are **UNKNOWN**. [G1]
+
+### Critical comparability notes
+
+- Vendor documentation is not the same thing as an observed controlled plan. Record exact access date, product version and plan type.
+- **Garmin Run Coach, DSW and Garmin Expert Coach must never be pooled as one algorithm** without evidence they behave identically.
+- Runna free runs may influence mileage recommendations but not Pace Insights; such eligibility differences matter when designing test datasets.
+- Garmin device-level EPOC load cannot be reproduced exactly from distance/HR alone; use available measured values with explicit missingness and never claim proprietary equivalence.
+- The published eight Runna/JustGiving plan examples are not matched-input controlled experiments; previously quoted weekly-mileage numbers remain UNVERIFIED in this repository until independently re-extracted.
+
+## Research roadmap — sequential dependencies, no deadlines
+
+Research proceeds by **evidence quality and dependency**, not a fixed calendar. Each phase can be extended when conclusions remain underdetermined. This roadmap is not authorization to change the Android application.
+
+### Phase A — Establish reproducible evidence and schemas
+
+**Tasks:** Inventory primary support pages with retrieval dates, revision notes and applicability; separate vendor claims from observed outputs; define a normalized `AthleteInput`, `PlanSession`, `WorkoutStep`, `ObservationContext`, and `AdaptationDecision` schema. Build parsing/check rules for session totals, pace units, rep structures, week indexing, race-day inclusion and source provenance.
+
+**Output:** Source register; input/output schema; claim registry with DOCUMENTED / OBSERVED / INFERRED / UNKNOWN statuses.
+
+**Quality gate:** Every numerical claim can be reproduced from source evidence and recorded transformations. No silent normalization from planned to actual training.
+
+### Phase B — Runna black-box generation (highest immediate value)
+
+**Tasks:** Use legitimately generated and shareable plans. Begin with identical 5K ability but radically different *sustained* mileage histories (e.g., 25 vs 65 km/week) at fixed goal and schedule. Change one of mileage, longest recent run, frequency, race pace, plan length, volume preference, difficulty and maximum session bounds at a time. Repeat at least some identical inputs to check reproducibility; treat unavailable UI choices as constrained observations rather than inventing values.
+
+**Measure:** initial weekly distance, peak and weekly trajectory, long-run fraction, workout type and hard work minutes, rep/recovery patterns, target intensities, deloads/taper, and whether controls influence orthogonal outcomes.
+
+**Output:** Matched input/output plan dataset, clear effect-size comparisons, candidate constraints and competing explanations.
+
+**Quality gate:** Withhold some generated plans as unseen evaluation cases; require observed effects to replicate, and explicitly report counterexamples. Avoid reverse-engineering via private APIs.
+
+### Phase C — Runna changes over time (adaptation)
+
+**Tasks:** Observe separately (a) Pace Insights after legitimate target-pace workouts, (b) Mileage Insights after actual training exposure, and (c) Plan Realignment after naturally occurring interruptions. Record *recommendation before acceptance*, user selection, and the changed future prescriptions. Do not fabricate logged workouts to force a recommendation or game safety limits.
+
+**Output:** Eligibility matrix; state/decision transition hypotheses; exact differences in speed targets vs workout structure vs volume and calendar.
+
+**Quality gate:** Establish which adaptation channel generated a recommendation and what evidence it used. Preserve original schedules for before/after comparisons.
+
+### Phase D — Garmin Run Coach longitudinal observation
+
+**Tasks:** Record the **prescription before the session** and context snapshot (which Garmin system, watch/model/firmware, target race and phase, pace/HR goal, recent training, exercise/acute/chronic load *only if supported*, recovery and sleep *only if available*). Record actual completed session plus following prescription. Where possible include naturally occurring missed or extra training. Never deliberately compromise recovery for research.
+
+**Measure:** change in workout category, duration, work/recovery structure, target pace/HR, long-run length and weekday allocation. Separate same-day adjustments from periodization effects and natural week-to-week cycling. Use matched weeks and change-point analysis cautiously; correlation is not causation.
+
+**Output:** Timestamped observation sequence, alternative hypotheses for key changes and confidence statements.
+
+**Quality gate:** Don't assert causal decision weights without a controlled counterfactual. Document unavailable metrics rather than assigning inferred Garmin values.
+
+### Phase E — Independent model inference and challenge tests
+
+**Tasks:** Compare interpretable candidate algorithms for:
+- Workload starting point and progression with independent long-run caps.
+- Workout-category selection under goal, recovery and scheduling constraints.
+- Pace-target calibration independent from weekly volume changes.
+- Time-dependent training-load estimators and workout prioritization.
+- Feasible plan changes after an interruption.
+
+Use transparent rules/optimization/statistical models before attempting opaque ML. Test on withheld plans and athlete profiles unlike the initial user (low-volume novices, returners, constrained schedules, high-volume but slower racers). Evaluate **prescription appropriateness independently** using exercise-science checks and human review; competitor similarity is only one metric.
+
+**Output:** Hypothesis and benchmark report with accuracy by subgroup, failure modes, stress tests and provenance.
+
+**Quality gate:** No unreviewed safety-critical prescription; no assumption that a proprietary app is scientific ground truth.
+
+### Phase F — Engine 1.5 and 2.0 promotion rules
+
+**Engine 1.5 candidate areas:** Better baseline mileage history handling, independent volume/pace controls, session-distance constraints, long-run progression safeguards, deloads, basic missed-workout proposals, and explainability. Ship only if the deterministic 1.0 comparison and quality/safety evaluations improve or remain acceptable; retain user consent for major changes.
+
+**Engine 2.0 research areas:** Adaptive workout categorization, time-dependent recovery-aware load, individual response and aerobic-efficiency trends, longitudinal evaluation, cross-discipline interference and uncertainty-aware proposals. Do not ship research-derived physiological policies before longitudinal and independent validation.
+
+**Output:** Separate decision log for each accepted/rejected candidate rule with evidence links, test results, risks and rollback plan. No automatic PR merging or code promotion.
+
+### Priority within the roadmap
+
+1. **First:** Runna generation mechanisms and mileage-vs-race-ability separation; fastest route to actionable 1.5 insights.
+2. **Alongside:** Garmin recommendation snapshots collected passively, because causal interpretation requires a longitudinal baseline.
+3. **Then:** Runna adaptation channels and Garmin workout selection/periodization comparisons.
+4. **Later:** independent generalized model testing and safe promotions into 1.5/2.0.
+
+**Personal performance lens:** The initial StrideLab athlete is a high-volume, developing-speed runner seeking improved easy aerobic speed at similar effort. Use this as an important edge case but never let one athlete set default workloads for other users. FIT histories are useful for physiological trend analysis but are not a substitute for vendor-prescribed workout captures.
+
+### Additional primary sources
+
+- [R9] Runna, *What Are Mileage Insights?* (Sep 10, 2026). https://support.runna.com/en/articles/11794078-what-are-mileage-insights
+- [G3] Garmin, *What Is Training Load on My Garmin Device?*. https://support.garmin.com/en-SG/?faq=SEkNpdGyhR917js0qQL3Q6
+- [G4] Garmin, *Garmin Running Plans*. https://support.garmin.com/en-US/?faq=IkvWNeIoSd48GIYCjkhlo7
+
+
 ## Primary source register
 
 - [R1] Runna, *How Does Runna Build Your Training Plan Around Your Current Fitness?* https://support.runna.com/en/articles/15231838-how-does-runna-build-your-training-plan-around-your-current-fitness
