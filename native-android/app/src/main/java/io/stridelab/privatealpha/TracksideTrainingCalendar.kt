@@ -152,11 +152,11 @@ internal fun TracksideTrainingWeekChart(
                             style = MaterialTheme.typography.labelSmall,
                             maxLines = 1, textAlign = TextAlign.Center)
                         Column(
-                            Modifier.fillMaxWidth().height(92.dp),
+                            Modifier.fillMaxWidth().height(84.dp),
                             verticalArrangement = Arrangement.Bottom
                         ) {
                             day.byDiscipline.forEach { (discipline, minutes) ->
-                                val barHeight = (minutes.toFloat() / maxDay * 88f).coerceAtLeast(3f)
+                                val barHeight = (minutes.toFloat() / maxDay * 80f).coerceAtLeast(3f)
                                 Box(Modifier.fillMaxWidth().height(barHeight.dp)
                                     .background(disciplineColor(discipline), RoundedCornerShape(5.dp)))
                             }
