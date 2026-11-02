@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -34,6 +36,7 @@ import java.util.Locale
 internal fun TracksideTodayHero(session: PlannedSession, onOpen: () -> Unit) {
     val running = session.discipline == "run"
     val accent = disciplineColor(session.discipline)
+    val glow = if (running) Color(0xFF321C29) else Color(0xFF182C3B)
     val dateLabel = when (session.date) {
         LocalDate.now() -> "Today"
         LocalDate.now().plusDays(1) -> "Tomorrow"
@@ -48,7 +51,7 @@ internal fun TracksideTodayHero(session: PlannedSession, onOpen: () -> Unit) {
     ) {
         Column(
             Modifier.background(
-                Brush.verticalGradient(listOf(Color(0xFF321C29), TracksidePalette.surface, TracksidePalette.surfaceLow))
+                Brush.verticalGradient(listOf(glow, TracksidePalette.surface, TracksidePalette.surfaceLow))
             ).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
@@ -84,11 +87,25 @@ internal fun TracksideTodayHero(session: PlannedSession, onOpen: () -> Unit) {
                     }
                 }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TodayMetric("DURATION", session.effectiveMinutes.toString() + " min", Modifier.weight(1f))
-                TodayMetric("DISTANCE", session.distanceKm?.let { String.format(Locale.getDefault(), "%.1f km", it) } ?: "Not set",
-                    Modifier.weight(1f))
-                TodayMetric("STATUS", session.status.replace('_',' ').uppercase(Locale.getDefault()), Modifier.weight(1f))
+            val middleLabel = if (running) "DISTANCE" else "EXERCISES"
+            val middleValue = if (running)
+                session.distanceKm?.let { String.format(Locale.getDefault(), "%.1f km", it) } ?: "Not set"
+            else session.effectiveExercises.takeIf { it.isNotEmpty() }?.size?.toString() ?: "Not set"
+            val status = session.status.replace('_',' ').uppercase(Locale.getDefault())
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                if (maxWidth < 260.dp || LocalDensity.current.fontScale > 1.35f) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TodayMetric("DURATION", session.effectiveMinutes.toString() + " min")
+                        TodayMetric(middleLabel, middleValue)
+                        TodayMetric("STATUS", status)
+                    }
+                } else {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TodayMetric("DURATION", session.effectiveMinutes.toString() + " min", Modifier.weight(1f))
+                        TodayMetric(middleLabel, middleValue, Modifier.weight(1f))
+                        TodayMetric("STATUS", status, Modifier.weight(1f))
+                    }
+                }
             }
             Text("View workout details  ›", color = TracksidePalette.text, style = MaterialTheme.typography.labelLarge,
                 modifier = Modifier.align(Alignment.End))
