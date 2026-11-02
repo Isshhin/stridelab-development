@@ -232,7 +232,9 @@ private fun TracksidePlanWeekOverview(plan: PlanSnapshot, selected: LocalDate) {
             }
         }
         TracksideGlassCard {
-            TracksideSectionHeader("Your training week", detail = "$count sessions · $trainingDays days")
+            TracksideSectionHeader("Your training week")
+            Text("$count sessions · $trainingDays days", style = MaterialTheme.typography.bodySmall,
+                color = TracksidePalette.textMuted)
             Row(Modifier.fillMaxWidth().height(108.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 days.forEach { day ->
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -280,7 +282,7 @@ private fun TracksideManageAction(
                     color = TracksidePalette.text, fontWeight = FontWeight.Bold,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(subtitle, style = MaterialTheme.typography.bodySmall,
-                    color = TracksidePalette.textMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    color = TracksidePalette.textMuted, maxLines = 4)
             }
             Text("›", color = TracksidePalette.textMuted, style = MaterialTheme.typography.headlineSmall)
         }
