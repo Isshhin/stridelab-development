@@ -22,8 +22,10 @@ class NativeTabRootTest {
         }
     }
     private fun tab(path: String, title: String) {
-        if(path=="settings") { compose.onNodeWithTag("nav-home").performClick();compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("nav-settings")) }
-        compose.onNodeWithTag("nav-$path").performClick()
+        // NavigationBar is a fixed Scaffold sibling, not an item in the screen LazyColumn.
+        // Click its real root item directly; scrolling the screen to "nav-settings"
+        // was an invalid test locator and never exercised the Settings destination.
+        compose.onNodeWithTag("nav-$path").assertIsDisplayed().performClick()
         compose.onNode(hasTestTag("screen") and SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, title)).assertExists()
     }
     private fun back() = InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
