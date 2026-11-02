@@ -207,26 +207,63 @@ private fun NavHostController.openActivity(id: String) {
             state.message?.let { Surface(color = MaterialTheme.colorScheme.surfaceVariant) { Text(it, Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }.padding(horizontal = 20.dp, vertical = 12.dp), style = MaterialTheme.typography.bodyMedium) } }
             NavHost(navController = nav, startDestination = "home", modifier = Modifier.weight(1f)) {
                 composable("home") {
-                    Screen("Your training", "STRIDELAB / TRAINING JOURNAL") {
+                    // The visual Today shell is data-driven and retains the existing root navigation route.
+                    Screen("Today", "STRIDELAB / TRAINING") {
                         if(state.initializing) item { Text("Opening your saved training…") }
                         else if(state.account == null) item {
                             EmptyState("Start with your history", "Sign in to synchronize your activities. Saved history is available offline.")
                             Button(onClick = { nav.navigate("auth") }, modifier = Modifier.fillMaxWidth()) { Text("Sign in") }
                         } else {
-                            item { SyncStatus(state) }
-                            state.plans.firstOrNull { it.status=="approved" }?.let { plan -> item { HomePlanHero(plan) { sid -> nav.openWorkout(plan.id,sid) } } }
-                            if(state.plans.none { it.status=="approved" }) item { OutlinedButton(onClick={nav.openTabRoot("training")},modifier=Modifier.fillMaxWidth()) { Text("Create your training plan") } }
-                            state.activities.firstOrNull()?.let { activity ->
-                                item { TracksideSectionHeader("Latest activity") }
-                                item { ActivityRow(activity) { nav.openActivity(activity.id) } }
+                            val plan = state.plans.firstOrNull { it.status == "approved" }
+                            val next = plan?.sessions?.filter {
+                                it.date >= java.time.LocalDate.now() && it.status in setOf("planned", "in_progress")
+                            }?.sortedWith(compareBy<PlannedSession>({ it.date }, { it.id }))?.firstOrNull()
+                            if(next != null && plan != null) item(key = "today-featured") {
+                                TracksideTodayHero(next) { nav.openWorkout(plan.id, next.id) }
                             }
-                            item { WeeklyDashboard(state.activities,plans=state.plans) }
+                            if(plan == null) item {
+                                SignalCard {
+                                    Text("No active plan", style = MaterialTheme.typography.titleLarge)
+                                    Text("Create and approve a plan to see your upcoming workouts here.",
+                                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Button(onClick = { nav.openTabRoot("training") }, modifier = Modifier.fillMaxWidth()) { Text("Create a training plan") }
+                                }
+                            }
+                            if(plan != null) {
+                                item {
+                                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                        Text("Today's plan", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                                        TextButton(onClick = { nav.openTabRoot("training") }) { Text("View all") }
+                                    }
+                                }
+                                val today = plan.sessions.filter { it.date == java.time.LocalDate.now() }
+                                if(today.isEmpty()) item {
+                                    Text("No workouts scheduled for today", color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.bodyMedium)
+                                }
+                                today.forEach { session ->
+                                    item(key = "today-" + session.id) {
+                                        TracksideTodaySession(session) { nav.openWorkout(plan.id, session.id) }
+                                    }
+                                }
+                            }
+                            item { Text("Recent activity", style = MaterialTheme.typography.titleLarge) }
+                            state.activities.take(2).forEach { activity ->
+                                item(key = "recent-" + activity.id) {
+                                    TracksideTodayActivity(activity) { nav.openActivity(activity.id) }
+                                }
+                            }
+                            if(state.activities.isEmpty()) item {
+                                Text("No saved activities yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            item { SyncStatus(state) }
+                            item { WeeklyDashboard(state.activities, plans = state.plans) }
                             item { WellnessOverview(state.wellness, actions.refreshWellness, online && !state.busy && !state.needsSignIn) }
                             item { HistoryOverview(state.activities) }
                             if(state.activities.count { it.durationS != null } >= 2) item { RecordedDurationChart(state.activities) }
-                            item { FilledTonalButton(onClick = actions.refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
+                            item { FilledTonalButton(onClick = actions.refresh, enabled = !state.busy,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
                             if(state.needsSignIn) item { Button(onClick = { nav.navigate("auth") }) { Text("Sign in again") } }
-                            if(state.activities.isEmpty()) item { EmptyState("No saved activities yet", "Refresh your history or synchronize your connected Intervals.icu source in Settings. Existing local prototype data remains in the legacy app.") }
                         }
                     }
                 }
