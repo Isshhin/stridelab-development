@@ -201,12 +201,14 @@ private fun TracksidePlanWeekOverview(plan: PlanSnapshot, selected: LocalDate) {
     val high = (days.maxOfOrNull { it.plannedMinutes } ?: 0).coerceAtLeast(1)
     val firstMonday = tracksideCalendarMonday(plan.request.start)
     val nowMonday = tracksideCalendarMonday(selected)
+    val lastMonday = tracksideCalendarMonday(plan.request.start.plusWeeks(plan.request.weeks.toLong()).minusDays(1))
+    val totalCalendarWeeks = ChronoUnit.WEEKS.between(firstMonday, lastMonday).toInt() + 1
     val week = ChronoUnit.WEEKS.between(firstMonday, nowMonday).toInt() + 1
 
     Column(Modifier.fillMaxWidth().testTag("manage-week-overview"),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Week $week of " + plan.request.weeks,
+            Text("Week $week of $totalCalendarWeeks",
                 style = MaterialTheme.typography.labelMedium, color = TracksidePalette.textMuted,
                 modifier = Modifier.weight(1f))
             Text("$count sessions · $trainingDays days", style = MaterialTheme.typography.labelSmall,
