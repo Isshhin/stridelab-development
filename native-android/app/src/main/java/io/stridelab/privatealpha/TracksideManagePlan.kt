@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -267,7 +268,7 @@ private fun TracksideManageAction(
         color = TracksidePalette.surface,
         border = BorderStroke(1.dp, TracksidePalette.outline)
     ) {
-        Row(Modifier.fillMaxWidth().height(76.dp).padding(horizontal = 12.dp),
+        Row(Modifier.fillMaxWidth().heightIn(min = 76.dp).padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.size(43.dp).background(accent.copy(alpha = .2f), RoundedCornerShape(11.dp)),
@@ -277,7 +278,7 @@ private fun TracksideManageAction(
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(title, style = MaterialTheme.typography.titleSmall,
                     color = TracksidePalette.text, fontWeight = FontWeight.Bold,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(subtitle, style = MaterialTheme.typography.bodySmall,
                     color = TracksidePalette.textMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
