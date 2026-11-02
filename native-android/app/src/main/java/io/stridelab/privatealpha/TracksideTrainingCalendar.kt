@@ -155,7 +155,7 @@ internal fun TracksideTrainingWeekChart(
                             Modifier.fillMaxWidth().height(84.dp),
                             verticalArrangement = Arrangement.Bottom
                         ) {
-                            day.byDiscipline.forEach { (discipline, minutes) ->
+                            day.byDiscipline.reversed().forEach { (discipline, minutes) ->
                                 val barHeight = (minutes.toFloat() / maxDay * 80f).coerceAtLeast(3f)
                                 Box(Modifier.fillMaxWidth().height(barHeight.dp)
                                     .background(disciplineColor(discipline), RoundedCornerShape(5.dp)))
