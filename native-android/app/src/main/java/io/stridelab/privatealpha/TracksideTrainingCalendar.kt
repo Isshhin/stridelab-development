@@ -4,11 +4,16 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -128,9 +133,16 @@ internal fun TracksideTrainingWeekChart(
                 style = MaterialTheme.typography.labelSmall, color = TracksidePalette.textMuted)
         }
 
-        Row(Modifier.fillMaxWidth().height(158.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            days.forEach { day ->
+        // Seven 48dp targets cannot fit into a 316dp content area (360dp phone
+        // minus screen padding). Let the row scroll rather than shrink targets.
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val compact = maxWidth < 350.dp
+            val expandedFont = LocalDensity.current.fontScale > 1.3f
+            val rowModifier = Modifier.fillMaxWidth()
+                .height(if (expandedFont) 202.dp else 166.dp)
+                .then(if (compact) Modifier.horizontalScroll(rememberScrollState()) else Modifier)
+            Row(rowModifier, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                days.forEach { day ->
                 val enabled = day.date in first..last
                 val active = day.date == selected
                 val description = "${day.date}: ${day.sessions.size} planned sessions, ${day.plannedMinutes} planned minutes"
@@ -141,7 +153,8 @@ internal fun TracksideTrainingWeekChart(
                     color = if (active) Color(0xFF1A2C36) else Color.Transparent,
                     border = BorderStroke(1.dp,
                         if (active) Color(0xFFB2C5D0) else Color.Transparent),
-                    modifier = Modifier.weight(1f).testTag("calendar-day-${day.date}")
+                    modifier = (if (compact) Modifier.width(49.dp) else Modifier.weight(1f))
+                        .testTag("calendar-day-${day.date}")
                         .semantics { contentDescription = description }
                 ) {
                     Column(Modifier.fillMaxWidth().padding(horizontal = 1.dp, vertical = 5.dp),
@@ -167,6 +180,7 @@ internal fun TracksideTrainingWeekChart(
                         Text(day.date.dayOfMonth.toString(), color = TracksidePalette.text,
                             style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     }
+                }
                 }
             }
         }
