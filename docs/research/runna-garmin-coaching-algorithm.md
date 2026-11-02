@@ -580,6 +580,81 @@ This distinction matters: Run Coach's general technical page describes EPOC-base
 **Status:** Additional **vendor-documented** decision boundaries discovered. No current matched Runna workout-step export, exact pace formula or Garmin internal weights recovered. No claims of proven source-level reverse engineering or improved athlete outcomes.
 
 
+
+## Additional evidence review: feedback isolation, athlete classes, plan-rebuild discontinuity and observation reliability (2026-11-02)
+
+**Methods:** Primary Runna/Garmin support and technical pages checked on 2026-11-02; one community report used **only** to flag a possible data collection confound. No new controlled personalized plan outputs, secret endpoints, or proprietary source algorithms inspected. Claim status is **VENDOR DOCUMENTED** unless identified otherwise.
+
+### Runna: AI feedback versus algorithmic plan adjustment are different products
+
+Runna's [Workout Insights](https://support.runna.com/en/articles/10494265-what-are-workout-insights) analyzes completed planned activities and produces AI-generated, individualized natural-language advice (including comparisons to prescribed workout and, per vendor, weather/elevation context); the vendor states unambiguously that this feedback **does not affect the training plan**. Workout Insights is limited to some eligible scheduled workout types, requires premium and an opt-in to third-party processing, and is absent for free runs and strength/yoga/Pilates/stretch activities.
+
+This must **not be conflated** with **Pace Insights** (eligible repetition-level performance -> possible pace proposal), **Mileage Insights** (actual running volume -> possible volume proposal), or **Plan Realignment** (missed plan continuity). Runna's statement in Pace Insights that the plan only adapts via pace recommendations is feature-scoped in tension with the vendor's separate mileage/interruption features; avoid interpreting it as a universal description of all plan adjustment logic.
+
+**Original architectural test for StrideLab:** distinguish:
+- `observational_explanation`: explains past performance but has no authority to change plan.
+- `fitness_estimate_update`: adjusts statistical athlete-state estimates, with validation/confidence.
+- `prescription_proposal`: computes possible workout/volume change with explicit reasons and constraints.
+- `approval_transaction`: athlete authorizes significant plan change; immutable before/after snapshots.
+
+An articulate language model does not itself establish a valid coaching prescription. This is a **proposal**, not Runna's recovered internal implementation.
+
+### Runna: ability tiers and mileage history are not speed classes
+
+Runna's [Running Ability page](https://support.runna.com/en/articles/6205993-adjusting-your-running-ability) defines:
+- Beginner: continuously run 5 km, under 60 min.
+- Intermediate: regularly complete at least 5 km but without structured plan.
+- Advanced: regularly complete at least 10 km and use structured workouts.
+- Elite: regularly complete half marathon or longer, with structured work.
+- Elite Plus: designed for consistent **80–100 km/week**.
+- The word *regularly* means longest reasonably comfortable **single run**, not aggregate weekly mileage.
+
+These qualitative categories inform allowed workout/long-run lengths and volume. The page states explicitly that changing Ability **rebuilds the plan**, and may create **back-to-back hard or easy weeks and skip key workouts**. The vendor recommends delaying an ability increase until after week 2–3. Such a rebuild warning is important evidence that regeneration can affect **periodization continuity**, not just magnitudes.
+
+A separate [Current Mileage page](https://support.runna.com/en/articles/11598676-how-to-use-and-manage-your-current-mileage-settings) describes weekly mileage as the realistically repeatable first-week distance, informed by four recent weeks, days/week and plan length. It says to use the **lowest mileage week** if the four-week history includes a recovery week. This instruction could be overconservative when an intentional deload is a substantial outlier, so it is **vendor practice, not an independently validated optimal estimator**. The input also includes longest repeatable recent run; no formula linking these inputs to max workout length is disclosed.
+
+**Critical independent design experiment:** capture a plan at week k, change ability or volume, and compare *preceding/following three-week total load, quality-session days, taper and deload alignment* before/after. A StrideLab proposal may preserve protected training-block invariants to avoid accidental two-hard-week sequences. Requires validation.
+
+### Runna: target type can change to RPE without changing the physiology objective
+
+Runna's [Adjusting Training Units](https://support.runna.com/en/articles/6206133-adjusting-your-training-units) now documents selecting **RPE** instead of prescribed pace targets under Workout Targets. In this mode the workout shows effort guidance (e.g., RPE 4) **rather than numerical pace**. The vendor specifically mentions humid/hot weather as a reason to use effort, alongside its separate *Adapt for Heat* pace-target feature. Neither choice proves equivalent training outcomes; both are alternative **target modalities**.
+
+This qualifies the simplification that Runna is strictly pace-only: it **uses race-time-based paces when pace guidance is selected**, but supports an effort-based presentation mode.
+
+**Stridelab testable architecture:** Preserve `physiological_objective` and `workout_structure` independent of `target_modality` in `{pace, heart_rate, RPE, effort_only}`. Switching target mode should preserve plan structure unless a documented adjustment is explicitly accepted. Avoid converting RPE values to exact heart-rate thresholds without athlete calibration.
+
+### Runna: forecast sensitivity is not measured effectiveness
+
+In [Training Preferences](https://support.runna.com/en/articles/10393191-how-to-use-training-preferences), Runna says more demanding settings can yield approximately **10% faster *predicted progress*** compared with default settings, with substantial individual variability. This is **a vendor forecast claim**, **not** evidence from controlled training outcomes, and not a reason to increase training load for a given athlete. Do not use this number as a StrideLab physiological model coefficient.
+
+### Garmin: distinguish *device-local recovery* from synced account values
+
+Garmin [Recovery Time FAQ](https://support.garmin.com/en-PH/?faq=8ImmxVkZMh4EYYq5Zp2bR8) defines Recovery Time as readiness for another **similarly intense** workout, typically from 0 hours to 4 days depending on workout/device. Repeated workouts trigger **re-evaluation**, not addition of independent recovery-hour totals. It lists prior remaining recovery time, training effect and (on supported devices) sleep, stress, training intensity and daily activities among inputs.
+
+**New methodological warning:** Garmin says device Recovery Time can update continuously while Garmin Connect reflects only the latest sync. Devices without Training Readiness may show Recovery Time **only on the watch**. For this research on Forerunner 165, do not assume a connector's account summary includes an up-to-date Recovery Time value or any unsupported Training Readiness / Training Status / load-focus numbers. Record watch-time snapshots if available, including last-sync status and firmware.
+
+In a [Garmin forum report](https://forums.garmin.com/apps-software/mobile-apps-web/f/garmin-connect-mobile-andriod/395835/garmin-run-coach-suggested-runs-not-in-sync-between-7x-watch-and-mobile-web/1865558), at least one user describes watch-vs-Connect differences in suggested workout type and duration, sometimes fixed by syncing. **ANECDOTAL / unverified generality:** this report is not proof of widespread bugs or different algorithmic models; it is a reason to record `recommendation_origin`, exact `captured_at`, sync recency and device/app version when investigating a workout change.
+
+### Garmin: environmental performance calibration requires compatibility checks
+
+Garmin's [Heat and Altitude Acclimation](https://www.garmin.com/en-PH/garmin-technology/running-science/physiological-measurements/heat-and-altitude-acclimation/) documentation says **select** devices can consider temperature, altitude, and estimated acclimation to preserve interpretation of VO2max/performance under environmental strain; it discusses triggers above approximately **22°C** or **800 m** (not universal thresholds). This does **not establish support on Forerunner 165**. Do not equate observed improvement in matched-HR pace with improvement in aerobic fitness until route/heat and recovery are considered.
+
+### Garmin: deliberate constraints on output target type
+
+Garmin's [Run Coach support table](https://support.garmin.com/en-US/?faq=IkvWNeIoSd48GIYCjkhlo7) says HR mode uses *effort guidance* for anaerobic and sprint work because HR is not suitable to prescribe those short efforts; pace mode may be used for all workout classes. **Auto** mode (where compatible) selects HR for base/recovery and pace for faster categories. These are *policy-level* target rules, not evidence of a recovered pulse-response model.
+
+A separate [Garmin blog about daily suggested workouts](https://www.garmin.com/en-US/blog/fitness/daily-workout-suggestions-for-runners/) suggests sprint training is avoided when significant recovery is still needed, but **the article is about DSW**. Do **not** import it as verified Run Coach selection logic without Run Coach-specific evidence.
+
+### Updated research questions with highest information value
+
+1. Does manually changing Runna Ability *mid-plan* cause training-block discontinuities in controlled current app outputs, and how severe? Quantify 3-week workload jumps and recovery placement.
+2. Does switching Runna pace targets to RPE preserve workout-set count, rest periods and session length? Distinguish target display vs regenerated prescription.
+3. With identical race performance, do Runna Ability vs Current Mileage independently alter plan limits, frequency and speed-session dose? Test a high-volume developing-speed runner plus low-volume control.
+4. What factors drive *actual* Garmin Run Coach suggestion changes when synchronisation is controlled? Snapshot watch recommendation and Connect recommendation with exact times and source, and note firmware and supported metrics.
+5. Can independent StrideLab rules avoid such plan-regeneration discontinuities without losing goal feasibility? Validate against exercise science; competitor behavior is not inherently optimal.
+
+**Evidence status:** Vendor-documented behavior and one explicitly anecdotal Garmin sync report. Still **UNKNOWN**: exact pace formulas, workout-choice scoring, Garmin model weights, whether an individual device compensates for heat, and quantitative Plan Regeneration effects on original app outputs. No controlled fresh Runna personal plans or original Garmin Run Coach recommendations acquired this round.
+
 ## Primary source register
 
 - [R1] Runna, *How Does Runna Build Your Training Plan Around Your Current Fitness?* https://support.runna.com/en/articles/15231838-how-does-runna-build-your-training-plan-around-your-current-fitness
