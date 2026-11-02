@@ -184,7 +184,9 @@ private fun NavHostController.openActivity(id: String) {
                                 else -> TracksideMoreIcon()
                             }
                         },
-                        label = if (LocalDensity.current.fontScale > 1.3f) null
+                        // At 1.3× text, five tab labels no longer fit a 360dp bar.
+                        // Keep icon semantics labels and hide the visual text sooner.
+                        label = if (LocalDensity.current.fontScale >= 1.3f) null
                             else ({ Text(label, fontWeight = FontWeight.SemiBold, maxLines = 1) }),
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = TracksidePalette.red,
