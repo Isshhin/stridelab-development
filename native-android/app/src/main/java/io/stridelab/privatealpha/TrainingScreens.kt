@@ -67,8 +67,8 @@ import kotlinx.coroutines.withContext
         }
     }
 }
-@Composable internal fun TrainingScreen(state:TrainingState,actions:PlanActions,onBuild:()->Unit,onOpen:(String,String)->Unit,onSignIn:()->Unit) {
-    var selectedId by rememberSaveable { mutableStateOf<String?>(null) };var selectedDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) };var monthView by rememberSaveable { mutableStateOf(false) };var agendaView by rememberSaveable { mutableStateOf(false) };var planMenu by rememberSaveable { mutableStateOf(false) }
+@Composable internal fun TrainingScreen(state:TrainingState,actions:PlanActions,onBuild:()->Unit,onOpen:(String,String)->Unit,onSignIn:()->Unit,onManage:(String,LocalDate)->Unit) {
+    var selectedId by rememberSaveable { mutableStateOf<String?>(null) };var selectedDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) };var monthView by rememberSaveable { mutableStateOf(false) };var agendaView by rememberSaveable { mutableStateOf(false) }
     val plans=state.plans.filter { it.status!="archived" }
     val plan=plans.find { it.id==selectedId } ?: plans.find { it.status=="approved" } ?: plans.firstOrNull()
     // Keep the selected day when returning from Workout or Manage. Switch/reset only
@@ -92,7 +92,7 @@ import kotlinx.coroutines.withContext
             FilterChip(selected=!agendaView&&!monthView,onClick={agendaView=false;monthView=false},label={Text("Day")},modifier=Modifier.testTag("training-view-day"))
             FilterChip(selected=agendaView&&!monthView,onClick={agendaView=true;monthView=false},label={Text("Agenda")},modifier=Modifier.testTag("training-view-agenda"))
             TextButton(onClick={monthView=!monthView;if(monthView)agendaView=false},modifier=Modifier.testTag("training-view-month")) { Text(if(monthView) "Week" else "Month") }
-            OutlinedButton(onClick={planMenu=true},enabled=plan!=null,modifier=Modifier.testTag("training-manage-plan")) { Text("Manage") }
+            OutlinedButton(onClick={plan?.let { onManage(it.id,date) }},enabled=plan!=null,modifier=Modifier.testTag("training-manage-plan")) { Text("Manage") }
         } }
         if(state.account==null) item { SignalCard { Text("Plan without a watch",style=MaterialTheme.typography.headlineSmall);Text("Sign in once to create private, account-isolated plans. Generation, calendar and logging then work offline.");SignalButton("Sign in",onSignIn) } }
         else if(plan==null) item { SignalCard { Text("Build your training around your life.",style=MaterialTheme.typography.headlineMedium);Text("Running, strength, calisthenics and conditioning share one calendar. Choose your goal, ability, days and equipment. Review real prescriptions before approving.");SignalButton("Create a plan",onBuild) } }
@@ -129,16 +129,7 @@ import kotlinx.coroutines.withContext
         if(state.account!=null) item { NativePlanImport(state,actions) }
         if(state.account!=null && plan!=null) item { OutlinedButton(onClick=onBuild,modifier=Modifier.fillMaxWidth()) { Text("Create / edit a reviewed draft") } }
     }
-    if(planMenu&&plan!=null) ModalBottomSheet(onDismissRequest={planMenu=false},containerColor=MaterialTheme.colorScheme.surface) {
-        Column(Modifier.padding(24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-            Text(plan.name ?: plan.request.goal,style=MaterialTheme.typography.headlineSmall)
-        Text(if(!Engine1Engines.canManage(plan))"Saved engine/policy · read-only here" else when(plan.policyId) {CoordinatedEngine1.policyId->"Coordinated discipline goals";MultiSessionEngine1.policyId->"Multi-session scheduling";SessionTemplate.POLICY_ID->"User-reviewed session targets";else->"Verified baseline fallback"},style=MaterialTheme.typography.bodySmall);Text("Editing creates a new reviewed draft. Approved prescriptions and previous logs are retained.")
-            SignalButton("Edit inputs / create draft",{planMenu=false;onBuild()},Engine1Engines.canManage(plan))
-            if(plan.status=="approved") OutlinedButton(onClick={actions.pause(plan.id,plan.revision);planMenu=false},enabled=Engine1Engines.canManage(plan),modifier=Modifier.fillMaxWidth()) { Text("Pause plan") }
-            OutlinedButton(onClick={actions.archive(plan.id,plan.revision);planMenu=false},enabled=Engine1Engines.canManage(plan),modifier=Modifier.fillMaxWidth()) { Text("Archive plan · keep records") }
-            TextButton(onClick={planMenu=false}) { Text("Close") }
-        }
-    }
+
 }
 @Composable internal fun TrainingCalendar(plan:PlanSnapshot,selected:LocalDate,month:Boolean,onSelect:(LocalDate)->Unit) {
     val first=plan.request.start;val last=first.plusWeeks(plan.request.weeks.toLong()).minusDays(1)
