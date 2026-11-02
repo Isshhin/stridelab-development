@@ -11,6 +11,8 @@
 
 **Research batch reports (2026-11-02):** [Batch 1 — Runna hard-work dose, periodization and Garmin response](batch-1-hard-dose-periodization-garmin-adaptation.md) · [Batch 2 — external/internal training load and matched-HR easy pace](batch-2-external-internal-load-and-easy-pace.md). Both keep vendor claims, study evidence and hypotheses separate; no production-code changes.
 
+**Quantitative experiment 001 (2026-11-02):** [Eight published Runna plans — 92-week baseline analysis](experiments/experiment-001-published-runna-plan-baselines.md) · [auditable weekly CSV](experiments/runna-justgiving-weekly-matrix-2026-11-02.csv). Measured 14 visually identified recovery-week changes; historical samples only, not matched-input current Runna plan generation.
+
 ## Purpose and limits
 
 Investigate the *observable* rules behind running plan generation, progression, workout selection, and adaptation. Distinguish (1) vendor-documented behavior, (2) independently observed output, (3) inferred explanations, and (4) untested hypotheses. A vendor's plans are comparison data, **not** proof of physiological superiority.
