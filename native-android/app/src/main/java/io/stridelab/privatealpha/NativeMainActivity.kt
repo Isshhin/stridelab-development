@@ -325,7 +325,13 @@ private fun NavHostController.openActivity(id: String) {
                     TracksideManagePlanScreen(
                         plan = plan, selected = selected, busy = state.busy,
                         actions = actions.planning,
-                        onBack = { nav.popBackStack() },
+                        onBack = {
+                            // Return to Training explicitly. A saved tab destination may
+                            // not be the immediate prior NavHost entry after tab restore.
+                            if (!nav.popBackStack("training", inclusive = false)) {
+                                nav.openTabRoot("training")
+                            }
+                        },
                         onBuildDraft = { nav.navigate("builder/all") },
                         onWorkout = { sessionId ->
                             nav.navigate("workout/${android.net.Uri.encode(planId)}/${android.net.Uri.encode(sessionId)}")
