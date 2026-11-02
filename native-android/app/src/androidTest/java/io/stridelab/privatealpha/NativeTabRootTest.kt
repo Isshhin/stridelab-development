@@ -34,19 +34,19 @@ class NativeTabRootTest {
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("activity-synthetic-tab-39"))
         compose.onNodeWithTag("activity-synthetic-tab-39").performClick()
         compose.onNodeWithTag("screen-title").assertTextEquals("Saved walk 39")
-        tab("home", "Your training")
+        tab("home", "Today")
         tab("activities", "Activities")
         // Root navigation must not discard useful state to fix the restored-detail bug.
         compose.onNodeWithTag("activity-synthetic-tab-39").assertIsDisplayed()
         repeat(3) {
             tab("settings", "Settings")
-            tab("home", "Your training")
+            tab("home", "Today")
             tab("activities", "Activities")
             compose.onNodeWithTag("activity-synthetic-tab-39").assertIsDisplayed()
         }
         tab("activities", "Activities")
         back()
-        compose.onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle,"Your training"))
+        compose.onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle,"Today"))
         compose.onNodeWithTag("nav-home").assertIsSelected()
     }
 
@@ -59,7 +59,7 @@ class NativeTabRootTest {
         compose.onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle,"Activities"))
         compose.onNodeWithTag("nav-activities").assertIsSelected()
         compose.onNodeWithTag("activity-synthetic-tab-0").assertIsDisplayed()
-        tab("home", "Your training")
+        tab("home", "Today")
         compose.onNodeWithTag("activity-synthetic-tab-0").performClick()
         compose.onNodeWithTag("screen-title").assertTextEquals("Saved walk 0")
         back()
