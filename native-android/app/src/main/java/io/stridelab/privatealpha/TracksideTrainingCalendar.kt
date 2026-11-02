@@ -128,7 +128,7 @@ internal fun TracksideTrainingWeekChart(
 
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Planned minutes per day", style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                color = TracksidePalette.text, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Text("Week total ${total / 60} h ${total % 60} min",
                 style = MaterialTheme.typography.labelSmall, color = TracksidePalette.textMuted)
         }
@@ -137,9 +137,9 @@ internal fun TracksideTrainingWeekChart(
         // minus screen padding). Let the row scroll rather than shrink targets.
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val compact = maxWidth < 350.dp
-            val expandedFont = LocalDensity.current.fontScale > 1.3f
+            val expandedFont = LocalDensity.current.fontScale >= 1.3f
             val rowModifier = Modifier.fillMaxWidth()
-                .height(if (expandedFont) 202.dp else 166.dp)
+                .height(if (expandedFont) 212.dp else 178.dp)
                 .then(if (compact) Modifier.horizontalScroll(rememberScrollState()) else Modifier)
             Row(rowModifier, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 days.forEach { day ->
