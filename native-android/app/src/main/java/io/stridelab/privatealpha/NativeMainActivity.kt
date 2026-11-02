@@ -217,7 +217,7 @@ private fun NavHostController.openActivity(id: String) {
                             state.plans.firstOrNull { it.status=="approved" }?.let { plan -> item { HomePlanHero(plan) { sid -> nav.openWorkout(plan.id,sid) } } }
                             if(state.plans.none { it.status=="approved" }) item { OutlinedButton(onClick={nav.openTabRoot("training")},modifier=Modifier.fillMaxWidth()) { Text("Create your training plan") } }
                             state.activities.firstOrNull()?.let { activity ->
-                                item { Text("LATEST ACTIVITY", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }
+                                item { TracksideSectionHeader("Latest activity") }
                                 item { ActivityRow(activity) { nav.openActivity(activity.id) } }
                             }
                             item { WeeklyDashboard(state.activities,plans=state.plans) }
@@ -352,17 +352,7 @@ internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
 @Composable internal fun Screen(title: String, eyebrow: String, compactTitle: Boolean = false, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         LazyColumn(Modifier.widthIn(max = 760.dp).fillMaxSize().testTag("screen").semantics { paneTitle = title }, contentPadding = PaddingValues(start = 22.dp, end = 22.dp, top = 24.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            item {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    BrandMark(Modifier.size(26.dp))
-                    Text(eyebrow, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary,modifier=Modifier.weight(1f))
-                    val profile=LocalProfileAction.current
-                    FilledTonalIconButton(onClick=profile,modifier=Modifier.testTag("nav-settings")) { Icon(Icons.Default.Settings,contentDescription="Settings and profile") }
-                }
-                Spacer(Modifier.height(16.dp))
-                Text(title, style = if(compactTitle) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineLarge,
-                    modifier = Modifier.testTag("screen-title").semantics { heading() })
-            }
+            item { TracksideScreenHeader(title, eyebrow, compactTitle, LocalProfileAction.current) }
             content()
         }
     }
@@ -379,10 +369,7 @@ internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
 }
 
 @Composable internal fun SignalCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f))) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
-    }
+    TracksideGlassCard(modifier, content)
 }
 @Composable private fun EmptyState(title: String, description: String) {
     SignalCard {
