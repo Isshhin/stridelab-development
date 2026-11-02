@@ -44,6 +44,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -176,13 +177,16 @@ private fun NavHostController.openActivity(id: String) {
                             (path == "library" && route == "practice/{key}"),
                         onClick = { nav.openTabRoot(path) },
                         icon = {
-                            when (path) {
-                                "home" -> Icon(Icons.Default.Home, contentDescription = null)
-                                "training" -> Icon(Icons.Default.DateRange, contentDescription = null)
-                                "activities" -> TracksideActivityIcon()
-                                "library" -> TracksideLibraryIcon()
-                                else -> TracksideMoreIcon()
+                            // Original Figma 732:99–113 vector geometry, native resource assets.
+                            val iconId = when (path) {
+                                "home" -> R.drawable.trackside_figma_home
+                                "training" -> R.drawable.trackside_figma_calendar
+                                "activities" -> R.drawable.trackside_figma_activity
+                                "library" -> R.drawable.trackside_figma_library
+                                else -> R.drawable.trackside_figma_more
                             }
+                            Icon(painter = painterResource(id = iconId),
+                                contentDescription = null, modifier = Modifier.size(19.dp))
                         },
                         // At 1.3× text, five tab labels no longer fit a 360dp bar.
                         // Keep icon semantics labels and hide the visual text sooner.

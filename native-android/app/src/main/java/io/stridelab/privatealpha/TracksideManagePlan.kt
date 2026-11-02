@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -96,7 +98,7 @@ internal fun TracksideManagePlanScreen(
             TracksideManageAction(
                 title = "Edit a workout",
                 subtitle = "Choose a future session to review or move",
-                glyph = "✎", accent = Color(0xFFFB3955),
+                iconRes = R.drawable.trackside_figma_edit, accent = Color(0xFFFB3955),
                 enabled = canManage && future.isNotEmpty(),
                 modifier = Modifier.testTag("manage-edit-workout")
             ) { editExpanded = !editExpanded }
@@ -113,7 +115,7 @@ internal fun TracksideManagePlanScreen(
                         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Box(Modifier.size(9.dp).background(
-                                disciplineColor(session.discipline), RoundedCornerShape(5.dp)))
+                                tracksideDisciplineColor(session.discipline), RoundedCornerShape(5.dp)))
                             Column(Modifier.weight(1f)) {
                                 Text(session.effectiveTitle, style = MaterialTheme.typography.titleSmall,
                                     color = TracksidePalette.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -130,7 +132,7 @@ internal fun TracksideManagePlanScreen(
             TracksideManageAction(
                 title = "Adjust future weeks",
                 subtitle = "Create a new draft for review; current plan stays unchanged",
-                glyph = "↻", accent = Color(0xFF8DBFE2),
+                iconRes = R.drawable.trackside_figma_loop, accent = Color(0xFF8DBFE2),
                 enabled = canManage, modifier = Modifier.testTag("manage-adjust-weeks")
             ) { confirmDraft = true }
         }
@@ -138,7 +140,7 @@ internal fun TracksideManagePlanScreen(
             TracksideManageAction(
                 title = "Pause training plan",
                 subtitle = "Keep your saved schedule and workout history",
-                glyph = "Ⅱ", accent = Color(0xFF8DBFE2),
+                iconRes = R.drawable.trackside_figma_pause, accent = Color(0xFF8DBFE2),
                 enabled = canManage, modifier = Modifier.testTag("manage-pause")
             ) { confirmPause = true }
         }
@@ -146,7 +148,7 @@ internal fun TracksideManagePlanScreen(
             TracksideManageAction(
                 title = if (plan.status == "paused") "Resume training plan" else "Approve this draft",
                 subtitle = "Review the current plan before activating it",
-                glyph = "✓", accent = Color(0xFF8DBFE2),
+                iconRes = R.drawable.trackside_figma_loop, accent = Color(0xFF8DBFE2),
                 enabled = canManage, modifier = Modifier.testTag("manage-resume")
             ) { actions.approve(plan.id, plan.revision) }
         }
@@ -219,14 +221,14 @@ private fun TracksidePlanWeekOverview(plan: PlanSnapshot, selected: LocalDate) {
             Row(Modifier.fillMaxWidth().height(8.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                 distribution.forEach { (discipline, rows) ->
                     Box(Modifier.weight(rows.size.toFloat()).height(8.dp)
-                        .background(disciplineColor(discipline), RoundedCornerShape(4.dp)))
+                        .background(tracksideDisciplineColor(discipline), RoundedCornerShape(4.dp)))
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                 distribution.forEach { (discipline, rows) ->
                     Text(rows.size.toString() + " " + disciplineLabel(discipline),
                         modifier = Modifier.weight(rows.size.toFloat()), maxLines = 2,
-                        color = disciplineColor(discipline),
+                        color = tracksideDisciplineColor(discipline),
                         style = MaterialTheme.typography.labelSmall)
                 }
             }
@@ -242,7 +244,7 @@ private fun TracksidePlanWeekOverview(plan: PlanSnapshot, selected: LocalDate) {
                             day.byDiscipline.reversed().forEach { (discipline, minutes) ->
                                 val height = (minutes.toFloat() / high * 80f).coerceAtLeast(3f)
                                 Box(Modifier.fillMaxWidth().height(height.dp)
-                                    .background(disciplineColor(discipline), RoundedCornerShape(5.dp)))
+                                    .background(tracksideDisciplineColor(discipline), RoundedCornerShape(5.dp)))
                             }
                         }
                         Text(day.date.dayOfWeek.name.take(3), style = MaterialTheme.typography.labelSmall,
@@ -258,7 +260,7 @@ private fun TracksidePlanWeekOverview(plan: PlanSnapshot, selected: LocalDate) {
 private fun TracksideManageAction(
     title: String,
     subtitle: String,
-    glyph: String,
+    iconRes: Int,
     accent: Color,
     enabled: Boolean,
     modifier: Modifier = Modifier,
@@ -275,7 +277,8 @@ private fun TracksideManageAction(
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.size(43.dp).background(accent.copy(alpha = .2f), RoundedCornerShape(11.dp)),
                 contentAlignment = Alignment.Center) {
-                Text(glyph, style = MaterialTheme.typography.titleLarge, color = accent)
+                Icon(painter = painterResource(id = iconRes), contentDescription = null,
+                    tint = accent, modifier = Modifier.size(25.dp))
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(title, style = MaterialTheme.typography.titleSmall,

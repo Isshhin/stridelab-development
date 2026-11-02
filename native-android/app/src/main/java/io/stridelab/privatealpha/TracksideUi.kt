@@ -36,6 +36,14 @@ internal object TracksidePalette {
     val recovery = Color(0xFF75C3B8)
 }
 
+/** Figma 551:6, 602:3, 732:3: presentation colors only, never training intensity. */
+internal fun tracksideDisciplineColor(discipline: String): Color = when (discipline.lowercase()) {
+    "run", "running" -> TracksidePalette.running
+    "str", "strength" -> TracksidePalette.strength
+    "cal", "calisthenics" -> TracksidePalette.calisthenics
+    else -> disciplineColor(discipline)
+}
+
 /** Consistent compact navigation glyphs. Accessible labels live on the tab itself. */
 @Composable
 internal fun TracksideActivityIcon(modifier: Modifier = Modifier) {

@@ -113,12 +113,12 @@ internal fun TracksideTrainingWeekChart(
                 horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 byDiscipline.forEach { (discipline, count) ->
                     Box(Modifier.weight(count.toFloat()).height(8.dp)
-                        .background(disciplineColor(discipline), RoundedCornerShape(4.dp)))
+                        .background(tracksideDisciplineColor(discipline), RoundedCornerShape(4.dp)))
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 byDiscipline.forEach { (discipline, count) ->
-                    Text("$count ${disciplineLabel(discipline)}", color = disciplineColor(discipline),
+                    Text("$count ${disciplineLabel(discipline)}", color = tracksideDisciplineColor(discipline),
                         style = MaterialTheme.typography.labelSmall,
                         maxLines = 2, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(count.toFloat()))
@@ -180,7 +180,7 @@ internal fun TracksideTrainingWeekChart(
                             day.byDiscipline.reversed().forEach { (discipline, minutes) ->
                                 val barHeight = (minutes.toFloat() / maxDay * 80f).coerceAtLeast(3f)
                                 Box(Modifier.fillMaxWidth().height(barHeight.dp)
-                                    .background(disciplineColor(discipline), RoundedCornerShape(5.dp)))
+                                    .background(tracksideDisciplineColor(discipline), RoundedCornerShape(5.dp)))
                             }
                         }
                         Text(day.date.format(DateTimeFormatter.ofPattern("EEE", Locale.getDefault())).uppercase(Locale.getDefault()),

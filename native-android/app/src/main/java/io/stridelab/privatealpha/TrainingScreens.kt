@@ -49,7 +49,7 @@ import kotlinx.coroutines.withContext
     }
 }
 @Composable internal fun PlannedWorkoutCard(s:PlannedSession,hasDraft:Boolean=false,onClick:()->Unit) {
-    val color=disciplineColor(s.discipline)
+    val color=tracksideDisciplineColor(s.discipline)
     Surface(onClick=onClick,shape=RoundedCornerShape(24.dp),color=MaterialTheme.colorScheme.surface,border=BorderStroke(1.dp,MaterialTheme.colorScheme.outlineVariant),modifier=Modifier.fillMaxWidth().testTag("workout-${s.id}")) {
         Row(Modifier.height(IntrinsicSize.Min)) {
             Box(Modifier.width(4.dp).fillMaxHeight().background(color))
@@ -153,7 +153,7 @@ import kotlinx.coroutines.withContext
             if(showWeekday) Text(dayName(date.dayOfWeek.value).take(2),style=MaterialTheme.typography.labelSmall,color=if(selected)MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
             Text("${date.dayOfMonth}",style=MaterialTheme.typography.titleMedium,color=if(!enabled)MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=.45f) else if(selected)MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
             if(sessions.isNotEmpty()) {
-                Box(Modifier.size(7.dp).background(if(sessions.all { it.status=="completed" }) MaterialTheme.colorScheme.primary else disciplineColor(sessions.first().discipline),RoundedCornerShape(4.dp)))
+                Box(Modifier.size(7.dp).background(if(sessions.all { it.status=="completed" }) MaterialTheme.colorScheme.primary else tracksideDisciplineColor(sessions.first().discipline),RoundedCornerShape(4.dp)))
                 if(sessions.size>1) Text("${sessions.size} workouts",style=MaterialTheme.typography.labelSmall,color=if(selected)MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }

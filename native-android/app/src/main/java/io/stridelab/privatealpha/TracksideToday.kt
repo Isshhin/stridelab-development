@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -35,7 +37,7 @@ import java.util.Locale
 @Composable
 internal fun TracksideTodayHero(session: PlannedSession, onOpen: () -> Unit) {
     val running = session.discipline == "run"
-    val accent = disciplineColor(session.discipline)
+    val accent = tracksideDisciplineColor(session.discipline)
     val glow = if (running) Color(0xFF321C29) else Color(0xFF182C3B)
     val dateLabel = when (session.date) {
         LocalDate.now() -> "Today"
@@ -56,7 +58,9 @@ internal fun TracksideTodayHero(session: PlannedSession, onOpen: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.size(8.dp).background(accent, RoundedCornerShape(4.dp)))
+                if (running) Icon(painter = painterResource(id = R.drawable.trackside_figma_run),
+                    contentDescription = null, tint = accent, modifier = Modifier.size(26.dp))
+                else Box(Modifier.size(8.dp).background(accent, RoundedCornerShape(4.dp)))
                 Text(dateLabel, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
                     color = TracksidePalette.textMuted)
                 Surface(color = TracksidePalette.surfaceRaised, shape = RoundedCornerShape(17.dp),
