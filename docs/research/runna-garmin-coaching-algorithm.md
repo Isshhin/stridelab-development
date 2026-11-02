@@ -7,6 +7,8 @@
 
 **Companion investigation:** [Long-run classes, scheduling constraints, and Garmin measured training load](runna-garmin-session-allocation-and-load-observations.md) — includes vendor-documented behavior and a reproducible full workout-distance calculation.
 
+**Additional research:** [Intensity distribution and Garmin physiological load](intensity-distribution-and-physiological-load.md) — comparison of session counts, time-in-zone denominators, fitness-scaled Training Effect, and independent peer-reviewed methods.
+
 ## Purpose and limits
 
 Investigate the *observable* rules behind running plan generation, progression, workout selection, and adaptation. Distinguish (1) vendor-documented behavior, (2) independently observed output, (3) inferred explanations, and (4) untested hypotheses. A vendor's plans are comparison data, **not** proof of physiological superiority.
