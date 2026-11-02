@@ -421,6 +421,108 @@ Garmin's [Recovery Time support](https://support.garmin.com/en-PH/?faq=8ImmxVkZM
 **Limitations:** No fresh matched-input Runna generation, native Garmin Run Coach recommendation stream, or controlled strength-interference outcomes obtained in this review. Published samples verify what *those samples prescribe*, not the exact current proprietary algorithm.
 
 
+
+## Runna workout-construction investigation: exercise objective, repetition structure, recovery and pace calibration (2026-11-02)
+
+**Evidence types:** [VENDOR] published support guidance; [SAMPLE] original Runna/JustGiving overview PDF, visually inspected via original page screenshots; [INFERRED] competing explanatory hypothesis; [UNKNOWN] cannot be recovered without detailed structured plan exports.
+
+### 1. Separate physiological objective from workout format — VENDOR
+
+Runna explicitly states that `threshold` is a physiological training objective, whereas `interval` and `tempo` describe workout structures. A threshold stimulus can use continuous running or repetitions; not all intervals target threshold. The vendor describes:
+
+| Structure | Descriptive, not enforced, rep range | Typical effort | Recovery |
+| --- | --- | --- | --- |
+| Intervals | ~400 m–1.6 km; 200–400 m examples may exceed threshold | often threshold/5K–10K pace, RPE 8–9 | walk or stationary, sometimes active |
+| Tempo | ~2–5 km or longer; may be continuous | usually 10K–HM effort, RPE 7–8 | none, jog, or float |
+| VO2max intervals | shorter and above threshold | very hard | depends on session |
+| Fast anaerobic/sprint | short, substantially above threshold | high neural/power demand | longer, more complete recovery |
+
+Sources: [R16] https://support.runna.com/en/articles/13848642-what-s-the-difference-between-a-tempo-and-interval-running-session and [R17] https://support.runna.com/en/articles/8608203-is-my-workout-a-threshold-interval-session-or-tempo-run.
+
+**Not a formula:** These typical distance/pace ranges are coaching descriptions, not observed hard-coded planning rules. In particular the public PDFs include a workout named **200m Tempo Repeats**, so one must not classify `tempo` exclusively by long-rep duration.
+
+**Original StrideLab schema implication [INFERRED]:** `physiological_objective` (threshold, VO2max, endurance, neuromuscular, etc.) must be distinct from `session_structure` (continuous, repetitions, pyramids, alternating float, progressive, mixed). The workout label alone is insufficient.
+
+### 2. Recovery is an independent prescription variable — VENDOR
+
+Runna distinguishes stationary, walking, light-jog and moderate **float** recovery. It says active recoveries often last **60–120 seconds**, varying by work-rep distance and rep count, with additional distance-based examples. Published illustrations include:
+- **6 × 1 km at 5K pace, 90 s walking**.
+- **1200 m at marathon effort + 400 m float**.
+- **1000 m at half-marathon effort + 400 m float**.
+- **60 s uphill effort followed by an easy jog downhill**.
+
+These examples are coaching illustrations, **not extracted, personalized app prescriptions**. The examples do **not** reveal a universal 90 s recovery rule, work:rest function or eligibility threshold.
+
+Source: [R18] https://support.runna.com/en/articles/12353274-how-to-recover-between-running-intervals.
+
+**INFERRED model to test:** `recovery_mode`, `recovery_duration_or_distance`, `recovery_intensity` depend on `physiological_objective`, work duration, prescribed effort and overall work dose. A float is not equivalent to a walk merely because both are labeled recovery. Track total work, float distance and truly low-intensity recovery separately.
+
+### 3. Dose and structure vary independently — VENDOR
+
+Runna's tempo article says **3 × 2 km** can be run faster than **1 × 6 km** even with identical total faster-running distance. This is *not* confirmation of a specific pace offset. A prescribed target must account for work-rep length, recovery, and full-session context.
+
+Source: [R19] https://support.runna.com/en/articles/8911204-what-is-a-tempo-run-a-complete-guide-for-runners.
+
+Runna's training preferences article says lowering workout difficulty can reduce rep count while leaving **target pace constant**; changing the current estimated race time changes **pace targets**, not mileage. These are observable **separable controls**, not proof that its code uses a specific algorithmic decomposition. Sources: [R3], [R20].
+
+### 4. One current-race-ability input drives cross-distance pace targets — VENDOR
+
+Runna [R20] says one current estimated race time is sufficient to update estimates for 5K, 10K and half marathon, and it may change the estimate when benchmark distance changes. It suggests conservative estimates where races are outdated.
+
+- [R20] https://support.runna.com/en/articles/6205998-adjusting-your-estimated-race-time-and-pace-targets
+- [R21] https://support.runna.com/en/articles/6251445-how-is-my-target-race-time-predicted
+
+**Research question:** What cross-distance transformation and pace-zone boundaries are used? Runna does not disclose the actual formulas. A single estimated 5K result may fail to characterize an athlete with atypical endurance relative to short-distance speed; this is a potential *modeling limitation to test*, not a demonstrated Runna defect. StrideLab could explore multi-distance calibration while keeping training-volume capacity independent from race speed.
+
+### 5. Directly observed sample-PDF workout-template reuse — SAMPLE
+
+I visually checked [P2] and [P3] (8-week 5K beginner and advanced), [P4] (10-week advanced 10K), [P5] (12-week advanced half marathon), and [P6] (16-week beginner marathon).
+
+| Published sample | Specific observed workout names | What can be supported |
+| --- | --- | --- |
+| Beginner 5K (3 days/week) | Drop Set; Broken Miles; Progressive Mile Repeats; Pyramid Intervals; 800m into 400m | One higher-intensity category per typical pre-race week; varied named templates |
+| Advanced 5K (4 days/week) | Tempo 2km Blocks; Descending Intervals; Tempo 1200s; 400s into 200s; 200m Tempo Repeats | Two different named harder sessions per typical week; labels alone do not expose actual interval dosage |
+| Advanced 10K (4 days/week) | Rolling 500s; 800m Repeats; 1km Repeats; Over and Unders 2km; Tempo 3km Blocks; 200m Tempo Repeats | A mix of short and long named workouts, even for an identical race distance |
+| Advanced half marathon (4 days/week) | Shorter Intervals; 1km Repeats; Mile Repeats; 2km Repeats; Tempo 1200s; 200m Tempo Repeats; Tempo 3km Blocks | Similar template families recur across distances and phases, not strictly monotonic longer reps for longer races |
+| Beginner marathon (3 days/week) | Rolling 500s; Tempo 1200s; Broken Miles; Varied Tempo 2kms; Descending Intervals; 200m Tempo Repeats | Shorter-rep named sessions are still present in marathon training; no "only marathon-pace workouts" assumption |
+
+**Caution 1:** The PDFs show **session totals**, not the complete warm-up, recovery, rep count or pace target. A label like `200m Tempo Repeats` does **not** reveal the actual recovery or physiological intensity and must not be interpreted as a 200m all-out sprint.
+
+**Caution 2:** The schedules are historical **sample plans**, not current, personalized, matched-input 2026 generator outputs. The fact that template names recur across distances **suggests a workout-template library is plausible [INFERRED]**; it does not prove Runna's implementation reuses templates algorithmically.
+
+**Caution 3:** Four-day advanced versus three-day beginner also changes ability and volume, so apparent changes in hard-session frequency cannot be causally attributed to run days alone.
+
+**Original PDF sources:**
+- [P2] https://www.jg-cdn.com/docs/librariesprovider10/runna-running-for-good/runna-justgiving_sample_8-week-5k-improvement-plan_beginner_3_km.pdf?sfvrsn=acfee4b0_3
+- [P3] https://www.jg-cdn.com/docs/librariesprovider10/runna-running-for-good/runna-justgiving_sample_8-week-5k-improvement-plan_advanced_4_km.pdf?sfvrsn=e5a82516_3
+- [P4] https://www.jg-cdn.com/docs/librariesprovider10/runna-running-for-good/runna-justgiving_sample_10-week-10k-plan_advanced_4_km.pdf?sfvrsn=fed7effe_3
+- [P5] https://www.jg-cdn.com/docs/librariesprovider10/runna-running-for-good/runna-justgiving_sample_12-week-half-marathon-plan_advanced_4_km.pdf?sfvrsn=ca6f314_5%2F
+- [P6] https://www.justgiving.com/wp-content/uploads/2025/10/runna-justgiving_sample_16-week-marathon-plan_beginner_3_km.pdf
+
+### 6. Workout execution semantics are separate from workout construction — VENDOR
+
+Runna supports nested sets, work/recovery steps, optional between-set rest, open warm-up, manual track progression and manually progressed hill intervals. These execution semantics must be represented even if a plan-generation model only emits a brief workout title.
+
+Source: [R16b] https://support.runna.com/en/articles/15690947-understand-your-runna-workouts.
+
+**Recommended original validation data:** 
+`session_id, session_category, physiological_objective, plan_week, prescribed_total_m, warmup_steps, set_groups[{reps, work_steps, recovery_steps, between_set_rest}], cooldown_steps, per_step_target_basis, actual_hard_work_m, total_active_recovery_m, recovery_mode, exact_export_source`. Don't assume work-step distances sum to session distance unless warmups/cooldowns and recovery are included. Always retain original units/steps for audit.
+
+### 7. Gaps: what cannot yet be reverse-engineered from the public schedule
+
+1. **Template selection scoring:** when is `Tempo 1200s` chosen instead of `Tempo 2km Blocks`?
+2. **Work dose:** how many total meters/minutes at threshold, VO2max, 5K or 10K effort for the same athlete?
+3. **Prescription adjustments:** exact relationship between run-day count, user-selected difficulty, current racing fitness and repetitions.
+4. **Pacing conversion:** precise conversion from a 5K/10K/HM estimate to each work-step pace.
+5. **Recovery construction:** why a float vs walk, and when rest is 60 vs 90 vs 120 seconds?
+6. **Progression vs novelty:** do workout templates change to produce a controlled stimulus or for variety?
+7. **Within-week sequencing:** whether the placement of quality sessions and long runs is determined by a specific scoring function.
+
+**Next highest-value research:** Actual **detailed exported workout prescriptions** with *matched-input differences*, not more weekly-plan overview titles. A rigorous next test holds race estimate, training history, available days, and plan week constant, changing only `Difficulty`. It evaluates `rep_count`, `total_hard_work_time`, `recovery_type/duration`, `step_target_pace` and `session_total_distance`. Then change only the current race-time estimate, and separately only endurance-vs-speed focus in eligible general training plans. This can falsify the observable independence claims and locate boundary effects.
+
+**Status:** No controlled personalized Runna plans or full workout-step exports captured in this phase; only direct original-PDF overview observations and current public vendor explanations. No proprietary Runna implementation reconstructed.
+
+
 ## Primary source register
 
 - [R1] Runna, *How Does Runna Build Your Training Plan Around Your Current Fitness?* https://support.runna.com/en/articles/15231838-how-does-runna-build-your-training-plan-around-your-current-fitness
