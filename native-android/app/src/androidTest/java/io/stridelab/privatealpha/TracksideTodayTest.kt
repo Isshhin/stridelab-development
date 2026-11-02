@@ -26,9 +26,9 @@ class TracksideTodayTest {
             }
         }
         compose.onNodeWithTag("today-hero").assertExists()
-        compose.onNodeWithTag("today-route-unavailable").assertExists()
-        compose.onNodeWithText("45 min").assertExists()
-        compose.onNodeWithText("Not set").assertExists()
+        compose.onNodeWithTag("today-route-unavailable", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("45 min", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Not set", useUnmergedTree = true).assertExists()
         compose.onNodeWithTag("today-hero").performClick()
         compose.runOnIdle { assertEquals(1, opened) }
     }
