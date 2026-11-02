@@ -105,6 +105,43 @@ class TracksideResponsiveQaTest {
         compose.runOnIdle { assertTrue("Selected day changed", selected.value == start) }
     }
 
+
+    @Test fun completeAppShellKeepsTrainingNavigationReachableWithLargeText() {
+        // Component screenshots above cannot detect bottom-navigation and system-inset
+        // collisions. Exercise the actual NavHost using only synthetic plan records.
+        val plan = snapshot()
+        val state = TrainingState(
+            initializing = false, account = "synthetic-athlete", plans = listOf(plan)
+        )
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    NativeStrideContent(
+                        state, true, NativeActions({}, {}, {}, {}, { _, _ -> })
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("nav-training").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("header-settings").assertExists()
+        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("training-manage-plan"))
+        compose.onNodeWithTag("nav-settings").assertIsDisplayed()
+        screenshot("training-full-shell")
+
+        compose.onNodeWithTag("training-manage-plan").performClick()
+        compose.onNodeWithTag("manage-back").assertExists()
+        compose.onNodeWithTag("nav-training").assertIsSelected()
+        screenshot("manage-full-shell")
+        compose.onNodeWithTag("manage-back").performClick()
+        compose.waitUntil(timeoutMillis = 10_000L) {
+            runCatching {
+                compose.onNodeWithTag("screen-title").assertTextEquals("Training")
+                true
+            }.getOrDefault(false)
+        }
+        compose.onNodeWithTag("nav-training").assertIsSelected()
+    }
+
     @Test fun manageActionsCanBeReachedWithLargeText() {
         val plan = snapshot()
         show {
