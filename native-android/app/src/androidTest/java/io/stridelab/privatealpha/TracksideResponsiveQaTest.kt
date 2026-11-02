@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import java.io.ByteArrayOutputStream
 import java.time.Instant
 import java.time.LocalDate
 
@@ -71,21 +72,30 @@ class TracksideResponsiveQaTest {
             // MediaStore survives target-app data resets between instrumentation tests.
             put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/StrideLabBatchB")
         }
-        val resolver = context.contentResolver
-        val uri = checkNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)) {
+        val image = compose.onRoot().captureToImage().asAndroidBitmap()
+        val encoded = ByteArrayOutputStream().use { buffer ->
+            check(image.compress(Bitmap.CompressFormat.PNG, 100, buffer)) {
+                "Unable to encode screenshot: $fileName"
+            }
+            buffer.toByteArray()
+        }
+        assertTrue("QA screenshot encode empty: $fileName", encoded.isNotEmpty())
+        // MediaStore.SIZE can remain zero until the media provider scans the new file.
+        // Verify the encoded bytes and output stream directly; CI subsequently verifies
+        // all five persisted PNG files are present and nonempty on the device.
+        values.put(MediaStore.Images.Media.IS_PENDING, 1)
+        val uri = checkNotNull(context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)) {
             "Unable to create MediaStore screenshot: $fileName"
         }
+        val resolver = context.contentResolver
         try {
-            val image = compose.onRoot().captureToImage().asAndroidBitmap()
             checkNotNull(resolver.openOutputStream(uri)).use { out ->
-                check(image.compress(Bitmap.CompressFormat.PNG, 100, out)) {
-                    "Unable to encode screenshot: $fileName"
-                }
+                out.write(encoded)
+                out.flush()
             }
-            val size = resolver.query(uri, arrayOf(MediaStore.Images.Media.SIZE), null, null, null)?.use { cursor ->
-                if (cursor.moveToFirst()) cursor.getLong(0) else 0L
-            } ?: 0L
-            assertTrue("QA screenshot empty: $fileName", size > 0L)
+            resolver.update(uri, ContentValues().apply {
+                put(MediaStore.Images.Media.IS_PENDING, 0)
+            }, null, null)
         } catch (error: Throwable) {
             resolver.delete(uri, null, null)
             throw error
