@@ -1,8 +1,10 @@
 package io.stridelab.privatealpha
 
+import android.content.ContentValues
 import android.graphics.Bitmap
+import android.os.Environment
+import android.provider.MediaStore
 import androidx.activity.compose.setContent
-import androidx.test.platform.app.InstrumentationRegistry
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,8 +22,6 @@ import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
-import java.io.File
-import java.io.FileOutputStream
 import java.time.Instant
 import java.time.LocalDate
 
@@ -61,20 +61,35 @@ class TracksideResponsiveQaTest {
 
     private fun screenshot(name: String) {
         compose.waitForIdle()
-        val config = compose.activity.resources.configuration
+        val context = compose.activity
+        val config = context.resources.configuration
         val scale = (config.fontScale * 100f).toInt()
-        val file = File(
-            // Save under the instrumentation test package, not the target app.
-            // The runner can reset target app data between tests, deleting earlier captures.
-            File(InstrumentationRegistry.getInstrumentation().context.filesDir, "trackside-qa")
-                .apply { check(isDirectory || mkdirs()) { "Cannot create QA screenshot folder: $absolutePath" } },
-            "${name}-${config.screenWidthDp}dp-font${scale}.png"
-        )
-        val image = compose.onRoot().captureToImage().asAndroidBitmap()
-        FileOutputStream(file).use { out ->
-            check(image.compress(Bitmap.CompressFormat.PNG, 100, out)) { "Could not save $file" }
+        val fileName = "${name}-${config.screenWidthDp}dp-font${scale}.png"
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
+            put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+            // MediaStore survives target-app data resets between instrumentation tests.
+            put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/StrideLabBatchB")
         }
-        assertTrue("QA screenshot missing: $file", file.length() > 0)
+        val resolver = context.contentResolver
+        val uri = checkNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)) {
+            "Unable to create MediaStore screenshot: $fileName"
+        }
+        try {
+            val image = compose.onRoot().captureToImage().asAndroidBitmap()
+            checkNotNull(resolver.openOutputStream(uri)).use { out ->
+                check(image.compress(Bitmap.CompressFormat.PNG, 100, out)) {
+                    "Unable to encode screenshot: $fileName"
+                }
+            }
+            val size = resolver.query(uri, arrayOf(MediaStore.Images.Media.SIZE), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getLong(0) else 0L
+            } ?: 0L
+            assertTrue("QA screenshot empty: $fileName", size > 0L)
+        } catch (error: Throwable) {
+            resolver.delete(uri, null, null)
+            throw error
+        }
     }
 
     @Test fun todayHeroAtLargeFontPreservesTargetsAndVisibleAction() {
