@@ -6,7 +6,7 @@ Date: 2026-11-02. Priorities 4–5 of the agreed research agenda. Independent sp
 
 ### Definitions and direct evidence
 
-In the athlete-monitoring cycle described by Bourdon and colleagues [M1], distinguish the **external work actually performed**, the **internal physiological response**, **perceived wellness/tolerance**, and **readiness for the next stimulus**. No one measurement is a complete representation of the others.
+In the athlete-monitoring cycle described by Gabbett and colleagues [M1], distinguish the **external work actually performed**, the **internal physiological response**, **perceived wellness/tolerance**, and **readiness for the next stimulus**. No one measurement is a complete representation of the others.
 
 | Axis | Examples | Strength | Limitation |
 | --- | --- | --- | --- |
