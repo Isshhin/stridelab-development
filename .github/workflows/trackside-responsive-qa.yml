@@ -65,7 +65,7 @@ jobs:
             adb shell wm size ${{ matrix.pixels }}
             adb shell wm density ${{ matrix.dpi }}
             adb shell settings put system font_scale ${{ matrix.font }}
-            sh -c 'gradle --project-dir native-android --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=io.stridelab.privatealpha.TracksideResponsiveQaTest --console=plain; result=$?; mkdir -p native-android/app/build/qa-screenshots/${{ matrix.profile }}; adb pull /sdcard/Android/data/io.stridelab.privatealpha/files/trackside-qa native-android/app/build/qa-screenshots/${{ matrix.profile }} || result=1; exit $result'
+            sh -c 'gradle --project-dir native-android --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=io.stridelab.privatealpha.TracksideResponsiveQaTest --console=plain || exit $?; mkdir -p native-android/app/build/qa-screenshots/${{ matrix.profile }}; for attempt in 1 2 3; do adb pull /sdcard/Android/data/io.stridelab.privatealpha.test/files/trackside-qa native-android/app/build/qa-screenshots/${{ matrix.profile }} || true; count=$(find native-android/app/build/qa-screenshots/${{ matrix.profile }}/trackside-qa -type f -name "*.png" 2>/dev/null | wc -l); echo "Captured screenshots: $count (expected at least 5)"; if [ "$count" -ge 5 ]; then exit 0; fi; sleep 3; done; echo "Missing required Batch B screenshot evidence" >&2; exit 1'
       - name: Upload screenshot and instrumentation reports
         if: always()
         uses: actions/upload-artifact@v4
