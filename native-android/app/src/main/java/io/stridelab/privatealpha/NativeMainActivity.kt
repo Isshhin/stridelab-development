@@ -208,7 +208,12 @@ private fun NavHostController.openActivity(id: String) {
             NavHost(navController = nav, startDestination = "home", modifier = Modifier.weight(1f)) {
                 composable("home") {
                     // The visual Today shell is data-driven and retains the existing root navigation route.
-                    Screen("Today", "STRIDELAB / TRAINING") {
+                    val greeting = when(java.time.LocalTime.now().hour) {
+                        in 5..11 -> "Good morning"
+                        in 12..17 -> "Good afternoon"
+                        else -> "Good evening"
+                    }
+                    Screen("Today", greeting) {
                         if(state.initializing) item { Text("Opening your saved training…") }
                         else if(state.account == null) item {
                             EmptyState("Start with your history", "Sign in to synchronize your activities. Saved history is available offline.")
@@ -248,7 +253,7 @@ private fun NavHostController.openActivity(id: String) {
                                 }
                             }
                             item { Text("Recent activity", style = MaterialTheme.typography.titleLarge) }
-                            state.activities.take(2).forEach { activity ->
+                            state.activities.sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenBy { it.id }).take(2).forEach { activity ->
                                 item(key = "recent-" + activity.id) {
                                     TracksideTodayActivity(activity) { nav.openActivity(activity.id) }
                                 }
