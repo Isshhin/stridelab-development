@@ -126,11 +126,20 @@ internal fun TracksideTrainingWeekChart(
             }
         }
 
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Planned minutes per day", style = MaterialTheme.typography.titleSmall,
-                color = TracksidePalette.text, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Text("Week total ${total / 60} h ${total % 60} min",
-                style = MaterialTheme.typography.labelSmall, color = TracksidePalette.textMuted)
+        if (LocalDensity.current.fontScale >= 1.3f) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Planned minutes per day", style = MaterialTheme.typography.titleSmall,
+                    color = TracksidePalette.text, fontWeight = FontWeight.Bold)
+                Text("Week total ${total / 60} h ${total % 60} min",
+                    style = MaterialTheme.typography.labelSmall, color = TracksidePalette.textMuted)
+            }
+        } else {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Planned minutes per day", style = MaterialTheme.typography.titleSmall,
+                    color = TracksidePalette.text, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text("Week total ${total / 60} h ${total % 60} min",
+                    style = MaterialTheme.typography.labelSmall, color = TracksidePalette.textMuted)
+            }
         }
 
         // Seven 48dp targets cannot fit into a 316dp content area (360dp phone
