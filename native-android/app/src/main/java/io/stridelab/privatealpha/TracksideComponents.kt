@@ -88,7 +88,8 @@ internal fun TracksideScreenHeader(
                 modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                     .testTag("header-settings")
             ) {
-                Icon(Icons.Default.Settings, contentDescription = "Settings and profile")
+                Icon(Icons.Default.Settings, contentDescription = "Settings and profile",
+                    tint = TracksidePalette.text)
             }
         }
         Spacer(Modifier.height(12.dp))
