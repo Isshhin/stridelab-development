@@ -50,8 +50,9 @@ jobs:
           emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -camera-back none
           disable-animations: true
           script: |
-            adb shell wm size 360x800
-            adb shell wm density 420
+            # 720 physical pixels at 320 dpi = 360 dp; 1600 px = 800 dp.
+            adb shell wm size 720x1600
+            adb shell wm density 320
             adb shell settings put system font_scale 1.0
             gradle --project-dir native-android --no-daemon :app:connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=io.stridelab.privatealpha.TracksideTabTest,io.stridelab.privatealpha.TracksideTodayTest,io.stridelab.privatealpha.TracksideTrainingCalendarUiTest,io.stridelab.privatealpha.TracksideManagePlanTest,io.stridelab.privatealpha.TracksideManageNavigationTest' --console=plain
       - name: Preserve instrumentation results for review
