@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.draw.clip
@@ -67,24 +68,38 @@ class NativeMainActivity: ComponentActivity() {
     }
 }
 
-@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
 @Composable internal fun StrideTheme(content: @Composable () -> Unit) {
-    val displayFont=remember { FontFamily(Font(R.font.bricolage_variable,weight=FontWeight.Bold,variationSettings=FontVariation.Settings(FontVariation.weight(800)))) }
-    MaterialTheme(colorScheme = darkColorScheme(
-        primary = Color(0xFFD6FF4F), onPrimary = Color(0xFF0A0D02),
-        background = Color(0xFF050506), surface = Color(0xFF101013),
-        surfaceVariant = Color(0xFF25252B), onSurface = Color(0xFFF4F1EA),
-        onBackground = Color(0xFFF4F1EA), onSurfaceVariant = Color(0xFFB0B0BA),
-        secondary = Color(0xFF6FB4FF), secondaryContainer = Color(0xFF232F3D), onSecondaryContainer = Color(0xFFCCE4FF),
-        outline = Color(0xFF777780), outlineVariant = Color(0xFF303038),
-        surfaceContainer = Color(0xFF18181C), surfaceContainerHigh = Color(0xFF25252B)
-    ), typography = Typography(
-        headlineLarge = TextStyle(fontFamily=displayFont,fontSize = 34.sp, lineHeight = 38.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp),
-        headlineMedium = TextStyle(fontFamily=displayFont,fontSize = 30.sp, lineHeight = 35.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.7).sp),
-        headlineSmall = TextStyle(fontFamily=displayFont,fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold),
-        titleLarge = TextStyle(fontFamily=displayFont,fontSize = 21.sp, lineHeight = 27.sp, fontWeight = FontWeight.SemiBold),
-        labelMedium = TextStyle(fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-    ), shapes = Shapes(medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(24.dp)), content = content)
+    // Match the approved Trackside 3.0 review. Use the system sans-serif (Roboto on
+    // Android) until the final licensed type assets are bundled and checked.
+    val displayFont = FontFamily.SansSerif
+    MaterialTheme(
+        colorScheme = darkColorScheme(
+            primary = TracksidePalette.red, onPrimary = TracksidePalette.text,
+            background = TracksidePalette.backgroundBottom,
+            surface = TracksidePalette.surface,
+            surfaceVariant = TracksidePalette.surfaceVariant,
+            onSurface = TracksidePalette.text,
+            onBackground = TracksidePalette.text,
+            onSurfaceVariant = TracksidePalette.textMuted,
+            secondary = TracksidePalette.strength,
+            secondaryContainer = Color(0xFF20394C),
+            onSecondaryContainer = TracksidePalette.text,
+            tertiary = TracksidePalette.calisthenics,
+            outline = TracksidePalette.outline,
+            outlineVariant = Color(0xFF3A5363),
+            surfaceContainer = TracksidePalette.surface,
+            surfaceContainerHigh = TracksidePalette.surfaceRaised
+        ),
+        typography = Typography(
+            headlineLarge = TextStyle(fontFamily = displayFont, fontSize = 34.sp, lineHeight = 38.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp),
+            headlineMedium = TextStyle(fontFamily = displayFont, fontSize = 30.sp, lineHeight = 35.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.7).sp),
+            headlineSmall = TextStyle(fontFamily = displayFont, fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold),
+            titleLarge = TextStyle(fontFamily = displayFont, fontSize = 21.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold),
+            labelMedium = TextStyle(fontFamily = displayFont, fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp)
+        ),
+        shapes = Shapes(medium = RoundedCornerShape(14.dp), large = RoundedCornerShape(20.dp)),
+        content = content
+    )
 }
 
 @Composable internal fun NativeStrideApp(model: TrainingViewModel = viewModel()) {
@@ -129,22 +144,62 @@ private fun NavHostController.openActivity(id: String) {
     CompositionLocalProvider(LocalProfileAction provides { nav.openTabRoot("settings") }) {
     Scaffold(
         bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 0.dp,
-                modifier = Modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp).heightIn(min=80.dp).clip(RoundedCornerShape(28.dp)),
-                windowInsets = WindowInsets(0, 0, 0, 0)) {
-                listOf("home" to "Overview", "training" to "Training", "activities" to "Activities", "library" to "Library").forEach { (path, label) ->
-                    NavigationBarItem(selected = route == path || (path == "activities" && route == "activity/{id}") || (path=="training" && route in setOf("builder/{discipline}","workout/{planId}/{sessionId}")) || (path=="library" && route=="practice/{key}"), onClick = {
-                        nav.openTabRoot(path)
-                    }, icon = { if(path=="library") LibraryGrid(Modifier.size(24.dp)) else Icon(when(path) { "home" -> Icons.Default.Home; "training" -> Icons.Default.DateRange; "activities" -> Icons.AutoMirrored.Filled.List; else -> Icons.Default.Settings }, contentDescription = null) },
-                        label = if(androidx.compose.ui.platform.LocalDensity.current.fontScale>1.3f) null else ({ Text(label, fontWeight = FontWeight.SemiBold) }),
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.onSurface, indicatorColor = MaterialTheme.colorScheme.surfaceVariant),
-                        modifier = Modifier.testTag("nav-$path").semantics { contentDescription=label })
+            NavigationBar(
+                containerColor = Color.Transparent,
+                tonalElevation = 0.dp,
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .clip(RoundedCornerShape(32.dp))
+                    .background(Brush.horizontalGradient(listOf(
+                        TracksidePalette.surfaceRaised,
+                        TracksidePalette.surface,
+                        TracksidePalette.surfaceLow
+                    )))
+                    .border(BorderStroke(1.dp, TracksidePalette.outline), RoundedCornerShape(32.dp))
+                    .height(72.dp),
+                windowInsets = WindowInsets(0, 0, 0, 0)
+            ) {
+                // Keep existing route names and test tags during the UI migration.
+                // "More" reuses the existing Settings page; no data route is removed.
+                listOf(
+                    "home" to "Today",
+                    "training" to "Training",
+                    "activities" to "Activity",
+                    "library" to "Library",
+                    "settings" to "More"
+                ).forEach { (path, label) ->
+                    NavigationBarItem(
+                        selected = route == path ||
+                            (path == "activities" && route == "activity/{id}") ||
+                            (path == "training" && route in setOf("builder/{discipline}", "workout/{planId}/{sessionId}")) ||
+                            (path == "library" && route == "practice/{key}"),
+                        onClick = { nav.openTabRoot(path) },
+                        icon = {
+                            when (path) {
+                                "home" -> Icon(Icons.Default.Home, contentDescription = null)
+                                "training" -> Icon(Icons.Default.DateRange, contentDescription = null)
+                                "activities" -> TracksideActivityIcon()
+                                "library" -> TracksideLibraryIcon()
+                                else -> TracksideMoreIcon()
+                            }
+                        },
+                        label = if (LocalDensity.current.fontScale > 1.3f) null
+                            else ({ Text(label, fontWeight = FontWeight.SemiBold, maxLines = 1) }),
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = TracksidePalette.red,
+                            selectedTextColor = TracksidePalette.red,
+                            unselectedIconColor = TracksidePalette.textMuted,
+                            unselectedTextColor = TracksidePalette.textMuted,
+                            indicatorColor = Color(0xFF492637)
+                        ),
+                        modifier = Modifier.testTag("nav-$path").semantics { contentDescription = label }
+                    )
                 }
             }
         }
     ) { padding ->
-        Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(padding).imePadding()) {
+        Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(TracksidePalette.backgroundTop, TracksidePalette.backgroundBottom))).padding(padding).imePadding()) {
             if(state.busy || state.initializing) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("loading"))
             if(!online) Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
                 Text("Offline · Saved activities remain available", Modifier.fillMaxWidth().padding(horizontal = 20.dp,vertical = 10.dp).testTag("offline-status"),style = MaterialTheme.typography.bodyMedium)
