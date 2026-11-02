@@ -341,6 +341,86 @@ Use transparent rules/optimization/statistical models before attempting opaque M
 - [G4] Garmin, *Garmin Running Plans*. https://support.garmin.com/en-US/?faq=IkvWNeIoSd48GIYCjkhlo7
 
 
+
+## Independently recalculated 5K samples and cross-discipline gaps — November 2, 2026
+
+### Verified observation from actual published Runna plan output
+
+I examined the **one-page original PDFs, including page screenshots**, for the published Runna/JustGiving **8-week 5K beginner (3 runs/week)** and **8-week 5K advanced (4 runs/week)** examples. These are **published sample plans**, not controlled personalized app-generated plans, and their creation date/version may precede Runna's current 2026 rules.
+
+Sources:
+- [P2] https://www.jg-cdn.com/docs/librariesprovider10/runna-running-for-good/runna-justgiving_sample_8-week-5k-improvement-plan_beginner_3_km.pdf?sfvrsn=acfee4b0_3
+- [P3] https://www.jg-cdn.com/docs/librariesprovider10/runna-running-for-good/runna-justgiving_sample_8-week-5k-improvement-plan_advanced_4_km.pdf?sfvrsn=e5a82516_3
+
+Distances below were recalculated by summing the bold scheduled top-line km for each day (not substrings in workout names), rounded to one decimal. Week 8 **includes the scheduled 5K race**, so it must not be interpreted as a normal training week.
+
+| Week | Beginner km | Advanced km | Beginner long run km | Advanced long run km |
+|---:|---:|---:|---:|---:|
+| 1 | 11.2 | 32.2 | 5 | 10 |
+| 2 | 13.0 | 35.0 | 6 | 12 |
+| 3 | 15.2 | 37.4 | 7 | 14 |
+| 4 | 10.1 | 30.0 | 4 | 10 |
+| 5 | 17.0 | 40.0 | 8 | 14 |
+| 6 | 18.5 | 44.4 | 8 | 16 |
+| 7 | 15.2 | 35.0 | 7 | 10 |
+| 8 | 13.0 | 17.0 | *5K race, not a long-run prescription* | *5K race, not a long-run prescription* |
+
+**Directly observed**:
+- Week 4 recovery reduction from week 3: beginner **−33.6%**, advanced **−19.8%** (on total km).
+- Week 6 is the highest pre-race week: **18.5** and **44.4 km**.
+- Week 6 long-run allocation is **43.2%** (8/18.5 km) in beginner and **36.0%** (16/44.4 km) in advanced.
+- Weeks 1–7 of beginner typically have **one faster/quality, one easy, one long** run. Advanced includes **two faster/quality, one easy, one long**. Ability level **and** frequency differ together; causal attribution to either factor is not possible from these two examples.
+- Tempo and interval structure rotates even while the number of weekly runs is constant. This is **not proof** of a precise workout selection rule.
+
+**Context distinction:** Runna's 2026 [Training Focus](https://support.runna.com/en/articles/11598487-how-to-choose-your-training-focus) guide says **Endurance Focus** long runs are typically 25–35% of weekly distance; its published 5K race examples frequently exceed this. **Do not claim inconsistency without testing like-for-like plan types**: the 2026 focus is available for general training and instant workouts, whereas the PDFs are race-specific examples.
+
+### NEW: Focus selection is a separate prescription dimension (vendor-documented)
+
+Runna's 2026 [Training Focus](https://support.runna.com/en/articles/11598487-how-to-choose-your-training-focus) documentation identifies **Speed**, **Endurance**, **Balanced** for *general training* plans and instant workouts:
+- **Speed:** shorter/faster intervals, hills, VO2max, reduced long-run emphasis.
+- **Endurance:** long runs, threshold/tempo, and substantial conversational running; the guide describes 25–35% long-run share as typical for this *specific focus*.
+- **Balanced:** tempo + shorter intervals + moderate long runs.
+
+This focus choice is logically distinct from race time/pace setting, volume preference and difficulty preference. Its **exact changes to work-rep counts, hard-session time or volume remain UNKNOWN** without matched-input plan exports.
+
+**Research priority for personal user:** Compare `Endurance` vs `Balanced` at the *same* starting 60–70 km/week, running frequency, recent 5K and availability, using outcomes **matched-heart-rate pace, aerobic durability, and preserved threshold quality**. Do not assume a speed focus is automatically best for improving easy pace.
+
+### NEW: Runna's running plan excludes strength from adaptation (vendor-documented)
+
+Runna's [Adding Strength Training](https://support.runna.com/en/articles/15624879-adding-strength-training-to-your-runna-plan) (Sep 22, 2026) states explicitly:
+- Strength is an **additional calendar plan**. It offers Running Focus vs All Round strength, ability, equipment and session duration/frequency selections, but **adding strength does not change running sessions**.
+- Strength sessions **sit outside adaptive running plans** and do **not affect running-plan adherence, intensity guidance or adaptation**. Manual logging of strength activities is supported; that is not evidence they affect running plan generation.
+- The vendor advises separating demanding lower-body sessions from key intervals/long runs, but the documented product does not claim a full integrated muscular-fatigue prescription.
+- Runna currently doesn't offer a strength-only plan as an independent planning product and doesn't let users swap individual exercise choices in an existing strength session via its plan controls.
+
+**Potential StrideLab differentiation (HYPOTHESIS, not demonstrated superiority):** Coordinate lower-body muscular work with interval/long-run scheduling and evaluate training outcomes while retaining discipline-specific constraints. We should not simply add strength minutes to EPOC-style running load or claim one cross-discipline fatigue score is validated.
+
+**Contrast with Garmin:** Garmin's [Running Plans FAQ](https://support.garmin.com/en-US/?faq=IkvWNeIoSd48GIYCjkhlo7) documents **optional supplemental strength on compatible Run Coach devices**, including the **Forerunner 165 series** in its current table, and `Auto` HR/pace target controls when available. **No verified evidence yet establishes whether supplemental strength completion materially changes Garmin's next running prescription.** Treat it as UNKNOWN, not an advantage or deficiency.
+
+### NEW: Runna's workouts require nested step structure
+
+Runna's [Understand Your Runna Workouts](https://support.runna.com/en/articles/15690947-understand-your-runna-workouts) documents a workout with warm-up, nested/repeated **sets** of distance- or time-based work and recovery, between-set rests, and cool-down. The step transition may be automatic (road) or manual (track), and warm-up can be open-ended. Hills use *effort-based* uphill repetitions and return-down recovery, not a fixed speed target.
+
+**Implication for StrideLab:** Plan generation and a structured workout player should share one normalized interval-tree representation with nested sets, heterogeneous recovery types, and an optional manual transition mode. This is a data-structure requirement, *not* proof of how Runna chooses workout dosage.
+
+### NEW: Garmin recovery numbers are not simple summation
+
+Garmin's [Recovery Time support](https://support.garmin.com/en-PH/?faq=8ImmxVkZMh4EYYq5Zp2bR8) describes recovery-time estimates as re-evaluated after additional activities, not hours simply added together. Available drivers may include training effect, remaining recovery estimate and (on compatible devices) sleep, stress and activity levels. **It does not disclose exact weights, and it is not evidence that Garmin Run Coach directly consumes every recovery-time input.**
+
+**Research interpretation:** If modeling multi-session fatigue, an unvalidated sum of recovery hours is inappropriate. Retain separate observed measurements and investigate the relationship to future coaching prescriptions.
+
+### Most valuable next research (not scheduled milestones)
+
+1. **Controlled Runna focus/frequency study:** Same race ability and workload; change *only* run days, then *only* Speed/Endurance/Balanced focus, then difficulty. Measure workout category, volume, actual hard-work minutes and long-run share. Compare to the published samples without treating their app version as current.
+2. **High-volume developing-speed athlete:** Match recent race pace, vary verified 4-week mileage and recent longest run. Quantify separate changes in start volume, peak, long runs and pace targets. Include the personal athlete range (~60–70 km/week) but retain beginner and low-volume counterexamples.
+3. **Garmin target selection and real adaptation:** Record *before-run* recommendations and available context on a specific Run Coach plan and compatible watch; compare base/recovery vs faster work under HR/Pace/Auto where supported. Record fitness/recovery/phase states without attributing causal weights.
+4. **Cross-discipline interaction:** Investigate what the Garmin optional supplemental strength feature does to run recommendations; distinguish calendar co-location, load recording and actual adaptive changes. Develop original StrideLab hypothesis and test separately using exercise-science constraints.
+5. **Workout grammar:** Compare interval sets, work/recovery target values and progression across successive Runna schedules. Preserve rep-level structure rather than just "tempo 7 km" labels.
+6. **Independent evaluation:** Review long-run concentration, deload pattern and hard-session distribution against independent evidence, not just competitor agreement.
+
+**Limitations:** No fresh matched-input Runna generation, native Garmin Run Coach recommendation stream, or controlled strength-interference outcomes obtained in this review. Published samples verify what *those samples prescribe*, not the exact current proprietary algorithm.
+
+
 ## Primary source register
 
 - [R1] Runna, *How Does Runna Build Your Training Plan Around Your Current Fitness?* https://support.runna.com/en/articles/15231838-how-does-runna-build-your-training-plan-around-your-current-fitness
