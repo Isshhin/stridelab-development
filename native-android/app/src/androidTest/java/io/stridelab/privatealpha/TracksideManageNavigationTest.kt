@@ -47,7 +47,17 @@ class TracksideManageNavigationTest {
         compose.onNodeWithTag("screen-title").assertTextEquals("Manage plan")
         compose.onNodeWithTag("nav-training").assertIsSelected()
         compose.onNodeWithTag("manage-back").performClick()
+        // NavHost transitions are asynchronous on an actual emulator. Wait for the
+        // Training destination instead of reading Manage's exiting semantics tree.
+        compose.waitUntil(timeoutMillis = 10_000L) {
+            runCatching {
+                compose.onNodeWithTag("screen-title").assertTextEquals("Training")
+                true
+            }.getOrDefault(false)
+        }
         compose.onNodeWithTag("screen-title").assertTextEquals("Training")
+        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("training-calendar"))
+        compose.onNodeWithTag("training-calendar").assertExists()
         val dateLabel = selected.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.getDefault()))
             .uppercase(Locale.getDefault())
         compose.onNodeWithTag("screen").performScrollToNode(hasText(dateLabel))
