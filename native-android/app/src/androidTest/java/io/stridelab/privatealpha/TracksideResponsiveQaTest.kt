@@ -66,8 +66,8 @@ class TracksideResponsiveQaTest {
         val file = File(
             // Save under the instrumentation test package, not the target app.
             // The runner can reset target app data between tests, deleting earlier captures.
-            File(InstrumentationRegistry.getInstrumentation().context.getExternalFilesDir(null), "trackside-qa")
-                .apply { mkdirs() },
+            File(InstrumentationRegistry.getInstrumentation().context.filesDir, "trackside-qa")
+                .apply { check(isDirectory || mkdirs()) { "Cannot create QA screenshot folder: $absolutePath" } },
             "${name}-${config.screenWidthDp}dp-font${scale}.png"
         )
         val image = compose.onRoot().captureToImage().asAndroidBitmap()
