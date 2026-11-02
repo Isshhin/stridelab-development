@@ -2,6 +2,7 @@ package io.stridelab.privatealpha
 
 import android.graphics.Bitmap
 import androidx.activity.compose.setContent
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -63,7 +64,10 @@ class TracksideResponsiveQaTest {
         val config = compose.activity.resources.configuration
         val scale = (config.fontScale * 100f).toInt()
         val file = File(
-            File(compose.activity.getExternalFilesDir(null), "trackside-qa").apply { mkdirs() },
+            // Save under the instrumentation test package, not the target app.
+            // The runner can reset target app data between tests, deleting earlier captures.
+            File(InstrumentationRegistry.getInstrumentation().context.getExternalFilesDir(null), "trackside-qa")
+                .apply { mkdirs() },
             "${name}-${config.screenWidthDp}dp-font${scale}.png"
         )
         val image = compose.onRoot().captureToImage().asAndroidBitmap()
