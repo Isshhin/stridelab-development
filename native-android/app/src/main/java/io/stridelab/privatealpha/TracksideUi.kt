@@ -1,6 +1,7 @@
 package io.stridelab.privatealpha
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -38,6 +39,7 @@ internal object TracksidePalette {
 /** Consistent compact navigation glyphs. Accessible labels live on the tab itself. */
 @Composable
 internal fun TracksideActivityIcon(modifier: Modifier = Modifier) {
+    val tint = LocalContentColor.current
     Canvas(modifier.size(24.dp)) {
         val p = listOf(
             Offset(size.width * 0.07f, size.height * 0.52f),
@@ -48,13 +50,14 @@ internal fun TracksideActivityIcon(modifier: Modifier = Modifier) {
             Offset(size.width * 0.93f, size.height * 0.49f)
         )
         p.zipWithNext().forEach { (start, end) ->
-            drawLine(TracksidePalette.text, start, end, strokeWidth = 1.9.dp.toPx(), cap = StrokeCap.Round)
+            drawLine(tint, start, end, strokeWidth = 1.9.dp.toPx(), cap = StrokeCap.Round)
         }
     }
 }
 
 @Composable
 internal fun TracksideLibraryIcon(modifier: Modifier = Modifier) {
+    val tint = LocalContentColor.current
     Canvas(modifier.size(24.dp)) {
         val book = Path().apply {
             moveTo(size.width * 0.16f, size.height * 0.12f)
@@ -66,15 +69,16 @@ internal fun TracksideLibraryIcon(modifier: Modifier = Modifier) {
             moveTo(size.width * 0.16f, size.height * 0.68f)
             lineTo(size.width * 0.84f, size.height * 0.68f)
         }
-        drawPath(book, TracksidePalette.text, style = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawPath(book, tint, style = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
     }
 }
 
 @Composable
 internal fun TracksideMoreIcon(modifier: Modifier = Modifier) {
+    val tint = LocalContentColor.current
     Canvas(modifier.size(24.dp)) {
         listOf(0.2f, 0.5f, 0.8f).forEach { x ->
-            drawCircle(TracksidePalette.text, radius = 1.9.dp.toPx(), center = Offset(size.width * x, size.height / 2))
+            drawCircle(tint, radius = 1.9.dp.toPx(), center = Offset(size.width * x, size.height / 2))
         }
     }
 }
