@@ -115,7 +115,7 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
 
 /** Save each tab's root state, never its transient detail/auth destination. */
 private fun NavHostController.openTabRoot(path: String) {
-    while(currentDestination?.route in setOf("activity/{id}", "auth", "builder/{discipline}", "workout/{planId}/{sessionId}", "practice/{key}")) {
+    while(currentDestination?.route in setOf("activity/{id}", "auth", "builder/{discipline}", "workout/{planId}/{sessionId}", "practice/{key}", "manage/{planId}/{date}")) {
         if(!popBackStack()) break
     }
     navigate(path) {
@@ -172,7 +172,7 @@ private fun NavHostController.openActivity(id: String) {
                     NavigationBarItem(
                         selected = route == path ||
                             (path == "activities" && route == "activity/{id}") ||
-                            (path == "training" && route in setOf("builder/{discipline}", "workout/{planId}/{sessionId}")) ||
+                            (path == "training" && route in setOf("builder/{discipline}", "workout/{planId}/{sessionId}", "manage/{planId}/{date}")) ||
                             (path == "library" && route == "practice/{key}"),
                         onClick = { nav.openTabRoot(path) },
                         icon = {
@@ -316,7 +316,22 @@ private fun NavHostController.openActivity(id: String) {
                         }
                     }
                 }
-                composable("training") { TrainingScreen(state,actions.planning,{nav.navigate("builder/all")},{p,s->nav.openWorkout(p,s)},{nav.navigate("auth")}) }
+                composable("training") { TrainingScreen(state,actions.planning,{nav.navigate("builder/all")},{p,s->nav.openWorkout(p,s)},{nav.navigate("auth")},{p,d->nav.navigate("manage/${android.net.Uri.encode(p)}/$d")}) }
+                composable("manage/{planId}/{date}") { back ->
+                    val planId = back.arguments?.getString("planId") ?: ""
+                    val plan = state.plans.firstOrNull { it.id == planId }
+                    val selected = runCatching { java.time.LocalDate.parse(back.arguments?.getString("date")) }
+                        .getOrDefault(java.time.LocalDate.now())
+                    TracksideManagePlanScreen(
+                        plan = plan, selected = selected, busy = state.busy,
+                        actions = actions.planning,
+                        onBack = { nav.popBackStack() },
+                        onBuildDraft = { nav.navigate("builder/all") },
+                        onWorkout = { sessionId ->
+                            nav.navigate("workout/${android.net.Uri.encode(planId)}/${android.net.Uri.encode(sessionId)}")
+                        }
+                    )
+                }
                 composable("builder/{discipline}") { builder -> PlanBuilder(state,actions.planning,builder.arguments?.getString("discipline") ?: "all",{nav.openTabRoot("training")},{nav.navigate("auth")},{p,s->nav.navigate("workout/${android.net.Uri.encode(p)}/${android.net.Uri.encode(s)}")}) }
                 composable("library") { LibraryScreen(state,actions.planning,{p,s->nav.openWorkout(p,s)},{key->nav.navigate("practice/$key")}) { entry -> if(entry.discipline=="run") {nav.openTabRoot("training");nav.navigate("builder/run")}else nav.navigate("practice/entry-${entry.id}") } }
                 composable("practice/{key}") { backStack -> PracticeBuilder(state,actions.planning,backStack.arguments?.getString("key") ?: "new",{nav.openTabRoot("library")},{p,s->nav.openWorkout(p,s)},{nav.openTabRoot("training")}) }
