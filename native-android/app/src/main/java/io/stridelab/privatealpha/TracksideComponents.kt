@@ -86,7 +86,7 @@ internal fun TracksideScreenHeader(
             IconButton(
                 onClick = onProfileClick,
                 modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                    .testTag("nav-settings")
+                    .testTag("header-settings")
             ) {
                 Icon(Icons.Default.Settings, contentDescription = "Settings and profile")
             }
