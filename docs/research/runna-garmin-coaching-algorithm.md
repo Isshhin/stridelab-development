@@ -9,6 +9,8 @@
 
 **Additional research:** [Intensity distribution and Garmin physiological load](intensity-distribution-and-physiological-load.md) — comparison of session counts, time-in-zone denominators, fitness-scaled Training Effect, and independent peer-reviewed methods.
 
+**Research batch reports (2026-11-02):** [Batch 1 — Runna hard-work dose, periodization and Garmin response](batch-1-hard-dose-periodization-garmin-adaptation.md) · [Batch 2 — external/internal training load and matched-HR easy pace](batch-2-external-internal-load-and-easy-pace.md). Both keep vendor claims, study evidence and hypotheses separate; no production-code changes.
+
 ## Purpose and limits
 
 Investigate the *observable* rules behind running plan generation, progression, workout selection, and adaptation. Distinguish (1) vendor-documented behavior, (2) independently observed output, (3) inferred explanations, and (4) untested hypotheses. A vendor's plans are comparison data, **not** proof of physiological superiority.
