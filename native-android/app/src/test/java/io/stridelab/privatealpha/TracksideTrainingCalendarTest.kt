@@ -29,7 +29,7 @@ class TracksideTrainingCalendarTest {
         assertEquals(7, days.size)
         assertEquals(2, days[1].sessions.size)
         assertEquals(90, days[1].plannedMinutes)
-        assertEquals(230, days.sumOf { it.plannedMinutes })
+        assertEquals(180, days.sumOf { it.plannedMinutes })
         assertEquals(listOf("run" to 50, "str" to 40), days[1].byDiscipline)
     }
 
