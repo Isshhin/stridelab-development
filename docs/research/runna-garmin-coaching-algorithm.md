@@ -523,6 +523,63 @@ Source: [R16b] https://support.runna.com/en/articles/15690947-understand-your-ru
 **Status:** No controlled personalized Runna plans or full workout-step exports captured in this phase; only direct original-PDF overview observations and current public vendor explanations. No proprietary Runna implementation reconstructed.
 
 
+
+## Continued model separation research: pace calibration, predicted outcomes, progression guardrails and hardware availability (2026-11-02)
+
+### Key discovery: three different Runna estimates (VENDOR-DOCUMENTED)
+
+Runna's **estimated current race time** calibrates prescribed workout pace targets. The **estimated goal-race outcome** is a different forecast based on provided athlete information, training schedule, ability, and observed outcomes from comparable runners. A third variable, **Training Volume / Difficulty**, affects the prescribed workload and can change the *predicted future result* without changing the *current workout pace targets*.
+
+These are not interchangeable. Vendor sources:
+- [R22] https://support.runna.com/en/articles/6205998-adjusting-your-estimated-race-time-and-pace-targets
+- [R23] https://support.runna.com/en/articles/6251445-how-is-my-target-race-time-predicted
+- [R3] https://support.runna.com/en/articles/10393191-how-to-use-training-preferences
+
+Runna recommends small manual race-time changes of **15–30 seconds** when recalibrating targets, but this is **general usage guidance, not proof of the software's required increment or pace-to-time formula**. Importantly, Race Prediction is vendor-described as using **other comparable runners' data**; a deterministic physics-only formula would be an incomplete explanation for that specific forecast. Runna notes that its race prediction assumes relatively flat conditions and good weather, and some terrain-dependent races may lack a displayed prediction. This is not a proven or exact cohort model.
+
+**Hypothesized StrideLab design (NOT copied implementation):**
+1. `current_performance_estimate` + uncertainty -> workout target recommendations.
+2. `training_plan_dose` -> volume/difficulty progression, distinct from paces.
+3. `forecast_performance_distribution` -> estimated future outcomes under the plan, with uncertainty and explicit assumptions.
+4. `data_quality` -> controls confidence in all three, especially if only one race distance is known.
+
+For the initial athlete, avoid inferring that a high current weekly volume must entail a correspondingly fast 5K time; retain pace fitness and tolerated workload as separate variables.
+
+### New algorithmic detail: Runna's different *plan families* have different progression functions (VENDOR-DOCUMENTED)
+
+From [R1] https://support.runna.com/en/articles/15231838-how-does-runna-build-your-training-plan-around-your-current-fitness:
+
+- **Race/distance plans**: an increasing mileage curve subject to a mileage-dependent weekly ceiling, with separately controlled long-run progression; more experienced athletes receive higher absolute targets, **not necessarily a faster build rate**.
+- **Run Faster / Run Further / Maintain / Train Your Way**: a *fixed percentage progression* depending on ability and running frequency. Counterintuitively, **fewer running days allows a slightly higher percentage increase**, while more days leads to a lower percentage progression. This is documented behavior, not a safe universal recommendation; test interactions with total starting mileage and session length.
+- **New to Running / Return to Running / Path to parkrun**: a **double constraint** caps weekly progression by the more conservative of two limits. Walk-run changes gradually over stages; Return to Running uses a transition across quarters of the plan. Exact caps/transition formulas UNKNOWN.
+- **Post-race/post-injury/postnatal**: deliberately conservative, coach-built rules-based progression.
+- **Pace targets** are not available on some return/beginner programs, so a single universal pace-driven generator would mismatch these plan families.
+
+**Interpretation:** Plans should have explicit **regimes** or policy families, not one mileage increase equation. The source does not prove that Runna code contains separate submodules; it proves documented behavioral differences.
+
+**New controlled tests:** Hold athlete's ability, current mileage and target duration fixed, vary 3/4/5 days on Run Further; observe whether percentage growth is larger with fewer days *while per-session long-run and hard-session constraints remain feasible*. Separately compare identical athlete inputs under race plan vs Train Your Way to see whether the progression curve differs. A range of mileage starting points is required to estimate the documented ceiling; do not assume a 10% rule.
+
+### Garmin readiness != performance; avoid using absent device metrics (VENDOR-DOCUMENTED)
+
+Garmin's [Training Readiness explanation](https://www.garmin.com/en-PH/garmin-technology/running-science/physiological-measurements/training-readiness/) explicitly distinguishes **readiness to benefit from another training stimulus** from **race-day performance readiness**. A poor night's sleep may reduce training readiness without proving an athlete's performance potential deteriorated.
+
+**Critical device-specific constraint:** Garmin's [comparison table](https://www.garmin.com/en-US/which-watch/best-buy/running/compare/) does **not** list **Training Readiness** or **Training Status** for the **Forerunner 165**, while listing them for more advanced models. The [Forerunner 165 regional specification](https://www.garmin.com.sg/products/wearables/forerunner-165-black/) explicitly lists supported **HRV Status, Recovery Time, Sleep, VO2 Max and Training Effect**. Therefore a single-user study using the 165 must **not** require watch-native Training Readiness, Training Status or load-focus values. Capture only verified available values (sleep score, HRV, recovery time, recorded workouts, pace/HR, relevant wellness context).
+
+Garmin's [Running Plans FAQ](https://support.garmin.com/en-US/?faq=IkvWNeIoSd48GIYCjkhlo7) currently lists **Forerunner 165 as compatible with Run Coach and Expert plans**, but **does not list it for Supplemental Strength Workouts** (which are listed for 170/255/265 and some others). **Correction to earlier research text if it assumed 165 could access Garmin Run Coach supplemental strength:** this is NOT established for 165. Availability is device/version-specific.
+
+This distinction matters: Run Coach's general technical page describes EPOC-based training-load concepts across supported Garmin devices. It does **not** prove that the 165 exposes every such proprietary metric. We must avoid fabricated load or Training Readiness snapshots.
+
+### Next experiment priorities, evidence limits
+
+- **Pace calibration test:** matched Runna plan/ability/volume/difficulty, change current 5K estimate only and examine every work-step target. Compare observed change to several *candidate* pace transformation functions, not just a flat seconds/km shift.
+- **Plan difficulty test:** hold race estimate constant, change difficulty only; inspect rep count, hard work duration and rest, checking Runna's documented prediction that assigned pace does not change.
+- **Frequency-progress test:** matched Run Further athlete, varying run days only, analyze weekly relative progression versus peak absolute distance and feasible session allocation.
+- **Garmin athlete-state observation:** on 165, capture real Run Coach prescriptions before running with only available metrics, distinguish performance target changes from recovery-dependent workout changes; collect wearable/model/firmware.
+- **Prediction vs actual:** a future race prediction needs outcome comparisons across enough real runners; documented cohort use cannot be recreated from one athlete's FIT history.
+
+**Status:** Additional **vendor-documented** decision boundaries discovered. No current matched Runna workout-step export, exact pace formula or Garmin internal weights recovered. No claims of proven source-level reverse engineering or improved athlete outcomes.
+
+
 ## Primary source register
 
 - [R1] Runna, *How Does Runna Build Your Training Plan Around Your Current Fitness?* https://support.runna.com/en/articles/15231838-how-does-runna-build-your-training-plan-around-your-current-fitness
