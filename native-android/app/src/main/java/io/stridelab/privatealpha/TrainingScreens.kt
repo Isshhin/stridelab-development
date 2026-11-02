@@ -68,26 +68,46 @@ import kotlinx.coroutines.withContext
     }
 }
 @Composable internal fun TrainingScreen(state:TrainingState,actions:PlanActions,onBuild:()->Unit,onOpen:(String,String)->Unit,onSignIn:()->Unit) {
-    var selectedId by rememberSaveable { mutableStateOf<String?>(null) };var selectedDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) };var monthView by rememberSaveable { mutableStateOf(false) };var planMenu by rememberSaveable { mutableStateOf(false) }
+    var selectedId by rememberSaveable { mutableStateOf<String?>(null) };var selectedDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) };var monthView by rememberSaveable { mutableStateOf(false) };var agendaView by rememberSaveable { mutableStateOf(false) };var planMenu by rememberSaveable { mutableStateOf(false) }
     val plans=state.plans.filter { it.status!="archived" }
     val plan=plans.find { it.id==selectedId } ?: plans.find { it.status=="approved" } ?: plans.firstOrNull()
     LaunchedEffect(plan?.id) { if(plan!=null) { val end=plan.request.start.plusWeeks(plan.request.weeks.toLong()).minusDays(1);selectedDate=LocalDate.now().coerceIn(plan.request.start,end).toString() } }
     val date=LocalDate.parse(selectedDate)
     Screen("Training","YOUR SHARED CALENDAR") {
-        item { Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-            OutlinedButton(onClick={monthView=!monthView},modifier=Modifier.weight(1f)) { Text(if(monthView) "Week" else "Month") }
-            OutlinedButton(onClick={planMenu=true},enabled=plan!=null,modifier=Modifier.weight(1f)) { Text("Plan") }
+        item { FlowRow(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+            FilterChip(selected=!agendaView&&!monthView,onClick={agendaView=false;monthView=false},label={Text("Day")},modifier=Modifier.testTag("training-view-day"))
+            FilterChip(selected=agendaView&&!monthView,onClick={agendaView=true;monthView=false},label={Text("Agenda")},modifier=Modifier.testTag("training-view-agenda"))
+            TextButton(onClick={monthView=!monthView;if(monthView)agendaView=false},modifier=Modifier.testTag("training-view-month")) { Text(if(monthView) "Week" else "Month") }
+            OutlinedButton(onClick={planMenu=true},enabled=plan!=null,modifier=Modifier.testTag("training-manage-plan")) { Text("Manage") }
         } }
         if(state.account==null) item { SignalCard { Text("Plan without a watch",style=MaterialTheme.typography.headlineSmall);Text("Sign in once to create private, account-isolated plans. Generation, calendar and logging then work offline.");SignalButton("Sign in",onSignIn) } }
         else if(plan==null) item { SignalCard { Text("Build your training around your life.",style=MaterialTheme.typography.headlineMedium);Text("Running, strength, calisthenics and conditioning share one calendar. Choose your goal, ability, days and equipment. Review real prescriptions before approving.");SignalButton("Create a plan",onBuild) } }
         if(plans.size>1) item { Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) { plans.forEach { p -> SignalChip(p.id==plan?.id,{selectedId=p.id},label={Text((p.name ?: p.request.goal)+" · "+p.status)}) } } }
         if(plan!=null) {
             item { Column(Modifier.testTag("training-calendar")) { TrainingCalendar(plan,date,monthView) { selectedDate=it.toString() } } }
+            if(agendaView && !monthView) {
+                val rows=tracksideTrainingWeek(plan,date)
+                if(rows.all { it.sessions.isEmpty() }) item { SignalCard { Text("No sessions scheduled for this week",style=MaterialTheme.typography.titleLarge) } }
+                rows.forEach { day ->
+                    if(day.sessions.isNotEmpty()) {
+                        item(key="agenda-day-${day.date}") {
+                            Text(day.date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")),
+                                style=MaterialTheme.typography.titleMedium,
+                                color=if(day.date==date)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                        }
+                        day.sessions.forEach { session ->
+                            item(key="agenda-workout-${session.id}") { PlannedWorkoutCard(session,state.workoutDrafts.containsKey(plan.id to session.id)) { onOpen(plan.id,session.id) } }
+                        }
+                    }
+                }
+            } else {
+                item { Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")).uppercase(),
+                    style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant) }
+                val day=plan.sessions.filter { it.date==date }
+                if(day.isEmpty()) item { SignalCard { Text("No workout scheduled",style=MaterialTheme.typography.titleLarge);Text("This calendar date has no prescribed session. No workout or completion is assumed.") } }
+                day.forEach { session -> item { PlannedWorkoutCard(session,state.workoutDrafts.containsKey(plan.id to session.id)) { onOpen(plan.id,session.id) } } }
+            }
             item { PlanOverview(plan) }
-            item { Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")).uppercase(),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant) }
-            val day=plan.sessions.filter { it.date==date }
-            if(day.isEmpty()) item { SignalCard { Text("No workout scheduled",style=MaterialTheme.typography.titleLarge);Text("This calendar date has no prescribed session. No workout or completion is assumed.") } }
-            day.forEach { s -> item { PlannedWorkoutCard(s,state.workoutDrafts.containsKey(plan.id to s.id)) { onOpen(plan.id,s.id) } } }
             if(plan.status=="draft"||plan.status=="paused") item { SignalButton(if(plan.status=="draft") "Approve this plan" else "Resume this plan",{actions.approve(plan.id,plan.revision)},!state.busy&&Engine1Engines.canManage(plan)) }
             item { PlanFeedbackForm(plan,actions) }
             item { NativePlanExport(state.plans) }
@@ -119,16 +139,7 @@ import kotlinx.coroutines.withContext
         val gridStart=ym.atDay(1).minusDays((ym.atDay(1).dayOfWeek.value-1).toLong())
         (0 until 6).forEach { row -> Row(Modifier.fillMaxWidth()) { (0 until 7).forEach { col -> val d=gridStart.plusDays((row*7+col).toLong());DayCell(d,d==selected,plan.sessions.filter { it.date==d },d in first..last && YearMonth.from(d)==ym,{onSelect(d)},Modifier.weight(1f),showWeekday=false) } } }
     } else {
-        val week=ChronoUnit.DAYS.between(first,selected).toInt().coerceAtLeast(0)/7
-        val start=first.plusWeeks(week.toLong())
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
-            TextButton(onClick={onSelect(maxOf(first,start.minusWeeks(1)))},enabled=start>first) { Text("‹") }
-            Text("Week ${week+1} of ${plan.request.weeks}",style=MaterialTheme.typography.titleMedium)
-            TextButton(onClick={onSelect(minOf(last,start.plusWeeks(1)))},enabled=start.plusWeeks(1)<=last) { Text("›") }
-        }
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(3.dp)) { (0L..6L).forEach { i -> val d=start.plusDays(i);DayCell(d,d==selected,plan.sessions.filter { it.date==d },d<=last,{onSelect(d)},Modifier.width(46.dp)) } }
-        val sessions=plan.sessions.filter { it.date in start..start.plusDays(6) }
-        Text("${sessions.size} sessions · ${sessions.count { it.status=="completed" }} completed · ${sessions.sumOf { it.effectiveMinutes }} planned min",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        TracksideTrainingWeekChart(plan,selected,onSelect)
     }
 }
 @Composable private fun DayCell(date:LocalDate,selected:Boolean,sessions:List<PlannedSession>,enabled:Boolean,onClick:()->Unit,modifier:Modifier,showWeekday:Boolean=true) {
