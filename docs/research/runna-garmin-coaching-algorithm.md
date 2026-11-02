@@ -13,6 +13,8 @@
 
 **Quantitative experiment 001 (2026-11-02):** [Eight published Runna plans — 92-week baseline analysis](experiments/experiment-001-published-runna-plan-baselines.md) · [auditable weekly CSV](experiments/runna-justgiving-weekly-matrix-2026-11-02.csv). Measured 14 visually identified recovery-week changes; historical samples only, not matched-input current Runna plan generation.
 
+**Experiment 002 (2026-11-02):** [Preregistered Runna one-factor-at-a-time generator comparison](experiments/experiment-002-runna-controlled-generator.md) · [16-case input matrix](experiments/experiment-002-runna-input-matrix.csv). **All cases currently NOT_RUN**: public web cannot display Runna plans; mobile Drafts are the authorized route for future capture. Do not interpret this protocol as a completed current-app experiment.
+
 ## Purpose and limits
 
 Investigate the *observable* rules behind running plan generation, progression, workout selection, and adaptation. Distinguish (1) vendor-documented behavior, (2) independently observed output, (3) inferred explanations, and (4) untested hypotheses. A vendor's plans are comparison data, **not** proof of physiological superiority.
