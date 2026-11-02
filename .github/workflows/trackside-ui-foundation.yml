@@ -34,6 +34,6 @@ jobs:
           gradle-version: '8.13'
       - name: Compile Trackside UI and run native unit tests
         working-directory: native-android
-        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug --console=plain
+        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --console=plain
       - name: Validate exercise library compatibility
         run: python3 native-android/tools/validate_exercise_library.py
