@@ -5,6 +5,8 @@
 **Scope:** Independent coaching research for StrideLab Engine 1.5 and Engine 2.0  
 **Implementation:** Research only. No production coaching-code changes.
 
+**Companion investigation:** [Long-run classes, scheduling constraints, and Garmin measured training load](runna-garmin-session-allocation-and-load-observations.md) — includes vendor-documented behavior and a reproducible full workout-distance calculation.
+
 ## Purpose and limits
 
 Investigate the *observable* rules behind running plan generation, progression, workout selection, and adaptation. Distinguish (1) vendor-documented behavior, (2) independently observed output, (3) inferred explanations, and (4) untested hypotheses. A vendor's plans are comparison data, **not** proof of physiological superiority.
