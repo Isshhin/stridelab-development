@@ -160,6 +160,108 @@ Never reduce these into a single arbitrary readiness score without validation. T
 - Garmin device-level EPOC load cannot be reproduced exactly from distance/HR alone; use available measured values with explicit missingness and never claim proprietary equivalence.
 - The published eight Runna/JustGiving plan examples are not matched-input controlled experiments; previously quoted weekly-mileage numbers remain UNVERIFIED in this repository until independently re-extracted.
 
+
+## Further source review — Pace Insights, heat, target modes and plan feasibility (2026-11-02)
+
+The observations below are based on vendor-published support material, not instrumented access to private app code. **Do not interpret documented functionality as recovered source code or exact numerical thresholds.**
+
+### Runna Pace Insights: more than average completion pace
+
+Runna's [Pace Insights Chart](https://support.runna.com/en/articles/10751290-pace-insights-chart) describes:
+- **Five most recent eligible speed workouts** in the displayed chart, with fastest and slowest qualifying repetitions highlighted. This is a *chart window*, not proof that the underlying recommendation model uses only five workouts.
+- **Normalization across repetitions and workouts** to compare different lengths and prescribed targets. Exact normalization formula UNKNOWN.
+- **Outlier filtering**, with some unusual reps omitted from the display; missed/incomplete repetitions are also excluded.
+- **Prior-recommendation isolation:** workouts marked `Outdated` belong to a previous pace recommendation and no longer influence current pace status.
+- Pace status is based on **repeated patterns**, so a single on-target workout does not necessarily override earlier faster/slower evidence.
+
+These imply a plausible, but **INFERRED** candidate for StrideLab: a rolling eligible-session performance ledger with work-interval deviations, dispersion and post-target-change cohort reset, rather than a simple latest-run average.
+
+Runna's [Pace Insights overview](https://support.runna.com/en/articles/14656203-what-are-pace-insights-and-how-do-they-work) confirms that accepting a pace recommendation changes *pace targets*, not the entire session schedule, and that its performance model cannot fully account for weather, terrain, sleep and fueling. This qualification concerns **Pace Insights**, not all Runna features.
+
+### Runna Pace Insights: explicit exclusion / data validity
+
+Runna's [ineligible workout explanations](https://support.runna.com/en/articles/10855216-why-am-i-not-receiving-pace-insights) include manual linkage from a free run, legacy or instant workouts, substantial planned-vs-actual distance mismatch, incomplete reps, no valid repetitions, inconsistent GPS/interval distance, missing pace targets, extreme elevation and unreliable elevation sources.
+
+**Research implication:** Use `data_validity`, `eligibility_reason`, and `confidence` on *each* activity before trying to recalibrate fitness. Keep actual activity ingestion broad, but narrow target-pace calibration to validated eligible work segments. A failed eligibility check must not silently become a negative performance signal. Exact Runna rejection thresholds UNKNOWN.
+
+**Personal athlete use case:** The initial runner frequently uses hilly roads and a compact rectangular loop. This is a reason to compare similar-route segments, mark hard turns/elevation as confounders, and retain raw FIT samples; **it is not proof that any particular run contains bad GPS**.
+
+### Runna's new Adapt for Heat: contextual changes, not pace fitness revision
+
+Runna's [Adapt for Heat documentation](https://support.runna.com/en/articles/15647483-how-does-runna-adapt-my-workouts-for-heat-and-humidity) (Aug 31, 2026) establishes:
+- Uses **forecast feels-like temperature** (including humidity) and **expected workout duration**; a rough recommendation threshold is **20°C feels-like**, with longer sessions eligible at slightly cooler conditions. The precise adjustment function is UNKNOWN.
+- Displays prospective suggestions **the day before or day of** the session; athlete selects an hour and must choose **Accept** or **Keep as planned**.
+- Can lower pace targets, lower easy-run conversational cap, replace a structured long run with an unstructured conversational long run, or discourage outdoor running in extreme conditions.
+- A hotter forecast, moved session time/date or plan modification can **invalidate an existing accepted adaptation**, requiring re-review or clearing.
+- Not universally available (rollout, plan-type exclusions, outdoor-only; hill sessions are effort/time-based and generally don't receive a pace adjustment).
+- The vendor claims matched intended training effect, but **no mathematical or independent physiological verification** is provided.
+
+**Important distinction:** It is *not contradictory* that Pace Insights lacks environmental corrections while Adapt for Heat makes **future-session weather adjustments**. These should be treated as separate observable channels.
+
+**Potential architecture (INFERRED, original design):** baseline target prescription -> reversible contextual effort adaptation -> athlete approval -> watch sync, with change invalidation when forecasts or schedules shift. Do not change a long-term performance estimate merely because a one-day heat adjustment slowed planned pace. Heat-related safety needs more than copying Runna's rough trigger temperature.
+
+### Runna secondary-event adjustment: workload preservation vs disruption
+
+Runna's [B-race manager](https://support.runna.com/en/articles/10856802-how-to-add-and-manage-your-b-race) describes three user-selectable efforts (`Run for fun`, `Strong & steady`, `Going all out`) and a disruption assessment (`low`, `medium`, `high`), conditional on A-race, B-race distance, duration and ability.
+
+Possible modifications: reposition deloads, lower previous-week volume, substitute taper-oriented sessions, reduce run frequency in race week, and add recovery following the secondary race. The system can refuse conflicting races (too close to the goal race, insufficient build-up, key workouts displaced, outside plan dates or longer than goal distance).
+
+**Documentation caveat:** another Runna [plan-creation FAQ](https://support.runna.com/en/articles/15443877-how-to-create-a-training-plan-in-runna) states B-races can be the *same distance or shorter*; the dedicated B-race manager says *shorter than A-race*. Treat this eligibility rule as **SOURCE-CONFLICT / version-dependent** until tested on the actual app. The dedicated manager documents app version 7.31.2+ and plan v11 prerequisites, which can explain behavioral differences across observations.
+
+The approach suggests an **INFERRED** original `event_disruption` constraint problem, not merely insertion of an extra hard session: preserve essential race-specific training while allocating recovery around a secondary event.
+
+### Runna duration and session classification
+
+Runna's [plan-creation guidance](https://support.runna.com/en/articles/15443877-how-to-create-a-training-plan-in-runna) states plans are primarily **distance-based**, capped at **26 weeks** (even though individual intervals may specify time). It recommends minimum lengths including 8 weeks for 5K improvement, 10 for 10K, 12 for half marathon and 16 for marathon; these are **recommendations**, not necessarily universally enforced minima.
+
+Its [tempo-vs-interval explanation](https://support.runna.com/en/articles/13848642-what-s-the-difference-between-a-tempo-and-interval-running-session) distinguishes **session structure** (`tempo`, `interval`) from **physiological target** (`threshold`). A threshold stimulus may appear in either format. The vendor describes intervals often using shorter reps (roughly 400 m–1.6 km), with tempo blocks around 2–5 km or longer. These are descriptive ranges, **not** confirmed generator thresholds.
+
+**Original modeling implication:** Encode `session_structure` and `physiological_objective` as separate fields. A StrideLab threshold session could be continuous or broken into repeats without being misclassified by labels alone.
+
+### Garmin Run Coach: workout target-type algorithm differs by intensity
+
+Garmin's [Running Plans FAQ](https://support.garmin.com/en-US/?faq=IkvWNeIoSd48GIYCjkhlo7) distinguishes:
+- `Heart Rate`: HR targets for most workouts, **verbal effort guidance for anaerobic/sprint**, where heart-rate targeting is unreliable.
+- `Pace`: pace prescriptions across workout types.
+- `Auto`, on **compatible devices supporting supplemental strength workouts**: HR for base/recovery workouts; pace for tempo, threshold, VO2 max, anaerobic and sprint workouts.
+
+The exact supported target options on each watch model must be confirmed rather than extrapolated from this generic FAQ.
+
+**Original StrideLab implication:** A workout's best target modality may depend on *workout purpose and duration*. A fast 15-second sprint cannot be controlled through instantaneous HR in the same manner as a 45-minute easy run. Separate HR, pace, RPE, and effort-only options with user preference and sensor capability checks.
+
+### Garmin Run Coach: feasibility and scheduling constraints
+
+The same Garmin FAQ documents:
+- Run Coach plans **6–52 weeks**, time/HR/pace goals, and optional supplemental strength on compatible devices.
+- Preferred training and long-run days, but **no manual per-workout rescheduling** for Run Coach: daily prescriptions adapt automatically. This differs from Garmin named Expert Coach plans, which support manual rescheduling.
+- If average weekly distance is markedly low relative to the chosen race distance, a **time-goal option may be withheld**; a completion goal may be available. This is a **workload-history eligibility guardrail**, not a determination that the user lacks speed.
+- For Run Coach, event **end date and distance cannot be modified** after setup (per the support page); the plan can be edited for available days, workout targets, training goal, and other permitted settings.
+
+These are strong examples of **plan-feasibility checks preceding workout selection**. Do not infer the numerical thresholds for mileage/time-goal eligibility without controlled observations.
+
+### Interpretation and what is still unknown
+
+We now have several **documented, separable decisions**:
+1. **Data eligibility:** Is this completed workout reliable enough for pace calibration?
+2. **Performance recalibration:** Do repeated eligible reps justify changing intensity targets?
+3. **Environmental adjustment:** Should today's pace/format change due to forecast heat and duration?
+4. **Event disruption:** Can a secondary race fit while preserving the primary plan?
+5. **Goal feasibility:** Do mileage and training constraints permit a time-oriented event goal?
+6. **Workout target modality:** Should this intensity be expressed by HR, pace, or perceived effort?
+
+None establishes the original vendor's internal object model. Exact weights, progression formulas and decision thresholds are still unknown. **No new controlled app-generated plans or time-stamped Garmin Run Coach snapshots were obtained in this review.**
+
+### Additional primary sources (all vendor-published)
+
+- [R10] Runna, *Pace Insights Chart* (Aug 30, 2026). https://support.runna.com/en/articles/10751290-pace-insights-chart
+- [R11] Runna, *Why Am I Not Receiving Pace Insights?* (updated Oct/Nov 2026). https://support.runna.com/en/articles/10855216-why-am-i-not-receiving-pace-insights
+- [R12] Runna, *How Does Runna Adapt My Workouts for Heat and Humidity?* (Aug 31, 2026). https://support.runna.com/en/articles/15647483-how-does-runna-adapt-my-workouts-for-heat-and-humidity
+- [R13] Runna, *How to Add and Manage Your B-Race* (updated 2026). https://support.runna.com/en/articles/10856802-how-to-add-and-manage-your-b-race
+- [R14] Runna, *How to Create a Training Plan in Runna*. https://support.runna.com/en/articles/15443877-how-to-create-a-training-plan-in-runna
+- [R15] Runna, *What's the Difference Between a Tempo and Interval Running Session?* (Aug 31, 2026). https://support.runna.com/en/articles/13848642-what-s-the-difference-between-a-tempo-and-interval-running-session
+- [G5] Garmin, *Garmin Running Plans*. https://support.garmin.com/en-US/?faq=IkvWNeIoSd48GIYCjkhlo7
+
+
 ## Research roadmap — sequential dependencies, no deadlines
 
 Research proceeds by **evidence quality and dependency**, not a fixed calendar. Each phase can be extended when conclusions remain underdetermined. This roadmap is not authorization to change the Android application.
