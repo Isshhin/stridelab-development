@@ -34,9 +34,6 @@ import kotlin.math.cos
                 TextButton(onClick={selectedIndex=((selectedIndex ?: 1)-1).coerceAtLeast(0)},enabled=selectedIndex!=0) { Text("Previous sample") }
                 TextButton(onClick={selectedIndex=((selectedIndex ?: -1)+1).coerceAtMost(detail.samples.lastIndex)},enabled=selectedIndex!=detail.samples.lastIndex) { Text("Next sample") }
             }
-            if(supportsPace) SampleGraph("Pace", "sec/km",detail.samples,selected,{selectedIndex=it}) { it.pace }
-            SampleGraph("Heart rate","bpm",detail.samples,selected,{selectedIndex=it}) { it.hr }
-            SampleGraph("Elevation","m",detail.samples,selected,{selectedIndex=it}) { it.altitude }
             val points = detail.samples.filter { it.latitude != null && it.longitude != null }
             if(points.size < 2) Text("No recorded GPS route. Indoor activities and sources without coordinates cannot show a route.")
             else {
@@ -53,6 +50,10 @@ import kotlin.math.cos
                     for((a,b) in detail.samples.zipWithNext()) if(a.latitude!=null && a.longitude!=null && b.latitude!=null && b.longitude!=null && b.seconds-a.seconds<=120 && abs(a.longitude-b.longitude)<180) drawLine(color,point(a),point(b),3.dp.toPx())
                 }
             }
+            if(supportsPace) SampleGraph("Pace", "sec/km",detail.samples,selected,{selectedIndex=it}) { it.pace }
+            SampleGraph("Heart rate","bpm",detail.samples,selected,{selectedIndex=it}) { it.hr }
+            SampleGraph("Elevation","m",detail.samples,selected,{selectedIndex=it}) { it.altitude }
+
         }
         Text("Source laps",style=MaterialTheme.typography.titleMedium)
         if(detail.laps.isEmpty()) Text("No recorded laps returned. No kilometer splits have been invented.")
@@ -75,7 +76,7 @@ import kotlin.math.cos
     val low=valid.minOf { it.second }; val high=valid.maxOf { it.second }
     val description=String.format(Locale.getDefault(),"%s · %.1f–%.1f %s · %d samples · elapsed %s to %s",label,low,high,unit,valid.size,ActivityRecord.duration(valid.first().first),ActivityRecord.duration(valid.last().first))
     Text(description,style=MaterialTheme.typography.bodySmall)
-    Text(if(label=="Pace") "Faster pace is higher (seconds per km)" else "Higher line = higher recorded value",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(if(label=="Pace") "Lower seconds per km is faster; faster efforts appear higher." else "Higher line = higher recorded value",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     val color=MaterialTheme.colorScheme.primary
     selected?.let { sample -> Text(value(sample)?.let { n -> "Selected: "+(if(label=="Pace") ActivityRecord.duration(n)+" /km" else String.format(Locale.getDefault(),"%.1f %s",n,unit))+" at "+ActivityRecord.duration(sample.seconds) } ?: "$label was not recorded at this selected sample.",style=MaterialTheme.typography.bodyMedium) }
     Canvas(Modifier.fillMaxWidth().height(110.dp).testTag("stream-$label").semantics { contentDescription=description }.pointerInput(samples) {

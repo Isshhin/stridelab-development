@@ -49,8 +49,8 @@ def main():
     # Deliberately named boundary: all pure JVM source and tests in the pinned native baseline.
     names=['ActivityDetail','ActivityIntelligence','ActivityRecord','BackendConfig','DashboardSummary',
            'Engine1','Engine1Engines','EngineContracts','ExerciseAlternatives','ExerciseLibraryV2','IntervalConnection',
-           'LibraryShelf','MultiSessionEngine1','PlanBackup','PlanOperations','SessionTemplate','SupabaseGateway',
-           'WellnessRecord','WorkoutEntryDraft']
+           'LibraryShelf','MultiSessionEngine1','PlanBackup','PlanOperations','PlanScheduleValidation','SessionTemplate','SupabaseGateway',
+           'WellnessRecord','WorkoutEntryDraft','WorkoutLogValidation']
     kotlin=[native/'main/java/io/stridelab/privatealpha'/f'{n}.kt' for n in names]
     # One existing pure helper lives in a Compose file. Compile its exact source, not a stub.
     # Full Android compilation remains a separate CI gate.
@@ -60,7 +60,21 @@ def main():
     extracted=cache/'HistoryWeeklyKm.kt'
     extracted.write_text('package io.stridelab.privatealpha\nimport java.time.Instant\nimport java.time.ZoneId\n'+helper.group(0)+'\n')
     kotlin.append(extracted)
-    tests=sorted((native/'test/java/io/stridelab/privatealpha').glob('*.kt'))
+    # This runner deliberately compiles Kotlin's *pure JVM* domain boundary without
+    # Android or Compose dependencies. These newer integration/UI tests require the
+    # complete Android Gradle classpath and are covered by the separate android-unit
+    # workflow job (:app:testDebugUnitTest), not by this offline compiler subset.
+    android_gradle_only={
+        'ActivityImportMatcherTest.kt', 'FitActivityDecoderTest.kt',
+        'FitContainerReaderTest.kt', 'TracksideTrainingCalendarTest.kt',
+        'WearableProviderContractsTest.kt',
+    }
+    tests=sorted(p for p in (native/'test/java/io/stridelab/privatealpha').glob('*.kt')
+                 if p.name not in android_gradle_only)
+    if len(tests)<15 or not any(p.name=='ExerciseLibraryV2Test.kt' for p in tests):
+        raise RuntimeError('Pinned pure JVM test coverage unexpectedly decreased')
+    print('Pure JVM test classes ('+str(len(tests))+'): '+', '.join(p.stem for p in tests),
+          flush=True)
     fixtures=[TOOLS/'fixtures/Engine2ExerciseSelection-245349c.kt',TOOLS/'jvm/ExerciseLibrarySelectionCompatibilityTest.kt']
     run(['java','-cp',cp,'org.jetbrains.kotlin.cli.jvm.K2JVMCompiler','-no-stdlib','-no-reflect','-jvm-target','17','-classpath',cp,'-d',build]+kotlin+tests+fixtures)
     classes=['io.stridelab.privatealpha.'+p.stem for p in java_tests+tests]+['io.stridelab.privatealpha.ExerciseLibrarySelectionCompatibilityTest']

@@ -48,8 +48,63 @@ import kotlinx.coroutines.withContext
         if(expanded) plan.explanations.forEach { Text(it,style=MaterialTheme.typography.bodyMedium) }
     }
 }
-@Composable internal fun PlannedWorkoutCard(s:PlannedSession,hasDraft:Boolean=false,onClick:()->Unit) {
-    val color=disciplineColor(s.discipline)
+@Composable internal fun PlannedWorkoutCard(s:PlannedSession,hasDraft:Boolean=false,compact:Boolean=false,onClick:()->Unit) {
+    val color=tracksideDisciplineColor(s.discipline)
+    if (compact) {
+        // Compact Figma 602:3 treatment; all content remains a real saved prescription.
+        // Full instructions and any missing metrics are available through the existing detail route.
+        Surface(onClick=onClick,shape=RoundedCornerShape(14.dp),
+            color=TracksidePalette.surface,
+            border=BorderStroke(1.dp,color.copy(alpha=0.32f)),
+            modifier=Modifier.fillMaxWidth().testTag("workout-${s.id}")) {
+            Column(Modifier.background(
+                androidx.compose.ui.graphics.Brush.horizontalGradient(
+                    listOf(color.copy(alpha=0.10f),androidx.compose.ui.graphics.Color.Transparent)))
+                .padding(14.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment=Alignment.CenterVertically,
+                    horizontalArrangement=Arrangement.spacedBy(11.dp)) {
+                    Box(Modifier.size(42.dp).background(color.copy(alpha=0.18f),RoundedCornerShape(11.dp)),
+                        contentAlignment=Alignment.Center) {
+                        if (s.discipline=="run") Icon(
+                            painter=androidx.compose.ui.res.painterResource(R.drawable.trackside_figma_run),
+                            contentDescription=null,tint=color,modifier=Modifier.size(26.dp))
+                        else Text(disciplineLabel(s.discipline).take(1).uppercase(),
+                            color=color,style=MaterialTheme.typography.titleMedium)
+                    }
+                    Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(3.dp)) {
+                        Text(s.effectiveTitle,style=MaterialTheme.typography.titleMedium,
+                            color=TracksidePalette.text,maxLines=2)
+                        Text("${disciplineLabel(s.discipline)} · ${s.effectiveMinutes} planned min · ${s.status.replace('_',' ')}",
+                            style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted,maxLines=2)
+                    }
+                    Text("›",color=TracksidePalette.textMuted,style=MaterialTheme.typography.titleLarge)
+                }
+                if(s.distanceKm!=null)
+                    Text("Target %.1f km · prescribed, not recorded".format(s.distanceKm),
+                        style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted)
+                if(s.effectiveExercises.isNotEmpty()) {
+                    s.effectiveExercises.take(3).forEach { e ->
+                        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                            Text(e.name,modifier=Modifier.weight(1f),
+                                style=MaterialTheme.typography.bodySmall,color=TracksidePalette.text)
+                            Text("${e.sets} × ${e.reps?.let { "$it reps" } ?: "${e.seconds} s"}",
+                                style=MaterialTheme.typography.bodySmall,color=color)
+                        }
+                    }
+                    if(s.effectiveExercises.size>3) Text("More exercises in workout details",
+                        style=MaterialTheme.typography.labelSmall,color=TracksidePalette.textMuted)
+                } else s.steps.take(2).forEach {
+                    Text(it,style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted)
+                }
+                if(hasDraft) Text("Saved entry draft · resume without completing",
+                    style=MaterialTheme.typography.bodySmall,color=TracksidePalette.red)
+                if(s.suggestion!=null && !s.suggestion.accepted)
+                    Text("Recovery suggestion needs your review",
+                        style=MaterialTheme.typography.bodySmall,color=TracksidePalette.red)
+            }
+        }
+        return
+    }
     Surface(onClick=onClick,shape=RoundedCornerShape(24.dp),color=MaterialTheme.colorScheme.surface,border=BorderStroke(1.dp,MaterialTheme.colorScheme.outlineVariant),modifier=Modifier.fillMaxWidth().testTag("workout-${s.id}")) {
         Row(Modifier.height(IntrinsicSize.Min)) {
             Box(Modifier.width(4.dp).fillMaxHeight().background(color))
@@ -67,27 +122,63 @@ import kotlinx.coroutines.withContext
         }
     }
 }
-@Composable internal fun TrainingScreen(state:TrainingState,actions:PlanActions,onBuild:()->Unit,onOpen:(String,String)->Unit,onSignIn:()->Unit) {
-    var selectedId by rememberSaveable { mutableStateOf<String?>(null) };var selectedDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) };var monthView by rememberSaveable { mutableStateOf(false) };var planMenu by rememberSaveable { mutableStateOf(false) }
+@Composable internal fun TrainingScreen(state:TrainingState,actions:PlanActions,onBuild:()->Unit,onOpen:(String,String)->Unit,onSignIn:()->Unit,onManage:(String,LocalDate)->Unit) {
+    var selectedId by rememberSaveable { mutableStateOf<String?>(null) };var selectedDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) };var monthView by rememberSaveable { mutableStateOf(false) };var agendaView by rememberSaveable { mutableStateOf(false) }
     val plans=state.plans.filter { it.status!="archived" }
     val plan=plans.find { it.id==selectedId } ?: plans.find { it.status=="approved" } ?: plans.firstOrNull()
-    LaunchedEffect(plan?.id) { if(plan!=null) { val end=plan.request.start.plusWeeks(plan.request.weeks.toLong()).minusDays(1);selectedDate=LocalDate.now().coerceIn(plan.request.start,end).toString() } }
-    val date=LocalDate.parse(selectedDate)
-    Screen("Training","YOUR SHARED CALENDAR") {
-        item { Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-            OutlinedButton(onClick={monthView=!monthView},modifier=Modifier.weight(1f)) { Text(if(monthView) "Week" else "Month") }
-            OutlinedButton(onClick={planMenu=true},enabled=plan!=null,modifier=Modifier.weight(1f)) { Text("Plan") }
+    // Keep the selected day when returning from Workout or Manage. Switch/reset only
+    // when choosing a different plan, or when a stored day leaves the plan interval.
+    var selectionPlanId by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(plan?.id) {
+        if(plan!=null) {
+            val first=plan.request.start
+            val last=first.plusWeeks(plan.request.weeks.toLong()).minusDays(1)
+            val existing=runCatching { LocalDate.parse(selectedDate) }.getOrNull()
+            val chosen=if(selectionPlanId!=plan.id) LocalDate.now() else existing ?: LocalDate.now()
+            selectedDate=chosen.coerceIn(first,last).toString()
+            selectionPlanId=plan.id
+        }
+    }
+    val date=LocalDate.parse(selectedDate).let { stored ->
+        plan?.let { stored.coerceIn(it.request.start,it.request.start.plusWeeks(it.request.weeks.toLong()).minusDays(1)) } ?: stored
+    }
+    Screen("Training","YOUR SHARED CALENDAR",compactTitle=true,dense=true) {
+        item { FlowRow(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+            FilterChip(selected=!agendaView&&!monthView,onClick={agendaView=false;monthView=false},label={Text("Day")},modifier=Modifier.testTag("training-view-day"))
+            FilterChip(selected=agendaView&&!monthView,onClick={agendaView=true;monthView=false},label={Text("Agenda")},modifier=Modifier.testTag("training-view-agenda"))
+            TextButton(onClick={monthView=!monthView;if(monthView)agendaView=false},modifier=Modifier.testTag("training-view-month")) { Text(if(monthView) "Week" else "Month") }
+            TextButton(onClick={plan?.let { onManage(it.id,date) }}, enabled=plan!=null,
+                contentPadding=PaddingValues(horizontal=8.dp, vertical=0.dp),
+                modifier=Modifier.heightIn(min=48.dp).testTag("training-manage-plan")) { Text("Manage") }
         } }
         if(state.account==null) item { SignalCard { Text("Plan without a watch",style=MaterialTheme.typography.headlineSmall);Text("Sign in once to create private, account-isolated plans. Generation, calendar and logging then work offline.");SignalButton("Sign in",onSignIn) } }
         else if(plan==null) item { SignalCard { Text("Build your training around your life.",style=MaterialTheme.typography.headlineMedium);Text("Running, strength, calisthenics and conditioning share one calendar. Choose your goal, ability, days and equipment. Review real prescriptions before approving.");SignalButton("Create a plan",onBuild) } }
         if(plans.size>1) item { Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) { plans.forEach { p -> SignalChip(p.id==plan?.id,{selectedId=p.id},label={Text((p.name ?: p.request.goal)+" · "+p.status)}) } } }
         if(plan!=null) {
             item { Column(Modifier.testTag("training-calendar")) { TrainingCalendar(plan,date,monthView) { selectedDate=it.toString() } } }
+            if(agendaView && !monthView) {
+                val rows=tracksideTrainingWeek(plan,date)
+                if(rows.all { it.sessions.isEmpty() }) item { SignalCard { Text("No sessions scheduled for this week",style=MaterialTheme.typography.titleLarge) } }
+                rows.forEach { day ->
+                    if(day.sessions.isNotEmpty()) {
+                        item(key="agenda-day-${day.date}") {
+                            Text(day.date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")),
+                                style=MaterialTheme.typography.titleMedium,
+                                color=if(day.date==date)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                        }
+                        day.sessions.forEach { session ->
+                            item(key="agenda-workout-${session.id}") { PlannedWorkoutCard(session,state.workoutDrafts.containsKey(plan.id to session.id),compact=true) { onOpen(plan.id,session.id) } }
+                        }
+                    }
+                }
+            } else {
+                item { Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")).uppercase(),
+                    style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant) }
+                val day=plan.sessions.filter { it.date==date }
+                if(day.isEmpty()) item { SignalCard { Text("No workout scheduled",style=MaterialTheme.typography.titleLarge);Text("This calendar date has no prescribed session. No workout or completion is assumed.") } }
+                day.forEach { session -> item { PlannedWorkoutCard(session,state.workoutDrafts.containsKey(plan.id to session.id),compact=true) { onOpen(plan.id,session.id) } } }
+            }
             item { PlanOverview(plan) }
-            item { Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")).uppercase(),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant) }
-            val day=plan.sessions.filter { it.date==date }
-            if(day.isEmpty()) item { SignalCard { Text("No workout scheduled",style=MaterialTheme.typography.titleLarge);Text("This calendar date has no prescribed session. No workout or completion is assumed.") } }
-            day.forEach { s -> item { PlannedWorkoutCard(s,state.workoutDrafts.containsKey(plan.id to s.id)) { onOpen(plan.id,s.id) } } }
             if(plan.status=="draft"||plan.status=="paused") item { SignalButton(if(plan.status=="draft") "Approve this plan" else "Resume this plan",{actions.approve(plan.id,plan.revision)},!state.busy&&Engine1Engines.canManage(plan)) }
             item { PlanFeedbackForm(plan,actions) }
             item { NativePlanExport(state.plans) }
@@ -95,16 +186,7 @@ import kotlinx.coroutines.withContext
         if(state.account!=null) item { NativePlanImport(state,actions) }
         if(state.account!=null && plan!=null) item { OutlinedButton(onClick=onBuild,modifier=Modifier.fillMaxWidth()) { Text("Create / edit a reviewed draft") } }
     }
-    if(planMenu&&plan!=null) ModalBottomSheet(onDismissRequest={planMenu=false},containerColor=MaterialTheme.colorScheme.surface) {
-        Column(Modifier.padding(24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-            Text(plan.name ?: plan.request.goal,style=MaterialTheme.typography.headlineSmall)
-        Text(if(!Engine1Engines.canManage(plan))"Saved engine/policy · read-only here" else when(plan.policyId) {CoordinatedEngine1.policyId->"Coordinated discipline goals";MultiSessionEngine1.policyId->"Multi-session scheduling";SessionTemplate.POLICY_ID->"User-reviewed session targets";else->"Verified baseline fallback"},style=MaterialTheme.typography.bodySmall);Text("Editing creates a new reviewed draft. Approved prescriptions and previous logs are retained.")
-            SignalButton("Edit inputs / create draft",{planMenu=false;onBuild()},Engine1Engines.canManage(plan))
-            if(plan.status=="approved") OutlinedButton(onClick={actions.pause(plan.id,plan.revision);planMenu=false},enabled=Engine1Engines.canManage(plan),modifier=Modifier.fillMaxWidth()) { Text("Pause plan") }
-            OutlinedButton(onClick={actions.archive(plan.id,plan.revision);planMenu=false},enabled=Engine1Engines.canManage(plan),modifier=Modifier.fillMaxWidth()) { Text("Archive plan · keep records") }
-            TextButton(onClick={planMenu=false}) { Text("Close") }
-        }
-    }
+
 }
 @Composable internal fun TrainingCalendar(plan:PlanSnapshot,selected:LocalDate,month:Boolean,onSelect:(LocalDate)->Unit) {
     val first=plan.request.start;val last=first.plusWeeks(plan.request.weeks.toLong()).minusDays(1)
@@ -119,16 +201,7 @@ import kotlinx.coroutines.withContext
         val gridStart=ym.atDay(1).minusDays((ym.atDay(1).dayOfWeek.value-1).toLong())
         (0 until 6).forEach { row -> Row(Modifier.fillMaxWidth()) { (0 until 7).forEach { col -> val d=gridStart.plusDays((row*7+col).toLong());DayCell(d,d==selected,plan.sessions.filter { it.date==d },d in first..last && YearMonth.from(d)==ym,{onSelect(d)},Modifier.weight(1f),showWeekday=false) } } }
     } else {
-        val week=ChronoUnit.DAYS.between(first,selected).toInt().coerceAtLeast(0)/7
-        val start=first.plusWeeks(week.toLong())
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
-            TextButton(onClick={onSelect(maxOf(first,start.minusWeeks(1)))},enabled=start>first) { Text("‹") }
-            Text("Week ${week+1} of ${plan.request.weeks}",style=MaterialTheme.typography.titleMedium)
-            TextButton(onClick={onSelect(minOf(last,start.plusWeeks(1)))},enabled=start.plusWeeks(1)<=last) { Text("›") }
-        }
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(3.dp)) { (0L..6L).forEach { i -> val d=start.plusDays(i);DayCell(d,d==selected,plan.sessions.filter { it.date==d },d<=last,{onSelect(d)},Modifier.width(46.dp)) } }
-        val sessions=plan.sessions.filter { it.date in start..start.plusDays(6) }
-        Text("${sessions.size} sessions · ${sessions.count { it.status=="completed" }} completed · ${sessions.sumOf { it.effectiveMinutes }} planned min",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        TracksideTrainingWeekChart(plan,selected,onSelect)
     }
 }
 @Composable private fun DayCell(date:LocalDate,selected:Boolean,sessions:List<PlannedSession>,enabled:Boolean,onClick:()->Unit,modifier:Modifier,showWeekday:Boolean=true) {
@@ -137,7 +210,7 @@ import kotlinx.coroutines.withContext
             if(showWeekday) Text(dayName(date.dayOfWeek.value).take(2),style=MaterialTheme.typography.labelSmall,color=if(selected)MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
             Text("${date.dayOfMonth}",style=MaterialTheme.typography.titleMedium,color=if(!enabled)MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=.45f) else if(selected)MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
             if(sessions.isNotEmpty()) {
-                Box(Modifier.size(7.dp).background(if(sessions.all { it.status=="completed" }) MaterialTheme.colorScheme.primary else disciplineColor(sessions.first().discipline),RoundedCornerShape(4.dp)))
+                Box(Modifier.size(7.dp).background(if(sessions.all { it.status=="completed" }) MaterialTheme.colorScheme.primary else tracksideDisciplineColor(sessions.first().discipline),RoundedCornerShape(4.dp)))
                 if(sessions.size>1) Text("${sessions.size} workouts",style=MaterialTheme.typography.labelSmall,color=if(selected)MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }

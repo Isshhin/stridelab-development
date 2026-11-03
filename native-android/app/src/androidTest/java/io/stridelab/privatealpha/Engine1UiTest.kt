@@ -183,7 +183,7 @@ class Engine1UiTest {
         compose.waitUntil(10000) { compose.onAllNodesWithContentDescription("Incline push-up — original schematic").fetchSemanticsNodes().isNotEmpty() }
         capture("phase1-library-modal")
         compose.onNodeWithText("Close",useUnmergedTree=true).performScrollTo().performClick()
-        listOf("home" to "Your training","training" to "Training","activities" to "Activities","library" to "Library").forEach { (tag,title) -> compose.onNodeWithTag("nav-$tag").performClick();compose.onNodeWithTag("screen-title").assertTextEquals(title) }
+        listOf("home" to "Today","training" to "Training","activities" to "Activities","library" to "Library").forEach { (tag,title) -> compose.onNodeWithTag("nav-$tag").performClick();compose.onNodeWithTag("screen-title").assertTextEquals(title) }
     }
     @Test fun calendarAndInstructionalModalReflowAtTwoHundredPercentText() {
         val request=PlanRequest(start=LocalDate.now(),runDays=0,strengthDays=2,calDays=2,days=setOf(1,2,4,6))

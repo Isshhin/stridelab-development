@@ -1,0 +1,89 @@
+name: Trackside legacy APK upgrade preservation
+
+on:
+  push:
+    branches:
+      - feature/trackside3-compose-foundation-20261102
+    paths:
+      - 'native-android/**'
+      - 'android-app/android/**'
+      - '.github/workflows/trackside-legacy-upgrade.yml'
+  pull_request:
+    branches:
+      - integration/native-pre-trackside3-verified-20261030
+    paths:
+      - 'native-android/**'
+      - 'android-app/android/**'
+      - '.github/workflows/trackside-legacy-upgrade.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trackside-legacy-upgrade-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  legacy-to-native-upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - run: sdkmanager --install 'platforms;android-36' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Build actual legacy and native APKs with one ephemeral debug signer
+        run: |
+          gradle --no-daemon -p android-app/android -I "$GITHUB_WORKSPACE/native-android/legacy-upgrade.init.gradle" :app:assembleDebug :app:assembleDebugAndroidTest
+          gradle --no-daemon -p native-android :app:assembleDebug :app:assembleDebugAndroidTest
+          python3 native-android/tools/check_apk_update.py --installed-apk android-app/android/app/build/outputs/apk/debug/app-debug.apk --candidate native-android/app/build/outputs/apk/debug/app-debug.apk --aapt "$ANDROID_HOME/build-tools/35.0.0/aapt" --apksigner "$ANDROID_HOME/build-tools/35.0.0/apksigner" | tee upgrade-metadata.json
+      - name: Reclaim runner disk for legacy APK emulator
+        run: |
+          df -h .
+          # Both legacy and native APKs are built in this job; free unused SDKs
+          # before creating the emulator's persistent userdata partition.
+          sudo rm -rf /usr/share/dotnet /opt/hostedtoolcache/CodeQL
+          df -h .
+          available_kb=$(df -Pk . | awk 'NR==2 {print $4}')
+          test "$available_kb" -gt 5500000
+      - name: Enable emulator KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Seed legacy SQLite, outbox, keystore and WebView; update APK in place
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disk-size: 2048M
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -camera-back none
+          disable-animations: true
+          script: |
+            set -eu
+            mkdir -p native-android/app/build/reports/trackside-upgrade
+            adb install -r android-app/android/app/build/outputs/apk/debug/app-debug.apk
+            adb install -r android-app/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w -e class io.stridelab.privatealpha.LegacyUpgradeSeedTest io.stridelab.privatealpha.test/androidx.test.runner.AndroidJUnitRunner | tee native-android/app/build/reports/trackside-upgrade/legacy-seed.txt
+            grep -Fq 'OK (1 test)' native-android/app/build/reports/trackside-upgrade/legacy-seed.txt
+            adb install -r native-android/app/build/outputs/apk/debug/app-debug.apk
+            adb install -r native-android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w -e class io.stridelab.privatealpha.NativeUpgradeTest -e expectLegacyUpgrade true io.stridelab.privatealpha.test/androidx.test.runner.AndroidJUnitRunner | tee native-android/app/build/reports/trackside-upgrade/native-upgrade.txt
+            grep -Fq 'OK (1 test)' native-android/app/build/reports/trackside-upgrade/native-upgrade.txt
+      - name: Save upgrade reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trackside-legacy-upgrade-evidence
+          path: |
+            native-android/app/build/reports/trackside-upgrade/
+            upgrade-metadata.json
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,0 +1,79 @@
+name: Trackside Batch B responsive device QA
+
+on:
+  push:
+    branches:
+      - feature/trackside3-compose-foundation-20261102
+    paths:
+      - 'native-android/**'
+      - '.github/workflows/trackside-responsive-qa.yml'
+  pull_request:
+    branches:
+      - integration/native-pre-trackside3-verified-20261030
+    paths:
+      - 'native-android/**'
+      - '.github/workflows/trackside-responsive-qa.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trackside-batch-b-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  responsive-device-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: compact-360dp-font130
+            pixels: 720x1600
+            dpi: 320
+            font: '1.3'
+          - profile: standard-412dp-font150
+            pixels: 824x1900
+            dpi: 320
+            font: '1.5'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - run: sdkmanager --install 'platforms;android-36' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Enable KVM acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run responsive Compose tests and capture synthetic screenshots
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -camera-back none
+          disable-animations: true
+          script: |
+            adb shell wm size ${{ matrix.pixels }}
+            adb shell wm density ${{ matrix.dpi }}
+            adb shell settings put system font_scale ${{ matrix.font }}
+            sh -c 'gradle --project-dir native-android --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=io.stridelab.privatealpha.TracksideResponsiveQaTest --console=plain || exit $?; mkdir -p native-android/app/build/qa-screenshots/${{ matrix.profile }}; for attempt in 1 2 3; do adb pull /sdcard/Pictures/StrideLabBatchB native-android/app/build/qa-screenshots/${{ matrix.profile }} || true; count=$(find native-android/app/build/qa-screenshots/${{ matrix.profile }}/StrideLabBatchB -type f -name "*.png" 2>/dev/null | wc -l); echo "Captured screenshots: $count (expected at least 5)"; if [ "$count" -ge 5 ]; then exit 0; fi; sleep 3; done; echo "Missing required Batch B screenshot evidence" >&2; exit 1'
+      - name: Upload screenshot and instrumentation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trackside-batch-b-${{ matrix.profile }}
+          path: |
+            native-android/app/build/qa-screenshots/${{ matrix.profile }}/
+            native-android/app/build/reports/androidTests/connected/
+            native-android/app/build/outputs/androidTest-results/connected/
+          if-no-files-found: warn
+          retention-days: 7

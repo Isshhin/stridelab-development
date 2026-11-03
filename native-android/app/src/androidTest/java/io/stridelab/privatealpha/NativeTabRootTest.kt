@@ -22,8 +22,10 @@ class NativeTabRootTest {
         }
     }
     private fun tab(path: String, title: String) {
-        if(path=="settings") { compose.onNodeWithTag("nav-home").performClick();compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("nav-settings")) }
-        compose.onNodeWithTag("nav-$path").performClick()
+        // NavigationBar is a fixed Scaffold sibling, not an item in the screen LazyColumn.
+        // Click its real root item directly; scrolling the screen to "nav-settings"
+        // was an invalid test locator and never exercised the Settings destination.
+        compose.onNodeWithTag("nav-$path").assertIsDisplayed().performClick()
         compose.onNode(hasTestTag("screen") and SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, title)).assertExists()
     }
     private fun back() = InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
@@ -34,19 +36,19 @@ class NativeTabRootTest {
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("activity-synthetic-tab-39"))
         compose.onNodeWithTag("activity-synthetic-tab-39").performClick()
         compose.onNodeWithTag("screen-title").assertTextEquals("Saved walk 39")
-        tab("home", "Your training")
+        tab("home", "Today")
         tab("activities", "Activities")
         // Root navigation must not discard useful state to fix the restored-detail bug.
         compose.onNodeWithTag("activity-synthetic-tab-39").assertIsDisplayed()
         repeat(3) {
             tab("settings", "Settings")
-            tab("home", "Your training")
+            tab("home", "Today")
             tab("activities", "Activities")
             compose.onNodeWithTag("activity-synthetic-tab-39").assertIsDisplayed()
         }
         tab("activities", "Activities")
         back()
-        compose.onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle,"Your training"))
+        compose.onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle,"Today"))
         compose.onNodeWithTag("nav-home").assertIsSelected()
     }
 
@@ -59,7 +61,7 @@ class NativeTabRootTest {
         compose.onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle,"Activities"))
         compose.onNodeWithTag("nav-activities").assertIsSelected()
         compose.onNodeWithTag("activity-synthetic-tab-0").assertIsDisplayed()
-        tab("home", "Your training")
+        tab("home", "Today")
         compose.onNodeWithTag("activity-synthetic-tab-0").performClick()
         compose.onNodeWithTag("screen-title").assertTextEquals("Saved walk 0")
         back()

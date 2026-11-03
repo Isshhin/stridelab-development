@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.draw.clip
@@ -43,6 +44,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -67,24 +69,38 @@ class NativeMainActivity: ComponentActivity() {
     }
 }
 
-@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
 @Composable internal fun StrideTheme(content: @Composable () -> Unit) {
-    val displayFont=remember { FontFamily(Font(R.font.bricolage_variable,weight=FontWeight.Bold,variationSettings=FontVariation.Settings(FontVariation.weight(800)))) }
-    MaterialTheme(colorScheme = darkColorScheme(
-        primary = Color(0xFFD6FF4F), onPrimary = Color(0xFF0A0D02),
-        background = Color(0xFF050506), surface = Color(0xFF101013),
-        surfaceVariant = Color(0xFF25252B), onSurface = Color(0xFFF4F1EA),
-        onBackground = Color(0xFFF4F1EA), onSurfaceVariant = Color(0xFFB0B0BA),
-        secondary = Color(0xFF6FB4FF), secondaryContainer = Color(0xFF232F3D), onSecondaryContainer = Color(0xFFCCE4FF),
-        outline = Color(0xFF777780), outlineVariant = Color(0xFF303038),
-        surfaceContainer = Color(0xFF18181C), surfaceContainerHigh = Color(0xFF25252B)
-    ), typography = Typography(
-        headlineLarge = TextStyle(fontFamily=displayFont,fontSize = 34.sp, lineHeight = 38.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp),
-        headlineMedium = TextStyle(fontFamily=displayFont,fontSize = 30.sp, lineHeight = 35.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.7).sp),
-        headlineSmall = TextStyle(fontFamily=displayFont,fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold),
-        titleLarge = TextStyle(fontFamily=displayFont,fontSize = 21.sp, lineHeight = 27.sp, fontWeight = FontWeight.SemiBold),
-        labelMedium = TextStyle(fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-    ), shapes = Shapes(medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(24.dp)), content = content)
+    // Match the approved Trackside 3.0 review. Use the system sans-serif (Roboto on
+    // Android) until the final licensed type assets are bundled and checked.
+    val displayFont = FontFamily.SansSerif
+    MaterialTheme(
+        colorScheme = darkColorScheme(
+            primary = TracksidePalette.red, onPrimary = TracksidePalette.text,
+            background = TracksidePalette.backgroundBottom,
+            surface = TracksidePalette.surface,
+            surfaceVariant = TracksidePalette.surfaceVariant,
+            onSurface = TracksidePalette.text,
+            onBackground = TracksidePalette.text,
+            onSurfaceVariant = TracksidePalette.textMuted,
+            secondary = TracksidePalette.strength,
+            secondaryContainer = Color(0xFF20394C),
+            onSecondaryContainer = TracksidePalette.text,
+            tertiary = TracksidePalette.calisthenics,
+            outline = TracksidePalette.outline,
+            outlineVariant = Color(0xFF3A5363),
+            surfaceContainer = TracksidePalette.surface,
+            surfaceContainerHigh = TracksidePalette.surfaceRaised
+        ),
+        typography = Typography(
+            headlineLarge = TextStyle(fontFamily = displayFont, fontSize = 34.sp, lineHeight = 38.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp),
+            headlineMedium = TextStyle(fontFamily = displayFont, fontSize = 30.sp, lineHeight = 35.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.7).sp),
+            headlineSmall = TextStyle(fontFamily = displayFont, fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold),
+            titleLarge = TextStyle(fontFamily = displayFont, fontSize = 21.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold),
+            labelMedium = TextStyle(fontFamily = displayFont, fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp)
+        ),
+        shapes = Shapes(medium = RoundedCornerShape(14.dp), large = RoundedCornerShape(20.dp)),
+        content = content
+    )
 }
 
 @Composable internal fun NativeStrideApp(model: TrainingViewModel = viewModel()) {
@@ -100,7 +116,7 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
 
 /** Save each tab's root state, never its transient detail/auth destination. */
 private fun NavHostController.openTabRoot(path: String) {
-    while(currentDestination?.route in setOf("activity/{id}", "auth", "builder/{discipline}", "workout/{planId}/{sessionId}", "practice/{key}")) {
+    while(currentDestination?.route in setOf("activity/{id}", "auth", "builder/{discipline}", "workout/{planId}/{sessionId}", "practice/{key}", "manage/{planId}/{date}")) {
         if(!popBackStack()) break
     }
     navigate(path) {
@@ -129,22 +145,67 @@ private fun NavHostController.openActivity(id: String) {
     CompositionLocalProvider(LocalProfileAction provides { nav.openTabRoot("settings") }) {
     Scaffold(
         bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 0.dp,
-                modifier = Modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp).heightIn(min=80.dp).clip(RoundedCornerShape(28.dp)),
-                windowInsets = WindowInsets(0, 0, 0, 0)) {
-                listOf("home" to "Overview", "training" to "Training", "activities" to "Activities", "library" to "Library").forEach { (path, label) ->
-                    NavigationBarItem(selected = route == path || (path == "activities" && route == "activity/{id}") || (path=="training" && route in setOf("builder/{discipline}","workout/{planId}/{sessionId}")) || (path=="library" && route=="practice/{key}"), onClick = {
-                        nav.openTabRoot(path)
-                    }, icon = { if(path=="library") LibraryGrid(Modifier.size(24.dp)) else Icon(when(path) { "home" -> Icons.Default.Home; "training" -> Icons.Default.DateRange; "activities" -> Icons.AutoMirrored.Filled.List; else -> Icons.Default.Settings }, contentDescription = null) },
-                        label = if(androidx.compose.ui.platform.LocalDensity.current.fontScale>1.3f) null else ({ Text(label, fontWeight = FontWeight.SemiBold) }),
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.onSurface, indicatorColor = MaterialTheme.colorScheme.surfaceVariant),
-                        modifier = Modifier.testTag("nav-$path").semantics { contentDescription=label })
+            NavigationBar(
+                containerColor = Color.Transparent,
+                tonalElevation = 0.dp,
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .clip(RoundedCornerShape(32.dp))
+                    .background(Brush.horizontalGradient(listOf(
+                        TracksidePalette.surfaceRaised,
+                        TracksidePalette.surface,
+                        TracksidePalette.surfaceLow
+                    )))
+                    .border(BorderStroke(1.dp, TracksidePalette.outline), RoundedCornerShape(32.dp))
+                    .height(72.dp),
+                windowInsets = WindowInsets(0, 0, 0, 0)
+            ) {
+                // Keep existing route names and test tags during the UI migration.
+                // "More" reuses the existing Settings page; no data route is removed.
+                listOf(
+                    "home" to "Today",
+                    "training" to "Training",
+                    "activities" to "Activity",
+                    "library" to "Library",
+                    "settings" to "More"
+                ).forEach { (path, label) ->
+                    NavigationBarItem(
+                        selected = route == path ||
+                            (path == "activities" && route == "activity/{id}") ||
+                            (path == "training" && route in setOf("builder/{discipline}", "workout/{planId}/{sessionId}", "manage/{planId}/{date}")) ||
+                            (path == "library" && route == "practice/{key}"),
+                        onClick = { nav.openTabRoot(path) },
+                        icon = {
+                            // Original Figma 732:99–113 vector geometry, native resource assets.
+                            val iconId = when (path) {
+                                "home" -> R.drawable.trackside_figma_home
+                                "training" -> R.drawable.trackside_figma_calendar
+                                "activities" -> R.drawable.trackside_figma_activity
+                                "library" -> R.drawable.trackside_figma_library
+                                else -> R.drawable.trackside_figma_more
+                            }
+                            Icon(painter = painterResource(id = iconId),
+                                contentDescription = null, modifier = Modifier.size(19.dp))
+                        },
+                        // At 1.3× text, five tab labels no longer fit a 360dp bar.
+                        // Keep icon semantics labels and hide the visual text sooner.
+                        label = if (LocalDensity.current.fontScale >= 1.3f) null
+                            else ({ Text(label, fontWeight = FontWeight.SemiBold, maxLines = 1) }),
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = TracksidePalette.red,
+                            selectedTextColor = TracksidePalette.red,
+                            unselectedIconColor = TracksidePalette.textMuted,
+                            unselectedTextColor = TracksidePalette.textMuted,
+                            indicatorColor = Color(0xFF492637)
+                        ),
+                        modifier = Modifier.testTag("nav-$path").semantics { contentDescription = label }
+                    )
                 }
             }
         }
     ) { padding ->
-        Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(padding).imePadding()) {
+        Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(TracksidePalette.backgroundTop, TracksidePalette.backgroundBottom))).padding(padding).imePadding()) {
             if(state.busy || state.initializing) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("loading"))
             if(!online) Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
                 Text("Offline · Saved activities remain available", Modifier.fillMaxWidth().padding(horizontal = 20.dp,vertical = 10.dp).testTag("offline-status"),style = MaterialTheme.typography.bodyMedium)
@@ -152,32 +213,75 @@ private fun NavHostController.openActivity(id: String) {
             state.message?.let { Surface(color = MaterialTheme.colorScheme.surfaceVariant) { Text(it, Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }.padding(horizontal = 20.dp, vertical = 12.dp), style = MaterialTheme.typography.bodyMedium) } }
             NavHost(navController = nav, startDestination = "home", modifier = Modifier.weight(1f)) {
                 composable("home") {
-                    Screen("Your training", "STRIDELAB / TRAINING JOURNAL") {
+                    // The visual Today shell is data-driven and retains the existing root navigation route.
+                    val greeting = when(java.time.LocalTime.now().hour) {
+                        in 5..11 -> "Good morning"
+                        in 12..17 -> "Good afternoon"
+                        else -> "Good evening"
+                    }
+                    Screen("Today", greeting, dense = true) {
                         if(state.initializing) item { Text("Opening your saved training…") }
                         else if(state.account == null) item {
                             EmptyState("Start with your history", "Sign in to synchronize your activities. Saved history is available offline.")
                             Button(onClick = { nav.navigate("auth") }, modifier = Modifier.fillMaxWidth()) { Text("Sign in") }
                         } else {
-                            item { SyncStatus(state) }
-                            state.plans.firstOrNull { it.status=="approved" }?.let { plan -> item { HomePlanHero(plan) { sid -> nav.openWorkout(plan.id,sid) } } }
-                            if(state.plans.none { it.status=="approved" }) item { OutlinedButton(onClick={nav.openTabRoot("training")},modifier=Modifier.fillMaxWidth()) { Text("Create your training plan") } }
-                            state.activities.firstOrNull()?.let { activity ->
-                                item { Text("LATEST ACTIVITY", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }
-                                item { ActivityRow(activity) { nav.openActivity(activity.id) } }
+                            val plan = state.plans.firstOrNull { it.status == "approved" }
+                            val next = plan?.sessions?.filter {
+                                it.date >= java.time.LocalDate.now() && it.status in setOf("planned", "in_progress")
+                            }?.sortedWith(compareBy<PlannedSession>({ it.date }, { it.id }))?.firstOrNull()
+                            if(next != null && plan != null) item(key = "today-featured") {
+                                TracksideTodayHero(next) { nav.openWorkout(plan.id, next.id) }
                             }
-                            item { WeeklyDashboard(state.activities,plans=state.plans) }
+                            if(plan == null) item {
+                                SignalCard {
+                                    Text("No active plan", style = MaterialTheme.typography.titleLarge)
+                                    Text("Create and approve a plan to see your upcoming workouts here.",
+                                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Button(onClick = { nav.openTabRoot("training") }, modifier = Modifier.fillMaxWidth()) { Text("Create a training plan") }
+                                }
+                            }
+                            if(plan != null) {
+                                item {
+                                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                        Text("Today's plan", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                                        TextButton(onClick = { nav.openTabRoot("training") }) { Text("View all") }
+                                    }
+                                }
+                                val today = plan.sessions.filter { it.date == java.time.LocalDate.now() }
+                                if(today.isEmpty()) item {
+                                    Text("No workouts scheduled for today", color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.bodyMedium)
+                                }
+                                today.forEach { session ->
+                                    item(key = "today-" + session.id) {
+                                        TracksideTodaySession(session) { nav.openWorkout(plan.id, session.id) }
+                                    }
+                                }
+                            }
+                            item { Text("Recent activity", style = MaterialTheme.typography.titleLarge) }
+                            state.activities.sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenBy { it.id }).take(2).forEach { activity ->
+                                item(key = "recent-" + activity.id) {
+                                    TracksideTodayActivity(activity) { nav.openActivity(activity.id) }
+                                }
+                            }
+                            if(state.activities.isEmpty()) item {
+                                Text("No saved activities yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            item { SyncStatus(state) }
+                            item { WeeklyDashboard(state.activities, plans = state.plans) }
                             item { WellnessOverview(state.wellness, actions.refreshWellness, online && !state.busy && !state.needsSignIn) }
                             item { HistoryOverview(state.activities) }
                             if(state.activities.count { it.durationS != null } >= 2) item { RecordedDurationChart(state.activities) }
-                            item { FilledTonalButton(onClick = actions.refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
+                            item { FilledTonalButton(onClick = actions.refresh, enabled = !state.busy,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
                             if(state.needsSignIn) item { Button(onClick = { nav.navigate("auth") }) { Text("Sign in again") } }
-                            if(state.activities.isEmpty()) item { EmptyState("No saved activities yet", "Refresh your history or synchronize your connected Intervals.icu source in Settings. Existing local prototype data remains in the legacy app.") }
                         }
                     }
                 }
                 composable("activities") {
                     Screen("Activities", "YOUR HISTORY") {
                         item { SyncStatus(state) }
+                        if(state.account != null && state.activities.isNotEmpty()) item { HistoryOverview(state.activities) }
                         if(state.account == null) item { EmptyState("Sign in to view your history", "Only records belonging to your signed-in account are displayed."); Button(onClick = { nav.navigate("auth") }) { Text("Sign in") } }
                         else {
                             item { OutlinedButton(onClick = actions.refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
@@ -191,11 +295,23 @@ private fun NavHostController.openActivity(id: String) {
                 }
                 composable("activity/{id}") { detail ->
                     val activity = state.activities.firstOrNull { it.id == detail.arguments?.getString("id") }
+                    var automaticDetailAttempted by rememberSaveable(activity?.id) { mutableStateOf(false) }
+                    LaunchedEffect(activity?.id, online, state.busy, state.needsSignIn) {
+                        // Fetch a real recorded route once when opening a running detail.
+                        // Offline cache remains available; no invented route or retry loop.
+                        if (!automaticDetailAttempted && activity != null && activity.supportsPace &&
+                            state.account != null && online && !state.busy && !state.needsSignIn &&
+                            !state.details.containsKey(activity.id)) {
+                            automaticDetailAttempted = true
+                            actions.loadDetail(activity.id)
+                        }
+                    }
                     Screen(activity?.title ?: "Activity unavailable", "ACTIVITY DETAIL", compactTitle = true) {
                         item { TextButton(onClick = { nav.popBackStack() }) { Text("Back to history") } }
                         if(activity == null) item { EmptyState("No activity available", "This activity is not in the current account’s local cache.") }
                         else {
                             item { Text(activity.dateLabel, style = MaterialTheme.typography.bodyLarge); Text("${activity.type} · ${activity.sourceLabel}", color = MaterialTheme.colorScheme.secondary) }
+                            item { TracksideSectionHeader("Recorded metrics") }
                             item { MetricPair(
                                 if(activity.distanceM != null || activity.supportsPace) "Distance" to activity.distanceLabel else null,
                                 "Elapsed time" to activity.durationLabel) }
@@ -219,7 +335,28 @@ private fun NavHostController.openActivity(id: String) {
                         }
                     }
                 }
-                composable("training") { TrainingScreen(state,actions.planning,{nav.navigate("builder/all")},{p,s->nav.openWorkout(p,s)},{nav.navigate("auth")}) }
+                composable("training") { TrainingScreen(state,actions.planning,{nav.navigate("builder/all")},{p,s->nav.openWorkout(p,s)},{nav.navigate("auth")},{p,d->nav.navigate("manage/${android.net.Uri.encode(p)}/$d")}) }
+                composable("manage/{planId}/{date}") { back ->
+                    val planId = back.arguments?.getString("planId") ?: ""
+                    val plan = state.plans.firstOrNull { it.id == planId }
+                    val selected = runCatching { java.time.LocalDate.parse(back.arguments?.getString("date")) }
+                        .getOrDefault(java.time.LocalDate.now())
+                    TracksideManagePlanScreen(
+                        plan = plan, selected = selected, busy = state.busy,
+                        actions = actions.planning,
+                        onBack = {
+                            // Return to Training explicitly. A saved tab destination may
+                            // not be the immediate prior NavHost entry after tab restore.
+                            if (!nav.popBackStack("training", inclusive = false)) {
+                                nav.openTabRoot("training")
+                            }
+                        },
+                        onBuildDraft = { nav.navigate("builder/all") },
+                        onWorkout = { sessionId ->
+                            nav.navigate("workout/${android.net.Uri.encode(planId)}/${android.net.Uri.encode(sessionId)}")
+                        }
+                    )
+                }
                 composable("builder/{discipline}") { builder -> PlanBuilder(state,actions.planning,builder.arguments?.getString("discipline") ?: "all",{nav.openTabRoot("training")},{nav.navigate("auth")},{p,s->nav.navigate("workout/${android.net.Uri.encode(p)}/${android.net.Uri.encode(s)}")}) }
                 composable("library") { LibraryScreen(state,actions.planning,{p,s->nav.openWorkout(p,s)},{key->nav.navigate("practice/$key")}) { entry -> if(entry.discipline=="run") {nav.openTabRoot("training");nav.navigate("builder/run")}else nav.navigate("practice/entry-${entry.id}") } }
                 composable("practice/{key}") { backStack -> PracticeBuilder(state,actions.planning,backStack.arguments?.getString("key") ?: "new",{nav.openTabRoot("library")},{p,s->nav.openWorkout(p,s)},{nav.openTabRoot("training")}) }
@@ -231,7 +368,9 @@ private fun NavHostController.openActivity(id: String) {
                         item { SignalCard { Text("YOUR STRIDELAB", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text(if(state.account == null) "Keep your training close." else "Connected to your history.", style = MaterialTheme.typography.titleLarge); Text("Private preview · ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
                         item { SyncStatus(state) }
                         if(state.account != null) {
+                            item { TracksideSectionHeader("Private account") }
                             item { SignalCard { Text("ACCOUNT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text(state.account!!, style = MaterialTheme.typography.bodyMedium) } }
+                            item { TracksideSectionHeader("Connections") }
                             item { SignalCard {
                                 Text("ACTIVITY SOURCE", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                                 Text("Intervals.icu",style = MaterialTheme.typography.titleLarge)
@@ -247,6 +386,7 @@ private fun NavHostController.openActivity(id: String) {
                             } }
                             item { OutlinedButton(onClick = { confirmSignOut = true }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Sign out on this device") } }
                         } else item { Button(onClick = { nav.navigate("auth") }, modifier = Modifier.fillMaxWidth()) { Text("Sign in") } }
+                        item { TracksideSectionHeader("Device & data") }
                         item { SignalCard {
                             Text("LEGACY DATA & BACKUPS", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                             Text("Your earlier training is preserved", style = MaterialTheme.typography.titleLarge)
@@ -294,20 +434,13 @@ private fun NavHostController.openActivity(id: String) {
 
 internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
 
-@Composable internal fun Screen(title: String, eyebrow: String, compactTitle: Boolean = false, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+@Composable internal fun Screen(title: String, eyebrow: String, compactTitle: Boolean = false, dense: Boolean = false, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-        LazyColumn(Modifier.widthIn(max = 760.dp).fillMaxSize().testTag("screen").semantics { paneTitle = title }, contentPadding = PaddingValues(start = 22.dp, end = 22.dp, top = 24.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            item {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    BrandMark(Modifier.size(26.dp))
-                    Text(eyebrow, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary,modifier=Modifier.weight(1f))
-                    val profile=LocalProfileAction.current
-                    FilledTonalIconButton(onClick=profile,modifier=Modifier.testTag("nav-settings")) { Icon(Icons.Default.Settings,contentDescription="Settings and profile") }
-                }
-                Spacer(Modifier.height(16.dp))
-                Text(title, style = if(compactTitle) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineLarge,
-                    modifier = Modifier.testTag("screen-title").semantics { heading() })
-            }
+        val horizontal = if (dense) 18.dp else 22.dp
+        val top = if (dense) 12.dp else 24.dp
+        val gap = if (dense) 12.dp else 18.dp
+        LazyColumn(Modifier.widthIn(max = 760.dp).fillMaxSize().testTag("screen").semantics { paneTitle = title }, contentPadding = PaddingValues(start = horizontal, end = horizontal, top = top, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(gap)) {
+            item { TracksideScreenHeader(title, eyebrow, compactTitle, LocalProfileAction.current, dense = dense) }
             content()
         }
     }
@@ -324,10 +457,7 @@ internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
 }
 
 @Composable internal fun SignalCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f))) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
-    }
+    TracksideGlassCard(modifier = modifier, content = content)
 }
 @Composable private fun EmptyState(title: String, description: String) {
     SignalCard {
@@ -340,7 +470,7 @@ internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
     SignalCard {
         Text("ON THIS DEVICE", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         Text(if(activities.size == 1) "1 saved activity" else "${activities.size} saved activities", style = MaterialTheme.typography.headlineMedium)
-        Text("Your synchronized training journal. Open an activity to explore its recorded details.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Activity summaries saved on this device. Open a record to inspect available source details.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 /** Only recorded elapsed durations. No target, trend, readiness or missing-value inference. */
@@ -362,7 +492,7 @@ internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
     }
 }
 @Composable internal fun ActivityRow(activity: ActivityRecord, onClick: () -> Unit) {
-    val accent = when { activity.supportsPace -> Color(0xFF6FB4FF); activity.type.contains("strength", true) || activity.type == "training" -> Color(0xFFFF9A62); else -> Color(0xFFC79BFF) }
+    val accent = when { activity.supportsPace -> TracksidePalette.running; activity.type.contains("strength", true) || activity.type == "training" -> TracksidePalette.strength; else -> TracksidePalette.calisthenics }
     Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().testTag("activity-${activity.id}"), shape = RoundedCornerShape(22.dp),
         color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f))) {
         Column(Modifier.background(Brush.horizontalGradient(listOf(accent.copy(alpha = .07f), Color.Transparent))).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
