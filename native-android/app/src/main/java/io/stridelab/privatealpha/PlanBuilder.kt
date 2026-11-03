@@ -163,7 +163,7 @@ import org.json.JSONObject
                         }
                         else -> edit(input.copy(
                             qualityDays=input.qualityDays-day,
-                            qualityCount=if(input.qualityDays-day==emptySet<Int>())
+                            qualityCount=if((input.qualityDays-day).isEmpty())
                                 0 else input.qualityCount))
                     }
                 },
@@ -182,7 +182,7 @@ import org.json.JSONObject
                 onMinutes = { minutes = it },
                 onBack = {
                     step = 1
-                    if(input.runDays > 0) runningSubPage = 2
+                    if(input.runDays > 0) runningSubPage = 4
                 },
                 onContinue = { scheduleSubPage = 1 }
             )
@@ -206,8 +206,9 @@ import org.json.JSONObject
         return
     }
     if (step == 3) {
+        val previewInputs = runCatching { request() }.getOrDefault(input)
         TracksideFigmaWeekReview(
-            request = input,
+            request = previewInputs,
             plan = null,
             busy = state.busy || awaiting,
             onBack = { step = 2; scheduleSubPage = 1 },
