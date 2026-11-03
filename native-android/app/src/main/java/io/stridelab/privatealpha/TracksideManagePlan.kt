@@ -114,7 +114,7 @@ internal fun TracksideManagePlanScreen(
             if (future.isEmpty()) item { Text("No future sessions to edit", color = TracksidePalette.textMuted) }
             future.forEach { session ->
                 item(key = "manage-future-" + session.id) {
-                    Surface(onClick = { movingWorkout = session },
+                    Surface(onClick = { onWorkout(session.id) },
                         modifier = Modifier.fillMaxWidth().testTag("manage-workout-" + session.id),
                         color = TracksidePalette.surface,
                         shape = RoundedCornerShape(12.dp),
@@ -129,8 +129,9 @@ internal fun TracksideManagePlanScreen(
                                 Text(session.date.toString() + " · " + session.effectiveMinutes + " planned min",
                                     style = MaterialTheme.typography.bodySmall, color = TracksidePalette.textMuted)
                             }
-                            TextButton(onClick = { onWorkout(session.id) }) {
-                                Text("Open ›", style = MaterialTheme.typography.labelMedium,
+                            TextButton(onClick = { movingWorkout = session },
+                                modifier = Modifier.testTag("manage-move-" + session.id)) {
+                                Text("Move ›", style = MaterialTheme.typography.labelMedium,
                                     color = TracksidePalette.text)
                             }
                         }
