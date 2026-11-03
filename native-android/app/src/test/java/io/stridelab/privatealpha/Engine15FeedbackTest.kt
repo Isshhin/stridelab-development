@@ -190,6 +190,7 @@ class Engine15FeedbackTest {
         val staged=Engine15Feedback.stage(original,proposal,today).copy(revision=8)
         val cleared=Engine15Feedback.dismissStaged(staged,"target",now).copy(revision=9)
         assertNull(cleared.sessions.last().suggestion)
+        assertTrue(cleared.feedback.single().text.contains("Evidence: session source, log revision 1"))
         assertTrue(Engine15Feedback.preview(cleared,today).isEmpty())
         assertThrows(PlanConstraint::class.java) {
             Engine15Feedback.dismissStaged(cleared,"target",now)
