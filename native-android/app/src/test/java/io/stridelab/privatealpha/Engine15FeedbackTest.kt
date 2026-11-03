@@ -125,6 +125,8 @@ class Engine15FeedbackTest {
         assertTrue(Engine15Feedback.preview(plan().copy(engineVersion=ENGINE1_VERSION,policyId=ENGINE1_POLICY),today).isEmpty())
         assertTrue(Engine15Feedback.preview(plan(policy=ENGINE15_FOUNDATION_POLICY),today).isEmpty())
         assertTrue(Engine15Feedback.preview(plan().copy(status="draft"),today).isEmpty())
+        assertTrue(Engine15Feedback.preview(plan().copy(status="paused"),today).isEmpty())
+        assertTrue(Engine15Feedback.preview(plan(target=plan().sessions.last().copy(discipline="str")),today).isEmpty())
     }
 
     @Test fun delayedUploadsWrongDatesAndFutureTargetsStayUntouched() {
@@ -140,6 +142,8 @@ class Engine15FeedbackTest {
             status="completed",log=logged(effort=2,day=today),logRevision=1
         )
         assertTrue(Engine15Feedback.preview(plan(target=finished),today).isEmpty())
+        val todayTarget=original.sessions.last().copy(date=today)
+        assertTrue(Engine15Feedback.preview(plan(target=todayTarget),today).isEmpty())
         val earlier=original.sessions.last().copy(date=today.minusDays(1))
         assertTrue(Engine15Feedback.preview(plan(target=earlier),today).isEmpty())
     }
