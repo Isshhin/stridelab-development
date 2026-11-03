@@ -167,6 +167,86 @@ class TracksideApprovedBuilderActivityUiTest {
         assertEquals(4,swapped.weeklySlots["run"]!!.distinct().size)
     }
 
+    @Test fun runningWeekUiDirectTapPinsAndSwapsChosenWeekdays() {
+        val saved=androidx.compose.runtime.mutableStateOf(
+            PlanRequest(runDays=4,experience=2,weeklyKm=45.0,
+                days=setOf(1,2,3,4,5,7),longDay=7,
+                qualityCount=1,qualityDays=setOf(2))
+        )
+        val selected=androidx.compose.runtime.mutableIntStateOf(2)
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideFigmaRunningSetup(
+                        request=saved.value,
+                        selectedSlot=selected.intValue,
+                        onSelectSlot={ selected.intValue=it },
+                        custom=true,onCustom={},
+                        qualityPreference="Threshold",onQualityPreference={},
+                        onQualityCount={},onRunningCount={},
+                        onAssignDay={ day ->
+                            saved.value=WeeklyPlacement.put(
+                                saved.value,"run",selected.intValue,day)
+                        },
+                        onClearSlot={
+                            saved.value=WeeklyPlacement.clear(
+                                saved.value,"run",selected.intValue)
+                        },
+                        onBack={},onContinue={}
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("builder-run-session-2").performClick()
+        compose.onNodeWithTag("builder-running-day-6").performClick()
+        assertEquals(6,saved.value.weeklySlots["run"]!![2])
+        assertEquals(4,saved.value.weeklySlots["run"]!!.distinct().size)
+        assertEquals(true,6 in saved.value.days)
+        compose.onNodeWithTag("builder-run-session-3").performClick()
+        compose.onNodeWithTag("builder-running-day-6").performClick()
+        assertEquals(6,saved.value.weeklySlots["run"]!![3])
+        assertEquals(4,saved.value.weeklySlots["run"]!!.distinct().size)
+    }
+
+    @Test fun strengthAndCaliUiDaySelectionPersistsPerDiscipline() {
+        val saved=androidx.compose.runtime.mutableStateOf(
+            PlanRequest(runDays=0,strengthDays=2,calDays=1,
+                days=setOf(1,2,3,4,5,7))
+        )
+        val discipline=androidx.compose.runtime.mutableStateOf("str")
+        val slot=androidx.compose.runtime.mutableIntStateOf(0)
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideFigmaOtherDisciplineSlots(
+                        request=saved.value,
+                        selectedDiscipline=discipline.value,
+                        selectedSlot=slot.intValue,
+                        onSelectDiscipline={ discipline.value=it },
+                        onSelectSlot={ slot.intValue=it },
+                        onAssignDay={ d,i,day ->
+                            saved.value=WeeklyPlacement.put(saved.value,d,i,day)
+                        },
+                        onClearSlot={ d,i ->
+                            saved.value=WeeklyPlacement.clear(saved.value,d,i)
+                        },
+                        onAuto={ d ->
+                            saved.value=saved.value.copy(
+                                weeklySlots=saved.value.weeklySlots-d)
+                        },
+                        onCount={ _,_ -> }
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("builder-other-day-1").performClick()
+        assertEquals(1,saved.value.weeklySlots["str"]!![0])
+        compose.onNodeWithTag("builder-discipline-day-tab-cal").performClick()
+        compose.onNodeWithTag("builder-other-day-6").performClick()
+        assertEquals(6,saved.value.weeklySlots["cal"]!![0])
+        assertEquals(1,saved.value.weeklySlots["str"]!![0])
+    }
+
     @Test fun activityMapRemainsBehindIndependentScrollingGlassSheet() {
         val activity = ActivityRecord(
             "synthetic-run", "Recorded Park Run", "run", "manual",
