@@ -96,6 +96,32 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
     }
 
+    @Test fun availabilityRequiresExplicitMultiSessionPolicyForSevenSessionsInSixDays() {
+        val state = TrainingState(initializing = false, account = "synthetic-ui")
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    PlanBuilder(state=state, actions=PlanActions(),
+                        onDone={}, onSignIn={}, onPreview={_,_->})
+                }
+            }
+        }
+        compose.onNodeWithTag("discipline-str").performClick()
+        compose.onNodeWithTag("discipline-cal").performClick()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("available-day-6").assertIsNotEnabled()
+        compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
+        compose.onNodeWithTag("builder-enable-multi-session").performClick()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        compose.onNodeWithText("Engine 1 only permits selected pairings",
+            substring=true).assertExists()
+    }
+
     @Test fun activityMapRemainsBehindIndependentScrollingGlassSheet() {
         val activity = ActivityRecord(
             "synthetic-run", "Recorded Park Run", "run", "manual",
