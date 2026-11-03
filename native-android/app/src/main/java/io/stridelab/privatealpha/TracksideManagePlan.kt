@@ -3,6 +3,9 @@ package io.stridelab.privatealpha
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -71,34 +74,34 @@ internal fun TracksideManagePlanScreen(
     var confirmDraft by rememberSaveable(plan.id) { mutableStateOf(false) }
     var confirmPause by rememberSaveable(plan.id) { mutableStateOf(false) }
     var confirmArchive by rememberSaveable(plan.id) { mutableStateOf(false) }
+    var advancedExpanded by rememberSaveable(plan.id) { mutableStateOf(false) }
 
-    Screen("Manage plan", "CURRENT TRAINING PLAN", compactTitle = true, dense = true) {
-        item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = onBack, modifier = Modifier.testTag("manage-back")) { Text("‹ Back to Training") }
-                Surface(shape = RoundedCornerShape(14.dp), color = TracksidePalette.surfaceRaised,
-                    border = BorderStroke(1.dp, TracksidePalette.outline)) {
-                    Text(plan.status.uppercase(Locale.getDefault()),
-                        Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                        style = MaterialTheme.typography.labelSmall, color = TracksidePalette.text)
-                }
-            }
-            Text(plan.name ?: plan.request.goal,
-                style = MaterialTheme.typography.titleSmall, color = TracksidePalette.text,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(first.format(DateTimeFormatter.ofPattern("d MMM yyyy")) + " – " +
-                last.format(DateTimeFormatter.ofPattern("d MMM yyyy")),
-                color = TracksidePalette.textMuted, style = MaterialTheme.typography.bodySmall)
+    LazyColumn(Modifier.fillMaxSize().testTag("screen"),
+        contentPadding = PaddingValues(start = 17.dp, end = 17.dp, top = 12.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item { TracksideManageHeader(plan, inRange, onBack) }
+        if (plan.status == "paused") item {
+            TracksidePausedPlanState(
+                onResume = { actions.approve(plan.id, plan.revision) },
+                enabled = canManage)
         }
-        item {
+        if (plan.status == "draft") item {
+            TracksideDraftPlanState()
+        }
+        val uncompletedPast = plan.sessions.firstOrNull {
+            it.date < LocalDate.now() && it.status == "planned"
+        }
+        if (uncompletedPast != null && plan.status == "approved") item {
+            TracksideUncompletedPlanState(uncompletedPast)
+        }
+        if (plan.status != "paused")         item {
             TracksidePlanWeekOverview(plan, inRange)
         }
         item { TracksideSectionHeader("Manage your plan") }
         item {
             TracksideManageAction(
                 title = "Edit a workout",
-                subtitle = "Choose a future session to review or move",
+                subtitle = "Move, change or remove a future session",
                 iconRes = R.drawable.trackside_figma_edit, accent = Color(0xFFFB3955),
                 enabled = canManage && future.isNotEmpty(),
                 modifier = Modifier.testTag("manage-edit-workout")
@@ -132,7 +135,7 @@ internal fun TracksideManagePlanScreen(
         item {
             TracksideManageAction(
                 title = "Adjust future weeks",
-                subtitle = "Create a new draft for review; current plan stays unchanged",
+                subtitle = "Regenerate from a date you choose",
                 iconRes = R.drawable.trackside_figma_loop, accent = Color(0xFF8DBFE2),
                 enabled = canManage, modifier = Modifier.testTag("manage-adjust-weeks")
             ) { confirmDraft = true }
@@ -140,7 +143,7 @@ internal fun TracksideManagePlanScreen(
         if (plan.status == "approved") item {
             TracksideManageAction(
                 title = "Pause training plan",
-                subtitle = "Keep your saved schedule and workout history",
+                subtitle = "Keep your history and schedule",
                 iconRes = R.drawable.trackside_figma_pause, accent = Color(0xFF8DBFE2),
                 enabled = canManage, modifier = Modifier.testTag("manage-pause")
             ) { confirmPause = true }
@@ -156,7 +159,7 @@ internal fun TracksideManagePlanScreen(
         item {
             TracksideGlassCard(compact = true) {
                 TracksideSectionHeader("Your history stays intact")
-                Text("Completed workouts and recorded history are preserved. Any future plan change requires review.",
+                Text("Completed workouts are protected. Plan changes are reviewed before they affect future sessions.",
                     color = TracksidePalette.text, style = MaterialTheme.typography.bodyMedium)
                 if (!Engine1Engines.canManage(plan)) Text(
                     "This saved plan uses an unsupported engine or policy and is read-only here.",
@@ -164,6 +167,13 @@ internal fun TracksideManagePlanScreen(
             }
         }
         item {
+            TextButton(onClick = { advancedExpanded = !advancedExpanded },
+                modifier = Modifier.testTag("manage-more-options")) {
+                Text(if (advancedExpanded) "Hide plan options" else "More plan options",
+                    color = TracksidePalette.textMuted)
+            }
+        }
+        if (advancedExpanded) item {
             OutlinedButton(onClick = { confirmArchive = true }, enabled = canManage,
                 modifier = Modifier.fillMaxWidth().testTag("manage-archive")) {
                 Text("Archive plan · keep records")
@@ -238,12 +248,12 @@ private fun TracksidePlanWeekOverview(plan: PlanSnapshot, selected: LocalDate) {
             // The session/day counts already appear directly above this card.
             // Repeating them here shrinks the title at 1.5× fonts and wraps it.
             TracksideSectionHeader("Your training week")
-            Row(Modifier.fillMaxWidth().height(96.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(Modifier.fillMaxWidth().height(129.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 days.forEach { day ->
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Column(Modifier.fillMaxWidth().height(72.dp), verticalArrangement = Arrangement.Bottom) {
+                        Column(Modifier.fillMaxWidth().height(105.dp), verticalArrangement = Arrangement.Bottom) {
                             day.byDiscipline.reversed().forEach { (discipline, minutes) ->
-                                val height = (minutes.toFloat() / high * 68f).coerceAtLeast(3f)
+                                val height = (minutes.toFloat() / high * 100f).coerceAtLeast(3f)
                                 Box(Modifier.fillMaxWidth().height(height.dp)
                                     .background(tracksideDisciplineColor(discipline), RoundedCornerShape(5.dp)))
                             }
