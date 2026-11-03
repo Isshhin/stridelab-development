@@ -1,6 +1,8 @@
 package io.stridelab.privatealpha
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -57,6 +59,7 @@ internal fun TracksideParityMoveWorkoutSheet(
     ) {
         Column(
             Modifier.fillMaxWidth().heightIn(min = 620.dp)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 17.dp, vertical = 22.dp),
             verticalArrangement = Arrangement.spacedBy(15.dp)
         ) {

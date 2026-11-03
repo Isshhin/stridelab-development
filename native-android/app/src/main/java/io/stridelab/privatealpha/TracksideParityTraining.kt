@@ -94,6 +94,7 @@ internal fun TracksideParityWorkoutCard(
     Surface(
         onClick = onOpen,
         modifier = Modifier.fillMaxWidth()
+            .heightIn(min = if (isRun) 155.dp else 232.dp)
             .testTag("workout-" + session.id),
         shape = RoundedCornerShape(14.dp),
         color = TracksidePalette.surface,
