@@ -140,6 +140,52 @@ class TracksideResponsiveQaTest {
         screenshot("builder-strength-auto")
     }
 
+    @Test fun strengthFigmaReferenceAndLargeFontPreferenceContentStayVisible() {
+        // Figma 698:3: Monday Upper and Thursday Lower, Saturday unavailable.
+        // Capture a matching manual scheduling state without an open editor.
+        val request=PlanRequest(
+            runDays=0,strengthDays=2,
+            days=setOf(1,2,3,4,5,7),
+            weeklySlots=mapOf("str" to listOf(1,4)),
+            disciplineGoals=mapOf("str" to "Muscle development"),
+            equipment=mapOf("db" to 1,"bands" to 1,"bb" to 1)
+        )
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideFigmaStrengthSetup(
+                        request=request,
+                        selectedSlot=0,onSelectedSlot={},
+                        onChangeMode={},onCount={},onAssign={_,_->},
+                        onClear={},onEquipment={_,_->},
+                        onBack={},onEditGoal={},onContinue={}
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("builder-strength-customize").assertIsDisplayed()
+        compose.onNodeWithTag("builder-strength-weekly").assertExists()
+        compose.onNodeWithTag("builder-strength-split").assertExists()
+        // These bounds checks are intentionally run in every viewport/font matrix.
+        listOf(
+            "builder-strength-setup-goal" to "Build muscle",
+            "builder-strength-setup-emphasis" to "Not available in Engine 1"
+        ).forEach { (tag,label) ->
+            val card=compose.onNodeWithTag(tag).getUnclippedBoundsInRoot()
+            val text=compose.onNodeWithText(label,useUnmergedTree=true)
+                .getUnclippedBoundsInRoot()
+            assertTrue("$label extends below its preference card",
+                text.bottom <= card.bottom - 1.dp)
+        }
+        val mode=compose.onNodeWithTag("builder-strength-auto")
+            .getUnclippedBoundsInRoot()
+        val modeLabel=compose.onNodeWithText("Let StrideLab decide",
+            useUnmergedTree=true).getUnclippedBoundsInRoot()
+        assertTrue("Mode label extends past selector",
+            modeLabel.right <= mode.right + 1.dp)
+        screenshot("builder-strength-figma-reference")
+    }
+
     @Test fun approvedCalisthenicsWeekAndUnassignedStatesRender() {
         val state=TrainingState(initializing=false,account="synthetic-responsive")
         compose.runOnUiThread {

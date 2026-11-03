@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -20,6 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -72,16 +75,18 @@ internal fun TracksideFigmaStrengthSetup(
         continueEnabled=!manual || WeeklyPlacement.full(request,"str")
     ) {
         Row(
-            Modifier.fillMaxWidth().height(48.dp)
+            Modifier.fillMaxWidth()
+                .heightIn(min=48.dp)
                 .background(Color(0xFF12202A),RoundedCornerShape(12.dp))
                 .padding(4.dp),
-            horizontalArrangement=Arrangement.spacedBy(6.dp)
+            horizontalArrangement=Arrangement.spacedBy(6.dp),
+            verticalAlignment=Alignment.CenterVertically
         ) {
             listOf(true to "Customize", false to "Let StrideLab decide").forEach { (custom,label) ->
                 val selected=manual==custom
                 Surface(
                     onClick={onChangeMode(custom)},
-                    modifier=Modifier.weight(1f).fillMaxHeight()
+                    modifier=Modifier.weight(1f).heightIn(min=40.dp)
                         .testTag(if(custom)"builder-strength-customize"
                             else "builder-strength-auto"),
                     color=if(selected)Color(0xFF274864) else Color(0xFF16232D),
@@ -89,9 +94,13 @@ internal fun TracksideFigmaStrengthSetup(
                     border=BorderStroke(1.dp,
                         if(selected)Color(0xFF78A9D8) else Color(0xFF344854))
                 ) {
-                    Box(contentAlignment=Alignment.Center) {
+                    Box(
+                        Modifier.fillMaxWidth().padding(horizontal=5.dp,vertical=11.dp),
+                        contentAlignment=Alignment.Center
+                    ) {
                         Text(label,color=if(selected)strengthInk else strengthSubtle,
-                            fontSize=12.sp,fontWeight=FontWeight.Bold)
+                            fontSize=12.sp,fontWeight=FontWeight.Bold,
+                            textAlign=TextAlign.Center,maxLines=2)
                     }
                 }
             }
@@ -106,11 +115,13 @@ internal fun TracksideFigmaStrengthSetup(
                 "Muscle development" -> "Build muscle"
                 else -> "Maintain fitness"
             },
-            "⌁",onEditGoal,"builder-strength-setup-goal")
+            R.drawable.trackside_strength_goal_icon,onEditGoal,
+            "builder-strength-setup-goal")
         Spacer(Modifier.height(7.dp))
         StrengthPreferenceRow(
             "Muscle emphasis","Not available in Engine 1",
-            "◎",{ advisory="Muscle emphasis is not saved or used by Engine 1.5 in this builder. Workout selection will follow the supported strength goal." },
+            R.drawable.trackside_strength_muscle_icon,
+            { advisory="Muscle emphasis is not saved or used by Engine 1.5 in this builder. Workout selection will follow the supported strength goal." },
             "builder-strength-setup-emphasis")
         Spacer(Modifier.height(7.dp))
         val equipmentSummary=listOf(
@@ -120,7 +131,8 @@ internal fun TracksideFigmaStrengthSetup(
         ).filter { (id,_) -> (request.equipment[id]?:0)>0 }
             .joinToString(" · ") { it.second }.ifBlank { "Bodyweight only" }
         StrengthPreferenceRow(
-            "Equipment",equipmentSummary,"⊣",
+            "Equipment",equipmentSummary,
+            R.drawable.trackside_strength_equipment_icon,
             { choosingEquipment=true },"builder-strength-setup-equipment")
         Spacer(Modifier.height(14.dp))
 
@@ -307,23 +319,30 @@ private fun StrengthSectionLabel(label:String) {
 
 @Composable
 private fun StrengthPreferenceRow(
-    title:String,subtitle:String,glyph:String,onClick:()->Unit,tag:String
+    title:String,subtitle:String,iconRes:Int,onClick:()->Unit,tag:String
 ) {
     Surface(
         onClick=onClick,
-        modifier=Modifier.fillMaxWidth().height(59.dp).testTag(tag),
+        modifier=Modifier.fillMaxWidth().heightIn(min=59.dp).testTag(tag),
         color=Color(0xFF183040),
         shape=RoundedCornerShape(13.dp),
         border=BorderStroke(1.dp,Color(0xFF4E6B7B))
     ) {
-        Row(Modifier.padding(horizontal=12.dp),
+        Row(Modifier.padding(horizontal=12.dp,vertical=10.dp),
             verticalAlignment=Alignment.CenterVertically,
             horizontalArrangement=Arrangement.spacedBy(12.dp)) {
             Box(
                 Modifier.size(37.dp).background(Color(0xFF284B64),
                     RoundedCornerShape(10.dp)),
                 contentAlignment=Alignment.Center
-            ) { Text(glyph,color=Color(0xFFB2DAF1),fontSize=21.sp) }
+            ) {
+                Icon(
+                    painter=painterResource(iconRes),
+                    contentDescription=null,
+                    tint=Color.Unspecified,
+                    modifier=Modifier.size(23.dp)
+                )
+            }
             Column(Modifier.weight(1f)) {
                 Text(title,color=strengthInk,fontSize=12.5f.sp,
                     fontWeight=FontWeight.Bold)

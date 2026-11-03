@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Exact Figma Trackside 3.0 path geometry, node 698:81; no redraw. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="23dp"
+    android:height="23dp"
+    android:viewportWidth="23"
+    android:viewportHeight="23">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#AAD7F7"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M11.5 19.1666C15.7342 19.1666 19.1667 15.7342 19.1667 11.5C19.1667 7.2658 15.7342 3.83331 11.5 3.83331C7.26582 3.83331 3.83334 7.2658 3.83334 11.5C3.83334 15.7342 7.26582 19.1666 11.5 19.1666Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#AAD7F7"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M11.5 15.8125C13.8817 15.8125 15.8125 13.8817 15.8125 11.5C15.8125 9.11827 13.8817 7.1875 11.5 7.1875C9.11827 7.1875 7.1875 9.11827 7.1875 11.5C7.1875 13.8817 9.11827 15.8125 11.5 15.8125Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#AAD7F7"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M11.5 12.4584C12.0293 12.4584 12.4583 12.0293 12.4583 11.5C12.4583 10.9707 12.0293 10.5417 11.5 10.5417C10.9707 10.5417 10.5417 10.9707 10.5417 11.5C10.5417 12.0293 10.9707 12.4584 11.5 12.4584Z" />
+</vector>
