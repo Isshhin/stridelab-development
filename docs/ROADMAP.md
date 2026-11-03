@@ -1,36 +1,347 @@
 # StrideLab Development Roadmap
 
-Updated: 2026-10-26. **Private developer-only project. No public launch is planned.**
+Updated: 3 November 2026
+
+StrideLab is currently a private developer project. The immediate goal is a stable **November 2026 dogfood build**, not a public launch.
+
+The long-term direction is defined in [PRODUCT_VISION.md](PRODUCT_VISION.md).
 
 ## Current milestone
 
-**Phase 4D final accepted:** [Run 40254593565](https://github.com/Isshhin/stridelab-development/actions/runs/40254593565) completed **273/273 official Playwright/axe passes, 0 failed/skipped/flaky**, protected source and archive integrity green.
+The current milestone is:
 
-**Phase 4E source implementation complete; CI and physical device acceptance pending:** [Status](PHASE4E_STATUS.md), ZIP `StrideLab-Phase4E-Final-candidate.zip` SHA-256 `d1d061d8be9d9dd752a71a40867e2bc00f0fb15b97d88032c0b95f45e4e1c3b3`. Offline Android WebView, same accepted 4D prototype, SAF data backup/restore and private APK build/sign workflow are implemented. The Android emulator/build has not yet run. Phone-level update safety requires a durable signing key and explicit on-device checks.
+> Build a version of StrideLab that can be trusted for normal daily training.
 
-**Next:** one combined [Android build/emulator gate](https://github.com/Isshhin/stridelab-development/actions/workflows/phase4e-final-android.yml) followed by private phone testing, then Engine 2.0 design/validation. No public release planned.
+That means the complete loop must work:
 
-**Phase 4D.3A-A Running Intelligence foundation accepted as the last VERIFIED checkpoint**, [official GitHub Actions run 40250751272](https://github.com/Isshhin/stridelab-development/actions/runs/40250751272): **258/258 passed (0 failed/skipped/flaky)** including available axe checks, 629/629 manifest hashes, rebuilt HTML and protected engine/baseline verified. Exact private source: [`phase4d3a-a-fix1`](https://github.com/Isshhin/stridelab-development/releases/tag/phase4d3a-a-fix1), SHA-256 `424063a8400e57eebd89012cd71b55bf38218678b78a4ee0f34206619cc81e87`.
+**plan → review → perform/import → preserve completed work → adjust safely → reopen later and trust the result**
 
-- Phase 4D.2 Workstreams 1–5: automated acceptance complete; final WS5-D run 40247262671 was 253/253.
-- Phase 4D.3A-A: data-derived demo run insights, direct chart-to-split selection, keyboard support, honest missing-data and simulated route labeling; **accepted 258/258**.
-- **Phase 4D combined final candidate IMPLEMENTED; official verification pending:** 4D.3A running insights, 4D.3B manual Link Run + validated offline JSON import, 4D.3C honest planned/actual comparison. One integrated candidate ZIP with 15 new tests (expected 273), 630/630 manifest, protected hashes unchanged. [Candidate verification workflow](https://github.com/Isshhin/stridelab-development/actions/workflows/phase4d-final-playwright.yml). Do not mark final accepted before official CI.
-- Subsequent: Phase 4D.3B planned-to-recorded Link Run, 4D.3C planned-versus-actual summaries, then private Android pre-alpha before Engine 2.0.
+The project should not be judged by feature count during this milestone.
 
-Manual Android, screen-reader, expert coaching/content, map tiles and genuine imported activity validations remain open. No public launch planned.
+The release question is:
 
-## Next phases
+> What could stop the athlete from trusting StrideLab with tomorrow's training?
 
-- **Phase 4D.3A in progress:** Checkpoint A has data-derived demo split analysis, direct chart taps and accessible keyboard selection, and truthful map/no-GPS labeling. Five added official tests (expected 258). Original run 40249781541 passed 257/258; one incorrect keyboard-toggle assertion repaired in test-only Fix1. New CI is pending before promotion. Later 4D.3A checkpoints can improve interactions/data validation without altering protected engine.
-- Phase 4D.3B: Link Run, stable planned/recorded IDs, matching, manual unlink/correction, persistence.
-- Phase 4D.3C: planned-versus-actual comparisons (not adaptive coaching yet).
-- Phase 4E **before Engine 2.0**: private Android developer pre-alpha; stable app ID and signing, offline data, backups/migrations, GitHub-versioned user-approved APK updates; do not expose private APKs via public Releases without explicit approval.
-- Phase 5: audit and validate unified adaptive coaching engine, planning, load/recovery, periodization and cross-discipline scheduling. Preserve old engine as reference until tests establish improvements.
-- Phase 6: independently benchmark using public docs from Runna (running structure), Run Kaizen (history-informed flexible load/adaptation), Freeletics (multi-discipline exercise programming), plus independent exercise-science research.
-- Phase 7: add mobility, then plyometrics into same engine, following core validation.
-- Later: longitudinal personal testing; no public release assumed.
+## Active workstreams
 
-## Repositories
+### Trackside 3.0 reconstruction
 
-- `Isshhin/stride-lab`: original Next.js / Supabase / Cloudflare application (keep untouched until a deliberate integration task).
-- `Isshhin/stridelab-development`: private Afterglow prototype, workstream code, evidence, checkpoint manifests, and references to archived ZIPs.
+Active branch:
+
+`design/trackside3-figma-parity-no-build-20261103`
+
+Last inspected head:
+
+`0dee06b676a0aca8545843429357f0b7cfe0e1b5`
+
+The current goal is faithful native Android reconstruction of the approved Trackside 3.0 Figma.
+
+Current work includes:
+
+- native plan-builder screens
+- running and cross-training goals
+- session counts
+- availability
+- editable weekly placement
+- Strength Setup
+- Calisthenics setup
+- equipment selection
+- Today
+- Activity Detail
+- responsive Android verification
+- accessibility-scale verification
+
+The next acceptance gate is rendered Android evidence, not source-code similarity.
+
+At the last roadmap update:
+
+- UI foundation checks at `0bfa1c1` passed
+- emulator smoke tests at `0bfa1c1` passed
+- exact-head responsive QA for `0dee06b` was still in progress
+
+The reconstruction should not be called complete until the rendered screenshots have been compared against Figma and actionable P0/P1/P2 mismatches are resolved.
+
+The current Figma is a baseline for implementation, not a permanent final design.
+
+### Engine 1.5 release reliability
+
+Active branch:
+
+`feature/engine15-versioned-foundation-20261103`
+
+Draft PR:
+
+[PR #37](https://github.com/Isshhin/stridelab-development/pull/37)
+
+Last inspected head:
+
+`1d673bb5d63acc118dde6f24d666490a1bb1779a`
+
+Engine 1.5 is the conservative release engine.
+
+Its purpose is reliability, not maximum coaching sophistication.
+
+Completed or substantially implemented work includes:
+
+- versioned Engine 1.0 compatibility
+- bounded running progression
+- conservative quality prescriptions
+- deload and return-from-break handling
+- explicit review before coaching adjustments
+- evidence-gated feedback
+- offline persistence and backup validation
+- multi-session scheduling
+- mixed-discipline interference rules
+- safe compatible double days
+- durable session locks
+- midweek availability review and relocation work
+
+At the last roadmap update:
+
+- `5979b7a` had passed both main verification and Android device verification
+- `1d673bb` contained the latest availability-relocation implementation
+- exact-head verification for `1d673bb` was still running
+
+Do not call a new Engine 1.5 batch complete until the exact-head JVM/Android/device gates are green.
+
+Do not enable Engine 1.5 in Trackside until the reliability batches are finished and integration is explicitly tested.
+
+### Engine 2.0 research
+
+Active branch:
+
+`research/runna-garmin-coaching-20261102`
+
+Draft PR:
+
+[PR #34](https://github.com/Isshhin/stridelab-development/pull/34)
+
+Last inspected head:
+
+`b5e82ff6f1912576167e075dee73e0fb2ee9a7d4`
+
+The research branch is separate from the release engine.
+
+Current research themes include:
+
+- athlete-state modeling
+- progression and periodization
+- recovery/adaptation decisions
+- workout selection
+- cross-discipline coordination
+- fail-closed validation
+- original-source provenance
+- future real-world outcome readiness
+- comparison against Runna and Garmin Run Coach
+
+The latest inspected Engine 2.0 research workflow at `b5e82ff` passed.
+
+Research findings must not automatically become release behavior.
+
+## November execution sequence
+
+### Phase 1: Finish Trackside rendered parity
+
+Goal:
+
+Make the current UI implementation trustworthy enough that visual implementation is no longer the main unknown.
+
+Required outcomes:
+
+- Plan Builder core flow renders correctly
+- Strength Setup passes visual QA
+- Calisthenics/Conditioning setup passes visual QA
+- Today passes visual QA
+- Activity Detail passes visual QA
+- 360dp and 412dp layouts are usable
+- larger font scales remain usable
+- navigation and major interactions work
+- compile/unit/emulator checks remain green
+
+### Phase 2: Finish Engine 1.5 reliability
+
+Goal:
+
+Stop adding major Engine 1.5 intelligence once the release-reliability requirements are met.
+
+Remaining emphasis:
+
+- complete availability reconciliation
+- edited-schedule persistence
+- broad scenario matrix
+- release hardening
+- exact-head Android verification
+
+Engine 1.5 should finish as:
+
+- conservative
+- deterministic
+- explainable
+- reliable
+- safe
+
+### Phase 3: Controlled Trackside + Engine 1.5 integration
+
+Goal:
+
+Connect the verified UI and verified release engine without destabilizing either branch.
+
+Required checks:
+
+- plan generation
+- weekly scheduling
+- manual placement
+- session locks
+- availability changes
+- save/reopen
+- backup/restore
+- reviewable coaching changes
+- Engine 1.0 fallback where required
+
+Do not merge simply because the app compiles.
+
+### Phase 4: End-to-end dogfood loop
+
+The app should support:
+
+1. profile/configuration
+2. goals
+3. availability
+4. plan generation
+5. plan review
+6. manual edits
+7. save
+8. Today
+9. perform or import activity
+10. connect completed work to the plan
+11. update safely
+12. survive restart/offline reopen
+
+This is the actual November milestone.
+
+### Phase 5: Dogfood and hardening
+
+Use StrideLab for real training.
+
+Record failures such as:
+
+- confusing UI
+- unreliable schedule edits
+- lost state
+- wrong workout placement
+- misleading coaching suggestions
+- activity-matching problems
+- persistence failures
+- slow or awkward daily workflow
+
+Only fix issues that real use or release verification justifies.
+
+Avoid feature creep.
+
+### Phase 6: Increase Engine 2.0 research effort
+
+Once the dogfood path is stable, shift more effort toward Engine 2.0.
+
+Suggested focus:
+
+1. athlete-state modeling
+2. progression and periodization
+3. recovery/adaptation decisions
+4. workout selection
+5. real-data validation
+6. comparative evaluation against established coaching systems
+
+Engine 1.5 should remain the stable control/baseline engine.
+
+### Phase 7: Running coaching parity
+
+The first major coaching-quality target is running.
+
+The goal is not feature-count parity.
+
+The goal is competitive plan quality and adaptation behavior, including:
+
+- aerobic development
+- threshold development
+- mileage progression
+- quality-session selection
+- long-run progression
+- heat/humidity/hill context where relevant
+- robustness across different athlete profiles
+- sensible behavior when real life interrupts the plan
+
+### Phase 8: Broader whole-athlete development
+
+Only after the running foundation is credible should StrideLab expand deeper into the broader athlete model.
+
+Potential domains include:
+
+- strength
+- calisthenics
+- conditioning
+- mobility
+- plyometrics
+- isometrics
+- movement preparation
+- recovery support
+
+Each domain should be integrated through shared athlete state and adaptation logic rather than added as an isolated feature set.
+
+## Scope rules
+
+During the November dogfood milestone:
+
+### Build now
+
+- Trackside parity and interaction fixes
+- Engine 1.5 reliability
+- persistence
+- scheduling safety
+- end-to-end training loop
+- integration
+- test/CI reliability
+
+### Backlog
+
+- major visual redesign
+- broad new training domains
+- new live integrations that are not required for dogfooding
+- commercial/public launch work
+- unrelated feature expansion
+
+### Research separately
+
+- Engine 2.0
+- competitive coaching behavior
+- athlete modeling
+- real-data validation methods
+- advanced adaptation logic
+
+## Release gate
+
+A November dogfood build is acceptable when:
+
+- no known critical data-loss issue exists
+- the main training loop is usable
+- planned and completed work remain connected
+- availability and manual edits are preserved safely
+- Engine 1.5 behavior is bounded and reviewable
+- the app survives offline use and restart
+- Trackside major screens are visually and functionally acceptable
+- emulator/device verification is green
+- real use no longer requires rebuilding core foundations every day
+
+## Historical development records
+
+The older Phase 4D/4E documents remain historical evidence and should not be rewritten to match the current roadmap.
+
+Relevant files include:
+
+- [PHASE4D3A_STATUS.md](PHASE4D3A_STATUS.md)
+- [PHASE4D_FINAL_STATUS.md](PHASE4D_FINAL_STATUS.md)
+- [PHASE4E_STATUS.md](PHASE4E_STATUS.md)
+- [PHASE4E-FIX1-CHECKPOINT.md](PHASE4E-FIX1-CHECKPOINT.md)
+- [WS4_STATUS.md](WS4_STATUS.md)
+- [WS5_STATUS.md](WS5_STATUS.md)
+
+Those files document earlier checkpoints. This roadmap defines the current direction.
