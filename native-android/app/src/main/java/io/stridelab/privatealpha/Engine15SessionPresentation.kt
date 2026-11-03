@@ -51,6 +51,15 @@ internal object Engine15SessionPresentation {
                 "Time-only adjustment. Any original distance or structured intervals are history, not a current target."
             )
         }
+        if (reviewed && proposed!!.accepted) {
+            // Invalid or already-started transitions are not silently treated as a
+            // current time-only target. Keep the original prescription visible.
+            return Target(
+                State.ORIGINAL, session.minutes, session.distanceKm, session.steps,
+                session.minutes, session.distanceKm,
+                "The reviewed change cannot be shown as an active target in this workout state. Review the saved session."
+            )
+        }
         return Target(
             if (reviewed && proposed?.accepted == false) State.PENDING_REVIEW else State.ORIGINAL,
             session.effectiveMinutes, session.distanceKm, session.steps,
