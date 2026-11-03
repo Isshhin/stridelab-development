@@ -286,6 +286,7 @@ internal fun TracksideFigmaRaceGoalScreen(
     onIntent: (String) -> Unit, onDistance: (String) -> Unit,
     onBack: () -> Unit, onContinue: () -> Unit
 ) {
+    var unsupportedAction by remember { mutableStateOf<String?>(null) }
     val intents = listOf(
         Triple("pr", "Beat my personal best", "Train to improve your existing PR"),
         Triple("time", "Reach a target time", "Work toward a specific finish time"),
@@ -296,7 +297,11 @@ internal fun TracksideFigmaRaceGoalScreen(
         eyebrow = "RUNNING / RACE & PERFORMANCE",
         headline = "What are you aiming\nfor?",
         description = "Choose what success looks like for you.",
-        onBack = onBack, onContinue = onContinue
+        onBack = onBack,
+        onContinue = onContinue,
+        // Never silently accept a target-time instruction that the current
+        // PlanRequest contract cannot represent or apply.
+        continueEnabled = intent != "time"
     ) {
         intents.forEachIndexed { i,(id,title,desc) ->
             TracksideFigmaOption(title,desc,intent==id,
@@ -309,7 +314,7 @@ internal fun TracksideFigmaRaceGoalScreen(
             )
             if(i < intents.lastIndex) Spacer(Modifier.height(9.dp))
         }
-        Spacer(Modifier.height(27.dp))
+        Spacer(Modifier.height(25.dp))
         Text("DISTANCE", modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center, fontSize=11.sp,
             color=muted, fontWeight=FontWeight.Bold)
@@ -318,7 +323,7 @@ internal fun TracksideFigmaRaceGoalScreen(
             listOf("5K","10K","21K","42K").forEach { dist ->
                 Surface(
                     modifier = Modifier.width(72.dp).height(38.dp)
-                        .testTag("builder-distance-$dist"),
+                        .testTag("builder-distance-"+dist),
                     onClick={onDistance(dist)},
                     color=if(distance==dist) darkWine else Color.Transparent,
                     shape=RoundedCornerShape(22.dp)
@@ -330,25 +335,127 @@ internal fun TracksideFigmaRaceGoalScreen(
                 }
             }
         }
-        Spacer(Modifier.height(11.dp))
-        Surface(
-            modifier=Modifier.fillMaxWidth().heightIn(min=102.dp),
-            color=Color(0xFF162A36), shape=RoundedCornerShape(13.dp),
-            border=BorderStroke(1.dp,outline)
-        ) {
-            Column(Modifier.padding(13.dp),
-                verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.SpaceBetween) {
-                    Text("CURRENT $distance PERFORMANCE",fontSize=11.sp,
-                        color=white,fontWeight=FontWeight.Bold)
-                    Text("OPTIONAL",fontSize=10.sp,color=muted)
+        Spacer(Modifier.height(12.dp))
+        when(intent) {
+            "pr" -> Surface(
+                modifier=Modifier.fillMaxWidth().heightIn(min=114.dp),
+                color=Color(0xFF162A36), shape=RoundedCornerShape(13.dp),
+                border=BorderStroke(1.dp,outline)
+            ) {
+                Column(Modifier.padding(13.dp),
+                    verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                    Row(Modifier.fillMaxWidth(),
+                        horizontalArrangement=Arrangement.SpaceBetween) {
+                        Text("Your current $distance PR",fontSize=12.sp,
+                            color=white,fontWeight=FontWeight.Bold)
+                        Text("OPTIONAL",fontSize=10.sp,color=muted)
+                    }
+                    Row(Modifier.fillMaxWidth(),
+                        verticalAlignment=Alignment.CenterVertically) {
+                        Text("Not entered",fontSize=12.sp,color=muted,
+                            modifier=Modifier.weight(1f))
+                        Surface(
+                            onClick={unsupportedAction="PR entry"},
+                            shape=RoundedCornerShape(10.dp),
+                            color=Color(0xFF2A4050),
+                            border=BorderStroke(1.dp,Color(0xFF536F80)),
+                            modifier=Modifier.height(38.dp)
+                                .testTag("builder-race-add-pr")
+                        ) {
+                            Box(contentAlignment=Alignment.Center,
+                                modifier=Modifier.padding(horizontal=16.dp)) {
+                                Text("Add PR",fontSize=11.sp,color=white)
+                            }
+                        }
+                    }
+                    Text("Use a current PR as your baseline; no target time required.",
+                        fontSize=10.sp,lineHeight=14.sp,color=muted)
                 }
-                Text("No verified personal best entered",fontSize=12.sp,color=muted)
-                Text("The current coaching engine does not accept a target finish time. No target is added to the plan.",
-                    fontSize=10.sp,lineHeight=14.sp,color=muted)
+            }
+            "time" -> Surface(
+                modifier=Modifier.fillMaxWidth().heightIn(min=143.dp),
+                color=Color(0xFF162A36), shape=RoundedCornerShape(13.dp),
+                border=BorderStroke(1.dp,outline)
+            ) {
+                Column(Modifier.padding(13.dp),
+                    verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                    Text("Target finish time",fontSize=13.sp,
+                        fontWeight=FontWeight.Bold,color=white)
+                    Text("Your goal time for the selected distance.",
+                        fontSize=11.sp,color=muted)
+                    Row(Modifier.fillMaxWidth(),
+                        horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                        listOf("HOURS","MINUTES","SECONDS").forEach { label ->
+                            Surface(
+                                Modifier.weight(1f).height(55.dp),
+                                color=Color(0xFF203742),
+                                shape=RoundedCornerShape(9.dp),
+                                border=BorderStroke(1.dp,outline)
+                            ) {
+                                Column(horizontalAlignment=Alignment.CenterHorizontally,
+                                    verticalArrangement=Arrangement.Center) {
+                                    Text(label,fontSize=9.sp,color=muted)
+                                    Text("—",fontSize=16.sp,color=white)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            else -> Surface(
+                Modifier.fillMaxWidth().heightIn(min=67.dp),
+                color=Color(0xFF162A36),shape=RoundedCornerShape(13.dp),
+                border=BorderStroke(1.dp,outline)
+            ) {
+                Box(Modifier.padding(13.dp),contentAlignment=Alignment.CenterStart) {
+                    Text("Your goal is to complete the chosen distance.",
+                        fontSize=12.sp,color=muted)
+                }
             }
         }
+        Spacer(Modifier.height(20.dp))
+        Text("TARGET DAY",fontSize=11.sp,color=muted,
+            fontWeight=FontWeight.Bold)
+        Spacer(Modifier.height(7.dp))
+        Surface(
+            onClick={unsupportedAction="Target date"},
+            modifier=Modifier.fillMaxWidth().height(50.dp)
+                .testTag("builder-race-target-day"),
+            color=Color(0xFF071017),
+            shape=RoundedCornerShape(12.dp),
+            border=BorderStroke(1.dp,outline)
+        ) {
+            Row(Modifier.padding(horizontal=12.dp),
+                verticalAlignment=Alignment.CenterVertically) {
+                Text("▢",fontSize=19.sp,color=muted)
+                Spacer(Modifier.width(10.dp))
+                Text("Choose a date (optional)",fontSize=12.sp,
+                    color=muted,modifier=Modifier.weight(1f))
+                Text("⌄",fontSize=18.sp,color=muted)
+            }
+        }
+        if(intent=="time") {
+            Spacer(Modifier.height(11.dp))
+            Text("Target-time prescriptions are not supported by the active " +
+                "engine. Choose another goal to continue.",
+                fontSize=11.sp,color=Color(0xFFFFA7B5),
+                modifier=Modifier.testTag("builder-target-time-unavailable"))
+        }
     }
+    if(unsupportedAction!=null) AlertDialog(
+        onDismissRequest={unsupportedAction=null},
+        title={Text(unsupportedAction!!,color=white)},
+        text={Text(
+            "The current coaching engine does not store this value in " +
+                "a saved PlanRequest. No PR or target date has been recorded.",
+            color=muted
+        )},
+        confirmButton={
+            TextButton(onClick={unsupportedAction=null}) {
+                Text("Close",color=white)
+            }
+        }
+    )
 }
 
 @Composable
