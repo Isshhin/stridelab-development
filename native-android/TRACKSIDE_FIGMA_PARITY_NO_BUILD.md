@@ -72,3 +72,19 @@ The user's **actual Android Studio screenshots** showed (1) a generic "Goals & a
 - The reconstruction branch has **zero GitHub Actions workflow runs**; the assistant has not compiled or packaged an APK.
 - The newer screens still need comparison with approved Figma at matching viewport sizes. User's rejected screenshots predate these builder/map-sheet corrections.
 - Remaining fidelity gaps: running training preferences only represent current engine contracts; advanced multi-discipline setup still has a legacy fallback, preview has no fabricated workouts before generation, and atmospheric Activity uses a clearly labeled illustrative route until source GPS is available. The approved builder uses Roboto; atmospheric Activity uses Inter, which still requires exact font metrics.
+
+
+## Continuation checkpoint — source branch after the interrupted chat
+
+The full-screen running flow is now wired to further approved Figma states instead of returning to legacy chip pages:
+
+- `551:665` / `614:1374` Train Your Way and guided advanced preferences (`TracksideFigmaAdvancedRunning.kt`). Only mileage and quality frequency persist to `PlanRequest`; non-persisted quality whitelist is explicitly labeled advisory.
+- `614:1258` / `614:1298` / `614:1336` dedicated Run Faster, Endurance and Fitness focus pages (`TracksideFigmaGuidedRunning.kt`). Editing ability from a guided goal now returns to the correct guided context, rather than bypassing goal confirmation.
+- Race `551:796` / `551:720` now has PR/target-date and target-time visual variants. Target-time Continue is intentionally disabled until its value can be represented by the active engine; other unsupported fields disclose that they cannot be saved.
+- `614:88` Availability supports explicit policy choice for compatible same-day sessions, shows slot capacity as **provisional**, and defaults new plans to unavailable Saturday. Existing saved plan baselines are not silently rewritten.
+- Quality count and day-selection UI now enforce existing Engine 1.0 limits (quality sessions require sufficient running frequency, experience and recent volume).
+- Ten source-only `@Preview` states were added in `TracksideFigmaPreviewGallery.kt`, with review instructions in `TRACKSIDE_FIGMA_ANDROID_STUDIO_PREVIEWS.md`.
+
+A static source audit of the 12 primary Kotlin/UI-test files found no unmatched delimiters, missing drawable IDs or the previously broken `rememberSaveable` import. **This is not compilation, no preview has been rendered, and there were zero GitHub Actions runs on the isolated reconstruction branch.**
+
+**Explicit remaining gaps:** full Strength/Calisthenics/Conditioning Figma builder parity; final 412×950/360×800 screenshot matching; custom licensed Inter typography / exact icon art; and Engine 2.0 input/state integration when actually ready. Do not describe these as complete or merged.
