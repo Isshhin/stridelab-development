@@ -30,6 +30,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Native 1.0 font scale frames are the actual Figma visual baseline.
+          - profile: figma-360dp-font100
+            pixels: 720x1600
+            dpi: 320
+            font: '1.0'
+          - profile: figma-412dp-font100
+            pixels: 824x1900
+            dpi: 320
+            font: '1.0'
+          # Preserve larger-font accessibility/regression coverage separately.
           - profile: compact-360dp-font130
             pixels: 720x1600
             dpi: 320
