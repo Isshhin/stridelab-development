@@ -29,7 +29,8 @@ internal data class TracksideReviewCandidate(
         require(plannedMinutes > 0)
         require(originalDistanceKm == null || (originalDistanceKm.isFinite() && originalDistanceKm >= 0.0))
         when (stage) {
-            TracksideReviewStage.PREVIEW, TracksideReviewStage.PENDING,
+            TracksideReviewStage.PREVIEW, TracksideReviewStage.PENDING ->
+                require(proposedMinutes != null && proposedMinutes in 0 until plannedMinutes)
             TracksideReviewStage.ACCEPTED_TIME ->
                 require(proposedMinutes != null && proposedMinutes in 1 until plannedMinutes)
             TracksideReviewStage.ACCEPTED_REST -> require(proposedMinutes == 0)
@@ -84,24 +85,32 @@ internal object TracksideReviewCandidateCopy {
     }
 
     fun changeTitle(model: TracksideReviewCandidate): String = when(model.stage) {
-        TracksideReviewStage.PREVIEW -> "A shorter easy run"
-        TracksideReviewStage.PENDING -> "${model.proposedMinutes} minutes instead of ${model.plannedMinutes}"
+        TracksideReviewStage.PREVIEW -> if (model.proposedMinutes == 0)
+            "Rest instead of this run" else "A shorter " + model.workoutTitle.lowercase(Locale.ROOT)
+        TracksideReviewStage.PENDING -> if (model.proposedMinutes == 0)
+            "Rest instead of this run" else "${model.proposedMinutes} minutes instead of ${model.plannedMinutes}"
         TracksideReviewStage.ACCEPTED_TIME -> "Previously ${model.plannedMinutes} min · ${model.originalDistanceLabel}"
         TracksideReviewStage.ACCEPTED_REST -> "${model.workoutTitle} · ${model.plannedMinutes} min"
-        TracksideReviewStage.STALE -> "Previous review unavailable"
+        TracksideReviewStage.STALE -> model.proposedMinutes?.let { "${it}-minute option unavailable" }
+            ?: "Previous review unavailable"
     }
 
     fun actions(model: TracksideReviewCandidate): Pair<String,String> = when(model.stage) {
         TracksideReviewStage.PREVIEW -> "Review suggestion" to "Keep original"
-        TracksideReviewStage.PENDING -> "Accept ${model.proposedMinutes} min" to "Dismiss"
+        TracksideReviewStage.PENDING -> (if (model.proposedMinutes == 0) "Accept rest"
+            else "Accept ${model.proposedMinutes} min") to "Dismiss"
         TracksideReviewStage.ACCEPTED_TIME -> "View workout" to "Training"
         TracksideReviewStage.ACCEPTED_REST -> "Training" to "View history"
         TracksideReviewStage.STALE -> "Refresh review" to "Keep original"
     }
 
     fun disclosure(model: TracksideReviewCandidate): String = when(model.stage) {
-        TracksideReviewStage.PREVIEW -> "The original ${model.originalDistanceLabel} value is not a target for a shorter run."
-        TracksideReviewStage.PENDING -> "If accepted: ${model.proposedMinutes} minutes, with no required distance or old interval targets."
+        TracksideReviewStage.PREVIEW -> if (model.proposedMinutes == 0)
+            "The original ${model.originalDistanceLabel} is retained in history; rest would require explicit approval."
+            else "The original ${model.originalDistanceLabel} value is not a target for a shorter run."
+        TracksideReviewStage.PENDING -> if (model.proposedMinutes == 0)
+            "If accepted: rest, with no workout, distance or old interval targets."
+            else "If accepted: ${model.proposedMinutes} minutes, with no required distance or old interval targets."
         TracksideReviewStage.ACCEPTED_TIME -> "No catch-up mileage. Do not force the old distance into ${model.activeMinutes} minutes."
         TracksideReviewStage.ACCEPTED_REST -> "No automatic redistribution of missed training."
         TracksideReviewStage.STALE -> "No adjustment was accepted. Reopen current details before deciding."
