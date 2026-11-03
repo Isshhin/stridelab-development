@@ -51,6 +51,18 @@ internal fun TracksideParityActivityMapHero(
         Image(painterResource(R.drawable.trackside_activity_street_grid),
             contentDescription = "Decorative street-map background, not recorded GPS",
             modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        if (points.size < 2) {
+            // Isolated original Figma vector, strictly an illustrative placeholder.
+            // It is NOT matched to or substituted for the athlete's GPS samples.
+            Image(
+                painterResource(R.drawable.trackside_activity_illustrative_route),
+                contentDescription = "Illustrative route graphic; not recorded GPS data",
+                modifier = Modifier.align(Alignment.TopStart)
+                    .padding(start = 81.dp, top = 93.dp)
+                    .size(width = 211.dp, height = 325.dp),
+                contentScale = ContentScale.FillBounds
+            )
+        }
         if (points.size >= 2) {
             val projection = cos(Math.toRadians(points.map { it.latitude!! }.average()))
                 .coerceAtLeast(.01)
@@ -112,8 +124,8 @@ internal fun TracksideParityActivityMapHero(
             } else Box(Modifier.size(44.dp))
         }
         Text(
-            if (points.size >= 2) "Recorded GPS · " + points.size + " samples"
-            else "Illustrative street-grid backdrop · no recorded GPS route",
+            if (points.size >= 2) "Recorded GPS schematic · " + points.size + " samples"
+            else "ILLUSTRATIVE DESIGN ROUTE · NOT A GPS RECORDING",
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 28.dp),
             fontSize = 11.sp, color = TracksidePalette.text
         )
