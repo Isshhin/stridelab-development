@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -17,6 +18,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -400,6 +405,7 @@ internal fun TracksideFigmaRunningAbilityScreen(
     onContinue: () -> Unit,
     onAdvanced: () -> Unit
 ) {
+    var resultInfoOpen by remember { mutableStateOf(false) }
     TracksideFigmaBuilderFrame(
         eyebrow="RUNNING / CURRENT ABILITY",
         headline="Where are you\nstarting?",
@@ -457,8 +463,27 @@ internal fun TracksideFigmaRunningAbilityScreen(
                     Text("Helps estimate appropriate training intensities.",
                         fontSize=10.sp,color=muted)
                 }
-                TextButton(onClick=onAdvanced) { Text("Add result",fontSize=11.sp,color=white) }
+                TextButton(onClick={resultInfoOpen=true}) {
+                    Text("Add result",fontSize=11.sp,color=white)
+                }
             }
         }
+        Spacer(Modifier.height(9.dp))
+        TextButton(onClick=onAdvanced,modifier=Modifier.testTag("builder-advanced-settings")) {
+            Text("Advanced training settings ›",fontSize=11.sp,color=muted)
+        }
     }
+    if (resultInfoOpen) AlertDialog(
+        onDismissRequest={resultInfoOpen=false},
+        title={Text("Recent performance",color=white)},
+        text={Text("This coaching engine does not yet store race or time-trial results in the plan request. Your weekly volume, longest run and editable planning pace remain available.",color=muted)},
+        confirmButton={
+            TextButton(onClick={resultInfoOpen=false;onAdvanced()}) {
+                Text("Edit advanced settings",color=white)
+            }
+        },
+        dismissButton={
+            TextButton(onClick={resultInfoOpen=false}) { Text("Close",color=muted) }
+        }
+    )
 }
