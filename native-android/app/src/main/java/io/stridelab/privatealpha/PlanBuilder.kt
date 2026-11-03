@@ -37,6 +37,10 @@ import org.json.JSONObject
     var runningSelectedDay by rememberSaveable { mutableIntStateOf(initial.longDay.coerceIn(1,7)) }
     var runningCustom by rememberSaveable { mutableStateOf(true) }
     var qualityPreference by rememberSaveable { mutableStateOf("Threshold") }
+    var advancedQualityTypes by rememberSaveable {
+        mutableStateOf(setOf("Threshold", "Tempo"))
+    }
+    var advancedFromAbility by rememberSaveable { mutableStateOf(false) }
     var runningRoute by rememberSaveable { mutableStateOf("race") }
     var raceIntent by rememberSaveable { mutableStateOf("pr") }
     var raceDistance by rememberSaveable { mutableStateOf(when(input.goal) {
@@ -84,7 +88,7 @@ import org.json.JSONObject
         )
         return
     }
-    if (step == 1 && input.runDays > 0 && runningSubPage != 3) {
+    if (step == 1 && input.runDays > 0) {
         when (runningSubPage) {
             0 -> TracksideFigmaRunningGoalScreen(
                 selected = runningRoute,
@@ -93,7 +97,10 @@ import org.json.JSONObject
                 onContinue = {
                     when (runningRoute) {
                         "race" -> runningSubPage = 1
-                        "custom" -> runningSubPage = 3
+                        "custom" -> {
+                            advancedFromAbility = false
+                            runningSubPage = 3
+                        }
                         else -> {
                             val goal = when(runningRoute) {
                                 "faster" -> "Improve 5K"
@@ -134,7 +141,28 @@ import org.json.JSONObject
                     runningSubPage = if(runningRoute=="race") 1 else 0
                 },
                 onContinue = { runningSubPage = 4 },
-                onAdvanced = { runningSubPage = 3 }
+                onAdvanced = {
+                    advancedFromAbility = true
+                    runningSubPage = 3
+                }
+            )
+            3 -> TracksideFigmaAdvancedRunning(
+                guided = advancedFromAbility,
+                weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0, 120.0) ?: 0.0,
+                qualityCount = input.qualityCount.coerceIn(0, 2),
+                selectedQualityTypes = advancedQualityTypes,
+                onWeeklyKm = { km = it.toInt().toString() },
+                onQualityCount = { n ->
+                    edit(input.copy(qualityCount=n.coerceAtMost(
+                        (input.runDays-1).coerceAtLeast(0))))
+                },
+                onToggleQuality = { quality ->
+                    advancedQualityTypes =
+                        if (quality in advancedQualityTypes) advancedQualityTypes-quality
+                        else advancedQualityTypes+quality
+                },
+                onBack = { runningSubPage = if (advancedFromAbility) 2 else 0 },
+                onContinue = { runningSubPage = 2 }
             )
             4 -> TracksideFigmaRunningSetup(
                 request = input,
