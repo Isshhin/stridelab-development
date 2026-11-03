@@ -67,7 +67,8 @@ class Engine15MultiScheduleTest {
         assertTrue(Engine1Engines.canManage(plan))
         assertFalse(Engine1Engines.supports(ENGINE1_VERSION, ENGINE15_MULTI_POLICY))
         val legacy = Engine1.generate(
-            request().copy(policyChoice = "baseline", runDays = 4, calDays = 0),
+            request().copy(policyChoice = "baseline", runDays = 4, calDays = 0,
+                dailyMinutes = 90),
             "owner", "legacy", now)
         assertEquals(ENGINE1_POLICY, legacy.policyId)
         assertFalse(legacy.encode().getJSONObject("request").has("dailyMinutes"))
