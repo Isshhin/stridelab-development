@@ -177,6 +177,42 @@ internal fun TracksideTodayHero(session: PlannedSession, onOpen: () -> Unit) {
     }
 }
 
+/** Master-gallery 653:842: factual approved-plan Today progress, no inferred completion. */
+@Composable
+internal fun TracksideTodayActiveSummary(plan: PlanSnapshot, today: List<PlannedSession>) {
+    val completed = today.count { it.status == "completed" }
+    val total = today.size.coerceAtLeast(1)
+    val weekIndex = java.time.temporal.ChronoUnit.WEEKS.between(
+        tracksideCalendarMonday(plan.request.start), tracksideCalendarMonday(LocalDate.now())
+    ).toInt().plus(1).coerceIn(1, plan.request.weeks.coerceAtLeast(1))
+    Surface(modifier = Modifier.fillMaxWidth().testTag("today-active-summary"),
+        color = TracksidePalette.surface, shape = RoundedCornerShape(23.dp),
+        border = BorderStroke(1.dp, TracksidePalette.outline.copy(alpha = .55f))) {
+        Column(Modifier.background(Brush.horizontalGradient(listOf(
+            Color(0xFF25323D), TracksidePalette.surface, TracksidePalette.surfaceLow
+        ))).padding(17.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("PLAN ACTIVE", color = TracksidePalette.red, fontSize = 11.sp,
+                fontWeight = FontWeight.Bold)
+            Text(LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE · d MMMM", Locale.getDefault()))
+                .uppercase(Locale.getDefault()), color = TracksidePalette.textMuted,
+                style = MaterialTheme.typography.labelSmall)
+            Text("Week $weekIndex of ${plan.request.weeks} · Your approved training",
+                color = TracksidePalette.text, style = MaterialTheme.typography.titleLarge)
+            Text("${completed} OF ${today.size} COMPLETED",
+                color = TracksidePalette.textMuted, style = MaterialTheme.typography.labelMedium)
+            Box(Modifier.fillMaxWidth().height(9.dp)
+                .background(TracksidePalette.outline.copy(alpha = .25f), RoundedCornerShape(5.dp))) {
+                if (today.isNotEmpty() && completed > 0) Box(
+                    Modifier.fillMaxWidth(completed.toFloat() / total).height(9.dp)
+                        .background(TracksidePalette.red, RoundedCornerShape(5.dp)))
+            }
+            Text(if (completed == today.size) "Today's scheduled sessions completed"
+                else "$completed completed · ${today.size-completed} remaining",
+                color = TracksidePalette.textMuted, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
 @Composable
 private fun HeroMetric(label: String, value: String, unit: String, modifier: Modifier) {
     Column(modifier.padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {

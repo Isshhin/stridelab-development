@@ -42,7 +42,7 @@ internal fun TracksideGlassCard(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(if (compact) 14.dp else 23.dp),
         color = TracksidePalette.surface,
         contentColor = TracksidePalette.text,
         border = BorderStroke(1.dp, Color(0xFF4D6B7D))
@@ -51,7 +51,7 @@ internal fun TracksideGlassCard(
             modifier = Modifier
                 .background(
                     Brush.horizontalGradient(
-                        listOf(Color(0xFF193544), Color(0xFF101F2A))
+                        listOf(Color(0xFF25323D), Color(0xFF101B22), Color(0xFF081219))
                     )
                 )
                 .padding(if (compact) 13.dp else 18.dp),
@@ -70,6 +70,20 @@ internal fun TracksideScreenHeader(
     onProfileClick: () -> Unit,
     dense: Boolean = false
 ) {
+    // These approved screens have no generic leading brand mark or settings icon.
+    // The five-tab floating nav already supplies the Settings/More entry.
+    if (title == "Today" || title == "Training") {
+        Column(Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(if(title=="Today") 4.dp else 0.dp)) {
+            if(title == "Today") {
+                Text(eyebrow, fontSize = 13.sp, color = TracksidePalette.textMuted)
+            }
+            Text(title, fontSize = 29.sp, lineHeight = 35.sp,
+                fontWeight = FontWeight.Bold, color = TracksidePalette.text,
+                modifier = Modifier.testTag("screen-title").semantics { heading() })
+        }
+        return
+    }
     Column(Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),

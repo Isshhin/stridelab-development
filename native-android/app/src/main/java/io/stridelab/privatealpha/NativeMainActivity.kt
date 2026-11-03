@@ -170,7 +170,14 @@ private fun NavHostController.openActivity(id: String) {
                             val next = plan?.sessions?.filter {
                                 it.date >= java.time.LocalDate.now() && it.status in setOf("planned", "in_progress")
                             }?.sortedWith(compareBy<PlannedSession>({ it.date }, { it.id }))?.firstOrNull()
-                            if(next != null && plan != null) item(key = "today-featured") {
+                            val todaySessions = plan?.sessions?.filter {
+                                it.date == java.time.LocalDate.now()
+                            }.orEmpty()
+                            val alreadyStartedToday = todaySessions.any { it.status == "completed" }
+                            if (plan != null && alreadyStartedToday) item(key = "today-active-status") {
+                                TracksideTodayActiveSummary(plan, todaySessions)
+                            }
+                            else if(next != null && plan != null) item(key = "today-featured") {
                                 TracksideTodayHero(next) { nav.openWorkout(plan.id, next.id) }
                             }
                             if(plan == null) item {
