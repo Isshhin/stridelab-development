@@ -2,6 +2,8 @@ package io.stridelab.privatealpha
 
 import java.time.Instant
 import java.time.LocalDate
+import org.json.JSONArray
+import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -37,6 +39,15 @@ class Engine15AvailabilityTest {
         assertEquals(preview.affectedSessionIds.toSet(),
             changed.sessions.filter { it.status=="unassigned" }.map { it.id }.toSet())
         assertEquals(changed,PlanSnapshot.decode(changed.encode(),owner))
+        val pausedBackup=JSONObject().put("schemaVersion",1)
+            .put("plans",JSONArray().put(changed.encode())).toString()
+        assertEquals(listOf(changed),PlanBackup.read(pausedBackup,owner))
+        assertThrows(PlanConstraint::class.java) {
+            val forged=changed.copy(status="approved")
+            val raw=JSONObject().put("schemaVersion",1)
+                .put("plans",JSONArray().put(forged.encode())).toString()
+            PlanBackup.read(raw,owner)
+        }
         assertThrows(PlanConstraint::class.java) { PlanOperations.approve(changed,emptyList()) }
 
         val first=changed.sessions.first { it.status=="unassigned" }
