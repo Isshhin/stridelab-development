@@ -40,6 +40,8 @@ import org.json.JSONObject
     var runningSubPage by rememberSaveable { mutableIntStateOf(0) }
     var scheduleSubPage by rememberSaveable { mutableIntStateOf(0) }
     var runningSelectedSlot by rememberSaveable { mutableIntStateOf(0) }
+    var otherSelectedDiscipline by rememberSaveable { mutableStateOf("str") }
+    var otherSelectedSlot by rememberSaveable { mutableIntStateOf(0) }
     var runningCustom by rememberSaveable { mutableStateOf(true) }
     var qualityPreference by rememberSaveable { mutableStateOf("Threshold") }
     var advancedQualityCsv by rememberSaveable { mutableStateOf("Threshold|Tempo") }
@@ -321,14 +323,42 @@ import org.json.JSONObject
                     ))
                 },
                 onDay = { day ->
-                    val days = if(day in input.days) input.days - day
-                        else input.days + day
-                    edit(input.copy(
-                        days = days,
-                        longDay = if(input.longDay in days) input.longDay
-                            else (days.maxOrNull() ?: input.longDay),
-                        qualityDays = input.qualityDays.intersect(days)
-                    ))
+                    val pinned = input.weeklySlots.values.flatten().contains(day)
+                    if(day !in input.days || !pinned) {
+                        val days = if(day in input.days) input.days-day
+                            else input.days+day
+                        edit(input.copy(
+                            days=days,
+                            longDay=if(input.longDay in days)input.longDay
+                                else (days.maxOrNull() ?: input.longDay),
+                            qualityDays=input.qualityDays.intersect(days)
+                        ))
+                    }
+                },
+                selectedOtherDiscipline = otherSelectedDiscipline,
+                selectedOtherSlot = otherSelectedSlot,
+                onSelectOtherDiscipline = { otherSelectedDiscipline=it },
+                onSelectOtherSlot = { otherSelectedSlot=it },
+                onAssignOtherDay = { discipline,index,day ->
+                    edit(WeeklyPlacement.put(input,discipline,index,day))
+                },
+                onClearOtherSlot = { discipline,index ->
+                    edit(WeeklyPlacement.clear(input,discipline,index))
+                },
+                onAutoOther = { discipline ->
+                    edit(input.copy(weeklySlots=input.weeklySlots-discipline))
+                },
+                onCountOther = { discipline,count ->
+                    if(discipline in input.weeklySlots) {
+                        edit(WeeklyPlacement.resize(input,discipline,count))
+                    } else {
+                        edit(when(discipline) {
+                            "str" -> input.copy(strengthDays=count)
+                            "cal" -> input.copy(calDays=count)
+                            else -> input.copy(conditioningDays=count)
+                        })
+                    }
+                    otherSelectedSlot=otherSelectedSlot.coerceIn(0,count-1)
                 },
                 onBack = { scheduleSubPage = 0 },
                 onContinue = { step = 3 }
