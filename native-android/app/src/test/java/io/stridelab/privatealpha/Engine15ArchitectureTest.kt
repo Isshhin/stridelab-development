@@ -41,7 +41,7 @@ class Engine15ArchitectureTest {
         }
     }
 
-    @Test fun batchAUsesVerifiedPrescriptionsButDistinctVersionedDraft() {
+    @Test fun candidateKeepsBaselineDatesAndEquipmentWithBoundedRunChanges() {
         val request = request()
         val old = Engine1.generate(request.copy(policyChoice = "baseline"), owner, "same-id", now)
         val candidate = Engine15.generate(request, owner, "same-id", now)
@@ -50,8 +50,15 @@ class Engine15ArchitectureTest {
         assertEquals(ENGINE15_POLICY, candidate.policyId)
         assertEquals("draft", candidate.status)
         assertEquals(request, candidate.request)
-        assertEquals(old.sessions, candidate.sessions)
-        assertTrue(candidate.explanations.first().contains("No new adaptive coaching rules"))
+        assertEquals(old.sessions.map { it.id to it.date }, candidate.sessions.map { it.id to it.date })
+        assertEquals(old.sessions.filter { it.discipline != "run" },
+            candidate.sessions.filter { it.discipline != "run" })
+        assertTrue(candidate.sessions.zip(old.sessions).all { (new, previous) ->
+            new.minutes <= previous.minutes &&
+                (new.distanceKm == null ||
+                    (previous.distanceKm != null && new.distanceKm <= previous.distanceKm))
+        })
+        assertTrue(candidate.explanations.first().contains("bounded-running"))
         assertTrue(Engine1Engines.canManage(candidate))
         assertTrue(Engine1Engines.supports(ENGINE1_VERSION, ENGINE1_POLICY))
         assertFalse(Engine1Engines.supports(ENGINE15_VERSION, ENGINE1_POLICY))
