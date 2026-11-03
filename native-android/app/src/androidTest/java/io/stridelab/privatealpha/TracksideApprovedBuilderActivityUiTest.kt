@@ -52,6 +52,32 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-figma-continue").assertExists()
     }
 
+    @Test fun aRunDayChosenInTheEditorAppearsInDraftReview() {
+        val state=TrainingState(initializing=false,account="synthetic-ui")
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    PlanBuilder(state=state,actions=PlanActions(),
+                        onDone={},onSignIn={},onPreview={_,_->})
+                }
+            }
+        }
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-run-session-2").performClick()
+        compose.onNodeWithTag("builder-running-day-6").performScrollTo()
+        compose.onNodeWithTag("builder-running-day-6").performClick()
+        compose.onNodeWithTag("builder-running-assignment-progress").assertExists()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("available-day-6").assertIsNotEnabled()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-requested-day-6").assertExists()
+        compose.onNodeWithText("Easy 2 · requested",substring=true).assertExists()
+    }
+
     @Test fun guidedGoalAndAdvancedPreferencesStayWithinApprovedBuilder() {
         val state = TrainingState(initializing = false, account = "synthetic-ui")
         compose.runOnUiThread {
