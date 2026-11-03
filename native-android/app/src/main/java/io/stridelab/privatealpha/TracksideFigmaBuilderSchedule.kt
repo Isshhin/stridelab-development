@@ -208,7 +208,7 @@ internal fun TracksideFigmaPlanDetailsScreen(
 internal fun TracksideFigmaAvailabilityScreen(
     request: PlanRequest,
     onDay: (Int) -> Unit,
-    onRemovePinnedDay: (Int) -> Unit,
+    onRemovePinnedDay: (Int) -> Unit = {},
     onMultiSessionToggle: (Boolean) -> Unit,
     onBack: () -> Unit,
     onContinue: () -> Unit,
