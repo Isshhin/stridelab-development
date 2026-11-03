@@ -269,18 +269,32 @@ private fun NavHostController.openActivity(id: String) {
                             actions.loadDetail(activity.id)
                         }
                     }
-                    Screen(activity?.title ?: "Activity unavailable", "ACTIVITY DETAIL", compactTitle = true) {
-                        item { TextButton(onClick = { nav.popBackStack() }) { Text("Back to history") } }
+                    Screen(activity?.title ?: "Activity unavailable", "ACTIVITY DETAIL",
+                        compactTitle = true, edgeToEdge = activity != null) {
+                        if (activity == null) item {
+                            TextButton(onClick = { nav.popBackStack() }) { Text("Back to history") }
+                        }
                         if(activity == null) item { EmptyState("No activity available", "This activity is not in the current account’s local cache.") }
                         else {
+                            item {
+                                TracksideParityActivityMapHero(state.details[activity.id]) {
+                                    nav.popBackStack()
+                                }
+                            }
                             item { TracksideParityActivityOverview(activity) }
-                            item { TracksideParityActivityTabs(activityTab) { activityTab = it } }
+                            item {
+                                Box(Modifier.padding(horizontal = 17.dp)) {
+                                    TracksideParityActivityTabs(activityTab) { activityTab = it }
+                                }
+                            }
                             if (activityTab == 0) {
-                                item { MetricPair(
-                                    "Elapsed time" to activity.durationLabel,
-                                    "Average heart rate" to
-                                        (activity.averageHr?.let { it.roundToInt().toString() + " bpm" } ?: "Not recorded")
-                                ) }
+                                item { Box(Modifier.padding(horizontal = 17.dp)) {
+                                    MetricPair(
+                                        "Elapsed time" to activity.durationLabel,
+                                        "Average heart rate" to
+                                            (activity.averageHr?.let { it.roundToInt().toString() + " bpm" } ?: "Not recorded")
+                                    )
+                                } }
                                 if (activity.elevationM != null) item {
                                     Metric("Elevation gain",
                                         activity.elevationM.roundToInt().toString() + " m")
@@ -303,7 +317,9 @@ private fun NavHostController.openActivity(id: String) {
                                 state.details[activity.id]?.let { recorded ->
                                     item { RecordedActivityDetail(recorded, activity.supportsPace) }
                                 }
-                                item { TracksideParityActivityHighlights(activity, state.activities) }
+                                item { Column(Modifier.padding(horizontal = 17.dp)) {
+                                    TracksideParityActivityHighlights(activity, state.activities)
+                                } }
                             } else if (activityTab == 1) {
                                 item { TracksideParityActivityLaps(state.details[activity.id]) }
                             } else {
@@ -421,13 +437,17 @@ private fun NavHostController.openActivity(id: String) {
 
 internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
 
-@Composable internal fun Screen(title: String, eyebrow: String, compactTitle: Boolean = false, dense: Boolean = false, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+@Composable internal fun Screen(title: String, eyebrow: String, compactTitle: Boolean = false,
+    dense: Boolean = false, edgeToEdge: Boolean = false,
+    content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-        val horizontal = if (dense) 18.dp else 22.dp
-        val top = if (dense) 12.dp else 24.dp
+        val horizontal = if (edgeToEdge) 0.dp else if (dense) 18.dp else 22.dp
+        val top = if (edgeToEdge) 0.dp else if (dense) 12.dp else 24.dp
         val gap = if (dense) 12.dp else 18.dp
         LazyColumn(Modifier.widthIn(max = 760.dp).fillMaxSize().testTag("screen").semantics { paneTitle = title }, contentPadding = PaddingValues(start = horizontal, end = horizontal, top = top, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(gap)) {
-            item { TracksideScreenHeader(title, eyebrow, compactTitle, LocalProfileAction.current, dense = dense) }
+            if (!edgeToEdge) item {
+                TracksideScreenHeader(title, eyebrow, compactTitle, LocalProfileAction.current, dense = dense)
+            }
             content()
         }
     }
