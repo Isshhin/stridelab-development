@@ -35,7 +35,7 @@ import java.util.Locale
  * The example map, heart-rate limit and pace in that illustration are not prescriptions.
  */
 @Composable
-internal fun TracksideTodayHero(session: PlannedSession, onOpen: () -> Unit) {
+internal fun TracksideLegacyTodayHero(session: PlannedSession, onOpen: () -> Unit) {
     val running = session.discipline == "run"
     val accent = tracksideDisciplineColor(session.discipline)
     val glow = if (running) Color(0xFF321C29) else Color(0xFF182C3B)

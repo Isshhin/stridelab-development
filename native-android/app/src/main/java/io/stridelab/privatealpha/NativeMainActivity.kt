@@ -144,66 +144,7 @@ private fun NavHostController.openActivity(id: String) {
     val route = entry?.destination?.route
     CompositionLocalProvider(LocalProfileAction provides { nav.openTabRoot("settings") }) {
     Scaffold(
-        bottomBar = {
-            NavigationBar(
-                containerColor = Color.Transparent,
-                tonalElevation = 0.dp,
-                modifier = Modifier
-                    .navigationBarsPadding()
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .clip(RoundedCornerShape(32.dp))
-                    .background(Brush.horizontalGradient(listOf(
-                        TracksidePalette.surfaceRaised,
-                        TracksidePalette.surface,
-                        TracksidePalette.surfaceLow
-                    )))
-                    .border(BorderStroke(1.dp, TracksidePalette.outline), RoundedCornerShape(32.dp))
-                    .height(72.dp),
-                windowInsets = WindowInsets(0, 0, 0, 0)
-            ) {
-                // Keep existing route names and test tags during the UI migration.
-                // "More" reuses the existing Settings page; no data route is removed.
-                listOf(
-                    "home" to "Today",
-                    "training" to "Training",
-                    "activities" to "Activity",
-                    "library" to "Library",
-                    "settings" to "More"
-                ).forEach { (path, label) ->
-                    NavigationBarItem(
-                        selected = route == path ||
-                            (path == "activities" && route == "activity/{id}") ||
-                            (path == "training" && route in setOf("builder/{discipline}", "workout/{planId}/{sessionId}", "manage/{planId}/{date}")) ||
-                            (path == "library" && route == "practice/{key}"),
-                        onClick = { nav.openTabRoot(path) },
-                        icon = {
-                            // Original Figma 732:99–113 vector geometry, native resource assets.
-                            val iconId = when (path) {
-                                "home" -> R.drawable.trackside_figma_home
-                                "training" -> R.drawable.trackside_figma_calendar
-                                "activities" -> R.drawable.trackside_figma_activity
-                                "library" -> R.drawable.trackside_figma_library
-                                else -> R.drawable.trackside_figma_more
-                            }
-                            Icon(painter = painterResource(id = iconId),
-                                contentDescription = null, modifier = Modifier.size(19.dp))
-                        },
-                        // At 1.3× text, five tab labels no longer fit a 360dp bar.
-                        // Keep icon semantics labels and hide the visual text sooner.
-                        label = if (LocalDensity.current.fontScale >= 1.3f) null
-                            else ({ Text(label, fontWeight = FontWeight.SemiBold, maxLines = 1) }),
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = TracksidePalette.red,
-                            selectedTextColor = TracksidePalette.red,
-                            unselectedIconColor = TracksidePalette.textMuted,
-                            unselectedTextColor = TracksidePalette.textMuted,
-                            indicatorColor = Color(0xFF492637)
-                        ),
-                        modifier = Modifier.testTag("nav-$path").semantics { contentDescription = label }
-                    )
-                }
-            }
-        }
+        bottomBar = { TracksideFloatingNavigation(route) { selected -> nav.openTabRoot(selected) } }
     ) { padding ->
         Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(TracksidePalette.backgroundTop, TracksidePalette.backgroundBottom))).padding(padding).imePadding()) {
             if(state.busy || state.initializing) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("loading"))
