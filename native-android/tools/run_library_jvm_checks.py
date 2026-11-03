@@ -46,11 +46,16 @@ def main():
     java_tests=sorted((legacy/'test/java/io/stridelab/privatealpha').glob('*.java'))
     run(['java','com.sun.tools.javac.Main','-source','17','-target','17','-cp',cp,'-d',build]+java+java_tests)
     native=ROOT/'native-android/app/src'
-    # Deliberately named boundary: all pure JVM source and tests in the pinned native baseline.
-    names=['ActivityDetail','ActivityIntelligence','ActivityRecord','BackendConfig','DashboardSummary',
-           'Engine1','Engine1Engines','EngineContracts','ExerciseAlternatives','ExerciseLibraryV2','IntervalConnection',
-           'LibraryShelf','MultiSessionEngine1','PlanBackup','PlanOperations','SessionTemplate','SupabaseGateway',
-           'WellnessRecord','WorkoutEntryDraft']
+    # Explicit pure-JVM source boundary. Keep additions synchronized with Kotlin's
+    # actual dependencies; NEVER use placeholder implementations of production code.
+    # FIT SDK files are built and tested separately by the full Android Gradle job.
+    names=['ActivityDetail','ActivityImportMatcher','ActivityIntelligence','ActivityRecord',
+           'BackendConfig','DashboardSummary','Engine1','Engine15','Engine15Feedback',
+           'Engine1Engines','EngineContracts','ExerciseAlternatives','ExerciseLibraryV2',
+           'FitContainerReader','IntervalConnection','LibraryShelf','MultiSessionEngine1',
+           'PlanBackup','PlanOperations','PlanScheduleValidation','SessionTemplate',
+           'SupabaseGateway','WearableProviderContracts','WellnessRecord',
+           'WorkoutEntryDraft','WorkoutLogValidation']
     kotlin=[native/'main/java/io/stridelab/privatealpha'/f'{n}.kt' for n in names]
     # One existing pure helper lives in a Compose file. Compile its exact source, not a stub.
     # Full Android compilation remains a separate CI gate.
@@ -60,7 +65,17 @@ def main():
     extracted=cache/'HistoryWeeklyKm.kt'
     extracted.write_text('package io.stridelab.privatealpha\nimport java.time.Instant\nimport java.time.ZoneId\n'+helper.group(0)+'\n')
     kotlin.append(extracted)
-    tests=sorted((native/'test/java/io/stridelab/privatealpha').glob('*.kt'))
+    all_tests=sorted((native/'test/java/io/stridelab/privatealpha').glob('*.kt'))
+    # The two FIT tests directly import com.garmin.fit from the Android Gradle
+    # classpath. They MUST run in :app:testDebugUnitTest (the independent CI job).
+    # This pinned, SDK-free harness checks every other native JVM test as well as
+    # the legacy Java/library compatibility suite, even when new tests appear.
+    gradle_only={'FitActivityDecoderTest.kt','FitContainerReaderTest.kt'}
+    if not gradle_only.issubset({p.name for p in all_tests}):
+        raise RuntimeError('FIT SDK test boundary changed; review both CI suites')
+    tests=[p for p in all_tests if p.name not in gradle_only]
+    if len(tests)<20:
+        raise RuntimeError('Pure-JVM regression test coverage unexpectedly shrank')
     fixtures=[TOOLS/'fixtures/Engine2ExerciseSelection-245349c.kt',TOOLS/'jvm/ExerciseLibrarySelectionCompatibilityTest.kt']
     run(['java','-cp',cp,'org.jetbrains.kotlin.cli.jvm.K2JVMCompiler','-no-stdlib','-no-reflect','-jvm-target','17','-classpath',cp,'-d',build]+kotlin+tests+fixtures)
     classes=['io.stridelab.privatealpha.'+p.stem for p in java_tests+tests]+['io.stridelab.privatealpha.ExerciseLibrarySelectionCompatibilityTest']
