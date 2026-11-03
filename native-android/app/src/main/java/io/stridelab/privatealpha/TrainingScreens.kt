@@ -131,7 +131,16 @@ import kotlinx.coroutines.withContext
                 day.forEach { session -> item { PlannedWorkoutCard(session,state.workoutDrafts.containsKey(plan.id to session.id),compact=true) { onOpen(plan.id,session.id) } } }
             }
             item { PlanOverview(plan) }
-            if(plan.status=="draft"||plan.status=="paused") item { SignalButton(if(plan.status=="draft") "Approve this plan" else "Resume this plan",{actions.approve(plan.id,plan.revision)},!state.busy&&Engine1Engines.canManage(plan)) }
+            if(plan.status=="draft") item {
+                TracksideParityDraftApprovalDock(plan,
+                    enabled = !state.busy && Engine1Engines.canManage(plan),
+                    onApprove = { actions.approve(plan.id,plan.revision) })
+            }
+            if(plan.status=="paused") item {
+                TracksideParityDraftApprovalDock(plan,
+                    enabled = !state.busy && Engine1Engines.canManage(plan),
+                    onApprove = { actions.approve(plan.id,plan.revision) })
+            }
             item { PlanFeedbackForm(plan,actions) }
             item { NativePlanExport(state.plans) }
         }
