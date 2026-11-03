@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
+import os
 import json
 import sys
 import traceback
@@ -80,6 +82,15 @@ def execute_all() -> dict:
     report = {
         "generated_utc": datetime.now(timezone.utc).isoformat(),
         "suite": "StrideLab research-only synthetic contracts",
+        "ci_checkout_sha": os.environ.get("GITHUB_SHA"),
+        "canonical_registry_sha256": {
+            name: hashlib.sha256(path.read_bytes()).hexdigest()
+            for name, path in REGISTRIES.items()
+        },
+        "harness_sha256": {
+            name: hashlib.sha256((Path(__file__).resolve().parent / name).read_bytes()).hexdigest()
+            for name in ("runner.py", "checks.py", "contract_model.py", "test_harness.py")
+        },
         "version": "synthetic-contract-harness-v0.1",
         "scope": "toy-model structural unit tests; NOT real Engine 2.0 verification",
         "engine_implementation_connected": False,
