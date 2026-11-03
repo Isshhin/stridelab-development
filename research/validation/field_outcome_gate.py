@@ -8,6 +8,7 @@ device recordings must stay out of GitHub Actions.
 from __future__ import annotations
 
 import argparse
+from datetime import date
 import json
 import re
 from pathlib import Path
@@ -22,13 +23,13 @@ REQUIRED = ("schema", "protocol_id", "athlete_pseudonym", "dataset_manifest_sha2
 
 
 def _period(value: Any) -> bool:
-    return (isinstance(value, dict)
-            and isinstance(value.get("start"), str)
-            and isinstance(value.get("end"), str)
-            and re.fullmatch(r"\d{4}-\d{2}-\d{2}", value["start"]) is not None
-            and re.fullmatch(r"\d{4}-\d{2}-\d{2}", value["end"]) is not None
-            and value["start"] <= value["end"])
-
+    if not isinstance(value, dict):
+        return False
+    try:
+        begin, end = date.fromisoformat(value["start"]), date.fromisoformat(value["end"])
+    except (ValueError, TypeError, KeyError):
+        return False
+    return begin <= end
 
 def inspect_manifest(data: dict[str, Any] | None) -> dict[str, Any]:
     report = {
