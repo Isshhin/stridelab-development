@@ -188,7 +188,7 @@ internal object Engine15 : PlanGenerationEngine {
             request = request,
             sessions = adapted,
             explanations = listOf(
-                "Engine 1.5 bounded-running policy ($policyId): the verified baseline " +
+                "Engine 1.5 policy (${if (multi) ENGINE15_MULTI_POLICY else policyId}): the verified baseline " +
                     "still supplies scheduled days, disciplines and equipment prescriptions.",
                 "Running volume has staged loading ceilings and lighter fourth weeks " +
                     "based on manually supplied recent mileage. Removed mileage is never " +

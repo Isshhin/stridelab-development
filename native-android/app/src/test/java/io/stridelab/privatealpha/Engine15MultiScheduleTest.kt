@@ -61,6 +61,30 @@ class Engine15MultiScheduleTest {
         }
     }
 
+    @Test fun movingCalisthenicsToCompatibleEasyRunKeepsBudgetAndAvailability() {
+        val plan = PlanOperations.approve(
+            Engine15.generate(request(), "owner", "moving", now), emptyList())
+        val week = plan.sessions.filter { it.date >= start && it.date < start.plusWeeks(1) }
+        val cal = week.first { s -> s.discipline == "cal" &&
+            week.none { it.discipline == "run" && it.date == s.date } }
+        val easy = week.first { s -> s.discipline == "run" && s.kind == "easy" &&
+            week.none { it.discipline == "cal" && it.date == s.date } }
+        val moved = PlanOperations.move(plan, cal.id, easy.date)
+        assertEquals(2, moved.sessions.count { it.date == easy.date })
+        assertEquals(ENGINE15_MULTI_POLICY, moved.policyId)
+        PlanScheduleValidation.validatePlan(moved)
+        assertEquals(moved, PlanSnapshot.decode(moved.encode(), "owner"))
+        assertThrows(PlanConstraint::class.java) {
+            PlanOperations.move(plan, cal.id, start.plusDays(5))
+        }
+        val two = cal.minutes + easy.minutes
+        assertThrows(PlanConstraint::class.java) {
+            PlanOperations.move(
+                plan.copy(request = plan.request.copy(dailyMinutes = two - 1)),
+                cal.id, easy.date)
+        }
+    }
+
     @Test fun legacyFallbackPolicyAndDailyBudgetRemainDurable() {
         val plan = Engine15.generate(request(), "owner", "saved", now)
         assertEquals(100, plan.encode().getJSONObject("request").getInt("dailyMinutes"))
