@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -20,6 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -205,6 +208,7 @@ internal fun TracksideFigmaPlanDetailsScreen(
 internal fun TracksideFigmaAvailabilityScreen(
     request: PlanRequest,
     onDay: (Int) -> Unit,
+    onRemovePinnedDay: (Int) -> Unit,
     onMultiSessionToggle: (Boolean) -> Unit,
     onBack: () -> Unit,
     onContinue: () -> Unit,
@@ -219,6 +223,7 @@ internal fun TracksideFigmaAvailabilityScreen(
     dailyBudget: String = "90",
     onDailyBudget: (String) -> Unit = {}
 ) {
+    var pendingRemovalDay by rememberSaveable { mutableIntStateOf(0) }
     val chosen=request.days.size
     val total=request.runDays+request.strengthDays+request.calDays+request.conditioningDays
     val maxPerDay=if(request.policyChoice=="multi-session") 2 else 1
@@ -276,10 +281,20 @@ internal fun TracksideFigmaAvailabilityScreen(
                         val day=index+1
                         val selected=day in request.days
                         Surface(
-                            onClick={onDay(day)},
-                            enabled=!(selected && day in pinned),
+                            onClick={
+                                if(selected && day in pinned) pendingRemovalDay=day
+                                else onDay(day)
+                            },
                             modifier=Modifier.weight(1f)
-                                .fillMaxHeight().testTag("available-day-$day"),
+                                .fillMaxHeight().testTag("available-day-$day")
+                                .semantics {
+                                    stateDescription = when {
+                                        selected && day in pinned ->
+                                            "Available, ${byDay[day]?.size ?: 1} placed workouts. Tap to change."
+                                        selected -> "Available. Tap to make unavailable."
+                                        else -> "Unavailable. Tap to make available."
+                                    }
+                                },
                             color=if(selected)Color(0xFF202B34) else Color(0xFF18252F),
                             shape=RoundedCornerShape(9.dp),
                             border=BorderStroke(1.dp,
@@ -290,6 +305,7 @@ internal fun TracksideFigmaAvailabilityScreen(
                                 Text(label,fontSize=9.sp,color=if(selected) Color.White
                                     else Color(0xFF8495A1),maxLines=1)
                                 if(!selected) Text("–",fontSize=12.sp,color=Color(0xFF8495A1))
+                                else if(day in pinned) Text("•",fontSize=12.sp,color=Color(0xFF91C8EA))
                             }
                         }
                     }
@@ -390,6 +406,29 @@ internal fun TracksideFigmaAvailabilityScreen(
                     color=Color(0xFFB6C0CA))
             }
         }
+    }
+    if(pendingRemovalDay in 1..7) {
+        val day=pendingRemovalDay
+        val count=byDay[day]?.size ?: 0
+        val label=listOf("Monday","Tuesday","Wednesday","Thursday",
+            "Friday","Saturday","Sunday")[day-1]
+        AlertDialog(
+            onDismissRequest={pendingRemovalDay=0},
+            title={Text("Change $label availability?")},
+            text={Text("$count manually placed workout(s) use $label. Making this day unavailable will leave those sessions unassigned. You can move them to another available day before generating your plan.")},
+            confirmButton={
+                TextButton(
+                    onClick={
+                        onRemovePinnedDay(day)
+                        pendingRemovalDay=0
+                    },
+                    modifier=Modifier.testTag("builder-confirm-remove-pinned-day")
+                ) { Text("Make unavailable") }
+            },
+            dismissButton={
+                TextButton(onClick={pendingRemovalDay=0}) { Text("Cancel") }
+            }
+        )
     }
 }
 

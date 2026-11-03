@@ -72,10 +72,47 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-running-assignment-progress").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
-        compose.onNodeWithTag("available-day-6").assertIsNotEnabled()
+        compose.onNodeWithTag("available-day-6").assertIsEnabled()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-requested-day-6").assertExists()
         compose.onNodeWithText("Easy 2 · requested",substring=true).assertExists()
+    }
+
+    @Test fun pinnedWeekdayRemainsEditableWithAnExplicitClearConfirmation() {
+        val selected=androidx.compose.runtime.mutableStateOf(
+            PlanRequest(runDays=3,days=setOf(1,3,7),longDay=7,
+                weeklySlots=mapOf("run" to listOf(7,3,1)))
+        )
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideFigmaAvailabilityScreen(
+                        request=selected.value,
+                        onDay={ day ->
+                            selected.value=selected.value.copy(
+                                days=if(day in selected.value.days)
+                                    selected.value.days-day
+                                else selected.value.days+day)
+                        },
+                        onRemovePinnedDay={ day ->
+                            selected.value=WeeklyPlacement.makeUnavailable(
+                                selected.value,day)
+                        },
+                        onMultiSessionToggle={},onBack={},onContinue={}
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("available-day-7").assertIsEnabled()
+        compose.onNodeWithTag("available-day-7").performClick()
+        compose.onNodeWithText("Change Sunday availability?").assertExists()
+        compose.onNodeWithText("Cancel").performClick()
+        assertEquals(listOf(7,3,1),selected.value.weeklySlots["run"])
+        compose.onNodeWithTag("available-day-7").performClick()
+        compose.onNodeWithTag("builder-confirm-remove-pinned-day").performClick()
+        assertEquals(listOf(0,3,1),selected.value.weeklySlots["run"])
+        assertEquals(false,7 in selected.value.days)
+        compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
     }
 
     @Test fun guidedGoalAndAdvancedPreferencesStayWithinApprovedBuilder() {

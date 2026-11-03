@@ -443,6 +443,9 @@ import org.json.JSONObject
                         ))
                     }
                 },
+                onRemovePinnedDay = { day ->
+                    edit(WeeklyPlacement.makeUnavailable(input,day))
+                },
                 selectedOtherDiscipline = otherSelectedDiscipline,
                 selectedOtherSlot = otherSelectedSlot,
                 onSelectOtherDiscipline = { otherSelectedDiscipline=it },

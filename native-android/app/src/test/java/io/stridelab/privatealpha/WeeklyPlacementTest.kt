@@ -70,6 +70,24 @@ class WeeklyPlacementTest {
         assertEquals(6,changed.weeklySlots["run"]!![3])
     }
 
+    @Test fun removingAnOccupiedTrainingDayKeepsSessionsAndRequestsReassignment() {
+        val original=running().copy(
+            strengthDays=1,
+            weeklySlots=running().weeklySlots+("str" to listOf(7))
+        )
+        val changed=WeeklyPlacement.makeUnavailable(original,7)
+        assertFalse(7 in changed.days)
+        assertEquals(listOf(0,2,4,5),changed.weeklySlots["run"])
+        assertEquals(listOf(0),changed.weeklySlots["str"])
+        assertEquals(original.runDays,changed.runDays)
+        assertEquals(original.strengthDays,changed.strengthDays)
+        assertNotNull(WeeklyPlacement.validationError(changed))
+        assertThrows(PlanConstraint::class.java) {
+            Engine1.generate(changed,owner,"unassigned",now)
+        }
+        assertEquals(listOf(7,2,4,5),original.weeklySlots["run"])
+    }
+
     @Test fun incompleteOrDuplicateAssignmentsFailClosedBeforeGeneration() {
         val cleared=WeeklyPlacement.clear(running(),"run",3)
         assertEquals(0,cleared.weeklySlots["run"]!![3])

@@ -87,6 +87,27 @@ internal object WeeklyPlacement {
         )
     }
 
+    /** Explicitly free a weekday only after the athlete confirms the change.
+     * Keep session counts intact; every affected manual appointment becomes
+     * unassigned, so validation blocks generation until it is moved or set auto.
+     */
+    fun makeUnavailable(p: PlanRequest, day: Int): PlanRequest {
+        require(day in 1..7)
+        var changed=p
+        p.weeklySlots.forEach { (discipline, slots) ->
+            slots.forEachIndexed { index, assignedDay ->
+                if(assignedDay==day) changed=clear(changed,discipline,index)
+            }
+        }
+        val remaining=changed.days-day
+        return changed.copy(
+            days=remaining,
+            longDay=changed.longDay.takeIf { it in remaining }
+                ?: (remaining.maxOrNull() ?: changed.longDay),
+            qualityDays=changed.qualityDays.intersect(remaining)
+        )
+    }
+
     fun full(p: PlanRequest, discipline: String): Boolean {
         val chosen = p.weeklySlots[discipline] ?: return true
         return chosen.size == count(p, discipline) &&
