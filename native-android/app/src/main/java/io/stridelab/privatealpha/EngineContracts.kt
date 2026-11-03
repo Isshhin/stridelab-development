@@ -23,7 +23,9 @@ internal data class PlanRequest(
     val weeklyKm:Double=0.0,val longestKm:Double=0.0,val planningPace:Double=480.0,
     val equipment:Map<String,Int> = emptyMap(),val calLevel:Int=0,val returning:Boolean=false,
     val excluded:Set<String> = emptySet(),val limitations:String="",val recoveryNotes:String="",val strengthExperience:Int=0,val pullLevel:Int=0,val coreLevel:Int=0,val policyChoice:String="baseline",val disciplineGoals:Map<String,String> = emptyMap(),val dailyMinutes:Int=90,
-    val weeklySlots:Map<String,List<Int>> = emptyMap()
+    val weeklySlots:Map<String,List<Int>> = emptyMap(),
+    val preferredQuality:String = "Threshold",
+    val allowedQualityTypes:Set<String> = emptySet()
 ) {
     fun encode():JSONObject {
         val encoded=JSONObject().put("goal",goal).put("secondaryGoal",secondaryGoal).put("experience",experience).put("start",start.toString()).put("weeks",weeks).put("minutes",minutes)
@@ -38,6 +40,9 @@ internal data class PlanRequest(
             }
             encoded.put("weeklySlots", assignments)
         }
+        if(preferredQuality!="Threshold")encoded.put("preferredQuality",preferredQuality)
+        if(allowedQualityTypes.isNotEmpty())
+            encoded.put("allowedQualityTypes",JSONArray(allowedQualityTypes.sorted()))
         return encoded
     }
     companion object {
@@ -52,7 +57,11 @@ internal data class PlanRequest(
                         val days = assignments.getJSONArray(discipline)
                         (0 until days.length()).map { days.getInt(it) }
                     }
-                } ?: emptyMap())
+                } ?: emptyMap(),
+                j.optString("preferredQuality","Threshold"),
+                j.optJSONArray("allowedQualityTypes")?.let { qualities ->
+                    (0 until qualities.length()).map { qualities.getString(it) }.toSet()
+                } ?: emptySet())
         }
     }
 }
