@@ -1,0 +1,77 @@
+name: Research Engine 2.0 synthetic contract validation
+
+on:
+  push:
+    branches:
+      - research/runna-garmin-coaching-20261102
+    paths:
+      - 'research/validation/**'
+      - 'docs/research/experiments/experiment-003-load-policy-counterfactuals.csv'
+      - 'docs/research/experiments/experiment-004-multidiscipline-coordination.csv'
+      - 'docs/research/experiments/experiment-005-adaptation-state-and-load-metrics.csv'
+      - '.github/workflows/research-engine2-contract-validation.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'research/validation/**'
+      - 'docs/research/experiments/experiment-003-load-policy-counterfactuals.csv'
+      - 'docs/research/experiments/experiment-004-multidiscipline-coordination.csv'
+      - 'docs/research/experiments/experiment-005-adaptation-state-and-load-metrics.csv'
+      - '.github/workflows/research-engine2-contract-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: research-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  synthetic-contracts:
+    name: Research-only Python contract checks (NOT actual Engine 2.0)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test research registry and synthetic contract model
+        run: python research/validation/runner.py --output research-validation.json
+      - name: Publish scope-aware summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## StrideLab research-only validation'
+            echo
+            echo '**This is not a test of the real coaching engine.**'
+            echo 'Checks run against an isolated synthetic reference model.'
+            echo
+            if [ -f research-validation.json ]; then
+              python - <<'PY'
+          import json
+          with open('research-validation.json', encoding='utf-8') as f:
+              j = json.load(f)
+          print('### Synthetic contract checks')
+          for k, v in j['contract_by_experiment'].items():
+              print(f"- {k}: {v['PASS']} PASS, {v['FAIL']} FAIL")
+          print()
+          print('### Engine integration')
+          print(f"- Actual Engine 2.0: {j['engine_results']['BLOCKED']} BLOCKED, 0 executed")
+          print('- Runna Experiment 002: 0 of 16 authenticated cases run')
+          print('- Garmin Run Coach: no paired controlled observations')
+          PY
+            else
+              echo '**Validation runner did not produce a report. Check logs.**'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: research-validation-results
+          path: research-validation.json
+          if-no-files-found: warn
+          retention-days: 30
