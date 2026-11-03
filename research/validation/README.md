@@ -1,3 +1,15 @@
+# Batch 8D — current checkpoint
+
+[GitHub Actions verification](https://github.com/Isshhin/stridelab-development/actions/runs/41585527016): four synthetic profiles passed over 32 athlete-weeks; 66 unit tests passed. Research B0/H1 frozen cases remain 55 structural passes, three predictive cases blocked.
+
+[Full Batch 8D report](../../docs/research/batch-8d-multiweek-event-reconciliation-and-policy-lifecycle-2026-11-03.md).
+
+New files: `multiweek_reconciliation.py`, `multiweek_runner.py`, `test_multiweek_reconciliation.py`, `test_multiweek_runner.py`. The runner checks source replay, missing-versus-skipped observations, partial interval work, conflicting upload identities, plan approval and rollback. Cross-source identity links are synthetic assumptions, not a verified production authentication design.
+
+Run the multiweek scenario suite with `python research/validation/multiweek_runner.py --output research-multiweek-results.json`. GitHub Actions also uploads this JSON. Results test accounting and audit invariants, not coaching effectiveness. Existing local lab and Android Engine 2.0 remain untested. PR #34 stays draft/unmerged.
+
+---
+
 # CURRENT — Batch 8C cloud validation (2026-11-03 Asia/Manila)
 
 **Latest verified Actions result:** [run 41583816601](https://github.com/Isshhin/stridelab-development/actions/runs/41583816601), 288/288 new seeded adversarial structural checks passed across 24 cohorts, 42/42 unit/negative-control/persistence tests passed, and the earlier 58-case new B0/H1 frozen comparison remains at 55 structural PASS / 0 FAIL / 3 BLOCKED for uncalibrated predictions. All 14 B0/H1 action differences are individually enumerated and remain unvalidated for coaching benefit.
