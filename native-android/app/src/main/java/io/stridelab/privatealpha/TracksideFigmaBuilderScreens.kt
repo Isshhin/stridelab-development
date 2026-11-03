@@ -49,6 +49,7 @@ private val muted = Color(0xFFB6C0CA)
 internal fun TracksideFigmaBuilderFrame(
     eyebrow: String,
     toolbarTitle: String = "Generate Training Plan",
+    ctaLabel: String = "Continue",
     headline: String,
     description: String,
     onBack: () -> Unit,
@@ -102,7 +103,7 @@ internal fun TracksideFigmaBuilderFrame(
             colors = ButtonDefaults.buttonColors(containerColor = fRed)
         ) {
             Box(Modifier.fillMaxSize()) {
-                Text("Continue", fontSize = 15.sp, color = white,
+                Text(ctaLabel, fontSize = 15.sp, color = white,
                     modifier = Modifier.align(Alignment.Center))
                 Text("→", fontSize = 25.sp, color = white,
                     modifier = Modifier.align(Alignment.CenterEnd))
