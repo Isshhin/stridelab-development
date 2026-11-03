@@ -19,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -147,9 +148,27 @@ internal fun TracksideTrainingWeekChart(
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val compact = maxWidth < 350.dp
             val expandedFont = LocalDensity.current.fontScale >= 1.3f
+            val scroll = rememberScrollState()
+            val density = LocalDensity.current
+            // Keep the selected day fully visible when seven 48dp+ targets
+            // must scroll on narrow phones. Never shrink their touch targets.
+            LaunchedEffect(compact, selected, scroll.maxValue) {
+                if (compact && scroll.maxValue > 0) {
+                    val index = ChronoUnit.DAYS.between(weekStart, selected).toInt().coerceIn(0, 6)
+                    val cellStart = with(density) { (index * 51).dp.roundToPx() }
+                    val cellEnd = with(density) { (index * 51 + 49).dp.roundToPx() }
+                    val viewport = with(density) { maxWidth.roundToPx() }
+                    val target = when {
+                        cellStart < scroll.value -> cellStart
+                        cellEnd > scroll.value + viewport -> cellEnd - viewport
+                        else -> scroll.value
+                    }
+                    scroll.animateScrollTo(target.coerceIn(0, scroll.maxValue))
+                }
+            }
             val rowModifier = Modifier.fillMaxWidth()
                 .height(if (expandedFont) 188.dp else 164.dp)
-                .then(if (compact) Modifier.horizontalScroll(rememberScrollState()) else Modifier)
+                .then(if (compact) Modifier.horizontalScroll(scroll) else Modifier)
             Row(rowModifier, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 days.forEach { day ->
                 val enabled = day.date in first..last
@@ -183,7 +202,8 @@ internal fun TracksideTrainingWeekChart(
                                     .background(tracksideDisciplineColor(discipline), RoundedCornerShape(5.dp)))
                             }
                         }
-                        Text(day.date.format(DateTimeFormatter.ofPattern("EEE", Locale.getDefault())).uppercase(Locale.getDefault()),
+                        Text(if (compact) day.date.dayOfWeek.name.take(2) else
+                            day.date.format(DateTimeFormatter.ofPattern("EEE", Locale.getDefault())).uppercase(Locale.getDefault()),
                             color = TracksidePalette.textMuted, style = MaterialTheme.typography.labelSmall,
                             maxLines = 1)
                         Text(day.date.dayOfMonth.toString(), color = TracksidePalette.text,

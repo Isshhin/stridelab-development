@@ -135,6 +135,19 @@ class TracksideResponsiveQaTest {
     }
 
 
+    @Test fun selectedSundayIsFullyVisibleAtLargeFontAndCompactWidth() {
+        val plan = snapshot()
+        val sunday = start.with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.SUNDAY))
+        show { TracksideTrainingWeekChart(plan, sunday) {} }
+        compose.waitForIdle()
+        val selectedDay = compose.onNodeWithTag("calendar-day-$sunday")
+        selectedDay.assertIsDisplayed()
+        val dayBounds = selectedDay.getUnclippedBoundsInRoot()
+        val chartBounds = compose.onNodeWithTag("training-week-chart").getUnclippedBoundsInRoot()
+        assertTrue("Selected Sunday extends beyond the visible calendar viewport",
+            dayBounds.right <= chartBounds.right + 1.dp)
+    }
+
     @Test fun completeAppShellKeepsTrainingNavigationReachableWithLargeText() {
         // Component screenshots above cannot detect bottom-navigation and system-inset
         // collisions. Exercise the actual NavHost using only synthetic plan records.
