@@ -2,6 +2,7 @@ package io.stridelab.privatealpha
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -21,22 +23,96 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.cos
+import kotlin.math.abs
 
 /** Figma approved 551:235 atmospheric glass. Real metrics only.
  * The original decorative street grid never claims to be the recorded GPS route.
  * Actual recorded GPS follows below metrics in RecordedActivityDetail.
  */
+/**
+ * Approved atmospheric activity: full-width source map first, 425dp high.
+ * The backdrop is a decorative Figma city grid. A red route is drawn ONLY
+ * from actual recorded coordinates when the source contains GPS points.
+ */
+@Composable
+internal fun TracksideParityActivityMapHero(detail: ActivityDetail?, onBack: () -> Unit) {
+    val samples = detail?.samples ?: emptyList()
+    val points = samples.filter { it.latitude != null && it.longitude != null }
+    Box(Modifier.fillMaxWidth().height(425.dp).testTag("activity-map-hero")) {
+        Image(painterResource(R.drawable.trackside_activity_street_grid),
+            contentDescription = "Decorative street-map background, not recorded GPS",
+            modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        if (points.size >= 2) {
+            val projection = cos(Math.toRadians(points.map { it.latitude!! }.average()))
+                .coerceAtLeast(.01)
+            val minX = points.minOf { it.longitude!! * projection }
+            val maxX = points.maxOf { it.longitude!! * projection }
+            val minY = points.minOf { it.latitude!! }
+            val maxY = points.maxOf { it.latitude!! }
+            Canvas(Modifier.fillMaxSize()) {
+                val spanX = (maxX - minX).coerceAtLeast(.00001)
+                val spanY = (maxY - minY).coerceAtLeast(.00001)
+                val scale = minOf((size.width - 40f) / spanX, (size.height - 40f) / spanY)
+                fun pointOf(p: ActivitySample) = Offset(
+                    ((size.width - spanX * scale) / 2 +
+                        (p.longitude!! * projection - minX) * scale).toFloat(),
+                    ((size.height - spanY * scale) / 2 +
+                        (maxY - p.latitude!!) * scale).toFloat()
+                )
+                for ((a, b) in samples.zipWithNext()) {
+                    if (a.latitude != null && a.longitude != null &&
+                        b.latitude != null && b.longitude != null &&
+                        b.seconds - a.seconds <= 120 && abs(a.longitude - b.longitude) < 180) {
+                        drawLine(TracksidePalette.red, pointOf(a), pointOf(b), 4.dp.toPx())
+                    }
+                }
+            }
+        }
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
+            listOf(Color(0xAA07111A), Color.Transparent, Color(0xCC08131D))
+        )))
+        Row(
+            Modifier.fillMaxWidth().padding(top = 12.dp, start = 16.dp, end = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                onClick = onBack, shape = RoundedCornerShape(25.dp),
+                color = Color(0x8813222C), border = BorderStroke(1.dp, Color(0x99768C9B)),
+                modifier = Modifier.size(44.dp).testTag("activity-map-back")
+            ) { Box(contentAlignment = Alignment.Center) {
+                Text("‹", fontSize = 25.sp, color = TracksidePalette.text)
+            } }
+            Spacer(Modifier.weight(1f))
+            Text("RECORDED ACTIVITY", fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                color = TracksidePalette.text)
+            Spacer(Modifier.weight(1f))
+            Box(Modifier.size(44.dp))
+        }
+        Text(
+            if (points.size >= 2) "Recorded GPS · " + points.size + " samples"
+            else "Illustrative street-grid backdrop · no recorded GPS route",
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 28.dp),
+            fontSize = 11.sp, color = TracksidePalette.text
+        )
+    }
+}
+
+/** Approved Figma 551:235: activity summary within the premium glass sheet. */
 @Composable
 internal fun TracksideParityActivityOverview(activity: ActivityRecord) {
     Column(
-        Modifier.fillMaxWidth().testTag("activity-parity-overview"),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        Modifier.fillMaxWidth()
+            .background(Brush.verticalGradient(listOf(Color(0xFF253644), Color(0xFF0B1924))))
+            .padding(horizontal = 17.dp, vertical = 22.dp)
+            .testTag("activity-parity-overview"),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("RECORDED ACTIVITY", fontSize = 11.sp, fontWeight = FontWeight.Bold,
-            color = TracksidePalette.textMuted)
         Text(activity.title, fontSize = 27.sp, lineHeight = 32.sp,
             color = TracksidePalette.text, fontWeight = FontWeight.Bold,
             maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(activity.dateLabel + " · " + activity.type,
+            fontSize = 12.sp, color = TracksidePalette.textMuted)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TracksideActivityTag(activity.type)
             TracksideActivityTag(activity.sourceLabel)
@@ -63,25 +139,6 @@ internal fun TracksideParityActivityOverview(activity: ActivityRecord) {
                 TracksideActivityMetric("AVG PACE",
                     if (activity.supportsPace) activity.paceLabel else "—",
                     Modifier.weight(1f))
-            }
-        }
-        // Figma's source map is an illustration. It is not user GPS.
-        Box(
-            Modifier.fillMaxWidth().height(172.dp)
-                .background(Color(0xFF0B1D2A), RoundedCornerShape(15.dp))
-        ) {
-            Image(
-                painterResource(R.drawable.trackside_activity_street_grid),
-                contentDescription = "Decorative street-grid texture; not the actual recorded route",
-                modifier = Modifier.fillMaxWidth().height(172.dp),
-                contentScale = ContentScale.Crop
-            )
-            Box(
-                Modifier.fillMaxWidth().align(Alignment.BottomCenter)
-                    .background(Color(0xCC081219)).padding(10.dp)
-            ) {
-                Text("Map backdrop · illustrative. Recorded GPS is shown below when available.",
-                    fontSize = 11.sp, color = TracksidePalette.textMuted)
             }
         }
     }
