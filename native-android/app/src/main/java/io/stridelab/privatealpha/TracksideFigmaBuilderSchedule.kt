@@ -5,6 +5,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -38,6 +39,7 @@ internal fun TracksideFigmaPlanDetailsScreen(
     val context = LocalContext.current
     var customWeeks by rememberSaveable { mutableStateOf(false) }
     var timeExpanded by rememberSaveable { mutableStateOf(false) }
+    var goalDateInfo by rememberSaveable { mutableStateOf(false) }
     val date = runCatching { LocalDate.parse(start) }.getOrDefault(LocalDate.now())
     TracksideFigmaBuilderFrame(
         eyebrow = "PLAN / DETAILS", toolbarTitle = "Plan details",
@@ -133,8 +135,8 @@ internal fun TracksideFigmaPlanDetailsScreen(
                 Spacer(Modifier.height(17.dp))
                 Box(Modifier.fillMaxWidth().height(1.dp)
                     .background(Color(0xFF4B697A)))
-                TextButton(onClick={timeExpanded=!timeExpanded}) {
-                    Text("Have a goal date? Use the date picker above ›",
+                TextButton(onClick={goalDateInfo=true}) {
+                    Text("Have a goal date? Use that instead  ›",
                         fontSize=11.sp,color=Color(0xFFBDDDED))
                 }
             }
@@ -171,6 +173,14 @@ internal fun TracksideFigmaPlanDetailsScreen(
             )
         }
     }
+    if(goalDateInfo) AlertDialog(
+        onDismissRequest={goalDateInfo=false},
+        title={Text("Goal date")},
+        text={Text("A race-target date is not a field in the current coaching engine. You can set a start date and plan length above. No target date is assumed or saved.")},
+        confirmButton={
+            TextButton(onClick={goalDateInfo=false}) { Text("Close") }
+        }
+    )
 }
 
 /** Approved 614:88: availability cards and truthful pre-generation constraints. */
