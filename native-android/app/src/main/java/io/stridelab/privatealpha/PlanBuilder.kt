@@ -46,6 +46,7 @@ import org.json.JSONObject
     val advancedQualityTypes = advancedQualityCsv.split('|').filter { it.isNotBlank() }.toSet()
     var advancedBackPage by rememberSaveable { mutableIntStateOf(0) }
     var guidedFocus by rememberSaveable { mutableStateOf("10K") }
+    var editingAbilityFromGuided by rememberSaveable { mutableStateOf(false) }
     var runningRoute by rememberSaveable { mutableStateOf("race") }
     var raceIntent by rememberSaveable { mutableStateOf("pr") }
     var raceDistance by rememberSaveable { mutableStateOf(when(input.goal) {
@@ -98,6 +99,7 @@ import org.json.JSONObject
             0 -> TracksideFigmaRunningGoalScreen(
                 selected = runningRoute,
                 onSelect = { route ->
+                    editingAbilityFromGuided = false
                     runningRoute = route
                     guidedFocus = when(route) {
                         "faster" -> "10K"
@@ -148,7 +150,10 @@ import org.json.JSONObject
                         else -> 5
                     }
                 },
-                onContinue = { runningSubPage = 4 },
+                onContinue = {
+                    runningSubPage = if(editingAbilityFromGuided) 5 else 4
+                    editingAbilityFromGuided = false
+                },
                 onAdvanced = {
                     advancedBackPage = 2
                     runningSubPage = 3
@@ -190,13 +195,20 @@ import org.json.JSONObject
                 onFocus = { guidedFocus = it },
                 weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0,120.0) ?: 0.0,
                 experience = input.experience,
-                onEditAbility = { runningSubPage = 2 },
+                onEditAbility = {
+                    editingAbilityFromGuided = true
+                    runningSubPage = 2
+                },
                 onAdvanced = {
                     advancedBackPage = 5
                     runningSubPage = 3
                 },
-                onBack = { runningSubPage = 0 },
+                onBack = {
+                    editingAbilityFromGuided = false
+                    runningSubPage = 0
+                },
                 onContinue = {
+                    editingAbilityFromGuided = false
                     val goal = when(runningRoute) {
                         "faster" -> when(guidedFocus) {
                             "10K" -> "Improve 10K"
