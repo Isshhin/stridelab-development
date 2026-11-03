@@ -30,6 +30,7 @@ internal fun TracksideFigmaAdvancedRunning(
     guided: Boolean,
     weeklyKm: Double,
     qualityCount: Int,
+    maxQualityCount: Int,
     selectedQualityTypes: Set<String>,
     onWeeklyKm: (Double) -> Unit,
     onQualityCount: (Int) -> Unit,
@@ -159,6 +160,7 @@ internal fun TracksideFigmaAdvancedRunning(
                 val chosen = qualityCount == count
                 Surface(
                     onClick = { onQualityCount(count) },
+                    enabled = count <= maxQualityCount,
                     modifier = Modifier.weight(1f).height(45.dp)
                         .testTag("builder-advanced-quality-count-" + count),
                     color = if (chosen) Color(0xFF542733) else inactive,
@@ -178,6 +180,15 @@ internal fun TracksideFigmaAdvancedRunning(
             }
         }
         Spacer(Modifier.height(13.dp))
+        if(maxQualityCount < 2) {
+            Text(
+                "Two quality sessions require experienced running, at least " +
+                    "four runs per week and 30 km of recent weekly volume.",
+                fontSize=10.sp,lineHeight=14.sp,
+                color=TracksidePalette.textMuted
+            )
+            Spacer(Modifier.height(8.dp))
+        }
         Text(
             "Target mileage informs the saved plan. Quality-type choices are " +
                 "preferences until supported by the active coaching policy.",

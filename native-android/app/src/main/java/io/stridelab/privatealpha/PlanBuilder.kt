@@ -158,11 +158,20 @@ import org.json.JSONObject
                 guided = advancedBackPage != 0,
                 weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0, 120.0) ?: 0.0,
                 qualityCount = input.qualityCount.coerceIn(0, 2),
+                maxQualityCount = minOf(
+                    (input.runDays-2).coerceAtLeast(0),
+                    if(input.experience==2 && input.runDays>=4 &&
+                        (km.toDoubleOrNull() ?: 0.0)>=30.0) 2 else 1
+                ),
                 selectedQualityTypes = advancedQualityTypes,
                 onWeeklyKm = { km = it.toInt().toString() },
                 onQualityCount = { n ->
-                    edit(input.copy(qualityCount=n.coerceAtMost(
-                        (input.runDays-1).coerceAtLeast(0))))
+                    val allowed = minOf(
+                        (input.runDays-2).coerceAtLeast(0),
+                        if(input.experience==2 && input.runDays>=4 &&
+                            (km.toDoubleOrNull() ?: 0.0)>=30.0) 2 else 1
+                    )
+                    edit(input.copy(qualityCount=n.coerceAtMost(allowed)))
                 },
                 onToggleQuality = { quality ->
                     val updated =
@@ -218,16 +227,29 @@ import org.json.JSONObject
                 },
                 onChooseType = { day, type ->
                     when(type) {
-                        "Long run" -> edit(input.copy(
-                            longDay=day, qualityDays=input.qualityDays-day))
+                        "Long run" -> {
+                            val remaining=input.qualityDays-day
+                            edit(input.copy(
+                                longDay=day,
+                                qualityDays=remaining,
+                                qualityCount=input.qualityCount.coerceAtMost(
+                                    remaining.size)))
+                        }
                         "Quality" -> {
                             val futureLong=if(input.longDay==day)
                                 ((input.days-day).maxOrNull() ?: input.longDay)
                                 else input.longDay
+                            val allowed = minOf(
+                                (input.runDays-2).coerceAtLeast(0),
+                                if(input.experience==2 && input.runDays>=4 &&
+                                    (km.toDoubleOrNull() ?: 0.0)>=30.0) 2 else 1
+                            )
+                            val desired=((input.qualityDays+day)-futureLong)
+                                .sorted().take(allowed).toSet()
                             edit(input.copy(
                                 longDay=futureLong,
-                                qualityDays=(input.qualityDays+day)-futureLong,
-                                qualityCount=1))
+                                qualityDays=desired,
+                                qualityCount=desired.size))
                         }
                         else -> edit(input.copy(
                             qualityDays=input.qualityDays-day,
