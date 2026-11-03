@@ -22,6 +22,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.sp
 import kotlin.math.cos
 import kotlin.math.abs
@@ -36,10 +39,15 @@ import kotlin.math.abs
  * from actual recorded coordinates when the source contains GPS points.
  */
 @Composable
-internal fun TracksideParityActivityMapHero(detail: ActivityDetail?, onBack: () -> Unit) {
+internal fun TracksideParityActivityMapHero(
+    detail: ActivityDetail?,
+    onBack: () -> Unit,
+    heightDp: Dp = 425.dp,
+    onChangeStyle: (() -> Unit)? = null
+) {
     val samples = detail?.samples ?: emptyList()
     val points = samples.filter { it.latitude != null && it.longitude != null }
-    Box(Modifier.fillMaxWidth().height(425.dp).testTag("activity-map-hero")) {
+    Box(Modifier.fillMaxWidth().height(heightDp).testTag("activity-map-hero")) {
         Image(painterResource(R.drawable.trackside_activity_street_grid),
             contentDescription = "Decorative street-map background, not recorded GPS",
             modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
@@ -87,7 +95,21 @@ internal fun TracksideParityActivityMapHero(detail: ActivityDetail?, onBack: () 
             Text("RECORDED ACTIVITY", fontSize = 11.sp, fontWeight = FontWeight.Bold,
                 color = TracksidePalette.text)
             Spacer(Modifier.weight(1f))
-            Box(Modifier.size(44.dp))
+            if (onChangeStyle != null) {
+                Surface(
+                    onClick = onChangeStyle,
+                    modifier = Modifier.size(44.dp)
+                        .testTag("activity-change-glass-variant")
+                        .semantics { contentDescription = "Switch approved Activity appearance" },
+                    shape = RoundedCornerShape(25.dp),
+                    color = Color(0x8813222C),
+                    border = BorderStroke(1.dp, Color(0x99768C9B))
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("•••", fontSize = 15.sp, color = TracksidePalette.text)
+                    }
+                }
+            } else Box(Modifier.size(44.dp))
         }
         Text(
             if (points.size >= 2) "Recorded GPS · " + points.size + " samples"
@@ -103,11 +125,17 @@ internal fun TracksideParityActivityMapHero(detail: ActivityDetail?, onBack: () 
 internal fun TracksideParityActivityOverview(activity: ActivityRecord) {
     Column(
         Modifier.fillMaxWidth()
-            .background(Brush.verticalGradient(listOf(Color(0xFF253644), Color(0xFF0B1924))))
-            .padding(horizontal = 17.dp, vertical = 22.dp)
+            .background(
+                Brush.verticalGradient(listOf(Color(0xFF253644), Color(0xFF0B1924))),
+                RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+            .padding(horizontal = 17.dp, vertical = 16.dp)
             .testTag("activity-parity-overview"),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        Box(Modifier.align(Alignment.CenterHorizontally)
+            .size(width = 48.dp, height = 5.dp)
+            .background(Color(0xFF778C9B), RoundedCornerShape(4.dp)))
+        Spacer(Modifier.height(12.dp))
         Text(activity.title, fontSize = 27.sp, lineHeight = 32.sp,
             color = TracksidePalette.text, fontWeight = FontWeight.Bold,
             maxLines = 2, overflow = TextOverflow.Ellipsis)
