@@ -98,10 +98,11 @@ private fun PreviewApprovedRunningSetup() {
     StrideTheme {
         TracksideFigmaRunningSetup(
             request=previewPlan,
-            selectedDay=2,
-            onSelectedDay={},
+            selectedSlot=1,
+            onSelectSlot={},
             custom=true,onCustom={},qualityPreference="Threshold",
-            onQualityPreference={},onRunningCount={},onChooseType={_,_->},
+            onQualityPreference={},onQualityCount={},
+            onRunningCount={},onAssignDay={},onClearSlot={},
             onBack={},onContinue={}
         )
     }
