@@ -26,13 +26,17 @@ class WeeklyPlacementTest {
             strengthDays=1,calDays=1,conditioningDays=1,
             weeklySlots=running().weeklySlots+
                 mapOf("str" to listOf(1),"cal" to listOf(4),
-                    "cond" to listOf(6))
+                    "cond" to listOf(6)),
+            preferredQuality="Intervals",
+            allowedQualityTypes=setOf("Threshold","Intervals","Hills")
         )
         val decoded=PlanRequest.decode(original.encode())
         assertEquals(original.weeklySlots,decoded.weeklySlots)
         assertEquals(original.days,decoded.days)
         assertEquals(original.longDay,decoded.longDay)
         assertEquals(original.qualityDays,decoded.qualityDays)
+        assertEquals(original.preferredQuality,decoded.preferredQuality)
+        assertEquals(original.allowedQualityTypes,decoded.allowedQualityTypes)
     }
 
     @Test fun legacyRequestWithoutAppointmentsStillDecodesAndAutoSchedules() {
