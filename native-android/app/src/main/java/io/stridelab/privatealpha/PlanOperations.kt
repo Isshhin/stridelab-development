@@ -13,7 +13,7 @@ internal object PlanOperations {
         if(plan.status!="draft" && plan.status!="paused")throw PlanConstraint("Only a draft or paused plan can be approved.")
         val approved=others.filter { it.id!=plan.id&&it.status=="approved" }
         if(approved.any { other->other.sessions.any { existing->plan.sessions.any { session->conflict(session,existing,plan.policyId,other.policyId) } } })throw PlanConstraint("This plan conflicts with an approved plan. Pause the existing plan or change the dates first.")
-        if(plan.policyId==MULTI_SESSION_POLICY&&approved.filter { it.policyId==MULTI_SESSION_POLICY }.any { other->
+        if(PlanScheduleValidation.isMultiPolicy(plan.policyId)&&approved.filter { PlanScheduleValidation.isMultiPolicy(it.policyId) }.any { other->
                 (plan.sessions.map { it.date }.toSet() intersect other.sessions.map { it.date }.toSet()).any { date->
                     (plan.sessions.filter { it.date==date }+other.sessions.filter { it.date==date }).sumOf { it.effectiveMinutes } > minOf(plan.request.dailyMinutes,other.request.dailyMinutes)
                 }
@@ -38,11 +38,11 @@ internal object PlanOperations {
                 .any { existing->conflict(moved,existing,plan.policyId,other.policyId) }
         }
         if(conflictsWithinPlan||conflictsWithApprovedPlan)throw PlanConstraint("This move conflicts with another workout or its recovery spacing. Choose a different date.")
-        if(plan.policyId==MULTI_SESSION_POLICY&&sameDayExisting.sumOf { it.effectiveMinutes }+moved.effectiveMinutes>plan.request.dailyMinutes)throw PlanConstraint("This move would exceed the ${plan.request.dailyMinutes}-minute daily time budget.")
-        val sharedMultiPlans=(approved.filter { it.policyId==MULTI_SESSION_POLICY&&it.sessions.any { s->s.date==date&&s.status !in setOf("missed","skipped") } }+
-            listOf(plan).filter { it.policyId==MULTI_SESSION_POLICY })
+        if(PlanScheduleValidation.isMultiPolicy(plan.policyId)&&sameDayExisting.sumOf { it.effectiveMinutes }+moved.effectiveMinutes>plan.request.dailyMinutes)throw PlanConstraint("This move would exceed the ${plan.request.dailyMinutes}-minute daily time budget.")
+        val sharedMultiPlans=(approved.filter { PlanScheduleValidation.isMultiPolicy(it.policyId)&&it.sessions.any { s->s.date==date&&s.status !in setOf("missed","skipped") } }+
+            listOf(plan).filter { PlanScheduleValidation.isMultiPolicy(it.policyId) })
         if(sharedMultiPlans.size>1) {
-            val combined=sameDayExisting+listOf(moved)+approved.filter { it.policyId==MULTI_SESSION_POLICY }.flatMap { p->p.sessions.filter { it.date==date&&it.status !in setOf("missed","skipped") } }
+            val combined=sameDayExisting+listOf(moved)+approved.filter { PlanScheduleValidation.isMultiPolicy(it.policyId) }.flatMap { p->p.sessions.filter { it.date==date&&it.status !in setOf("missed","skipped") } }
             val budget=sharedMultiPlans.minOf { it.request.dailyMinutes }
             if(combined.sumOf { it.effectiveMinutes }>budget)throw PlanConstraint("This move would exceed the shared $budget-minute daily time budget across approved plans.")
         }

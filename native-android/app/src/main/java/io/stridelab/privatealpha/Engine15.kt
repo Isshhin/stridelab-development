@@ -8,6 +8,7 @@ import kotlin.math.floor
 internal const val ENGINE15_VERSION = "1.5.0"
 internal const val ENGINE15_FOUNDATION_POLICY = "stridelab.engine15.foundation-20261103.1"
 internal const val ENGINE15_POLICY = "stridelab.engine15.bounded-running-20261103.1"
+internal const val ENGINE15_MULTI_POLICY = "stridelab.engine15.multi-session-20261103.1"
 
 /** Deterministic, explicitly selected candidate. Does not infer fitness or recovery. */
 internal object Engine15 : PlanGenerationEngine {
@@ -17,8 +18,13 @@ internal object Engine15 : PlanGenerationEngine {
     internal fun validate(request: PlanRequest) {
         if (request.policyChoice != "engine15")
             throw PlanConstraint("Engine 1.5 must be selected explicitly.")
-        Engine1.validate(request)
+        if (requiresMulti(request))
+            MultiSessionEngine1.validate(request.copy(policyChoice = "multi-session"))
+        else Engine1.validate(request)
     }
+
+    private fun requiresMulti(p:PlanRequest) =
+        p.runDays + p.strengthDays + p.calDays + p.conditioningDays > p.days.size
 
     private data class QualityStructure(
         val title: String, val instructions: String, val requiredMinutes: Int
@@ -94,7 +100,10 @@ internal object Engine15 : PlanGenerationEngine {
         validate(request)
         // Keep the original generator, calendar, multi-discipline recipes and
         // saved-plan contract unchanged; only refine proposed RUNNING sessions.
-        val baseline = Engine1.generate(request.copy(policyChoice = "baseline"), owner, id, now)
+        val multi = requiresMulti(request)
+        val baseline = if(multi)
+            MultiSessionEngine1.generate(request.copy(policyChoice = "multi-session"), owner, id, now)
+        else Engine1.generate(request.copy(policyChoice = "baseline"), owner, id, now)
         val weekly = baseline.sessions.groupBy { weekIndex(request, it) }
         val adapted = baseline.sessions.map { original ->
             if (original.discipline != "run") return@map original
@@ -174,7 +183,9 @@ internal object Engine15 : PlanGenerationEngine {
                 (!s.quality || previous.quality)
         })
         return baseline.copy(
-            engineVersion = version, policyId = policyId, request = request,
+            engineVersion = version,
+            policyId = if(multi) ENGINE15_MULTI_POLICY else policyId,
+            request = request,
             sessions = adapted,
             explanations = listOf(
                 "Engine 1.5 bounded-running policy ($policyId): the verified baseline " +
@@ -187,6 +198,7 @@ internal object Engine15 : PlanGenerationEngine {
                 "Quality running is limited by supplied mileage, experience, return " +
                     "status, lighter weeks, race taper and available time. Effort " +
                     "descriptions are not measured thresholds, zones or target paces.",
+                if(multi) "Multi-session days use the existing conservative easy-run + calisthenics pairing and daily budget. Incompatible schedules are rejected." else "Single-session Engine 1.0 calendar rules remain unchanged.",
                 "Review every workout before approval; no existing saved plan, " +
                     "completed activity or athlete record has been changed."
             ) + baseline.explanations.filterNot {

@@ -29,7 +29,7 @@ internal data class PlanRequest(
             .put("days",JSONArray(days.sorted())).put("runDays",runDays).put("strengthDays",strengthDays).put("calDays",calDays).put("conditioningDays",conditioningDays).put("longDay",longDay)
             .put("qualityDays",JSONArray(qualityDays.sorted())).put("qualityCount",qualityCount).put("weeklyKm",weeklyKm).put("longestKm",longestKm).put("planningPace",planningPace)
             .put("equipment",JSONObject(equipment)).put("calLevel",calLevel).put("returning",returning).put("excluded",JSONArray(excluded.sorted())).put("limitations",limitations).put("recoveryNotes",recoveryNotes).put("strengthExperience",strengthExperience).put("pullLevel",pullLevel).put("coreLevel",coreLevel).put("policyChoice",policyChoice).put("disciplineGoals",JSONObject(disciplineGoals))
-        if(policyChoice=="multi-session")encoded.put("dailyMinutes",dailyMinutes)
+        if(policyChoice=="multi-session" || policyChoice=="engine15")encoded.put("dailyMinutes",dailyMinutes)
         return encoded
     }
     companion object {
