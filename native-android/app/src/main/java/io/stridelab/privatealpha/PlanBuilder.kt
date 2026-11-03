@@ -143,8 +143,14 @@ import org.json.JSONObject
                 weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0,120.0) ?: 0.0,
                 longestKm = longest.toDoubleOrNull()?.coerceIn(0.0,42.0) ?: 0.0,
                 onExperience = { edit(input.copy(experience=it)) },
-                onWeeklyKm = { km = it.toInt().toString() },
-                onLongestKm = { longest = it.toInt().toString() },
+                onWeeklyKm = { value ->
+                    km=value.toInt().toString()
+                    edit(input.copy(weeklyKm=value))
+                },
+                onLongestKm = { value ->
+                    longest=value.toInt().toString()
+                    edit(input.copy(longestKm=value))
+                },
                 onBack = {
                     runningSubPage = when(runningRoute) {
                         "race" -> 1
@@ -171,7 +177,10 @@ import org.json.JSONObject
                         (km.toDoubleOrNull() ?: 0.0)>=30.0) 2 else 1
                 ),
                 selectedQualityTypes = advancedQualityTypes,
-                onWeeklyKm = { km = it.toInt().toString() },
+                onWeeklyKm = { value ->
+                    km=value.toInt().toString()
+                    edit(input.copy(weeklyKm=value))
+                },
                 onQualityCount = { n ->
                     val allowed = minOf(
                         (input.runDays-2).coerceAtLeast(0),
