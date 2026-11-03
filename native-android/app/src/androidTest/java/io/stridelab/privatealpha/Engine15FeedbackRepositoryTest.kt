@@ -22,6 +22,7 @@ class Engine15FeedbackRepositoryTest {
     private val database = "synthetic-engine15-feedback.db"
     private val preferences = "synthetic-engine15-feedback"
     private val owner = "synthetic-engine15-owner"
+    private val alternateOwner = "synthetic-engine15-other"
     private val today = LocalDate.now()
     private val sourceDate = today.minusDays(1)
     private val targetDate = today.plusDays(1)
@@ -37,6 +38,8 @@ class Engine15FeedbackRepositoryTest {
         context.deleteDatabase(database)
         context.getSharedPreferences(preferences, Context.MODE_PRIVATE).edit().clear().commit()
         SessionVault(context).clear(owner)
+        SessionVault(context).clear(alternateOwner)
+        transport.account = owner
         transport.offline = false
         open()
     }
@@ -46,6 +49,7 @@ class Engine15FeedbackRepositoryTest {
         context.deleteDatabase(database)
         context.getSharedPreferences(preferences, Context.MODE_PRIVATE).edit().clear().commit()
         SessionVault(context).clear(owner)
+        SessionVault(context).clear(alternateOwner)
     }
 
     private val request get() = PlanRequest(
@@ -159,14 +163,76 @@ class Engine15FeedbackRepositoryTest {
         assertEquals(plan, PlanSnapshot.decode(plan.encode(), owner))
     }
 
+    @Test fun accountSwitchCannotStageOrRestoreOtherOwnersPlanAndOriginalSurvives() = runBlocking {
+        val completed = confirmedSource()
+        val proposal = repository.previewEngine15Adjustments(completed.id, today).single()
+        assertTrue(repository.stageEngine15Adjustment(completed.id, completed.revision, proposal, today))
+        val saved = repository.state.value.plans.single()
+        val backup = JSONObject().put("schemaVersion", 1)
+            .put("plans", JSONArray().put(saved.encode())).toString()
+
+        assertTrue(repository.signOut())
+        transport.account = alternateOwner
+        assertTrue(repository.signIn("other@example.invalid", "fixture"))
+        assertTrue(repository.state.value.plans.isEmpty())
+        assertTrue(repository.previewEngine15Adjustments(saved.id, today).isEmpty())
+        assertFalse(repository.stageEngine15Adjustment(saved.id, saved.revision, proposal, today))
+        assertFalse(repository.restorePlans(backup))
+        assertTrue(repository.state.value.plans.isEmpty())
+
+        assertTrue(repository.signOut())
+        transport.account = owner
+        assertTrue(repository.signIn("engine15@example.invalid", "fixture"))
+        transport.offline = true
+        repository.close()
+        open()
+        val reopened = repository.state.value.plans.single()
+        assertEquals(saved, reopened)
+        assertFalse(reopened.sessions.last().suggestion!!.accepted)
+        assertEquals(60, reopened.sessions.last().effectiveMinutes)
+    }
+
+    @Test fun duplicateSourceBackupRestorationIsAtomicAndOfflineCacheRemainsUntouched() = runBlocking {
+        val initial = confirmedSource()
+        val src = initial.sessions.first()
+        val safe = initial.copy(
+            id = "additional-safe", revision = 1,
+            sessions = listOf(src.copy(id = "imported-safe", linkedActivityId = "duplicate-activity"))
+        )
+        val collision = initial.copy(
+            id = "additional-conflict", revision = 1,
+            sessions = listOf(src.copy(id = "imported-duplicate", linkedActivityId = "duplicate-activity"))
+        )
+        val invalidBackup = JSONObject().put("schemaVersion", 1)
+            .put("plans", JSONArray().put(safe.encode()).put(collision.encode())).toString()
+        transport.offline = true
+        assertFalse(repository.restorePlans(invalidBackup))
+        assertEquals(listOf(initial), repository.state.value.plans)
+        repository.close()
+        open()
+        assertEquals(listOf(initial), repository.state.value.plans)
+
+        val safeBackup = JSONObject().put("schemaVersion", 1)
+            .put("plans", JSONArray().put(safe.encode())).toString()
+        assertTrue(repository.restorePlans(safeBackup))
+        assertEquals(2, repository.state.value.plans.size)
+        assertEquals(initial, repository.state.value.plans.single { it.id == initial.id })
+        repository.close()
+        open()
+        assertEquals(2, repository.state.value.plans.size)
+        assertEquals(safe, repository.state.value.plans.single { it.id == safe.id })
+        assertEquals(initial, repository.state.value.plans.single { it.id == initial.id })
+    }
+
     private inner class FixtureGateway : TrainingGateway {
+        var account = owner
         var offline = false
         private fun online() {
             if (offline) throw java.io.IOException("Synthetic offline fixture")
         }
         override fun signIn(email: String, password: String): NativeSession {
             online()
-            return NativeSession(owner, "fake-token", "fake-refresh", Long.MAX_VALUE)
+            return NativeSession(account, "fake-token", "fake-refresh", Long.MAX_VALUE)
         }
         override fun refresh(session: NativeSession) = session
         override fun verify(session: NativeSession) { online() }
