@@ -1,4 +1,4 @@
-name: Research Engine 2.0 synthetic contract validation
+name: Research Engine 2.0 contract and adversarial validation
 
 on:
   push:
@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   synthetic-contracts:
-    name: Research-only Python contract checks (NOT actual Engine 2.0)
+    name: Research-only policies, SQLite recovery and adversarial checks
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -44,6 +44,10 @@ jobs:
         run: python research/validation/runner.py --output research-validation.json
       - name: Execute B0/H1 frozen policy comparisons
         run: python research/validation/policy_runner.py --output research-policy-comparison.json
+      - name: Execute seeded adversarial cohorts (unseen by 8B frozen comparisons)
+        run: python research/validation/heldout_runner.py --seed 82603 --per-cohort 12 --output research-heldout-results.json
+      - name: Record all B0-H1 disagreements for independent review
+        run: python research/validation/difference_review.py --output research-decision-differences.json
       - name: Publish scope-aware summary
         if: always()
         shell: bash
@@ -86,6 +90,30 @@ jobs:
             else
               echo '**B0/H1 policy report missing. Check logs.**'
             fi
+            if [ -f research-heldout-results.json ]; then
+              python - <<'PY'
+          import json
+          with open('research-heldout-results.json', encoding='utf-8') as f:
+              h = json.load(f)
+          print()
+          print('### Newly generated seeded adversarial scenarios (research only)')
+          print(f"- {h['counts']['PASS']} PASS, {h['counts']['FAIL']} FAIL, {h['counts']['TOTAL']} total; seed {h['seed']}")
+          print('- These are structural synthetic checks, NOT longitudinal coaching effectiveness.')
+          PY
+            else
+              echo '**Held-out scenario report missing. Check logs.**'
+            fi
+            if [ -f research-decision-differences.json ]; then
+              python - <<'PY'
+          import json
+          with open('research-decision-differences.json', encoding='utf-8') as f:
+              r = json.load(f)
+          print()
+          print('### B0/H1 difference audit (research only)')
+          print(f"- {r['scenarios_with_difference']} scenarios with different proposed actions")
+          print('- All review entries remain unvalidated for coaching benefit.')
+          PY
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
@@ -94,5 +122,7 @@ jobs:
           path: |
             research-validation.json
             research-policy-comparison.json
+            research-heldout-results.json
+            research-decision-differences.json
           if-no-files-found: warn
           retention-days: 30
