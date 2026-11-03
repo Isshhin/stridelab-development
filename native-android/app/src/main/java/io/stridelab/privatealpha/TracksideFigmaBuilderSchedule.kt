@@ -215,7 +215,9 @@ internal fun TracksideFigmaAvailabilityScreen(
     onAssignOtherDay: (String,Int,Int) -> Unit = { _,_,_ -> },
     onClearOtherSlot: (String,Int) -> Unit = { _,_ -> },
     onAutoOther: (String) -> Unit = {},
-    onCountOther: (String,Int) -> Unit = { _,_ -> }
+    onCountOther: (String,Int) -> Unit = { _,_ -> },
+    dailyBudget: String = "90",
+    onDailyBudget: (String) -> Unit = {}
 ) {
     val chosen=request.days.size
     val total=request.runDays+request.strengthDays+request.calDays+request.conditioningDays
@@ -226,7 +228,9 @@ internal fun TracksideFigmaAvailabilityScreen(
     val unsupportedOverlap=overlap && request.policyChoice!="multi-session"
     val placementError=WeeklyPlacement.validationError(request)
     val capacityFits=chosen>0 && total<=capacity &&
-        placementError==null && !unsupportedOverlap
+        placementError==null && !unsupportedOverlap &&
+        (request.policyChoice!="multi-session" ||
+            dailyBudget.toIntOrNull() in 15..240)
     TracksideFigmaBuilderFrame(
         eyebrow = "PLAN / AVAILABILITY",
         toolbarTitle = "Availability",
@@ -329,6 +333,17 @@ internal fun TracksideFigmaAvailabilityScreen(
                     Text("Engine 1 only permits selected pairings; a successful slot count does not guarantee placement.",
                         fontSize=10.sp,lineHeight=13.sp,
                         color=Color(0xFFB6C0CA))
+                    if(request.policyChoice=="multi-session") {
+                        Spacer(Modifier.height(11.dp))
+                        OutlinedTextField(
+                            value=dailyBudget,
+                            onValueChange={onDailyBudget(it.filter(Char::isDigit).take(3))},
+                            label={Text("Combined minutes per training day (15–240)")},
+                            modifier=Modifier.fillMaxWidth()
+                                .testTag("builder-availability-daily-budget"),
+                            singleLine=true
+                        )
+                    }
                 }
             }
         }
