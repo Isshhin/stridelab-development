@@ -127,12 +127,17 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
         screenshot("builder-strength-unassigned")
         compose.onNodeWithTag("builder-strength-weekday-1").performClick()
+        compose.onNodeWithText("1 of 2 placed").assertExists()
         compose.onNodeWithTag("builder-strength-edit-schedule").performScrollTo()
         compose.onNodeWithTag("builder-strength-edit-schedule").performClick()
         compose.onNodeWithTag("builder-strength-session-1").performScrollTo()
         compose.onNodeWithTag("builder-strength-session-1").performClick()
         compose.onNodeWithTag("builder-strength-weekday-4").performScrollTo()
+        compose.onNodeWithTag("builder-strength-weekday-4").assertIsDisplayed()
         compose.onNodeWithTag("builder-strength-weekday-4").performClick()
+        // Always capture placement diagnostics, even if the final state is wrong.
+        screenshot("builder-strength-two-taps")
+        compose.onNodeWithText("2 of 2 placed").assertExists()
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
         screenshot("builder-strength-placed")
         compose.onNodeWithTag("builder-strength-auto").performClick()
@@ -166,6 +171,21 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("builder-strength-customize").assertIsDisplayed()
         compose.onNodeWithTag("builder-strength-weekly").assertExists()
         compose.onNodeWithTag("builder-strength-split").assertExists()
+        val config = compose.activity.resources.configuration
+        if(config.fontScale <= 1.01f) {
+            val weekly=compose.onNodeWithTag("builder-strength-weekly")
+                .getUnclippedBoundsInRoot()
+            assertTrue("Weekly card taller than Figma baseline tolerance: " +
+                (weekly.bottom-weekly.top), (weekly.bottom-weekly.top).value <= 250f)
+            if(config.screenHeightDp >= 900) {
+                val split=compose.onNodeWithTag("builder-strength-split")
+                    .getUnclippedBoundsInRoot()
+                val continueCta=compose.onNodeWithTag("builder-figma-continue")
+                    .getUnclippedBoundsInRoot()
+                assertTrue("Training split overlaps Continue CTA",
+                    split.bottom <= continueCta.top - 2.dp)
+            }
+        }
         // These bounds checks are intentionally run in every viewport/font matrix.
         listOf(
             "builder-strength-setup-goal" to "Build muscle",

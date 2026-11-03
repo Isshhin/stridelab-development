@@ -134,7 +134,7 @@ internal fun TracksideFigmaStrengthSetup(
             "Equipment",equipmentSummary,
             R.drawable.trackside_strength_equipment_icon,
             { choosingEquipment=true },"builder-strength-setup-equipment")
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(4.dp))
 
         Surface(
             modifier=Modifier.fillMaxWidth().testTag("builder-strength-weekly"),
@@ -142,7 +142,7 @@ internal fun TracksideFigmaStrengthSetup(
             shape=RoundedCornerShape(15.dp),
             border=BorderStroke(1.dp,strengthEdge)
         ) {
-            Column(Modifier.padding(13.dp)) {
+            Column(Modifier.padding(start=13.dp,end=13.dp,top=8.dp,bottom=0.dp)) {
                 StrengthSectionLabel("WEEKLY SESSIONS")
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment=Alignment.CenterVertically) {
@@ -223,7 +223,8 @@ internal fun TracksideFigmaStrengthSetup(
                         }
                     }
                 }
-                Spacer(Modifier.height(13.dp))
+                // Keep the edit button's Material touch target intact; remove
+                // only the excessive visual gap below the weekday cells.
                 Row(verticalAlignment=Alignment.CenterVertically) {
                     Text(
                         if(manual) placed.toString()+" of "+count+" placed"
@@ -328,7 +329,9 @@ private fun StrengthPreferenceRow(
         shape=RoundedCornerShape(13.dp),
         border=BorderStroke(1.dp,Color(0xFF4E6B7B))
     ) {
-        Row(Modifier.padding(horizontal=12.dp,vertical=10.dp),
+        // Intrinsic height grows when Android font scaling requires it.
+        // 3dp vertical padding retains Figma's 59dp preference-row baseline.
+        Row(Modifier.padding(horizontal=12.dp,vertical=3.dp),
             verticalAlignment=Alignment.CenterVertically,
             horizontalArrangement=Arrangement.spacedBy(12.dp)) {
             Box(
