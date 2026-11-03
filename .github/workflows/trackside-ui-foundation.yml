@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/trackside3-compose-foundation-20261102
+      - design/trackside3-figma-parity-no-build-20261103
     paths:
       - 'native-android/**'
       - '.github/workflows/trackside-ui-foundation.yml'
