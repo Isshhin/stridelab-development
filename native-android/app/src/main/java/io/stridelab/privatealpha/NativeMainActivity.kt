@@ -247,34 +247,13 @@ private fun NavHostController.openActivity(id: String) {
                             actions.loadDetail(activity.id)
                         }
                     }
-                    Screen(activity?.title ?: "Activity unavailable", "ACTIVITY DETAIL", compactTitle = true) {
-                        item { TextButton(onClick = { nav.popBackStack() }) { Text("Back to history") } }
-                        if(activity == null) item { EmptyState("No activity available", "This activity is not in the current account’s local cache.") }
-                        else {
-                            item { Text(activity.dateLabel, style = MaterialTheme.typography.bodyLarge); Text("${activity.type} · ${activity.sourceLabel}", color = MaterialTheme.colorScheme.secondary) }
-                            item { TracksideSectionHeader("Recorded metrics") }
-                            item { MetricPair(
-                                if(activity.distanceM != null || activity.supportsPace) "Distance" to activity.distanceLabel else null,
-                                "Elapsed time" to activity.durationLabel) }
-                            if(activity.supportsPace) item { MetricPair(
-                                "Moving time" to (activity.movingTimeS?.let { ActivityRecord.duration(it) } ?: "Not recorded"),
-                                "Average pace" to activity.paceLabel) }
-                            item { MetricPair(
-                                "Average heart rate" to (activity.averageHr?.let { "${it.roundToInt()} bpm" } ?: "Not recorded"),
-                                "Maximum heart rate" to (activity.maximumHr?.let { "${it.roundToInt()} bpm" } ?: "Not recorded")) }
-                            if(activity.elevationM != null || activity.supportsPace) item { Metric("Elevation gain",activity.elevationM?.let { "${it.roundToInt()} m" } ?: "Not recorded") }
-                            if(DashboardSummary.isRun(activity)) item { ActivityPlanLink(state,activity,actions.planning) }
-                            item { OutlinedButton(onClick = { actions.loadDetail(activity.id) }, enabled = online && !state.busy && !state.needsSignIn, modifier = Modifier.fillMaxWidth()) { Text(if(state.details.containsKey(activity.id)) "Refresh recorded streams" else "Load recorded streams & laps") } }
-                            state.details[activity.id]?.let { recorded -> item { RecordedActivityDetail(recorded,activity.supportsPace) } }
-                            item { SignalCard {
-                                Text(if(activity.supportsPace) "RUNNING INTELLIGENCE" else "SESSION CONTEXT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                                Text(ActivityIntelligence.narrative(activity, state.activities), style = MaterialTheme.typography.bodyLarge)
-                                val comparison = ActivityIntelligence.comparison(activity, state.activities)
-                                if(comparison != null) Text("Based on cached source summaries · ${comparison.count} earlier runs · preceding 90 days · distance ±10%", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            } }
-                            item { Text("Values come from the activity source and use metric units. Missing metrics are shown as not recorded. Load recorded streams and laps when online. Availability depends on your source; summary metrics cannot reconstruct missing routes or charts.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                        }
-                    }
+                    TracksideFigmaActivityScreen(
+                        activity = activity,
+                        state = state,
+                        online = online,
+                        actions = actions,
+                        onBack = { nav.popBackStack() }
+                    )
                 }
                 composable("training") { TrainingScreen(state,actions.planning,{nav.navigate("builder/all")},{p,s->nav.openWorkout(p,s)},{nav.navigate("auth")},{p,d->nav.navigate("manage/${android.net.Uri.encode(p)}/$d")}) }
                 composable("manage/{planId}/{date}") { back ->

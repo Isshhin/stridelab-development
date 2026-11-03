@@ -20,13 +20,14 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.cos
 
-@Composable internal fun RecordedActivityDetail(detail: ActivityDetail, supportsPace: Boolean) {
+@Composable internal fun RecordedActivityDetail(detail: ActivityDetail, supportsPace: Boolean, mode: String = "all") {
     var selectedIndex by rememberSaveable(detail.activityId) { mutableStateOf<Int?>(null) }
     val selected=selectedIndex?.let { detail.samples.getOrNull(it) }
     SignalCard {
         Text("RECORDED STREAMS",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
         val date = DateTimeFormatter.ofPattern("d MMM, HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(detail.fetchedAt))
         Text("Saved $date · ${detail.samples.size} source samples · available offline",style=MaterialTheme.typography.bodySmall)
+        if(mode != "splits") {
         if(detail.samples.isEmpty()) Text("No recorded time-series or GPS points were returned. Summary metrics remain available.")
         else {
             Text(selected?.let { "Selected source sample ${it.index} · elapsed ${ActivityRecord.duration(it.seconds)}" } ?: "Tap a chart to inspect the nearest recorded sample. No interpolation is used.",style=MaterialTheme.typography.bodySmall)
@@ -34,6 +35,7 @@ import kotlin.math.cos
                 TextButton(onClick={selectedIndex=((selectedIndex ?: 1)-1).coerceAtLeast(0)},enabled=selectedIndex!=0) { Text("Previous sample") }
                 TextButton(onClick={selectedIndex=((selectedIndex ?: -1)+1).coerceAtMost(detail.samples.lastIndex)},enabled=selectedIndex!=detail.samples.lastIndex) { Text("Next sample") }
             }
+            if(mode != "charts") {
             val points = detail.samples.filter { it.latitude != null && it.longitude != null }
             if(points.size < 2) Text("No recorded GPS route. Indoor activities and sources without coordinates cannot show a route.")
             else {
@@ -50,11 +52,16 @@ import kotlin.math.cos
                     for((a,b) in detail.samples.zipWithNext()) if(a.latitude!=null && a.longitude!=null && b.latitude!=null && b.longitude!=null && b.seconds-a.seconds<=120 && abs(a.longitude-b.longitude)<180) drawLine(color,point(a),point(b),3.dp.toPx())
                 }
             }
+            }
+            if(mode != "overview") {
             if(supportsPace) SampleGraph("Pace", "sec/km",detail.samples,selected,{selectedIndex=it}) { it.pace }
             SampleGraph("Heart rate","bpm",detail.samples,selected,{selectedIndex=it}) { it.hr }
             SampleGraph("Elevation","m",detail.samples,selected,{selectedIndex=it}) { it.altitude }
+            }
 
         }
+        }
+        if(mode == "all" || mode == "splits") {
         Text("Source laps",style=MaterialTheme.typography.titleMedium)
         if(detail.laps.isEmpty()) Text("No recorded laps returned. No kilometer splits have been invented.")
         // Keep the detail list bounded; the source may include many tiny device laps.
@@ -66,6 +73,7 @@ import kotlin.math.cos
             Text(listOfNotNull(pace,lap.hr?.let { String.format(Locale.getDefault(),"%.0f bpm",it) }).joinToString(" · ").ifEmpty { "Pace / heart rate not recorded" },style=MaterialTheme.typography.bodySmall)
         }
         if(detail.laps.size>100) Text("Showing first 100 of ${detail.laps.size} recorded laps.")
+        }
     }
 }
 
