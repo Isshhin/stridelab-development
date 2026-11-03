@@ -75,6 +75,7 @@ internal object Engine1:PlanGenerationEngine {
         check(p.weeks in 1..16 && p.minutes in 15..120,"Choose 1–16 weeks and 15–120 available minutes per session.")
         check(p.experience in 0..2 && p.strengthExperience in 0..2 && p.calLevel in 0..2 && p.pullLevel in 0..2 && p.coreLevel in 0..2,"Choose your current ability level.")
         check(p.days.isNotEmpty() && p.days.all { it in 1..7 },"Choose available training days.")
+        WeeklyPlacement.validationError(p)?.let { throw PlanConstraint(it) }
         check(p.runDays in 0..6 && p.strengthDays in 0..4 && p.calDays in 0..4 && p.conditioningDays in 0..3,"Check session counts.")
         val total=p.runDays+p.strengthDays+p.calDays+p.conditioningDays
         check(total>0 && total<=p.days.size,"You requested $total sessions across ${p.days.size} days. Add available days or reduce session counts; no discipline will be dropped silently.")
@@ -140,14 +141,22 @@ internal object Engine1:PlanGenerationEngine {
             if(index==ordered.size)return true
             if(++attempts>100000)return false
             val s=ordered[index]
-            val eligible=slots.filter { when { s.kind=="long"->it.dayOfWeek.value==p.longDay;s.kind=="quality"->it.dayOfWeek.value in p.qualityDays;else->true } }
+            val pinnedDay=WeeklyPlacement.fixedDay(p,s)
+            val eligible=slots.filter { day ->
+                when {
+                    pinnedDay!=null -> day.dayOfWeek.value==pinnedDay
+                    s.kind=="long" -> day.dayOfWeek.value==p.longDay
+                    s.kind=="quality" -> day.dayOfWeek.value in p.qualityDays
+                    else -> true
+                }
+            }
             for(date in eligible) { val candidate=s.copy(date=date)
                 if((placed+prior.takeLast(7)).any { conflict(candidate,it) })continue
                 placed.add(candidate);if(solve(index+1))return true;placed.removeAt(placed.lastIndex)
             }
             return false
         }
-        if(!solve(0))throw PlanConstraint("These days cannot fit all requested sessions with recovery spacing around quality running, lower-body work and your long run. Add days, reduce sessions or change quality/long-run preferences.")
+        if(!solve(0))throw PlanConstraint("The selected weekdays cannot fit all sessions with recovery spacing around quality, strength and your long run. Move a session or switch to automatic scheduling.")
         return placed.sortedBy { it.date }
     }
 }

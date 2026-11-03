@@ -32,7 +32,8 @@ internal object MultiSessionEngine1 : PlanGenerationEngine {
                 strengthDays = if (discipline == "str") count else 0,
                 calDays = if (discipline == "cal") count else 0,
                 conditioningDays = if (discipline == "cond") count else 0,
-                qualityCount = if (discipline == "run") request.qualityCount else 0
+                qualityCount = if (discipline == "run") request.qualityCount else 0,
+                weeklySlots = request.weeklySlots.filterKeys { it == discipline }
             )
             Engine1.generate(solo, owner, id, now).sessions
         }
@@ -63,6 +64,7 @@ internal object MultiSessionEngine1 : PlanGenerationEngine {
                 goal !in (Engine1Engines.goals[discipline] ?: emptyList())
             }) throw PlanConstraint("Choose supported goals for each discipline.")
 
+        WeeklyPlacement.validationError(request)?.let { throw PlanConstraint(it) }
         val total = request.runDays + request.strengthDays + request.calDays + request.conditioningDays
         if (total == 0) throw PlanConstraint("Choose at least one weekly training session.")
         if (request.runDays == 0 && request.qualityCount > 0) throw PlanConstraint("Enable running before requesting quality running sessions.")
@@ -88,7 +90,8 @@ internal object MultiSessionEngine1 : PlanGenerationEngine {
                 strengthDays = if (discipline == "str") count else 0,
                 calDays = if (discipline == "cal") count else 0,
                 conditioningDays = if (discipline == "cond") count else 0,
-                qualityCount = if (discipline == "run") request.qualityCount else 0
+                qualityCount = if (discipline == "run") request.qualityCount else 0,
+                weeklySlots = request.weeklySlots.filterKeys { it == discipline }
             ))
         }
     }
@@ -116,10 +119,12 @@ internal object MultiSessionEngine1 : PlanGenerationEngine {
             if (index == ordered.size) return true
             if (++attempts > 250_000) return false
             val session = ordered[index]
+            val pinnedDay = WeeklyPlacement.fixedDay(request,session)
             val eligible = slots.filter {
                 when {
+                    pinnedDay != null -> it.dayOfWeek.value == pinnedDay
                     session.kind == "long" -> it.dayOfWeek.value == request.longDay
-                    session.quality -> it.dayOfWeek.value in request.qualityDays
+                    session.kind == "quality" -> it.dayOfWeek.value in request.qualityDays
                     else -> true
                 }
             }.sortedWith(compareBy<LocalDate> { date ->
@@ -137,7 +142,7 @@ internal object MultiSessionEngine1 : PlanGenerationEngine {
             return false
         }
         if (!solve(0)) throw PlanConstraint(
-            "These sessions cannot fit the available days, ${request.dailyMinutes}-minute daily budget and recovery constraints. Add days, reduce sessions or change long-run/quality preferences."
+            "Selected weekdays cannot fit the available days, ${request.dailyMinutes}-minute budget and recovery constraints. Change placements or switch to automatic scheduling."
         )
         return placed
     }
