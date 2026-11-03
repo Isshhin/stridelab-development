@@ -195,6 +195,38 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     suspend fun recordWorkout(id:String,revision:Int,sessionId:String,log:WorkoutLog,complete:Boolean)=changePlan(id,revision) { PlanOperations.record(it,sessionId,log,complete) }
     suspend fun markMissed(id:String,revision:Int,sessionId:String,reason:String,skipped:Boolean)=changePlan(id,revision) { PlanOperations.missed(it,sessionId,reason,skipped) }
     suspend fun acceptSuggestion(id:String,revision:Int,sessionId:String)=changePlan(id,revision) { PlanOperations.acceptSuggestion(it,sessionId) }
+
+    /**
+     * Pure Engine 1.5 preview: no persistence, plan mutation or network access.
+     * Consumers must pass the same plan revision to stage/dismiss.
+     */
+    fun previewEngine15Adjustments(
+        id:String, asOf:java.time.LocalDate=java.time.LocalDate.now()
+    ):List<Engine15Feedback.Proposal> {
+        val p=mutable.value.plans.find { it.id==id && it.owner==mutable.value.account }
+            ?: return emptyList()
+        return Engine15Feedback.preview(p,asOf,mutable.value.plans)
+    }
+    suspend fun stageEngine15Adjustment(
+        id:String,revision:Int,proposal:Engine15Feedback.Proposal,
+        asOf:java.time.LocalDate=java.time.LocalDate.now()
+    )=changePlan(id,revision) { p ->
+        Engine15Feedback.stage(p,proposal,asOf,mutable.value.plans)
+    }
+    suspend fun dismissEngine15Adjustment(
+        id:String,revision:Int,proposal:Engine15Feedback.Proposal,
+        asOf:java.time.LocalDate=java.time.LocalDate.now(),
+        now:java.time.Instant=java.time.Instant.now()
+    )=changePlan(id,revision) { p ->
+        Engine15Feedback.dismiss(p,proposal,asOf,now,mutable.value.plans)
+    }
+    suspend fun dismissStagedEngine15Adjustment(
+        id:String,revision:Int,sessionId:String,
+        now:java.time.Instant=java.time.Instant.now()
+    )=changePlan(id,revision) { p ->
+        Engine15Feedback.dismissStaged(p,sessionId,now)
+    }
+
     suspend fun saveFeedback(id:String,revision:Int,category:String,text:String,sessionId:String?=null)=changePlan(id,revision) { PlanOperations.feedback(it,category,text,sessionId) }
     suspend fun refreshWellness() = operation("Refreshing wellness records…") {
         val account=mutable.value.account ?: throw IllegalStateException("Sign in first")
