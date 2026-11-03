@@ -148,7 +148,7 @@ private fun NavHostController.openActivity(id: String) {
             // The approved 25D / 25E plan-decision pages do not use the five-tab dock.
             if(route != "missed/{planId}/{sessionId}" &&
                 route != "review-move/{planId}/{sessionId}/{date}" &&
-                route != "activity/{id}") {
+                route != "activity/{id}" && route != "builder/{discipline}") {
                 Box(
                     Modifier.fillMaxWidth()
                         .navigationBarsPadding()
@@ -275,87 +275,28 @@ private fun NavHostController.openActivity(id: String) {
                             actions.loadDetail(activity.id)
                         }
                     }
-                    Screen(activity?.title ?: "Activity unavailable", "ACTIVITY DETAIL",
-                        compactTitle = true, edgeToEdge = activity != null) {
-                        if (activity == null) item {
-                            TextButton(onClick = { nav.popBackStack() }) { Text("Back to history") }
+                    if (activity == null) {
+                        Screen("Activity unavailable", "RECORDED ACTIVITY", compactTitle = true) {
+                            item { TextButton(onClick = { nav.popBackStack() }) {
+                                Text("Back to history")
+                            } }
+                            item { EmptyState("No activity available",
+                                "This record is not in the current account's saved cache.") }
                         }
-                        if(activity == null) item { EmptyState("No activity available", "This activity is not in the current account’s local cache.") }
-                        else {
-                            item {
-                                TracksideParityActivityMapHero(
-                                    detail = state.details[activity.id],
-                                    onBack = { nav.popBackStack() },
-                                    heightDp = if (matteStyle) 394.dp else 425.dp,
-                                    onChangeStyle = { matteStyle = !matteStyle }
-                                )
-                            }
-                            item {
-                                if (matteStyle) TracksideParityMatteActivityOverview(activity)
-                                else TracksideParityActivityOverview(activity)
-                            }
-                            item {
-                                Box(Modifier.padding(horizontal = 17.dp)) {
-                                    if (matteStyle) TracksideParityMatteActivityTabs(activityTab) {
-                                        activityTab = it
-                                    } else TracksideParityActivityTabs(activityTab) {
-                                        activityTab = it
-                                    }
-                                }
-                            }
-                            if (activityTab == 0) {
-                                item { Box(Modifier.padding(horizontal = 17.dp)) {
-                                    MetricPair(
-                                        "Elapsed time" to activity.durationLabel,
-                                        "Average heart rate" to
-                                            (activity.averageHr?.let { it.roundToInt().toString() + " bpm" } ?: "Not recorded")
-                                    )
-                                } }
-                                if (activity.elevationM != null) item {
-                                    Metric("Elevation gain",
-                                        activity.elevationM.roundToInt().toString() + " m")
-                                }
-                                if (DashboardSummary.isRun(activity)) item {
-                                    ActivityPlanLink(state, activity, actions.planning)
-                                }
-                            }
-                            item {
-                                OutlinedButton(
-                                    onClick = { actions.loadDetail(activity.id) },
-                                    enabled = online && !state.busy && !state.needsSignIn,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(if (state.details.containsKey(activity.id))
-                                        "Refresh recorded streams" else "Load recorded streams & laps")
-                                }
-                            }
-                            if (activityTab == 0) {
-                                state.details[activity.id]?.let { recorded ->
-                                    item { RecordedActivityDetail(recorded, activity.supportsPace) }
-                                }
-                                item {
-                                    if (matteStyle) TracksideParityMatteActivityHighlights(
-                                        activity, state.activities, state.details[activity.id]
-                                    ) else Column(Modifier.padding(horizontal = 17.dp)) {
-                                        TracksideParityActivityHighlights(activity, state.activities)
-                                    }
-                                }
-                            } else if (activityTab == 1) {
-                                item { TracksideParityActivityLaps(state.details[activity.id]) }
-                            } else {
-                                state.details[activity.id]?.let { recorded ->
-                                    item { RecordedActivityDetail(recorded, activity.supportsPace) }
-                                } ?: item {
-                                    Text("Recorded charts are not cached for this activity.",
-                                        color = TracksidePalette.textMuted)
-                                }
-                            }
-                            item {
-                                Text("Source-recorded metrics only. Missing GPS, splits, pace and heart-rate samples are never reconstructed or inferred.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = TracksidePalette.textMuted)
-                            }
-                        }
+                    } else {
+                        TracksideFigmaActivityDetailSurface(
+                            activity = activity,
+                            recorded = state.details[activity.id],
+                            history = state.activities,
+                            state = state,
+                            actions = actions,
+                            online = online,
+                            selectedTab = activityTab,
+                            onTab = { activityTab = it },
+                            matte = matteStyle,
+                            onToggleMatte = { matteStyle = !matteStyle },
+                            onBack = { nav.popBackStack() }
+                        )
                     }
                 }
                 composable("training") { TrainingScreen(state,actions.planning,{nav.navigate("builder/all")},{p,s->nav.openWorkout(p,s)},{nav.navigate("auth")},{p,d->nav.navigate("manage/${android.net.Uri.encode(p)}/$d")}) }
