@@ -39,7 +39,7 @@ import org.json.JSONObject
     var previewWeek by rememberSaveable { mutableIntStateOf(0) }
     var runningSubPage by rememberSaveable { mutableIntStateOf(0) }
     var scheduleSubPage by rememberSaveable { mutableIntStateOf(0) }
-    var runningSelectedDay by rememberSaveable { mutableIntStateOf(initial.longDay.coerceIn(1,7)) }
+    var runningSelectedSlot by rememberSaveable { mutableIntStateOf(0) }
     var runningCustom by rememberSaveable { mutableStateOf(true) }
     var qualityPreference by rememberSaveable { mutableStateOf("Threshold") }
     var advancedQualityCsv by rememberSaveable { mutableStateOf("Threshold|Tempo") }
@@ -227,50 +227,74 @@ import org.json.JSONObject
             )
             4 -> TracksideFigmaRunningSetup(
                 request = input,
-                selectedDay = runningSelectedDay,
-                onSelectedDay = { runningSelectedDay = it },
+                selectedSlot = runningSelectedSlot,
+                onSelectSlot = { runningSelectedSlot = it },
                 custom = runningCustom,
-                onCustom = { runningCustom = it },
+                onCustom = { enabled ->
+                    runningCustom = enabled
+                    edit(input.copy(
+                        weeklySlots = if (enabled) input.weeklySlots +
+                            ("run" to WeeklyPlacement.days(input,"run"))
+                        else input.weeklySlots - "run"
+                    ))
+                },
                 qualityPreference = qualityPreference,
                 onQualityPreference = { qualityPreference = it },
-                onRunningCount = { n ->
-                    edit(input.copy(runDays=n,
-                        qualityCount=input.qualityCount.coerceAtMost((n-1).coerceAtLeast(0))))
-                },
-                onChooseType = { day, type ->
-                    when(type) {
-                        "Long run" -> {
-                            val remaining=input.qualityDays-day
-                            edit(input.copy(
-                                longDay=day,
-                                qualityDays=remaining,
-                                qualityCount=input.qualityCount.coerceAtMost(
-                                    remaining.size)))
-                        }
-                        "Quality" -> {
-                            val futureLong=if(input.longDay==day)
-                                ((input.days-day).maxOrNull() ?: input.longDay)
-                                else input.longDay
-                            val allowed = minOf(
-                                (input.runDays-2).coerceAtLeast(0),
-                                if(input.experience==2 && input.runDays>=4 &&
-                                    (km.toDoubleOrNull() ?: 0.0)>=30.0) 2 else 1
-                            )
-                            val desired=((input.qualityDays+day)-futureLong)
-                                .sorted().take(allowed).toSet()
-                            edit(input.copy(
-                                longDay=futureLong,
-                                qualityDays=desired,
-                                qualityCount=desired.size))
-                        }
-                        else -> edit(input.copy(
-                            qualityDays=input.qualityDays-day,
-                            qualityCount=if((input.qualityDays-day).isEmpty())
-                                0 else input.qualityCount))
+                onQualityCount = { n ->
+                    val allowed = minOf((input.runDays-2).coerceAtLeast(0),
+                        if(input.experience==2 && input.runDays>=4 &&
+                            input.weeklyKm>=30.0) 2 else 1)
+                    if(n<=allowed) {
+                        val slots=WeeklyPlacement.days(input,"run")
+                        edit(input.copy(
+                            qualityCount=n,
+                            qualityDays=slots.drop(1).take(n).filter {
+                                it in 1..7
+                            }.toSet()
+                        ))
                     }
                 },
-                onBack = { runningSubPage = 2 },
-                onContinue = { step = 2; scheduleSubPage = 0 }
+                onRunningCount = { n ->
+                    val changed = if(runningCustom)
+                        WeeklyPlacement.resize(input,"run",n)
+                    else input.copy(
+                        runDays=n,
+                        weeklySlots=input.weeklySlots-"run"
+                    )
+                    val allowed=minOf((n-2).coerceAtLeast(0),
+                        if(changed.experience==2 && n>=4 &&
+                            changed.weeklyKm>=30.0) 2 else 1)
+                    val q=changed.qualityCount.coerceAtMost(allowed)
+                    val slots=WeeklyPlacement.days(changed,"run")
+                    edit(changed.copy(
+                        qualityCount=q,
+                        qualityDays=slots.drop(1).take(q).filter {
+                            it in 1..7
+                        }.toSet()
+                    ))
+                    runningSelectedSlot=runningSelectedSlot.coerceIn(0,n-1)
+                },
+                onAssignDay = { day ->
+                    edit(WeeklyPlacement.put(input,"run",
+                        runningSelectedSlot.coerceIn(0,input.runDays-1),day))
+                },
+                onClearSlot = {
+                    edit(WeeklyPlacement.clear(input,"run",
+                        runningSelectedSlot.coerceIn(0,input.runDays-1)))
+                },
+                onBack = { runningSubPage=2 },
+                onContinue = {
+                    // Save even an unchanged default once the user chose
+                    // manual placement, so the engine must honor those days.
+                    if(runningCustom && "run" !in input.weeklySlots) {
+                        edit(input.copy(
+                            weeklySlots=input.weeklySlots +
+                                ("run" to WeeklyPlacement.days(input,"run"))
+                        ))
+                    }
+                    step=2
+                    scheduleSubPage=0
+                }
             )
         }
         return
