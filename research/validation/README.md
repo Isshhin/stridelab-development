@@ -1,3 +1,15 @@
+# CURRENT — Batch 8E (2026-11-03)
+
+[**Full Batch 8E source-integrity and workout-change report**](../../docs/research/batch-8e-source-attestation-and-explicit-workout-revision-contract-2026-11-03.md). [**Verified GitHub Actions run 41588077190**](https://github.com/Isshhin/stridelab-development/actions/runs/41588077190): 109 Python tests PASS (0 failures) at commit `f9d592a`. Previous distinct structural suites remain 55 B0/H1 PASS/3 forecast BLOCKED, 288 adversarial PASS and 4 research multiweek profiles PASS.
+
+New research-only boundaries: `source_link_gate.py` refuses uploaded self-claimed session IDs and requires separately signed attestations; `week_change_contract.py` makes versioned, non-auto-applied workout or calendar proposals and enforces declared day/time/dose constraints; `proposal_authority.py` binds signed source observations to proposals rather than trusting a caller's "verified" label; `adapter_probe.py` reports original local Athlete Simulation Lab `BLOCKED_SOURCE_NOT_CONNECTED`. New `test_*.py` files cover forged links, stale evidence, unauthorized increases, missing target days, approval/rollback, and integration. 
+
+**This is not provider account/OAuth verification, athlete authentication, adaptive training efficacy or production Android integration.** The proposal authority intentionally blocks real athlete requests until an authenticated app boundary exists. Signing keys and test data are synthetic. PR #34 stays draft/unmerged.
+
+Run all existing tests with `python -m unittest discover -s research/validation -p 'test_*.py' -v`. The separate adapter-probe JSON is included in the Actions artifact.
+
+---
+
 # Batch 8D — current checkpoint
 
 [GitHub Actions verification](https://github.com/Isshhin/stridelab-development/actions/runs/41585527016): four synthetic profiles passed over 32 athlete-weeks; 66 unit tests passed. Research B0/H1 frozen cases remain 55 structural passes, three predictive cases blocked.
