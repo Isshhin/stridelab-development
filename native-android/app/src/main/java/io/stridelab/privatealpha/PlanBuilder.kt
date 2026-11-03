@@ -34,6 +34,9 @@ import org.json.JSONObject
     var previewWeek by rememberSaveable { mutableIntStateOf(0) }
     var runningSubPage by rememberSaveable { mutableIntStateOf(0) }
     var scheduleSubPage by rememberSaveable { mutableIntStateOf(0) }
+    var runningSelectedDay by rememberSaveable { mutableIntStateOf(initial.longDay.coerceIn(1,7)) }
+    var runningCustom by rememberSaveable { mutableStateOf(true) }
+    var qualityPreference by rememberSaveable { mutableStateOf("Threshold") }
     var runningRoute by rememberSaveable { mutableStateOf("race") }
     var raceIntent by rememberSaveable { mutableStateOf("pr") }
     var raceDistance by rememberSaveable { mutableStateOf(when(input.goal) {
@@ -130,8 +133,42 @@ import org.json.JSONObject
                 onBack = {
                     runningSubPage = if(runningRoute=="race") 1 else 0
                 },
-                onContinue = { step = 2 },
+                onContinue = { runningSubPage = 4 },
                 onAdvanced = { runningSubPage = 3 }
+            )
+            4 -> TracksideFigmaRunningSetup(
+                request = input,
+                selectedDay = runningSelectedDay,
+                onSelectedDay = { runningSelectedDay = it },
+                custom = runningCustom,
+                onCustom = { runningCustom = it },
+                qualityPreference = qualityPreference,
+                onQualityPreference = { qualityPreference = it },
+                onRunningCount = { n ->
+                    edit(input.copy(runDays=n,
+                        qualityCount=input.qualityCount.coerceAtMost((n-1).coerceAtLeast(0))))
+                },
+                onChooseType = { day, type ->
+                    when(type) {
+                        "Long run" -> edit(input.copy(
+                            longDay=day, qualityDays=input.qualityDays-day))
+                        "Quality" -> {
+                            val futureLong=if(input.longDay==day)
+                                ((input.days-day).maxOrNull() ?: input.longDay)
+                                else input.longDay
+                            edit(input.copy(
+                                longDay=futureLong,
+                                qualityDays=(input.qualityDays+day)-futureLong,
+                                qualityCount=1))
+                        }
+                        else -> edit(input.copy(
+                            qualityDays=input.qualityDays-day,
+                            qualityCount=if(input.qualityDays-day==emptySet<Int>())
+                                0 else input.qualityCount))
+                    }
+                },
+                onBack = { runningSubPage = 2 },
+                onContinue = { step = 2; scheduleSubPage = 0 }
             )
         }
         return
