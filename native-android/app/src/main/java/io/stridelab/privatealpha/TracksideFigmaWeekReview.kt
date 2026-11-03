@@ -49,6 +49,12 @@ internal fun TracksideFigmaWeekReview(
         request.runDays + request.strengthDays + request.calDays + request.conditioningDays
     else rows.size
     val days = if(plan==null)request.days.size else rows.map { it.date }.distinct().size
+    val exactAssignments = request.weeklySlots.flatMap { (discipline, weekdays) ->
+        weekdays.mapIndexedNotNull { index, weekday ->
+            if(weekday !in 1..7) null
+            else Triple(weekday,discipline,WeeklyPlacement.label(request,discipline,index))
+        }
+    }
     val counts = if(plan==null) listOf(
         "run" to request.runDays, "str" to request.strengthDays,
         "cal" to request.calDays, "cond" to request.conditioningDays
@@ -69,7 +75,10 @@ internal fun TracksideFigmaWeekReview(
         footer = {
             Column(Modifier.padding(horizontal=20.dp,vertical=9.dp)) {
                 Text(
-                    if(plan == null) "Workouts will be assigned by the coaching engine."
+                    if(plan == null && exactAssignments.isNotEmpty())
+                        "Chosen weekdays are requests, not generated prescriptions. Conflicts will be reported."
+                    else if(plan == null)
+                        "Unassigned sessions will be placed by the coaching engine."
                     else "Confirm only after reviewing the saved prescriptions.",
                     color=Color(0xFFB6C0CA),fontSize=11.sp,
                     modifier=Modifier.fillMaxWidth()
@@ -111,7 +120,8 @@ internal fun TracksideFigmaWeekReview(
                     Text(days.toString(),fontSize=39.sp,fontWeight=FontWeight.Bold,
                         color=Color.White)
                     Spacer(Modifier.width(12.dp))
-                    Text("ACTIVE DAYS",fontSize=10.sp,color=Color(0xFFB6C0CA))
+                    Text(if(plan == null) "AVAILABLE DAYS" else "ACTIVE DAYS",
+                        fontSize=10.sp,color=Color(0xFFB6C0CA))
                 }
                 Spacer(Modifier.height(15.dp))
                 Row(Modifier.fillMaxWidth().height(9.dp),
@@ -174,12 +184,20 @@ internal fun TracksideFigmaWeekReview(
                             fontWeight=FontWeight.Bold,color=Color.White,
                             modifier=Modifier.width(50.dp))
                         if(plan==null) {
+                            val choices=exactAssignments.filter { it.first==day }
                             Text(
-                                if(day in request.days)
-                                    "Available · assignments follow generation"
-                                else "Unavailable",
-                                fontSize=11.sp,color=Color(0xFFB6C0CA),
-                                maxLines=1,overflow=TextOverflow.Ellipsis
+                                when {
+                                    choices.isNotEmpty() -> choices.joinToString(" + ") {
+                                        it.third
+                                    } + " · requested"
+                                    day in request.days -> "Available · coach may place sessions"
+                                    else -> "Unavailable"
+                                },
+                                fontSize=11.sp,
+                                color=if(choices.isNotEmpty())Color.White
+                                      else Color(0xFFB6C0CA),
+                                maxLines=2,overflow=TextOverflow.Ellipsis,
+                                modifier=Modifier.testTag("builder-requested-day-"+day)
                             )
                         } else if(assigned.isEmpty()) {
                             Text("Rest / no scheduled session",fontSize=11.sp,
