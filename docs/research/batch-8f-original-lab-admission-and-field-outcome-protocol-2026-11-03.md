@@ -103,7 +103,7 @@ python research/validation/original_lab_admission.py --output research-original-
 python research/validation/field_outcome_gate.py --output research-field-outcome-readiness.json
 ```
 
-On the first full 8F CI checkpoint, unit/negative-control tests passed **131/131**, the older research B0/H1 cases stayed at **55 structural PASS, 3 predictive BLOCKED**, 288 seeded adversarial cases passed, and the prior multiweek profiles passed. The new reports clearly read **`BLOCKED_SOURCE_NOT_PROVIDED`** and **`BLOCKED_NO_CONSENTED_FIELD_DATA`**, respectively. The Actions artifact `research-validation-results` now includes both readiness JSONs; no user athlete data or original source artifact is uploaded.
+On the first full 8F CI checkpoint, unit/negative-control tests passed **132/132**, the older research B0/H1 cases stayed at **55 structural PASS, 3 predictive BLOCKED**, 288 seeded adversarial cases passed, and the prior multiweek profiles passed. The new reports clearly read **`BLOCKED_SOURCE_NOT_PROVIDED`** and **`BLOCKED_NO_CONSENTED_FIELD_DATA`**, respectively. The Actions artifact `research-validation-results` now includes both readiness JSONs; no user athlete data or original source artifact is uploaded.
 
 The lab source admission and field-outcome protocol are different gates. Passing hash checks cannot establish coaching efficacy; having longitudinal outcome data cannot establish that an untrusted lab source is safe to execute. No automatic consent or approval is implemented.
 
