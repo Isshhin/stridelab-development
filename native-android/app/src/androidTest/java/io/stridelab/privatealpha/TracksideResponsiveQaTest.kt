@@ -111,8 +111,8 @@ class TracksideResponsiveQaTest {
             }
         }
         compose.onNodeWithTag("today-hero").assertExists()
-        compose.onNodeWithText("Route not recorded", useUnmergedTree = true).assertExists()
-        compose.onNodeWithText("View workout details  ›", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("today-map-illustration").assertExists()
+        compose.onNodeWithText("Open planned workout", useUnmergedTree = true).assertExists()
         screenshot("today")
         compose.onNodeWithTag("today-hero").performClick()
         compose.runOnIdle { assertTrue("Hero action not usable", opened) }
@@ -165,7 +165,7 @@ class TracksideResponsiveQaTest {
             }
         }
         compose.onNodeWithTag("nav-training").assertIsDisplayed().performClick()
-        compose.onNodeWithTag("header-settings").assertExists()
+        compose.onNodeWithTag("screen-title").assertTextEquals("Training")
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("training-manage-plan"))
         compose.onNodeWithTag("nav-settings").assertIsDisplayed()
         screenshot("training-full-shell")

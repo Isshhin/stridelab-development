@@ -15,12 +15,12 @@ class ActivityIntelligenceUiTest {
         val rows = listOf(run) + (1..3).map { run.copy(id="analysis-$it", startedAt=run.startedAt.minusSeconds(it*86400L),recordedPace=400.0) }
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(TrainingState(initializing=false,account="synthetic-analysis",activities=rows),false,NativeActions({},{},{},{},{_,_->})) } } }
         compose.onNodeWithTag("activity-analysis-current").performClick()
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("RUNNING INTELLIGENCE"))
-        compose.onNodeWithText("RUNNING INTELLIGENCE").assertIsDisplayed()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("ACTIVITY HIGHLIGHTS"))
+        compose.onNodeWithText("ACTIVITY HIGHLIGHTS").assertIsDisplayed()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Your recorded average pace",substring=true))
         compose.onNodeWithText("not improved or reduced fitness",substring=true).assertIsDisplayed()
         compose.onNodeWithTag("offline-status").assertIsDisplayed()
-        compose.onNodeWithTag("nav-activities").performClick()
+        compose.onNodeWithTag("activity-map-back").performClick()
         compose.onNodeWithTag("screen-title").assertTextEquals("Activities")
     }
 }

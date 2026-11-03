@@ -22,7 +22,7 @@ class NativeTabRootTest {
         }
     }
     private fun tab(path: String, title: String) {
-        // NavigationBar is a fixed Scaffold sibling, not an item in the screen LazyColumn.
+        // The approved floating navigation is a fixed Scaffold sibling, not a LazyColumn item.
         // Click its real root item directly; scrolling the screen to "nav-settings"
         // was an invalid test locator and never exercised the Settings destination.
         compose.onNodeWithTag("nav-$path").assertIsDisplayed().performClick()
@@ -35,7 +35,9 @@ class NativeTabRootTest {
         tab("activities", "Activities")
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("activity-synthetic-tab-39"))
         compose.onNodeWithTag("activity-synthetic-tab-39").performClick()
-        compose.onNodeWithTag("screen-title").assertTextEquals("Saved walk 39")
+        compose.onNodeWithTag("activity-parity-overview").assertExists()
+        // Approved activity detail has no bottom tabs; return to history first.
+        back()
         tab("home", "Today")
         tab("activities", "Activities")
         // Root navigation must not discard useful state to fix the restored-detail bug.
@@ -56,19 +58,21 @@ class NativeTabRootTest {
         showHistory()
         tab("activities", "Activities")
         compose.onNodeWithTag("activity-synthetic-tab-0").performClick()
-        compose.onNodeWithTag("screen-title").assertTextEquals("Saved walk 0")
+        compose.onNodeWithTag("activity-parity-overview").assertExists()
         back()
         compose.onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle,"Activities"))
         compose.onNodeWithTag("nav-activities").assertIsSelected()
         compose.onNodeWithTag("activity-synthetic-tab-0").assertIsDisplayed()
         tab("home", "Today")
         compose.onNodeWithTag("activity-synthetic-tab-0").performClick()
-        compose.onNodeWithTag("screen-title").assertTextEquals("Saved walk 0")
+        compose.onNodeWithTag("activity-parity-overview").assertExists()
         back()
         compose.onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle,"Activities"))
         compose.onNodeWithTag("nav-activities").assertIsSelected()
         compose.onNodeWithTag("activity-synthetic-tab-0").assertIsDisplayed()
         compose.onNodeWithTag("activity-synthetic-tab-0").performClick()
+        // The detail closes through Android Back, not a tab hidden under the sheet.
+        back()
         tab("activities", "Activities")
     }
 }

@@ -54,9 +54,11 @@ class TracksideBatch345UiTest {
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("activity-synthetic-activity"))
         compose.onNodeWithTag("activity-synthetic-activity").performClick()
         compose.runOnIdle { assertEquals("Recorded source detail should be requested once", 1, automaticLoads) }
-        compose.onNodeWithText("RECORDED METRICS").assertExists()
+        compose.onNodeWithTag("activity-parity-overview").assertExists()
+        compose.onNodeWithTag("activity-map-hero").assertExists()
         compose.onNodeWithText("5.00 km").assertExists()
-        compose.onNodeWithText("Back to history").performClick()
+        // Detail is intentionally full screen in the approved Figma gallery.
+        compose.onNodeWithTag("activity-map-back").performClick()
         compose.onNodeWithTag("nav-settings").assertIsDisplayed().performClick()
         compose.onNodeWithText("Settings").assertExists()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("DEVICE & DATA"))
