@@ -142,17 +142,26 @@ def weekly_policy_state(profile: str, week: int,
     status = q["status"]
     if status in ("conflict", "unknown"):
         status = "unknown"
+    # Divide a quality session's distance and duration into distinct workout
+    # steps; total session kilometers are NOT all threshold-work kilometers.
+    quality = plan["sessions"][0]
+    planned_hard_km = round(quality["planned_km"] * .6, 6)
     planned = [
-        {"kind": "hard", "km": plan["sessions"][0]["planned_km"],
-         "seconds": plan["sessions"][0]["planned_hard_s"]},
+        {"kind": "easy", "km": round(quality["planned_km"] - planned_hard_km, 6),
+         "seconds": quality["planned_easy_s"]},
+        {"kind": "hard", "km": planned_hard_km,
+         "seconds": quality["planned_hard_s"]},
     ]
     q_actual = q["observed"]
     actual_steps = None
     if status in ("completed", "partial") and q_actual:
-        actual_steps = [{
-            "kind": "hard", "km": q_actual["actual_km"],
-            "seconds": q_actual["actual_hard_s"],
-        }]
+        actual_hard_km = round(q_actual["actual_km"] * .6, 6)
+        actual_steps = [
+            {"kind": "easy", "km": round(q_actual["actual_km"] - actual_hard_km, 6),
+             "seconds": q_actual["actual_easy_s"]},
+            {"kind": "hard", "km": actual_hard_km,
+             "seconds": q_actual["actual_hard_s"]},
+        ]
     return {
         "athlete": {"verified_capacity_km": PROFILE_CAPS[profile],
                     "phase": plan["phase"]},
