@@ -199,6 +199,7 @@ def _common(state: dict[str, Any], policy_id: str) -> dict[str, Any]:
         "forecast": {
             "workout_level": state.get("forecast", {}).get("workout_level"),
             "athlete_history": state.get("forecast", {}).get("athlete_history"),
+            "source_version": state.get("forecast", {}).get("source_version"),
             "predicted_difficulty": None,
             "prediction_status": "NOT_VALIDATED_NO_MODEL",
             "actual_outcome": None,
@@ -241,6 +242,8 @@ def hybrid_h1(state: dict[str, Any]) -> dict[str, Any]:
         action, reason = "PROPOSE_EXERCISE_SUBSTITUTION", "EQUIPMENT_MISSING"
     elif flags["skill_unverified"]:
         action, reason = "DEFER_UNKNOWN", "SKILL_PREREQUISITE_OR_FORM"
+    elif state.get("return_from_break", False) and state.get("request_adaptation", False):
+        action, reason = "DEFER_UNKNOWN", "RETURN_CAPACITY_UNVERIFIED"
     elif flags["overlap_review"]:
         action, reason = "PROPOSE_MOVE_SESSION", "LOWER_BODY_OVERLAP_REVIEW"
     elif sess["status"] == "unknown" and state.get("request_adaptation", False):
