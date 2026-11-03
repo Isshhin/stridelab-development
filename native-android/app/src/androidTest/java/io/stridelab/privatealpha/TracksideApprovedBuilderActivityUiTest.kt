@@ -52,6 +52,50 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-figma-continue").assertExists()
     }
 
+    @Test fun guidedGoalAndAdvancedPreferencesStayWithinApprovedBuilder() {
+        val state = TrainingState(initializing = false, account = "synthetic-ui")
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    PlanBuilder(state=state, actions=PlanActions(),
+                        onDone={}, onSignIn={}, onPreview={_,_->})
+                }
+            }
+        }
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-option-faster").performClick()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-focus-10K").assertExists()
+        compose.onNodeWithTag("builder-guided-advanced").performClick()
+        compose.onNodeWithTag("builder-advanced-mileage").assertExists()
+        compose.onNodeWithTag("builder-advanced-quality-Threshold").assertExists()
+        compose.onNodeWithTag("builder-advanced-quality-count-1").assertExists()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-guided-mileage").assertExists()
+    }
+
+    @Test fun targetTimeIntentCannotSilentlyEnterUnsupportedEngineGoal() {
+        val state = TrainingState(initializing = false, account = "synthetic-ui")
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    PlanBuilder(state=state, actions=PlanActions(),
+                        onDone={}, onSignIn={}, onPreview={_,_->})
+                }
+            }
+        }
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-option-time").performClick()
+        compose.onNodeWithTag("builder-target-time-unavailable").assertExists()
+        compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
+        compose.onNodeWithTag("builder-option-pr").performClick()
+        compose.onNodeWithTag("builder-race-add-pr").performClick()
+        compose.onNodeWithText("PR entry").assertExists()
+        compose.onNodeWithText("Close").performClick()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+    }
+
     @Test fun activityMapRemainsBehindIndependentScrollingGlassSheet() {
         val activity = ActivityRecord(
             "synthetic-run", "Recorded Park Run", "run", "manual",
