@@ -177,6 +177,12 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-strength-goal-0").assertExists()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-cross-ability-strength-0").assertExists()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-start-date").assertExists()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("available-day-6").assertIsEnabled()
         compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
         compose.onNodeWithTag("builder-enable-multi-session").performClick()
@@ -282,6 +288,46 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-other-day-6").performClick()
         assertEquals(6,saved.value.weeklySlots["cal"]!![0])
         assertEquals(1,saved.value.weeklySlots["str"]!![0])
+    }
+
+    @Test fun strengthOnlyGoalsUseFullScreenCardsAndEditableStrengthAbility() {
+        val state=TrainingState(initializing=false,account="synthetic-ui")
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    PlanBuilder(state=state,actions=PlanActions(),discipline="str",
+                        onDone={},onSignIn={},onPreview={_,_->})
+                }
+            }
+        }
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-strength-goal-1").assertExists()
+        compose.onNodeWithTag("builder-strength-goal-1").performClick()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-strength-edit-goal").assertExists()
+        compose.onNodeWithTag("builder-cross-ability-strength-2").performClick()
+        compose.onNodeWithTag("builder-cross-count-str-1").performClick()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-start-date").assertExists()
+    }
+
+    @Test fun calisthenicsOnlyGoalsAndIndependentAbilitiesAreNative() {
+        val state=TrainingState(initializing=false,account="synthetic-ui")
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    PlanBuilder(state=state,actions=PlanActions(),discipline="cal",
+                        onDone={},onSignIn={},onPreview={_,_->})
+                }
+            }
+        }
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-cross-goal-cal-Pull-up progression").assertExists()
+        compose.onNodeWithTag("builder-cross-ability-push-1").performClick()
+        compose.onNodeWithTag("builder-cross-ability-pull-2").performClick()
+        compose.onNodeWithTag("builder-cross-ability-core-1").performClick()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-start-date").assertExists()
     }
 
     @Test fun activityMapRemainsBehindIndependentScrollingGlassSheet() {

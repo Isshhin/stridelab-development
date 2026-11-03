@@ -105,6 +105,15 @@ import org.json.JSONObject
     var advancedBackPage by rememberSaveable { mutableIntStateOf(0) }
     var guidedFocus by rememberSaveable { mutableStateOf("10K") }
     var editingAbilityFromGuided by rememberSaveable { mutableStateOf(false) }
+    var crossTrainingGoals by rememberSaveable { mutableStateOf(false) }
+    var strengthGoalSaved by rememberSaveable { mutableStateOf(false) }
+    var strengthGoalLabel by rememberSaveable {
+        mutableStateOf(when(Engine1Engines.goal(initial,"str")) {
+            "Muscle development" -> "Build Muscle"
+            "Strength endurance" -> "Maintain Fitness"
+            else -> "Build Strength"
+        })
+    }
     var runningRoute by rememberSaveable { mutableStateOf("race") }
     var raceIntent by rememberSaveable { mutableStateOf("pr") }
     var raceDistance by rememberSaveable { mutableStateOf(when(input.goal) {
@@ -182,11 +191,16 @@ import org.json.JSONObject
                 edit(cleaned.copy(goal=if(primaryValid) cleaned.goal else fallback))
             },
             onBack = onDone,
-            onContinue = { step = 1; runningSubPage = 0 }
+            onContinue = {
+                step=1
+                runningSubPage=0
+                crossTrainingGoals=false
+                strengthGoalSaved=false
+            }
         )
         return
     }
-    if (step == 1 && input.runDays > 0) {
+    if (step == 1 && input.runDays > 0 && !crossTrainingGoals) {
         when (runningSubPage) {
             0 -> TracksideFigmaRunningGoalScreen(
                 selected = runningRoute,
@@ -397,8 +411,78 @@ import org.json.JSONObject
                                 ("run" to WeeklyPlacement.days(input,"run"))
                         ))
                     }
-                    step=2
-                    scheduleSubPage=0
+                    if(input.strengthDays+input.calDays+input.conditioningDays>0) {
+                        crossTrainingGoals=true
+                        strengthGoalSaved=false
+                    } else {
+                        step=2
+                        scheduleSubPage=0
+                    }
+                }
+            )
+        }
+        return
+    }
+    if(step==1 && (input.runDays==0 || crossTrainingGoals)) {
+        if(input.strengthDays>0 && !strengthGoalSaved) {
+            TracksideFigmaStrengthGoalScreen(
+                selected=strengthGoalLabel,
+                onSelect={ strengthGoalLabel=it },
+                onBack={
+                    if(input.runDays>0) {
+                        crossTrainingGoals=false
+                        runningSubPage=4
+                    } else step=0
+                },
+                onContinue={
+                    val goal=strengthChoicePolicy(strengthGoalLabel)
+                    edit(input.copy(
+                        goal=if(input.runDays==0)goal else input.goal,
+                        disciplineGoals=input.disciplineGoals+("str" to goal)
+                    ))
+                    strengthGoalSaved=true
+                }
+            )
+        } else {
+            TracksideFigmaCrossTrainingGoalsScreen(
+                request=input,
+                onBack={
+                    if(input.strengthDays>0) strengthGoalSaved=false
+                    else if(input.runDays>0) {
+                        crossTrainingGoals=false
+                        runningSubPage=4
+                    } else step=0
+                },
+                onContinue={ step=2; scheduleSubPage=0 },
+                onEditStrengthGoal={ strengthGoalSaved=false },
+                onGoal={ d,goal ->
+                    val primary=when {
+                        input.runDays>0 -> "run"
+                        input.strengthDays>0 -> "str"
+                        input.calDays>0 -> "cal"
+                        else -> "cond"
+                    }
+                    edit(input.copy(
+                        goal=if(d==primary)goal else input.goal,
+                        disciplineGoals=input.disciplineGoals+(d to goal)
+                    ))
+                },
+                onCount={ d,count ->
+                    edit(if(d in input.weeklySlots)
+                        WeeklyPlacement.resize(input,d,count)
+                    else when(d) {
+                        "str" -> input.copy(strengthDays=count)
+                        "cal" -> input.copy(calDays=count)
+                        else -> input.copy(conditioningDays=count)
+                    })
+                },
+                onExperience={ d,level ->
+                    edit(when(d) {
+                        "str" -> input.copy(strengthExperience=level)
+                        "push" -> input.copy(calLevel=level)
+                        "pull" -> input.copy(pullLevel=level)
+                        else -> input.copy(coreLevel=level)
+                    })
                 }
             )
         }
@@ -416,7 +500,12 @@ import org.json.JSONObject
                 onDailyBudget = { dailyMinutes=it },
                 onBack = {
                     step = 1
-                    if(input.runDays > 0) runningSubPage = 4
+                    if(input.runDays > 0) {
+                        if(input.strengthDays+input.calDays+input.conditioningDays>0) {
+                            crossTrainingGoals=true
+                            strengthGoalSaved=true
+                        } else runningSubPage = 4
+                    }
                 },
                 onContinue = { scheduleSubPage = 1 }
             )
