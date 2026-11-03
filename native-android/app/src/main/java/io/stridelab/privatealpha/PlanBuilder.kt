@@ -31,10 +31,38 @@ import org.json.JSONObject
     var km by rememberSaveable { mutableStateOf(initial.weeklyKm.toString()) };var longest by rememberSaveable { mutableStateOf(initial.longestKm.toString()) }
     var pace by rememberSaveable { mutableStateOf((initial.planningPace/60).toString()) };var start by rememberSaveable { mutableStateOf(maxOf(initial.start,LocalDate.now()).toString()) }
     var weeks by rememberSaveable { mutableStateOf(initial.weeks.toString()) };var minutes by rememberSaveable { mutableStateOf(initial.minutes.toString()) };var dailyMinutes by rememberSaveable { mutableStateOf(initial.dailyMinutes.toString()) }
-    var error by rememberSaveable { mutableStateOf<String?>(null) };var awaiting by rememberSaveable { mutableStateOf(false) };var beforeId by rememberSaveable { mutableStateOf<String?>(null) };var previewId by rememberSaveable { mutableStateOf<String?>(null) }
-    LaunchedEffect(state.busy,state.plans,state.message) { if(awaiting&&!state.busy) {
-        val newest=state.plans.firstOrNull();if(newest!=null&&newest.id!=beforeId) { previewId=newest.id;step=4;awaiting=false } else if(state.message!=null) awaiting=false
-    } }
+    var error by rememberSaveable { mutableStateOf<String?>(null) }
+    var awaiting by rememberSaveable { mutableStateOf(false) }
+    var beforeId by rememberSaveable { mutableStateOf<String?>(null) }
+    var previewId by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingApprovalId by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(state.busy,state.plans,state.message) {
+        if(awaiting && !state.busy) {
+            val newest=state.plans.firstOrNull()
+            if(newest!=null && newest.id!=beforeId && newest.status=="draft") {
+                previewId=newest.id
+                step=4
+                error=null
+                awaiting=false
+            } else if(state.message!=null) {
+                // The scheduler may reject conflicts after request validation.
+                // Keep the athlete in review with the actual recovery reason.
+                error=state.message
+                awaiting=false
+            }
+        }
+        val target=pendingApprovalId
+        if(target!=null && !state.busy) {
+            if(state.plans.any { it.id==target && it.status=="approved" }) {
+                pendingApprovalId=null
+                error=null
+                onDone()
+            } else if(state.message!=null) {
+                error=state.message
+                pendingApprovalId=null
+            }
+        }
+    }
     fun request():PlanRequest=try { input.copy(start=LocalDate.parse(start),weeks=weeks.toInt(),minutes=minutes.toInt(),dailyMinutes=if(input.policyChoice=="multi-session")dailyMinutes.toInt() else input.dailyMinutes,weeklyKm=km.toDouble(),longestKm=longest.toDouble(),planningPace=pace.toDouble()*60) } catch(e:Exception) { throw PlanConstraint("Enter a valid YYYY-MM-DD date and numeric mileage, pace, weeks, minutes, and daily budget if enabled.") }
     var previewWeek by rememberSaveable { mutableIntStateOf(0) }
     var runningSubPage by rememberSaveable { mutableIntStateOf(0) }
@@ -70,15 +98,19 @@ import org.json.JSONObject
         TracksideFigmaWeekReview(
             request = preview.request,
             plan = preview,
-            busy = state.busy,
+            busy = state.busy || pendingApprovalId != null,
             onBack = { step = 3 },
             onContinue = {
-                actions.approve(preview.id, preview.revision)
-                onDone()
+                if(!state.busy && pendingApprovalId==null) {
+                    error=null
+                    pendingApprovalId=preview.id
+                    actions.approve(preview.id, preview.revision)
+                }
             },
             onOpenSession = { sessionId -> onPreview(preview.id, sessionId) },
             weekIndex = previewWeek,
-            onWeekChange = { previewWeek = it }
+            onWeekChange = { previewWeek = it },
+            error = error
         )
         return
     }
