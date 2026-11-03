@@ -52,6 +52,10 @@ jobs:
         run: python research/validation/multiweek_runner.py --output research-multiweek-results.json
       - name: Report original-lab adapter access and research prototype scope
         run: python research/validation/adapter_probe.py
+      - name: Audit availability of the original independent lab source
+        run: python research/validation/original_lab_admission.py --output research-original-lab-admission.json
+      - name: Audit real-world field outcome eligibility
+        run: python research/validation/field_outcome_gate.py --output research-field-outcome-readiness.json
       - name: Publish scope-aware summary
         if: always()
         shell: bash
@@ -145,6 +149,28 @@ jobs:
           print('- Provider credentials and source authorization not connected.')
           PY
             fi
+            if [ -f research-original-lab-admission.json ]; then
+              python - <<'PY'
+          import json
+          with open('research-original-lab-admission.json', encoding='utf-8') as f:
+              r = json.load(f)
+          print()
+          print('### Batch 8F original independent lab source admission')
+          print(f"- Status: {r['original_lab_status']}")
+          print(f"- Source executed: {r['execution']}; original provenance independently verified: {r['origin_verified']}")
+          PY
+            fi
+            if [ -f research-field-outcome-readiness.json ]; then
+              python - <<'PY'
+          import json
+          with open('research-field-outcome-readiness.json', encoding='utf-8') as f:
+              r = json.load(f)
+          print()
+          print('### Batch 8F real athlete outcome evidence readiness')
+          print(f"- Status: {r['status']}; athlete outcomes analyzed: {r['athlete_outcomes_analyzed']}")
+          print(f"- Real effect demonstrated: {r['actual_performance_effect_demonstrated']}")
+          PY
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
@@ -157,5 +183,7 @@ jobs:
             research-decision-differences.json
             research-multiweek-results.json
             research-adapter-status.json
+            research-original-lab-admission.json
+            research-field-outcome-readiness.json
           if-no-files-found: warn
           retention-days: 30
