@@ -33,6 +33,7 @@ import org.json.JSONObject
     fun request():PlanRequest=try { input.copy(start=LocalDate.parse(start),weeks=weeks.toInt(),minutes=minutes.toInt(),dailyMinutes=if(input.policyChoice=="multi-session")dailyMinutes.toInt() else input.dailyMinutes,weeklyKm=km.toDouble(),longestKm=longest.toDouble(),planningPace=pace.toDouble()*60) } catch(e:Exception) { throw PlanConstraint("Enter a valid YYYY-MM-DD date and numeric mileage, pace, weeks, minutes, and daily budget if enabled.") }
     var previewWeek by rememberSaveable { mutableIntStateOf(0) }
     var runningSubPage by rememberSaveable { mutableIntStateOf(0) }
+    var scheduleSubPage by rememberSaveable { mutableIntStateOf(0) }
     var runningRoute by rememberSaveable { mutableStateOf("race") }
     var raceIntent by rememberSaveable { mutableStateOf("pr") }
     var raceDistance by rememberSaveable { mutableStateOf(when(input.goal) {
@@ -42,14 +43,20 @@ import org.json.JSONObject
         else -> "5K"
     }) }
     val preview=state.plans.find { it.id==previewId }
-    if(step==4&&preview!=null) { Screen("Your plan","PREVIEW · NOT APPROVED") {
-        item { PlanOverview(preview) }
-        item { Text("Review the actual dated workouts before approval. The original prescriptions and engine version are saved with this draft.") }
-        item { Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { TextButton(onClick={previewWeek--},enabled=previewWeek>0) { Text("‹ Previous") };Text("Week ${previewWeek+1} of ${preview.request.weeks}");TextButton(onClick={previewWeek++},enabled=previewWeek<preview.request.weeks-1) { Text("Next ›") } } }
-        val weekStart=preview.request.start.plusWeeks(previewWeek.toLong())
-        preview.sessions.filter { it.date in weekStart..weekStart.plusDays(6) }.forEach { s -> item(key=s.id) { PlannedWorkoutCard(s) { onPreview(preview.id,s.id) } } }
-        item { SignalButton("Approve plan",{actions.approve(preview.id,preview.revision);onDone()},!state.busy);OutlinedButton(onClick={step=2},modifier=Modifier.fillMaxWidth()) { Text("Edit inputs and generate a new draft") };TextButton(onClick=onDone) { Text("Keep draft and return to Training") } }
-    };return }
+    if (step == 4 && preview != null) {
+        TracksideFigmaWeekReview(
+            request = preview.request,
+            plan = preview,
+            busy = state.busy,
+            onBack = { step = 3 },
+            onContinue = {
+                actions.approve(preview.id, preview.revision)
+                onDone()
+            },
+            onOpenSession = { sessionId -> onPreview(preview.id, sessionId) }
+        )
+        return
+    }
     if (step == 0) {
         TracksideFigmaDisciplineScreen(
             request = input,
@@ -125,6 +132,60 @@ import org.json.JSONObject
                 onAdvanced = { runningSubPage = 3 }
             )
         }
+        return
+    }
+    if (step == 2 && scheduleSubPage < 2) {
+        if(scheduleSubPage == 0) {
+            TracksideFigmaPlanDetailsScreen(
+                start = start, weeks = weeks, minutes = minutes,
+                onStart = { start = it },
+                onWeeks = { weeks = it },
+                onMinutes = { minutes = it },
+                onBack = {
+                    step = 1
+                    if(input.runDays > 0) runningSubPage = 2
+                },
+                onContinue = { scheduleSubPage = 1 }
+            )
+        } else {
+            TracksideFigmaAvailabilityScreen(
+                request = input,
+                onDay = { day ->
+                    val days = if(day in input.days) input.days - day
+                        else input.days + day
+                    edit(input.copy(
+                        days = days,
+                        longDay = if(input.longDay in days) input.longDay
+                            else (days.maxOrNull() ?: input.longDay),
+                        qualityDays = input.qualityDays.intersect(days)
+                    ))
+                },
+                onBack = { scheduleSubPage = 0 },
+                onContinue = { step = 3 }
+            )
+        }
+        return
+    }
+    if (step == 3) {
+        TracksideFigmaWeekReview(
+            request = input,
+            plan = null,
+            busy = state.busy || awaiting,
+            onBack = { step = 2; scheduleSubPage = 1 },
+            onContinue = {
+                error = null
+                try {
+                    val p = request()
+                    if (p.start < LocalDate.now())
+                        throw PlanConstraint("Choose today or a future start date.")
+                    Engine1Engines.validate(p)
+                    beforeId = state.plans.firstOrNull()?.id
+                    awaiting = true
+                    actions.generate(p)
+                } catch(e: PlanConstraint) { error = e.message }
+            },
+            error = error
+        )
         return
     }
     key(step) { Screen(when(step) {0->"Choose disciplines";1->"Goals & ability";2->"Your schedule";else->"Review your choices"},"CREATE TRAINING PLAN · ${step+1} / 4") {
