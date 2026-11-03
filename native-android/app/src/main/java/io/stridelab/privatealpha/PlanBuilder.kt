@@ -37,10 +37,10 @@ import org.json.JSONObject
     var runningSelectedDay by rememberSaveable { mutableIntStateOf(initial.longDay.coerceIn(1,7)) }
     var runningCustom by rememberSaveable { mutableStateOf(true) }
     var qualityPreference by rememberSaveable { mutableStateOf("Threshold") }
-    var advancedQualityTypes by rememberSaveable {
-        mutableStateOf(setOf("Threshold", "Tempo"))
-    }
-    var advancedFromAbility by rememberSaveable { mutableStateOf(false) }
+    var advancedQualityCsv by rememberSaveable { mutableStateOf("Threshold|Tempo") }
+    val advancedQualityTypes = advancedQualityCsv.split('|').filter { it.isNotBlank() }.toSet()
+    var advancedBackPage by rememberSaveable { mutableIntStateOf(0) }
+    var guidedFocus by rememberSaveable { mutableStateOf("10K") }
     var runningRoute by rememberSaveable { mutableStateOf("race") }
     var raceIntent by rememberSaveable { mutableStateOf("pr") }
     var raceDistance by rememberSaveable { mutableStateOf(when(input.goal) {
@@ -92,25 +92,24 @@ import org.json.JSONObject
         when (runningSubPage) {
             0 -> TracksideFigmaRunningGoalScreen(
                 selected = runningRoute,
-                onSelect = { runningRoute = it },
+                onSelect = { route ->
+                    runningRoute = route
+                    guidedFocus = when(route) {
+                        "faster" -> "10K"
+                        "endurance" -> "Run longer"
+                        "fitness" -> "Consistency"
+                        else -> guidedFocus
+                    }
+                },
                 onBack = { step = 0 },
                 onContinue = {
                     when (runningRoute) {
                         "race" -> runningSubPage = 1
                         "custom" -> {
-                            advancedFromAbility = false
+                            advancedBackPage = 0
                             runningSubPage = 3
                         }
-                        else -> {
-                            val goal = when(runningRoute) {
-                                "faster" -> "Improve 5K"
-                                "endurance" -> "Aerobic foundation"
-                                else -> "General fitness"
-                            }
-                            edit(input.copy(goal=goal,
-                                disciplineGoals=input.disciplineGoals+("run" to goal)))
-                            runningSubPage = 2
-                        }
+                        else -> runningSubPage = 5
                     }
                 }
             )
@@ -138,16 +137,20 @@ import org.json.JSONObject
                 onWeeklyKm = { km = it.toInt().toString() },
                 onLongestKm = { longest = it.toInt().toString() },
                 onBack = {
-                    runningSubPage = if(runningRoute=="race") 1 else 0
+                    runningSubPage = when(runningRoute) {
+                        "race" -> 1
+                        "custom" -> 3
+                        else -> 5
+                    }
                 },
                 onContinue = { runningSubPage = 4 },
                 onAdvanced = {
-                    advancedFromAbility = true
+                    advancedBackPage = 2
                     runningSubPage = 3
                 }
             )
             3 -> TracksideFigmaAdvancedRunning(
-                guided = advancedFromAbility,
+                guided = advancedBackPage != 0,
                 weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0, 120.0) ?: 0.0,
                 qualityCount = input.qualityCount.coerceIn(0, 2),
                 selectedQualityTypes = advancedQualityTypes,
@@ -157,12 +160,44 @@ import org.json.JSONObject
                         (input.runDays-1).coerceAtLeast(0))))
                 },
                 onToggleQuality = { quality ->
-                    advancedQualityTypes =
+                    val updated =
                         if (quality in advancedQualityTypes) advancedQualityTypes-quality
                         else advancedQualityTypes+quality
+                    advancedQualityCsv = updated.sorted().joinToString("|")
                 },
-                onBack = { runningSubPage = if (advancedFromAbility) 2 else 0 },
-                onContinue = { runningSubPage = 2 }
+                onBack = { runningSubPage = advancedBackPage },
+                onContinue = {
+                    runningSubPage = if (advancedBackPage == 5) 5 else 2
+                }
+            )
+            5 -> TracksideFigmaGuidedRunning(
+                route = runningRoute,
+                selectedFocus = guidedFocus,
+                onFocus = { guidedFocus = it },
+                weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0,120.0) ?: 0.0,
+                experience = input.experience,
+                onEditAbility = { runningSubPage = 2 },
+                onAdvanced = {
+                    advancedBackPage = 5
+                    runningSubPage = 3
+                },
+                onBack = { runningSubPage = 0 },
+                onContinue = {
+                    val goal = when(runningRoute) {
+                        "faster" -> when(guidedFocus) {
+                            "10K" -> "Improve 10K"
+                            "21K" -> "Half marathon"
+                            else -> "Improve 5K"
+                        }
+                        "endurance" -> "Aerobic foundation"
+                        else -> "General fitness"
+                    }
+                    edit(input.copy(
+                        goal=goal,
+                        disciplineGoals=input.disciplineGoals+("run" to goal)
+                    ))
+                    runningSubPage = 2
+                }
             )
             4 -> TracksideFigmaRunningSetup(
                 request = input,
