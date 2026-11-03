@@ -156,7 +156,11 @@ internal object Engine1:PlanGenerationEngine {
             }
             return false
         }
-        if(!solve(0))throw PlanConstraint("The selected weekdays cannot fit all sessions with recovery spacing around quality, strength and your long run. Move a session or switch to automatic scheduling.")
+        if(!solve(0))throw PlanConstraint(
+            if(p.weeklySlots.isEmpty())
+                "These days cannot fit all requested sessions with recovery spacing around quality running, lower-body work and your long run. Add days, reduce sessions or change quality/long-run preferences."
+            else "The selected weekdays cannot fit all sessions with recovery spacing around quality, strength and your long run. Move a session or switch to automatic scheduling."
+        )
         return placed.sortedBy { it.date }
     }
 }
