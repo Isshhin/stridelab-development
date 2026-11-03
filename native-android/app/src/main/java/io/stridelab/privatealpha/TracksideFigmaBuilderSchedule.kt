@@ -190,13 +190,26 @@ internal fun TracksideFigmaAvailabilityScreen(
     onDay: (Int) -> Unit,
     onMultiSessionToggle: (Boolean) -> Unit,
     onBack: () -> Unit,
-    onContinue: () -> Unit
+    onContinue: () -> Unit,
+    selectedOtherDiscipline: String = "str",
+    selectedOtherSlot: Int = 0,
+    onSelectOtherDiscipline: (String) -> Unit = {},
+    onSelectOtherSlot: (Int) -> Unit = {},
+    onAssignOtherDay: (String,Int,Int) -> Unit = { _,_,_ -> },
+    onClearOtherSlot: (String,Int) -> Unit = { _,_ -> },
+    onAutoOther: (String) -> Unit = {},
+    onCountOther: (String,Int) -> Unit = { _,_ -> }
 ) {
     val chosen=request.days.size
     val total=request.runDays+request.strengthDays+request.calDays+request.conditioningDays
     val maxPerDay=if(request.policyChoice=="multi-session") 2 else 1
     val capacity=chosen*maxPerDay
-    val capacityFits=chosen>0 && total<=capacity
+    val pinned=request.weeklySlots.values.flatten().filter { it in 1..7 }
+    val overlap=pinned.groupingBy { it }.eachCount().values.any { it>1 }
+    val unsupportedOverlap=overlap && request.policyChoice!="multi-session"
+    val placementError=WeeklyPlacement.validationError(request)
+    val capacityFits=chosen>0 && total<=capacity &&
+        placementError==null && !unsupportedOverlap
     TracksideFigmaBuilderFrame(
         eyebrow = "PLAN / AVAILABILITY",
         toolbarTitle = "Availability",
@@ -229,7 +242,7 @@ internal fun TracksideFigmaAvailabilityScreen(
                         val selected=day in request.days
                         Surface(
                             onClick={onDay(day)},
-                            enabled=day!=6 || selected,
+                            enabled=!(selected && day in pinned),
                             modifier=Modifier.weight(1f)
                                 .fillMaxHeight().testTag("available-day-$day"),
                             color=if(selected)Color(0xFF202B34) else Color(0xFF18252F),
@@ -263,12 +276,15 @@ internal fun TracksideFigmaAvailabilityScreen(
                         fontSize=11.sp,color=Color.White)
                 }
                 Spacer(Modifier.height(14.dp))
-                Text(if(capacityFits)
-                    "✓ Provisional session slots available; recovery checks pending"
-                    else "Additional session slots are required before continuing",
+                Text(when {
+                    placementError!=null -> placementError
+                    unsupportedOverlap -> "Two workouts share a weekday. Enable compatible same-day sessions or move one."
+                    capacityFits -> "✓ Requested weekdays are recorded; recovery checks run on generation"
+                    else -> "Additional available day capacity is needed before continuing"
+                },
                     fontSize=11.sp,color=if(capacityFits)
                         Color(0xFF69D5B0) else Color(0xFFFF8D8D))
-                if(total>chosen || request.policyChoice=="multi-session") {
+                if(total>chosen || overlap || request.policyChoice=="multi-session") {
                     Spacer(Modifier.height(12.dp))
                     Surface(
                         onClick={
@@ -299,6 +315,18 @@ internal fun TracksideFigmaAvailabilityScreen(
                 }
             }
         }
+        Spacer(Modifier.height(18.dp))
+        TracksideFigmaOtherDisciplineSlots(
+            request=request,
+            selectedDiscipline=selectedOtherDiscipline,
+            selectedSlot=selectedOtherSlot,
+            onSelectDiscipline=onSelectOtherDiscipline,
+            onSelectSlot=onSelectOtherSlot,
+            onAssignDay=onAssignOtherDay,
+            onClearSlot=onClearOtherSlot,
+            onAuto=onAutoOther,
+            onCount=onCountOther
+        )
         Spacer(Modifier.height(18.dp))
         Surface(Modifier.fillMaxWidth().heightIn(min=131.dp),
             shape=RoundedCornerShape(14.dp),color=Color(0xFF132934),
