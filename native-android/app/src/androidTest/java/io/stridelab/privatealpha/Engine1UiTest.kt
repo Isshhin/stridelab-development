@@ -82,13 +82,20 @@ class Engine1UiTest {
         compose.onNodeWithTag("workout-review").performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Move workout"))
         compose.onNodeWithText("Move workout",useUnmergedTree=true).performClick()
-        compose.onNodeWithText("Scheduled date (YYYY-MM-DD)").performTextReplacement(
-            firstWeek.single { it.discipline=="run"&&it.kind=="long" }.date.toString()
-        )
-        compose.onNodeWithText("Save move",useUnmergedTree=true).performClick()
+        // The approved move sheet previews a destination before entering the
+        // separate coaching-checks review screen. No move is saved on failure.
+        val conflictingDay = firstWeek.single { it.discipline=="run" && it.kind=="long" }.date
+        compose.onNodeWithTag("move-destination-$conflictingDay").performClick()
+        compose.onNodeWithTag("move-review").performClick()
+        compose.onNodeWithTag("move-review").performClick()
+        compose.onNodeWithTag("review-run-checks").performClick()
         assertEquals(run.date,state.value.plans.single().sessions.single { it.id==cal.id }.date)
         assertNotNull(state.value.plans.single().sessions.single { it.id==cal.id })
-        compose.onAllNodesWithText("This move conflicts with another workout or its recovery spacing. Choose a different date.").assertCountEquals(2)
+        compose.onNodeWithText(
+            "This move conflicts with another workout or its recovery spacing. Choose a different date.",
+            substring=true
+        ).assertExists()
+        compose.onNodeWithTag("plan-flow-back").performClick()
         compose.onNodeWithText("Cancel",useUnmergedTree=true).performClick()
 
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Back to Training"))

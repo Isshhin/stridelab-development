@@ -112,7 +112,7 @@ class TracksideResponsiveQaTest {
         }
         compose.onNodeWithTag("today-hero").assertExists()
         compose.onNodeWithTag("today-map-illustration").assertExists()
-        compose.onNodeWithText("Open planned workout", useUnmergedTree = true).assertExists()
+        compose.onNodeWithContentDescription("Open planned workout").assertExists()
         screenshot("today")
         compose.onNodeWithTag("today-hero").performClick()
         compose.runOnIdle { assertTrue("Hero action not usable", opened) }
