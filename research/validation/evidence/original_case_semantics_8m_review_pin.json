@@ -1,0 +1,8 @@
+{
+  "schema": "stridelab-manual-original-case-semantics-pin-8m-v1",
+  "sidecar_body_sha256": "be24c58a8421cb0abbe31feb4e19141beae2c397774f08e06ad50d4e3419ce70",
+  "producer_branch": "research/batch8m-capacity-semantics-20261103",
+  "producer_ci_head": "c37446d92b6bfc4b728c7e7d2d033e4de65bdd93",
+  "producer_ci_run_id": 41607764599,
+  "transfer_review": "MANUAL_IDENTICAL_PYTHON_3_11_AND_3_12_NO_SIGNATURE"
+}
