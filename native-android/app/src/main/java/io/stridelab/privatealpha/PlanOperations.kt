@@ -12,6 +12,7 @@ internal object PlanOperations {
         compatible(plan)
         if(plan.status!="draft" && plan.status!="paused")throw PlanConstraint("Only a draft or paused plan can be approved.")
         Engine15SessionLocks.validateSaved(plan)
+        Engine15Availability.requireReady(plan)
         val approved=others.filter { it.id!=plan.id&&it.status=="approved" }
         if(approved.any { other->other.sessions.any { existing->plan.sessions.any { session->conflict(session,existing,plan.policyId,other.policyId) } } })throw PlanConstraint("This plan conflicts with an approved plan. Pause the existing plan or change the dates first.")
         if(PlanScheduleValidation.isMultiPolicy(plan.policyId)&&approved.filter { PlanScheduleValidation.isMultiPolicy(it.policyId) }.any { other->
@@ -25,36 +26,94 @@ internal object PlanOperations {
     fun move(plan:PlanSnapshot,sessionId:String,date:LocalDate,otherPlans:List<PlanSnapshot>):PlanSnapshot {
         compatible(plan)
         val s=plan.sessions.firstOrNull { it.id==sessionId } ?: throw PlanConstraint("Workout is no longer available.")
-        if(s.status !in setOf("planned","in_progress") || s.log!=null)throw PlanConstraint("Recorded workouts keep their original scheduled date. Move only an unstarted session.")
+        if(s.status !in setOf("planned","in_progress","unassigned") || s.log!=null)throw PlanConstraint("Recorded workouts keep their original scheduled date. Move only an unstarted session.")
         val lock=plan.request.lockedSessionDays[sessionId]
         if(lock!=null && (lock!=s.date.toString() || lock!=date.toString()))
             throw PlanConstraint("This workout is locked to its saved day. Unlock it before moving.")
-        if(date==s.date)return plan
+        if(date==s.date && s.status!="unassigned")return plan
         if(date<plan.request.start || date>=plan.request.start.plusWeeks(plan.request.weeks.toLong()))throw PlanConstraint("Choose a date inside this plan.")
         if(date.dayOfWeek.value !in plan.request.days)throw PlanConstraint("That is not an available training day. Edit your availability in a new reviewed plan instead.")
         if(s.kind=="long" && date.dayOfWeek.value!=plan.request.longDay)throw PlanConstraint("This plan has one preferred long-run day. Move this run to that weekday or review a new plan.")
-        val moved=s.copy(date=date)
+        val moved=s.copy(date=date,status=if(s.status=="unassigned")"planned" else s.status)
         val approved=otherPlans.filter { it.id!=plan.id&&it.status=="approved" }
-        val sameDayExisting=plan.sessions.filter { it.id!=sessionId&&it.date==date&&it.status !in setOf("missed","skipped") }
+        val sameDayExisting=plan.sessions.filter { it.id!=sessionId&&it.date==date&&it.status !in setOf("missed","skipped","unassigned") }
         if(PlanScheduleValidation.isMultiPolicy(plan.policyId) && sameDayExisting.size>=2)
             throw PlanConstraint("A day can contain at most two sessions.")
-        val conflictsWithinPlan=plan.sessions.filter { it.id!=sessionId&&it.status !in setOf("missed","skipped") }
+        val conflictsWithinPlan=plan.sessions.filter { it.id!=sessionId&&it.status !in setOf("missed","skipped","unassigned") }
             .any { existing->conflict(moved,existing,plan.policyId,plan.policyId) }
         val conflictsWithApprovedPlan=approved.any { other->
-            other.sessions.filter { it.status !in setOf("missed","skipped") }
+            other.sessions.filter { it.status !in setOf("missed","skipped","unassigned") }
                 .any { existing->conflict(moved,existing,plan.policyId,other.policyId) }
         }
         if(conflictsWithinPlan||conflictsWithApprovedPlan)throw PlanConstraint("This move conflicts with another workout or its recovery spacing. Choose a different date.")
         if(PlanScheduleValidation.isMultiPolicy(plan.policyId)&&sameDayExisting.sumOf { it.effectiveMinutes }+moved.effectiveMinutes>plan.request.dailyMinutes)throw PlanConstraint("This move would exceed the ${plan.request.dailyMinutes}-minute daily time budget.")
-        val sharedMultiPlans=(approved.filter { PlanScheduleValidation.isMultiPolicy(it.policyId)&&it.sessions.any { s->s.date==date&&s.status !in setOf("missed","skipped") } }+
+        val sharedMultiPlans=(approved.filter { PlanScheduleValidation.isMultiPolicy(it.policyId)&&it.sessions.any { s->s.date==date&&s.status !in setOf("missed","skipped","unassigned") } }+
             listOf(plan).filter { PlanScheduleValidation.isMultiPolicy(it.policyId) })
         if(sharedMultiPlans.size>1) {
-            val combined=sameDayExisting+listOf(moved)+approved.filter { PlanScheduleValidation.isMultiPolicy(it.policyId) }.flatMap { p->p.sessions.filter { it.date==date&&it.status !in setOf("missed","skipped") } }
+            val combined=sameDayExisting+listOf(moved)+approved.filter { PlanScheduleValidation.isMultiPolicy(it.policyId) }.flatMap { p->p.sessions.filter { it.date==date&&it.status !in setOf("missed","skipped","unassigned") } }
             val budget=sharedMultiPlans.minOf { it.request.dailyMinutes }
             if(combined.sumOf { it.effectiveMinutes }>budget)throw PlanConstraint("This move would exceed the shared $budget-minute daily time budget across approved plans.")
         }
         return plan.copy(sessions=plan.sessions.map { if(it.id==sessionId) moved else it }.sortedBy { it.date })
     }
+    /** Revisions are explicit; no missed workout or displaced session is made up. */
+    fun updateAvailability(plan:PlanSnapshot,newDays:Set<Int>):PlanSnapshot {
+        compatible(plan)
+        val impact=Engine15Availability.preview(plan,newDays)
+        if(newDays==plan.request.days)return plan
+        val displaced=impact.affectedSessionIds.toSet()
+        val sessions=plan.sessions.map { session ->
+            if(session.id in displaced)session.copy(status="unassigned") else session
+        }
+        return plan.copy(
+            request=plan.request.copy(days=newDays),
+            sessions=sessions,
+            status=if(displaced.isNotEmpty() && plan.status=="approved")"paused" else plan.status,
+            explanations=plan.explanations+("Availability reviewed: " +
+                "${displaced.size} unstarted sessions need placement. Their original dates " +
+                "and IDs are retained; no catch-up workouts were added.")
+        )
+    }
+
+    fun setLongRunDay(plan:PlanSnapshot,day:Int):PlanSnapshot {
+        compatible(plan)
+        if(plan.engineVersion!=ENGINE15_VERSION || plan.status !in setOf("approved","paused","draft"))
+            throw PlanConstraint("Changing long-run preference requires an editable Engine 1.5 plan.")
+        if(day !in plan.request.days)
+            throw PlanConstraint("Choose an available day for the long run.")
+        if(day==plan.request.longDay)return plan
+        val displaced=plan.sessions.filter { it.kind=="long" && it.status=="planned" &&
+            it.date.dayOfWeek.value!=day }
+        if(displaced.any { it.id in plan.request.lockedSessionDays })
+            throw PlanConstraint("Unlock the affected long run before changing its preferred day.")
+        val ids=displaced.map { it.id }.toSet()
+        return plan.copy(
+            request=plan.request.copy(longDay=day),
+            sessions=plan.sessions.map { if(it.id in ids)it.copy(status="unassigned") else it },
+            status=if(ids.isNotEmpty() && plan.status=="approved")"paused" else plan.status
+        )
+    }
+
+    fun setQualityDays(plan:PlanSnapshot,days:Set<Int>):PlanSnapshot {
+        compatible(plan)
+        if(plan.engineVersion!=ENGINE15_VERSION || plan.status !in setOf("approved","paused","draft"))
+            throw PlanConstraint("Changing quality preferences requires an editable Engine 1.5 plan.")
+        if(days.any { it !in plan.request.days || it==plan.request.longDay } ||
+            days.size<plan.request.qualityCount)
+            throw PlanConstraint("Choose enough available quality days away from the long run.")
+        if(days==plan.request.qualityDays)return plan
+        val displaced=plan.sessions.filter { it.quality && it.status=="planned" &&
+            it.date.dayOfWeek.value !in days }
+        if(displaced.any { it.id in plan.request.lockedSessionDays })
+            throw PlanConstraint("Unlock the affected quality run before changing its day.")
+        val ids=displaced.map { it.id }.toSet()
+        return plan.copy(
+            request=plan.request.copy(qualityDays=days),
+            sessions=plan.sessions.map { if(it.id in ids)it.copy(status="unassigned") else it },
+            status=if(ids.isNotEmpty() && plan.status=="approved")"paused" else plan.status
+        )
+    }
+
     /** Owner-bound repository operations persist this exact placement explicitly. */
     fun setSessionLock(plan:PlanSnapshot,sessionId:String,locked:Boolean):PlanSnapshot {
         compatible(plan)

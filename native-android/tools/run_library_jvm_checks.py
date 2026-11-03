@@ -51,7 +51,7 @@ def main():
     # FIT SDK files are built and tested separately by the full Android Gradle job.
     names=['ActivityDetail','ActivityImportMatcher','ActivityIntelligence','ActivityRecord',
            'BackendConfig','DashboardSummary','Engine1','Engine15','Engine15Feedback',
-           'Engine1Engines','Engine15InterferenceScheduling','Engine15SessionLocks','Engine15SessionPresentation','EngineContracts','ExerciseAlternatives','ExerciseLibraryV2',
+           'Engine1Engines','Engine15InterferenceScheduling','Engine15SessionLocks','Engine15Availability','Engine15SessionPresentation','EngineContracts','ExerciseAlternatives','ExerciseLibraryV2',
            'FitContainerReader','IntervalConnection','LibraryShelf','MultiSessionEngine1',
            'PlanBackup','PlanOperations','PlanScheduleValidation','SessionTemplate',
            'SupabaseGateway','WearableProviderContracts','WellnessRecord',
