@@ -146,7 +146,7 @@ private fun NavHostController.openActivity(id: String) {
     Scaffold(
         bottomBar = {
             // The approved 25D / 25E plan-decision pages do not use the five-tab dock.
-            if(route != "missed/{planId}/{sessionId}") {
+            if(route != "missed/{planId}/{sessionId}" && route != "activity/{id}") {
                 Box(
                     Modifier.fillMaxWidth()
                         .navigationBarsPadding()
@@ -262,6 +262,7 @@ private fun NavHostController.openActivity(id: String) {
                     val activity = state.activities.firstOrNull { it.id == detail.arguments?.getString("id") }
                     var automaticDetailAttempted by rememberSaveable(activity?.id) { mutableStateOf(false) }
                     var activityTab by rememberSaveable(activity?.id) { mutableIntStateOf(0) }
+                    var matteStyle by rememberSaveable(activity?.id) { mutableStateOf(false) }
                     LaunchedEffect(activity?.id, online, state.busy, state.needsSignIn) {
                         // Fetch a real recorded route once when opening a running detail.
                         // Offline cache remains available; no invented route or retry loop.
@@ -280,14 +281,24 @@ private fun NavHostController.openActivity(id: String) {
                         if(activity == null) item { EmptyState("No activity available", "This activity is not in the current account’s local cache.") }
                         else {
                             item {
-                                TracksideParityActivityMapHero(state.details[activity.id]) {
-                                    nav.popBackStack()
-                                }
+                                TracksideParityActivityMapHero(
+                                    detail = state.details[activity.id],
+                                    onBack = { nav.popBackStack() },
+                                    heightDp = if (matteStyle) 394.dp else 425.dp,
+                                    onChangeStyle = { matteStyle = !matteStyle }
+                                )
                             }
-                            item { TracksideParityActivityOverview(activity) }
+                            item {
+                                if (matteStyle) TracksideParityMatteActivityOverview(activity)
+                                else TracksideParityActivityOverview(activity)
+                            }
                             item {
                                 Box(Modifier.padding(horizontal = 17.dp)) {
-                                    TracksideParityActivityTabs(activityTab) { activityTab = it }
+                                    if (matteStyle) TracksideParityMatteActivityTabs(activityTab) {
+                                        activityTab = it
+                                    } else TracksideParityActivityTabs(activityTab) {
+                                        activityTab = it
+                                    }
                                 }
                             }
                             if (activityTab == 0) {
@@ -320,9 +331,13 @@ private fun NavHostController.openActivity(id: String) {
                                 state.details[activity.id]?.let { recorded ->
                                     item { RecordedActivityDetail(recorded, activity.supportsPace) }
                                 }
-                                item { Column(Modifier.padding(horizontal = 17.dp)) {
-                                    TracksideParityActivityHighlights(activity, state.activities)
-                                } }
+                                item {
+                                    if (matteStyle) TracksideParityMatteActivityHighlights(
+                                        activity, state.activities, state.details[activity.id]
+                                    ) else Column(Modifier.padding(horizontal = 17.dp)) {
+                                        TracksideParityActivityHighlights(activity, state.activities)
+                                    }
+                                }
                             } else if (activityTab == 1) {
                                 item { TracksideParityActivityLaps(state.details[activity.id]) }
                             } else {
@@ -471,7 +486,7 @@ internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         val horizontal = if (edgeToEdge) 0.dp else if (dense) 18.dp else 22.dp
         val top = if (edgeToEdge) 0.dp else if (dense) 12.dp else 24.dp
-        val gap = if (dense) 12.dp else 18.dp
+        val gap = if (edgeToEdge) 0.dp else if (dense) 12.dp else 18.dp
         LazyColumn(Modifier.widthIn(max = 760.dp).fillMaxSize().testTag("screen").semantics { paneTitle = title }, contentPadding = PaddingValues(start = horizontal, end = horizontal, top = top, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(gap)) {
             if (!edgeToEdge) item {
                 TracksideScreenHeader(title, eyebrow, compactTitle, LocalProfileAction.current, dense = dense)
