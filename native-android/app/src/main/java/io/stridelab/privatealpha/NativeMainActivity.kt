@@ -146,7 +146,9 @@ private fun NavHostController.openActivity(id: String) {
     Scaffold(
         bottomBar = {
             // The approved 25D / 25E plan-decision pages do not use the five-tab dock.
-            if(route != "missed/{planId}/{sessionId}" && route != "activity/{id}") {
+            if(route != "missed/{planId}/{sessionId}" &&
+                route != "review-move/{planId}/{sessionId}/{date}" &&
+                route != "activity/{id}") {
                 Box(
                     Modifier.fillMaxWidth()
                         .navigationBarsPadding()
@@ -375,12 +377,76 @@ private fun NavHostController.openActivity(id: String) {
                         onBuildDraft = { nav.navigate("builder/all") },
                         onWorkout = { sessionId ->
                             nav.navigate("workout/${android.net.Uri.encode(planId)}/${android.net.Uri.encode(sessionId)}")
+                        },
+                        onReviewMove = { sessionId, date ->
+                            nav.navigate("review-move/${android.net.Uri.encode(planId)}/${android.net.Uri.encode(sessionId)}/$date")
                         }
                     )
                 }
                 composable("builder/{discipline}") { builder -> PlanBuilder(state,actions.planning,builder.arguments?.getString("discipline") ?: "all",{nav.openTabRoot("training")},{nav.navigate("auth")},{p,s->nav.navigate("workout/${android.net.Uri.encode(p)}/${android.net.Uri.encode(s)}")}) }
                 composable("library") { LibraryScreen(state,actions.planning,{p,s->nav.openWorkout(p,s)},{key->nav.navigate("practice/$key")}) { entry -> if(entry.discipline=="run") {nav.openTabRoot("training");nav.navigate("builder/run")}else nav.navigate("practice/entry-${entry.id}") } }
                 composable("practice/{key}") { backStack -> PracticeBuilder(state,actions.planning,backStack.arguments?.getString("key") ?: "new",{nav.openTabRoot("library")},{p,s->nav.openWorkout(p,s)},{nav.openTabRoot("training")}) }
+                composable("move/{planId}/{sessionId}") { back ->
+                    val planId = back.arguments?.getString("planId") ?: ""
+                    val sessionId = back.arguments?.getString("sessionId") ?: ""
+                    val plan = state.plans.firstOrNull { it.id == planId }
+                    val session = plan?.sessions?.firstOrNull { it.id == sessionId }
+                    if (plan == null || session == null) {
+                        Screen("Workout unavailable", "TRAINING", compactTitle = true) {
+                            item { TextButton(onClick = { nav.popBackStack() }) { Text("Back") } }
+                        }
+                    } else {
+                        TrainingScreen(
+                            state, actions.planning,
+                            onBuild = { nav.navigate("builder/all") },
+                            onOpen = { id, sId -> nav.openWorkout(id, sId) },
+                            onSignIn = { nav.navigate("auth") },
+                            onManage = { id, date ->
+                                nav.navigate("manage/${android.net.Uri.encode(id)}/$date")
+                            }
+                        )
+                        TracksideParityMoveWorkoutSheet(
+                            plan = plan, session = session,
+                            actions = actions.planning,
+                            onDismiss = { nav.popBackStack() },
+                            onReviewDestination = { date ->
+                                nav.navigate("review-move/${android.net.Uri.encode(planId)}/${android.net.Uri.encode(sessionId)}/$date")
+                            }
+                        )
+                    }
+                }
+                composable("review-move/{planId}/{sessionId}/{date}") { back ->
+                    val planId = back.arguments?.getString("planId") ?: ""
+                    val sessionId = back.arguments?.getString("sessionId") ?: ""
+                    val date = runCatching {
+                        java.time.LocalDate.parse(back.arguments?.getString("date"))
+                    }.getOrNull()
+                    val plan = state.plans.firstOrNull { it.id == planId }
+                    if (plan == null || date == null) {
+                        Screen("Review unavailable", "TRAINING", compactTitle = true) {
+                            item { TextButton(onClick = { nav.popBackStack() }) { Text("Back") } }
+                        }
+                    } else {
+                        TracksideParityReviewChanges(
+                            plan = plan,
+                            proposal = TracksideChangeProposal(
+                                TracksideChangeKind.MOVE,
+                                sessionId = sessionId,
+                                destination = date
+                            ),
+                            otherPlans = state.plans,
+                            busy = state.busy,
+                            onBack = { nav.popBackStack() },
+                            onRegenerateDraft = { nav.navigate("builder/all") },
+                            onApply = { checked ->
+                                checked.destination?.let {
+                                    actions.planning.move(plan.id, plan.revision, checked.sessionId, it)
+                                    nav.openTabRoot("training")
+                                }
+                            }
+                        )
+                    }
+                }
                 composable("missed/{planId}/{sessionId}") { back ->
                     val planId = back.arguments?.getString("planId") ?: ""
                     val sessionId = back.arguments?.getString("sessionId") ?: ""
@@ -404,6 +470,9 @@ private fun NavHostController.openActivity(id: String) {
                         onBack = { nav.popBackStack() },
                         onMissed = {
                             nav.navigate("missed/${android.net.Uri.encode(planId)}/${android.net.Uri.encode(sessionId)}")
+                        },
+                        onMove = {
+                            nav.navigate("move/${android.net.Uri.encode(planId)}/${android.net.Uri.encode(sessionId)}")
                         }
                     )
                 }

@@ -145,13 +145,13 @@ internal fun TracksideParityMoveWorkoutSheet(
                     onClick = {
                         if (review && available && candidate != null) {
                             if (onReviewDestination != null) {
-                                // Continue to the approved review-changes page, without mutation.
+                                // Review as a separate, read-only screen. The caller controls
+                                // dismissal and preserves Back to the uncommitted selection.
                                 onReviewDestination(candidate)
                             } else {
-                                // The existing Manage flow continues to use its guarded action.
                                 actions.move(plan.id, plan.revision, session.id, candidate)
+                                onDismiss()
                             }
-                            onDismiss()
                         } else review = true
                     },
                     enabled = available,

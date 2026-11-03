@@ -187,7 +187,9 @@ internal fun TracksideManagePlanScreen(
             actions = actions,
             onDismiss = { movingWorkout = null },
             onReviewDestination = if (onReviewMove == null) null else {
-                date -> onReviewMove(session.id, date)
+                date ->
+                    movingWorkout = null
+                    onReviewMove(session.id, date)
             }
         )
     }
