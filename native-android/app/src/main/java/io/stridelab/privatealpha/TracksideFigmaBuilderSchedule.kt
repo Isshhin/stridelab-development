@@ -223,14 +223,28 @@ internal fun TracksideFigmaAvailabilityScreen(
     val total=request.runDays+request.strengthDays+request.calDays+request.conditioningDays
     val maxPerDay=if(request.policyChoice=="multi-session") 2 else 1
     val capacity=chosen*maxPerDay
-    val pinned=request.weeklySlots.values.flatten().filter { it in 1..7 }
-    val overlap=pinned.groupingBy { it }.eachCount().values.any { it>1 }
+    val assignments=request.weeklySlots.flatMap { (discipline,slots) ->
+        slots.mapIndexedNotNull { index,day ->
+            if(day in 1..7) Triple(day,discipline,index) else null
+        }
+    }
+    val pinned=assignments.map { it.first }
+    val byDay=assignments.groupBy { it.first }
+    val overlap=byDay.values.any { it.size>1 }
     val unsupportedOverlap=overlap && request.policyChoice!="multi-session"
+    val invalidPair=byDay.values.any { placed ->
+        if(placed.size<=1) false
+        else if(placed.size!=2) true
+        else placed.map { it.second }.toSet()!=setOf("run","cal") ||
+            placed.any { it.second=="run" &&
+                it.third<=request.qualityCount }
+    }
     val placementError=WeeklyPlacement.validationError(request)
+    val invalidBudget=request.policyChoice=="multi-session" &&
+        dailyBudget.toIntOrNull() !in 15..240
     val capacityFits=chosen>0 && total<=capacity &&
         placementError==null && !unsupportedOverlap &&
-        (request.policyChoice!="multi-session" ||
-            dailyBudget.toIntOrNull() in 15..240)
+        !invalidPair && !invalidBudget
     TracksideFigmaBuilderFrame(
         eyebrow = "PLAN / AVAILABILITY",
         toolbarTitle = "Availability",
@@ -300,6 +314,8 @@ internal fun TracksideFigmaAvailabilityScreen(
                 Text(when {
                     placementError!=null -> placementError
                     unsupportedOverlap -> "Two workouts share a weekday. Enable compatible same-day sessions or move one."
+                    invalidPair -> "This engine allows only easy running with calisthenics on the same day."
+                    invalidBudget -> "Enter a combined daily time budget between 15 and 240 minutes."
                     capacityFits -> "✓ Requested weekdays are recorded; recovery checks run on generation"
                     else -> "Additional available day capacity is needed before continuing"
                 },
