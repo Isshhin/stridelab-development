@@ -1,110 +1,153 @@
 # StrideLab
 
-**One place for the training you actually do.**
+**Train the whole athlete.**
 
-Training rarely fits into one neat category. Some weeks include easy runs, hard sessions, long runs, strength work, calisthenics, and whatever else life leaves room for. Keeping track of all of it should not require several different apps or a lot of manual planning.
+StrideLab is an Android-first training app for athletes whose training does not fit into one discipline.
 
-That is the idea behind **StrideLab**.
+Running, strength work, calisthenics, conditioning, recovery, and future performance work should not feel like separate systems competing for space in the same week. StrideLab is being built to help the athlete plan those demands together, follow the work, review what actually happened, and make better training decisions without taking control away from the athlete.
 
-StrideLab is an Android-first training app that brings running, strength training, calisthenics, and conditioning into one place. The goal is simple: make it easier to plan your week, follow your workouts, review what you actually did, and make better training decisions without taking control away from the athlete.
+The long-term goal is broader than putting workouts in one calendar. StrideLab is intended to grow into an adaptive performance system that understands the athlete across disciplines and coordinates training around what that athlete needs to improve.
 
-The app is still in active development. This repository is a working project, **not a finished public release**.
+The project is still in active development. This repository is a working development project, **not a finished public release**.
+
+## Product direction
+
+The durable product vision is documented in [PRODUCT_VISION.md](docs/PRODUCT_VISION.md).
+
+The short version is:
+
+> Help athletes improve performance through adaptive, evidence-based training across endurance, strength, movement, conditioning, and recovery.
+
+The core idea is:
+
+**Athlete state → performance needs → adaptation targets → training prescription → completed training → updated athlete state**
+
+That model is intentionally broader than a race-plan generator or workout tracker. It gives StrideLab room to support more of the athlete over time without turning the app into a random collection of fitness features.
 
 ## What StrideLab is trying to solve
 
-Most training apps are built around one type of training. That works until your week includes more than one discipline.
+Most training apps are designed around one primary type of training. That works until the athlete's week includes several competing demands.
 
-StrideLab is being built around the way people actually train:
+StrideLab is being built around the way mixed-discipline training actually works:
 
-- **Plan a full training week.** Choose your goals, available days, and the types of sessions you want to include.
-- **Mix different disciplines.** Running, strength, calisthenics, and conditioning can live in the same schedule instead of separate calendars.
-- **Support more than one session in a day.** Some athletes run and lift on the same day, so the planner needs to handle that properly.
-- **Follow workouts inside the app.** Open a session, move through exercises or sets, and record what you completed.
-- **Keep a useful training history.** Planned sessions and completed work should stay connected instead of becoming separate pieces of data.
-- **Keep important changes under your control.** Coaching suggestions should be understandable and reviewed before they change an approved plan.
-- **Work well offline.** Local training records and offline use are important parts of the app, not afterthoughts.
-
-Some of these parts are already implemented in the Android development branches. Others are still being refined, tested, or redesigned.
+- **Plan the full week.** Choose goals, available days, disciplines, and session counts in one planning flow.
+- **Coordinate multiple disciplines.** Running, strength, calisthenics, and conditioning can share the same schedule.
+- **Support safe double days.** Some athletes run and lift on the same day, so scheduling must account for interference and recovery.
+- **Respect the athlete's choices.** Manual placements, locked sessions, and major coaching changes should not disappear silently.
+- **Follow workouts inside the app.** Planned work should lead naturally into the workout itself.
+- **Connect planned and completed training.** Training history should remain useful for future decisions.
+- **Work offline.** Local training data and offline use are part of the core architecture.
+- **Explain coaching changes.** Adaptation should be understandable, reviewable, and evidence-based.
 
 ## Trackside 3.0
 
-The current Android redesign is called **Trackside 3.0**.
+The current native Android interface is called **Trackside 3.0**.
 
-It is being built with Jetpack Compose and focuses on a cleaner, more compact layout that gives useful training information without filling the screen with unnecessary text.
+It is built with Kotlin and Jetpack Compose. The current reconstruction work is focused on bringing the native Android implementation into faithful alignment with the approved [Trackside 3.0 Figma design](https://www.figma.com/design/v73TsYo6gKxUoiUock2sSE).
 
-The app currently revolves around five main sections:
+The interface currently revolves around five main areas:
 
-| Section | What it is for |
+| Section | Purpose |
 | --- | --- |
-| **Today** | See today's planned sessions and recent activity. |
-| **Training** | Review your week, open workouts, and manage your plan. |
-| **Activity** | Look back at recorded training and activity details. |
+| **Today** | See what matters for today's training. |
+| **Training** | Review the week, open workouts, and manage the plan. |
+| **Activity** | Review recorded training and activity details. |
 | **Library** | Browse exercises and training guidance. |
-| **More** | Open settings and other supporting tools. |
+| **More** | Settings and supporting tools. |
 
-The visual direction uses a dark interface, subtle glass-like surfaces, and different colors for running, strength, calisthenics, and recovery-related information.
+The current reconstruction uses a compact dark visual system with subtle glass-like surfaces and discipline-specific color cues.
 
-We are building from the [Trackside design in Figma](https://www.figma.com/design/v73TsYo6gKxUoiUock2sSE). The native Android version is still being brought in line with that design, so it should not be considered a one-to-one reproduction yet. Responsive behavior, accessibility, device testing, and visual fidelity are still being worked on.
+The approved Figma is the source of truth for the current reconstruction phase. It is not assumed to be the final long-term visual design. Once the app is stable enough to use every day, future design changes should be informed by real dogfooding rather than redesigning the interface before the current baseline is trustworthy.
 
-## Coaching
+## Coaching engines
 
-StrideLab's coaching system is being developed in stages.
-
-We would rather improve it gradually and test each step than hide a lot of behavior behind a system that nobody can explain.
+StrideLab's coaching system is being developed in stages so reliability can improve without mixing experimental research into the app used for real training.
 
 ### Engine 1.0
 
-Engine 1.0 is the current baseline for plan creation and scheduling.
+Engine 1.0 is the stable compatibility baseline.
 
-It is intentionally predictable. The main purpose is to provide a stable foundation for building plans, scheduling sessions, and preserving existing training data.
+It remains important because it provides a known reference for plan generation, scheduling, persistence, and existing data behavior.
 
 ### Engine 1.5
 
-Engine 1.5 is an ongoing development effort built on top of that foundation.
+Engine 1.5 is the release-reliability engine currently under development in [PR #37](https://github.com/Isshhin/stridelab-development/pull/37).
 
-The work currently focuses on things such as:
+Its job is not to become the smartest possible coach. Its job is to become a dependable engine that is:
 
-- safer running progression
-- more conservative workload limits
-- better handling of return-from-break periods
-- clearer quality-session prescriptions
-- training feedback based on workouts the athlete explicitly recorded
-- suggestions that still require review before they affect the plan
+- deterministic
+- conservative
+- explainable
+- safe
+- compatible with existing data
+- reliable offline
 
-Engine 1.5 is **not currently enabled in the main app experience**.
+Current work includes bounded running progression, deload behavior, reviewable feedback, multi-session scheduling, mixed-discipline interference rules, durable session locks, and safe handling of availability changes.
+
+Engine 1.5 is **not yet enabled in the Trackside production path**.
 
 ### Engine 2.0
 
-Engine 2.0 is the longer-term research direction.
+Engine 2.0 is the longer-term coaching research program.
 
-It is being developed separately from the production app so we can study coaching behavior, athlete scenarios, progression rules, and adaptation logic without experimenting on the main training system.
+It is intentionally separate from Engine 1.5 so new ideas can be tested without destabilizing the dogfood build.
 
-The research work includes an independent athlete simulation and validation setup. It is there to help us test ideas before they become app features.
+The research direction includes:
+
+- athlete-state modeling
+- progression and periodization
+- recovery and adaptation decisions
+- workout selection
+- cross-discipline coordination
+- real-data validation
+- comparison against established coaching systems
 
 Engine 2.0 is **not a production coaching engine**.
 
+## Current milestone
+
+The immediate milestone is a **November 2026 dogfood build** that can be trusted for normal daily training.
+
+The current order of work is:
+
+1. finish Trackside 3.0 rendered parity and interaction verification
+2. finish Engine 1.5 reliability gates
+3. integrate Trackside with Engine 1.5 in a controlled way
+4. verify the complete training loop
+5. use StrideLab for real training
+6. fix failures discovered through actual use
+7. resume Engine 2.0 research more aggressively once the daily-use path is stable
+
+See [ROADMAP.md](docs/ROADMAP.md) for the current execution roadmap.
+
 ## Exercise Library
 
-StrideLab also includes an exercise library for more than just gym training.
+StrideLab's exercise library supports more than gym training.
 
-The current library work covers:
+Current library work covers:
 
-- strength training
+- strength
 - calisthenics
-- bodyweight exercises
+- bodyweight training
 - conditioning
 - mobility
 - running-related exercises and drills
 
-The library has its own validation tools and automated checks because exercise data is used by several parts of the app.
+The library has automated validation because its data is shared by several parts of the app.
 
 ## Activity and workout data
 
-The project already includes foundations for recording workouts, storing plans locally, importing activity data, matching imported activities to planned sessions, and preserving backups.
+The project includes foundations for:
 
-FIT file support is part of the Android development work.
+- planned workouts
+- completed workout records
+- local persistence
+- activity import
+- planned-to-recorded matching
+- backups and restoration
+- FIT-based activity work
 
-Broader live integrations with Garmin, COROS, Huawei, Zepp, Samsung, Apple, Intervals.icu, and similar services are part of the longer-term direction. They should not be treated as fully supported live integrations today.
+Broader live integrations with Garmin, COROS, Huawei, Zepp, Samsung, Apple, Intervals.icu, and similar services remain longer-term targets. They should not be treated as fully supported integrations today.
 
 ## Technology
 
@@ -117,26 +160,37 @@ The native Android app currently uses:
 - **local Android persistence**
 - **Garmin FIT SDK**
 - **JUnit and Android instrumentation tests**
-- **Python validation tools** for exercise-library and repository checks
+- **Python validation tools**
 
 The Android project currently targets Android API 35, compiles with API 36, and uses JDK 17.
 
 ## Repository structure
 
-Most of the current Android development work lives outside the repository's `main` branch while it is being reviewed.
-
 Important areas include:
 
-- `native-android/` for the current native Android app, Compose UI, coaching logic, tests, and validation tools
+- `native-android/` for the native app, Compose UI, coaching logic, tests, and validation tools
 - `android-app/` for legacy and shared Android sources still used by the native build
-- `docs/` for research notes, technical decisions, QA reports, and handoff documents
+- `docs/` for product direction, technical decisions, research, QA, and handoff material
 - `.github/workflows/` for automated build, test, emulator, and validation workflows
 
-Because the project is being developed through isolated branches and draft pull requests, some of these paths are not available on `main` yet.
+Much of the current work remains on isolated development branches while it is being verified.
 
-## Running the Android development build
+## Current development branches
 
-The verified pre-Trackside Android integration work is currently on its own branch.
+As of **3 November 2026**, the main active workstreams are:
+
+- **Trackside 3.0 reconstruction:** `design/trackside3-figma-parity-no-build-20261103`
+- **Engine 1.5:** `feature/engine15-versioned-foundation-20261103`, tracked in [PR #37](https://github.com/Isshhin/stridelab-development/pull/37)
+- **Coaching research:** `research/runna-garmin-coaching-20261102`, tracked in [PR #34](https://github.com/Isshhin/stridelab-development/pull/34)
+- **Trackside foundation PR:** [PR #36](https://github.com/Isshhin/stridelab-development/pull/36) remains an open draft foundation branch while the newer parity reconstruction continues separately
+
+Always verify the current remote head before continuing work on an active branch.
+
+## Running the verified Android baseline
+
+The verified pre-Trackside Android integration work remains available on:
+
+`integration/native-pre-trackside3-verified-20261030`
 
 ```bash
 git clone https://github.com/Isshhin/stridelab-development.git
@@ -144,9 +198,9 @@ cd stridelab-development
 git switch integration/native-pre-trackside3-verified-20261030
 ```
 
-Open `native-android/` in Android Studio and make sure JDK 17 and the required Android SDK are installed.
+Open `native-android/` in Android Studio with JDK 17 and the required Android SDK installed.
 
-From the `native-android/` directory:
+From `native-android/`:
 
 ```bash
 gradle :app:assembleDebug
@@ -159,25 +213,16 @@ The exercise-library validator can be run with:
 python tools/validate_exercise_library.py
 ```
 
-It currently uses `jsonschema==4.26.0` in the development and CI environment.
-
-These commands are for development and testing. An APK built from a development branch should not automatically be considered a reviewed release.
-
-## Current development status
-
-As of **3 November 2026**, the major workstreams are being kept separate so each one can be reviewed and tested without interfering with the others.
-
-- [PR #32: Native Android integration baseline](https://github.com/Isshhin/stridelab-development/pull/32) contains the verified pre-Trackside Android foundation.
-- [PR #36: Trackside 3.0](https://github.com/Isshhin/stridelab-development/pull/36) contains the current UI redesign, navigation work, responsive behavior, and Figma implementation.
-- [PR #37: Coaching Engine 1.5](https://github.com/Isshhin/stridelab-development/pull/37) contains the next coaching-engine work and its safety tests.
-- [PR #34: Coaching research](https://github.com/Isshhin/stridelab-development/pull/34) contains research on Runna and Garmin Run Coach that may inform future coaching decisions.
-
-The current priority is to finish the native Android experience, keep existing training data safe, and only introduce coaching changes once they have passed the required tests and review.
+Development builds and branch artifacts should not automatically be treated as reviewed releases.
 
 ## Why StrideLab exists
 
-StrideLab is not meant to be a collection of every fitness feature we can think of.
+StrideLab is not trying to collect every possible fitness feature.
 
-The goal is to build something useful for people who train across different disciplines and want one place where their week makes sense.
+The product is trying to answer a more useful question:
 
-If the app can help someone open it on a normal training day, understand what they are supposed to do, complete the session, and move on with their day, then it is doing its job.
+> What does this athlete need next, and how should the rest of their training week support it?
+
+For the current dogfood milestone, success is simpler:
+
+**Open the app, understand the training, complete it, record it, and trust that the plan will still make sense tomorrow.**
