@@ -10,18 +10,24 @@ internal object Engine1Engines {
         "cal" to listOf("Calisthenics foundation","Pull-up progression","Push-up progression","Core strength and control","Handstand foundations"),
         "cond" to listOf("Conditioning"))
     val knownPolicies=setOf(ENGINE1_POLICY,CoordinatedEngine1.policyId,MultiSessionEngine1.policyId,SessionTemplate.POLICY_ID)
-    fun canManage(plan:PlanSnapshot)=plan.engineVersion==ENGINE1_VERSION && plan.policyId in knownPolicies
+    /** A policy is editable only when both its exact version and policy ID are supported. */
+    fun supports(version:String,policy:String):Boolean =
+        (version==ENGINE1_VERSION && policy in knownPolicies) ||
+        (version==ENGINE15_VERSION && policy==ENGINE15_POLICY)
+    fun canManage(plan:PlanSnapshot)=supports(plan.engineVersion,plan.policyId)
     fun discipline(goal:String)=goals.entries.find { goal in it.value }?.key
     fun goal(p:PlanRequest,discipline:String):String=p.disciplineGoals[discipline] ?: p.goal.takeIf { it in goals.getValue(discipline) } ?: goals.getValue(discipline).first()
     fun resolve(p:PlanRequest):PlanGenerationEngine=when(p.policyChoice) {
         "baseline"->Engine1
         "coordinated"->CoordinatedEngine1
         "multi-session"->MultiSessionEngine1
-        else->throw PlanConstraint("Choose a supported Engine 1.0 planning policy.")
+        "engine15"->Engine15
+        else->throw PlanConstraint("Choose a supported coaching engine policy.")
     }
     fun validate(p:PlanRequest) {
         when(resolve(p)) {
             MultiSessionEngine1->MultiSessionEngine1.validate(p)
+            Engine15->Engine15.validate(p)
             else->Engine1.validate(p)
         }
     }
