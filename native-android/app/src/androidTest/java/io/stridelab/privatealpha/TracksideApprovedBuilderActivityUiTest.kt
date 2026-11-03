@@ -47,7 +47,7 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("available-day-6").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithText("Your training week").assertExists()
-        compose.onNodeWithText("Workouts will be assigned by the coaching engine.",
+        compose.onNodeWithText("Chosen weekdays are requests",
             substring=true).assertExists()
         compose.onNodeWithTag("builder-figma-continue").assertExists()
     }
@@ -114,12 +114,31 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
-        compose.onNodeWithTag("available-day-6").assertIsNotEnabled()
+        compose.onNodeWithTag("available-day-6").assertIsEnabled()
         compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
         compose.onNodeWithTag("builder-enable-multi-session").performClick()
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
         compose.onNodeWithText("Engine 1 only permits selected pairings",
             substring=true).assertExists()
+        compose.onNodeWithTag("builder-other-discipline-editor").assertExists()
+        compose.onNodeWithTag("builder-discipline-day-tab-str").assertExists()
+    }
+
+    @Test fun manualRunAssignmentCanSwapAndUseSaturdayWithoutLosingSessions() {
+        val initial=PlanRequest(
+            runDays=4,experience=2,weeklyKm=45.0,
+            longDay=7,qualityCount=1,qualityDays=setOf(2),
+            days=setOf(1,2,3,4,5,7)
+        )
+        val selected=WeeklyPlacement.days(initial,"run")
+        assertEquals(4,selected.size)
+        val first=WeeklyPlacement.put(initial,"run",2,6)
+        assertEquals(6,first.weeklySlots["run"]!![2])
+        assertTrue(6 in first.days)
+        val swapped=WeeklyPlacement.put(first,"run",3,6)
+        assertEquals(6,swapped.weeklySlots["run"]!![3])
+        assertEquals(first.weeklySlots["run"]!![3],swapped.weeklySlots["run"]!![2])
+        assertEquals(4,swapped.weeklySlots["run"]!!.distinct().size)
     }
 
     @Test fun activityMapRemainsBehindIndependentScrollingGlassSheet() {
