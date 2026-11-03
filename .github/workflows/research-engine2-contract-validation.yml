@@ -48,6 +48,8 @@ jobs:
         run: python research/validation/heldout_runner.py --seed 82603 --per-cohort 12 --output research-heldout-results.json
       - name: Record all B0-H1 disagreements for independent review
         run: python research/validation/difference_review.py --output research-decision-differences.json
+      - name: Execute eight-week synthetic plan and activity lifecycle
+        run: python research/validation/multiweek_runner.py --output research-multiweek-results.json
       - name: Publish scope-aware summary
         if: always()
         shell: bash
@@ -114,6 +116,21 @@ jobs:
           print('- All review entries remain unvalidated for coaching benefit.')
           PY
             fi
+            if [ -f research-multiweek-results.json ]; then
+              python - <<'PY'
+          import json
+          with open('research-multiweek-results.json', encoding='utf-8') as f:
+              m = json.load(f)
+          print()
+          print('### Eight-week training-history reconciliation (research only)')
+          print(f"- {m['counts']['PASS']} profile PASS, {m['counts']['FAIL']} FAIL, {m['total_week_scenarios']} simulated athlete-weeks")
+          for item in m['results']:
+              print(f"- {item['profile']}: {item['status']}; {len(item['weeks'])} weeks, {item['source_records']} source records, {item['summary']['h1_diff_weeks']} B0/H1 differing weeks")
+          print('- No athlete effectiveness, local lab, or Android engine tested.')
+          PY
+            else
+              echo '**Multiweek report missing. Inspect failing step logs.**'
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
@@ -124,5 +141,6 @@ jobs:
             research-policy-comparison.json
             research-heldout-results.json
             research-decision-differences.json
+            research-multiweek-results.json
           if-no-files-found: warn
           retention-days: 30
