@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -52,7 +53,7 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
         verticalAlignment = Alignment.CenterVertically
     ) {
         destinations.forEach { (path, label, drawable) ->
-            val selected = route == path ||
+            val isSelected = route == path ||
                 (path == "activities" && route == "activity/{id}") ||
                 (path == "training" && route in setOf(
                     "builder/{discipline}", "workout/{planId}/{sessionId}", "manage/{planId}/{date}"
@@ -61,17 +62,17 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
             Column(
                 Modifier.weight(1f).fillMaxHeight()
                     .clip(RoundedCornerShape(26.dp))
-                    .background(if (selected) Color(0x38AE1B36) else Color.Transparent)
+                    .background(if (isSelected) Color(0x38AE1B36) else Color.Transparent)
                     .clickable { onTab(path) }
                     .testTag("nav-" + path)
-                    .semantics { contentDescription = label; role = Role.Tab },
+                    .semantics { contentDescription = label; role = Role.Tab; selected = isSelected },
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
                 Icon(
                     painter = painterResource(drawable),
                     contentDescription = null,
-                    tint = if (selected) TracksidePalette.red else TracksidePalette.textMuted,
+                    tint = if (isSelected) TracksidePalette.red else TracksidePalette.textMuted,
                     modifier = Modifier.size(19.dp)
                 )
                 Spacer(Modifier.height(5.dp))
@@ -79,8 +80,8 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
                     label,
                     fontSize = 9.8f.sp,
                     lineHeight = 12.sp,
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                    color = if (selected) TracksidePalette.red else TracksidePalette.textMuted,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isSelected) TracksidePalette.red else TracksidePalette.textMuted,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center

@@ -41,12 +41,15 @@ internal fun TracksideParityMoveWorkoutSheet(
     var review by remember(session.id) { mutableStateOf(false) }
     val candidate = proposed
     val targetRows = candidate?.let { day -> plan.sessions.filter {
-        it.date == day && it.id != session.id && it.status != "missed"
+        it.date == day && it.id != session.id &&
+            it.status !in setOf("missed", "skipped")
     } } ?: emptyList()
     val available = candidate != null && candidate != session.date &&
         candidate >= LocalDate.now() && candidate in plan.request.start..last &&
         candidate.dayOfWeek.value in plan.request.days && targetRows.size < 2 &&
         session.status in setOf("planned", "in_progress") &&
+        session.log == null && session.linkedActivityId == null &&
+        (session.kind != "long" || candidate.dayOfWeek.value == plan.request.longDay) &&
         Engine1Engines.canManage(plan)
 
     ModalBottomSheet(
