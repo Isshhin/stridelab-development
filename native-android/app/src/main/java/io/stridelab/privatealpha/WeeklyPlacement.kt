@@ -112,7 +112,8 @@ internal object WeeklyPlacement {
                 if (chosen.first() != p.longDay) {
                     return "Your long run must match the selected long-run weekday."
                 }
-                if (chosen.drop(1).take(p.qualityCount).toSet() != p.qualityDays) {
+                if (p.qualityCount > 0 &&
+                    chosen.drop(1).take(p.qualityCount).toSet() != p.qualityDays) {
                     return "Quality-run day preferences must match the selected quality sessions."
                 }
             }
