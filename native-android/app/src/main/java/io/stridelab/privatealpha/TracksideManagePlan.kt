@@ -72,6 +72,7 @@ internal fun TracksideManagePlanScreen(
         it.date >= LocalDate.now() && it.status in setOf("planned", "in_progress")
     }.sortedWith(compareBy<PlannedSession> { it.date }.thenBy { it.id })
     var editExpanded by rememberSaveable(plan.id) { mutableStateOf(false) }
+    var movingWorkout by remember { mutableStateOf<PlannedSession?>(null) }
     var confirmDraft by rememberSaveable(plan.id) { mutableStateOf(false) }
     var confirmPause by rememberSaveable(plan.id) { mutableStateOf(false) }
     var confirmArchive by rememberSaveable(plan.id) { mutableStateOf(false) }
@@ -112,7 +113,7 @@ internal fun TracksideManagePlanScreen(
             if (future.isEmpty()) item { Text("No future sessions to edit", color = TracksidePalette.textMuted) }
             future.forEach { session ->
                 item(key = "manage-future-" + session.id) {
-                    Surface(onClick = { onWorkout(session.id) },
+                    Surface(onClick = { movingWorkout = session },
                         modifier = Modifier.fillMaxWidth().testTag("manage-workout-" + session.id),
                         color = TracksidePalette.surface,
                         shape = RoundedCornerShape(12.dp),
@@ -127,7 +128,10 @@ internal fun TracksideManagePlanScreen(
                                 Text(session.date.toString() + " · " + session.effectiveMinutes + " planned min",
                                     style = MaterialTheme.typography.bodySmall, color = TracksidePalette.textMuted)
                             }
-                            Text("›", style = MaterialTheme.typography.titleLarge, color = TracksidePalette.text)
+                            TextButton(onClick = { onWorkout(session.id) }) {
+                                Text("Open ›", style = MaterialTheme.typography.labelMedium,
+                                    color = TracksidePalette.text)
+                            }
                         }
                     }
                 }
@@ -173,6 +177,15 @@ internal fun TracksideManagePlanScreen(
                 Text("Archive plan · keep records")
             }
         }
+    }
+
+    movingWorkout?.let { session ->
+        TracksideParityMoveWorkoutSheet(
+            plan = plan,
+            session = session,
+            actions = actions,
+            onDismiss = { movingWorkout = null }
+        )
     }
 
     if (confirmDraft) AlertDialog(
