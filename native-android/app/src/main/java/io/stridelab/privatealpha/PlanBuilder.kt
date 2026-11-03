@@ -107,6 +107,8 @@ import org.json.JSONObject
     var editingAbilityFromGuided by rememberSaveable { mutableStateOf(false) }
     var crossTrainingGoals by rememberSaveable { mutableStateOf(false) }
     var strengthGoalSaved by rememberSaveable { mutableStateOf(false) }
+    var strengthSetupSaved by rememberSaveable { mutableStateOf(false) }
+    var strengthSelectedSlot by rememberSaveable { mutableIntStateOf(0) }
     var strengthGoalLabel by rememberSaveable {
         mutableStateOf(when(Engine1Engines.goal(initial,"str")) {
             "Muscle development" -> "Build Muscle"
@@ -196,6 +198,7 @@ import org.json.JSONObject
                 runningSubPage=0
                 crossTrainingGoals=false
                 strengthGoalSaved=false
+                strengthSetupSaved=false
             }
         )
         return
@@ -441,20 +444,56 @@ import org.json.JSONObject
                         disciplineGoals=input.disciplineGoals+("str" to goal)
                     ))
                     strengthGoalSaved=true
+                    strengthSetupSaved=false
                 }
+            )
+        } else if(input.strengthDays>0 && !strengthSetupSaved) {
+            TracksideFigmaStrengthSetup(
+                request=input,
+                selectedSlot=strengthSelectedSlot,
+                onSelectedSlot={ strengthSelectedSlot=it },
+                onChangeMode={ custom ->
+                    edit(input.copy(weeklySlots=
+                        if(custom) input.weeklySlots+
+                            ("str" to WeeklyPlacement.days(input,"str"))
+                        else input.weeklySlots-"str"
+                    ))
+                },
+                onCount={ count ->
+                    edit(if("str" in input.weeklySlots)
+                        WeeklyPlacement.resize(input,"str",count)
+                    else input.copy(strengthDays=count))
+                    strengthSelectedSlot=strengthSelectedSlot.coerceIn(0,count-1)
+                },
+                onAssign={ index,day ->
+                    edit(WeeklyPlacement.put(input,"str",index,day))
+                },
+                onClear={ index ->
+                    edit(WeeklyPlacement.clear(input,"str",index))
+                },
+                onEquipment={ equipmentId,enabled ->
+                    edit(input.copy(equipment=input.equipment+
+                        (equipmentId to if(enabled)1 else 0)))
+                },
+                onBack={ strengthGoalSaved=false },
+                onEditGoal={ strengthGoalSaved=false },
+                onContinue={ strengthSetupSaved=true }
             )
         } else {
             TracksideFigmaCrossTrainingGoalsScreen(
                 request=input,
                 onBack={
-                    if(input.strengthDays>0) strengthGoalSaved=false
+                    if(input.strengthDays>0) strengthSetupSaved=false
                     else if(input.runDays>0) {
                         crossTrainingGoals=false
                         runningSubPage=4
                     } else step=0
                 },
                 onContinue={ step=2; scheduleSubPage=0 },
-                onEditStrengthGoal={ strengthGoalSaved=false },
+                onEditStrengthGoal={
+                    strengthGoalSaved=false
+                    strengthSetupSaved=false
+                },
                 onGoal={ d,goal ->
                     val primary=when {
                         input.runDays>0 -> "run"
@@ -504,6 +543,7 @@ import org.json.JSONObject
                         if(input.strengthDays+input.calDays+input.conditioningDays>0) {
                             crossTrainingGoals=true
                             strengthGoalSaved=true
+                            strengthSetupSaved=true
                         } else runningSubPage = 4
                     }
                 },

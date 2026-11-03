@@ -92,10 +92,12 @@ internal fun TracksideFigmaBuilderFrame(
             Text(headline, fontSize = 30.sp, lineHeight = 35.sp,
                 fontWeight = FontWeight.Bold, color = white,
                 modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(4.dp))
-            Text(description, fontSize = 12.5f.sp,
-                lineHeight = 17.sp, color = muted)
-            Spacer(Modifier.height(40.dp))
+            if(description.isNotBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Text(description, fontSize = 12.5f.sp,
+                    lineHeight = 17.sp, color = muted)
+                Spacer(Modifier.height(40.dp))
+            } else Spacer(Modifier.height(10.dp))
             body()
         }
         footer?.invoke()
