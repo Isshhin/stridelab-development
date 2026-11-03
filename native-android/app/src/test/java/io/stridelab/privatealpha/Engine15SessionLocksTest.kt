@@ -75,7 +75,8 @@ class Engine15SessionLocksTest {
 
     @Test fun engine10AndUnchangedSnapshotsKeepOriginalContract() {
         val legacy=Engine1.generate(request().copy(
-            policyChoice="baseline",runDays=3,strengthDays=0,calDays=0
+            policyChoice="baseline",runDays=3,strengthDays=0,calDays=0,
+            dailyMinutes=90
         ),"owner","legacy",now)
         assertThrows(PlanConstraint::class.java) {
             PlanOperations.setSessionLock(legacy,legacy.sessions.first().id,true)
