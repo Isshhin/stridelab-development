@@ -98,6 +98,20 @@ class WeeklyPlacementTest {
         }
     }
 
+    @Test fun aWednesdayStartRetainsEverySessionAcrossWholePlanWeekWindows() {
+        val start=LocalDate.parse("2026-11-04")
+        val request=running().copy(start=start,weeks=3)
+        val plan=Engine1.generate(request,owner,"wednesday",now)
+        assertEquals(12,plan.sessions.size)
+        val groups=(0 until request.weeks).map { week ->
+            val begin=start.plusWeeks(week.toLong())
+            plan.sessions.filter { it.date in begin..begin.plusDays(6) }
+        }
+        assertEquals(listOf(4,4,4),groups.map { it.size })
+        assertEquals(plan.sessions.toSet(),groups.flatten().toSet())
+        assertTrue(groups.last().any { it.date.dayOfWeek.value <= 2 })
+    }
+
     @Test fun unsafePinnedRecoveryConflictIsReportedNotRescheduled() {
         val p=running().copy(
             longDay=4, qualityDays=setOf(3),
