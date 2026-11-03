@@ -140,7 +140,7 @@ import kotlinx.coroutines.withContext
                     style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant) }
                 val day=plan.sessions.filter { it.date==date }
                 if(day.isEmpty()) item { SignalCard { Text("No workout scheduled",style=MaterialTheme.typography.titleLarge);Text("This calendar date has no prescribed session. No workout or completion is assumed.") } }
-                day.forEach { session -> item { PlannedWorkoutCard(session,state.workoutDrafts.containsKey(plan.id to session.id),compact=true) { onOpen(plan.id,session.id) } } }
+                day.forEach { session -> item { PlannedWorkoutCard(session,state.workoutDrafts.containsKey(plan.id to session.id),compact=true,onMove={onManage(plan.id,session.date)}) { onOpen(plan.id,session.id) } } }
             }
             if (plan.status=="draft") item {
                 TracksideDraftApprovalDock(plan, !state.busy && Engine1Engines.canManage(plan)) {
