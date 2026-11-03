@@ -1,3 +1,23 @@
+# CURRENT — Batch 8F evidence admission (2026-11-03)
+
+**[Batch 8F original lab handoff and field outcome protocol](../../docs/research/batch-8f-original-lab-admission-and-field-outcome-protocol-2026-11-03.md).** On [verified Actions run 41589589676](https://github.com/Isshhin/stridelab-development/actions/runs/41589589676), **132/132 Python research unit tests passed**, with distinct existing research suites unchanged: **55 structural B0/H1 PASS, 3 uncalibrated predictive BLOCKED; 288 seeded adversarial PASS; four synthetic multiweek profiles PASS**.
+
+**New fail-closed gates (report status, not pseudo-validation):**
+- `original_lab_admission.py` verifies hashes, a bounded source-only manifest and safe relative file paths if a source checkout is supplied. In cloud CI, no original source is supplied, so it reports **`BLOCKED_SOURCE_NOT_PROVIDED`**. Passing checks on any self-authored manifest would still require external origin and interface review; it never imports/executes that code.
+- `field_outcome_gate.py` checks a metadata-only proposed study handoff, including non-overlapping real calendar periods and claimed review provenance. Without consented real observations, CI correctly reports **`BLOCKED_NO_CONSENTED_FIELD_DATA`**. No actual performance outcome is calculated or inferred.
+- `test_original_lab_admission.py` and `test_field_outcome_gate.py` test tampered/missing source, disallowed dataset/symlink paths, non-temporal periods and unverified outcome/consent claims.
+
+Run these independently in a GitHub research checkout:
+
+```bash
+python research/validation/original_lab_admission.py --output research-original-lab-admission.json
+python research/validation/field_outcome_gate.py --output research-field-outcome-readiness.json
+```
+
+**To later evaluate the user's existing local Python Athlete Simulation Lab,** its owner must explicitly make an authorized **source-only** checkout and source manifest available for review; never include private FIT, Garmin tokens or `F:\StrideLab DataSets` in GitHub. Data outcomes need separate consent and independent review, not a CI assertion. A passing synthetic model test is not evidence of coaching effectiveness or injury prevention. Keep draft PR #34 unmerged, and Android Engine 1.0/1.5/Trackside unchanged.
+
+---
+
 # CURRENT — Batch 8E (2026-11-03)
 
 [**Full Batch 8E source-integrity and workout-change report**](../../docs/research/batch-8e-source-attestation-and-explicit-workout-revision-contract-2026-11-03.md). [**Verified GitHub Actions run 41588077190**](https://github.com/Isshhin/stridelab-development/actions/runs/41588077190): 109 Python tests PASS (0 failures) at commit `f9d592a`. Previous distinct structural suites remain 55 B0/H1 PASS/3 forecast BLOCKED, 288 adversarial PASS and 4 research multiweek profiles PASS.
