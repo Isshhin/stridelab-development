@@ -42,6 +42,8 @@ jobs:
         run: python -m unittest discover -s research/validation -p 'test_*.py' -v
       - name: Test research registry and synthetic contract model
         run: python research/validation/runner.py --output research-validation.json
+      - name: Execute B0/H1 frozen policy comparisons
+        run: python research/validation/policy_runner.py --output research-policy-comparison.json
       - name: Publish scope-aware summary
         if: always()
         shell: bash
@@ -69,11 +71,28 @@ jobs:
             else
               echo '**Validation runner did not produce a report. Check logs.**'
             fi
+            if [ -f research-policy-comparison.json ]; then
+              python - <<'PY'
+          import json
+          with open('research-policy-comparison.json', encoding='utf-8') as f:
+              p = json.load(f)
+          counts = p['counts']
+          print()
+          print('### New B0/H1 research policy implementations (NOT production or old local lab)')
+          print(f"- Frozen scenarios: {counts['PASS']} structural PASS, {counts['FAIL']} FAIL, {counts['BLOCKED_UNCALIBRATED_PREDICTION']} BLOCKED")
+          print(f"- Action disagreement scenarios: {p['cases_with_B0_H1_action_difference']}")
+          print('- Predictive models are uncalibrated; no athlete effectiveness or clinical safety conclusions.')
+          PY
+            else
+              echo '**B0/H1 policy report missing. Check logs.**'
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: research-validation-results
-          path: research-validation.json
+          path: |
+            research-validation.json
+            research-policy-comparison.json
           if-no-files-found: warn
           retention-days: 30
