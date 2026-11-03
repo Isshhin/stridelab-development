@@ -15,7 +15,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
 
-@Composable internal fun WorkoutScreen(state:TrainingState,planId:String,sessionId:String,actions:PlanActions,onBack:()->Unit) {
+@Composable internal fun WorkoutScreen(state:TrainingState,planId:String,sessionId:String,actions:PlanActions,onBack:()->Unit,onMissed:(()->Unit)?=null) {
     val plan=state.plans.find { it.id==planId };val session=plan?.sessions?.find { it.id==sessionId }
     if(plan==null||session==null) { Screen("Workout unavailable","TRAINING") { item { Text("This workout is not saved for the current account.");TextButton(onClick=onBack) { Text("Back to Training") } } };return }
     val exercises=session.effectiveExercises
@@ -149,7 +149,7 @@ import kotlinx.coroutines.flow.drop
         formError?.let { item { Text(it,color=MaterialTheme.colorScheme.error) } }
         if(active) item { SignalButton("Save completed workout",{try {formError=null;actions.record(plan.id,plan.revision,session.id,log(),true)}catch(e:PlanConstraint){formError=e.message}},!state.busy)
             OutlinedButton(onClick={try {formError=null;actions.record(plan.id,plan.revision,session.id,log(),false)}catch(e:PlanConstraint){formError=e.message}},enabled=!state.busy,modifier=Modifier.fillMaxWidth()) { Text("Save progress for offline reopening") }
-            Row { TextButton(onClick={missed=true}) { Text("Missed / skipped") };TextButton(onClick={move=true},enabled=session.log==null) { Text("Move workout") } }
+            Row { TextButton(onClick={ if(onMissed!=null) onMissed() else missed=true }) { Text("Missed / skipped") };TextButton(onClick={move=true},enabled=session.log==null) { Text("Move workout") } }
         }
         if(done) item { Text("Completion is your recorded confirmation, not a sensor-verified activity. It appears separately in workout history without invented pace, GPS or heart rate.",style=MaterialTheme.typography.bodySmall) }
         item { PlanFeedbackForm(plan,actions,session.id) }
@@ -163,6 +163,6 @@ import kotlinx.coroutines.flow.drop
             Text("Any unsaved entries for this exercise will be cleared. Previously saved sets cannot be replaced.",style=MaterialTheme.typography.bodySmall)
         }},confirmButton={TextButton(onClick={pendingSwap=id;actions.swap(plan.id,plan.revision,session.id,id);swapId=null}) { Text("Use easier alternative") }},dismissButton={TextButton(onClick={swapId=null}) { Text("Keep original") }})
     } } }
-    if(missed) AlertDialog(onDismissRequest={missed=false},title={Text("Why was this session missed?")},text={ Column { ChoiceChips(listOf("Time","Fatigue","Soreness","Illness","Other"),listOf("Time","Fatigue","Soreness","Illness","Other").indexOf(reason)) { reason=listOf("Time","Fatigue","Soreness","Illness","Other")[it] };Text("No catch-up volume is added. Any recovery suggestion requires your explicit choice.") } },confirmButton={TextButton(onClick={actions.missed(plan.id,plan.revision,session.id,reason,false);missed=false}) { Text("Mark missed") }},dismissButton={Row { TextButton(onClick={actions.missed(plan.id,plan.revision,session.id,reason,true);missed=false}) { Text("Skip") };TextButton(onClick={missed=false}) { Text("Cancel") } }})
+    if(missed && onMissed==null) AlertDialog(onDismissRequest={missed=false},title={Text("Why was this session missed?")},text={ Column { ChoiceChips(listOf("Time","Fatigue","Soreness","Illness","Other"),listOf("Time","Fatigue","Soreness","Illness","Other").indexOf(reason)) { reason=listOf("Time","Fatigue","Soreness","Illness","Other")[it] };Text("No catch-up volume is added. Any recovery suggestion requires your explicit choice.") } },confirmButton={TextButton(onClick={actions.missed(plan.id,plan.revision,session.id,reason,false);missed=false}) { Text("Mark missed") }},dismissButton={Row { TextButton(onClick={actions.missed(plan.id,plan.revision,session.id,reason,true);missed=false}) { Text("Skip") };TextButton(onClick={missed=false}) { Text("Cancel") } }})
     if(move) AlertDialog(onDismissRequest={move=false},title={Text("Move workout")},text={Column { NativeDateField("Scheduled date",moveDate,{moveDate=it});Text("Available-day, long-run-day and recovery conflicts are checked before saving.");formError?.let { Text(it) } }},confirmButton={TextButton(onClick={try {actions.move(plan.id,plan.revision,session.id,LocalDate.parse(moveDate));move=false}catch(e:PlanConstraint){formError=e.message}catch(_:java.time.format.DateTimeParseException){formError="Enter a valid YYYY-MM-DD date."}}) { Text("Save move") }},dismissButton={TextButton(onClick={move=false}) { Text("Cancel") }})
 }

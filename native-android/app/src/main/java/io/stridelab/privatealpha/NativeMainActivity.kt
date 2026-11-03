@@ -145,12 +145,15 @@ private fun NavHostController.openActivity(id: String) {
     CompositionLocalProvider(LocalProfileAction provides { nav.openTabRoot("settings") }) {
     Scaffold(
         bottomBar = {
-            Box(
-                Modifier.fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                TracksideFloatingNavigation(route) { path -> nav.openTabRoot(path) }
+            // The approved 25D / 25E plan-decision pages do not use the five-tab dock.
+            if(route != "missed/{planId}/{sessionId}") {
+                Box(
+                    Modifier.fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    TracksideFloatingNavigation(route) { path -> nav.openTabRoot(path) }
+                }
             }
         }
     ) { padding ->
@@ -363,7 +366,32 @@ private fun NavHostController.openActivity(id: String) {
                 composable("builder/{discipline}") { builder -> PlanBuilder(state,actions.planning,builder.arguments?.getString("discipline") ?: "all",{nav.openTabRoot("training")},{nav.navigate("auth")},{p,s->nav.navigate("workout/${android.net.Uri.encode(p)}/${android.net.Uri.encode(s)}")}) }
                 composable("library") { LibraryScreen(state,actions.planning,{p,s->nav.openWorkout(p,s)},{key->nav.navigate("practice/$key")}) { entry -> if(entry.discipline=="run") {nav.openTabRoot("training");nav.navigate("builder/run")}else nav.navigate("practice/entry-${entry.id}") } }
                 composable("practice/{key}") { backStack -> PracticeBuilder(state,actions.planning,backStack.arguments?.getString("key") ?: "new",{nav.openTabRoot("library")},{p,s->nav.openWorkout(p,s)},{nav.openTabRoot("training")}) }
-                composable("workout/{planId}/{sessionId}") { workout -> WorkoutScreen(state,workout.arguments?.getString("planId") ?: "",workout.arguments?.getString("sessionId") ?: "",actions.planning,{nav.popBackStack()}) }
+                composable("missed/{planId}/{sessionId}") { back ->
+                    val planId = back.arguments?.getString("planId") ?: ""
+                    val sessionId = back.arguments?.getString("sessionId") ?: ""
+                    val plan = state.plans.firstOrNull { it.id == planId }
+                    val session = plan?.sessions?.firstOrNull { it.id == sessionId }
+                    TracksideParityMissedWorkoutFlow(
+                        plan = plan,
+                        session = session,
+                        otherPlans = state.plans,
+                        busy = state.busy,
+                        actions = actions.planning,
+                        onBack = { nav.popBackStack() },
+                        onBuildDraft = { nav.navigate("builder/all") }
+                    )
+                }
+                composable("workout/{planId}/{sessionId}") { workout ->
+                    val planId = workout.arguments?.getString("planId") ?: ""
+                    val sessionId = workout.arguments?.getString("sessionId") ?: ""
+                    WorkoutScreen(
+                        state, planId, sessionId, actions.planning,
+                        onBack = { nav.popBackStack() },
+                        onMissed = {
+                            nav.navigate("missed/${android.net.Uri.encode(planId)}/${android.net.Uri.encode(sessionId)}")
+                        }
+                    )
+                }
                 composable("settings") {
                     val context = LocalContext.current
                     var confirmSignOut by remember { mutableStateOf(false) }
