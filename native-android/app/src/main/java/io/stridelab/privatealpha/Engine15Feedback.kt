@@ -175,7 +175,7 @@ internal object Engine15Feedback {
             plan.copy(sessions = plan.sessions.map {
                 if (it.id == targetSessionId) it.copy(suggestion = null) else it
             }),
-            targetSessionId, "reviewed suggestion", now
+            targetSessionId, suggestion.reason, now
         )
     }
 
