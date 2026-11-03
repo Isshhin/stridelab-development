@@ -20,7 +20,11 @@ internal object PlanOperations {
                     (plan.sessions.filter { it.date==date }+other.sessions.filter { it.date==date }).sumOf { it.effectiveMinutes } > minOf(plan.request.dailyMinutes,other.request.dailyMinutes)
                 }
             })throw PlanConstraint("This plan would exceed the shared daily time budget on an approved training day.")
-        return plan.copy(status="approved")
+        val candidate=plan.copy(status="approved")
+        // Only Engine 1.5 revalidates its own edited calendar before approval.
+        if(candidate.engineVersion==ENGINE15_VERSION)
+            PlanScheduleValidation.validatePlan(candidate)
+        return candidate
     }
     fun move(plan:PlanSnapshot,sessionId:String,date:LocalDate):PlanSnapshot = move(plan,sessionId,date,emptyList())
     fun move(plan:PlanSnapshot,sessionId:String,date:LocalDate,otherPlans:List<PlanSnapshot>):PlanSnapshot {

@@ -363,6 +363,25 @@ class Engine15FeedbackRepositoryTest {
         assertEquals(approved,repository.state.value.plans.single())
     }
 
+    @Test fun internallyConflictingDraftIsRejectedWithoutOverwritingOfflineState() = runBlocking {
+        assertTrue(repository.signIn("engine15@example.invalid", "fixture"))
+        assertTrue(repository.generatePlan(request, fixtureEngine))
+        var draft=repository.state.value.plans.single()
+        assertTrue(repository.changePlan(draft.id,draft.revision) { current ->
+            current.copy(sessions=current.sessions.map { session ->
+                if(session.id=="future-run")session.copy(date=sourceDate) else session
+            })
+        })
+        draft=repository.state.value.plans.single()
+        assertEquals("draft",draft.status)
+        assertFalse(repository.approvePlan(draft.id,draft.revision))
+        assertEquals(draft,repository.state.value.plans.single())
+        transport.offline=true
+        repository.close()
+        open()
+        assertEquals(draft,repository.state.value.plans.single())
+    }
+
     private inner class FixtureGateway : TrainingGateway {
         var account = owner
         var offline = false
