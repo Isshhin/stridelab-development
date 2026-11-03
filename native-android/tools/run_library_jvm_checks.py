@@ -49,8 +49,8 @@ def main():
     # Deliberately named boundary: all pure JVM source and tests in the pinned native baseline.
     names=['ActivityDetail','ActivityIntelligence','ActivityRecord','BackendConfig','DashboardSummary',
            'Engine1','Engine1Engines','EngineContracts','ExerciseAlternatives','ExerciseLibraryV2','IntervalConnection',
-           'LibraryShelf','MultiSessionEngine1','PlanBackup','PlanOperations','SessionTemplate','SupabaseGateway',
-           'WellnessRecord','WorkoutEntryDraft']
+           'LibraryShelf','MultiSessionEngine1','PlanBackup','PlanOperations','PlanScheduleValidation','SessionTemplate','SupabaseGateway',
+           'WellnessRecord','WorkoutEntryDraft','WorkoutLogValidation']
     kotlin=[native/'main/java/io/stridelab/privatealpha'/f'{n}.kt' for n in names]
     # One existing pure helper lives in a Compose file. Compile its exact source, not a stub.
     # Full Android compilation remains a separate CI gate.
