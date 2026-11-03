@@ -70,7 +70,8 @@ internal object Engine15InterferenceScheduling {
                         session.quality->it.dayOfWeek.value in p.qualityDays
                         else->true
                     }
-                }.sortedWith(compareBy<LocalDate> { date ->
+                }.let { days -> Engine15SessionLocks.restrictDates(p,session,days) }
+                .sortedWith(compareBy<LocalDate> { date ->
                     val current=scheduled+placed
                     val nearHard=if(session.lower)current.count {
                         (it.quality || it.kind=="long") &&

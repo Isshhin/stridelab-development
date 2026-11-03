@@ -11,6 +11,7 @@ internal object PlanOperations {
     fun approve(plan:PlanSnapshot,others:List<PlanSnapshot>):PlanSnapshot {
         compatible(plan)
         if(plan.status!="draft" && plan.status!="paused")throw PlanConstraint("Only a draft or paused plan can be approved.")
+        Engine15SessionLocks.validateSaved(plan)
         val approved=others.filter { it.id!=plan.id&&it.status=="approved" }
         if(approved.any { other->other.sessions.any { existing->plan.sessions.any { session->conflict(session,existing,plan.policyId,other.policyId) } } })throw PlanConstraint("This plan conflicts with an approved plan. Pause the existing plan or change the dates first.")
         if(PlanScheduleValidation.isMultiPolicy(plan.policyId)&&approved.filter { PlanScheduleValidation.isMultiPolicy(it.policyId) }.any { other->
@@ -25,6 +26,10 @@ internal object PlanOperations {
         compatible(plan)
         val s=plan.sessions.firstOrNull { it.id==sessionId } ?: throw PlanConstraint("Workout is no longer available.")
         if(s.status !in setOf("planned","in_progress") || s.log!=null)throw PlanConstraint("Recorded workouts keep their original scheduled date. Move only an unstarted session.")
+        val lock=plan.request.lockedSessionDays[sessionId]
+        if(lock!=null && (lock!=s.date.toString() || lock!=date.toString()))
+            throw PlanConstraint("This workout is locked to its saved day. Unlock it before moving.")
+        if(date==s.date)return plan
         if(date<plan.request.start || date>=plan.request.start.plusWeeks(plan.request.weeks.toLong()))throw PlanConstraint("Choose a date inside this plan.")
         if(date.dayOfWeek.value !in plan.request.days)throw PlanConstraint("That is not an available training day. Edit your availability in a new reviewed plan instead.")
         if(s.kind=="long" && date.dayOfWeek.value!=plan.request.longDay)throw PlanConstraint("This plan has one preferred long-run day. Move this run to that weekday or review a new plan.")
@@ -50,6 +55,25 @@ internal object PlanOperations {
         }
         return plan.copy(sessions=plan.sessions.map { if(it.id==sessionId) moved else it }.sortedBy { it.date })
     }
+    /** Owner-bound repository operations persist this exact placement explicitly. */
+    fun setSessionLock(plan:PlanSnapshot,sessionId:String,locked:Boolean):PlanSnapshot {
+        compatible(plan)
+        if(plan.engineVersion!=ENGINE15_VERSION)
+            throw PlanConstraint("Workout locking requires a supported Engine 1.5 plan.")
+        if(plan.status !in setOf("draft","approved","paused"))
+            throw PlanConstraint("Archived workouts cannot be locked.")
+        val target=plan.sessions.singleOrNull { it.id==sessionId }
+            ?: throw PlanConstraint("Workout is not part of this saved plan.")
+        if(target.status!="planned" || target.log!=null || target.linkedActivityId!=null)
+            throw PlanConstraint("Only a future unstarted workout can be locked.")
+        val locks=if(locked) plan.request.lockedSessionDays+(sessionId to target.date.toString())
+            else plan.request.lockedSessionDays-sessionId
+        if(locks==plan.request.lockedSessionDays)return plan
+        val changed=plan.copy(request=plan.request.copy(lockedSessionDays=locks))
+        Engine15SessionLocks.validateSaved(changed)
+        return changed
+    }
+
     fun swapExercise(plan:PlanSnapshot,sessionId:String,exerciseId:String,now:Instant=Instant.now()):PlanSnapshot {
         compatible(plan)
         if(plan.status !in setOf("approved","paused"))throw PlanConstraint("Approve a plan before choosing an alternative.")

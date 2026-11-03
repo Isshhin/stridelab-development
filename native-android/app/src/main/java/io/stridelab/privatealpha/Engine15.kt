@@ -19,6 +19,7 @@ internal object Engine15 : PlanGenerationEngine {
     internal fun validate(request: PlanRequest) {
         if (request.policyChoice != "engine15")
             throw PlanConstraint("Engine 1.5 must be selected explicitly.")
+        Engine15SessionLocks.validateRequest(request)
         if (requiresMulti(request))
             MultiSessionEngine1.validate(request.copy(policyChoice = "multi-session"))
         else Engine1.validate(request)
@@ -177,6 +178,7 @@ internal object Engine15 : PlanGenerationEngine {
                 )
             }
         }
+        Engine15SessionLocks.validateOutput(request, adapted)
         check(adapted.map { it.id to it.date } == baseline.sessions.map { it.id to it.date })
         val originalById = baseline.sessions.associateBy { it.id }
         check(adapted.all { s ->

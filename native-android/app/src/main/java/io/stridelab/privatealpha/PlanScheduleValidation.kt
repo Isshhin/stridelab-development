@@ -16,6 +16,7 @@ internal object PlanScheduleValidation {
 
     fun validatePlan(plan:PlanSnapshot) {
         if(plan.status!="approved" || !Engine1Engines.canManage(plan))return
+        Engine15SessionLocks.validateSaved(plan)
         val sessions=scheduled(plan)
         for(i in sessions.indices)for(k in i+1 until sessions.size) {
             if(conflict(sessions[i],sessions[k],plan.policyId,plan.policyId))throw PlanConstraint("The backup contains conflicting sessions inside an approved plan. No records were changed.")
