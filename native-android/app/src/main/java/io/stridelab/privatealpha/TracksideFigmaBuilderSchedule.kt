@@ -188,6 +188,7 @@ internal fun TracksideFigmaPlanDetailsScreen(
 internal fun TracksideFigmaAvailabilityScreen(
     request: PlanRequest,
     onDay: (Int) -> Unit,
+    onMultiSessionToggle: (Boolean) -> Unit,
     onBack: () -> Unit,
     onContinue: () -> Unit
 ) {
@@ -227,7 +228,9 @@ internal fun TracksideFigmaAvailabilityScreen(
                         val day=index+1
                         val selected=day in request.days
                         Surface(
-                            onClick={onDay(day)},modifier=Modifier.weight(1f)
+                            onClick={onDay(day)},
+                            enabled=day!=6 || selected,
+                            modifier=Modifier.weight(1f)
                                 .fillMaxHeight().testTag("available-day-$day"),
                             color=if(selected)Color(0xFF202B34) else Color(0xFF18252F),
                             shape=RoundedCornerShape(9.dp),
@@ -261,10 +264,39 @@ internal fun TracksideFigmaAvailabilityScreen(
                 }
                 Spacer(Modifier.height(14.dp))
                 Text(if(capacityFits)
-                    "✓ Fits the selected policy's visible slot limit"
+                    "✓ Provisional session slots available; recovery checks pending"
                     else "Additional session slots are required before continuing",
                     fontSize=11.sp,color=if(capacityFits)
                         Color(0xFF69D5B0) else Color(0xFFFF8D8D))
+                if(total>chosen || request.policyChoice=="multi-session") {
+                    Spacer(Modifier.height(12.dp))
+                    Surface(
+                        onClick={
+                            onMultiSessionToggle(request.policyChoice!="multi-session")
+                        },
+                        modifier=Modifier.fillMaxWidth().height(49.dp)
+                            .testTag("builder-enable-multi-session"),
+                        color=if(request.policyChoice=="multi-session")
+                            Color(0xFF21485C) else Color(0xFF1A313D),
+                        shape=RoundedCornerShape(8.dp),
+                        border=BorderStroke(1.dp,
+                            if(request.policyChoice=="multi-session")Color(0xFF84AFC1)
+                            else Color(0xFF456C7E))
+                    ) {
+                        Row(Modifier.padding(horizontal=10.dp),
+                            verticalAlignment=Alignment.CenterVertically) {
+                            Text(if(request.policyChoice=="multi-session")"✓" else "+",
+                                color=Color.White,fontSize=15.sp)
+                            Spacer(Modifier.width(9.dp))
+                            Text("Allow compatible same-day sessions",
+                                color=Color.White,fontSize=11.sp)
+                        }
+                    }
+                    Spacer(Modifier.height(5.dp))
+                    Text("Engine 1 only permits selected pairings; a successful slot count does not guarantee placement.",
+                        fontSize=10.sp,lineHeight=13.sp,
+                        color=Color(0xFFB6C0CA))
+                }
             }
         }
         Spacer(Modifier.height(18.dp))
