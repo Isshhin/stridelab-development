@@ -295,6 +295,17 @@ private fun NavHostController.openActivity(id: String) {
                 }
                 composable("activity/{id}") { detail ->
                     val activity = state.activities.firstOrNull { it.id == detail.arguments?.getString("id") }
+                    var automaticDetailAttempted by rememberSaveable(activity?.id) { mutableStateOf(false) }
+                    LaunchedEffect(activity?.id, online, state.busy, state.needsSignIn) {
+                        // Fetch a real recorded route once when opening a running detail.
+                        // Offline cache remains available; no invented route or retry loop.
+                        if (!automaticDetailAttempted && activity != null && activity.supportsPace &&
+                            state.account != null && online && !state.busy && !state.needsSignIn &&
+                            !state.details.containsKey(activity.id)) {
+                            automaticDetailAttempted = true
+                            actions.loadDetail(activity.id)
+                        }
+                    }
                     Screen(activity?.title ?: "Activity unavailable", "ACTIVITY DETAIL", compactTitle = true) {
                         item { TextButton(onClick = { nav.popBackStack() }) { Text("Back to history") } }
                         if(activity == null) item { EmptyState("No activity available", "This activity is not in the current account’s local cache.") }
@@ -459,7 +470,7 @@ internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
     SignalCard {
         Text("ON THIS DEVICE", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         Text(if(activities.size == 1) "1 saved activity" else "${activities.size} saved activities", style = MaterialTheme.typography.headlineMedium)
-        Text("Your synchronized training journal. Open an activity to explore its recorded details.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Activity summaries saved on this device. Open a record to inspect available source details.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 /** Only recorded elapsed durations. No target, trend, readiness or missing-value inference. */

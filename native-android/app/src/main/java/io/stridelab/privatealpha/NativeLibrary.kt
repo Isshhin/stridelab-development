@@ -66,8 +66,12 @@ internal fun readCuratedLibrary(context: Context): List<LibraryEntry> {
             .put("eq", equipment)
             .put("pattern", record.movementPatterns.joinToString(", ") { it.replace('_', ' ') })
             .put("purpose", "Primary focus: " + record.primaryMuscles.joinToString(", ") { it.replace('_', ' ') })
+            .put("secondaryMuscles", record.secondaryMuscles.joinToString(", ") { it.replace('_', ' ') })
+            .put("setupNotes", record.setupNotes.joinToString("\n"))
+            .put("prerequisiteNotes", record.prerequisiteNotes.joinToString("\n"))
+            .put("caveats", record.caveats.joinToString("\n"))
             .put("tech", JSONArray(record.technique))
-            .put("mistake", record.caveats.joinToString(" "))
+            .put("mistake", "")
             .put("reg", record.easier).put("prog", record.harder)
             .put("alts", JSONArray(record.alternatives))
             .put("prereq", if (prerequisites.isEmpty()) "No recorded skill prerequisites" else prerequisites.joinToString(", "))
@@ -158,6 +162,12 @@ internal fun readCuratedLibrary(context: Context): List<LibraryEntry> {
                 LibraryImage(entry)
                 Text(entry.text("eq")+" · "+entry.text("pattern"),color=MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(entry.text("purpose"),style=MaterialTheme.typography.bodyLarge)
+                if(entry.text("secondaryMuscles").isNotBlank())
+                    Text("Secondary: "+entry.text("secondaryMuscles"),style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted)
+                if(entry.text("setupNotes").isNotBlank()) {
+                    Text("SETUP",style=MaterialTheme.typography.labelMedium,color=TracksidePalette.textMuted)
+                    Text(entry.text("setupNotes"),style=MaterialTheme.typography.bodyMedium)
+                }
                 if(entry.guide || entry.raw.optBoolean("educationalOnly",false))
                     Text("Educational reference. Use reviewed training plans or session templates for executable workouts; this catalog does not automatically prescribe exercises.",style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted)
                 else SignalButton(if(entry.discipline=="run")"Build a running plan" else "Prepare practice session", { focus.clearFocus();keyboard?.hide();selected=null; onPractice(entry) })
@@ -166,7 +176,14 @@ internal fun readCuratedLibrary(context: Context): List<LibraryEntry> {
                 }
                 Text("TECHNIQUE & STRUCTURE",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
                 entry.list("tech").forEachIndexed { i,cue -> Text("${i+1}. $cue") }
-                Text(entry.text("mistake"),color=MaterialTheme.colorScheme.onSurfaceVariant)
+                if(entry.text("mistake").isNotBlank())
+                    Text(entry.text("mistake"),color=MaterialTheme.colorScheme.onSurfaceVariant)
+                if(entry.text("caveats").isNotBlank()) {
+                    Text("CAUTIONS",style=MaterialTheme.typography.labelMedium,color=TracksidePalette.textMuted)
+                    Text(entry.text("caveats"),style=MaterialTheme.typography.bodySmall)
+                }
+                if(entry.text("prerequisiteNotes").isNotBlank())
+                    Text(entry.text("prerequisiteNotes"),style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted)
                 if(entry.text("prereq").isNotBlank()) {
                     Text("PREREQUISITES",style=MaterialTheme.typography.labelMedium,color=TracksidePalette.calisthenics)
                     Text(entry.text("prereq"),style=MaterialTheme.typography.bodyMedium)

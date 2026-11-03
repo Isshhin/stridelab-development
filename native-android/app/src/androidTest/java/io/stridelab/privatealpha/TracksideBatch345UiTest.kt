@@ -41,16 +41,19 @@ class TracksideBatch345UiTest {
             initializing = false, account = "synthetic-athlete",
             activities = listOf(activity)
         )
+        var automaticLoads = 0
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    NativeStrideContent(state, true, NativeActions({}, {}, {}, {}, { _, _ -> }))
+                    NativeStrideContent(state, true, NativeActions({}, {}, {}, {}, { _, _ -> },
+                        loadDetail = { automaticLoads += 1 }))
                 }
             }
         }
         compose.onNodeWithTag("nav-activities").assertIsDisplayed().performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("activity-synthetic-activity"))
         compose.onNodeWithTag("activity-synthetic-activity").performClick()
+        compose.runOnIdle { assertEquals("Recorded source detail should be requested once", 1, automaticLoads) }
         compose.onNodeWithText("RECORDED METRICS").assertExists()
         compose.onNodeWithText("5.00 km").assertExists()
         compose.onNodeWithText("Back to history").performClick()
