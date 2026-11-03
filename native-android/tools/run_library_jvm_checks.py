@@ -50,7 +50,8 @@ def main():
     names=['ActivityDetail','ActivityIntelligence','ActivityRecord','BackendConfig','DashboardSummary',
            'Engine1','Engine1Engines','EngineContracts','ExerciseAlternatives','ExerciseLibraryV2','IntervalConnection',
            'LibraryShelf','MultiSessionEngine1','PlanBackup','PlanOperations','PlanScheduleValidation','SessionTemplate','SupabaseGateway',
-           'WellnessRecord','WorkoutEntryDraft','WorkoutLogValidation']
+           'WellnessRecord','WorkoutEntryDraft','WorkoutLogValidation',
+           'TracksideEngine15ReviewCandidateModel']
     kotlin=[native/'main/java/io/stridelab/privatealpha'/f'{n}.kt' for n in names]
     # One existing pure helper lives in a Compose file. Compile its exact source, not a stub.
     # Full Android compilation remains a separate CI gate.
