@@ -31,7 +31,8 @@ internal fun TracksideParityMoveWorkoutSheet(
     plan: PlanSnapshot,
     session: PlannedSession,
     actions: PlanActions,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onReviewDestination: ((LocalDate) -> Unit)? = null
 ) {
     val weekStart = tracksideCalendarMonday(session.date)
     val last = plan.request.start.plusWeeks(plan.request.weeks.toLong()).minusDays(1)
@@ -143,7 +144,13 @@ internal fun TracksideParityMoveWorkoutSheet(
                 Button(
                     onClick = {
                         if (review && available && candidate != null) {
-                            actions.move(plan.id, plan.revision, session.id, candidate)
+                            if (onReviewDestination != null) {
+                                // Continue to the approved review-changes page, without mutation.
+                                onReviewDestination(candidate)
+                            } else {
+                                // The existing Manage flow continues to use its guarded action.
+                                actions.move(plan.id, plan.revision, session.id, candidate)
+                            }
                             onDismiss()
                         } else review = true
                     },
