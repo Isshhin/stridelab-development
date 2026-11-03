@@ -50,7 +50,7 @@ class Engine15MultiScheduleTest {
     @Test fun impossibleMixedCalendarAndInsufficientDailyBudgetFailGracefully() {
         assertThrows(PlanConstraint::class.java) {
             Engine15.generate(request().copy(
-                strengthDays = 2, days = setOf(2,3,4,5,6,7),
+                strengthDays = 2, calDays = 3, days = setOf(2,3,4,5,6,7),
                 dailyMinutes = 120), "owner", "over", now)
         }
         assertThrows(PlanConstraint::class.java) {
