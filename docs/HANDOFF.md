@@ -1,42 +1,218 @@
-> **Phase 4E CI fix (2026-10-26):** [First Android run 40256554078](https://github.com/Isshhin/stridelab-development/actions/runs/40256554078) failed **before compilation** in `android-actions/setup-android@v3` because its default SDK package list requested removed `tools` (`Failed to find package 'tools'`). Source ZIP CRC, 41/41 manifest and accepted Phase 4D provenance checks passed. Upgraded repository workflow to **`android-actions/setup-android@v4`** with `packages: 'platform-tools'`; no source ZIP, version code or accepted Phase 4D files changed. **Re-dispatch the same [Phase 4E Android workflow](https://github.com/Isshhin/stridelab-development/actions/workflows/phase4e-final-android.yml) on `main`, versionCode `1`.** No APK, emulator or unit-test success is claimed before the next run. This is an SDK setup-only failure, not an app runtime failure.
-
-> **AUTHORITATIVE 4E HANDOFF (2026-10-26): Phase 4D FINAL accepted 273/273 in [run 40254593565](https://github.com/Isshhin/stridelab-development/actions/runs/40254593565). Phase 4E integrated Android SOURCE (not APK) packaged, `StrideLab-Phase4E-Final-candidate.zip`, SHA256 `d1d061d8be9d9dd752a71a40867e2bc00f0fb15b97d88032c0b95f45e4e1c3b3`, 41/41 manifest, source provenance passed. Android compile and emulator tests are PENDING. Upload archive to private prerelease tag `phase4e-final-candidate`, dispatch [Android gate](https://github.com/Isshhin/stridelab-development/actions/workflows/phase4e-final-android.yml) on main. Disposable debug and optionally signed private APK are generated ONLY if CI succeeds; physical device + signing/data-safety acceptance remains separate. Read [4E status](PHASE4E_STATUS.md). Older banners below are historical.
-
-> **CURRENT IN-PROGRESS CHECKPOINT (2026-10-26): Phase 4D combined final candidate DELIVERED, official CI PENDING.** The *last accepted* source remains 4D.3A-A Fix1 ([258/258 run 40250751272](https://github.com/Isshhin/stridelab-development/actions/runs/40250751272)). The combined A/B/C app source is `StrideLab-Phase4D-Final-candidate.zip` SHA256 `915c9c37e3816291bfc9ab3ead1f37b400711886056a43fd1af101b602cdaa6b`, 630/630 manifest, deterministic build and protected engine hashes intact. Implements validated offline JSON running imports, manual stable Link Run, grounded planned-vs-actual, and preserves the accepted charts/Library. **Upload exact candidate to private prerelease `phase4d-final-candidate` then dispatch [one combined 273-test final gate](https://github.com/Isshhin/stridelab-development/actions/workflows/phase4d-final-playwright.yml)**. NO official acceptance claim until all 273 official tests pass. See [Phase 4D final status](PHASE4D_FINAL_STATUS.md). Older handoff banners below remain historical.
-
-> **AUTHORITATIVE ACCEPTED CHECKPOINT (2026-10-26): Phase 4D.3A-A Fix1.** Official [GitHub Actions run 40250751272](https://github.com/Isshhin/stridelab-development/actions/runs/40250751272) confirms **258 passed, 0 failed/skipped/flaky** (Playwright and available axe), 629/629 manifest hashes, reproducible build and protected coaching engine / 4D.1 baseline intact. Recover exact `StrideLab-4D3A-A-fix1.zip` from [private prerelease `phase4d3a-a-fix1`](https://github.com/Isshhin/stridelab-development/releases/tag/phase4d3a-a-fix1), SHA-256 `424063a8400e57eebd89012cd71b55bf38218678b78a4ee0f34206619cc81e87`. Source behavior matches original A candidate; Fix1 only corrected a toggle-keyboard test. **Next 4D.3A-B**; no automatic promotion to 4D.3B yet. Older banners below are historical and superseded. Manual Android, screen-reader, real data and professional coaching-domain checks remain open.
-
-> **LATEST (2026-10-26): Phase 4D.3A-A Fix1 package ready, CI PENDING.** Original candidate [run 40249781541](https://github.com/Isshhin/stridelab-development/actions/runs/40249781541) was 257/258; last test's Enter toggle expected wrong state. Fix1 changes test/docs only. Exact ZIP `StrideLab-4D3A-A-fix1.zip`, SHA-256 `424063a8400e57eebd89012cd71b55bf38218678b78a4ee0f34206619cc81e87`, 629/629 authoritative manifest, same app HTML and protected engine. Upload to private prerelease `phase4d3a-a-fix1` and run [official 258-test Fix1 gate](https://github.com/Isshhin/stridelab-development/actions/workflows/phase4d3a-a-fix1-playwright.yml). **Do not promote before passing CI.** WS5-D (253/253) remains last verified baseline. See [4D.3A status](PHASE4D3A_STATUS.md). Prior banners below are historical.
-
-> **Latest in-progress work (2026-10-26): Phase 4D.3A-A Running Intelligence foundation candidate packaged, NOT ACCEPTED.** The last accepted source remains WS5-D ([253/253 GitHub Actions run 40247262671](https://github.com/Isshhin/stridelab-development/actions/runs/40247262671)). Download exact `StrideLab-4D3A-A-candidate.zip` (SHA-256 `fd347ff2cc904750d6ed3cb9e4d4d88b1f6316e725477d74fe82afd56ec1862c`, manifest 626/626) from conversation artifacts or later private GitHub release tagged `phase4d3a-a`. New dynamic demo run insights and direct chart split taps added; five tests, official 258-case suite pending. Run [Phase 4D.3A-A Actions](https://github.com/Isshhin/stridelab-development/actions/workflows/phase4d3a-a-playwright.yml) **after uploading the release asset**. Keep protected engine and Phase 4D.1 baseline untouched. Next phases 4D.3B Link Run, 4D.3C comparison, then private Android before Engine 2.0. See [Phase 4D.3A status](PHASE4D3A_STATUS.md) and [archive](../archive/PHASE4D3A_ARCHIVE_INDEX.md). Older handoff banners are historical.
-
-> **AUTHORITATIVE HANDOFF (2026-10-26): Phase 4D.2 Workstream 5 has passed final automated acceptance.** Official [WS5-D GitHub Actions run 40247262671](https://github.com/Isshhin/stridelab-development/actions/runs/40247262671): **253 passed, 0 failed/skipped/flaky**, available axe suites green; 607/607 manifest, deterministic build and protected hashes verified. Recover exact 20,115,804-byte `StrideLab-WS5-D-candidate.zip` from the [private release](https://github.com/Isshhin/stridelab-development/releases/tag/ws5-d-candidate), SHA-256 `451d53c3387362b9dd17f61457197373fdd66a8399fd8c58e59d60c267de2271`. **Next: Phase 4D.3A Running Intelligence 3.0.** Manual Android, screen-reader and expert exercise-content review remain open. Any contrary historical banners below are superseded; do not reopen WS5 without a confirmed regression.
-
 # StrideLab Handoff / Session Recovery
 
-## Current accepted source
+Updated: 3 November 2026
 
-**StrideLab-WS3-E.zip** is the authoritative current Phase 4D.2 WS3 candidate, **not** historical A, B, C or D. Its recovery ZIP is a separate supplemental archive, not a replacement. The archive ZIP files are **not yet uploaded to this repository** unless/until present under `archives/`.
+This is the current high-level recovery document for active development.
 
-- WS3-E ZIP SHA-256: `4afde2aa145031244a73926bc24db34b9571065c27a1411e3a9bd731f4d78671`
-- Candidate HTML SHA-256: `d5dd7a8da04646995d3e3f1b78f171207115cbf095b9cc7436b8b92bb1d657ec`
-- Protected coaching engine raw script SHA-256: `3ae9226a19718925d5a0c59771d13ed85860b4f4cd694490f0cbf668cfb3a3f2`
-- Protected 4D.1 HTML SHA-256: `cffaad8e9856d988f864cb09143a63aeac573b453aa0978abcded3dfb054bd9d`
+For product direction, read [PRODUCT_VISION.md](PRODUCT_VISION.md).
 
-Reported accepted WS3-E checks: official Playwright 221/221, all accessible axe checks without automatic violations; manual contrast and physical-device testing remain outstanding.
+For execution order, read [ROADMAP.md](ROADMAP.md).
 
-## Parallel work assignments
+Historical Phase 4D/4E status files remain valid as historical evidence, but they are no longer the current development roadmap.
 
-- Claude: WS4 (mobile control consistency/accessibility) and then WS5 (Workout Library), as separate recoverable checkpoints.
-- ChatGPT: keep archive manifests and GitHub docs current, then integration-ready 4D.3A activity changes separately after checking latest source.
+## Current product direction
 
-## Rules for every session
+**StrideLab**
 
-1. Read this handoff and current roadmap first; verify input SHA-256 and inspect original ZIP integrity.
-2. Never edit protected 4D.1 baseline or raw coaching-engine script. Respect protected hash checks.
-3. Work in a separate branch/candidate; do not directly overwrite original `Isshhin/stride-lab`.
-4. Implement, **deliver an actual recoverable WIP checkpoint**, then test broadly, fix and deliver the final checkpoint.
-5. Include HTML and assets, scripts, test results, SHA-256 manifest, report, screenshot evidence and updated handoff.
-6. Distinguish local tests vs actual Android, and historical reported results vs newly executed tests. Preserve meaningful assertions.
-7. Avoid storing API keys, `.env`, keystores, personal athlete exports or secrets in GitHub, even if private.
-8. No public release, APK release, Engine 2.0 overhaul, or codebase integration unless expressly assigned.
+**Train the whole athlete.**
+
+Current mission:
+
+> Help athletes improve performance through adaptive, evidence-based training across endurance, strength, movement, conditioning, and recovery.
+
+The current milestone is a private November 2026 dogfood build.
+
+Do not treat the current milestone as a public release.
+
+## Current development priorities
+
+Priority order:
+
+1. finish Trackside 3.0 rendered parity
+2. finish Engine 1.5 release reliability
+3. integrate Trackside and Engine 1.5
+4. verify the complete training loop
+5. dogfood the app with real training
+6. fix failures found through actual use
+7. increase Engine 2.0 research effort once the daily-use path is stable
+
+Do not expand scope ahead of this sequence without a concrete release reason.
+
+## Active Trackside work
+
+Branch:
+
+`design/trackside3-figma-parity-no-build-20261103`
+
+Last inspected head:
+
+`0dee06b676a0aca8545843429357f0b7cfe0e1b5`
+
+Latest known state:
+
+- native plan-builder reconstruction substantially implemented
+- Strength Setup implemented
+- Calisthenics weekly setup implemented
+- equipment selection implemented
+- availability interaction fixes implemented
+- screenshot and responsive QA infrastructure added
+- UI foundation checks at `0bfa1c1` passed
+- emulator smoke tests at `0bfa1c1` passed
+- exact-head responsive QA at `0dee06b` was still running at this handoff
+
+Next Trackside gate:
+
+**inspect the rendered Android screenshots and compare them against the approved Figma before making visual acceptance claims.**
+
+Required viewport checks:
+
+- 360 × 800dp at 100%
+- 412 × 950dp at 100%
+- 360 × 800dp at 130%
+- 412 × 950dp at 150%
+
+Use 100% captures for Figma parity.
+
+Use larger-font captures for accessibility/layout robustness.
+
+Do not declare a screen 1:1 from Compose source inspection alone.
+
+## Active Engine 1.5 work
+
+Branch:
+
+`feature/engine15-versioned-foundation-20261103`
+
+Draft PR:
+
+[PR #37](https://github.com/Isshhin/stridelab-development/pull/37)
+
+Last inspected head:
+
+`1d673bb5d63acc118dde6f24d666490a1bb1779a`
+
+Known reliable checkpoint before the current head:
+
+`5979b7af38cea88b6694cc85241e8e3d0d0a7f31`
+
+At `5979b7a`:
+
+- main Engine 1.5 verification passed
+- Android device verification passed
+
+Newer commits added test-first availability-reconciliation work.
+
+The current head `1d673bb` implements safe deterministic relocation of only sessions affected by availability changes.
+
+At this handoff, exact-head verification for `1d673bb` was still running.
+
+Do not call that availability batch complete until both the normal and Android device workflows are green.
+
+Engine 1.5 must remain:
+
+- draft
+- unmerged
+- disabled in Trackside until integration is explicitly tested
+
+Do not turn Engine 1.5 into Engine 2.0.
+
+## Active Engine 2.0 research
+
+Branch:
+
+`research/runna-garmin-coaching-20261102`
+
+Draft PR:
+
+[PR #34](https://github.com/Isshhin/stridelab-development/pull/34)
+
+Last inspected head:
+
+`b5e82ff6f1912576167e075dee73e0fb2ee9a7d4`
+
+Latest inspected research verification was green.
+
+The research branch studies coaching behavior and validation separately from the release engine.
+
+Do not move research behavior into production merely because a research test passes.
+
+## Trackside source of truth
+
+Approved Figma:
+
+https://www.figma.com/design/v73TsYo6gKxUoiUock2sSE
+
+During the current reconstruction:
+
+- use Figma as the visual source of truth
+- obtain rendered Android screenshots
+- compare source and implementation
+- fix P0/P1/P2 mismatches
+- rerender
+- verify again
+
+The current Figma is not assumed to be the permanent final design.
+
+Future redesign should be informed by dogfooding.
+
+## Engine 1.5 release rules
+
+Before marking a major Engine 1.5 batch complete:
+
+1. verify the exact remote head
+2. inspect all relevant CI
+3. run/inspect JVM and Android unit verification
+4. run/inspect device verification when persistence/runtime behavior changes
+5. preserve Engine 1.0 compatibility
+6. fail closed on stale or invalid state
+7. keep PR #37 draft/unmerged until integration readiness is explicitly reviewed
+
+Do not weaken safety tests to increase scheduling success.
+
+## End-to-end dogfood target
+
+The minimum trustworthy workflow is:
+
+1. open app
+2. profile/configure athlete
+3. choose goals
+4. choose availability
+5. generate plan
+6. review plan
+7. edit placements
+8. save
+9. open Today
+10. perform/import workout
+11. connect completed activity to planned work
+12. update future plan safely
+13. close/reopen offline
+14. find the same trustworthy state
+
+If that loop fails, fix it before expanding product scope.
+
+## Development rules
+
+- Verify branch heads before continuing.
+- Inspect newer commits instead of assuming a handoff is current.
+- Do not mix Trackside, Engine 1.5, and Engine 2.0 changes in one branch.
+- Do not create a release APK unless explicitly assigned.
+- Do not claim CI, device, or visual verification without inspecting the evidence.
+- Preserve user edits, completed training, and session identity.
+- Avoid silent data/session loss.
+- Prefer root-cause debugging over speculative fixes.
+- Keep canonical docs current when a milestone materially changes.
+
+## Historical recovery documents
+
+Older development checkpoints are preserved separately.
+
+See:
+
+- [PHASE4D3A_STATUS.md](PHASE4D3A_STATUS.md)
+- [PHASE4D_FINAL_STATUS.md](PHASE4D_FINAL_STATUS.md)
+- [PHASE4E_STATUS.md](PHASE4E_STATUS.md)
+- [PHASE4E-FIX1-CHECKPOINT.md](PHASE4E-FIX1-CHECKPOINT.md)
+- [WS4_STATUS.md](WS4_STATUS.md)
+- [WS5_STATUS.md](WS5_STATUS.md)
+
+Do not use historical phase banners as the current roadmap when this handoff and ROADMAP.md provide newer direction.
