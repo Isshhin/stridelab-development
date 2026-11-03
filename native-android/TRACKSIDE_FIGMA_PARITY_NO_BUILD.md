@@ -50,6 +50,8 @@ The user's **actual Android Studio screenshots** showed (1) a generic "Goals & a
   - `614:412` Week Preview — proposed sessions are **not fabricated** before generation; afterward the saved draft is displayed using actual workout dates and a week pager, with manual approval
 - The existing Engine 1.0 policy and detailed advanced configuration remain accessible as a legacy fallback; the visual work does **not** substitute Engine 2.0 or change the stored PlanRequest model.
 - The five-tab bottom bar is now hidden on the builder route, matching Figma's fixed full-screen bottom CTA.
+- Approved `614:195` Running Setup now appears between ability and plan dates, including weekly run count, E/Q/L day preferences and preferred quality type. Quality type is explicitly advisory because Engine 1 does not persist that choice as an executable policy. Session pinning is deferred until an actual draft exists.
+- The before/after dates in pre-generation Week Preview now use the edited start/weeks/session inputs, and generated drafts preserve all-week navigation before user approval.
 - The previous `activity/{id}` route put the map, details and tabs as sequential lazy-list items. Scrolling hid the map, creating the user's rejected Activity screenshot. The new `TracksideFigmaActivityDetailSurface.kt` renders a fixed 425dp map layer and an independently scrolling overlapping glass sheet at its approved initial snap. It preserves two approved variants (`551:235`, `551:365`), recorded splits/charts, data provenance and the link to planned runs.
 - A Figma-isolated **illustrative route vector** is shown when GPS data is absent, explicitly labeled **NOT A GPS RECORDING**. When real points are available, only actual recorded samples are plotted, labeled as a schematic trace rather than a geographical tile map.
 
@@ -62,3 +64,11 @@ The user's **actual Android Studio screenshots** showed (1) a generic "Goals & a
 - Keep the design branch isolated from draft PR #36, production/athlete data, Engine 2.0 and any auto-building branch. No CI run / APK compilation was initiated for this design correction.
 
 **Release gate:** Pull this branch and compare *newly rendered* Android screen captures against the exact approved Figma frames at 412×950 and 360×800; then close visible discrepancies. The user's earlier request to avoid further APK compilation by the assistant remains in effect.
+
+### Additional source checks (latest correction)
+
+- Latest source checkpoint: `5e1f2c6f4875a66cffc853c06835e1bb219ae984` before this documentation commit.
+- Nine key Kotlin source/test files underwent basic bracket and drawable-reference scans: **zero issues found**. These checks are not Kotlin compilation.
+- The reconstruction branch has **zero GitHub Actions workflow runs**; the assistant has not compiled or packaged an APK.
+- The newer screens still need comparison with approved Figma at matching viewport sizes. User's rejected screenshots predate these builder/map-sheet corrections.
+- Remaining fidelity gaps: running training preferences only represent current engine contracts; advanced multi-discipline setup still has a legacy fallback, preview has no fabricated workouts before generation, and atmospheric Activity uses a clearly labeled illustrative route until source GPS is available. The approved builder uses Roboto; atmospheric Activity uses Inter, which still requires exact font metrics.
