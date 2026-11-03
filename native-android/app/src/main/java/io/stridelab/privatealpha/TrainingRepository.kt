@@ -194,7 +194,12 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     suspend fun moveSession(id:String,revision:Int,sessionId:String,date:java.time.LocalDate)=changePlan(id,revision) { plan->PlanOperations.move(plan,sessionId,date,mutable.value.plans) }
     suspend fun recordWorkout(id:String,revision:Int,sessionId:String,log:WorkoutLog,complete:Boolean)=changePlan(id,revision) { PlanOperations.record(it,sessionId,log,complete) }
     suspend fun markMissed(id:String,revision:Int,sessionId:String,reason:String,skipped:Boolean)=changePlan(id,revision) { PlanOperations.missed(it,sessionId,reason,skipped) }
-    suspend fun acceptSuggestion(id:String,revision:Int,sessionId:String)=changePlan(id,revision) { PlanOperations.acceptSuggestion(it,sessionId) }
+    suspend fun acceptSuggestion(id:String,revision:Int,sessionId:String)=changePlan(id,revision) { plan ->
+        Engine15Feedback.requireCurrentPendingAcceptance(
+            plan,sessionId,java.time.LocalDate.now(),mutable.value.plans
+        )
+        PlanOperations.acceptSuggestion(plan,sessionId)
+    }
 
     /**
      * Pure Engine 1.5 preview: no persistence, plan mutation or network access.
