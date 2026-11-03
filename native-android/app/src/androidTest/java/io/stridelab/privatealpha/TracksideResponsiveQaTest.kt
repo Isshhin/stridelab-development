@@ -102,6 +102,65 @@ class TracksideResponsiveQaTest {
         }
     }
 
+    @Test fun approvedBuilderStrengthGoalAndSetupRenderAtCurrentViewport() {
+        val state=TrainingState(initializing=false,account="synthetic-responsive")
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    PlanBuilder(state=state,actions=PlanActions(),
+                        discipline="str",onDone={},onSignIn={},
+                        onPreview={_,_->})
+                }
+            }
+        }
+        compose.onNodeWithTag("figma-builder-frame").assertExists()
+        screenshot("builder-disciplines")
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-strength-goal-1").assertExists()
+        screenshot("builder-strength-goal")
+        compose.onNodeWithTag("builder-strength-goal-1").performClick()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-strength-weekly").assertExists()
+        compose.onNodeWithTag("builder-strength-split").assertExists()
+        screenshot("builder-strength-setup")
+        compose.onNodeWithTag("builder-strength-customize").performClick()
+        compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
+        screenshot("builder-strength-unassigned")
+        compose.onNodeWithTag("builder-strength-weekday-1").performClick()
+        compose.onNodeWithTag("builder-strength-edit-schedule").performClick()
+        compose.onNodeWithTag("builder-strength-session-1").performClick()
+        compose.onNodeWithTag("builder-strength-weekday-4").performClick()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        screenshot("builder-strength-placed")
+        compose.onNodeWithTag("builder-strength-auto").performClick()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        screenshot("builder-strength-auto")
+    }
+
+    @Test fun builderAvailabilityAndDraftReviewRenderAtCurrentViewport() {
+        val state=TrainingState(initializing=false,account="synthetic-responsive")
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    PlanBuilder(state=state,actions=PlanActions(),
+                        onDone={},onSignIn={},onPreview={_,_->})
+                }
+            }
+        }
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-start-date").assertExists()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("available-day-6").assertExists()
+        screenshot("builder-availability")
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-figma-continue").assertExists()
+        screenshot("builder-draft-review")
+    }
+
     @Test fun todayHeroAtLargeFontPreservesTargetsAndVisibleAction() {
         val run = snapshot().sessions.first()
         var opened = false
