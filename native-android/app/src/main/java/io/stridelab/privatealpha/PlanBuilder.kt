@@ -53,7 +53,9 @@ import org.json.JSONObject
                 actions.approve(preview.id, preview.revision)
                 onDone()
             },
-            onOpenSession = { sessionId -> onPreview(preview.id, sessionId) }
+            onOpenSession = { sessionId -> onPreview(preview.id, sessionId) },
+            weekIndex = previewWeek,
+            onWeekChange = { previewWeek = it }
         )
         return
     }

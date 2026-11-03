@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,10 +34,13 @@ internal fun TracksideFigmaWeekReview(
     onBack: () -> Unit,
     onContinue: () -> Unit,
     onOpenSession: (String) -> Unit = {},
+    weekIndex: Int = 0,
+    onWeekChange: (Int) -> Unit = {},
     error: String? = null
 ) {
     val weekStart = (plan?.request?.start ?: request.start)
         .with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+        .plusWeeks(weekIndex.coerceIn(0, request.weeks-1).toLong())
     val weekEnd = weekStart.plusDays(6)
     val rows = plan?.sessions?.filter {
         it.date in weekStart..weekEnd
@@ -73,6 +77,24 @@ internal fun TracksideFigmaWeekReview(
             }
         }
     ) {
+        if(plan != null) {
+            Row(Modifier.fillMaxWidth().height(36.dp),
+                verticalAlignment=Alignment.CenterVertically,
+                horizontalArrangement=Arrangement.SpaceBetween) {
+                TextButton(onClick={onWeekChange(weekIndex-1)},
+                    enabled=weekIndex>0,modifier=Modifier.testTag("builder-previous-week")) {
+                    Text("‹ Previous",color=Color.White,fontSize=11.sp)
+                }
+                Text("Week ${weekIndex+1} of ${request.weeks}",fontSize=11.sp,
+                    color=Color(0xFFB6C0CA))
+                TextButton(onClick={onWeekChange(weekIndex+1)},
+                    enabled=weekIndex<request.weeks-1,
+                    modifier=Modifier.testTag("builder-next-week")) {
+                    Text("Next ›",color=Color.White,fontSize=11.sp)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
         Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(14.dp),
             color=Color(0xFF192E39),
             border=BorderStroke(1.dp,Color(0xFF4F6E7E))) {
