@@ -33,3 +33,23 @@ All preview dates, distance and RPE samples are illustrative and private to Comp
 6. After source integration, rerun all pure-JVM, full Gradle, Android 35 offline SQLite/device tests, and Trackside responsive/legacy upgrade UI tests; then private-device acceptance after authorization.
 
 **Status:** PR #38 draft and unmerged. PRs #36 and #37 remain draft/unmerged and unchanged. No APK assembled and no app entrypoint changed. Record the exact-head GitHub workflow result separately; do not assume a past green run applies to a later edited commit.
+
+
+## E3.1 — 360px responsive-width and enlarged-font review (3 November 2026)
+
+Created **five additional editable, separate Figma study frames**, without modifying the previously approved page 35 or the initial 412px review page 37:
+
+- [360px study gallery](https://www.figma.com/design/v73TsYo6gKxUoiUock2sSE?node-id=840-2)
+- [Preview / 360px](https://www.figma.com/design/v73TsYo6gKxUoiUock2sSE?node-id=840-3)
+- [Pending Accept / Dismiss / 360px](https://www.figma.com/design/v73TsYo6gKxUoiUock2sSE?node-id=840-67)
+- [Accepted time only / 360px](https://www.figma.com/design/v73TsYo6gKxUoiUock2sSE?node-id=840-131)
+- [Accepted rest / 360px](https://www.figma.com/design/v73TsYo6gKxUoiUock2sSE?node-id=840-188)
+- [Stale evidence / 360px](https://www.figma.com/design/v73TsYo6gKxUoiUock2sSE?node-id=840-245)
+
+Source originals are `834:5`, `834:69`, `834:133`, `834:190`, `834:247` respectively. These are editable **360×950px WIDTH study artboards**, not assertions about 360×800px viewport behavior. Narrowed content width to 326px, cards to 326px, floating nav to 336px, reflowed text and adjusted metric rows/buttons. Rendered and visually inspected all five screenshots. No visible horizontal clipping or collisions in these Figma artboards.
+
+Added paired `@Preview(widthDp = 360, heightDp = 800, fontScale = 1.3f)` annotations to the five existing Compose preview functions, plus a sixth 360×800 / 1.3× preview showing a **pending 0-minute rest** that still requires explicit approval. The existing 412×950 native preview annotations remain. The new preview annotations are compile-only test inputs, not visible application destinations.
+
+**Verification still required:** CI success on the exact Kotlin preview-annotation commit; actual Android preview render/screenshot comparison on 412dp and 360dp; fontScale 1.3× scroll-to-actions, 48dp touch targets, status accessibility and fixed navigation clearance on a device. The Figma 360×950 screenshots cannot establish Android screenshot parity or behavior at 360×800 and enlarged font settings. No APK or emulator invoked for this review.
+
+**Status:** design width study completed; **visual approval still pending**. PR #38 stays draft/unmerged, and the review screen is still unconnected to production navigation or Engine 1.5 runtime.
