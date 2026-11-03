@@ -1,3 +1,35 @@
+# CURRENT — Batch 8B research policy validation
+
+**Verified CI:** [B0/H1 comparison run 41582744370](https://github.com/Isshhin/stridelab-development/actions/runs/41582744370) reported **55 structural PASS, 0 FAIL, 3 BLOCKED**, and **14 scenarios where B0 and H1 propose different actions**. **21 negative-control/harness/revision tests passed.** These are new, independent *research prototype* policies, not the original local Athlete Simulation Lab or Android Engine 2.0.
+
+**Read the scope and limitations:** [Batch 8B report](../../docs/research/batch-8b-frozen-B0-H1-comparison-and-revision-validation-2026-11-03.md).
+
+## Executable research modules
+
+| Module | Purpose |
+| --- | --- |
+| [policy_candidates.py](policy_candidates.py) | Newly written distance/capacity B0 and type-aware conservative H1 selection candidates; no proprietary coefficients or measured performance forecast |
+| [frozen_policy_cases.json](frozen_policy_cases.json) | 58 frozen synthetic paired inputs and 157 independent structural expectations |
+| [policy_runner.py](policy_runner.py) | Executes B0 and H1 on both sides of each pair; produces separate PASS / FAIL / BLOCKED, comparison actions and SHA256 provenance |
+| [test_policy_runner.py](test_policy_runner.py) | Registry integrity and negative-control mutations for capacity violations/unapproved writes |
+| [revision_ledger.py](revision_ledger.py) and [test_revision_ledger.py](test_revision_ledger.py) | Pure in-memory explicit proposal/approve/reject/rollback with optimistic version and non-destructive workout history |
+| [contract_model.py](contract_model.py), [checks.py](checks.py), [runner.py](runner.py) | Prior Batch 8A *toy* contract suite, still independently run and reported separately |
+| [GitHub Actions workflow](../../.github/workflows/research-engine2-contract-validation.yml) | Python 3.12 cloud execution and two JSON artifact reports |
+
+Run without external dependencies:
+
+```bash
+python -m unittest discover -s research/validation -p 'test_*.py' -v
+python research/validation/runner.py --output research-validation.json
+python research/validation/policy_runner.py --output research-policy-comparison.json
+```
+
+**Important status distinction:** `research-validation.json` says actual pre-existing engine integration is blocked. `research-policy-comparison.json` evaluates **newly written** B0/H1 candidates and is not an execution of the user's local Python lab. Neither gives clinical injury safety or demonstrated running improvements; the three predictive-difficulty cases remain blocked. All plan changes are proposals and require explicit approval. The ledger is in-memory only, not validated SQLite/Android transactional persistence.
+
+---
+
+## Historical Batch 8A toy-harness documentation (retained for provenance)
+
 # StrideLab Engine 2.0 — Isolated Cloud Validation Harness (v0.1)
 
 **Research only. Not a production coaching engine.** This package runs on GitHub-hosted Ubuntu using Python 3.12 and the standard library. It does not depend on or modify a user PC, Android app, live athlete data, or the independent local Python Athlete Simulation Lab.
