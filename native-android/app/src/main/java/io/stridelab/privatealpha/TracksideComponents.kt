@@ -70,6 +70,23 @@ internal fun TracksideScreenHeader(
     onProfileClick: () -> Unit,
     dense: Boolean = false
 ) {
+    if (eyebrow == "ACTIVITY DETAIL") return
+    if (title == "Today") {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(eyebrow, style = MaterialTheme.typography.bodySmall,
+                color = TracksidePalette.textMuted)
+            Text("Today", fontSize = 29.sp, fontWeight = FontWeight.Bold,
+                color = TracksidePalette.text,
+                modifier = Modifier.testTag("screen-title").semantics { heading() })
+        }
+        return
+    }
+    if (title == "Training" || title == "Manage plan") {
+        Text(title, fontSize = 29.sp, lineHeight = 35.sp, fontWeight = FontWeight.Bold,
+            color = TracksidePalette.text,
+            modifier = Modifier.fillMaxWidth().testTag("screen-title").semantics { heading() })
+        return
+    }
     Column(Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),

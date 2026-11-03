@@ -145,63 +145,12 @@ private fun NavHostController.openActivity(id: String) {
     CompositionLocalProvider(LocalProfileAction provides { nav.openTabRoot("settings") }) {
     Scaffold(
         bottomBar = {
-            NavigationBar(
-                containerColor = Color.Transparent,
-                tonalElevation = 0.dp,
-                modifier = Modifier
+            Box(
+                Modifier.fillMaxWidth()
                     .navigationBarsPadding()
                     .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .clip(RoundedCornerShape(32.dp))
-                    .background(Brush.horizontalGradient(listOf(
-                        TracksidePalette.surfaceRaised,
-                        TracksidePalette.surface,
-                        TracksidePalette.surfaceLow
-                    )))
-                    .border(BorderStroke(1.dp, TracksidePalette.outline), RoundedCornerShape(32.dp))
-                    .height(72.dp),
-                windowInsets = WindowInsets(0, 0, 0, 0)
             ) {
-                // Keep existing route names and test tags during the UI migration.
-                // "More" reuses the existing Settings page; no data route is removed.
-                listOf(
-                    "home" to "Today",
-                    "training" to "Training",
-                    "activities" to "Activity",
-                    "library" to "Library",
-                    "settings" to "More"
-                ).forEach { (path, label) ->
-                    NavigationBarItem(
-                        selected = route == path ||
-                            (path == "activities" && route == "activity/{id}") ||
-                            (path == "training" && route in setOf("builder/{discipline}", "workout/{planId}/{sessionId}", "manage/{planId}/{date}")) ||
-                            (path == "library" && route == "practice/{key}"),
-                        onClick = { nav.openTabRoot(path) },
-                        icon = {
-                            // Original Figma 732:99–113 vector geometry, native resource assets.
-                            val iconId = when (path) {
-                                "home" -> R.drawable.trackside_figma_home
-                                "training" -> R.drawable.trackside_figma_calendar
-                                "activities" -> R.drawable.trackside_figma_activity
-                                "library" -> R.drawable.trackside_figma_library
-                                else -> R.drawable.trackside_figma_more
-                            }
-                            Icon(painter = painterResource(id = iconId),
-                                contentDescription = null, modifier = Modifier.size(19.dp))
-                        },
-                        // At 1.3× text, five tab labels no longer fit a 360dp bar.
-                        // Keep icon semantics labels and hide the visual text sooner.
-                        label = if (LocalDensity.current.fontScale >= 1.3f) null
-                            else ({ Text(label, fontWeight = FontWeight.SemiBold, maxLines = 1) }),
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = TracksidePalette.red,
-                            selectedTextColor = TracksidePalette.red,
-                            unselectedIconColor = TracksidePalette.textMuted,
-                            unselectedTextColor = TracksidePalette.textMuted,
-                            indicatorColor = Color(0xFF492637)
-                        ),
-                        modifier = Modifier.testTag("nav-$path").semantics { contentDescription = label }
-                    )
-                }
+                TracksideFloatingNavigation(route) { path -> nav.openTabRoot(path) }
             }
         }
     ) { padding ->
@@ -296,6 +245,7 @@ private fun NavHostController.openActivity(id: String) {
                 composable("activity/{id}") { detail ->
                     val activity = state.activities.firstOrNull { it.id == detail.arguments?.getString("id") }
                     var automaticDetailAttempted by rememberSaveable(activity?.id) { mutableStateOf(false) }
+                    var activityTab by rememberSaveable(activity?.id) { mutableIntStateOf(0) }
                     LaunchedEffect(activity?.id, online, state.busy, state.needsSignIn) {
                         // Fetch a real recorded route once when opening a running detail.
                         // Offline cache remains available; no invented route or retry loop.
@@ -310,28 +260,52 @@ private fun NavHostController.openActivity(id: String) {
                         item { TextButton(onClick = { nav.popBackStack() }) { Text("Back to history") } }
                         if(activity == null) item { EmptyState("No activity available", "This activity is not in the current account’s local cache.") }
                         else {
-                            item { Text(activity.dateLabel, style = MaterialTheme.typography.bodyLarge); Text("${activity.type} · ${activity.sourceLabel}", color = MaterialTheme.colorScheme.secondary) }
-                            item { TracksideSectionHeader("Recorded metrics") }
-                            item { MetricPair(
-                                if(activity.distanceM != null || activity.supportsPace) "Distance" to activity.distanceLabel else null,
-                                "Elapsed time" to activity.durationLabel) }
-                            if(activity.supportsPace) item { MetricPair(
-                                "Moving time" to (activity.movingTimeS?.let { ActivityRecord.duration(it) } ?: "Not recorded"),
-                                "Average pace" to activity.paceLabel) }
-                            item { MetricPair(
-                                "Average heart rate" to (activity.averageHr?.let { "${it.roundToInt()} bpm" } ?: "Not recorded"),
-                                "Maximum heart rate" to (activity.maximumHr?.let { "${it.roundToInt()} bpm" } ?: "Not recorded")) }
-                            if(activity.elevationM != null || activity.supportsPace) item { Metric("Elevation gain",activity.elevationM?.let { "${it.roundToInt()} m" } ?: "Not recorded") }
-                            if(DashboardSummary.isRun(activity)) item { ActivityPlanLink(state,activity,actions.planning) }
-                            item { OutlinedButton(onClick = { actions.loadDetail(activity.id) }, enabled = online && !state.busy && !state.needsSignIn, modifier = Modifier.fillMaxWidth()) { Text(if(state.details.containsKey(activity.id)) "Refresh recorded streams" else "Load recorded streams & laps") } }
-                            state.details[activity.id]?.let { recorded -> item { RecordedActivityDetail(recorded,activity.supportsPace) } }
-                            item { SignalCard {
-                                Text(if(activity.supportsPace) "RUNNING INTELLIGENCE" else "SESSION CONTEXT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                                Text(ActivityIntelligence.narrative(activity, state.activities), style = MaterialTheme.typography.bodyLarge)
-                                val comparison = ActivityIntelligence.comparison(activity, state.activities)
-                                if(comparison != null) Text("Based on cached source summaries · ${comparison.count} earlier runs · preceding 90 days · distance ±10%", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            } }
-                            item { Text("Values come from the activity source and use metric units. Missing metrics are shown as not recorded. Load recorded streams and laps when online. Availability depends on your source; summary metrics cannot reconstruct missing routes or charts.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                            item { TracksideParityActivityOverview(activity) }
+                            item { TracksideParityActivityTabs(activityTab) { activityTab = it } }
+                            if (activityTab == 0) {
+                                item { MetricPair(
+                                    "Elapsed time" to activity.durationLabel,
+                                    "Average heart rate" to
+                                        (activity.averageHr?.let { it.roundToInt().toString() + " bpm" } ?: "Not recorded")
+                                ) }
+                                if (activity.elevationM != null) item {
+                                    Metric("Elevation gain",
+                                        activity.elevationM.roundToInt().toString() + " m")
+                                }
+                                if (DashboardSummary.isRun(activity)) item {
+                                    ActivityPlanLink(state, activity, actions.planning)
+                                }
+                            }
+                            item {
+                                OutlinedButton(
+                                    onClick = { actions.loadDetail(activity.id) },
+                                    enabled = online && !state.busy && !state.needsSignIn,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(if (state.details.containsKey(activity.id))
+                                        "Refresh recorded streams" else "Load recorded streams & laps")
+                                }
+                            }
+                            if (activityTab == 0) {
+                                state.details[activity.id]?.let { recorded ->
+                                    item { RecordedActivityDetail(recorded, activity.supportsPace) }
+                                }
+                                item { TracksideParityActivityHighlights(activity, state.activities) }
+                            } else if (activityTab == 1) {
+                                item { TracksideParityActivityLaps(state.details[activity.id]) }
+                            } else {
+                                state.details[activity.id]?.let { recorded ->
+                                    item { RecordedActivityDetail(recorded, activity.supportsPace) }
+                                } ?: item {
+                                    Text("Recorded charts are not cached for this activity.",
+                                        color = TracksidePalette.textMuted)
+                                }
+                            }
+                            item {
+                                Text("Source-recorded metrics only. Missing GPS, splits, pace and heart-rate samples are never reconstructed or inferred.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TracksidePalette.textMuted)
+                            }
                         }
                     }
                 }
