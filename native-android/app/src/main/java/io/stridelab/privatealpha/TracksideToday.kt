@@ -44,6 +44,10 @@ internal fun TracksideTodayHero(session: PlannedSession, onOpen: () -> Unit) {
         LocalDate.now().plusDays(1) -> "Tomorrow"
         else -> session.date.format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.getDefault()))
     }
+    if (running) {
+        TracksideApprovedRunningHero(session, dateLabel, onOpen)
+        return
+    }
     Surface(
         onClick = onOpen,
         modifier = Modifier.fillMaxWidth().testTag("today-hero"),
