@@ -224,6 +224,46 @@ class Engine15FeedbackRepositoryTest {
         assertEquals(initial, repository.state.value.plans.single { it.id == initial.id })
     }
 
+    @Test fun missedReportRequiresExplicitReviewAndAcceptedTimeOnlyTargetReopensOffline() = runBlocking {
+        assertTrue(repository.signIn("engine15@example.invalid", "fixture"))
+        assertTrue(repository.generatePlan(request, fixtureEngine))
+        var plan = repository.state.value.plans.single()
+        assertTrue(repository.approvePlan(plan.id, plan.revision))
+        plan = repository.state.value.plans.single()
+
+        assertTrue(repository.markMissed(plan.id, plan.revision, "observed-run", "Fatigue", false))
+        plan = repository.state.value.plans.single()
+        assertEquals("missed", plan.sessions.first().status)
+        assertNull("No legacy auto-stage on Engine 1.5", plan.sessions.last().suggestion)
+        assertEquals(60, plan.sessions.last().effectiveMinutes)
+        val proposal = repository.previewEngine15Adjustments(plan.id, today).single()
+        assertEquals(42, proposal.suggestedMinutes)
+
+        transport.offline = true
+        assertTrue(repository.stageEngine15Adjustment(plan.id, plan.revision, proposal, today))
+        plan = repository.state.value.plans.single()
+        val pending = Engine15SessionPresentation.forSession(plan, "future-run")
+        assertEquals(Engine15SessionPresentation.State.PENDING_REVIEW, pending.state)
+        assertEquals(60, pending.currentMinutes)
+        assertEquals(8.0, pending.currentDistanceTargetKm!!, 0.0)
+
+        assertTrue(repository.acceptSuggestion(plan.id, plan.revision, "future-run"))
+        plan = repository.state.value.plans.single()
+        val approved = Engine15SessionPresentation.forSession(plan, "future-run")
+        assertEquals(Engine15SessionPresentation.State.ACCEPTED_TIME_ONLY, approved.state)
+        assertEquals(42, approved.currentMinutes)
+        assertNull(approved.currentDistanceTargetKm)
+        assertEquals(8.0, approved.originalDistanceKm!!, 0.0)
+        assertEquals("missed", plan.sessions.first().status)
+        assertEquals(60, plan.sessions.last().minutes)
+        assertEquals(8.0, plan.sessions.last().distanceKm!!, 0.0)
+        repository.close()
+        open()
+        assertEquals(plan, repository.state.value.plans.single())
+        assertEquals(approved,
+            Engine15SessionPresentation.forSession(repository.state.value.plans.single(), "future-run"))
+    }
+
     private inner class FixtureGateway : TrainingGateway {
         var account = owner
         var offline = false
