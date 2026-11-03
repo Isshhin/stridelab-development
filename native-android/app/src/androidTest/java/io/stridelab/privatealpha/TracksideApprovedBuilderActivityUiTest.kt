@@ -4,13 +4,14 @@ import androidx.activity.compose.setContent
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.time.Instant
 
 /** Staged UI assertions for Figma 551:580/603/796/865, 720:546,
  * 614:88/412, and 551:235. Synthetic offline data only.
- * DO NOT run Android builds while the user's APK compilation hold is active.
+ * Development verification is authorized; this suite must pass on an emulator.
  */
 class TracksideApprovedBuilderActivityUiTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
