@@ -52,7 +52,7 @@ internal fun TracksideManagePlanScreen(
     onWorkout: (String) -> Unit
 ) {
     if (plan == null || plan.status == "archived") {
-        Screen("Manage plan", "CURRENT TRAINING PLAN", compactTitle = true) {
+        Screen("Manage plan", "CURRENT TRAINING PLAN", compactTitle = true, dense = true) {
             item {
                 TextButton(onClick = onBack) { Text("‹ Back to Training") }
                 Text("This plan is no longer available here.", color = TracksidePalette.textMuted)
@@ -72,7 +72,7 @@ internal fun TracksideManagePlanScreen(
     var confirmPause by rememberSaveable(plan.id) { mutableStateOf(false) }
     var confirmArchive by rememberSaveable(plan.id) { mutableStateOf(false) }
 
-    Screen("Manage plan", "CURRENT TRAINING PLAN", compactTitle = true) {
+    Screen("Manage plan", "CURRENT TRAINING PLAN", compactTitle = true, dense = true) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween) {
@@ -85,7 +85,8 @@ internal fun TracksideManagePlanScreen(
                 }
             }
             Text(plan.name ?: plan.request.goal,
-                style = MaterialTheme.typography.titleMedium, color = TracksidePalette.text)
+                style = MaterialTheme.typography.titleSmall, color = TracksidePalette.text,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(first.format(DateTimeFormatter.ofPattern("d MMM yyyy")) + " – " +
                 last.format(DateTimeFormatter.ofPattern("d MMM yyyy")),
                 color = TracksidePalette.textMuted, style = MaterialTheme.typography.bodySmall)
@@ -153,7 +154,7 @@ internal fun TracksideManagePlanScreen(
             ) { actions.approve(plan.id, plan.revision) }
         }
         item {
-            TracksideGlassCard {
+            TracksideGlassCard(compact = true) {
                 TracksideSectionHeader("Your history stays intact")
                 Text("Completed workouts and recorded history are preserved. Any future plan change requires review.",
                     color = TracksidePalette.text, style = MaterialTheme.typography.bodyMedium)
@@ -209,7 +210,7 @@ private fun TracksidePlanWeekOverview(plan: PlanSnapshot, selected: LocalDate) {
     val week = ChronoUnit.WEEKS.between(firstMonday, nowMonday).toInt() + 1
 
     Column(Modifier.fillMaxWidth().testTag("manage-week-overview"),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        verticalArrangement = Arrangement.spacedBy(9.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Week $week of $totalCalendarWeeks",
                 style = MaterialTheme.typography.labelMedium, color = TracksidePalette.textMuted,
@@ -233,16 +234,14 @@ private fun TracksidePlanWeekOverview(plan: PlanSnapshot, selected: LocalDate) {
                 }
             }
         }
-        TracksideGlassCard {
-            TracksideSectionHeader("Your training week")
-            Text("$count sessions · $trainingDays days", style = MaterialTheme.typography.bodySmall,
-                color = TracksidePalette.textMuted)
-            Row(Modifier.fillMaxWidth().height(108.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        TracksideGlassCard(compact = true) {
+            TracksideSectionHeader("Your training week", detail = "$count sessions · $trainingDays days")
+            Row(Modifier.fillMaxWidth().height(96.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 days.forEach { day ->
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Column(Modifier.fillMaxWidth().height(84.dp), verticalArrangement = Arrangement.Bottom) {
+                        Column(Modifier.fillMaxWidth().height(72.dp), verticalArrangement = Arrangement.Bottom) {
                             day.byDiscipline.reversed().forEach { (discipline, minutes) ->
-                                val height = (minutes.toFloat() / high * 80f).coerceAtLeast(3f)
+                                val height = (minutes.toFloat() / high * 68f).coerceAtLeast(3f)
                                 Box(Modifier.fillMaxWidth().height(height.dp)
                                     .background(tracksideDisciplineColor(discipline), RoundedCornerShape(5.dp)))
                             }

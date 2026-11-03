@@ -219,7 +219,7 @@ private fun NavHostController.openActivity(id: String) {
                         in 12..17 -> "Good afternoon"
                         else -> "Good evening"
                     }
-                    Screen("Today", greeting) {
+                    Screen("Today", greeting, dense = true) {
                         if(state.initializing) item { Text("Opening your saved training…") }
                         else if(state.account == null) item {
                             EmptyState("Start with your history", "Sign in to synchronize your activities. Saved history is available offline.")
@@ -418,10 +418,13 @@ private fun NavHostController.openActivity(id: String) {
 
 internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
 
-@Composable internal fun Screen(title: String, eyebrow: String, compactTitle: Boolean = false, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+@Composable internal fun Screen(title: String, eyebrow: String, compactTitle: Boolean = false, dense: Boolean = false, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-        LazyColumn(Modifier.widthIn(max = 760.dp).fillMaxSize().testTag("screen").semantics { paneTitle = title }, contentPadding = PaddingValues(start = 22.dp, end = 22.dp, top = 24.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            item { TracksideScreenHeader(title, eyebrow, compactTitle, LocalProfileAction.current) }
+        val horizontal = if (dense) 18.dp else 22.dp
+        val top = if (dense) 12.dp else 24.dp
+        val gap = if (dense) 12.dp else 18.dp
+        LazyColumn(Modifier.widthIn(max = 760.dp).fillMaxSize().testTag("screen").semantics { paneTitle = title }, contentPadding = PaddingValues(start = horizontal, end = horizontal, top = top, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(gap)) {
+            item { TracksideScreenHeader(title, eyebrow, compactTitle, LocalProfileAction.current, dense = dense) }
             content()
         }
     }

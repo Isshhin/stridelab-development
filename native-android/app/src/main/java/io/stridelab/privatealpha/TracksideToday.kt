@@ -54,8 +54,8 @@ internal fun TracksideTodayHero(session: PlannedSession, onOpen: () -> Unit) {
         Column(
             Modifier.background(
                 Brush.verticalGradient(listOf(glow, TracksidePalette.surface, TracksidePalette.surfaceLow))
-            ).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            ).padding(15.dp),
+            verticalArrangement = Arrangement.spacedBy(11.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (running) Icon(painter = painterResource(id = R.drawable.trackside_figma_run),
@@ -77,13 +77,17 @@ internal fun TracksideTodayHero(session: PlannedSession, onOpen: () -> Unit) {
             if (running) {
                 // No route is stored with a future workout; do not display the Figma demo GPS trace.
                 Box(
-                    Modifier.fillMaxWidth().height(156.dp)
+                    Modifier.fillMaxWidth().height(142.dp)
                         .background(Brush.linearGradient(listOf(Color(0xFF102A37), Color(0xFF07151F))), RoundedCornerShape(13.dp))
                         .testTag("today-route-unavailable"),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        // Decorative running glyph, not a fabricated GPS path.
+                        Icon(painter = painterResource(id = R.drawable.trackside_figma_run),
+                            contentDescription = null, tint = accent.copy(alpha = 0.55f),
+                            modifier = Modifier.size(30.dp))
                         Text("Route not recorded", color = TracksidePalette.text,
                             style = MaterialTheme.typography.titleMedium)
                         Text("A GPS route can appear after the run is recorded",
@@ -97,7 +101,7 @@ internal fun TracksideTodayHero(session: PlannedSession, onOpen: () -> Unit) {
             else session.effectiveExercises.takeIf { it.isNotEmpty() }?.size?.toString() ?: "Not set"
             val status = session.status.replace('_',' ').uppercase(Locale.getDefault())
             BoxWithConstraints(Modifier.fillMaxWidth()) {
-                if (maxWidth < 260.dp || LocalDensity.current.fontScale > 1.35f) {
+                if (maxWidth < 305.dp || LocalDensity.current.fontScale >= 1.7f) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         TodayMetric("DURATION", session.effectiveMinutes.toString() + " min")
                         TodayMetric(middleLabel, middleValue)
@@ -134,7 +138,7 @@ internal fun TracksideTodaySession(session: PlannedSession, onOpen: () -> Unit) 
         border = BorderStroke(1.dp, TracksidePalette.outline.copy(alpha = 0.6f))) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.size(9.dp).background(disciplineColor(session.discipline), RoundedCornerShape(5.dp)))
+            Box(Modifier.size(9.dp).background(tracksideDisciplineColor(session.discipline), RoundedCornerShape(5.dp)))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(session.effectiveTitle, style = MaterialTheme.typography.titleMedium, color = TracksidePalette.text,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)

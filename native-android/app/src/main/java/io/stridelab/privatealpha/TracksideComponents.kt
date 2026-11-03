@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.sp
 @Composable
 internal fun TracksideGlassCard(
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Surface(
@@ -53,8 +54,8 @@ internal fun TracksideGlassCard(
                         listOf(Color(0xFF193544), Color(0xFF101F2A))
                     )
                 )
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(if (compact) 13.dp else 18.dp),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 9.dp else 12.dp),
             content = content
         )
     }
@@ -66,7 +67,8 @@ internal fun TracksideScreenHeader(
     title: String,
     eyebrow: String,
     compactTitle: Boolean = false,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    dense: Boolean = false
 ) {
     Column(Modifier.fillMaxWidth()) {
         Row(
@@ -92,7 +94,7 @@ internal fun TracksideScreenHeader(
                     tint = TracksidePalette.text)
             }
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(if (dense) 5.dp else 12.dp))
         Text(
             text = title,
             style = if (compactTitle) MaterialTheme.typography.headlineSmall else

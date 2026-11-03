@@ -84,7 +84,7 @@ internal fun TracksideTrainingWeekChart(
         .filter { it.second > 0 }
 
     Column(Modifier.fillMaxWidth().testTag("training-week-chart"),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween) {
             TextButton(
@@ -148,7 +148,7 @@ internal fun TracksideTrainingWeekChart(
             val compact = maxWidth < 350.dp
             val expandedFont = LocalDensity.current.fontScale >= 1.3f
             val rowModifier = Modifier.fillMaxWidth()
-                .height(if (expandedFont) 212.dp else 178.dp)
+                .height(if (expandedFont) 188.dp else 164.dp)
                 .then(if (compact) Modifier.horizontalScroll(rememberScrollState()) else Modifier)
             Row(rowModifier, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 days.forEach { day ->
@@ -174,11 +174,11 @@ internal fun TracksideTrainingWeekChart(
                             style = MaterialTheme.typography.labelSmall,
                             maxLines = 1, textAlign = TextAlign.Center)
                         Column(
-                            Modifier.fillMaxWidth().height(84.dp),
+                            Modifier.fillMaxWidth().height(72.dp),
                             verticalArrangement = Arrangement.Bottom
                         ) {
                             day.byDiscipline.reversed().forEach { (discipline, minutes) ->
-                                val barHeight = (minutes.toFloat() / maxDay * 80f).coerceAtLeast(3f)
+                                val barHeight = (minutes.toFloat() / maxDay * 68f).coerceAtLeast(3f)
                                 Box(Modifier.fillMaxWidth().height(barHeight.dp)
                                     .background(tracksideDisciplineColor(discipline), RoundedCornerShape(5.dp)))
                             }
