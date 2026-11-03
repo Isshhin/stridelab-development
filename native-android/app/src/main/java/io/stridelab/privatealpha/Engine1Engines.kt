@@ -41,7 +41,8 @@ internal object CoordinatedEngine1:PlanGenerationEngine {
         // ability and equipment. Only take prescriptions, never the variant calendar.
         // Removing variant quality requests avoids irrelevant duplicate scheduling constraints.
         val alternatives=active.filter { it in setOf("str","cal") && Engine1Engines.goal(p,it)!=baseGoal }.associateWith { d ->
-            Engine1.generate(p.copy(goal=Engine1Engines.goal(p,d),qualityCount=0),owner,id,now).sessions.associateBy { it.id }
+            Engine1.generate(p.copy(goal=Engine1Engines.goal(p,d),qualityCount=0,
+                weeklySlots=emptyMap()),owner,id,now).sessions.associateBy { it.id }
         }
         val sessions=base.sessions.map { original ->
             val variant=alternatives[original.discipline]?.get(original.id)
