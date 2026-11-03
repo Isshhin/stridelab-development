@@ -2,10 +2,13 @@ package io.stridelab.privatealpha
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -15,200 +18,251 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Approved Figma 614:195 running weekly setup.
- * E/Q/L indicates a suggested preference before engine generation,
- * NOT a saved workout. Pinned sessions require generated plans.
+/** Choose a workout then tap its day. The saved weekdays are honored by the
+ * selected Engine 1 schedule, or the actual recovery constraints reject them.
+ * Never display merely suggested E/Q/L tiles as user-controlled appointments.
  */
 @Composable
 internal fun TracksideFigmaRunningSetup(
     request: PlanRequest,
-    selectedDay: Int,
-    onSelectedDay: (Int) -> Unit,
+    selectedSlot: Int,
+    onSelectSlot: (Int) -> Unit,
     custom: Boolean,
     onCustom: (Boolean) -> Unit,
     qualityPreference: String,
     onQualityPreference: (String) -> Unit,
+    onQualityCount: (Int) -> Unit,
     onRunningCount: (Int) -> Unit,
-    onChooseType: (Int, String) -> Unit,
+    onAssignDay: (Int) -> Unit,
+    onClearSlot: () -> Unit,
     onBack: () -> Unit,
     onContinue: () -> Unit
 ) {
-    val runDays=request.runDays.coerceIn(1,6)
-    val available=request.days.sorted()
-    val ordered=buildList {
-        if(request.longDay in available)add(request.longDay)
-        request.qualityDays.sorted().filter { it in available && it !in this }.forEach(::add)
-        available.filter { it !in this }.forEach(::add)
-    }.take(runDays)
-    val selection=when {
-        selectedDay==request.longDay -> "Long run"
-        selectedDay in request.qualityDays -> "Quality"
-        else -> "Easy"
-    }
+    val count = request.runDays.coerceIn(1,6)
+    val slots = WeeklyPlacement.days(request,"run")
+    val selected = selectedSlot.coerceIn(0,count-1)
+    val assigned = slots.count { it in 1..7 }
+    val complete = assigned == count && slots.distinct().size == count
+    val muted = Color(0xFFB7C4CC)
+    val bg = Color(0xFF24252F)
+    val border = Color(0xFF5A6879)
     TracksideFigmaBuilderFrame(
-        toolbarTitle="Running Setup",
-        eyebrow="RUNNING / WEEKLY SCHEDULE",
-        headline="Your running week",
-        description="Choose your weekly sessions and preferred days.",
-        onBack=onBack, onContinue=onContinue
+        toolbarTitle = "Running Setup",
+        eyebrow = "RUNNING / YOUR WEEK",
+        headline = "Choose your run days",
+        description = "Select a workout, then choose the weekday for it.",
+        onBack = onBack,
+        onContinue = onContinue,
+        continueEnabled = !custom || complete
     ) {
-        Row(Modifier.fillMaxWidth().height(45.dp)
-                .background(Color(0xFF172936), RoundedCornerShape(11.dp))
-                .padding(3.dp),
-            horizontalArrangement=Arrangement.spacedBy(5.dp)) {
-            listOf(true to "Customize",false to "Let StrideLab decide").forEach { (value,title) ->
+        Row(Modifier.fillMaxWidth().height(46.dp)
+            .background(Color(0xFF172B36),RoundedCornerShape(11.dp))
+            .padding(3.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            listOf(true to "Choose my days",false to "Coach decides").forEach { (mode,label) ->
                 Surface(
-                    onClick={onCustom(value)},
-                    modifier=Modifier.weight(1f).fillMaxHeight()
-                        .testTag(if(value)"builder-running-custom" else "builder-running-decide"),
-                    color=if(custom==value)Color(0xFF522633) else Color(0xFF1A2C38),
-                    shape=RoundedCornerShape(9.dp),
-                    border=BorderStroke(1.dp,
-                        if(custom==value)Color(0xFFBA748A) else Color(0xFF526D7E))
-                ) { Box(contentAlignment=Alignment.Center) {
-                    Text(title,fontSize=12.sp,fontWeight=FontWeight.Bold,color=Color.White)
-                }}
+                    onClick = { onCustom(mode) },
+                    modifier = Modifier.weight(1f).fillMaxHeight()
+                        .testTag(if(mode) "builder-running-custom" else "builder-running-decide"),
+                    color = if(custom==mode)Color(0xFF642F41) else Color(0xFF213642),
+                    shape = RoundedCornerShape(9.dp),
+                    border = BorderStroke(1.dp,
+                        if(custom==mode) Color(0xFFD28293) else Color(0xFF506E80))
+                ) {
+                    Box(contentAlignment=Alignment.Center) {
+                        Text(label,color=Color.White,fontSize=12.sp,
+                            fontWeight=FontWeight.Bold)
+                    }
+                }
             }
         }
-        Spacer(Modifier.height(11.dp))
-        Surface(Modifier.fillMaxWidth(),
-            color=Color(0xFF2A2530),shape=RoundedCornerShape(14.dp),
-            border=BorderStroke(1.dp,Color(0xFF715263))) {
+        Spacer(Modifier.height(13.dp))
+        Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(13.dp),
+            color=bg,border=BorderStroke(1.dp,border)) {
             Column(Modifier.padding(14.dp)) {
-                Text("WEEKLY RUNS",color=Color(0xFFB6C0CA),
-                    fontSize=10.sp,fontWeight=FontWeight.Bold)
-                Spacer(Modifier.height(13.dp))
+                Text("RUNS PER WEEK",fontSize=10.sp,fontWeight=FontWeight.Bold,
+                    color=muted)
+                Spacer(Modifier.height(9.dp))
                 Row(verticalAlignment=Alignment.CenterVertically) {
-                    Text(runDays.toString(),fontSize=38.sp,
-                        color=Color.White,fontWeight=FontWeight.Bold)
-                    Spacer(Modifier.width(14.dp))
-                    Text("sessions / week",fontSize=11.sp,color=Color(0xFFB6C0CA))
+                    Text(count.toString(),fontSize=36.sp,color=Color.White,
+                        fontWeight=FontWeight.Bold)
+                    Spacer(Modifier.width(11.dp))
+                    Text("workouts",fontSize=11.sp,color=muted)
                     Spacer(Modifier.weight(1f))
                     listOf(-1,1).forEach { delta ->
                         Surface(
-                            onClick={onRunningCount((runDays+delta).coerceIn(1,6))},
-                            enabled=runDays+delta in 1..6,
-                            modifier=Modifier.padding(start=6.dp).size(44.dp)
+                            onClick={onRunningCount((count+delta).coerceIn(1,6))},
+                            enabled=count+delta in 1..6,
+                            modifier=Modifier.padding(start=7.dp).size(42.dp)
                                 .testTag(if(delta==1)"builder-run-plus" else "builder-run-minus"),
-                            color=Color(0xFF2D4658),shape=RoundedCornerShape(11.dp),
-                            border=BorderStroke(1.dp,Color(0xFF597485))
-                        ) { Box(contentAlignment=Alignment.Center) {
-                            Text(if(delta==1)"+" else "−",fontSize=23.sp,
-                                fontWeight=FontWeight.Bold,color=Color.White)
-                        }}
-                    }
-                }
-                Spacer(Modifier.height(17.dp))
-                Box(Modifier.fillMaxWidth().height(1.dp)
-                    .background(Color(0xFF625464)))
-                Spacer(Modifier.height(17.dp))
-                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)) {
-                    (1..7).forEach { day ->
-                        Column(Modifier.weight(1f),
-                            horizontalAlignment=Alignment.CenterHorizontally) {
-                            Text(java.time.DayOfWeek.of(day).name.take(3),
-                                fontSize=9.sp,color=Color(0xFFB6C0CA))
-                            Spacer(Modifier.height(11.dp))
-                            val present=day in ordered
-                            val type=when {
-                                !present -> "—"
-                                day==request.longDay -> "L"
-                                day in request.qualityDays -> "Q"
-                                else -> "E"
+                            color=Color(0xFF2C4C60),
+                            shape=RoundedCornerShape(10.dp),
+                            border=BorderStroke(1.dp,Color(0xFF62879B))
+                        ) {
+                            Box(contentAlignment=Alignment.Center) {
+                                Text(if(delta==1)"+" else "−",fontSize=23.sp,
+                                    color=Color.White,fontWeight=FontWeight.Bold)
                             }
-                            Surface(
-                                onClick={onSelectedDay(day)},
-                                enabled=day in request.days,
-                                modifier=Modifier.fillMaxWidth().height(54.dp)
-                                    .testTag("builder-running-day-"+day),
-                                color=when(type){
-                                    "L"->Color(0xFFF1F3F5)
-                                    "Q"->Color(0xFFB63047)
-                                    "E"->Color(0xFF5B2B3A)
-                                    else->Color(0xFF15202A)
-                                },
-                                shape=RoundedCornerShape(9.dp),
-                                border=BorderStroke(
-                                    if(selectedDay==day)1.6f.dp else 1.dp,
-                                    if(selectedDay==day)Color.White else Color(0xFF576877))
-                            ) { Box(contentAlignment=Alignment.Center) {
-                                Text(type,fontSize=15.sp,
-                                    color=if(type=="L")Color.Black else Color.White,
-                                    fontWeight=FontWeight.Bold)
-                            }}
                         }
                     }
                 }
                 Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-                    Text(ordered.size.toString() + " of " + runDays + " placed",
-                        fontSize=10.sp,color=Color.White)
-                    Text("Suggested days · editable",fontSize=10.sp,
-                        color=Color(0xFFB6C0CA))
-                }
-                Spacer(Modifier.height(17.dp))
-                Box(Modifier.fillMaxWidth().height(1.dp)
-                    .background(Color(0xFF625464)))
-                if(custom) {
-                    Spacer(Modifier.height(17.dp))
-                    Text(java.time.DayOfWeek.of(selectedDay).name + " / EDIT SESSION",
-                        fontSize=10.sp,fontWeight=FontWeight.Bold,color=Color(0xFFFF6C88))
-                    Spacer(Modifier.height(9.dp))
-                    Text(selection + " workout",fontSize=15.sp,
-                        color=Color.White,fontWeight=FontWeight.Bold)
-                    Spacer(Modifier.height(18.dp))
-                    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
-                        listOf("Easy","Quality","Long run").forEach { type ->
+                Row(Modifier.fillMaxWidth(),
+                    verticalAlignment=Alignment.CenterVertically,
+                    horizontalArrangement=Arrangement.SpaceBetween) {
+                    Text("QUALITY RUNS",fontSize=10.sp,color=muted)
+                    Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                        (0..2).forEach { q ->
+                            val eligible=q<=(count-2).coerceAtLeast(0) &&
+                                (q<=1 || (request.experience==2 &&
+                                    request.weeklyKm>=30.0 && count>=4))
                             Surface(
-                                onClick={onChooseType(selectedDay,type)},
-                                enabled=selectedDay in request.days,
-                                modifier=Modifier.weight(1f).height(52.dp)
-                                    .testTag("builder-running-type-"+type.replace(' ','-')),
-                                color=if(selection==type)Color(0xFFB73A4F)
-                                    else Color(0xFF203849),
-                                shape=RoundedCornerShape(10.dp),
-                                border=BorderStroke(1.dp,Color(0xFF536F80))
-                            ) { Box(contentAlignment=Alignment.Center) {
-                                Text(type,fontSize=11.sp,fontWeight=FontWeight.Bold,
-                                    color=Color.White)
-                            }}
+                                onClick={onQualityCount(q)},
+                                enabled=eligible,
+                                modifier=Modifier.size(36.dp,33.dp)
+                                    .testTag("builder-run-quality-count-"+q),
+                                color=if(q==request.qualityCount)Color(0xFFB33B52)
+                                    else Color(0xFF263F4C),
+                                shape=RoundedCornerShape(8.dp)
+                            ) {
+                                Box(contentAlignment=Alignment.Center) {
+                                    Text(q.toString(),fontSize=12.sp,color=Color.White)
+                                }
+                            }
                         }
                     }
-                    Spacer(Modifier.height(12.dp))
-                    Text("Pin placement after generating a plan. Current-engine suggestions remain editable before approval.",
-                        fontSize=10.sp,lineHeight=14.sp,color=Color(0xFFB6C0CA))
                 }
             }
         }
         Spacer(Modifier.height(18.dp))
-        Surface(Modifier.fillMaxWidth(),color=Color(0xFF21202C),
-            shape=RoundedCornerShape(12.dp),
-            border=BorderStroke(1.dp,Color(0xFF55465B))) {
-            Column(Modifier.padding(13.dp)) {
-                Text("QUALITY WORKOUTS",fontSize=10.sp,color=Color(0xFFB6C0CA),
-                    fontWeight=FontWeight.Bold)
-                Spacer(Modifier.height(11.dp))
-                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
-                    listOf("Threshold","Tempo","Intervals","Hills").forEach { label ->
-                        Surface(
-                            onClick={onQualityPreference(label)},
-                            modifier=Modifier.weight(1f).height(35.dp)
-                                .testTag("builder-quality-"+label),
-                            color=if(qualityPreference==label)Color(0xFF5A2E3B)
-                                else Color(0xFF1D303A),
-                            shape=RoundedCornerShape(7.dp),
-                            border=BorderStroke(1.dp,
-                                if(qualityPreference==label)Color(0xFF9F6576)
-                                else Color(0xFF47677B))
-                        ) { Box(contentAlignment=Alignment.Center) {
-                            Text(label,fontSize=10.sp,color=Color.White)
-                        }}
+        if(custom) {
+            Text("1. SELECT A WORKOUT",fontSize=11.sp,fontWeight=FontWeight.Bold,
+                color=muted)
+            Spacer(Modifier.height(9.dp))
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                (0 until count).forEach { i ->
+                    val active=selected==i
+                    val weekday=slots.getOrNull(i) ?: 0
+                    Surface(
+                        onClick={onSelectSlot(i)},
+                        modifier=Modifier.widthIn(min=100.dp).height(56.dp)
+                            .testTag("builder-run-session-"+i),
+                        color=if(active)Color(0xFF653344) else Color(0xFF203544),
+                        shape=RoundedCornerShape(10.dp),
+                        border=BorderStroke(if(active)2.dp else 1.dp,
+                            if(active)Color(0xFFFFA7B8) else border)
+                    ) {
+                        Column(Modifier.padding(horizontal=11.dp,vertical=6.dp),
+                            verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                            Text(WeeklyPlacement.label(request,"run",i),
+                                fontSize=11.sp,color=Color.White,
+                                fontWeight=FontWeight.Bold)
+                            Text(if(weekday==0)"Unassigned"
+                                 else java.time.DayOfWeek.of(weekday).name.take(3),
+                                fontSize=10.sp,color=muted)
+                        }
                     }
                 }
-                Spacer(Modifier.height(9.dp))
-                Text("Quality type is a planning preference; the coaching engine validates actual workouts.",
-                    fontSize=10.sp,color=Color(0xFFB6C0CA))
+            }
+            Spacer(Modifier.height(18.dp))
+            Text("2. TAP THE DAY FOR THIS WORKOUT",
+                fontSize=11.sp,fontWeight=FontWeight.Bold,color=muted)
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth(),
+                horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+                (1..7).forEach { day ->
+                    val slot=slots.indexOf(day)
+                    val active=slot==selected
+                    val letter=when {
+                        slot<0 -> "+"
+                        slot==0 -> "L"
+                        slot<=request.qualityCount -> "Q"
+                        else -> "E"
+                    }
+                    Column(Modifier.weight(1f),
+                        horizontalAlignment=Alignment.CenterHorizontally) {
+                        Text(java.time.DayOfWeek.of(day).name.take(3),
+                            fontSize=9.sp,color=muted)
+                        Spacer(Modifier.height(9.dp))
+                        Surface(
+                            onClick={onAssignDay(day)},
+                            modifier=Modifier.fillMaxWidth().height(57.dp)
+                                .testTag("builder-running-day-"+day),
+                            color=when {
+                                active -> Color(0xFFC3425C)
+                                slot==0 -> Color(0xFFF1F2F4)
+                                slot>0 && letter=="Q" -> Color(0xFF91354B)
+                                slot>0 -> Color(0xFF53303E)
+                                else -> Color(0xFF1C3443)
+                            },
+                            shape=RoundedCornerShape(9.dp),
+                            border=BorderStroke(if(active)2.dp else 1.dp,
+                                if(active)Color(0xFFFFB9C4) else border)
+                        ) {
+                            Box(contentAlignment=Alignment.Center) {
+                                Text(letter,fontSize=15.sp,fontWeight=FontWeight.Bold,
+                                    color=if(slot==0)Color.Black else Color.White)
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(13.dp))
+            Text(assigned.toString()+" of "+count+" workouts assigned",
+                fontSize=12.sp,fontWeight=FontWeight.Bold,
+                color=if(complete)Color(0xFF88D6B6) else Color(0xFFFFBA9A),
+                modifier=Modifier.testTag("builder-running-assignment-progress"))
+            Spacer(Modifier.height(7.dp))
+            Text("Tap an occupied weekday to swap workouts. Saturdays and rest days can be selected.",
+                fontSize=11.sp,lineHeight=15.sp,color=muted)
+            TextButton(onClick=onClearSlot,
+                modifier=Modifier.testTag("builder-run-clear-selected")) {
+                Text("Clear selected workout's day",
+                    fontSize=12.sp,color=Color(0xFFFFA6B2))
+            }
+            Surface(Modifier.fillMaxWidth(),color=Color(0xFF1A303C),
+                shape=RoundedCornerShape(10.dp),
+                border=BorderStroke(1.dp,Color(0xFF55798A))) {
+                Text("Moving: "+WeeklyPlacement.label(request,"run",selected)+
+                    ". The engine will keep this weekday or explain a recovery conflict.",
+                    Modifier.padding(12.dp),fontSize=11.sp,lineHeight=16.sp,
+                    color=Color.White)
+            }
+        } else {
+            Surface(Modifier.fillMaxWidth(),color=Color(0xFF1A303C),
+                shape=RoundedCornerShape(10.dp),
+                border=BorderStroke(1.dp,Color(0xFF55798A))) {
+                Text("StrideLab will place your runs on available days. To control exact days, choose 'Choose my days' above.",
+                    Modifier.padding(14.dp),color=Color.White,
+                    fontSize=12.sp,lineHeight=17.sp)
             }
         }
+        Spacer(Modifier.height(20.dp))
+        Text("PREFERRED QUALITY STYLE",fontSize=11.sp,
+            color=muted,fontWeight=FontWeight.Bold)
+        Spacer(Modifier.height(9.dp))
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+            listOf("Threshold","Tempo","Intervals","Hills").forEach { choice ->
+                Surface(
+                    onClick={onQualityPreference(choice)},
+                    modifier=Modifier.weight(1f).height(37.dp)
+                        .testTag("builder-quality-"+choice),
+                    color=if(choice==qualityPreference)Color(0xFF673246)
+                        else Color(0xFF223846),
+                    shape=RoundedCornerShape(8.dp),
+                    border=BorderStroke(1.dp,
+                        if(choice==qualityPreference)Color(0xFFB56C80) else border)
+                ) {
+                    Box(contentAlignment=Alignment.Center) {
+                        Text(choice,fontSize=10.sp,color=Color.White)
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text("Style is advisory until the active coaching engine supports it; weekday assignments are enforced.",
+            fontSize=10.sp,lineHeight=14.sp,color=muted)
     }
 }
