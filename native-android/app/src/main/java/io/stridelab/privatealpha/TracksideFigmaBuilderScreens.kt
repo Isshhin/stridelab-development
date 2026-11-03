@@ -48,6 +48,7 @@ private val muted = Color(0xFFB6C0CA)
 @Composable
 internal fun TracksideFigmaBuilderFrame(
     eyebrow: String,
+    toolbarTitle: String = "Generate Training Plan",
     headline: String,
     description: String,
     onBack: () -> Unit,
@@ -69,7 +70,7 @@ internal fun TracksideFigmaBuilderFrame(
             ) {
                 Text("‹", color = white, fontSize = 30.sp, lineHeight = 32.sp)
             }
-            Text("Generate Training Plan", fontSize = 16.sp,
+            Text(toolbarTitle, fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold, color = white)
         }
         Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(1.dp)
@@ -149,7 +150,9 @@ internal fun TracksideFigmaDisciplineScreen(
                         ))
                 }
                 Spacer(Modifier.weight(1f))
-                Text("2 of 4", fontSize = 11.sp, color = muted)
+                val chosen = listOf(request.runDays, request.strengthDays,
+                    request.calDays, request.conditioningDays).count { it > 0 }
+                Text("$chosen of 4", fontSize = 11.sp, color = muted)
             }
         }
     ) {
