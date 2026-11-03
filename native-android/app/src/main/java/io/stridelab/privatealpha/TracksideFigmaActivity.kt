@@ -34,6 +34,15 @@ internal fun TracksideFigmaActivityScreen(
     actions: NativeActions, onBack: () -> Unit
 ) {
     var tab by rememberSaveable(activity?.id) { mutableStateOf("Overview") }
+    Box(Modifier.fillMaxSize().background(Color(0xFF09131C))) {
+        Image(
+            painter = androidx.compose.ui.res.painterResource(R.drawable.trackside_activity_street_grid),
+            contentDescription = null, contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(
+            Color(0xB509131C), Color(0xED09131C), Color(0xFF09131C)
+        ))))
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("screen"),
         contentPadding = PaddingValues(start = 17.dp, end = 17.dp, top = 12.dp, bottom = 32.dp),
@@ -131,6 +140,7 @@ internal fun TracksideFigmaActivityScreen(
                 ) { Text(if (data == null) "Load recorded streams & laps" else "Refresh recorded streams") }
             }
         }
+    }
     }
 }
 

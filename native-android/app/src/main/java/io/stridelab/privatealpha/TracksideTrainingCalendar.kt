@@ -147,13 +147,16 @@ internal fun TracksideTrainingWeekChart(
         // minus screen padding). Let the row scroll rather than shrink targets.
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val compact = maxWidth < 350.dp
+            // Master gallery 614:797 keeps all seven days in the 360px view.
+            // Scroll only below its viewport, or with extra-large system fonts.
+            val scrollRequired = maxWidth < 320.dp || LocalDensity.current.fontScale >= 1.6f
             val expandedFont = LocalDensity.current.fontScale >= 1.3f
             val scroll = rememberScrollState()
             val density = LocalDensity.current
             // Keep the selected day fully visible when seven 48dp+ targets
             // must scroll on narrow phones. Never shrink their touch targets.
-            LaunchedEffect(compact, selected, scroll.maxValue) {
-                if (compact && scroll.maxValue > 0) {
+            LaunchedEffect(scrollRequired, selected, scroll.maxValue) {
+                if (scrollRequired && scroll.maxValue > 0) {
                     val index = ChronoUnit.DAYS.between(weekStart, selected).toInt().coerceIn(0, 6)
                     val cellStart = with(density) { (index * 51).dp.roundToPx() }
                     val cellEnd = with(density) { (index * 51 + 49).dp.roundToPx() }
@@ -168,7 +171,7 @@ internal fun TracksideTrainingWeekChart(
             }
             val rowModifier = Modifier.fillMaxWidth()
                 .height(if (expandedFont) 188.dp else 150.dp)
-                .then(if (compact) Modifier.horizontalScroll(scroll) else Modifier)
+                .then(if (scrollRequired) Modifier.horizontalScroll(scroll) else Modifier)
             Row(rowModifier, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 days.forEach { day ->
                 val enabled = day.date in first..last
@@ -181,7 +184,7 @@ internal fun TracksideTrainingWeekChart(
                     color = if (active) Color(0xFF1A2C36) else Color.Transparent,
                     border = BorderStroke(1.dp,
                         if (active) Color(0xFFB2C5D0) else Color.Transparent),
-                    modifier = (if (compact) Modifier.width(49.dp) else Modifier.weight(1f))
+                    modifier = (if (scrollRequired) Modifier.width(49.dp) else Modifier.weight(1f))
                         .testTag("calendar-day-${day.date}")
                         .semantics { contentDescription = description }
                 ) {

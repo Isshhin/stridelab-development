@@ -148,7 +148,7 @@ internal fun TracksideManagePlanScreen(
                 enabled = canManage, modifier = Modifier.testTag("manage-pause")
             ) { confirmPause = true }
         }
-        if (plan.status == "paused" || plan.status == "draft") item {
+        if (plan.status == "draft") item {
             TracksideManageAction(
                 title = if (plan.status == "paused") "Resume training plan" else "Approve this draft",
                 subtitle = "Review the current plan before activating it",
