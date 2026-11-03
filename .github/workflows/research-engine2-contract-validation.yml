@@ -4,8 +4,10 @@ on:
   push:
     branches:
       - research/runna-garmin-coaching-20261102
+      - research/batch8l-evidence-review-20261103
     paths:
       - 'research/validation/**'
+      - 'docs/research/**'
       - 'docs/research/experiments/experiment-003-load-policy-counterfactuals.csv'
       - 'docs/research/experiments/experiment-004-multidiscipline-coordination.csv'
       - 'docs/research/experiments/experiment-005-adaptation-state-and-load-metrics.csv'
@@ -54,6 +56,8 @@ jobs:
         run: python research/validation/adapter_probe.py
       - name: Audit availability of the original independent lab source
         run: python research/validation/original_lab_admission.py --output research-original-lab-admission.json
+      - name: Check manually transferred original-lab synthetic policy evidence
+        run: python research/validation/original_lab_evidence_8l.py --handoff research/validation/evidence/original_lab_8l.json --review-pin research/validation/evidence/original_lab_8l_review_pin.json --output research-original-policy-evidence-8l.json
       - name: Audit real-world field outcome eligibility
         run: python research/validation/field_outcome_gate.py --output research-field-outcome-readiness.json
       - name: Publish scope-aware summary
@@ -149,6 +153,20 @@ jobs:
           print('- Provider credentials and source authorization not connected.')
           PY
             fi
+            if [ -f research-original-policy-evidence-8l.json ]; then
+              python - <<'PY'
+          import json
+          with open('research-original-policy-evidence-8l.json', encoding='utf-8') as f:
+              r = json.load(f)
+          print()
+          print('### Batch 8L manual original-lab policy output handoff (NOT source execution)')
+          print(f"- Synthetic original policy decisions reviewed: {r['original_policy_comparison_rows_checked']}")
+          print(f"- Original validator failures retained: {r['original_validation_error_plans_preserved']}")
+          print(f"- Explicitly infeasible schedules retained: {r['original_infeasible_plans_preserved']}")
+          print('- Cross-private-repo source checkout: NOT performed; origin independently authenticated: NO.')
+          print('- Real athletes/coaching outcomes: NONE. Original full-source admission remains separate and blocked.')
+          PY
+            fi
             if [ -f research-original-lab-admission.json ]; then
               python - <<'PY'
           import json
@@ -184,6 +202,7 @@ jobs:
             research-multiweek-results.json
             research-adapter-status.json
             research-original-lab-admission.json
+            research-original-policy-evidence-8l.json
             research-field-outcome-readiness.json
           if-no-files-found: warn
           retention-days: 30
