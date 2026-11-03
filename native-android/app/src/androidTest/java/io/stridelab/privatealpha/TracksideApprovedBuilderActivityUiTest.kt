@@ -176,7 +176,6 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
-        compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-strength-goal-0").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-cross-ability-strength-0").assertExists()

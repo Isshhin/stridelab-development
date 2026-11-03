@@ -76,7 +76,7 @@ internal fun TracksideFigmaStrengthGoalScreen(
             Surface(
                 onClick={onSelect(choice.title)},
                 modifier=Modifier.fillMaxWidth().height(105.dp)
-                    .testTag("builder-strength-goal-$"+"index"),
+                    .testTag("builder-strength-goal-" + index),
                 color=Color.Transparent,
                 shape=RoundedCornerShape(16.dp),
                 border=BorderStroke(1.dp,
@@ -224,7 +224,7 @@ internal fun TracksideFigmaCrossTrainingGoalsScreen(
                         onClick={onGoal(discipline,goal)},
                         modifier=Modifier.fillMaxWidth().padding(bottom=7.dp)
                             .heightIn(min=53.dp)
-                            .testTag("builder-cross-goal-$"+"discipline-$"+"goal"),
+                            .testTag("builder-cross-goal-" + discipline + "-" + goal),
                         color=if(chosen)Color(0xFF263D51) else Color(0xFF13232D),
                         shape=RoundedCornerShape(11.dp),
                         border=BorderStroke(1.dp,
@@ -261,7 +261,7 @@ internal fun TracksideFigmaCrossTrainingGoalsScreen(
                             onClick={onCount(discipline,count+delta)},
                             enabled=count+delta in 1..limit,
                             modifier=Modifier.padding(start=8.dp).size(44.dp)
-                                .testTag("builder-cross-count-$"+"discipline-$"+"delta"),
+                                .testTag("builder-cross-count-" + discipline + "-" + delta),
                             color=Color(0xFF294658),
                             shape=RoundedCornerShape(10.dp),
                             border=BorderStroke(1.dp,Color(0xFF66849A))
@@ -322,7 +322,7 @@ private fun TracksideCrossAbilityRow(
             Surface(
                 onClick={onSelect(index)},
                 modifier=Modifier.weight(1f).heightIn(min=48.dp)
-                    .testTag("builder-cross-ability-$"+"tag-$"+"index"),
+                    .testTag("builder-cross-ability-" + tag + "-" + index),
                 color=if(selected)Color(0xFF27465C) else Color(0xFF14242D),
                 shape=RoundedCornerShape(9.dp),
                 border=BorderStroke(1.dp,
