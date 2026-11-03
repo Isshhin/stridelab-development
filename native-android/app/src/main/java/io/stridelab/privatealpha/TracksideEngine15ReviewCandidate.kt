@@ -374,6 +374,7 @@ private fun TracksideReviewPreviewNavigation(modifier: Modifier = Modifier) {
 }
 
 @Preview(name = "E3 review preview · 412", widthDp = 412, heightDp = 950, showBackground = true)
+@Preview(name = "E3 review preview · 360 · text 1.3×", widthDp = 360, heightDp = 800, fontScale = 1.3f)
 @Composable
 private fun PreviewEngine15Proposal() {
     StrideTheme {
@@ -388,6 +389,7 @@ private fun PreviewEngine15Proposal() {
 }
 
 @Preview(name = "E3 review pending · 412", widthDp = 412, heightDp = 950)
+@Preview(name = "E3 review pending · 360 · text 1.3×", widthDp = 360, heightDp = 800, fontScale = 1.3f)
 @Composable
 private fun PreviewEngine15Pending() {
     StrideTheme {
@@ -402,6 +404,7 @@ private fun PreviewEngine15Pending() {
 }
 
 @Preview(name = "E3 accepted time only · 412", widthDp = 412, heightDp = 950)
+@Preview(name = "E3 accepted time · 360 · text 1.3×", widthDp = 360, heightDp = 800, fontScale = 1.3f)
 @Composable
 private fun PreviewEngine15AcceptedTime() {
     StrideTheme {
@@ -416,6 +419,7 @@ private fun PreviewEngine15AcceptedTime() {
 }
 
 @Preview(name = "E3 accepted rest · 412", widthDp = 412, heightDp = 950)
+@Preview(name = "E3 rest · 360 · text 1.3×", widthDp = 360, heightDp = 800, fontScale = 1.3f)
 @Composable
 private fun PreviewEngine15AcceptedRest() {
     StrideTheme {
@@ -431,6 +435,7 @@ private fun PreviewEngine15AcceptedRest() {
 }
 
 @Preview(name = "E3 stale review · 412", widthDp = 412, heightDp = 950)
+@Preview(name = "E3 stale · 360 · text 1.3×", widthDp = 360, heightDp = 800, fontScale = 1.3f)
 @Composable
 private fun PreviewEngine15Stale() {
     StrideTheme {
@@ -440,6 +445,22 @@ private fun PreviewEngine15Stale() {
                 60, 8.0, 45, "Mon 02 Nov · Recorded easy run",
                 "The earlier RPE or log revision no longer matches.",
                 "A changed record invalidates the old recommendation."
+            ), onPrimary = {}, onSecondary = {}
+        )
+    }
+}
+
+/** Additional zero-minute pending-rest candidate: no training target changes before approval. */
+@Preview(name = "E3 pending rest · 360 · text 1.3×", widthDp = 360, heightDp = 800, fontScale = 1.3f)
+@Composable
+private fun PreviewEngine15PendingRest() {
+    StrideTheme {
+        TracksideEngine15ReviewCandidateScreen(
+            model = TracksideReviewCandidate(
+                TracksideReviewStage.PENDING, "Easy run", "THU 05 NOV · RUNNING",
+                60, 8.0, 0, "Mon 02 Nov · Illness reported",
+                "You explicitly selected Illness as the missed reason.",
+                "This is not a diagnosis and was never applied automatically."
             ), onPrimary = {}, onSecondary = {}
         )
     }
