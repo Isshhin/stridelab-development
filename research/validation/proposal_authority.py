@@ -35,7 +35,7 @@ def draft_from_signed_observation(
 ) -> dict[str, Any]:
     if requested_change.get("source") != "research_policy":
         raise ProposalBlocked("ATHLETE_AUTHENTICATION_NOT_CONNECTED")
-    if signed_grant is None:
+    if not isinstance(signed_grant, dict) or not signed_grant:
         raise ProposalBlocked("SIGNED_EVIDENCE_REQUIRED")
     validate_event(observed_event)
     if observed_event["status"] not in {"completed", "partial", "skipped"}:
