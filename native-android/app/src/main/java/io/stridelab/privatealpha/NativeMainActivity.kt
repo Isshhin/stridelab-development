@@ -175,10 +175,13 @@ private fun NavHostController.openActivity(id: String) {
                             Button(onClick = { nav.navigate("auth") }, modifier = Modifier.fillMaxWidth()) { Text("Sign in") }
                         } else {
                             val plan = state.plans.firstOrNull { it.status == "approved" }
+                            val todaySessions = plan?.sessions?.filter { it.date == java.time.LocalDate.now() } ?: emptyList()
+                            val activeMultiSession = todaySessions.size >= 2 &&
+                                todaySessions.any { it.status == "completed" }
                             val next = plan?.sessions?.filter {
                                 it.date >= java.time.LocalDate.now() && it.status in setOf("planned", "in_progress")
                             }?.sortedWith(compareBy<PlannedSession>({ it.date }, { it.id }))?.firstOrNull()
-                            if(next != null && plan != null) item(key = "today-featured") {
+                            if(next != null && plan != null && !activeMultiSession) item(key = "today-featured") {
                                 TracksideTodayHero(next) { nav.openWorkout(plan.id, next.id) }
                             }
                             if(plan == null) item {
@@ -190,20 +193,30 @@ private fun NavHostController.openActivity(id: String) {
                                 }
                             }
                             if(plan != null) {
+                                if (activeMultiSession) item(key = "today-active-status") {
+                                    TracksideParityTodayActiveStatus(plan, todaySessions)
+                                }
                                 item {
                                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                        Text("Today's plan", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                                        TextButton(onClick = { nav.openTabRoot("training") }) { Text("View all") }
+                                        Text(if (activeMultiSession) "Your workouts" else "Today's plan",
+                                            style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                                        TextButton(onClick = { nav.openTabRoot("training") }) { Text("View week ›") }
                                     }
                                 }
-                                val today = plan.sessions.filter { it.date == java.time.LocalDate.now() }
+                                val today = todaySessions
                                 if(today.isEmpty()) item {
                                     Text("No workouts scheduled for today", color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         style = MaterialTheme.typography.bodyMedium)
                                 }
                                 today.forEach { session ->
                                     item(key = "today-" + session.id) {
-                                        TracksideTodaySession(session) { nav.openWorkout(plan.id, session.id) }
+                                        if (activeMultiSession)
+                                            TracksideParityWorkoutCard(session, false) {
+                                                nav.openWorkout(plan.id, session.id)
+                                            }
+                                        else TracksideTodaySession(session) {
+                                            nav.openWorkout(plan.id, session.id)
+                                        }
                                     }
                                 }
                             }
