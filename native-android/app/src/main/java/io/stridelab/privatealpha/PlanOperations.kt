@@ -93,7 +93,11 @@ internal object PlanOperations {
         if(reason !in listOf("Time","Fatigue","Soreness","Illness","Other"))throw PlanConstraint("Choose a reason for the missed or skipped workout.")
         val target=plan.sessions.find { it.id==sessionId } ?: throw PlanConstraint("Workout is unavailable.")
         if(target.status=="completed")throw PlanConstraint("A completed workout cannot be changed into a missed workout.")
-        val next=plan.sessions.filter { it.date>target.date && it.date>=LocalDate.now() && it.status=="planned" }.minByOrNull { it.date }
+        // Engine 1.0 retains its historic immediate suggestion. Engine 1.5 uses only the
+        // separate, revision-checked, explicitly staged feedback review flow.
+        val next=if(plan.engineVersion==ENGINE1_VERSION)
+            plan.sessions.filter { it.date>target.date && it.date>=LocalDate.now() && it.status=="planned" }.minByOrNull { it.date }
+        else null
         return plan.copy(sessions=plan.sessions.map { s -> when {
             s.id==sessionId -> s.copy(status=if(skipped) "skipped" else "missed",missedReason=reason)
             s.id==next?.id && target.date>=LocalDate.now().minusDays(7) && reason in setOf("Fatigue","Soreness","Illness") -> s.copy(suggestion=SessionSuggestion(if(reason=="Illness") 0 else maxOf(10,(s.minutes*.7).toInt()),"After your reported $reason: consider ${if(reason=="Illness") "rest" else "an easier, shorter session or rest"}. No catch-up volume is added. This is a suggestion awaiting your choice, not a diagnosis."))
