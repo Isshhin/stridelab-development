@@ -441,7 +441,7 @@ internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
 }
 
 @Composable internal fun SignalCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    TracksideGlassCard(modifier, content)
+    TracksideGlassCard(modifier = modifier, content = content)
 }
 @Composable private fun EmptyState(title: String, description: String) {
     SignalCard {

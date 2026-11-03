@@ -44,7 +44,7 @@
     "native-android/app/src/main/java/io/stridelab/privatealpha/LibraryShelf.kt": "eaa3103523edf2b370c5fccdf53c7412fceab38f0fb5ef50cc4c7ba82bf59f65",
     "native-android/app/src/main/java/io/stridelab/privatealpha/MultiSessionEngine1.kt": "7034b3b64487dd9058b7d48dccb928c18b5911f1978e78adc0a760cccd3ae1f5",
     "native-android/app/src/main/java/io/stridelab/privatealpha/NativeLibrary.kt": "650c94583a4118b93355b4a6ce2a2b9c81bea7cd39dc87e46145ea776ac8f5b8",
-    "native-android/app/src/main/java/io/stridelab/privatealpha/NativeMainActivity.kt": "1cf75656ad4452bbf7485b8c16654b52e5d28fea6a536cd6918b1bf99e8dd4fd",
+    "native-android/app/src/main/java/io/stridelab/privatealpha/NativeMainActivity.kt": "01dd62389f9b151c863af258734fb9b46bd900f0e9ea7f679a8cf113163761d7",
     "native-android/app/src/main/java/io/stridelab/privatealpha/PlanActions.kt": "d7686dedd5c11441eb2257cd9b7cb8e4573a3facccbd12b1da2f9505728e7231",
     "native-android/app/src/main/java/io/stridelab/privatealpha/PlanBackup.kt": "bf88e08c82f636db4a3ff4810d88b04a9694f5a3123637e478c0ddd6b9785a7d",
     "native-android/app/src/main/java/io/stridelab/privatealpha/PlanBuilder.kt": "b7f5487ba7f46d319bc8c2562dfb88d21e9ea93fe75fb32083238e0204f8babd",
