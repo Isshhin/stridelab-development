@@ -49,7 +49,7 @@ internal object Engine15Feedback {
         if (session.linkedActivityId != null && session.linkedActivityId in duplicateLinks)
             return null
         if (session.status in setOf("missed", "skipped") && session.log == null &&
-            session.date <= asOf && ChronoUnit.DAYS.between(session.date, asOf) in 0..3
+            session.date <= asOf && ChronoUnit.DAYS.between(session.date, asOf) in 0L..3L
         ) {
             val category = session.missedReason
             if (category in setOf("Illness", "Fatigue", "Soreness"))
@@ -61,9 +61,9 @@ internal object Engine15Feedback {
         // A linked run without an actual WorkoutLog has no recorded effort;
         // missing RPE, partial progress and zero-set strength logs do not imply readiness.
         val performed = log.performedOn ?: return null
-        if (performed > asOf || ChronoUnit.DAYS.between(performed, asOf) !in 0..3 ||
+        if (performed > asOf || ChronoUnit.DAYS.between(performed, asOf) !in 0L..3L ||
             kotlin.math.abs(ChronoUnit.DAYS.between(session.date, performed)) > 2 ||
-            log.at.toString().isBlank()
+            log.at.isAfter(asOf.plusDays(2).atStartOfDay(java.time.ZoneOffset.UTC).toInstant())
         ) return null
         if (session.discipline in setOf("str", "cal") &&
             !WorkoutLogValidation.hasPerformedSet(session, log)) return null
@@ -104,7 +104,7 @@ internal object Engine15Feedback {
         for (source in sourceEvidence) {
             val target = plan.sessions.asSequence()
                 .filter { it.id !in reserved && it.date >= asOf && it.date > source.date }
-                .filter { ChronoUnit.DAYS.between(source.date, it.date) in 1..4 }
+                .filter { ChronoUnit.DAYS.between(source.date, it.date) in 1L..4L }
                 .filter {
                     it.status == "planned" && it.log == null &&
                         it.linkedActivityId == null && it.suggestion == null &&
@@ -166,9 +166,10 @@ internal object Engine15Feedback {
         if (!available(plan)) throw PlanConstraint("A supported Engine 1.5 plan is required.")
         val target = plan.sessions.find { it.id == targetSessionId }
             ?: throw PlanConstraint("This workout is unavailable.")
+        val suggestion = target.suggestion
         if (target.status != "planned" || target.log != null ||
-            target.suggestion?.accepted != false ||
-            !target.suggestion.reason.startsWith(RULE_ID))
+            suggestion == null || suggestion.accepted ||
+            !suggestion.reason.startsWith(RULE_ID))
             throw PlanConstraint("There is no pending Engine 1.5 suggestion to dismiss.")
         return addDismissal(
             plan.copy(sessions = plan.sessions.map {
