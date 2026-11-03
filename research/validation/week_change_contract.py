@@ -105,12 +105,12 @@ def _constraints(plan: dict[str, Any], constraint: dict[str, Any],
         budget = budgets[day]
         if not _nonnegative_number(budget):
             raise ProposalBlocked("DAY_BUDGET_INVALID")
+        if day in locked and metrics["days"][day]["count"]:
+            raise ProposalBlocked("LOCKED_DAY_SCHEDULED")
         if metrics["days"][day]["count"] > max_sessions:
             raise ProposalBlocked("DAILY_SESSION_LIMIT")
         if metrics["days"][day]["minutes"] > budget:
             raise ProposalBlocked("DAY_MINUTES_EXCEEDED")
-        if day in locked and metrics["days"][day]["count"]:
-            raise ProposalBlocked("LOCKED_DAY_SCHEDULED")
     limit = constraint.get("verified_weekly_running_cap_km")
     if limit is not None and (
         not _nonnegative_number(limit) or metrics["running_km"] > limit + 1e-6
