@@ -36,10 +36,14 @@ class MultiweekLifecycleTests(unittest.TestCase):
             for week in profile["weeks"]:
                 self.assertEqual("PASS", profile["status"])
                 self.assertIsInstance(week["h1_action"], str)
-                self.assertEqual(64 if week["week"] == 2 else (
-                    60 if week["week"] == 1 else week["reconciliation"]["planned_running_km"]),
-                    week["reconciliation"]["planned_running_km"] if week["week"] <= 2 else
+                self.assertEqual(
+                    (60, 64, 68, 52, 72, 58, 65, 45)[week["week"] - 1],
                     week["reconciliation"]["planned_running_km"])
+                self.assertGreater(week["sources_replayed"], 0)
+                self.assertEqual(week["source_events_inserted"],
+                                 week["sources_replayed"])
+                self.assertEqual(64, len(week["plan_sha256"]))
+                self.assertEqual(64, len(week["observed_snapshot_sha256"]))
 
     def test_interruption_retains_skipped_partial_unplanned_and_missing(self):
         p = next(x for x in self.report["results"] if x["profile"] == "INTERRUPTED")
