@@ -167,7 +167,7 @@ internal fun TracksideTrainingWeekChart(
                 }
             }
             val rowModifier = Modifier.fillMaxWidth()
-                .height(if (expandedFont) 188.dp else 164.dp)
+                .height(if (expandedFont) 188.dp else 150.dp)
                 .then(if (compact) Modifier.horizontalScroll(scroll) else Modifier)
             Row(rowModifier, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 days.forEach { day ->

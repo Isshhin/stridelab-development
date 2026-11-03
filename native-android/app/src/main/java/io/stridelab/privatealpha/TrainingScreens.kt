@@ -48,61 +48,10 @@ import kotlinx.coroutines.withContext
         if(expanded) plan.explanations.forEach { Text(it,style=MaterialTheme.typography.bodyMedium) }
     }
 }
-@Composable internal fun PlannedWorkoutCard(s:PlannedSession,hasDraft:Boolean=false,compact:Boolean=false,onClick:()->Unit) {
+@Composable internal fun PlannedWorkoutCard(s:PlannedSession,hasDraft:Boolean=false,compact:Boolean=false,onMove:(()->Unit)?=null,onClick:()->Unit) {
     val color=tracksideDisciplineColor(s.discipline)
     if (compact) {
-        // Compact Figma 602:3 treatment; all content remains a real saved prescription.
-        // Full instructions and any missing metrics are available through the existing detail route.
-        Surface(onClick=onClick,shape=RoundedCornerShape(14.dp),
-            color=TracksidePalette.surface,
-            border=BorderStroke(1.dp,color.copy(alpha=0.32f)),
-            modifier=Modifier.fillMaxWidth().testTag("workout-${s.id}")) {
-            Column(Modifier.background(
-                androidx.compose.ui.graphics.Brush.horizontalGradient(
-                    listOf(color.copy(alpha=0.10f),androidx.compose.ui.graphics.Color.Transparent)))
-                .padding(14.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                Row(verticalAlignment=Alignment.CenterVertically,
-                    horizontalArrangement=Arrangement.spacedBy(11.dp)) {
-                    Box(Modifier.size(42.dp).background(color.copy(alpha=0.18f),RoundedCornerShape(11.dp)),
-                        contentAlignment=Alignment.Center) {
-                        if (s.discipline=="run") Icon(
-                            painter=androidx.compose.ui.res.painterResource(R.drawable.trackside_figma_run),
-                            contentDescription=null,tint=color,modifier=Modifier.size(26.dp))
-                        else Text(disciplineLabel(s.discipline).take(1).uppercase(),
-                            color=color,style=MaterialTheme.typography.titleMedium)
-                    }
-                    Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(3.dp)) {
-                        Text(s.effectiveTitle,style=MaterialTheme.typography.titleMedium,
-                            color=TracksidePalette.text,maxLines=2)
-                        Text("${disciplineLabel(s.discipline)} · ${s.effectiveMinutes} planned min · ${s.status.replace('_',' ')}",
-                            style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted,maxLines=2)
-                    }
-                    Text("›",color=TracksidePalette.textMuted,style=MaterialTheme.typography.titleLarge)
-                }
-                if(s.distanceKm!=null)
-                    Text("Target %.1f km · prescribed, not recorded".format(s.distanceKm),
-                        style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted)
-                if(s.effectiveExercises.isNotEmpty()) {
-                    s.effectiveExercises.take(3).forEach { e ->
-                        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-                            Text(e.name,modifier=Modifier.weight(1f),
-                                style=MaterialTheme.typography.bodySmall,color=TracksidePalette.text)
-                            Text("${e.sets} × ${e.reps?.let { "$it reps" } ?: "${e.seconds} s"}",
-                                style=MaterialTheme.typography.bodySmall,color=color)
-                        }
-                    }
-                    if(s.effectiveExercises.size>3) Text("More exercises in workout details",
-                        style=MaterialTheme.typography.labelSmall,color=TracksidePalette.textMuted)
-                } else s.steps.take(2).forEach {
-                    Text(it,style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted)
-                }
-                if(hasDraft) Text("Saved entry draft · resume without completing",
-                    style=MaterialTheme.typography.bodySmall,color=TracksidePalette.red)
-                if(s.suggestion!=null && !s.suggestion.accepted)
-                    Text("Recovery suggestion needs your review",
-                        style=MaterialTheme.typography.bodySmall,color=TracksidePalette.red)
-            }
-        }
+        TracksideFigmaWorkoutCard(s, hasDraft, onMove, onClick)
         return
     }
     Surface(onClick=onClick,shape=RoundedCornerShape(24.dp),color=MaterialTheme.colorScheme.surface,border=BorderStroke(1.dp,MaterialTheme.colorScheme.outlineVariant),modifier=Modifier.fillMaxWidth().testTag("workout-${s.id}")) {
@@ -143,14 +92,29 @@ import kotlinx.coroutines.withContext
         plan?.let { stored.coerceIn(it.request.start,it.request.start.plusWeeks(it.request.weeks.toLong()).minusDays(1)) } ?: stored
     }
     Screen("Training","YOUR SHARED CALENDAR",compactTitle=true,dense=true) {
-        item { FlowRow(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-            FilterChip(selected=!agendaView&&!monthView,onClick={agendaView=false;monthView=false},label={Text("Day")},modifier=Modifier.testTag("training-view-day"))
-            FilterChip(selected=agendaView&&!monthView,onClick={agendaView=true;monthView=false},label={Text("Agenda")},modifier=Modifier.testTag("training-view-agenda"))
-            TextButton(onClick={monthView=!monthView;if(monthView)agendaView=false},modifier=Modifier.testTag("training-view-month")) { Text(if(monthView) "Week" else "Month") }
-            TextButton(onClick={plan?.let { onManage(it.id,date) }}, enabled=plan!=null,
-                contentPadding=PaddingValues(horizontal=8.dp, vertical=0.dp),
-                modifier=Modifier.heightIn(min=48.dp).testTag("training-manage-plan")) { Text("Manage") }
-        } }
+        item {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween) {
+                TracksideTrainingViewSwitch(agendaView && !monthView,
+                    onDay = { agendaView=false; monthView=false },
+                    onAgenda = { agendaView=true; monthView=false })
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick={monthView=!monthView; if(monthView)agendaView=false},
+                        modifier=Modifier.testTag("training-view-month")) {
+                        Text(if(monthView) "Week" else "Month",
+                            style=MaterialTheme.typography.labelMedium,color=TracksidePalette.textMuted)
+                    }
+                    if(plan!=null && plan.status!="draft")
+                        TextButton(onClick={onManage(plan.id,date)},
+                            modifier=Modifier.testTag("training-manage-plan")) {
+                            Text("Manage ›",color=TracksidePalette.text)
+                        }
+                    else if(plan?.status=="draft")
+                        Text("DRAFT",style=MaterialTheme.typography.labelSmall,
+                            color=TracksidePalette.text)
+                }
+            }
+        }
         if(state.account==null) item { SignalCard { Text("Plan without a watch",style=MaterialTheme.typography.headlineSmall);Text("Sign in once to create private, account-isolated plans. Generation, calendar and logging then work offline.");SignalButton("Sign in",onSignIn) } }
         else if(plan==null) item { SignalCard { Text("Build your training around your life.",style=MaterialTheme.typography.headlineMedium);Text("Running, strength, calisthenics and conditioning share one calendar. Choose your goal, ability, days and equipment. Review real prescriptions before approving.");SignalButton("Create a plan",onBuild) } }
         if(plans.size>1) item { Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) { plans.forEach { p -> SignalChip(p.id==plan?.id,{selectedId=p.id},label={Text((p.name ?: p.request.goal)+" · "+p.status)}) } } }
@@ -167,7 +131,7 @@ import kotlinx.coroutines.withContext
                                 color=if(day.date==date)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                         }
                         day.sessions.forEach { session ->
-                            item(key="agenda-workout-${session.id}") { PlannedWorkoutCard(session,state.workoutDrafts.containsKey(plan.id to session.id),compact=true) { onOpen(plan.id,session.id) } }
+                            item(key="agenda-workout-${session.id}") { PlannedWorkoutCard(session,state.workoutDrafts.containsKey(plan.id to session.id),compact=true,onMove={onManage(plan.id,session.date)}) { onOpen(plan.id,session.id) } }
                         }
                     }
                 }
@@ -178,8 +142,14 @@ import kotlinx.coroutines.withContext
                 if(day.isEmpty()) item { SignalCard { Text("No workout scheduled",style=MaterialTheme.typography.titleLarge);Text("This calendar date has no prescribed session. No workout or completion is assumed.") } }
                 day.forEach { session -> item { PlannedWorkoutCard(session,state.workoutDrafts.containsKey(plan.id to session.id),compact=true) { onOpen(plan.id,session.id) } } }
             }
+            if (plan.status=="draft") item {
+                TracksideDraftApprovalDock(plan, !state.busy && Engine1Engines.canManage(plan)) {
+                    actions.approve(plan.id,plan.revision)
+                }
+            }
             item { PlanOverview(plan) }
-            if(plan.status=="draft"||plan.status=="paused") item { SignalButton(if(plan.status=="draft") "Approve this plan" else "Resume this plan",{actions.approve(plan.id,plan.revision)},!state.busy&&Engine1Engines.canManage(plan)) }
+            if(plan.status=="paused") item { SignalButton("Resume this plan",
+                {actions.approve(plan.id,plan.revision)},!state.busy&&Engine1Engines.canManage(plan)) }
             item { PlanFeedbackForm(plan,actions) }
             item { NativePlanExport(state.plans) }
         }
