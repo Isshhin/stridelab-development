@@ -317,6 +317,9 @@ import org.json.JSONObject
                 onStart = { start = it },
                 onWeeks = { weeks = it },
                 onMinutes = { minutes = it },
+                dailyBudget = dailyMinutes,
+                multiSession = input.policyChoice=="multi-session",
+                onDailyBudget = { dailyMinutes=it },
                 onBack = {
                     step = 1
                     if(input.runDays > 0) runningSubPage = 4
@@ -331,6 +334,8 @@ import org.json.JSONObject
                         policyChoice = if(enabled) "multi-session" else "coordinated"
                     ))
                 },
+                dailyBudget = dailyMinutes,
+                onDailyBudget = { dailyMinutes=it },
                 onDay = { day ->
                     val pinned = input.weeklySlots.values.flatten().contains(day)
                     if(day !in input.days || !pinned) {
