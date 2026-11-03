@@ -34,9 +34,6 @@ import kotlin.math.cos
                 TextButton(onClick={selectedIndex=((selectedIndex ?: 1)-1).coerceAtLeast(0)},enabled=selectedIndex!=0) { Text("Previous sample") }
                 TextButton(onClick={selectedIndex=((selectedIndex ?: -1)+1).coerceAtMost(detail.samples.lastIndex)},enabled=selectedIndex!=detail.samples.lastIndex) { Text("Next sample") }
             }
-            if(supportsPace) SampleGraph("Pace", "sec/km",detail.samples,selected,{selectedIndex=it}) { it.pace }
-            SampleGraph("Heart rate","bpm",detail.samples,selected,{selectedIndex=it}) { it.hr }
-            SampleGraph("Elevation","m",detail.samples,selected,{selectedIndex=it}) { it.altitude }
             val points = detail.samples.filter { it.latitude != null && it.longitude != null }
             if(points.size < 2) Text("No recorded GPS route. Indoor activities and sources without coordinates cannot show a route.")
             else {
@@ -53,6 +50,10 @@ import kotlin.math.cos
                     for((a,b) in detail.samples.zipWithNext()) if(a.latitude!=null && a.longitude!=null && b.latitude!=null && b.longitude!=null && b.seconds-a.seconds<=120 && abs(a.longitude-b.longitude)<180) drawLine(color,point(a),point(b),3.dp.toPx())
                 }
             }
+            if(supportsPace) SampleGraph("Pace", "sec/km",detail.samples,selected,{selectedIndex=it}) { it.pace }
+            SampleGraph("Heart rate","bpm",detail.samples,selected,{selectedIndex=it}) { it.hr }
+            SampleGraph("Elevation","m",detail.samples,selected,{selectedIndex=it}) { it.altitude }
+
         }
         Text("Source laps",style=MaterialTheme.typography.titleMedium)
         if(detail.laps.isEmpty()) Text("No recorded laps returned. No kilometer splits have been invented.")

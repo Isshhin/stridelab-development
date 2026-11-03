@@ -54,7 +54,7 @@ jobs:
             adb shell wm size 720x1600
             adb shell wm density 320
             adb shell settings put system font_scale 1.0
-            gradle --project-dir native-android --no-daemon :app:connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=io.stridelab.privatealpha.TracksideTabTest,io.stridelab.privatealpha.TracksideTodayTest,io.stridelab.privatealpha.TracksideTrainingCalendarUiTest,io.stridelab.privatealpha.TracksideManagePlanTest,io.stridelab.privatealpha.TracksideManageNavigationTest' --console=plain
+            gradle --project-dir native-android --no-daemon :app:connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=io.stridelab.privatealpha.TracksideTabTest,io.stridelab.privatealpha.TracksideTodayTest,io.stridelab.privatealpha.TracksideTrainingCalendarUiTest,io.stridelab.privatealpha.TracksideManagePlanTest,io.stridelab.privatealpha.TracksideManageNavigationTest,io.stridelab.privatealpha.TracksideBatch345UiTest' --console=plain
       - name: Preserve instrumentation results for review
         if: always()
         uses: actions/upload-artifact@v4

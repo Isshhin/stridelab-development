@@ -281,6 +281,7 @@ private fun NavHostController.openActivity(id: String) {
                 composable("activities") {
                     Screen("Activities", "YOUR HISTORY") {
                         item { SyncStatus(state) }
+                        if(state.account != null && state.activities.isNotEmpty()) item { HistoryOverview(state.activities) }
                         if(state.account == null) item { EmptyState("Sign in to view your history", "Only records belonging to your signed-in account are displayed."); Button(onClick = { nav.navigate("auth") }) { Text("Sign in") } }
                         else {
                             item { OutlinedButton(onClick = actions.refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
@@ -299,6 +300,7 @@ private fun NavHostController.openActivity(id: String) {
                         if(activity == null) item { EmptyState("No activity available", "This activity is not in the current account’s local cache.") }
                         else {
                             item { Text(activity.dateLabel, style = MaterialTheme.typography.bodyLarge); Text("${activity.type} · ${activity.sourceLabel}", color = MaterialTheme.colorScheme.secondary) }
+                            item { TracksideSectionHeader("Recorded metrics") }
                             item { MetricPair(
                                 if(activity.distanceM != null || activity.supportsPace) "Distance" to activity.distanceLabel else null,
                                 "Elapsed time" to activity.durationLabel) }
@@ -355,7 +357,9 @@ private fun NavHostController.openActivity(id: String) {
                         item { SignalCard { Text("YOUR STRIDELAB", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text(if(state.account == null) "Keep your training close." else "Connected to your history.", style = MaterialTheme.typography.titleLarge); Text("Private preview · ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
                         item { SyncStatus(state) }
                         if(state.account != null) {
+                            item { TracksideSectionHeader("Private account") }
                             item { SignalCard { Text("ACCOUNT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text(state.account!!, style = MaterialTheme.typography.bodyMedium) } }
+                            item { TracksideSectionHeader("Connections") }
                             item { SignalCard {
                                 Text("ACTIVITY SOURCE", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                                 Text("Intervals.icu",style = MaterialTheme.typography.titleLarge)
@@ -371,6 +375,7 @@ private fun NavHostController.openActivity(id: String) {
                             } }
                             item { OutlinedButton(onClick = { confirmSignOut = true }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Sign out on this device") } }
                         } else item { Button(onClick = { nav.navigate("auth") }, modifier = Modifier.fillMaxWidth()) { Text("Sign in") } }
+                        item { TracksideSectionHeader("Device & data") }
                         item { SignalCard {
                             Text("LEGACY DATA & BACKUPS", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                             Text("Your earlier training is preserved", style = MaterialTheme.typography.titleLarge)
@@ -476,7 +481,7 @@ internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
     }
 }
 @Composable internal fun ActivityRow(activity: ActivityRecord, onClick: () -> Unit) {
-    val accent = when { activity.supportsPace -> Color(0xFF6FB4FF); activity.type.contains("strength", true) || activity.type == "training" -> Color(0xFFFF9A62); else -> Color(0xFFC79BFF) }
+    val accent = when { activity.supportsPace -> TracksidePalette.running; activity.type.contains("strength", true) || activity.type == "training" -> TracksidePalette.strength; else -> TracksidePalette.calisthenics }
     Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().testTag("activity-${activity.id}"), shape = RoundedCornerShape(22.dp),
         color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f))) {
         Column(Modifier.background(Brush.horizontalGradient(listOf(accent.copy(alpha = .07f), Color.Transparent))).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

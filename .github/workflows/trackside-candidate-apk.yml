@@ -1,0 +1,53 @@
+name: Trackside installable QA debug candidate
+
+on:
+  push:
+    branches:
+      - feature/trackside3-compose-foundation-20261102
+    paths:
+      - 'native-android/**'
+      - '.github/workflows/trackside-candidate-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - run: sdkmanager --install 'platforms;android-36' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Build isolated QA APK
+        run: gradle --no-daemon -p native-android :app:assembleDebug --console=plain
+      - name: Verify package, signer and SHA256
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="native-android/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$apk"
+          mkdir -p candidate-evidence
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" > candidate-evidence/package.txt
+          grep -q "name='io.stridelab.privatealpha'" candidate-evidence/package.txt
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk" > candidate-evidence/signature.txt
+          sha256sum "$apk" > candidate-evidence/apk.sha256
+          git rev-parse HEAD > candidate-evidence/source-sha.txt
+          echo "CI ephemeral debug signer. CLEAN INSTALL TEST ONLY. Do not uninstall or overwrite an existing data-bearing StrideLab install. Physical in-place upgrade needs matching signing certificate." > candidate-evidence/README.txt
+      - name: Upload installable QA APK and evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: stridelab-trackside-debug-${{ github.sha }}
+          path: |
+            native-android/app/build/outputs/apk/debug/app-debug.apk
+            candidate-evidence/
+          if-no-files-found: error
+          retention-days: 14

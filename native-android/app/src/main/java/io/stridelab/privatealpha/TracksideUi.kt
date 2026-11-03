@@ -40,7 +40,8 @@ internal object TracksidePalette {
 internal fun tracksideDisciplineColor(discipline: String): Color = when (discipline.lowercase()) {
     "run", "running" -> TracksidePalette.running
     "str", "strength" -> TracksidePalette.strength
-    "cal", "calisthenics" -> TracksidePalette.calisthenics
+    "cal", "calisthenics", "body", "bodyweight" -> TracksidePalette.calisthenics
+    "mob", "mobility", "recovery" -> TracksidePalette.recovery
     else -> disciplineColor(discipline)
 }
 
