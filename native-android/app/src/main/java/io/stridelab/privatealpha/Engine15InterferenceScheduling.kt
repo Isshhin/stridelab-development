@@ -17,8 +17,18 @@ internal object Engine15InterferenceScheduling {
             ((other.discipline=="cal" && !other.lower) ||
                 (other.discipline=="str" && !other.lower))
     }
-    fun conflict(a:PlannedSession,b:PlannedSession):Boolean =
-        if(a.date==b.date) !safePair(a,b) else MultiSessionScheduling.conflict(a,b)
+    /** Symmetric hard spacing for actual quality, long, intervals and hill labels. */
+    fun conflict(a:PlannedSession,b:PlannedSession):Boolean {
+        if(a.date==b.date)return !safePair(a,b)
+        val gap=abs(ChronoUnit.DAYS.between(a.date,b.date))
+        if(gap==1L) {
+            val hardA=a.quality || a.kind in setOf("long","quality","threshold","intervals","hills")
+            val hardB=b.quality || b.kind in setOf("long","quality","threshold","intervals","hills")
+            if((a.lower && hardB) || (b.lower && hardA) || (hardA && hardB))
+                return true
+        }
+        return MultiSessionScheduling.conflict(a,b)
+    }
 
     private fun templates(p:PlanRequest,discipline:String,count:Int,
                           owner:String,id:String,now:Instant):List<PlannedSession> {

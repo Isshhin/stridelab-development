@@ -80,6 +80,11 @@ class Engine15InterferenceSchedulingTest {
             quality.copy(date=day.minusDays(1)),heavy))
         assertTrue(Engine15InterferenceScheduling.conflict(
             heavy.copy(date=day.minusDays(1)),long))
+        // Lower-body work immediately after a long run is also too close.
+        assertTrue(Engine15InterferenceScheduling.conflict(
+            heavy.copy(date=day.plusDays(1)),long))
+        assertTrue(Engine15InterferenceScheduling.conflict(
+            quality.copy(kind="hills",quality=false,date=day.plusDays(1)),long))
     }
 
     @Test fun impossibleTimeAndUnavailablePreferencesFailWithoutRemovingSessions() {
