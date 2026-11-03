@@ -106,9 +106,9 @@ class TracksideParityStatesUiTest {
         compose.onNodeWithTag("activity-tab-splits").performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("SOURCE SPLITS / LAPS"))
         compose.onNodeWithText("SOURCE SPLITS / LAPS").assertExists()
-        compose.onNodeWithTag("screen").performScrollToNode(
-            hasTestTag("activity-map-hero")
-        )
+        // Activity backdrop is intentionally fixed behind the independently
+        // scrolling sheet, so it is not a descendant of the root scroll list.
+        compose.onNodeWithTag("activity-map-hero").assertIsDisplayed()
         compose.onNodeWithTag("activity-change-glass-variant").performClick()
         compose.onNodeWithTag("activity-parity-overview").assertExists()
     }

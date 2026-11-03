@@ -127,14 +127,78 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
         screenshot("builder-strength-unassigned")
         compose.onNodeWithTag("builder-strength-weekday-1").performClick()
+        compose.onNodeWithTag("builder-strength-edit-schedule").performScrollTo()
         compose.onNodeWithTag("builder-strength-edit-schedule").performClick()
+        compose.onNodeWithTag("builder-strength-session-1").performScrollTo()
         compose.onNodeWithTag("builder-strength-session-1").performClick()
+        compose.onNodeWithTag("builder-strength-weekday-4").performScrollTo()
         compose.onNodeWithTag("builder-strength-weekday-4").performClick()
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
         screenshot("builder-strength-placed")
         compose.onNodeWithTag("builder-strength-auto").performClick()
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
         screenshot("builder-strength-auto")
+    }
+
+    @Test fun approvedCalisthenicsWeekAndUnassignedStatesRender() {
+        val state=TrainingState(initializing=false,account="synthetic-responsive")
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    PlanBuilder(state=state,actions=PlanActions(),
+                        discipline="cal",onDone={},onSignIn={},
+                        onPreview={_,_->})
+                }
+            }
+        }
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-cross-goal-cal-Pull-up progression").assertExists()
+        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-cali-weekly").assertExists()
+        screenshot("builder-calisthenics-setup")
+        compose.onNodeWithTag("builder-cali-customize").performClick()
+        compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
+        screenshot("builder-calisthenics-unassigned")
+        compose.onNodeWithTag("builder-cali-day-3").performClick()
+        compose.onNodeWithTag("builder-cali-session-type-Pull").performClick()
+        compose.onNodeWithText("Close").performClick()
+        compose.onNodeWithTag("builder-cali-day-5").performClick()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        screenshot("builder-calisthenics-assigned")
+    }
+
+    @Test fun activityFixedMapAndIndependentSheetRenderAtCurrentViewport() {
+        val recorded=ActivityRecord(
+            "synthetic-responsive-activity","Recorded Evening Run","run","manual",
+            Instant.parse("2026-11-01T09:00:00Z"),
+            7400.0,2882.0,2792.0,379.0,147.0,64.0
+        )
+        val state=TrainingState(initializing=false,
+            account="synthetic-responsive",activities=listOf(recorded))
+        val matte=mutableStateOf(false)
+        val tab=mutableStateOf(0)
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideFigmaActivityDetailSurface(
+                        activity=recorded,recorded=null,history=listOf(recorded),
+                        state=state,
+                        actions=NativeActions({}, {}, {}, {}, { _, _ -> }),
+                        online=false,selectedTab=tab.value,onTab={ tab.value=it },
+                        matte=matte.value,onToggleMatte={matte.value=!matte.value},
+                        onBack={}
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("activity-map-hero").assertIsDisplayed()
+        compose.onNodeWithTag("activity-sheet-scroll").assertExists()
+        screenshot("activity-atmospheric")
+        compose.onNodeWithTag("activity-change-glass-variant").performClick()
+        screenshot("activity-matte")
+        compose.onNodeWithTag("activity-sheet-scroll").performTouchInput { swipeUp() }
+        compose.onNodeWithTag("activity-map-hero").assertIsDisplayed()
+        screenshot("activity-map-persistent")
     }
 
     @Test fun builderAvailabilityAndDraftReviewRenderAtCurrentViewport() {
@@ -170,7 +234,7 @@ class TracksideResponsiveQaTest {
             }
         }
         compose.onNodeWithTag("today-hero").assertExists()
-        compose.onNodeWithTag("today-map-illustration").assertExists()
+        compose.onNodeWithTag("today-map-illustration", useUnmergedTree=true).assertExists()
         compose.onNodeWithContentDescription("Open planned workout", useUnmergedTree = true).assertExists()
         screenshot("today")
         compose.onNodeWithTag("today-hero").performClick()

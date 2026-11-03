@@ -109,6 +109,8 @@ import org.json.JSONObject
     var strengthGoalSaved by rememberSaveable { mutableStateOf(false) }
     var strengthSetupSaved by rememberSaveable { mutableStateOf(false) }
     var strengthSelectedSlot by rememberSaveable { mutableIntStateOf(0) }
+    var crossGoalsSaved by rememberSaveable { mutableStateOf(false) }
+    var caliSelectedSlot by rememberSaveable { mutableIntStateOf(0) }
     var strengthGoalLabel by rememberSaveable {
         mutableStateOf(when(Engine1Engines.goal(initial,"str")) {
             "Muscle development" -> "Build Muscle"
@@ -199,6 +201,7 @@ import org.json.JSONObject
                 crossTrainingGoals=false
                 strengthGoalSaved=false
                 strengthSetupSaved=false
+                crossGoalsSaved=false
             }
         )
         return
@@ -479,6 +482,43 @@ import org.json.JSONObject
                 onEditGoal={ strengthGoalSaved=false },
                 onContinue={ strengthSetupSaved=true }
             )
+        } else if(input.calDays>0 && crossGoalsSaved) {
+            TracksideFigmaCalisthenicsSetup(
+                request=input,
+                selectedSlot=caliSelectedSlot,
+                onSelectedSlot={ caliSelectedSlot=it },
+                onMode={ custom ->
+                    edit(input.copy(weeklySlots=
+                        if(custom) input.weeklySlots+
+                            ("cal" to WeeklyPlacement.days(input,"cal"))
+                        else input.weeklySlots-"cal"))
+                },
+                onCount={ count ->
+                    edit(if("cal" in input.weeklySlots)
+                        WeeklyPlacement.resize(input,"cal",count)
+                    else input.copy(calDays=count))
+                    caliSelectedSlot=caliSelectedSlot.coerceIn(0,count-1)
+                },
+                onAssign={ index,day ->
+                    edit(WeeklyPlacement.put(input,"cal",index,day))
+                },
+                onClear={ index ->
+                    edit(WeeklyPlacement.clear(input,"cal",index))
+                },
+                onAbility={ part,level ->
+                    edit(when(part) {
+                        "Push" -> input.copy(calLevel=level)
+                        "Pull" -> input.copy(pullLevel=level)
+                        else -> input.copy(coreLevel=level)
+                    })
+                },
+                onBack={ crossGoalsSaved=false },
+                onContinue={
+                    crossGoalsSaved=false
+                    step=2
+                    scheduleSubPage=0
+                }
+            )
         } else {
             TracksideFigmaCrossTrainingGoalsScreen(
                 request=input,
@@ -489,7 +529,10 @@ import org.json.JSONObject
                         runningSubPage=4
                     } else step=0
                 },
-                onContinue={ step=2; scheduleSubPage=0 },
+                onContinue={
+                    if(input.calDays>0) crossGoalsSaved=true
+                    else { step=2; scheduleSubPage=0 }
+                },
                 onEditStrengthGoal={
                     strengthGoalSaved=false
                     strengthSetupSaved=false
@@ -546,6 +589,7 @@ import org.json.JSONObject
                             strengthSetupSaved=true
                         } else runningSubPage = 4
                     }
+                    crossGoalsSaved=input.calDays>0
                 },
                 onContinue = { scheduleSubPage = 1 }
             )
