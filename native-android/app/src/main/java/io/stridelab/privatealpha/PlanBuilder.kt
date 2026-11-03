@@ -43,8 +43,16 @@ import org.json.JSONObject
     var otherSelectedDiscipline by rememberSaveable { mutableStateOf("str") }
     var otherSelectedSlot by rememberSaveable { mutableIntStateOf(0) }
     var runningCustom by rememberSaveable { mutableStateOf(true) }
-    var qualityPreference by rememberSaveable { mutableStateOf("Threshold") }
-    var advancedQualityCsv by rememberSaveable { mutableStateOf("Threshold|Tempo") }
+    var qualityPreference by rememberSaveable {
+        mutableStateOf(initial.preferredQuality)
+    }
+    var advancedQualityCsv by rememberSaveable {
+        mutableStateOf(
+            (initial.allowedQualityTypes.ifEmpty {
+                setOf("Threshold","Tempo")
+            }).sorted().joinToString("|")
+        )
+    }
     val advancedQualityTypes = advancedQualityCsv.split('|').filter { it.isNotBlank() }.toSet()
     var advancedBackPage by rememberSaveable { mutableIntStateOf(0) }
     var guidedFocus by rememberSaveable { mutableStateOf("10K") }
@@ -194,6 +202,7 @@ import org.json.JSONObject
                         if (quality in advancedQualityTypes) advancedQualityTypes-quality
                         else advancedQualityTypes+quality
                     advancedQualityCsv = updated.sorted().joinToString("|")
+                    edit(input.copy(allowedQualityTypes=updated))
                 },
                 onBack = { runningSubPage = advancedBackPage },
                 onContinue = {
@@ -250,7 +259,10 @@ import org.json.JSONObject
                     ))
                 },
                 qualityPreference = qualityPreference,
-                onQualityPreference = { qualityPreference = it },
+                onQualityPreference = { selected ->
+                    qualityPreference=selected
+                    edit(input.copy(preferredQuality=selected))
+                },
                 onQualityCount = { n ->
                     val allowed = minOf((input.runDays-2).coerceAtLeast(0),
                         if(input.experience==2 && input.runDays>=4 &&
