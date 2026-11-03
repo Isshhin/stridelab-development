@@ -158,11 +158,17 @@ internal fun TracksideEngine15ReviewCandidateScreen(
                 )
                 ReviewSupport(when(stage) {
                     TracksideReviewStage.PREVIEW -> {
-                        val percentage = ((model.plannedMinutes - model.proposedMinutes!!) * 100 /
-                            model.plannedMinutes)
-                        "${percentage}% less time. No extra distance or harder pace."
+                        if (model.proposedMinutes == 0) {
+                            "A recovery rest is proposed. No catch-up mileage."
+                        } else {
+                            val percentage = ((model.plannedMinutes - model.proposedMinutes!!) * 100 /
+                                model.plannedMinutes)
+                            "${percentage}% less time. No extra distance or harder pace."
+                        }
                     }
-                    TracksideReviewStage.PENDING -> "This time-only option is not active yet."
+                    TracksideReviewStage.PENDING -> if (model.proposedMinutes == 0)
+                        "This reviewed rest option is not active yet."
+                    else "This time-only option is not active yet."
                     TracksideReviewStage.ACCEPTED_TIME ->
                         "The original distance stays in your history, not as a current goal."
                     TracksideReviewStage.ACCEPTED_REST ->
