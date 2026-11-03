@@ -84,6 +84,12 @@ class FieldReadinessTests(unittest.TestCase):
         self.assertEqual("REJECTED_UNREGISTERED_ENDPOINT", result["status"])
         self.assertFalse(result["actual_performance_effect_demonstrated"])
 
+    def test_impossible_calendar_date_is_rejected(self):
+        handoff = metadata()
+        handoff["baseline_period"]["end"] = "2026-02-30"
+        self.assertEqual("REJECTED_PERIODS",
+                         inspect_manifest(handoff)["status"])
+
     def test_missing_fields_rejected_not_imputed(self):
         handoff = metadata()
         del handoff["measurement_source"]
