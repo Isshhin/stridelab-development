@@ -85,24 +85,24 @@ internal object TracksideReviewCandidateCopy {
 
     fun changeTitle(model: TracksideReviewCandidate): String = when(model.stage) {
         TracksideReviewStage.PREVIEW -> "A shorter easy run"
-        TracksideReviewStage.PENDING -> "\${model.proposedMinutes} minutes instead of \${model.plannedMinutes}"
-        TracksideReviewStage.ACCEPTED_TIME -> "Previously \${model.plannedMinutes} min · \${model.originalDistanceLabel}"
-        TracksideReviewStage.ACCEPTED_REST -> "\${model.workoutTitle} · \${model.plannedMinutes} min"
+        TracksideReviewStage.PENDING -> "${model.proposedMinutes} minutes instead of ${model.plannedMinutes}"
+        TracksideReviewStage.ACCEPTED_TIME -> "Previously ${model.plannedMinutes} min · ${model.originalDistanceLabel}"
+        TracksideReviewStage.ACCEPTED_REST -> "${model.workoutTitle} · ${model.plannedMinutes} min"
         TracksideReviewStage.STALE -> "Previous review unavailable"
     }
 
     fun actions(model: TracksideReviewCandidate): Pair<String,String> = when(model.stage) {
         TracksideReviewStage.PREVIEW -> "Review suggestion" to "Keep original"
-        TracksideReviewStage.PENDING -> "Accept \${model.proposedMinutes} min" to "Dismiss"
+        TracksideReviewStage.PENDING -> "Accept ${model.proposedMinutes} min" to "Dismiss"
         TracksideReviewStage.ACCEPTED_TIME -> "View workout" to "Training"
         TracksideReviewStage.ACCEPTED_REST -> "Training" to "View history"
         TracksideReviewStage.STALE -> "Refresh review" to "Keep original"
     }
 
     fun disclosure(model: TracksideReviewCandidate): String = when(model.stage) {
-        TracksideReviewStage.PREVIEW -> "The original \${model.originalDistanceLabel} value is not a target for a shorter run."
-        TracksideReviewStage.PENDING -> "If accepted: \${model.proposedMinutes} minutes, with no required distance or old interval targets."
-        TracksideReviewStage.ACCEPTED_TIME -> "No catch-up mileage. Do not force the old distance into \${model.activeMinutes} minutes."
+        TracksideReviewStage.PREVIEW -> "The original ${model.originalDistanceLabel} value is not a target for a shorter run."
+        TracksideReviewStage.PENDING -> "If accepted: ${model.proposedMinutes} minutes, with no required distance or old interval targets."
+        TracksideReviewStage.ACCEPTED_TIME -> "No catch-up mileage. Do not force the old distance into ${model.activeMinutes} minutes."
         TracksideReviewStage.ACCEPTED_REST -> "No automatic redistribution of missed training."
         TracksideReviewStage.STALE -> "No adjustment was accepted. Reopen current details before deciding."
     }
