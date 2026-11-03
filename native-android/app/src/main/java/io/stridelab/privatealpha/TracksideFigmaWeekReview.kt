@@ -38,9 +38,13 @@ internal fun TracksideFigmaWeekReview(
     onWeekChange: (Int) -> Unit = {},
     error: String? = null
 ) {
-    val weekStart = (plan?.request?.start ?: request.start)
-        .with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
-        .plusWeeks(weekIndex.coerceIn(0, request.weeks-1).toLong())
+    // A plan can start on any weekday. Its engine weeks are anchored at
+    // request.start, NOT calendar Mondays; the review must display every
+    // prescribed session, including the last partial calendar week.
+    val firstDate = plan?.request?.start ?: request.start
+    val weekStart = firstDate.plusWeeks(
+        weekIndex.coerceIn(0,(request.weeks-1).coerceAtLeast(0)).toLong()
+    )
     val weekEnd = weekStart.plusDays(6)
     val rows = plan?.sessions?.filter {
         it.date in weekStart..weekEnd
@@ -161,8 +165,14 @@ internal fun TracksideFigmaWeekReview(
                 verticalArrangement=Arrangement.spacedBy(5.dp)) {
                 Row(Modifier.fillMaxWidth(),
                     horizontalArrangement=Arrangement.SpaceBetween) {
-                    Text("MON – SUN",fontSize=10.sp,color=Color(0xFFB6C0CA),
-                        fontWeight=FontWeight.Bold)
+                    Text(
+                        weekStart.format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM",
+                            java.util.Locale.getDefault())) + " – " +
+                        weekEnd.format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM",
+                            java.util.Locale.getDefault())),
+                        fontSize=10.sp,color=Color(0xFFB6C0CA),
+                        fontWeight=FontWeight.Bold
+                    )
                     Text(
                         if(request.policyChoice=="multi-session")"MAX 2 / DAY"
                         else "CURRENT POLICY · 1 / DAY",
