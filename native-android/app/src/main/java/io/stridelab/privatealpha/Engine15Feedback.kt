@@ -103,7 +103,7 @@ internal object Engine15Feedback {
         val proposed = mutableListOf<Proposal>()
         for (source in sourceEvidence) {
             val target = plan.sessions.asSequence()
-                .filter { it.id !in reserved && it.date >= asOf && it.date > source.date }
+                .filter { it.discipline == "run" && it.id !in reserved && it.date >= asOf && it.date > source.date }
                 .filter { ChronoUnit.DAYS.between(source.date, it.date) in 1L..4L }
                 .filter {
                     it.status == "planned" && it.log == null &&
