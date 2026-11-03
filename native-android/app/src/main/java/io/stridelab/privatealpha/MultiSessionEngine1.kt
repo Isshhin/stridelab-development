@@ -124,7 +124,7 @@ internal object MultiSessionEngine1 : PlanGenerationEngine {
                 when {
                     pinnedDay != null -> it.dayOfWeek.value == pinnedDay
                     session.kind == "long" -> it.dayOfWeek.value == request.longDay
-                    session.kind == "quality" -> it.dayOfWeek.value in request.qualityDays
+                    session.quality -> it.dayOfWeek.value in request.qualityDays
                     else -> true
                 }
             }.sortedWith(compareBy<LocalDate> { date ->
@@ -142,7 +142,9 @@ internal object MultiSessionEngine1 : PlanGenerationEngine {
             return false
         }
         if (!solve(0)) throw PlanConstraint(
-            "Selected weekdays cannot fit the available days, ${request.dailyMinutes}-minute budget and recovery constraints. Change placements or switch to automatic scheduling."
+            if(request.weeklySlots.isEmpty())
+                "These sessions cannot fit the available days, ${request.dailyMinutes}-minute daily budget and recovery constraints. Add days, reduce sessions or change long-run/quality preferences."
+            else "Selected weekdays cannot fit the available days, ${request.dailyMinutes}-minute budget and recovery constraints. Change placements or switch to automatic scheduling."
         )
         return placed
     }
