@@ -1,0 +1,174 @@
+package io.stridelab.privatealpha
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import java.util.Locale
+
+/** Figma master gallery 614:500 (draft) and 795:839 (active).
+ * Day/Agenda is the approved visible control; month remains a separate existing route,
+ * not an unapproved third segment inserted into this 162×44 switch.
+ */
+@Composable
+internal fun TracksideParityTrainingControls(
+    agenda: Boolean, draft: Boolean, hasPlan: Boolean,
+    onDay: () -> Unit, onAgenda: () -> Unit, onManage: () -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth().height(44.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(
+            Modifier.width(162.dp).fillMaxHeight()
+                .background(Color(0xFF14232D), RoundedCornerShape(12.dp))
+                .padding(3.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            listOf(Triple("Day", !agenda, onDay), Triple("Agenda", agenda, onAgenda)).forEach {
+                (label, selected, action) ->
+                Surface(
+                    onClick = action,
+                    modifier = Modifier.weight(1f).fillMaxHeight()
+                        .testTag(if (label == "Day") "training-view-day" else "training-view-agenda"),
+                    color = if (selected) Color(0xFFF6F7F9) else Color.Transparent,
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(label, fontSize = 13.5.sp, fontWeight = FontWeight.Bold,
+                            color = if (selected) Color.Black else Color(0xFFA2A4AF))
+                    }
+                }
+            }
+        }
+        if (draft) Surface(
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, TracksidePalette.text),
+            color = Color.Transparent
+        ) {
+            Text("DRAFT", Modifier.padding(horizontal = 13.dp, vertical = 7.dp),
+                fontSize = 10.6.sp, color = TracksidePalette.text, fontWeight = FontWeight.Bold)
+        } else if (hasPlan) TextButton(onClick = onManage,
+            modifier = Modifier.testTag("training-manage-plan")) {
+            Text("Manage ›", color = TracksidePalette.text, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+/** Approved running card 614:500 x17/y380/w378/h155 and multi-exercise card y548/h232.
+ * All labels and segments below are rendered from actual saved plan prescriptions.
+ */
+@Composable
+internal fun TracksideParityWorkoutCard(
+    session: PlannedSession,
+    hasDraft: Boolean,
+    onOpen: () -> Unit
+) {
+    val accent = tracksideDisciplineColor(session.discipline)
+    val isRun = session.discipline == "run"
+    val detail = if (isRun) {
+        listOfNotNull(
+            session.distanceKm?.let { String.format(Locale.getDefault(), "%.1f km", it) },
+            session.effectiveMinutes.toString() + " min",
+            session.kind.replace('_', ' ')
+        ).joinToString(" · ")
+    } else session.effectiveMinutes.toString() + " min · " +
+        session.effectiveExercises.size.toString() + " exercises"
+    Surface(
+        onClick = onOpen,
+        modifier = Modifier.fillMaxWidth()
+            .testTag("workout-" + session.id),
+        shape = RoundedCornerShape(14.dp),
+        color = TracksidePalette.surface,
+        border = BorderStroke(1.dp, Color(0x6658798C))
+    ) {
+        Column(
+            Modifier.fillMaxWidth()
+                .background(Brush.horizontalGradient(listOf(accent.copy(alpha = 0.09f), Color.Transparent)))
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(38.dp)
+                        .background(accent.copy(alpha = .18f), RoundedCornerShape(10.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isRun) Icon(painterResource(R.drawable.trackside_figma_run), null,
+                        tint = accent, modifier = Modifier.size(24.dp))
+                    else Text(disciplineLabel(session.discipline).take(1), color = accent,
+                        style = MaterialTheme.typography.titleLarge)
+                }
+                Spacer(Modifier.width(9.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(session.effectiveTitle, fontSize = 16.sp,
+                        color = TracksidePalette.text, fontWeight = FontWeight.Bold,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(detail, fontSize = 11.sp, color = TracksidePalette.textMuted,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+                Text("Open ›", fontSize = 12.sp, color = TracksidePalette.text)
+            }
+            if (isRun) {
+                val stages = session.steps.take(3).filter { it.isNotBlank() }
+                Row(
+                    Modifier.fillMaxWidth().height(25.dp),
+                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    if (stages.isEmpty()) {
+                        Box(Modifier.weight(1f).fillMaxHeight()
+                            .background(accent.copy(alpha = .85f), RoundedCornerShape(5.dp)),
+                            contentAlignment = Alignment.Center) {
+                            Text("Planned run", fontSize = 10.sp, color = Color.White)
+                        }
+                    } else {
+                        stages.forEachIndexed { i, stage ->
+                            Box(Modifier.weight(if (i == 1) 4f else 1f).fillMaxHeight()
+                                .background(accent.copy(alpha = if (i == 1) 0.9f else 0.35f),
+                                    RoundedCornerShape(5.dp)), contentAlignment = Alignment.Center) {
+                                Text(stage.take(22), fontSize = 9.sp,
+                                    color = TracksidePalette.text,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
+                }
+                Text("Prescribed workout · tap for full steps",
+                    fontSize = 10.sp, color = TracksidePalette.textMuted)
+            } else {
+                session.effectiveExercises.take(4).forEach { exercise ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(exercise.name, modifier = Modifier.weight(1f),
+                            fontSize = 12.sp, color = TracksidePalette.text,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(exercise.sets.toString() + " × " +
+                            (exercise.reps?.toString() ?: exercise.seconds?.let { it.toString() + "s" } ?: "—"),
+                            fontSize = 12.sp, color = accent)
+                    }
+                }
+            }
+            if (hasDraft) Text("Saved workout draft · progress not submitted",
+                fontSize = 11.sp, color = TracksidePalette.red)
+            if (session.suggestion != null && !session.suggestion.accepted)
+                Text("Recovery suggestion requires your review",
+                    fontSize = 11.sp, color = TracksidePalette.red)
+        }
+    }
+}
