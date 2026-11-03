@@ -264,6 +264,36 @@ class Engine15FeedbackRepositoryTest {
             Engine15SessionPresentation.forSession(repository.state.value.plans.single(), "future-run"))
     }
 
+    @Test fun changedSourceEvidenceCannotBeAcceptedAndPendingStateSurvivesOffline() = runBlocking {
+        val recorded = confirmedSource()
+        val proposal = repository.previewEngine15Adjustments(recorded.id, today).single()
+        assertTrue(repository.stageEngine15Adjustment(recorded.id, recorded.revision, proposal, today))
+        var plan = repository.state.value.plans.single()
+        val stagedRevision = plan.revision
+        transport.offline = true
+
+        // Simulate a reviewed correction to recorded subjective effort after staging.
+        assertTrue(repository.changePlan(plan.id, plan.revision) { current ->
+            current.copy(sessions = current.sessions.map { session ->
+                if (session.id == "observed-run")
+                    session.copy(
+                        log = session.log!!.copy(effort = 3),
+                        logRevision = session.logRevision + 1
+                    )
+                else session
+            })
+        })
+        plan = repository.state.value.plans.single()
+        assertEquals(stagedRevision + 1, plan.revision)
+        assertFalse(repository.acceptSuggestion(plan.id, plan.revision, "future-run"))
+        assertFalse(plan.sessions.last().suggestion!!.accepted)
+        assertEquals(60, repository.state.value.plans.single().sessions.last().effectiveMinutes)
+        repository.close()
+        open()
+        assertEquals(plan, repository.state.value.plans.single())
+        assertEquals(60, repository.state.value.plans.single().sessions.last().effectiveMinutes)
+    }
+
     private inner class FixtureGateway : TrainingGateway {
         var account = owner
         var offline = false
