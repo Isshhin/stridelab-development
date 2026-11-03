@@ -33,3 +33,13 @@ The earlier screenshot showed six "placed" runs but the weekday cells did not re
 ## Next session entry
 
 Read this document, pull the exact branch head, inspect `PlanBuilder.kt`, `WeeklyPlacement.kt`, both schedulers and the two test suites. Verify compiler and UI only after the user's build hold is lifted. Continue the real multi-discipline Figma parity work and preserve the distinction between editable preferences and enforced engine rules.
+
+## 2026-11-03 continuation: native non-running goals and safe restored states
+
+- Commits `a5ca091`, `af23cc9`, `3b77f13` and `b7a2d50` on the same no-build design branch implement confirmation-driven removal of occupied training days, native cross-training goal/ability routes for Strength/Calisthenics/Conditioning, and source regression coverage. Running-only setup remains intact.
+- The user can now explicitly make a previously pinned weekday unavailable; its occupied manual slots become unassigned rather than silently changing dates, and generation stays disabled until resolved. This updates the selected weekday set without changing the workout count.
+- The Strength Goal screen follows Figma `687:3` in Compose with four approved visual choices. Engine 1 uses only `General strength`, `Muscle development` and `Strength endurance`; Physique Development and Maintain Fitness are mapped to existing prescriptions with a disclosure. Muscle emphasis and training splits are not claimed as implemented coaching behavior. Figma's provisional goal artwork is not yet final.
+- Multi-discipline plans now visit native cross-training goals after running setup. They no longer skip the selected secondary discipline's goal and ability edits.
+- The legacy chip-based four-stage builder fallback has been replaced with a full-screen recovery route if a saved draft disappears or a step fails to restore. Inputs remain available for a new review rather than being silently discarded.
+- Existing Compose preview calls remain source-compatible with the new availability callback. No compiler, emulator, screenshots, UI tests, Gradle or APK build was run. These are **source-level changes only**; they require explicit permission before the build hold is lifted.
+- Remaining: source-level parity for Strength Setup `698:3` (equipment, goal link, split presentation without falsely promising engine enforcement), Calisthenics scheduling detail, visual comparison at 412×950 and 360×800, backed-by-device state checks, and final icon/font assets.
