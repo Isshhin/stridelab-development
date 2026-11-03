@@ -1,3 +1,27 @@
+# CURRENT — Batch 8C cloud validation (2026-11-03 Asia/Manila)
+
+**Latest verified Actions result:** [run 41583816601](https://github.com/Isshhin/stridelab-development/actions/runs/41583816601), 288/288 new seeded adversarial structural checks passed across 24 cohorts, 42/42 unit/negative-control/persistence tests passed, and the earlier 58-case new B0/H1 frozen comparison remains at 55 structural PASS / 0 FAIL / 3 BLOCKED for uncalibrated predictions. All 14 B0/H1 action differences are individually enumerated and remain unvalidated for coaching benefit.
+
+**[Batch 8C report and all 14 decision reviews](../../docs/research/batch-8c-heldout-adversarial-sqlite-crash-and-decision-audit-2026-11-03.md).**
+
+Additional modules: [heldout_runner.py](heldout_runner.py) produces seeded synthetic adversarial fixtures independent of the original fixed 58, [difference_review.py](difference_review.py) records B0/H1 decisions and their limitations, and [sqlite_ledger.py](sqlite_ledger.py) plus [test_sqlite_ledger.py](test_sqlite_ledger.py) test **temporary research SQLite files** including abrupt process termination and reopening. This does not validate Android Room or the user's separate local Athlete Simulation Lab.
+
+Reproduce all lanes on a copy of the research branch:
+
+```bash
+python -m unittest discover -s research/validation -p 'test_*.py' -v
+python research/validation/runner.py --output research-validation.json
+python research/validation/policy_runner.py --output research-policy-comparison.json
+python research/validation/heldout_runner.py --seed 82603 --per-cohort 12 --output research-heldout-results.json
+python research/validation/difference_review.py --output research-decision-differences.json
+```
+
+All four JSON artifacts are attached to the Actions workflow run. **No real athlete performance improvement, injury prevention, protected athlete activity processing, actual Python lab policy validation, or production Engine 2.0 implementation is established.** Keep PR #34 draft and unmerged.
+
+---
+
+## Historical Batch 8B/8A information
+
 # CURRENT — Batch 8B research policy validation
 
 **Verified CI:** [B0/H1 comparison run 41582744370](https://github.com/Isshhin/stridelab-development/actions/runs/41582744370) reported **55 structural PASS, 0 FAIL, 3 BLOCKED**, and **14 scenarios where B0 and H1 propose different actions**. **21 negative-control/harness/revision tests passed.** These are new, independent *research prototype* policies, not the original local Athlete Simulation Lab or Android Engine 2.0.
