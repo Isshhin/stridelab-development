@@ -32,6 +32,15 @@ import org.json.JSONObject
     } }
     fun request():PlanRequest=try { input.copy(start=LocalDate.parse(start),weeks=weeks.toInt(),minutes=minutes.toInt(),dailyMinutes=if(input.policyChoice=="multi-session")dailyMinutes.toInt() else input.dailyMinutes,weeklyKm=km.toDouble(),longestKm=longest.toDouble(),planningPace=pace.toDouble()*60) } catch(e:Exception) { throw PlanConstraint("Enter a valid YYYY-MM-DD date and numeric mileage, pace, weeks, minutes, and daily budget if enabled.") }
     var previewWeek by rememberSaveable { mutableIntStateOf(0) }
+    var runningSubPage by rememberSaveable { mutableIntStateOf(0) }
+    var runningRoute by rememberSaveable { mutableStateOf("race") }
+    var raceIntent by rememberSaveable { mutableStateOf("pr") }
+    var raceDistance by rememberSaveable { mutableStateOf(when(input.goal) {
+        "Improve 10K" -> "10K"
+        "Half marathon" -> "21K"
+        "Marathon" -> "42K"
+        else -> "5K"
+    }) }
     val preview=state.plans.find { it.id==previewId }
     if(step==4&&preview!=null) { Screen("Your plan","PREVIEW · NOT APPROVED") {
         item { PlanOverview(preview) }
@@ -41,6 +50,83 @@ import org.json.JSONObject
         preview.sessions.filter { it.date in weekStart..weekStart.plusDays(6) }.forEach { s -> item(key=s.id) { PlannedWorkoutCard(s) { onPreview(preview.id,s.id) } } }
         item { SignalButton("Approve plan",{actions.approve(preview.id,preview.revision);onDone()},!state.busy);OutlinedButton(onClick={step=2},modifier=Modifier.fillMaxWidth()) { Text("Edit inputs and generate a new draft") };TextButton(onClick=onDone) { Text("Keep draft and return to Training") } }
     };return }
+    if (step == 0) {
+        TracksideFigmaDisciplineScreen(
+            request = input,
+            onToggle = { d ->
+                val active = when(d) {
+                    "run" -> input.runDays > 0
+                    "str" -> input.strengthDays > 0
+                    "cal" -> input.calDays > 0
+                    else -> input.conditioningDays > 0
+                }
+                edit(when(d) {
+                    "run" -> input.copy(runDays=if(active)0 else 3,qualityCount=0)
+                    "str" -> input.copy(strengthDays=if(active)0 else 2)
+                    "cal" -> input.copy(calDays=if(active)0 else 2)
+                    else -> input.copy(conditioningDays=if(active)0 else 1)
+                })
+            },
+            onBack = onDone,
+            onContinue = { step = 1; runningSubPage = 0 }
+        )
+        return
+    }
+    if (step == 1 && input.runDays > 0 && runningSubPage != 3) {
+        when (runningSubPage) {
+            0 -> TracksideFigmaRunningGoalScreen(
+                selected = runningRoute,
+                onSelect = { runningRoute = it },
+                onBack = { step = 0 },
+                onContinue = {
+                    when (runningRoute) {
+                        "race" -> runningSubPage = 1
+                        "custom" -> runningSubPage = 3
+                        else -> {
+                            val goal = when(runningRoute) {
+                                "faster" -> "Improve 5K"
+                                "endurance" -> "Aerobic foundation"
+                                else -> "General fitness"
+                            }
+                            edit(input.copy(goal=goal,
+                                disciplineGoals=input.disciplineGoals+("run" to goal)))
+                            runningSubPage = 2
+                        }
+                    }
+                }
+            )
+            1 -> TracksideFigmaRaceGoalScreen(
+                intent = raceIntent, distance = raceDistance,
+                onIntent = { raceIntent = it }, onDistance = { raceDistance = it },
+                onBack = { runningSubPage = 0 },
+                onContinue = {
+                    val goal = when(raceDistance) {
+                        "10K" -> "Improve 10K"
+                        "21K" -> "Half marathon"
+                        "42K" -> "Marathon"
+                        else -> "Improve 5K"
+                    }
+                    edit(input.copy(goal=goal,
+                        disciplineGoals=input.disciplineGoals+("run" to goal)))
+                    runningSubPage = 2
+                }
+            )
+            2 -> TracksideFigmaRunningAbilityScreen(
+                experience = input.experience,
+                weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0,120.0) ?: 0.0,
+                longestKm = longest.toDoubleOrNull()?.coerceIn(0.0,42.0) ?: 0.0,
+                onExperience = { edit(input.copy(experience=it)) },
+                onWeeklyKm = { km = it.toInt().toString() },
+                onLongestKm = { longest = it.toInt().toString() },
+                onBack = {
+                    runningSubPage = if(runningRoute=="race") 1 else 0
+                },
+                onContinue = { step = 2 },
+                onAdvanced = { runningSubPage = 3 }
+            )
+        }
+        return
+    }
     key(step) { Screen(when(step) {0->"Choose disciplines";1->"Goals & ability";2->"Your schedule";else->"Review your choices"},"CREATE TRAINING PLAN · ${step+1} / 4") {
         item { LinearProgressIndicator(progress={(step+1)/4f},modifier=Modifier.fillMaxWidth());Text("One coordinated plan · Engine 1.0 · no watch required",style=MaterialTheme.typography.bodySmall) }
         if(step==0) {
