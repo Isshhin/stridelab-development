@@ -142,12 +142,14 @@ import kotlinx.coroutines.withContext
     val date=LocalDate.parse(selectedDate).let { stored ->
         plan?.let { stored.coerceIn(it.request.start,it.request.start.plusWeeks(it.request.weeks.toLong()).minusDays(1)) } ?: stored
     }
-    Screen("Training","YOUR SHARED CALENDAR",dense=true) {
+    Screen("Training","YOUR SHARED CALENDAR",compactTitle=true,dense=true) {
         item { FlowRow(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
             FilterChip(selected=!agendaView&&!monthView,onClick={agendaView=false;monthView=false},label={Text("Day")},modifier=Modifier.testTag("training-view-day"))
             FilterChip(selected=agendaView&&!monthView,onClick={agendaView=true;monthView=false},label={Text("Agenda")},modifier=Modifier.testTag("training-view-agenda"))
             TextButton(onClick={monthView=!monthView;if(monthView)agendaView=false},modifier=Modifier.testTag("training-view-month")) { Text(if(monthView) "Week" else "Month") }
-            OutlinedButton(onClick={plan?.let { onManage(it.id,date) }},enabled=plan!=null,modifier=Modifier.testTag("training-manage-plan")) { Text("Manage") }
+            TextButton(onClick={plan?.let { onManage(it.id,date) }}, enabled=plan!=null,
+                contentPadding=PaddingValues(horizontal=8.dp, vertical=0.dp),
+                modifier=Modifier.heightIn(min=48.dp).testTag("training-manage-plan")) { Text("Manage") }
         } }
         if(state.account==null) item { SignalCard { Text("Plan without a watch",style=MaterialTheme.typography.headlineSmall);Text("Sign in once to create private, account-isolated plans. Generation, calendar and logging then work offline.");SignalButton("Sign in",onSignIn) } }
         else if(plan==null) item { SignalCard { Text("Build your training around your life.",style=MaterialTheme.typography.headlineMedium);Text("Running, strength, calisthenics and conditioning share one calendar. Choose your goal, ability, days and equipment. Review real prescriptions before approving.");SignalButton("Create a plan",onBuild) } }

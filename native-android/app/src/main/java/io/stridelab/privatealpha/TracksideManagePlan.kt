@@ -235,7 +235,9 @@ private fun TracksidePlanWeekOverview(plan: PlanSnapshot, selected: LocalDate) {
             }
         }
         TracksideGlassCard(compact = true) {
-            TracksideSectionHeader("Your training week", detail = "$count sessions · $trainingDays days")
+            // The session/day counts already appear directly above this card.
+            // Repeating them here shrinks the title at 1.5× fonts and wraps it.
+            TracksideSectionHeader("Your training week")
             Row(Modifier.fillMaxWidth().height(96.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 days.forEach { day ->
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {

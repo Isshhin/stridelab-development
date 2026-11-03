@@ -43,6 +43,15 @@ jobs:
           gradle --no-daemon -p android-app/android -I "$GITHUB_WORKSPACE/native-android/legacy-upgrade.init.gradle" :app:assembleDebug :app:assembleDebugAndroidTest
           gradle --no-daemon -p native-android :app:assembleDebug :app:assembleDebugAndroidTest
           python3 native-android/tools/check_apk_update.py --installed-apk android-app/android/app/build/outputs/apk/debug/app-debug.apk --candidate native-android/app/build/outputs/apk/debug/app-debug.apk --aapt "$ANDROID_HOME/build-tools/35.0.0/aapt" --apksigner "$ANDROID_HOME/build-tools/35.0.0/apksigner" | tee upgrade-metadata.json
+      - name: Reclaim runner disk for legacy APK emulator
+        run: |
+          df -h .
+          # Both legacy and native APKs are built in this job; free unused SDKs
+          # before creating the emulator's persistent userdata partition.
+          sudo rm -rf /usr/share/dotnet /opt/hostedtoolcache/CodeQL
+          df -h .
+          available_kb=$(df -Pk . | awk 'NR==2 {print $4}')
+          test "$available_kb" -gt 5500000
       - name: Enable emulator KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -54,6 +63,7 @@ jobs:
           api-level: 35
           target: google_apis
           arch: x86_64
+          disk-size: 2048M
           emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -camera-back none
           disable-animations: true
           script: |
