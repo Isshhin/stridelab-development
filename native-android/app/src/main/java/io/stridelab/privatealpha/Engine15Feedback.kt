@@ -150,6 +150,38 @@ internal object Engine15Feedback {
         return plan.copy(sessions = plan.sessions.map { if (it.id == session.id) updated else it })
     }
 
+    /**
+     * Before explicitly accepting a persisted Engine 1.5 suggestion, revalidate
+     * the exact source evidence and future target against the current account's
+     * plan collection. Staging alone does not freeze historical evidence.
+     * Legacy Engine 1.0 suggestions retain their existing separate behavior.
+     */
+    fun requireCurrentPendingAcceptance(
+        plan: PlanSnapshot, targetSessionId: String, asOf: LocalDate,
+        allPlans: List<PlanSnapshot> = listOf(plan)
+    ) {
+        if (plan.engineVersion != ENGINE15_VERSION || plan.policyId != ENGINE15_POLICY)
+            return
+        val target = plan.sessions.find { it.id == targetSessionId } ?: return
+        val pending = target.suggestion ?: return
+        if (pending.accepted || !pending.reason.startsWith(RULE_ID)) return
+        if (plan.status != "approved" || target.status != "planned" ||
+            target.log != null || target.linkedActivityId != null || target.date <= asOf)
+            throw PlanConstraint("The reviewed adjustment is no longer eligible. Refresh the workout.")
+        val withoutPending = plan.copy(sessions = plan.sessions.map {
+            if (it.id == targetSessionId) it.copy(suggestion = null) else it
+        })
+        val currentPlans = allPlans.filter { it.id != plan.id } + withoutPending
+        val stillValid = preview(withoutPending, asOf, currentPlans).any { proposal ->
+            val exactNote = "${proposal.reason} ${proposal.uncertainty} " +
+                "Evidence: session ${proposal.sourceSessionId}, log revision ${proposal.sourceLogRevision}."
+            proposal.targetSessionId == targetSessionId &&
+                proposal.suggestedMinutes == pending.minutes && exactNote == pending.reason
+        }
+        if (!stillValid)
+            throw PlanConstraint("The recorded evidence or target changed. Dismiss this stale suggestion and review a new one.")
+    }
+
     /** Dismissals are durable and stop another proposal for this target session. */
     fun dismiss(
         plan: PlanSnapshot, proposal: Proposal, asOf: LocalDate,
