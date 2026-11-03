@@ -35,29 +35,42 @@ class Engine15AvailabilityTest {
         assertEquals(days,changed.request.days)
         assertEquals(original.sessions.map { it.id },changed.sessions.map { it.id })
         assertEquals(original.sessions.size,changed.sessions.size)
-        assertEquals(original.sessions.map { it.date },changed.sessions.map { it.date })
-        assertEquals(preview.affectedSessionIds.toSet(),
+        val oldById=original.sessions.associateBy { it.id }
+        val affected=preview.affectedSessionIds.toSet()
+        assertEquals(original.sessions.filterNot { it.id in affected },
+            changed.sessions.filterNot { it.id in affected })
+        for(s in changed.sessions.filter { it.id in affected }) {
+            val proposed=preview.relocations[s.id]
+            if(proposed==null) {
+                assertEquals("unassigned",s.status)
+                assertEquals(oldById.getValue(s.id).date,s.date)
+            } else {
+                assertEquals("planned",s.status)
+                assertEquals(proposed,s.date)
+                assertTrue(s.date.dayOfWeek.value in days)
+            }
+        }
+        assertEquals(preview.unresolvedSessionIds.toSet(),
             changed.sessions.filter { it.status=="unassigned" }.map { it.id }.toSet())
         assertEquals(changed,PlanSnapshot.decode(changed.encode(),owner))
         val pausedBackup=JSONObject().put("schemaVersion",1)
             .put("plans",JSONArray().put(changed.encode())).toString()
         assertEquals(listOf(changed),PlanBackup.read(pausedBackup,owner))
-        assertThrows(PlanConstraint::class.java) {
-            val forged=changed.copy(status="approved")
-            val raw=JSONObject().put("schemaVersion",1)
-                .put("plans",JSONArray().put(forged.encode())).toString()
-            PlanBackup.read(raw,owner)
+        if(preview.unresolvedSessionIds.isNotEmpty()) {
+            assertThrows(PlanConstraint::class.java) {
+                val forged=changed.copy(status="approved")
+                val raw=JSONObject().put("schemaVersion",1)
+                    .put("plans",JSONArray().put(forged.encode())).toString()
+                PlanBackup.read(raw,owner)
+            }
+            assertThrows(PlanConstraint::class.java) {
+                PlanOperations.approve(changed,emptyList())
+            }
+        } else {
+            val approved=PlanOperations.approve(changed,emptyList())
+            PlanScheduleValidation.validatePlan(approved)
+            assertEquals(original.sessions.size,approved.sessions.size)
         }
-        assertThrows(PlanConstraint::class.java) { PlanOperations.approve(changed,emptyList()) }
-
-        val first=changed.sessions.first { it.status=="unassigned" }
-        val monday=start // Newly available day
-        val moved=PlanOperations.move(changed,first.id,monday)
-        assertEquals("planned",moved.sessions.single { it.id==first.id }.status)
-        assertEquals(monday,moved.sessions.single { it.id==first.id }.date)
-        assertEquals(changed.sessions.size,moved.sessions.size)
-        assertEquals(changed.sessions.map { it.id }.toSet(),moved.sessions.map { it.id }.toSet())
-        assertTrue(moved.sessions.any { it.status=="unassigned" })
     }
 
     @Test fun addingAvailabilityDoesNotRegenerateOrMoveWorkout() {

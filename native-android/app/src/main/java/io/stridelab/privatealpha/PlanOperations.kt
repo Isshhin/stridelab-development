@@ -56,22 +56,36 @@ internal object PlanOperations {
         }
         return plan.copy(sessions=plan.sessions.map { if(it.id==sessionId) moved else it }.sortedBy { it.date })
     }
-    /** Revisions are explicit; no missed workout or displaced session is made up. */
-    fun updateAvailability(plan:PlanSnapshot,newDays:Set<Int>):PlanSnapshot {
+    /** Reviewable availability change: relocate only displaced or unassigned workouts. */
+    fun updateAvailability(
+        plan:PlanSnapshot,newDays:Set<Int>,
+        otherPlans:List<PlanSnapshot> = emptyList(),
+        asOf:LocalDate = LocalDate.now()
+    ):PlanSnapshot {
         compatible(plan)
-        val impact=Engine15Availability.preview(plan,newDays)
         if(newDays==plan.request.days)return plan
-        val displaced=impact.affectedSessionIds.toSet()
+        val impact=Engine15Availability.preview(plan,newDays,otherPlans,asOf)
+        val reconsidered=impact.affectedSessionIds.toSet() +
+            plan.sessions.filter { it.status=="unassigned" }.map { it.id }
         val sessions=plan.sessions.map { session ->
-            if(session.id in displaced)session.copy(status="unassigned") else session
+            if(session.id !in reconsidered)session else {
+                val newDate=impact.relocations[session.id]
+                if(newDate==null)session.copy(status="unassigned")
+                else session.copy(date=newDate,status="planned")
+            }
         }
+        val needsReview=reconsidered.isNotEmpty() ||
+            (plan.request.runDays>0 && plan.request.longDay !in newDays) ||
+            (plan.request.qualityCount>0 &&
+                plan.request.qualityDays.any { it !in newDays })
         return plan.copy(
             request=plan.request.copy(days=newDays),
             sessions=sessions,
-            status=if(displaced.isNotEmpty() && plan.status=="approved")"paused" else plan.status,
-            explanations=plan.explanations+("Availability reviewed: " +
-                "${displaced.size} unstarted sessions need placement. Their original dates " +
-                "and IDs are retained; no catch-up workouts were added.")
+            status=if(needsReview && plan.status=="approved")"paused" else plan.status,
+            explanations=plan.explanations+("Availability review: " +
+                "${impact.relocations.size} safely relocated; " +
+                "${impact.unresolvedSessionIds.size} unresolved sessions need placement. " +
+                "Other workouts were preserved and no catch-up volume was added.")
         )
     }
 

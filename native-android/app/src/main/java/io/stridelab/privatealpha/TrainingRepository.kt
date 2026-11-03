@@ -196,9 +196,9 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     fun previewAvailabilityChange(id:String,newDays:Set<Int>):Engine15Availability.Impact? {
         val plan=mutable.value.plans.find { it.id==id && it.owner==mutable.value.account }
             ?: return null
-        return Engine15Availability.preview(plan,newDays)
+        return Engine15Availability.preview(plan,newDays,mutable.value.plans)
     }
-    suspend fun updateAvailability(id:String,revision:Int,days:Set<Int>)=changePlan(id,revision) { plan->PlanOperations.updateAvailability(plan,days) }
+    suspend fun updateAvailability(id:String,revision:Int,days:Set<Int>)=changePlan(id,revision) { plan->PlanOperations.updateAvailability(plan,days,mutable.value.plans) }
     suspend fun setLongRunDay(id:String,revision:Int,day:Int)=changePlan(id,revision) { plan->PlanOperations.setLongRunDay(plan,day) }
     suspend fun setQualityDays(id:String,revision:Int,days:Set<Int>)=changePlan(id,revision) { plan->PlanOperations.setQualityDays(plan,days) }
     suspend fun recordWorkout(id:String,revision:Int,sessionId:String,log:WorkoutLog,complete:Boolean)=changePlan(id,revision) { PlanOperations.record(it,sessionId,log,complete) }

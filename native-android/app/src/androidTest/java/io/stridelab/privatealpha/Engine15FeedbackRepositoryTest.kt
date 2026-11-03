@@ -341,24 +341,26 @@ class Engine15FeedbackRepositoryTest {
         assertTrue(repository.updateAvailability(plan.id,plan.revision,days))
         val changed=repository.state.value.plans.single()
         assertEquals("paused",changed.status)
-        assertEquals("unassigned",changed.sessions.single { it.id=="future-run" }.status)
-        assertEquals(targetDate,changed.sessions.single { it.id=="future-run" }.date)
+        val movedRun=changed.sessions.single { it.id=="future-run" }
+        assertEquals("planned",movedRun.status)
+        assertNotEquals(targetDate,movedRun.date)
+        assertTrue(movedRun.date>=today)
+        assertTrue(movedRun.date.dayOfWeek.value in days)
         assertEquals(plan.sessions.map { it.id },changed.sessions.map { it.id })
-        assertFalse(repository.approvePlan(changed.id,changed.revision))
+        assertEquals(plan.sessions.single { it.id=="observed-run" },
+            changed.sessions.single { it.id=="observed-run" })
 
         transport.offline=true
         repository.close()
         open()
         assertEquals(changed,repository.state.value.plans.single())
-        assertTrue(repository.moveSession(changed.id,changed.revision,
-            "future-run",targetDate.plusDays(1)))
-        val moved=repository.state.value.plans.single()
-        assertEquals("planned",moved.sessions.single { it.id=="future-run" }.status)
-        assertEquals(targetDate.plusDays(1),moved.sessions.single { it.id=="future-run" }.date)
-        assertEquals(plan.sessions.size,moved.sessions.size)
+        assertFalse(repository.approvePlan(changed.id,changed.revision-1))
+        assertTrue(repository.approvePlan(changed.id,changed.revision))
+        val approved=repository.state.value.plans.single()
+        assertEquals("approved",approved.status)
         repository.close()
         open()
-        assertEquals(moved,repository.state.value.plans.single())
+        assertEquals(approved,repository.state.value.plans.single())
     }
 
     private inner class FixtureGateway : TrainingGateway {
