@@ -34,7 +34,10 @@ internal fun TracksideFigmaPlanDetailsScreen(
     start: String, weeks: String, minutes: String,
     onStart: (String) -> Unit, onWeeks: (String) -> Unit,
     onMinutes: (String) -> Unit,
-    onBack: () -> Unit, onContinue: () -> Unit
+    onBack: () -> Unit, onContinue: () -> Unit,
+    dailyBudget: String = "90",
+    multiSession: Boolean = false,
+    onDailyBudget: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     var customWeeks by rememberSaveable { mutableStateOf(false) }
@@ -49,6 +52,7 @@ internal fun TracksideFigmaPlanDetailsScreen(
         onContinue = onContinue,
         continueEnabled = weeks.toIntOrNull() in 1..16 &&
             minutes.toIntOrNull() in 15..120 &&
+            (!multiSession || dailyBudget.toIntOrNull() in 15..240) &&
             !date.isBefore(LocalDate.now())
     ) {
         Surface(
@@ -164,13 +168,26 @@ internal fun TracksideFigmaPlanDetailsScreen(
                 }
             }
         }
-        if(timeExpanded) {
+        if(timeExpanded || multiSession) {
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(
                 value=minutes,onValueChange={onMinutes(it.filter(Char::isDigit).take(3))},
                 label={Text("Minutes available per session (15–120)")},
                 modifier=Modifier.fillMaxWidth(),singleLine=true
             )
+        }
+        if(multiSession) {
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(
+                value=dailyBudget,
+                onValueChange={onDailyBudget(it.filter(Char::isDigit).take(3))},
+                label={Text("Combined minutes per day (15–240)")},
+                modifier=Modifier.fillMaxWidth()
+                    .testTag("builder-combined-daily-minutes"),singleLine=true
+            )
+            Spacer(Modifier.height(6.dp))
+            Text("Compatible two-a-day sessions share this daily time budget.",
+                fontSize=10.sp,color=Color(0xFFB6C0CA))
         }
     }
     if(goalDateInfo) AlertDialog(
