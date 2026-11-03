@@ -49,7 +49,8 @@ internal fun TracksideManagePlanScreen(
     actions: PlanActions,
     onBack: () -> Unit,
     onBuildDraft: () -> Unit,
-    onWorkout: (String) -> Unit
+    onWorkout: (String) -> Unit,
+    onReviewMove: ((String, LocalDate) -> Unit)? = null
 ) {
     if (plan == null || plan.status == "archived") {
         Screen("Manage plan", "CURRENT TRAINING PLAN", compactTitle = true, dense = true) {
@@ -184,7 +185,10 @@ internal fun TracksideManagePlanScreen(
             plan = plan,
             session = session,
             actions = actions,
-            onDismiss = { movingWorkout = null }
+            onDismiss = { movingWorkout = null },
+            onReviewDestination = if (onReviewMove == null) null else {
+                date -> onReviewMove(session.id, date)
+            }
         )
     }
 
