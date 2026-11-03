@@ -1,0 +1,8 @@
+{
+  "schema": "stridelab-manual-original-lab-review-pin-v1",
+  "body_sha256": "1e860cdcbdef28002bd62bb9966d908d711523178442a885fbefa7faf1cbf0cd",
+  "producer_branch": "research/batch8l-sanitized-handoff-20261103",
+  "producer_ci_head": "29aa83ad7cdf0a036c370670ccee8883514779c5",
+  "producer_ci_run_id": 41605557158,
+  "origin_review": "MANUAL_CROSS_REPOSITORY_EVIDENCE_TRANSFER_NOT_SIGNATURE"
+}
