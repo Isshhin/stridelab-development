@@ -26,10 +26,11 @@ import androidx.compose.ui.unit.sp
 internal fun TracksideParityDraftApprovalDock(
     plan: PlanSnapshot,
     enabled: Boolean,
-    onApprove: () -> Unit
+    onApprove: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Surface(
-        Modifier.fillMaxWidth().heightIn(min = 64.dp)
+        modifier.fillMaxWidth().heightIn(min = 64.dp)
             .testTag("training-draft-approval-dock"),
         color = Color(0xFF0B1922),
         border = BorderStroke(1.dp, Color(0xFF2A2C32)),

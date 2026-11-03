@@ -92,6 +92,7 @@ import kotlinx.coroutines.withContext
     val date=LocalDate.parse(selectedDate).let { stored ->
         plan?.let { stored.coerceIn(it.request.start,it.request.start.plusWeeks(it.request.weeks.toLong()).minusDays(1)) } ?: stored
     }
+    Box(Modifier.fillMaxSize()) {
     Screen("Training","YOUR SHARED CALENDAR",compactTitle=true,dense=true) {
         item {
             TracksideParityTrainingControls(
@@ -131,23 +132,23 @@ import kotlinx.coroutines.withContext
                 day.forEach { session -> item { PlannedWorkoutCard(session,state.workoutDrafts.containsKey(plan.id to session.id),compact=true) { onOpen(plan.id,session.id) } } }
             }
             item { PlanOverview(plan) }
-            if(plan.status=="draft") item {
-                TracksideParityDraftApprovalDock(plan,
-                    enabled = !state.busy && Engine1Engines.canManage(plan),
-                    onApprove = { actions.approve(plan.id,plan.revision) })
-            }
-            if(plan.status=="paused") item {
-                TracksideParityDraftApprovalDock(plan,
-                    enabled = !state.busy && Engine1Engines.canManage(plan),
-                    onApprove = { actions.approve(plan.id,plan.revision) })
-            }
             item { PlanFeedbackForm(plan,actions) }
             item { NativePlanExport(state.plans) }
         }
         if(state.account!=null) item { NativePlanImport(state,actions) }
         if(state.account!=null && plan!=null) item { OutlinedButton(onClick=onBuild,modifier=Modifier.fillMaxWidth()) { Text("Create / edit a reviewed draft") } }
+        if(plan?.status in setOf("draft","paused")) item { Spacer(Modifier.height(96.dp)) }
     }
-
+    if(plan != null && plan.status in setOf("draft","paused")) {
+        TracksideParityDraftApprovalDock(
+            plan,
+            enabled = !state.busy && Engine1Engines.canManage(plan),
+            onApprove = { actions.approve(plan.id,plan.revision) },
+            modifier = Modifier.align(Alignment.BottomCenter)
+                .padding(horizontal = 18.dp, vertical = 6.dp)
+        )
+    }
+    }
 }
 @Composable internal fun TrainingCalendar(plan:PlanSnapshot,selected:LocalDate,month:Boolean,onSelect:(LocalDate)->Unit) {
     val first=plan.request.start;val last=first.plusWeeks(plan.request.weeks.toLong()).minusDays(1)
