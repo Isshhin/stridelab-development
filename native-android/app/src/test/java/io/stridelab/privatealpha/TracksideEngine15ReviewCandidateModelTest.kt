@@ -69,6 +69,27 @@ class TracksideEngine15ReviewCandidateModelTest {
         }
     }
 
+    @Test fun restProposalNeedsExplicitAcceptanceEvenWhenIllnessWasReported() {
+        for (stage in listOf(TracksideReviewStage.PREVIEW, TracksideReviewStage.PENDING)) {
+            val c = candidate(stage, proposed = 0)
+            assertEquals(60, c.activeMinutes)
+            assertEquals(8.0, c.activeDistanceTargetKm!!, 0.0)
+            assertTrue(c.acceptedRequiresOriginalSteps)
+            assertEquals("Rest instead of this run", TracksideReviewCandidateCopy.changeTitle(c))
+            assertTrue(TracksideReviewCandidateCopy.disclosure(c).contains("explicit approval") ||
+                TracksideReviewCandidateCopy.disclosure(c).contains("If accepted"))
+        }
+        assertEquals("Accept rest" to "Dismiss",
+            TracksideReviewCandidateCopy.actions(candidate(TracksideReviewStage.PENDING, 0)))
+    }
+
+    @Test fun staleTextDisplaysExpiredProposalWithoutChangingActiveTargets() {
+        val c = candidate(TracksideReviewStage.STALE, proposed = 45)
+        assertEquals("45-minute option unavailable", TracksideReviewCandidateCopy.changeTitle(c))
+        assertEquals(60, c.activeMinutes)
+        assertEquals(8.0, c.activeDistanceTargetKm!!, 0.0)
+    }
+
     @Test fun missingOriginalDistanceDoesNotInventAMileageRequirement() {
         val c = candidate(TracksideReviewStage.ACCEPTED_TIME, distance = null)
         assertEquals("None", c.originalDistanceLabel)
