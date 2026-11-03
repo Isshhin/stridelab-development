@@ -331,6 +331,36 @@ class Engine15FeedbackRepositoryTest {
         assertEquals(unlocked, repository.state.value.plans.single())
     }
 
+    @Test fun availabilityChangePausesDisplacedRunAndSurvivesOfflineReopen() = runBlocking {
+        assertTrue(repository.signIn("engine15@example.invalid", "fixture"))
+        assertTrue(repository.generatePlan(request, fixtureEngine))
+        var plan=repository.state.value.plans.single()
+        assertTrue(repository.approvePlan(plan.id,plan.revision))
+        plan=repository.state.value.plans.single()
+        val days=(1..7).toSet()-targetDate.dayOfWeek.value
+        assertTrue(repository.updateAvailability(plan.id,plan.revision,days))
+        val changed=repository.state.value.plans.single()
+        assertEquals("paused",changed.status)
+        assertEquals("unassigned",changed.sessions.single { it.id=="future-run" }.status)
+        assertEquals(targetDate,changed.sessions.single { it.id=="future-run" }.date)
+        assertEquals(plan.sessions.map { it.id },changed.sessions.map { it.id })
+        assertFalse(repository.approvePlan(changed.id,changed.revision))
+
+        transport.offline=true
+        repository.close()
+        open()
+        assertEquals(changed,repository.state.value.plans.single())
+        assertTrue(repository.moveSession(changed.id,changed.revision,
+            "future-run",targetDate.plusDays(1)))
+        val moved=repository.state.value.plans.single()
+        assertEquals("planned",moved.sessions.single { it.id=="future-run" }.status)
+        assertEquals(targetDate.plusDays(1),moved.sessions.single { it.id=="future-run" }.date)
+        assertEquals(plan.sessions.size,moved.sessions.size)
+        repository.close()
+        open()
+        assertEquals(moved,repository.state.value.plans.single())
+    }
+
     private inner class FixtureGateway : TrainingGateway {
         var account = owner
         var offline = false
