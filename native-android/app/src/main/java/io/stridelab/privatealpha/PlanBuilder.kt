@@ -92,12 +92,42 @@ import org.json.JSONObject
                     "cal" -> input.calDays > 0
                     else -> input.conditioningDays > 0
                 }
-                edit(when(d) {
-                    "run" -> input.copy(runDays=if(active)0 else 3,qualityCount=0)
+                val toggled=when(d) {
+                    "run" -> input.copy(
+                        runDays=if(active)0 else 3,
+                        qualityCount=0,
+                        qualityDays=emptySet()
+                    )
                     "str" -> input.copy(strengthDays=if(active)0 else 2)
                     "cal" -> input.copy(calDays=if(active)0 else 2)
                     else -> input.copy(conditioningDays=if(active)0 else 1)
-                })
+                }
+                // A deselected discipline must not leave phantom fixed sessions
+                // or stale discipline goals in a future generated plan.
+                val cleaned=toggled.copy(
+                    weeklySlots=if(active) toggled.weeklySlots-d else toggled.weeklySlots,
+                    disciplineGoals=if(active) toggled.disciplineGoals-d
+                        else toggled.disciplineGoals
+                )
+                val primaryValid=when(cleaned.goal) {
+                    "Aerobic foundation","Improve 5K","Improve 10K",
+                    "Half marathon","Marathon" -> cleaned.runDays>0
+                    "General strength","Muscle development",
+                    "Strength endurance" -> cleaned.strengthDays>0
+                    "Calisthenics foundation","Pull-up progression",
+                    "Push-up progression","Core strength and control",
+                    "Handstand foundations" -> cleaned.calDays>0
+                    "Conditioning" -> cleaned.conditioningDays>0
+                    else -> true
+                }
+                val fallback=when {
+                    cleaned.runDays>0 -> "General fitness"
+                    cleaned.strengthDays>0 -> "General strength"
+                    cleaned.calDays>0 -> "Calisthenics foundation"
+                    cleaned.conditioningDays>0 -> "Conditioning"
+                    else -> "General fitness"
+                }
+                edit(cleaned.copy(goal=if(primaryValid) cleaned.goal else fallback))
             },
             onBack = onDone,
             onContinue = { step = 1; runningSubPage = 0 }
