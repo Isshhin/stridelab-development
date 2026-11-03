@@ -54,7 +54,7 @@
     "native-android/app/src/main/java/io/stridelab/privatealpha/SessionTemplate.kt": "a01c575ecc06daa26ca5a3b12b69f7426a88eea2a5a4e06966f5d65ead16ab34",
     "native-android/app/src/main/java/io/stridelab/privatealpha/StrideApplication.kt": "71c026ce068e6de37577d7c78cbdd663790f99e2f616c5080cbf81140d105f56",
     "native-android/app/src/main/java/io/stridelab/privatealpha/SupabaseGateway.kt": "3dd4635205e2bcc0b8a51138adaa00e7552388a743158e3177ed55fd58ae65f6",
-    "native-android/app/src/main/java/io/stridelab/privatealpha/TrainingRepository.kt": "e35b2f1fbed9e876f486d1fedd0387a84293288e103102824265f2bf4bf5a670",
+    "native-android/app/src/main/java/io/stridelab/privatealpha/TrainingRepository.kt": "3a2ddbeeeeb1268bd21483efe4f9a74a6a0c18aea04cb07ed0167f6d4040db3d",
     "native-android/app/src/main/java/io/stridelab/privatealpha/TrainingScreens.kt": "0bf605b47df33e3ef28c139107a478cc9486b159e4815f8b517e3daebf421a1d",
     "native-android/app/src/main/java/io/stridelab/privatealpha/WeeklyDashboard.kt": "403a1b82ff4102817ad6488716dd4797bf4339b6b8d65e76c2059b0cb9676110",
     "native-android/app/src/main/java/io/stridelab/privatealpha/WellnessRecord.kt": "4528981dc84195ab51c246e1b90f46cef7a5678b6f106aa5b6afbbc396a001bb",
