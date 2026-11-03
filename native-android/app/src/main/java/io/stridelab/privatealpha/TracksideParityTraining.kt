@@ -52,7 +52,7 @@ internal fun TracksideParityTrainingControls(
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(label, fontSize = 13.5.sp, fontWeight = FontWeight.Bold,
+                        Text(label, fontSize = 13.5f.sp, fontWeight = FontWeight.Bold,
                             color = if (selected) Color.Black else Color(0xFFA2A4AF))
                     }
                 }
@@ -64,7 +64,7 @@ internal fun TracksideParityTrainingControls(
             color = Color.Transparent
         ) {
             Text("DRAFT", Modifier.padding(horizontal = 13.dp, vertical = 7.dp),
-                fontSize = 10.6.sp, color = TracksidePalette.text, fontWeight = FontWeight.Bold)
+                fontSize = 10.6f.sp, color = TracksidePalette.text, fontWeight = FontWeight.Bold)
         } else if (hasPlan) TextButton(onClick = onManage,
             modifier = Modifier.testTag("training-manage-plan")) {
             Text("Manage ›", color = TracksidePalette.text, fontWeight = FontWeight.Bold)

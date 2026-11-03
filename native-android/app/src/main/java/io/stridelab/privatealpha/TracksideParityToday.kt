@@ -39,7 +39,7 @@ internal fun TracksideApprovedRunningHero(
         modifier = Modifier.fillMaxWidth().testTag("today-hero"),
         shape = RoundedCornerShape(23.dp),
         color = TracksidePalette.surfaceLow,
-        border = BorderStroke(1.2.dp, Color(0x94FF4A61)),
+        border = BorderStroke(1.2f.dp, Color(0x94FF4A61)),
         shadowElevation = 6.dp
     ) {
         Box(Modifier.fillMaxWidth()

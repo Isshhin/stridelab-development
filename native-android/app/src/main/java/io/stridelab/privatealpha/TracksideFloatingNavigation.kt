@@ -47,7 +47,7 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
                     listOf(Color(0xFF25323D), Color(0xFF101B22), Color(0xFF081219))
                 )
             )
-            .border(BorderStroke(0.9.dp, Color(0x99677987)), RoundedCornerShape(31.dp))
+            .border(BorderStroke(0.9f.dp, Color(0x99677987)), RoundedCornerShape(31.dp))
             .padding(horizontal = 4.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -77,7 +77,7 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
                 Spacer(Modifier.height(5.dp))
                 Text(
                     label,
-                    fontSize = 9.8.sp,
+                    fontSize = 9.8f.sp,
                     lineHeight = 12.sp,
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                     color = if (selected) TracksidePalette.red else TracksidePalette.textMuted,

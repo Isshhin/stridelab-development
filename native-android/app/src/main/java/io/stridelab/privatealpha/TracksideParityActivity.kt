@@ -44,7 +44,7 @@ internal fun TracksideParityActivityOverview(activity: ActivityRecord) {
         Surface(
             shape = RoundedCornerShape(19.dp),
             color = TracksidePalette.surface,
-            border = BorderStroke(0.9.dp, Color(0x99677987)),
+            border = BorderStroke(0.9f.dp, Color(0x99677987)),
             modifier = Modifier.fillMaxWidth().height(130.dp)
         ) {
             Row(
