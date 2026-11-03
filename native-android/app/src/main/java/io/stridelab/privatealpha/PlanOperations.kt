@@ -31,6 +31,8 @@ internal object PlanOperations {
         val moved=s.copy(date=date)
         val approved=otherPlans.filter { it.id!=plan.id&&it.status=="approved" }
         val sameDayExisting=plan.sessions.filter { it.id!=sessionId&&it.date==date&&it.status !in setOf("missed","skipped") }
+        if(PlanScheduleValidation.isMultiPolicy(plan.policyId) && sameDayExisting.size>=2)
+            throw PlanConstraint("A day can contain at most two sessions.")
         val conflictsWithinPlan=plan.sessions.filter { it.id!=sessionId&&it.status !in setOf("missed","skipped") }
             .any { existing->conflict(moved,existing,plan.policyId,plan.policyId) }
         val conflictsWithApprovedPlan=approved.any { other->

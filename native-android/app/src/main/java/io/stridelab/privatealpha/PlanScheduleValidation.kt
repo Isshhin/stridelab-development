@@ -3,10 +3,14 @@ package io.stridelab.privatealpha
 /** Read-only checks for imported schedules; historical facts and opaque policies are retained. */
 internal object PlanScheduleValidation {
     fun isMultiPolicy(policy:String) =
-        policy==MULTI_SESSION_POLICY || policy==ENGINE15_MULTI_POLICY
+        policy==MULTI_SESSION_POLICY || policy==ENGINE15_MULTI_POLICY ||
+            policy==ENGINE15_INTERFERENCE_POLICY
 
     fun conflict(a:PlannedSession,b:PlannedSession,policyA:String,policyB:String)=
-        if(policyA==policyB && isMultiPolicy(policyA))MultiSessionScheduling.conflict(a,b) else Engine1.conflict(a,b)
+        if(policyA==ENGINE15_INTERFERENCE_POLICY && policyB==ENGINE15_INTERFERENCE_POLICY)
+            Engine15InterferenceScheduling.conflict(a,b)
+        else if(policyA==policyB && isMultiPolicy(policyA))MultiSessionScheduling.conflict(a,b)
+        else Engine1.conflict(a,b)
 
     private fun scheduled(plan:PlanSnapshot)=plan.sessions.filter { it.status in setOf("planned","in_progress") }
 
@@ -16,7 +20,7 @@ internal object PlanScheduleValidation {
         for(i in sessions.indices)for(k in i+1 until sessions.size) {
             if(conflict(sessions[i],sessions[k],plan.policyId,plan.policyId))throw PlanConstraint("The backup contains conflicting sessions inside an approved plan. No records were changed.")
         }
-        if(isMultiPolicy(plan.policyId) && sessions.groupBy { it.date }.values.any { day -> day.sumOf { it.effectiveMinutes }>plan.request.dailyMinutes })throw PlanConstraint("The backup exceeds an approved plan's daily time budget. No records were changed.")
+        if(isMultiPolicy(plan.policyId) && sessions.groupBy { it.date }.values.any { day -> day.size>2 || day.sumOf { it.effectiveMinutes }>plan.request.dailyMinutes })throw PlanConstraint("The backup exceeds an approved plan's daily time budget. No records were changed.")
     }
 
     fun validateRestoration(plans:List<PlanSnapshot>) {

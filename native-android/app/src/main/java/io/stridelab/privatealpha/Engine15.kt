@@ -9,6 +9,7 @@ internal const val ENGINE15_VERSION = "1.5.0"
 internal const val ENGINE15_FOUNDATION_POLICY = "stridelab.engine15.foundation-20261103.1"
 internal const val ENGINE15_POLICY = "stridelab.engine15.bounded-running-20261103.1"
 internal const val ENGINE15_MULTI_POLICY = "stridelab.engine15.multi-session-20261103.1"
+internal const val ENGINE15_INTERFERENCE_POLICY = "stridelab.engine15.interference-calendar-20261103.1"
 
 /** Deterministic, explicitly selected candidate. Does not infer fitness or recovery. */
 internal object Engine15 : PlanGenerationEngine {
@@ -101,9 +102,12 @@ internal object Engine15 : PlanGenerationEngine {
         // Keep the original generator, calendar, multi-discipline recipes and
         // saved-plan contract unchanged; only refine proposed RUNNING sessions.
         val multi = requiresMulti(request)
-        val baseline = if(multi)
-            MultiSessionEngine1.generate(request.copy(policyChoice = "multi-session"), owner, id, now)
-        else Engine1.generate(request.copy(policyChoice = "baseline"), owner, id, now)
+        val interference = multi && request.runDays > 0 && request.strengthDays >= 2
+        val baseline = when {
+            interference -> Engine15InterferenceScheduling.generateBase(request, owner, id, now)
+            multi -> MultiSessionEngine1.generate(request.copy(policyChoice = "multi-session"), owner, id, now)
+            else -> Engine1.generate(request.copy(policyChoice = "baseline"), owner, id, now)
+        }
         val weekly = baseline.sessions.groupBy { weekIndex(request, it) }
         val adapted = baseline.sessions.map { original ->
             if (original.discipline != "run") return@map original
@@ -184,11 +188,15 @@ internal object Engine15 : PlanGenerationEngine {
         })
         return baseline.copy(
             engineVersion = version,
-            policyId = if(multi) ENGINE15_MULTI_POLICY else policyId,
+            policyId = when {
+                interference -> ENGINE15_INTERFERENCE_POLICY
+                multi -> ENGINE15_MULTI_POLICY
+                else -> policyId
+            },
             request = request,
             sessions = adapted,
             explanations = listOf(
-                "Engine 1.5 policy (${if (multi) ENGINE15_MULTI_POLICY else policyId}): the verified baseline " +
+                "Engine 1.5 policy (${if (interference) ENGINE15_INTERFERENCE_POLICY else if (multi) ENGINE15_MULTI_POLICY else policyId}): the verified baseline " +
                     "still supplies scheduled days, disciplines and equipment prescriptions.",
                 "Running volume has staged loading ceilings and lighter fourth weeks " +
                     "based on manually supplied recent mileage. Removed mileage is never " +

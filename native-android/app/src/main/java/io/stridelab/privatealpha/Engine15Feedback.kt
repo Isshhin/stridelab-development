@@ -33,7 +33,7 @@ internal object Engine15Feedback {
     )
 
     private fun available(plan: PlanSnapshot) =
-        plan.engineVersion == ENGINE15_VERSION && plan.policyId in setOf(ENGINE15_POLICY, ENGINE15_MULTI_POLICY) &&
+        plan.engineVersion == ENGINE15_VERSION && plan.policyId in setOf(ENGINE15_POLICY, ENGINE15_MULTI_POLICY, ENGINE15_INTERFERENCE_POLICY) &&
             plan.status in setOf("approved", "paused") && Engine1Engines.canManage(plan)
 
     private fun dismissed(plan: PlanSnapshot, target: String) =
@@ -161,7 +161,7 @@ internal object Engine15Feedback {
         allPlans: List<PlanSnapshot> = listOf(plan)
     ) {
         if (plan.engineVersion != ENGINE15_VERSION ||
-            plan.policyId !in setOf(ENGINE15_POLICY, ENGINE15_MULTI_POLICY))
+            plan.policyId !in setOf(ENGINE15_POLICY, ENGINE15_MULTI_POLICY, ENGINE15_INTERFERENCE_POLICY))
             return
         val target = plan.sessions.find { it.id == targetSessionId } ?: return
         val pending = target.suggestion ?: return
