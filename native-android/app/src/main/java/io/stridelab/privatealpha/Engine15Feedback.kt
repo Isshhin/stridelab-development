@@ -92,7 +92,7 @@ internal object Engine15Feedback {
         asOf: LocalDate,
         allPlans: List<PlanSnapshot> = listOf(plan)
     ): List<Proposal> {
-        if (!available(plan)) return emptyList()
+        if (!available(plan) || plan.status != "approved") return emptyList()
         val links = (allPlans + listOf(plan)).distinctBy { it.id }
             .flatMap { it.sessions }.mapNotNull { it.linkedActivityId }
         val duplicateLinks = links.groupingBy { it }.eachCount()
@@ -103,7 +103,7 @@ internal object Engine15Feedback {
         val proposed = mutableListOf<Proposal>()
         for (source in sourceEvidence) {
             val target = plan.sessions.asSequence()
-                .filter { it.discipline == "run" && it.id !in reserved && it.date >= asOf && it.date > source.date }
+                .filter { it.discipline == "run" && it.id !in reserved && it.date > asOf && it.date > source.date }
                 .filter { ChronoUnit.DAYS.between(source.date, it.date) in 1L..4L }
                 .filter {
                     it.status == "planned" && it.log == null &&
@@ -181,9 +181,13 @@ internal object Engine15Feedback {
 
     private fun addDismissal(
         plan: PlanSnapshot, target: String, source: String, now: Instant
-    ) = plan.copy(feedback = plan.feedback + PlanFeedback(
-        UUID.randomUUID().toString(), now, "Workout quality",
-        "$RULE_ID dismissed: target=$target; evidence=$source. Original prescription retained.",
-        target
-    ))
+    ): PlanSnapshot {
+        if (plan.feedback.size >= 1000)
+            throw PlanConstraint("This plan's feedback history is full. Export and review it before adding a dismissal.")
+        return plan.copy(feedback = plan.feedback + PlanFeedback(
+            UUID.randomUUID().toString(), now, "Workout quality",
+            "$RULE_ID dismissed: target=$target; evidence=$source. Original prescription retained.",
+            target
+        ))
+    }
 }
