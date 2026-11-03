@@ -34,44 +34,44 @@
 **Files:**
 - Create: `docs/PRODUCT_VISION.md`
 
-- [ ] Define the durable product promise, mission, athlete model, scope, principles, and long-term direction.
-- [ ] Separate today's product from the long-term adaptive performance system.
-- [ ] Commit.
+- [x] Define the durable product promise, mission, athlete model, scope, principles, and long-term direction.
+- [x] Separate today's product from the long-term adaptive performance system.
+- [x] Commit.
 
 ### Task 2: README
 
 **Files:**
 - Modify: `README.md`
 
-- [ ] Update the tagline to `Train the whole athlete.`
-- [ ] Explain the current product honestly.
-- [ ] Link to product vision and roadmap.
-- [ ] Keep development status and technology information concise.
-- [ ] Commit.
+- [x] Update the tagline to `Train the whole athlete.`
+- [x] Explain the current product honestly.
+- [x] Link to product vision and roadmap.
+- [x] Keep development status and technology information concise.
+- [x] Commit.
 
 ### Task 3: Roadmap
 
 **Files:**
 - Modify: `docs/ROADMAP.md`
 
-- [ ] Replace the stale Phase 4D/4E roadmap with the November dogfood roadmap.
-- [ ] Keep Trackside, Engine 1.5, integration, dogfooding, and Engine 2.0 as distinct tracks.
-- [ ] Preserve links to historical status documents.
-- [ ] Commit.
+- [x] Replace the stale Phase 4D/4E roadmap with the November dogfood roadmap.
+- [x] Keep Trackside, Engine 1.5, integration, dogfooding, and Engine 2.0 as distinct tracks.
+- [x] Preserve links to historical status documents.
+- [x] Commit.
 
 ### Task 4: Handoff
 
 **Files:**
 - Modify: `docs/HANDOFF.md`
 
-- [ ] Replace stacked historical banners with a current concise recovery handoff.
-- [ ] Record active branches, current goals, non-goals, and verification rules.
-- [ ] Point to historical documents instead of duplicating their contents.
-- [ ] Commit.
+- [x] Replace stacked historical banners with a current concise recovery handoff.
+- [x] Record active branches, current goals, non-goals, and verification rules.
+- [x] Point to historical documents instead of duplicating their contents.
+- [x] Commit.
 
 ### Task 5: Review
 
-- [ ] Read all four canonical docs together.
-- [ ] Check for contradictory current-status claims.
-- [ ] Confirm no historical status file was changed.
-- [ ] Open a draft documentation PR for review.
+- [x] Read all four canonical docs together.
+- [x] Check for contradictory current-status claims.
+- [x] Confirm no historical status file was changed.
+- [x] Open a draft documentation PR for review.
