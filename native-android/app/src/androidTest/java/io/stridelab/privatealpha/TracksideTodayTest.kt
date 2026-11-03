@@ -26,9 +26,11 @@ class TracksideTodayTest {
             }
         }
         compose.onNodeWithTag("today-hero").assertExists()
-        compose.onNodeWithTag("today-route-unavailable", useUnmergedTree = true).assertExists()
-        compose.onNodeWithText("45 min", useUnmergedTree = true).assertExists()
-        compose.onNodeWithText("Not set", useUnmergedTree = true).assertExists()
+        // Premium artwork is explicitly illustrative; the actual workout
+        // still uses only its saved duration and reports absent distance.
+        compose.onNodeWithTag("today-map-illustration", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("45", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Distance not set", substring = true, useUnmergedTree = true).assertExists()
         compose.onNodeWithTag("today-hero").performClick()
         compose.runOnIdle { assertEquals(1, opened) }
     }
