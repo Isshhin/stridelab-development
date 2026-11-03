@@ -294,6 +294,43 @@ class Engine15FeedbackRepositoryTest {
         assertEquals(60, repository.state.value.plans.single().sessions.last().effectiveMinutes)
     }
 
+    @Test fun explicitWorkoutLocksSurviveOfflineReopenAndRejectStaleRevisions() = runBlocking {
+        assertTrue(repository.signIn("engine15@example.invalid", "fixture"))
+        assertTrue(repository.generatePlan(request, fixtureEngine))
+        var plan = repository.state.value.plans.single()
+        assertTrue(repository.approvePlan(plan.id, plan.revision))
+        plan = repository.state.value.plans.single()
+
+        assertTrue(repository.setSessionLock(plan.id, plan.revision, "future-run", true))
+        val locked = repository.state.value.plans.single()
+        assertEquals(plan.revision + 1, locked.revision)
+        assertEquals(targetDate.toString(), locked.request.lockedSessionDays["future-run"])
+
+        assertFalse(repository.setSessionLock(plan.id, plan.revision, "future-run", false))
+        assertFalse(repository.moveSession(locked.id, locked.revision,
+            "future-run", targetDate.plusDays(1)))
+        assertEquals(locked, repository.state.value.plans.single())
+
+        val corrupt = locked.copy(sessions = locked.sessions.map {
+            if (it.id == "future-run") it.copy(date = targetDate.plusDays(2)) else it
+        })
+        val invalidBackup = JSONObject().put("schemaVersion", 1)
+            .put("plans", JSONArray().put(corrupt.encode())).toString()
+        assertFalse(repository.restorePlans(invalidBackup))
+        assertEquals(locked, repository.state.value.plans.single())
+
+        transport.offline = true
+        repository.close()
+        open()
+        assertEquals(locked, repository.state.value.plans.single())
+        assertTrue(repository.setSessionLock(locked.id, locked.revision, "future-run", false))
+        val unlocked = repository.state.value.plans.single()
+        assertTrue(unlocked.request.lockedSessionDays.isEmpty())
+        repository.close()
+        open()
+        assertEquals(unlocked, repository.state.value.plans.single())
+    }
+
     private inner class FixtureGateway : TrainingGateway {
         var account = owner
         var offline = false
