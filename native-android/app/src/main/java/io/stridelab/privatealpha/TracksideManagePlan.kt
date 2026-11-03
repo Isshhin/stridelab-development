@@ -60,6 +60,10 @@ internal fun TracksideManagePlanScreen(
         }
         return
     }
+    if (plan.status == "paused") {
+        TracksideParityPausedPlan(plan, busy, actions, onBack)
+        return
+    }
     val canManage = Engine1Engines.canManage(plan) && !busy
     val first = plan.request.start
     val last = first.plusWeeks(plan.request.weeks.toLong()).minusDays(1)
@@ -98,7 +102,7 @@ internal fun TracksideManagePlanScreen(
         item {
             TracksideManageAction(
                 title = "Edit a workout",
-                subtitle = "Choose a future session to review or move",
+                subtitle = "Move, change or remove a future session",
                 iconRes = R.drawable.trackside_figma_edit, accent = Color(0xFFFB3955),
                 enabled = canManage && future.isNotEmpty(),
                 modifier = Modifier.testTag("manage-edit-workout")
@@ -132,7 +136,7 @@ internal fun TracksideManagePlanScreen(
         item {
             TracksideManageAction(
                 title = "Adjust future weeks",
-                subtitle = "Create a new draft for review; current plan stays unchanged",
+                subtitle = "Regenerate from a date you choose",
                 iconRes = R.drawable.trackside_figma_loop, accent = Color(0xFF8DBFE2),
                 enabled = canManage, modifier = Modifier.testTag("manage-adjust-weeks")
             ) { confirmDraft = true }
@@ -140,7 +144,7 @@ internal fun TracksideManagePlanScreen(
         if (plan.status == "approved") item {
             TracksideManageAction(
                 title = "Pause training plan",
-                subtitle = "Keep your saved schedule and workout history",
+                subtitle = "Keep your history and schedule",
                 iconRes = R.drawable.trackside_figma_pause, accent = Color(0xFF8DBFE2),
                 enabled = canManage, modifier = Modifier.testTag("manage-pause")
             ) { confirmPause = true }
@@ -238,12 +242,12 @@ private fun TracksidePlanWeekOverview(plan: PlanSnapshot, selected: LocalDate) {
             // The session/day counts already appear directly above this card.
             // Repeating them here shrinks the title at 1.5× fonts and wraps it.
             TracksideSectionHeader("Your training week")
-            Row(Modifier.fillMaxWidth().height(96.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(Modifier.fillMaxWidth().height(116.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 days.forEach { day ->
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Column(Modifier.fillMaxWidth().height(72.dp), verticalArrangement = Arrangement.Bottom) {
+                        Column(Modifier.fillMaxWidth().height(92.dp), verticalArrangement = Arrangement.Bottom) {
                             day.byDiscipline.reversed().forEach { (discipline, minutes) ->
-                                val height = (minutes.toFloat() / high * 68f).coerceAtLeast(3f)
+                                val height = (minutes.toFloat() / high * 88f).coerceAtLeast(3f)
                                 Box(Modifier.fillMaxWidth().height(height.dp)
                                     .background(tracksideDisciplineColor(discipline), RoundedCornerShape(5.dp)))
                             }
