@@ -1,6 +1,10 @@
 # StrideLab Engine 2.x current coordinating handoff
 
-## Current action after private pilot hardening
+## Current private pilot operator kit
+
+Start with the [operator handoff](p2-f-private-pilot-operator-handoff.md). It points to the Windows setup procedure, synthetic restore drill, private audit command and single-session checklist. The next action takes place on the steward's selected machine before participant approval. No source has been admitted.
+
+## Historical action after private pilot hardening
 
 Use the [private pilot readiness handoff](p2-f-private-pilot-readiness-handoff.md). A steward must complete the private particulars and verify the actual staging controls before intake. The participant can then decide on the specific grant. No human source or supported device has been established. Gate 2 and P2-B remain blocked.
 

@@ -25,7 +25,7 @@ No online viewer, GitHub, ChatGPT or cloud upload is part of this pilot. Only th
 | May the named team… | Yes / No |
 |---|---|
 | 1. Hold and privately inspect the one original described above, including temporary custody of its disclosed incidental fields? | ___ |
-| 2. Make a private working copy of only the approved measurements, labeled with a study code, and convert their times and units? | ___ |
+| 2. Make one temporary exact working copy of the file, including its incidental fields, then extract only the agreed measurements, label them with a study code and convert their times and units? | ___ |
 | 3. Calculate differences between the two readings and describe gaps and sample quality for this recording? | ___ |
 | 4. Link this recording to the agreed diary entry and the version of the session you accepted? | ___ |
 | 5. Test the reader and session match, including duplicate import, replay and removal, and record how long the checks took? | ___ |
