@@ -291,6 +291,12 @@ class TracksideResponsiveQaTest {
                 .getUnclippedBoundsInRoot()
             assertTrue("Weekly ability card exceeds Figma tolerance",
                 (weeklyCard.bottom-weeklyCard.top).value<=137f)
+            val longestCard=compose.onNodeWithTag("builder-ability-longest-card")
+                .getUnclippedBoundsInRoot()
+            assertTrue("Longest-run card exceeds Figma tolerance",
+                (longestCard.bottom-longestCard.top).value<=137f)
+            assertTrue("Optional result panel exceeds Figma tolerance",
+                (optional.bottom-optional.top).value<=85f)
         }
         compose.onNodeWithTag("builder-ability-optional-card").performScrollTo()
         compose.onNodeWithTag("builder-ability-optional-card").assertIsDisplayed()
