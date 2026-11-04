@@ -115,6 +115,23 @@ def evidence(ref):
     return p2_trace.Reference(**doc)
 
 
+def check_frozen_sheet(sheet):
+    reference = evidence(sheet["reference"])
+    guard(reference.reference_complete is True and reference.artifact_free is True)
+    expected = sheet["expected"]
+    guard(set(expected) == {"identity","qc","points"})
+    guard(set(expected["identity"]) ==
+          {"account","study","activity","opportunity","revision","plan","source_id","start_utc"})
+    quarters = {"quarter_valid_s","quarter_mean_hr_bpm","quarter_distance_m"}
+    guard(set(expected["qc"]) == quarters | {
+        "source_session_ordinal","source_lap_ordinal","first_to_last_sample_elapsed_s",
+        "lap_reported_time_s","lap_reported_m","lap_reported_mean_hr_bpm","lap_reported_max_hr_bpm",
+        "lap_native_cadence","start_offset_s","duration_s","distance_m","max_observed_interval_s"})
+    guard(all(isinstance(expected["qc"][k],list) and len(expected["qc"][k]) == 4 for k in quarters))
+    guard(isinstance(expected["points"],list) and len(expected["points"]) >= 2
+          and all(isinstance(row,list) and len(row) == 4 for row in expected["points"]))
+
+
 def observations(ledger, cfg, original, ref):
     scope = ledger.scope
     view = ledger.replay(scope, cfg["cutoff"])
@@ -175,6 +192,7 @@ def inspect(control, record):
     guard(next(e for e in cfg["events"] if e["kind"] == "initial")["data"]["intent"] == "easy")
     ref = parse(read(root / "independent-reference" / "sealed.json", 16_000_000, record["reference_sha256"]))
     guard(set(ref) == {"reference","expected","frozen_at"})
+    check_frozen_sheet(ref)
     guard(ref["reference"]["source_digest"] == record["original_sha256"])
     guard(instant(ref["frozen_at"]) <= instant(record["verified_at"]))
     scope = tuple(record["scope"])

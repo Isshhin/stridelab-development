@@ -152,6 +152,11 @@ class PrivateCommand(unittest.TestCase):
                             {"reference_sha256":None},{"journal_sha256":None}):
                 with self.subTest(case=next(iter(changes))), self.assertRaises(audit.Quarantine):
                     audit.inspect(self.control,{**self.record,**changes})
+            sealed = self.root/"independent-reference"/"sealed.json"
+            sheet = json.loads(sealed.read_bytes())
+            del sheet["expected"]["qc"]["quarter_mean_hr_bpm"]
+            with self.assertRaises(audit.Quarantine):
+                audit.inspect(self.control,{**self.record,"reference_sha256":save(sealed,sheet)})
 
     def test_wrong_identity_and_trace_disagreement_are_preserved(self):
         frozen = self.root/"independent-reference"/"sealed.json"
