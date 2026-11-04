@@ -9,6 +9,7 @@ on:
       - 'native-android/app/src/androidTest/java/io/stridelab/privatealpha/TracksideResponsiveQaTest.kt'
       - 'native-android/app/src/androidTest/java/io/stridelab/privatealpha/TracksideApprovedBuilderActivityUiTest.kt'
       - 'native-android/app/src/main/java/io/stridelab/privatealpha/TracksideFigmaBuilderScreens.kt'
+      - 'native-android/app/src/main/java/io/stridelab/privatealpha/TracksideFigmaBuilderSchedule.kt'
       - 'native-android/app/src/main/java/io/stridelab/privatealpha/TracksideFigmaRunningSetup.kt'
       - 'native-android/app/src/main/res/drawable/trackside_*'
   workflow_dispatch:
