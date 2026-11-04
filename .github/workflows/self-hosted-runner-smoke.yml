@@ -1,9 +1,6 @@
 name: Self-hosted Windows runner smoke
 
 on:
-  push:
-    branches:
-      - infra/self-hosted-runner-smoke-20261104
   workflow_dispatch:
 
 permissions:
