@@ -274,6 +274,8 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("builder-cali-weekly").assertExists()
         compose.onNodeWithTag("builder-cali-starting-levels").assertExists()
         compose.onNodeWithText("2 of 2 placed").assertExists()
+        compose.onNodeWithText("Suggested days  ·  editable").assertExists()
+        compose.onNodeWithText("Remove").assertExists()
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
         screenshot("builder-calisthenics-figma-reference")
 
@@ -282,10 +284,12 @@ class TracksideResponsiveQaTest {
             val weekly=compose.onNodeWithTag("builder-cali-weekly")
                 .getUnclippedBoundsInRoot()
             assertTrue("Calisthenics weekly preview exceeds reference tolerance: " +
-                (weekly.bottom-weekly.top), (weekly.bottom-weekly.top).value <= 500f)
+                (weekly.bottom-weekly.top), (weekly.bottom-weekly.top).value <= 480f)
             if(config.screenHeightDp >= 900) {
                 val levels=compose.onNodeWithTag("builder-cali-starting-levels")
                     .getUnclippedBoundsInRoot()
+                assertTrue("Calisthenics starting levels taller than Figma tolerance: " +
+                    (levels.bottom-levels.top), (levels.bottom-levels.top).value <= 94f)
                 val cta=compose.onNodeWithTag("builder-figma-continue")
                     .getUnclippedBoundsInRoot()
                 assertTrue("Calisthenics starting levels overlap fixed Continue",
