@@ -1,5 +1,7 @@
 # Trackside 3.0: Strength Setup — rendered Design QA
 
+**Current acceptance status (2026-11-04): ACCEPTED for Strength Setup only.** Exact-head Windows CI and emulator responsive verification passed at `a6b0fd0c0e34b68376dae6f72ef34de1db436c6a` (run `41770631185`, artifact `13295156293`). See iteration 3 below. The blocked statuses in iterations 1 and 2 are preserved as historical findings.
+
 **Source of truth:** Figma file `v73TsYo6gKxUoiUock2sSE`, node `698:3` (APPROVED Strength Setup Customize 412×950).
 **Android baseline:** GitHub Actions run `41665277059`, commit `0dee06b676a0aca8545843429357f0b7cfe0e1b5`.
 **Screenshot artifact IDs:** `13245703652` (412dp/100%), `13246567602` (360dp/100%), `13246123658` (412dp/150%), `13246972320` (360dp/130%).
@@ -33,3 +35,33 @@ The pending source update changes only Strength Setup's fixed-height rows, selec
 - **Root cause isolated for visual geometry:** `StrengthPreferenceRow` vertical padding was 10dp instead of a content-fitted minimum 59dp card; the pre-weekly gap was 14dp and weekly card had a 13dp top + 13dp bottom padding plus an extra 13dp gap before its 48dp editor control. The next patch removes excess non-interactive space without shrinking day cells, steppers or edit-button touch targets.
 - **Interaction debugging:** The failing test already used `performScrollTo()`; therefore the next run captures a screenshot immediately after both placement taps and verifies `1 of 2 placed` then `2 of 2 placed` to pinpoint whether a tap/state transition is lost.
 - **Iteration 2 corrected render:** pending exact-head build and screenshot rerun. **Final result: blocked.**
+
+## Iteration 3 — Windows self-hosted acceptance (2026-11-04)
+
+**Accepted verified build:** `a6b0fd0c0e34b68376dae6f72ef34de1db436c6a`, self-hosted Windows run [41770631185](https://github.com/Isshhin/stridelab-development/actions/runs/41770631185), artifact ID `13295156293` (`trackside-strength-windows-evidence`, 21-day retention). The last Strength Setup production code change remains `f9b882cadae0d3a5c307057a4769340b8024d763`; later commits only updated the Windows workflow and responsive instrumentation. No engine or release infrastructure was changed.
+
+### Exact-head verification results
+
+- Shared exercise-library schema check: passed (the unrelated UI protected-source immutability guard was intentionally excluded from Trackside QA).
+- Android JVM/unit tests, debug Android app compilation, and debug instrumentation APK compilation: passed.
+- Android 35 Pixel 9 x86_64 emulator smoke: **22/22 passed**.
+- Responsive Compose device suites: **412dp/100% 10/10 passed; 360dp/100% 10/10 passed; 360dp/130% 10/10 passed; 412dp/150% 10/10 passed**.
+- Screenshots: **22 PNGs per profile**, including the matched Figma reference, an after-first-tap diagnostic, a two-tap diagnostic, placed and auto modes. All uploaded successfully.
+- Primary matched screenshot: `qa-screenshots/figma-412dp-font100/StrideLabBatchB/builder-strength-figma-reference-412dp-font100.png`. Downsample 824×1900 by 50% for comparison to Figma node `698:3` (412×950).
+- Scaled placement diagnostics: `qa-screenshots/compact-360dp-font130/StrideLabBatchB/builder-strength-after-first-tap-360dp-font130.png` and `builder-strength-two-taps-360dp-font130.png` in the same folder.
+
+### Rendered visual review against approved Figma 698:3
+
+- **P1 resolved:** At 412dp/100%, the complete TRAINING SPLIT module and all three split choices appear above the fixed Continue area. There is no CTA obstruction of this module.
+- **P2 resolved to a close visual match:** Preference cards are approximately 59dp high at baseline, rather than the earlier ~73dp; weekly preview is approximately 243dp (Figma ~237px), a ~6dp difference, rather than the earlier ~277dp. The pre-weekly space is small and consistent, without pushing Training Split under the action area.
+- All approved goal, muscle-emphasis and equipment vector icons remain present at the expected 23dp within their 37dp tiles. Mode chips, weekday cells, stepper and editor targets retain the readable baseline appearance and intended dimensions.
+- Text clipping checks and height assertions passed in the responsive test matrix. The 412dp/150% and 360dp/130% screens use their scrollable body for below-fold sections; the Continue action remains fixed and reachable.
+- The Android screenshot excludes simulated status/navigation chrome and uses live supported Engine 1 values rather than unsupported Figma demo fields: the muscle-emphasis subtitle is `Not available in Engine 1`, and equipment names reflect the request. These intentional semantic differences are not visual P1/P2 defects. This is close layout parity, **not a claim of a perfect pixel-by-pixel match**.
+
+### 360dp/130% interaction root cause and verification
+
+- Previous failing test clicked `builder-strength-weekday-1` while that weekday cell was **below the scroll viewport**; before-tap screenshots independently confirmed the cell was offscreen. The first placement did not occur, so `1 of 2 placed` was absent. That is an instrumentation interaction defect, not evidence that persisted assignment or Continue logic is incorrect.
+- Corrected test commit `bccf4ba8d246e4624bca9f4b1ff0e20b116190bb` performs `performScrollTo()`, `assertIsDisplayed()`, and then `performClick()`, capturing evidence before asserting the placement count. It retains the second weekday scroll, `2 of 2 placed` assertion, and Continue enablement assertion. Workflow trigger update `a6b0fd0c0e34b68376dae6f72ef34de1db436c6a`.
+- The successful 360dp/130% screenshots explicitly show Upper Body after tap 1, Upper Body and Lower Body after tap 2, `2 of 2 placed`, and the enabled red Continue CTA. All ten tests passed with no weakening of placement checks.
+
+**Final Strength Setup outcome: ACCEPTED.** Exact-head compilation, JVM/unit, smoke, 4-profile responsive interaction, screenshots, and visual P1/P2 checks pass. No actionable P0/P1/P2 issues remain within the requested Strength Setup acceptance scope. Calisthenics Setup is the next screen to verify; this acceptance does not approve the full Plan Builder, Trackside or a release APK.
