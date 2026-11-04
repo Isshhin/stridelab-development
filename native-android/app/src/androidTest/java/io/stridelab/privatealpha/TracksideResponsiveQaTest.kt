@@ -746,6 +746,129 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
     }
 
+
+    @Test fun availabilityNineSessionMatchedStateAndCoachingChecksAtCurrentViewport() {
+        // This is a real Engine 1-compatible request, not the illustrative
+        // five-run/two-strength/two-calisthenics mix that lacks a third pairing.
+        val matched = PlanRequest(
+            start=LocalDate.of(2026,11,9), weeks=1, goal="Aerobic foundation",
+            days=setOf(1,2,3,4,5,7), longDay=7,
+            runDays=5, strengthDays=0, calDays=4, conditioningDays=0,
+            qualityCount=1, qualityDays=setOf(2), experience=1,
+            weeklyKm=35.0, longestKm=12.0, minutes=60,
+            dailyMinutes=120, policyChoice="multi-session"
+        )
+        val generated=MultiSessionEngine1.generate(
+            matched,"synthetic-responsive","availability-matched",Instant.EPOCH)
+        val firstWeek=generated.sessions
+        assertTrue("Engine 1 must actually generate all nine sessions",
+            firstWeek.size==9)
+        assertTrue("Nine sessions should occupy six real weekdays",
+            firstWeek.map { it.date.dayOfWeek.value }.toSet().size==6)
+        assertTrue("Three double days must be genuinely compatible",
+            firstWeek.groupBy { it.date }.values.count { it.size==2 }==3)
+        val state=mutableStateOf(matched)
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideFigmaAvailabilityScreen(
+                        request=state.value,
+                        onDay={ day ->
+                            state.value=state.value.copy(
+                                days=if(day in state.value.days)
+                                    state.value.days-day else state.value.days+day)
+                        },
+                        onRemovePinnedDay={ day ->
+                            state.value=WeeklyPlacement.makeUnavailable(state.value,day)
+                        },
+                        onMultiSessionToggle={ enabled ->
+                            state.value=state.value.copy(
+                                policyChoice=if(enabled)"multi-session" else "coordinated")
+                        },
+                        dailyBudget="120", onBack={},onContinue={}
+                    )
+                }
+            }
+        }
+        compose.onNodeWithText("9").assertExists()
+        compose.onNodeWithText("sessions across 6 days").assertExists()
+        compose.onNodeWithText("/ 7 DAYS").assertExists()
+        compose.onNodeWithTag("available-day-6").assertExists()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        screenshot("builder-availability-nine-session-matched")
+
+        // Reach the complete coaching panel through ordinary vertical scrolling.
+        compose.onNodeWithText("Evaluated after plan generation").performScrollTo()
+        compose.onNodeWithText("NEXT: COACHING CHECKS").assertIsDisplayed()
+        compose.onNodeWithText("Recovery balance",substring=true).assertIsDisplayed()
+        compose.onNodeWithText("Training load and progression",substring=true)
+            .assertIsDisplayed()
+        val coachingBottom=compose.onNodeWithText("Evaluated after plan generation")
+            .getUnclippedBoundsInRoot().bottom
+        val continueTop=compose.onNodeWithTag("builder-figma-continue")
+            .getUnclippedBoundsInRoot().top
+        assertTrue("Coaching checks must clear the fixed Continue dock",
+            coachingBottom <= continueTop-2.dp)
+        screenshot("builder-availability-coaching-checks-reachable")
+
+        // Use real day-chip taps, not direct state mutations, to change and
+        // restore availability. Five days cannot offer the required four pairs.
+        compose.onNodeWithTag("available-day-5").performScrollTo()
+        compose.onNodeWithTag("available-day-5").performClick()
+        compose.onNodeWithText("sessions across 5 days").assertExists()
+        compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
+        compose.runOnIdle { assertTrue(state.value.days.size==5) }
+        compose.onNodeWithTag("available-day-5").performClick()
+        compose.onNodeWithText("sessions across 6 days").assertExists()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        compose.runOnIdle {
+            assertTrue(state.value.days.size==6 && 6 !in state.value.days)
+        }
+    }
+
+    @Test fun availabilityPinnedRemovalConfirmationAtCurrentViewport() {
+        val state=mutableStateOf(
+            PlanRequest(
+                days=setOf(1,2,3,4,5,7),runDays=3,longDay=7,
+                weeklySlots=mapOf("run" to listOf(7,3,1)))
+        )
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideFigmaAvailabilityScreen(
+                        request=state.value,
+                        onDay={ day ->
+                            state.value=state.value.copy(
+                                days=if(day in state.value.days)
+                                    state.value.days-day else state.value.days+day)
+                        },
+                        onRemovePinnedDay={ day ->
+                            state.value=WeeklyPlacement.makeUnavailable(state.value,day)
+                        },
+                        onMultiSessionToggle={},onBack={},onContinue={}
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("available-day-7").performClick()
+        compose.onNodeWithText("Change Sunday availability?").assertExists()
+        screenshot("builder-availability-pinned-confirmation")
+        compose.onNodeWithText("Cancel").performClick()
+        compose.runOnIdle {
+            assertTrue(state.value.weeklySlots["run"]==listOf(7,3,1))
+            assertTrue(7 in state.value.days)
+        }
+        compose.onNodeWithTag("available-day-7").performClick()
+        compose.onNodeWithTag("builder-confirm-remove-pinned-day").performClick()
+        compose.runOnIdle {
+            assertTrue(state.value.runDays==3)
+            assertTrue(state.value.weeklySlots["run"]==listOf(0,3,1))
+            assertTrue(7 !in state.value.days)
+        }
+        compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
+        screenshot("builder-availability-pinned-unassigned")
+    }
+
     @Test fun builderAvailabilityAndDraftReviewRenderAtCurrentViewport() {
         val state=TrainingState(initializing=false,account="synthetic-responsive")
         compose.runOnUiThread {

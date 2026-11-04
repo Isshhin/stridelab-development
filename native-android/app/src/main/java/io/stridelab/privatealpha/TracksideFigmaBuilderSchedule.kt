@@ -251,6 +251,14 @@ internal fun TracksideFigmaAvailabilityScreen(
     val total=request.runDays+request.strengthDays+request.calDays+request.conditioningDays
     val maxPerDay=if(request.policyChoice=="multi-session") 2 else 1
     val capacity=chosen*maxPerDay
+    // A daily slot is not a permitted pairing. Engine 1 multi-session only
+    // pairs an easy run with calisthenics; long/quality runs and other sports
+    // cannot supply the double days required by this request.
+    val requiredDoubleDays=(total-chosen).coerceAtLeast(0)
+    val easyRunCandidates=(request.runDays -
+        (if(request.runDays>0) 1 else 0) - request.qualityCount).coerceAtLeast(0)
+    val compatibleDoubleLimit=minOf(easyRunCandidates,request.calDays)
+    val insufficientPairCapacity=requiredDoubleDays>compatibleDoubleLimit
     val assignments=request.weeklySlots.flatMap { (discipline,slots) ->
         slots.mapIndexedNotNull { index,day ->
             if(day in 1..7) Triple(day,discipline,index) else null
@@ -272,7 +280,7 @@ internal fun TracksideFigmaAvailabilityScreen(
         dailyBudget.toIntOrNull() !in 15..240
     val capacityFits=chosen>0 && total<=capacity &&
         placementError==null && !unsupportedOverlap &&
-        !invalidPair && !invalidBudget
+        !invalidPair && !invalidBudget && !insufficientPairCapacity
     TracksideFigmaBuilderFrame(
         eyebrow = "PLAN / AVAILABILITY",
         toolbarTitle = "Availability",
@@ -355,6 +363,8 @@ internal fun TracksideFigmaAvailabilityScreen(
                     unsupportedOverlap -> "Two workouts share a weekday. Enable compatible same-day sessions or move one."
                     invalidPair -> "This engine allows only easy running with calisthenics on the same day."
                     invalidBudget -> "Enter a combined daily time budget between 15 and 240 minutes."
+                    insufficientPairCapacity -> "This request needs $requiredDoubleDays compatible double days, but Engine 1 allows at most $compatibleDoubleLimit easy-run and calisthenics pairs."
+                    capacityFits && requiredDoubleDays>0 -> "Compatible double-day slots may fit; final recovery checks run on generation."
                     capacityFits -> "✓ Requested weekdays are recorded; recovery checks run on generation"
                     else -> "Additional available day capacity is needed before continuing"
                 },
