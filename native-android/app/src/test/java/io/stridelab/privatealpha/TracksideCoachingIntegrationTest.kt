@@ -35,6 +35,25 @@ class TracksideCoachingIntegrationTest {
         assertEquals("approved", PlanOperations.approve(rollback, emptyList()).status)
     }
 
+    @Test fun explicitDoubleDayBudgetSurvivesSpareDaysAndNewDraftReuse() {
+        val setup = PlanRequest(policyChoice="multi-session", start=start, weeks=1,
+            days=(1..7).toSet(), longDay=7, runDays=3, calDays=1, dailyMinutes=60)
+        val selected = TracksideCoaching.request(setup, true)
+        val saved = generate(selected)
+        assertEquals(ENGINE15_MULTI_POLICY, saved.policyId)
+        val decoded = PlanSnapshot.decode(saved.encode(), saved.owner)
+        assertTrue(decoded.request.allowDoubleDays)
+        assertEquals(setup, TracksideCoaching.setupFor(decoded))
+        assertThrows(PlanConstraint::class.java) {
+            generate(TracksideCoaching.request(setup.copy(dailyMinutes=15), true))
+        }
+        val oldRequest = selected.encode().apply { remove("allowDoubleDays") }
+        val historical = PlanRequest.decode(oldRequest)
+        assertFalse(historical.allowDoubleDays)
+        assertEquals(ENGINE15_POLICY, generate(historical).policyId)
+        assertFalse(historical.encode().has("allowDoubleDays"))
+    }
+
     @Test fun fixedUpperStrengthMayShareEasyDayEvenWithUnusedWeekdays() {
         val setup = PlanRequest(policyChoice="multi-session", start=start, weeks=2,
             days=(1..7).toSet(), longDay=7, runDays=3, strengthDays=2,

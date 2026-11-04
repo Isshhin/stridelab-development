@@ -6,7 +6,8 @@ internal object TracksideCoaching {
         val multi = PlanScheduleValidation.isMultiPolicy(previous.policyId)
         return previous.request.copy(
             policyChoice = if (multi) "multi-session" else "coordinated",
-            lockedSessionDays = emptyMap()
+            lockedSessionDays = emptyMap(),
+            allowDoubleDays = false
         )
     }
 
@@ -19,7 +20,9 @@ internal object TracksideCoaching {
             if (assigned.distinct().size != assigned.size)
                 throw PlanConstraint("Enable double days or move workouts to separate weekdays.")
         }
-        val selected = if (engine15Active) setup.copy(policyChoice = "engine15") else setup
+        val selected = if (engine15Active) setup.copy(
+            policyChoice = "engine15", allowDoubleDays = setup.policyChoice == "multi-session"
+        ) else setup
         Engine1Engines.validate(selected)
         return selected
     }

@@ -29,7 +29,7 @@ internal object Engine15 : PlanGenerationEngine {
 
     private fun requiresMulti(p:PlanRequest): Boolean {
         val assigned = p.weeklySlots.values.flatten()
-        return p.runDays + p.strengthDays + p.calDays + p.conditioningDays > p.days.size ||
+        return p.allowDoubleDays || p.runDays + p.strengthDays + p.calDays + p.conditioningDays > p.days.size ||
             assigned.distinct().size != assigned.size
     }
 
