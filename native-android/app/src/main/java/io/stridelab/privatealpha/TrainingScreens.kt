@@ -118,9 +118,8 @@ import kotlinx.coroutines.withContext
                 Column(Modifier.testTag("training-calendar")) {
                     TrainingCalendar(
                         plan, date, monthView,
-                        { selectedDate = it.toString() },
                         showWeekNavigation = plan.status != "draft"
-                    )
+                    ) { selectedDate = it.toString() }
                 }
             }
             if(agendaView && !monthView) {
@@ -170,7 +169,7 @@ import kotlinx.coroutines.withContext
 }
 @Composable internal fun TrainingCalendar(
     plan:PlanSnapshot, selected:LocalDate, month:Boolean,
-    onSelect:(LocalDate)->Unit, showWeekNavigation:Boolean = true
+    showWeekNavigation:Boolean = true, onSelect:(LocalDate)->Unit
 ) {
     val first=plan.request.start;val last=first.plusWeeks(plan.request.weeks.toLong()).minusDays(1)
     if(month) {
