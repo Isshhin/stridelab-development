@@ -1,0 +1,60 @@
+name: Self-hosted Windows runner smoke
+
+on:
+  push:
+    branches:
+      - infra/self-hosted-runner-smoke-20261104
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-runner-smoke:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify Windows runner toolchain
+        shell: powershell
+        run: |
+          Write-Host "Runner OS: $env:RUNNER_OS"
+          Write-Host "Runner ARCH: $env:RUNNER_ARCH"
+          java -version
+          python --version
+          git --version
+
+          $Sdk = "$env:LOCALAPPDATA\Android\Sdk"
+          Write-Host "Android SDK: $Sdk"
+
+          if (!(Test-Path "$Sdk\platform-tools\adb.exe")) {
+            throw "adb.exe not found"
+          }
+          if (!(Test-Path "$Sdk\emulator\emulator.exe")) {
+            throw "emulator.exe not found"
+          }
+          if (!(Test-Path "$Sdk\cmdline-tools\latest\bin\sdkmanager.bat")) {
+            throw "sdkmanager.bat not found"
+          }
+
+          & "$Sdk\platform-tools\adb.exe" version
+          & "$Sdk\emulator\emulator.exe" -version
+          & "$Sdk\emulator\emulator-check.exe" accel
+          & "$Sdk\emulator\emulator.exe" -list-avds
+
+          Write-Host "Installed platforms:"
+          Get-ChildItem "$Sdk\platforms" | Select-Object -ExpandProperty Name
+          Write-Host "Installed build-tools:"
+          Get-ChildItem "$Sdk\build-tools" | Select-Object -ExpandProperty Name
