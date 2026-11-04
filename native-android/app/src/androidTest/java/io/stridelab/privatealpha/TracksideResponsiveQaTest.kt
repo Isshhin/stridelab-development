@@ -262,6 +262,15 @@ class TracksideResponsiveQaTest {
             }
         }
         compose.onNodeWithTag("builder-cali-customize").assertIsDisplayed()
+        val mode=compose.onNodeWithTag("builder-cali-auto")
+            .getUnclippedBoundsInRoot()
+        val modeLabel=compose.onNodeWithText("Let StrideLab decide",
+            useUnmergedTree=true).getUnclippedBoundsInRoot()
+        assertTrue("Calisthenics mode label clipped horizontally",
+            modeLabel.left >= mode.left - 1.dp &&
+            modeLabel.right <= mode.right + 1.dp)
+        assertTrue("Calisthenics mode label clipped vertically",
+            modeLabel.bottom <= mode.bottom + 1.dp)
         compose.onNodeWithTag("builder-cali-weekly").assertExists()
         compose.onNodeWithTag("builder-cali-starting-levels").assertExists()
         compose.onNodeWithText("2 of 2 placed").assertExists()
