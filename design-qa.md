@@ -259,3 +259,19 @@ The existing `builderAvailabilityAndDraftReviewRenderAtCurrentViewport` responsi
 ## Plan Builder: Week Preview / Generate Draft — next-target initial diagnostic (2026-11-04)
 
 **WEEK_PREVIEW = NOT_ACCEPTED (target opened for read-only diagnostic).** Approved Figma node `614:412` illustrates a six-day, nine-session week with five runs, two strength workouts and two calisthenics workouts; the Wednesday and Friday easy-running/calisthenics pairs are legal in principle, but Thursday's illustrated easy run plus lower-body strength pair is **not** an Engine 1-supported same-day combination. This is illustrative, not production-confirmed feasibility. The existing `TracksideFigmaWeekReview` correctly separates pre-generation (`plan == null`, request demand and explicit weekday requests only) from post-generation (dated sessions from an actual saved `PlanSnapshot`) and does not manufacture placements. Reuse a genuinely scheduled request and real generated draft for Week Preview behavior/visual QA; keep recovery gating and user approval. This is the next independent target, not a reopened Availability defect.
+
+## Final Trackside 3.0 freeze — 2026-11-04
+
+- **WEEK_PREVIEW = ACCEPTED** (Figma `614:412`)
+- **DRAFT_APPROVAL = ACCEPTED** (Figma `653:471`)
+- **TRACKSIDE_3_0 = ACCEPTED / FROZEN FOR ENGINE 1.5 INTEGRATION**
+
+Verified UI source: `8c700344c646582b1ad8be91d36d1b1195a49ed8`. [Self-hosted Windows run 41860836387](https://github.com/Isshhin/stridelab-development/actions/runs/41860836387) passed shared schema validation, JVM and Android compilation, Pixel 9 API 35 smoke (22/22), and all 88 responsive cases (22 each at 412dp/100%, 360dp/100%, 360dp/130%, and 412dp/150%). [Evidence artifact 13339639797](https://github.com/Isshhin/stridelab-development/actions/runs/41860836387/artifacts/13339639797) contains 50 screenshots per profile.
+
+The previous Windows run (41858715030) passed both normal-font profiles but failed the final Agenda row clearance assertion at 130% and 150%. The approval dock can grow when its text wraps. Training now lays out the list in the space remaining above the measured dock; the week control band also accommodates the enlarged counter. The existing clearance assertions passed unchanged.
+
+Reviewed the requested, generated and scrolled Week Preview plus initial and scrolled Draft Approval screenshots for all four profiles. The request shows availability without inventing prescriptions. The generated snapshot contains five runs and four calisthenics sessions over six active days, including three legal double days. The device tests exercise a real generated session and the explicit approval callback. Long names shorten in compact cells at large font sizes; scrolling keeps the prescriptions and primary actions reachable.
+
+Draft Approval retains the title-row DRAFT badge, shared Day/Agenda and week navigation band, compact grouped rows, and native move vector. At all four sizes the complete Sunday session clears the approval dock and the dock clears global navigation. No actionable P0/P1/P2 remains in these targets. All nine previously accepted Builder screens, including Plan Dates and Availability, remain closed with passing regression coverage.
+
+**Integration checkpoint:** use this documentation closeout and its verified code parent as the baseline for a separate Engine 1.5 integration phase. Trackside visual reconstruction is closed. Engine 1 scheduling rules, Engine 1.5 coaching policy, Engine 2.x research, and release infrastructure are unchanged. No APK was prepared for distribution.
