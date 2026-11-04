@@ -155,7 +155,10 @@ jobs:
           $Classes = @(Get-ChildItem native-android/app/src/androidTest/java/io/stridelab/privatealpha -File |
             Where-Object { $_.BaseName -match '^(Trackside.*Test|Engine15.*Test|Engine1RepositoryTest|TrainingRepositoryTest|OutboxOfflineRecoveryTest)$' -and $_.BaseName -ne 'TracksideResponsiveQaTest' } |
             ForEach-Object { "io.stridelab.privatealpha.$($_.BaseName)" })
-          gradle --no-daemon --stacktrace -p native-android :app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=$($Classes -join ',')" --console=plain
+          $EngineUiClass = "io.stridelab.privatealpha.Engine1UiTest"
+          $ParityTest = "$EngineUiClass#runningPrimaryAndStrengthSecondaryGoalProduceActualDifferentPrescriptions"
+          $Selectors = $Classes + $ParityTest
+          gradle --no-daemon --stacktrace -p native-android :app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=$($Selectors -join ',')" --console=plain
           $SmokeExit = $LASTEXITCODE
           Write-Host "Trackside smoke Gradle exit code: $SmokeExit"
 
@@ -172,7 +175,7 @@ jobs:
               if (!($Cases | Where-Object { $_.classname -eq $Class })) { throw "$Name missing class $Class" }
             }
             if ($Cases | Where-Object { $_.SelectSingleNode('failure|error|skipped') }) { throw "$Name has failed or skipped tests" }
-            if ($Name -ne "integration-smoke" -and $Cases.Count -lt 22) { throw "$Name ran only $($Cases.Count) responsive cases" }
+            if ($Name -ne "integration-smoke" -and $Cases.Count -lt 24) { throw "$Name ran only $($Cases.Count) responsive cases" }
             Write-Host "$Name verified $($Cases.Count) cases"
           }
           $Profiles = @(
@@ -183,7 +186,7 @@ jobs:
           )
           $Failures = @()
           if ($SmokeExit -ne 0) { $Failures += "Trackside smoke failed ($SmokeExit)" }
-          try { Save-TestResults "integration-smoke" $Classes } catch { $Failures += $_.Exception.Message }
+          try { Save-TestResults "integration-smoke" ($Classes + $EngineUiClass) } catch { $Failures += $_.Exception.Message }
           foreach ($P in $Profiles) {
             Write-Host "::group::Responsive QA $($P.Name)"
             $Out = "native-android/app/build/qa-screenshots/$($P.Name)"

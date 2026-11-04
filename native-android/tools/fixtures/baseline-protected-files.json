@@ -20,7 +20,7 @@
     "native-android/app/src/androidTest/java/io/stridelab/privatealpha/ActivityIntelligenceUiTest.kt": "60d7345a33af19fb6df074f129def7928e12bb1b393b6b2b167a4ab96f7ef406",
     "native-android/app/src/androidTest/java/io/stridelab/privatealpha/CorruptCacheTest.java": "f29e65654b381d5cad21607e5aff4af14aca6d2eed0bb0f512ad410047502f8f",
     "native-android/app/src/androidTest/java/io/stridelab/privatealpha/Engine1RepositoryTest.kt": "c487da3ea4ed1bacc712abe97645829a7068ddf6348d960f7fb050ac36685dcc",
-    "native-android/app/src/androidTest/java/io/stridelab/privatealpha/Engine1UiTest.kt": "ddcc57e902143da1991210e3218f8ec208d967a079eb3698e6aa58f803fedc41",
+    "native-android/app/src/androidTest/java/io/stridelab/privatealpha/Engine1UiTest.kt": "027ca9302674fb13cc419dadaa096885a693d6abeec53f3c17185b44cda75691",
     "native-android/app/src/androidTest/java/io/stridelab/privatealpha/NativeNavigationTest.kt": "6ac81828372bbde1de3027624c14b9534003d1e20c66e6f9cf23166b31b8a2f7",
     "native-android/app/src/androidTest/java/io/stridelab/privatealpha/NativeTabRootTest.kt": "117ceffb556d3fff278ff8e2ea06668aa3c9ce2f3d2d1370f5e31b6526945453",
     "native-android/app/src/androidTest/java/io/stridelab/privatealpha/NativeUpgradeTest.java": "1b2d684c4aee52f8bf1fa0dd9259e34e92bd5ccde3752e5dcc84d82207c54999",

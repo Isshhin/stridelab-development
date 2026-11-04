@@ -110,7 +110,7 @@ class TracksideEngine15ManagementUiTest {
         compose.onNodeWithText("Unlock Easy run", substring = true).performScrollTo().performClick()
         compose.onNodeWithText(weekday).performScrollTo().performClick()
         compose.onNodeWithText("Preview availability change").performScrollTo().performClick()
-        compose.onNodeWithText("1 safe moves · 0 unresolved").assertExists()
+        compose.onNodeWithText("Safe moves · 1   Unresolved · 0").assertExists()
         compose.runOnIdle { assertEquals(target.date, saved.value.sessions.single().date) }
         compose.onNodeWithText("Apply reviewed availability").performScrollTo().performClick()
         compose.runOnIdle {
@@ -147,8 +147,8 @@ class TracksideEngine15ManagementUiTest {
                 TracksideManagePlanScreen(paused, today, false, PlanActions(), {}, {}, {})
             } }
         }
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("1 unresolved workouts need placement before approval."))
-        compose.onNodeWithText("1 unresolved workouts need placement before approval.").assertExists()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Workouts needing placement before approval · 1"))
+        compose.onNodeWithText("Workouts needing placement before approval · 1").assertExists()
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("manage-resume"))
         compose.onNodeWithTag("manage-resume").assertIsNotEnabled()
     }

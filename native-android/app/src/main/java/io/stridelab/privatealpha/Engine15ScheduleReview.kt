@@ -21,7 +21,7 @@ internal fun Engine15ScheduleReview(plan: PlanSnapshot, actions: PlanActions, bu
     TracksideGlassCard(compact = true) {
         TracksideSectionHeader("Training availability")
         Text(plan.request.days.sorted().joinToString(" · ", transform = ::dayName))
-        if (unresolved.isNotEmpty()) Text("${unresolved.size} unresolved workouts need placement before approval.")
+        if (unresolved.isNotEmpty()) Text("Workouts needing placement before approval · ${unresolved.size}")
         OutlinedButton(onClick = { open = !open }) { Text(if (open) "Close schedule review" else "Review schedule") }
         if (open) {
             Text("Available training days", style = MaterialTheme.typography.titleMedium)
@@ -43,7 +43,7 @@ internal fun Engine15ScheduleReview(plan: PlanSnapshot, actions: PlanActions, bu
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             impact?.let { reviewed ->
                 Text("Proposed schedule", style = MaterialTheme.typography.titleMedium)
-                Text("${reviewed.relocations.size} safe moves · ${reviewed.unresolvedSessionIds.size} unresolved")
+                Text("Safe moves · ${reviewed.relocations.size}   Unresolved · ${reviewed.unresolvedSessionIds.size}")
                 for ((id, date) in reviewed.relocations) {
                     val session = plan.sessions.single { it.id == id }
                     Text("${session.title} · ${session.date} → $date")

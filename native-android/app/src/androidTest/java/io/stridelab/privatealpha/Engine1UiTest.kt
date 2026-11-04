@@ -273,12 +273,19 @@ class Engine1UiTest {
         val actions=PlanActions(generate={p->state.value=state.value.copy(plans=listOf(Engine1Engines.resolve(p).generate(p,"synthetic-goals-ui")))})
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,true,NativeActions({},{},{},{},{_,_->},planning=actions)) } } }
         compose.onNodeWithTag("nav-training").performClick();compose.onNodeWithText("Create a plan",useUnmergedTree=true).performClick()
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Strength"));compose.onNodeWithText("Strength",useUnmergedTree=true).performClick()
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Continue"));compose.onNodeWithText("Continue",useUnmergedTree=true).performClick()
-        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("goal-str-Muscle development"));compose.onNodeWithTag("goal-str-Muscle development").performClick()
-        repeat(2) {compose.onNodeWithTag("screen").performScrollToNode(hasText("Continue"));compose.onNodeWithText("Continue",useUnmergedTree=true).performClick()}
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Generate plan"));compose.onNodeWithText("Generate plan",useUnmergedTree=true).performClick()
-        compose.waitUntil(10000) { state.value.plans.isNotEmpty() };val plan=state.value.plans.single();assertEquals(CoordinatedEngine1.policyId,plan.policyId)
+        // The frozen Trackside wizard collects one discipline at a time. The old
+        // combined goal chip page and coordinated-only policy are no longer its entry point.
+        fun next() = compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("discipline-str").performClick()
+        repeat(5) { next() } // disciplines, running goal, race, ability, weekly setup
+        compose.onNodeWithTag("builder-strength-goal-1").performScrollTo().performClick()
+        repeat(5) { next() } // strength goal, weekly setup, cross-training, dates, availability
+        compose.onNodeWithText("Generate my plan").assertExists()
+        next()
+        compose.waitUntil(10000) { state.value.plans.isNotEmpty() }
+        val plan=state.value.plans.single()
+        assertEquals(if(BuildConfig.ENGINE15_ACTIVE) ENGINE15_POLICY else CoordinatedEngine1.policyId, plan.policyId)
+        assertEquals("Muscle development", plan.request.disciplineGoals["str"])
         assertTrue(plan.sessions.any { it.discipline=="run" });assertTrue(plan.sessions.filter { it.discipline=="str" }.flatMap { it.exercises }.filter { it.reps!=null }.all { it.reps==10 })
         capture("phase1-coordinated-goals-preview")
     }

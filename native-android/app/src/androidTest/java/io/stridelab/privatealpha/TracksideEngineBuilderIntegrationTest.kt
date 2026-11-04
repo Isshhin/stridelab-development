@@ -93,7 +93,9 @@ class TracksideEngineBuilderIntegrationTest {
                 .assertTextContains(workout.effectiveTitle)
             next()
             compose.waitUntil(10_000) { repo.state.value.plans.single().status == "approved" }
-            compose.onNodeWithTag("training-calendar").assertExists()
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("training-calendar").fetchSemanticsNodes().isNotEmpty()
+            }
 
             compose.runOnUiThread { compose.activity.setContent {} }
             repo.close()
@@ -105,7 +107,8 @@ class TracksideEngineBuilderIntegrationTest {
             showApp()
             compose.onNodeWithTag("nav-training").performClick()
             compose.onNodeWithTag("calendar-day-" + workout.date).performScrollTo().performClick()
-            compose.onNodeWithTag("workout-" + workout.id).performScrollTo().performClick()
+            compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-" + workout.id))
+            compose.onNodeWithTag("workout-" + workout.id).performClick()
             compose.onNodeWithText(workout.effectiveTitle).assertExists()
         } finally {
             repo.close()
