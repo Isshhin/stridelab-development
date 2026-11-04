@@ -153,3 +153,38 @@ The four workstreams reached their preparation stopping points on the existing r
 Verify the live branch head and PR #34, then run only the P2-FI assignment in the [Wave 1 prompts](../2026-11-04-engine2x-phase2-wave1-prompts.md) under the [multi-session program](../2026-11-04-engine2x-phase2-multisession-program.md). Read all four artifacts and handoffs, the independent Session G re-review and the frozen Phase 2 protocol.
 
 The new reviewer owns the separate feasibility and Gate 2 manifest verdicts. No pilot has been authorized by this checkpoint. Human-source permission, manual reconciliation on authorized events and real-device coverage remain outstanding. Active P2-B requires eligible linked repeated segments. Confirmatory outcomes remain sealed pending a frozen manifest and independent review.
+
+## P2-FI integration review
+
+Wave 1 integration review is complete.
+
+Review:
+`docs/research/phase2/p2-f-integration-review.md`
+
+Handoff:
+`docs/research/handoffs/p2-f-integration-handoff.md`
+
+Verdicts:
+
+- `P2_F_FEASIBILITY_READY` — synthetic engineering feasibility only
+- `P2_F_GATE_2_NOT_READY`
+- `P2_B_PROTOCOL_READY_DATA_NOT_READY`
+
+Main blockers:
+- no admitted human source;
+- no real-device reconciliation;
+- current parser path lacks B0 trace-level measurement support;
+- F2 linkage remains unproven on an admitted human pilot;
+- Gate 2 coverage/burden/device margins remain unset;
+- Gate 2 manifest remains unsigned/unfrozen.
+
+Next wave:
+1. lawful human feasibility admission;
+2. minimal F2 linkage implementation;
+3. trace-level measurement support;
+4. expanded synthetic adversarial tests;
+5. independently reconciled real-device development pilot;
+6. freeze Gate 2 manifest for separate review.
+
+P2-A/C/D/E remain dependency-gated.
+
