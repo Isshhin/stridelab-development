@@ -290,6 +290,52 @@ After the running coaching foundation is credible, deepen:
 
 New domains must share athlete state, scheduling, adaptation logic, and evidence rules rather than become isolated modules.
 
+## Foundation-first implementation rule
+
+**Standing rule for all future StrideLab sessions: foundation first, implementation second.**
+
+Before any major feature, engine generation, integration, redesign, persistence change, or release-architecture change, define the foundation first.
+
+As applicable, establish:
+
+- architecture and module boundaries
+- stable interfaces/contracts
+- source-of-truth data model
+- persistence and versioning
+- compatibility and migration
+- fallback/rollback
+- safety invariants
+- branch/workstream ownership
+- test strategy and acceptance gates
+- CI/device verification
+- explicit out-of-scope items
+- freeze/promotion criteria
+
+Preferred sequence:
+
+```text
+foundation
+-> contracts
+-> tests and gates
+-> implementation
+-> integration
+-> verification
+-> freeze/promotion
+```
+
+The purpose is to make implementation bounded and predictable, reduce rework and merge conflicts, and avoid wasting Codex/Work allowance on architecture discovery during implementation.
+
+Do not start substantial coding until shared contracts, persistence implications, rollback needs, and verification gates are understood.
+
+Small isolated bug fixes or low-risk cosmetic corrections do not require a full architecture phase, but they must preserve existing contracts and verified behavior.
+
+Specific future applications:
+
+- Engine 2.x: freeze the research/specification, `CoachingEngine` contract, persistence/versioning, safety boundaries, validation gates, and remote-config boundary before broad production implementation.
+- Post-Engine 2.x UI revamp: define the design system, information/navigation architecture, reusable components, state contracts, responsive/accessibility rules, migration strategy, and acceptance matrix before production reconstruction.
+
+Treat this as the default project engineering principle unless the user explicitly changes it.
+
 ## Project-wide continuity rule
 
 The user should not need to reconstruct the roadmap or current direction after a chat interruption.
