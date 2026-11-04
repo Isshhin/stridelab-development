@@ -559,3 +559,245 @@ If the user follows an external running or strength program consistently, Stride
 
 This is a core whole-athlete requirement for Engine 2.x and should be designed at the state/model/contract level before implementation.
 
+
+
+## Engine 2.x reasoning foundations and visualization-first product rule
+
+The following foundations are approved for Engine 2.x research/specification and should be defined before broad implementation.
+
+### Coaching modes
+
+Engine 2.x should explicitly know its role for each athlete and, where useful, per discipline:
+
+- `PRIMARY_COACH`: StrideLab owns plan generation and adaptation.
+- `COORDINATOR`: another plan/coach may own the discipline; StrideLab coordinates around it.
+- `OBSERVE_ONLY`: StrideLab analyzes state and training but does not prescribe changes.
+- `HYBRID`: StrideLab owns some disciplines while external systems own others.
+
+The engine must not silently take control of an externally owned plan.
+
+### Universal Training Exposure Ledger
+
+All training should enter one canonical exposure history regardless of source.
+
+The ledger should be able to represent:
+
+- StrideLab-prescribed sessions;
+- externally planned sessions;
+- imported wearable/device activities;
+- manually logged workouts;
+- unplanned/unknown-intent training.
+
+Prescribed work and performed work must remain separate.
+
+Each exposure should preserve, where available:
+
+- source/provenance;
+- discipline;
+- session intent;
+- date/time;
+- duration;
+- volume/distance/load;
+- intensity;
+- completion;
+- relevant muscle/structural demand;
+- environment;
+- confidence/data quality;
+- plan ownership.
+
+No duplicate activity should be counted twice.
+
+### First-class training intent
+
+The engine should understand what a session is trying to accomplish, not only its raw metrics.
+
+Examples may include:
+
+- EASY_AEROBIC
+- LONG_RUN
+- THRESHOLD
+- VO2
+- SPRINT
+- MAX_STRENGTH
+- HYPERTROPHY
+- POWER
+- SKILL
+- CONDITIONING
+- RECOVERY
+
+Intent classification must retain uncertainty when the purpose cannot be determined safely.
+
+### Separate observations, inference, and decisions
+
+Engine 2.x must preserve three conceptual layers:
+
+```text
+OBSERVATIONS
+-> INFERRED ATHLETE STATE
+-> COACHING DECISION
+```
+
+Example:
+
+```text
+Observation: HRV value is below recent baseline
+Inference: possible recovery suppression, confidence MODERATE
+Decision: no change yet because other signals remain stable
+```
+
+A raw metric must not directly become a coaching action without passing through the state/uncertainty layer.
+
+### Multidimensional load vector
+
+Do not reduce all training to one opaque readiness/load score.
+
+Track relevant dimensions separately, such as:
+
+- aerobic exposure;
+- high-intensity running exposure;
+- long-run exposure;
+- lower-body muscular load;
+- upper-body load;
+- plyometric/power stress;
+- metabolic conditioning;
+- structural/impact exposure where supportable;
+- cross-discipline interference.
+
+A single aggregate score may be shown for convenience only if the underlying dimensions remain available and it is not treated as ground truth.
+
+### Confidence-aware adaptation and adaptation budget
+
+Every meaningful adaptation should carry confidence.
+
+Low-confidence evidence should generally produce smaller changes, observation, or abstention.
+
+Engine 2.x should also use an adaptation budget: do not rewrite many training variables at once unless safety requires it.
+
+Prefer the smallest change that preserves training intent.
+
+### User overrides as preference evidence
+
+Repeated user overrides can become evidence of stable preference or constraint.
+
+Examples:
+
+- preferred gym days;
+- unavailable days;
+- preferred double-day structure;
+- recurring external-plan sessions.
+
+Preferences may guide planning but must never weaken hard safety constraints.
+
+### Trend persistence before adaptation
+
+Avoid large changes from one anomalous workout.
+
+Require persistence, repeated evidence, or strong safety evidence before making major progression/regression decisions.
+
+Single-session anomalies should usually be interpreted conservatively.
+
+### State freshness and decay
+
+Evidence should have an explicit freshness model.
+
+Recent soreness, fatigue, HRV, sleep, missed sessions, threshold performance, or external training should not carry the same weight indefinitely.
+
+Stale evidence should decay in influence or expire.
+
+### Explanation trace
+
+Every meaningful coaching change should leave a structured internal trace that records:
+
+- decision;
+- confidence;
+- evidence used;
+- important evidence ignored/rejected;
+- training intent being protected;
+- what changed;
+- what did not change;
+- fallback/abstention reason if applicable.
+
+This trace supports debugging, research, user review, and future auditability.
+
+### Engine 1.5 as a counterfactual baseline
+
+During Engine 2.x development and shadow validation, compare important decisions against what Engine 1.5 would have done.
+
+Engine 2.x should not receive credit merely for being more complex or different.
+
+When it diverges from Engine 1.5, the additional evidence/reasoning should justify the change.
+
+### Confidence calibration
+
+Engine confidence should be evaluated for calibration, not only correctness.
+
+A decision reported as high confidence should actually prove highly dependable across similar cases.
+
+Overconfidence is a failure mode.
+
+### Longitudinal athlete-specific memory
+
+Engine 2.x should learn durable athlete-specific patterns over time where evidence supports them.
+
+Examples:
+
+- tolerance for quality-session frequency;
+- response to heavy lower-body strength before running quality;
+- usual recovery time;
+- environmental sensitivity;
+- long-run durability pattern;
+- scheduling preferences;
+- recurring external training.
+
+Longitudinal learning must preserve provenance, uncertainty, reversibility, and user control.
+
+### Visualization-first product rule
+
+StrideLab should expose Engine 2.x sophistication primarily through visuals, not text-heavy screens.
+
+The product should prefer concise visual communication such as:
+
+- timelines;
+- training calendars;
+- load bars;
+- trend charts;
+- compact comparison views;
+- badges/chips;
+- icons;
+- confidence indicators;
+- overlays;
+- cross-discipline relationship views;
+- before/after plan previews;
+- color/shape/state encoding;
+- progressive disclosure.
+
+Text should be:
+
+- short;
+- actionable;
+- secondary to the visual hierarchy;
+- used for the minimum explanation needed to make a decision understandable.
+
+Long rationale, evidence traces, and technical detail should be available on demand rather than permanently filling the screen.
+
+Examples:
+
+- show a visual weekly load/interference pattern first, then let the user open “Why?” for the detailed reasoning;
+- show external vs StrideLab-owned sessions visually in the calendar instead of explaining ownership in paragraphs;
+- show adaptation confidence with a compact indicator and concise label, with detailed evidence behind a tap;
+- show athlete-state trends as charts/visual signals rather than a wall of metric cards and text.
+
+The post-Engine 2.x UI revamp must treat visualization-first communication as a foundation requirement.
+
+Before production reconstruction, define:
+
+- visual grammar for athlete state;
+- visual grammar for load and interference;
+- visual grammar for confidence/uncertainty;
+- external-vs-StrideLab ownership states;
+- adaptation/review interaction patterns;
+- progressive-disclosure rules;
+- accessibility equivalents for every visual encoding.
+
+The engine may be complex internally. The user experience should remain clear, compact, visual, and understandable.
+
