@@ -184,7 +184,7 @@ internal fun TracksideFigmaCalisthenicsSetup(
                         else "Coach decides on placement",
                         color=caliInk,fontSize=11.sp,
                         modifier=Modifier.weight(1f))
-                    Text(if(custom)"Editable weekdays" else "Suggested, not pinned",
+                    Text(if(custom)"Suggested days  ·  editable" else "Suggested, not pinned",
                         color=caliSubtle,fontSize=10.sp)
                 }
                 Spacer(Modifier.height(13.dp))
@@ -256,14 +256,14 @@ internal fun TracksideFigmaCalisthenicsSetup(
                         border=BorderStroke(1.dp,Color(0xFF74525B))
                     ) {
                         Box(contentAlignment=Alignment.Center) {
-                            Text("Unassign",color=Color(0xFFF0B9C2),
+                            Text("Remove",color=Color(0xFFF0B9C2),
                                 fontSize=11.5f.sp,fontWeight=FontWeight.Bold)
                         }
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-                Text("Push/Pull labels are visual references until a coaching engine supports fixed session focus.",
-                    color=caliSubtle,fontSize=10.sp,lineHeight=13.sp)
+                // The advisory is shown when focus choices are tapped; the approved
+                // weekly card does not contain an extra paragraph below the actions.
+                Spacer(Modifier.height(10.dp))
             }
         }
         Spacer(Modifier.height(4.dp))
@@ -274,14 +274,14 @@ internal fun TracksideFigmaCalisthenicsSetup(
             shape=RoundedCornerShape(15.dp),
             border=BorderStroke(1.dp,Color(0xFF5D4A78))
         ) {
-            Column(Modifier.padding(11.dp)) {
+            Column(Modifier.padding(horizontal=11.dp,vertical=6.dp)) {
                 Text("STARTING LEVELS",color=caliSubtle,fontSize=10.sp,
                     fontWeight=FontWeight.Bold)
                 Spacer(Modifier.height(5.dp))
                 listOf(listOf("Push" to request.calLevel,
                     "Pull" to request.pullLevel),
                     listOf("Core" to request.coreLevel,
-                    "Skills" to 0)).forEach { pair ->
+                    "Skills" to 0)).forEachIndexed { rowIndex,pair ->
                     Row(horizontalArrangement=Arrangement.spacedBy(4.dp)) {
                         pair.forEach { (key,value) ->
                             Surface(
@@ -305,7 +305,7 @@ internal fun TracksideFigmaCalisthenicsSetup(
                             }
                         }
                     }
-                    Spacer(Modifier.height(4.dp))
+                    if(rowIndex==0) Spacer(Modifier.height(4.dp))
                 }
             }
         }
