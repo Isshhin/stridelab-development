@@ -72,7 +72,8 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-run-session-2").performScrollTo()
         compose.onNodeWithTag("builder-run-session-2").performClick()
         // Reveal the nested weekday row via the outer vertical scroll first.
-        compose.onNodeWithTag("builder-run-clear-selected").performScrollTo()
+        compose.onNodeWithTag("builder-run-editor-weekday-row").performScrollTo()
+        compose.onNodeWithTag("builder-run-editor-weekday-row").assertIsDisplayed()
         compose.onNodeWithTag("builder-run-editor-day-6").performScrollTo()
         compose.onNodeWithTag("builder-run-editor-day-6").assertIsDisplayed()
         compose.onNodeWithTag("builder-run-editor-day-6").performClick()
@@ -258,7 +259,8 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-run-session-2").performScrollTo()
         compose.onNodeWithTag("builder-run-session-2").performClick()
         // Reveal the nested weekday row via the outer vertical scroll first.
-        compose.onNodeWithTag("builder-run-clear-selected").performScrollTo()
+        compose.onNodeWithTag("builder-run-editor-weekday-row").performScrollTo()
+        compose.onNodeWithTag("builder-run-editor-weekday-row").assertIsDisplayed()
         compose.onNodeWithTag("builder-run-editor-day-6").performScrollTo()
         compose.onNodeWithTag("builder-run-editor-day-6").assertIsDisplayed()
         compose.onNodeWithTag("builder-run-editor-day-6").performClick()
@@ -268,7 +270,8 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-run-session-3").performScrollTo()
         compose.onNodeWithTag("builder-run-session-3").performClick()
         // Reveal the nested weekday row via the outer vertical scroll first.
-        compose.onNodeWithTag("builder-run-clear-selected").performScrollTo()
+        compose.onNodeWithTag("builder-run-editor-weekday-row").performScrollTo()
+        compose.onNodeWithTag("builder-run-editor-weekday-row").assertIsDisplayed()
         compose.onNodeWithTag("builder-run-editor-day-6").performScrollTo()
         compose.onNodeWithTag("builder-run-editor-day-6").assertIsDisplayed()
         compose.onNodeWithTag("builder-run-editor-day-6").performClick()
