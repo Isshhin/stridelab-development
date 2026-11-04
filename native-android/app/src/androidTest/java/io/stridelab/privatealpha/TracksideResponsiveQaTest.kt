@@ -126,7 +126,13 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("builder-strength-customize").performClick()
         compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
         screenshot("builder-strength-unassigned")
+        // The weekday picker is below the fold at 360dp/130%. A real user
+        // must scroll it into view before tapping; do not dispatch an offscreen tap.
+        compose.onNodeWithTag("builder-strength-weekday-1").performScrollTo()
+        compose.onNodeWithTag("builder-strength-weekday-1").assertIsDisplayed()
         compose.onNodeWithTag("builder-strength-weekday-1").performClick()
+        // Capture before asserting, so an unexpected placement-state failure is diagnosable.
+        screenshot("builder-strength-after-first-tap")
         compose.onNodeWithText("1 of 2 placed").assertExists()
         compose.onNodeWithTag("builder-strength-edit-schedule").performScrollTo()
         compose.onNodeWithTag("builder-strength-edit-schedule").performClick()
