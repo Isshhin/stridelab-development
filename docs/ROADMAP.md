@@ -478,3 +478,84 @@ Relevant files include:
 - [WS5_STATUS.md](WS5_STATUS.md)
 
 Those files document earlier checkpoints. This roadmap defines the current direction.
+
+
+## External training and cross-discipline adaptation rule
+
+Engine 2.x must treat training performed outside a StrideLab-generated plan as real athlete exposure when provenance and confidence are sufficient.
+
+The engine must distinguish at minimum:
+
+- `PLANNED_BY_STRIDELAB`
+- `PLANNED_EXTERNALLY` when the source/intent is known
+- `OBSERVED_EXTERNAL_TRAINING` when the activity is detected but was not prescribed by StrideLab
+- `UNPLANNED_OR_UNKNOWN_INTENT` when intent is unclear
+
+StrideLab must never pretend it prescribed an external session.
+
+### Core behavior
+
+If a user consistently performs training outside the StrideLab plan, Engine 2.x should learn that pattern conservatively and account for it when planning every other discipline.
+
+Examples:
+
+- Consistent external running should contribute to running frequency, volume, intensity, long-run exposure, fatigue, and lower-body load when Strength, Calisthenics, Conditioning, or Recovery are planned.
+- Consistent external strength training should affect lower-body fatigue, interference risk, recovery spacing, and the placement/dose of running quality sessions, long runs, hills, sprints, plyometrics, calisthenics legs, or conditioning.
+- External calisthenics or conditioning should likewise contribute to relevant muscular, metabolic, and scheduling load when running or strength is prescribed.
+- The same principle applies vice versa across all supported disciplines.
+
+The engine should reason about the athlete's actual training life, not only the sessions StrideLab generated.
+
+### Pattern recognition
+
+Do not infer a stable routine from one isolated activity.
+
+Repeated-pattern detection should consider, as evidence allows:
+
+- frequency over multiple weeks;
+- repeated weekday/time patterns;
+- repeated discipline/session type;
+- completed dose;
+- similarity of intensity and duration;
+- consistency of source/device;
+- explicit user confirmation when available.
+
+Until the pattern is sufficiently supported, treat it as observed exposure rather than a stable planned routine.
+
+### Adaptation rules
+
+External training may influence:
+
+- total weekly load;
+- discipline-specific load;
+- intensity distribution;
+- long-run exposure;
+- quality-session spacing;
+- lower-body interference;
+- recovery requirements;
+- double-day feasibility;
+- progression ceilings;
+- deload/re-entry decisions;
+- schedule placement;
+- confidence in future prescriptions.
+
+However, external training must not automatically trigger aggressive reductions or progressions. The engine should adapt proportionally to evidence quality and uncertainty.
+
+### Safeguards
+
+Engine 2.x must preserve:
+
+- provenance of every observed session;
+- source and ownership boundaries;
+- no double-counting of imported and manually logged copies of the same activity;
+- no silent conversion of external training into StrideLab-planned training;
+- no silent takeover or rewriting of an external plan;
+- user review for major plan adaptations caused by external training;
+- explicit uncertainty when intent is unknown;
+- `ABSTAIN_NEED_MORE_INFORMATION` when the engine cannot safely infer the role of external training;
+- rollback and versioned persistence of adaptations.
+
+If the user follows an external running or strength program consistently, StrideLab's goal is to coordinate around it safely and intelligently rather than force the athlete into a competing StrideLab-only schedule.
+
+This is a core whole-athlete requirement for Engine 2.x and should be designed at the state/model/contract level before implementation.
+
