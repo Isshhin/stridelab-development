@@ -416,8 +416,10 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("builder-running-custom").performClick()
         compose.onNodeWithTag("builder-run-session-2").performScrollTo()
         compose.onNodeWithTag("builder-run-session-2").performClick()
-        compose.onNodeWithTag("builder-running-day-6").performScrollTo()
-        compose.onNodeWithTag("builder-running-day-6").performClick()
+        compose.onNodeWithTag("builder-run-editor-day-6").performScrollTo()
+        compose.onNodeWithTag("builder-run-editor-day-6").assertIsDisplayed()
+        compose.onNodeWithTag("builder-run-editor-day-6").performClick()
+        screenshot("builder-running-week-after-editor-assignment")
         compose.runOnIdle {
             assertTrue("Chosen day not persisted in weekly slots",
                 saved.value.weeklySlots["run"]?.get(2)==6)
