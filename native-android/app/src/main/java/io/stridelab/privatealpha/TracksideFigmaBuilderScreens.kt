@@ -575,12 +575,14 @@ private fun TracksideFigmaAbilityRange(
         .testTag("builder-ability-$tag-card"),
         color=Color(0xFF1A2D38),shape=RoundedCornerShape(13.dp),
         border=BorderStroke(1.dp,outline)) {
-        Column(Modifier.padding(horizontal=14.dp,vertical=13.dp)) {
+        // Keep the default accessible Material slider hit area while using
+        // the compact interior inset from the approved 127dp Figma metric.
+        Column(Modifier.padding(start=14.dp,end=14.dp,top=13.dp,bottom=0.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.SpaceBetween) {
                 Text(title,color=white,fontSize=12.sp,fontWeight=FontWeight.Bold)
                 Text(note,color=muted,fontSize=10.sp)
             }
-            Spacer(Modifier.height(9.dp))
+            Spacer(Modifier.height(1.dp))
             Row(verticalAlignment=Alignment.Bottom) {
                 Text(String.format(Locale.getDefault(),"%.0f",value),
                     fontSize=31.sp,fontWeight=FontWeight.Bold,color=white)
@@ -625,7 +627,8 @@ internal fun TracksideFigmaRunningAbilityScreen(
         eyebrow="RUNNING / CURRENT ABILITY",
         headline="Where are you\nstarting?",
         description="Use your recent training, not the mileage you hope to reach.",
-        onBack=onBack,onContinue=onContinue
+        onBack=onBack,onContinue=onContinue,
+        descriptionBottomGap=15
     ) {
         Text("RUNNING EXPERIENCE", fontSize=11.sp, color=muted,
             fontWeight=FontWeight.Bold)
@@ -649,31 +652,31 @@ internal fun TracksideFigmaRunningAbilityScreen(
                 }
             }
         }
-        Spacer(Modifier.height(27.dp))
+        Spacer(Modifier.height(22.dp))
         TracksideFigmaAbilityRange(
             header="CURRENT WEEKLY DISTANCE",title="Typical weekly volume",
             note="Last 4–6 weeks",value=weeklyKm,maxValue=120f,unit="km / week",
             tag="weekly",
             onValue=onWeeklyKm
         )
-        Spacer(Modifier.height(27.dp))
+        Spacer(Modifier.height(22.dp))
         TracksideFigmaAbilityRange(
             header="LONGEST RECENT RUN",title="Longest run completed",
             note="Recent training",value=longestKm,maxValue=42f,unit="km",
             tag="longest",
             onValue=onLongestKm
         )
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(18.dp))
         Text("RECENT PERFORMANCE  (OPTIONAL)",fontSize=11.sp,
             color=muted,fontWeight=FontWeight.Bold)
-        Spacer(Modifier.height(11.dp))
+        Spacer(Modifier.height(9.dp))
         Surface(
-            modifier=Modifier.fillMaxWidth().heightIn(min=75.dp)
+            modifier=Modifier.fillMaxWidth().heightIn(min=72.dp)
                 .testTag("builder-ability-optional-card"),
             shape=RoundedCornerShape(12.dp),color=Color(0xFF172A36),
             border=BorderStroke(1.dp,outline)
         ) {
-            Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
+            Row(Modifier.padding(10.dp),verticalAlignment=Alignment.CenterVertically) {
                 Column(Modifier.weight(1f),
                     verticalArrangement=Arrangement.spacedBy(8.dp)) {
                     Text("Race or time trial result",fontSize=12.sp,
