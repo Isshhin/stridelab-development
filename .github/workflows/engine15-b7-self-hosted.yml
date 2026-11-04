@@ -24,7 +24,7 @@ jobs:
       - name: Check out exact B7 head
         uses: actions/checkout@v4
         with:
-          ref: fde15492d2d9193e61d388b09f8468f1128e1c12
+          ref: 66fd5cf75226d8785fe599986f3c6f2d18be7668
           fetch-depth: 1
 
       - name: Set up JDK 17
