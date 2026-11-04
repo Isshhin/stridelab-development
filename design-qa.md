@@ -157,3 +157,27 @@ The pending source update changes only Strength Setup's fixed-height rows, selec
 - Known semantic limitations of the current Engine 1 contract: Add PR and target-date actions display an explicit no-persistence advisory, and target-time coaching cannot proceed. Neither data field is silently accepted. These are **not** claims of full feature equivalence with the Figma mock.
 
 **Result: ACCEPTED for Race Goal rendered and currently supported interactions.** No remaining actionable P0/P1/P2 issue in the reviewed scope. Strength, Calisthenics, Discipline Selection, and Running Goal acceptance stays intact; Engine 1.5 and Engine 2.0 were not changed or integrated. Next: Running Ability, Figma `551:865`.
+
+
+## Plan Builder: Running Ability — accepted rendered QA (2026-11-04)
+
+**Status: ACCEPTED for Running Ability and currently supported interactions.** Approved Figma file `v73TsYo6gKxUoiUock2sSE`, node `551:865` (412×950). The verified branch head is `bb5b1b0da0da4665ca8053115ec7882af77c86f6`. Final successful [Windows self-hosted run 41801617810](https://github.com/Isshhin/stridelab-development/actions/runs/41801617810), artifact `13309140047` (`trackside-strength-windows-evidence`).
+
+### Verification and rendered evidence
+
+- Shared schema validation, JVM/unit, debug Android application compilation and instrumentation compilation **passed**. API 35 Pixel 9 emulator smoke **22/22**. Responsive instrumentation **412dp/100% 15/15; 360dp/100% 15/15; 360dp/130% 15/15; 412dp/150% 15/15**.
+- **31 PNGs per responsive profile** plus instrumented test results. Reference screenshot: `qa-screenshots/figma-412dp-font100/StrideLabBatchB/builder-running-ability-figma-reference-412dp-font100.png`. Scrolled interaction screenshots: `qa-screenshots/<profile>/StrideLabBatchB/builder-running-ability-optional-reachable-<profile>.png`.
+- The test loads the Figma reference state (**Intermediate**, **30 km/week**, **14 km longest run**), verifies the experience choices, both sliders and the optional performance panel, and keeps Continue enabled.
+- It also changes experience, sets weekly and longest-run slider values through the native semantics actions, checks the results, and verifies that Add result explains the current engine's lack of performance-result persistence instead of silently saving a value.
+
+### Issues, corrections and acceptance
+
+- The first real screenshot (`ad8eaa3`; failed run [41797753153](https://github.com/Isshhin/stridelab-development/actions/runs/41797753153), artifact `13306607305`) revealed **P1:** the optional Recent Performance panel was partly behind Continue at 412dp/100%. Both metric cards were also too tall. A direct overlap assertion failed, while the other responsive profiles passed.
+- The first Ability-only correction `94783ec` adjusted card insets and spacing while retaining Material 3 slider interactions. Regression updates `ebdf670` added both metric-card height bounds and optional-panel height bounds; run [41799672198](https://github.com/Isshhin/stridelab-development/actions/runs/41799672198), artifact `13307012807`, passed all 22 smoke and all four 15-test profiles. The resulting screenshot resolved P1 but still showed oversized Material3 slider tracks and small cumulative vertical drift (P2).
+- The final visual correction `7392e50` used Figma-specific 5dp tracks and 15dp circular thumbs through Material3's accessible Slider API, plus an Ability-only header position/line-height and body-spacing adjustment. Regression `f9b1c6a` added 412dp baseline card-position tolerances. The first new compile correctly failed on Material3 experimental API opt-in, which was fixed locally at `c8b64bc` without reverting behavior.
+- CI trigger update `bb5b1b0` ensures future edits to Trackside Builder source, Running Setup source and Figma drawable assets trigger the Windows verifier; the old Ubuntu-only workflows are not a substitute while GitHub-hosted execution is unavailable.
+- The **final actual 412dp screenshot** closely matches Figma `551:865`: eyebrow/headline, experience selection, 127dp metric cards, slider tracks/thumbs, and optional result panel geometry are within the enforced baseline tolerances. The optional panel is fully above fixed Continue, rather than obscured. Header and card rhythm are close, not perfectly pixel identical.
+- **360dp/130% and 412dp/150%** scrolled screenshots show the complete Recent Performance panel and Add result button, with content readable and accessible before the fixed Continue button. No meaningful clipping or obstruction remains in the reviewed state.
+- Retained the Advanced training settings entry for customization, even though the approved illustrative frame does not display this optional link. Current Engine 1 does not persist race results; the advisory stays explicit. This acceptance is not an Engine 1.5 integration decision.
+
+**Result: ACCEPTED.** P1 overlap and actionable P2 geometry issues closed. Previously accepted Strength Setup, Calisthenics Setup, Discipline Selection, Running Goal and Race Goal remain unchanged and pass the same exact-head regression suite. No release APK generated; no Engine 1.5 or Engine 2.0 modifications. Next Plan Builder target: **Running Weekly Setup**, approved Figma node `548:95`; the current Android implementation requires structural reconstruction against its compact weekly-card and pinned/suggested layout.
