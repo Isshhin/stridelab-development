@@ -185,6 +185,61 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
     }
 
+    @Test fun raceGoalSelectionFigmaReferenceAndUnsupportedInputsRemainSafe() {
+        // Figma 551:796: Beat PR selected, 10K, optional current PR and target day.
+        val intent=mutableStateOf("pr")
+        val distance=mutableStateOf("10K")
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideFigmaRaceGoalScreen(
+                        intent=intent.value,distance=distance.value,
+                        onIntent={ intent.value=it },onDistance={ distance.value=it },
+                        onBack={},onContinue={}
+                    )
+                }
+            }
+        }
+        listOf("pr","time","finish","benchmark").forEach { goal ->
+            compose.onNodeWithTag("builder-option-"+goal).assertExists()
+            compose.onNodeWithTag("builder-race-icon-"+goal,
+                useUnmergedTree=true).assertExists()
+        }
+        compose.onNodeWithTag("builder-race-selected-check",
+            useUnmergedTree=true).assertExists()
+        compose.onNodeWithText("Your current 10K PR").assertExists()
+        compose.onNodeWithTag("builder-race-pr-panel").assertExists()
+        compose.onNodeWithTag("builder-distance-10K").assertExists()
+        compose.onNodeWithTag("builder-race-target-day").assertExists()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        screenshot("builder-race-goal-figma-reference")
+
+        val config=compose.activity.resources.configuration
+        if(config.screenWidthDp>=400 && config.fontScale<=1.01f) {
+            val card=compose.onNodeWithTag("builder-option-pr")
+                .getUnclippedBoundsInRoot()
+            assertTrue("Race Goal card taller than Figma baseline",
+                (card.bottom-card.top).value <= 72f)
+        }
+        // Small screens require a scrollable body; fixed Continue never
+        // disables the lower date field or blocks its touch surface.
+        compose.onNodeWithTag("builder-race-target-day").performScrollTo()
+        compose.onNodeWithTag("builder-race-target-day").assertIsDisplayed()
+        screenshot("builder-race-goal-target-day-reachable")
+        compose.onNodeWithTag("builder-distance-21K").performScrollTo()
+        compose.onNodeWithTag("builder-distance-21K").performClick()
+        compose.onNodeWithText("Your current 21K PR").assertExists()
+        compose.onNodeWithTag("builder-option-time").performScrollTo()
+        compose.onNodeWithTag("builder-option-time").performClick()
+        compose.onNodeWithTag("builder-target-time-unavailable").assertExists()
+        compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
+        // Reset to a currently supported intent. No unsupported target time
+        // may enter a saved PlanRequest under the current coaching engine.
+        compose.onNodeWithTag("builder-option-pr").performScrollTo()
+        compose.onNodeWithTag("builder-option-pr").performClick()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+    }
+
     @Test fun approvedBuilderStrengthGoalAndSetupRenderAtCurrentViewport() {
         val state=TrainingState(initializing=false,account="synthetic-responsive")
         compose.runOnUiThread {
