@@ -353,7 +353,7 @@ This common structure is required so Session G can synthesize results efficientl
 
 ## 15. Progress tracking
 
-Phase 1 checkpoint, 4 November 2026. Discovery reports passed the pre-synthesis review. [Session G synthesis](2026-11-04-engine2x-session-g-synthesis.md) is complete. Phase 2 protocols are proposed and await authorized data.
+Phase 1 checkpoint, 4 November 2026. Discovery reports passed pre-synthesis review. Session G produced a synthesis at `4b734f1`, but the independent review at `docs/research/2026-11-04-engine2x-session-g-independent-review.md` found six required contract/documentation corrections before the architecture may be frozen. Phase 2 is blocked pending those corrections and re-review.
 
 | Session | Status |
 | --- | --- |
@@ -364,7 +364,7 @@ Phase 1 checkpoint, 4 November 2026. Discovery reports passed the pre-synthesis 
 | E - Adaptive prescription | COMPLETE |
 | F - Real data and validation | COMPLETE |
 | H - Researcher/framework audit | COMPLETE |
-| G - Synthesis | COMPLETE |
+| G - Synthesis | REVIEW_REQUIRED_CORRECTIONS |
 
 Each session should update its status to `IN_PROGRESS`, `BLOCKED`, `REVIEW`, or `COMPLETE` in its report and in the TickTick parent tracker.
 
@@ -399,7 +399,15 @@ Parity is a demonstrated property, not a percentage assigned from feature count.
 
 ## 17. Phase 2 after synthesis
 
-Likely parallel experimental tracks, subject to Session G:
+Phase 2 must not start until Session G passes independent review and its architecture/state/candidate/experiment baseline is explicitly frozen.
+
+Current gate: `BLOCKED_PENDING_G_CORRECTIONS`.
+
+The required corrections are G-R1 through G-R6 in `docs/research/2026-11-04-engine2x-session-g-independent-review.md`.
+
+After the freeze, the dependency order begins with P2-F admission/linkage, then P2-B repeatability, followed by the dependent adaptive-model tracks.
+
+Likely experimental tracks:
 
 - athlete-state prototype
 - adaptive progression prototype
