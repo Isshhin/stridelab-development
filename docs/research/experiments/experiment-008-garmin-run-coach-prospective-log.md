@@ -15,6 +15,22 @@ Only **Garmin Run Coach**, explicitly identified in the athlete's active Garmin 
 
 Tables: [pre-workout CSV](experiment-008-garmin-run-coach-pre.csv) and [post-workout CSV](experiment-008-garmin-run-coach-post.csv). Both are header-only while there are zero observations.
 
+### Prospective pairing validation
+
+Use the research-only [evidence gate](../../../research/validation/garmin_run_coach_prospective_gate.py), which requires `plan_family=GARMIN_RUN_COACH` on both sides, `target_mode=HR|PACE|AUTO`, explicit timezone offsets, non-empty device/firmware/software provenance, and a prescribed distance or duration. Post-workout `workout_status` must be one of `COMPLETED`, `PARTIAL`, `SUBSTITUTED`, `SKIPPED`; skipped activities cannot have a fabricated completed start or end. For completed, partial or substituted sessions, the pre-capture time must be strictly before the workout start, and the next recommendation timestamp strictly after the workout end.
+
+```bash
+python research/validation/garmin_run_coach_prospective_gate.py \
+  --pre docs/research/experiments/experiment-008-garmin-run-coach-pre.csv \
+  --post docs/research/experiments/experiment-008-garmin-run-coach-post.csv \
+  --output research-garmin-run-coach-readiness.json
+python -m unittest discover -s research/validation -p 'test_garmin_run_coach_prospective_gate.py' -v
+```
+
+Empty templates return `BLOCKED_NO_PROSPECTIVE_RUN_COACH_CAPTURE`. A completed activity without its preserved pre-workout recommendation returns `BLOCKED_NO_PRE_WORKOUT_CAPTURE`; a pre-capture with no paired outcome returns `BLOCKED_UNPAIRED_PRE_WORKOUT_CAPTURE`. Missing next recommendation is `COMPLETION_ONLY_PENDING_NEXT_RECOMMENDATION`, **never** proof of no adaptation. Even fully paired records remain `DESCRIPTIVE_ONLY_PENDING_SOURCE_REVIEW` and `adaptive_claim_allowed=false`; this cannot authenticate screenshots or identify the internal cause of a changed recommendation.
+
+The 12 unit tests use **synthetic observation records**, not real Garmin records. Never upload personal data, confidential tokens, or full location tracks. Capture identity/provenance evidence privately and review it independently before labeling results directly observed behavior.
+
 ## Analysis and evidence gates
 
 - For a valid pair: a Run Coach pre-workout recommendation must be timestamped **before** actual start, with a linked plan-family screen and preserved original prescription; the post row must reference the **same** observation ID and recorded activity status. For adaptation claims, the next plan recommendation also needs a timestamp and independent screenshot; **changed recommendation alone cannot identify the cause** without measuring confounders.
