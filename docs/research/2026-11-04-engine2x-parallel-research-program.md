@@ -419,3 +419,20 @@ These remain research candidates until their specific evidence and validation ga
 - Existing E007 Runna matched-frequency and E008 Garmin Run Coach prospective evidence remain valuable and should be consumed by the relevant sessions rather than duplicated.
 - Existing real-data provenance and focused-evidence work should be reused rather than restarted.
 - Commit `517ae9d` remains the baseline focused evidence synthesis and ranked-experiment input for this program.
+## 19. Session continuity and interruption resilience
+
+All current and future Engine 2.x research sessions must follow `docs/research/2026-11-04-research-session-continuity-protocol.md`.
+
+This is a default requirement. The user should not need to request handoff documentation separately in each chat.
+
+Every substantial session must maintain a durable GitHub handoff at meaningful checkpoints and before ending or becoming vulnerable to interruption. The handoff must include live branch/PR state, work completed, findings, decisions already made, unresolved questions, boundaries, and the exact next step for a fresh session.
+
+Preferred handoff paths:
+
+- `docs/research/handoffs/<session-or-track>-handoff.md`
+- coordinating context: `docs/research/handoffs/engine2x-current-handoff.md`
+
+A new session must always verify the live branch and preserve anything newer than the handoff checkpoint before continuing.
+
+Git history should be used to update an existing handoff rather than creating unnecessary duplicate checkpoint files.
+
