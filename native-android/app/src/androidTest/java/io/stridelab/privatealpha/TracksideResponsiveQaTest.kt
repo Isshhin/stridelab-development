@@ -220,6 +220,16 @@ class TracksideResponsiveQaTest {
                 .getUnclippedBoundsInRoot()
             assertTrue("Race Goal card taller than Figma baseline",
                 (card.bottom-card.top).value <= 72f)
+            val panel=compose.onNodeWithTag("builder-race-pr-panel")
+                .getUnclippedBoundsInRoot()
+            assertTrue("Race PR panel taller than Figma reference tolerance",
+                (panel.bottom-panel.top).value <= 124f)
+            val day=compose.onNodeWithTag("builder-race-target-day")
+                .getUnclippedBoundsInRoot()
+            val cta=compose.onNodeWithTag("builder-figma-continue")
+                .getUnclippedBoundsInRoot()
+            assertTrue("Race target day obscured by fixed Continue",
+                day.bottom <= cta.top - 2.dp)
         }
         // Small screens require a scrollable body; fixed Continue never
         // disables the lower date field or blocks its touch surface.
