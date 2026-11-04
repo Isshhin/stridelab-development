@@ -152,46 +152,37 @@ The current Figma remains a baseline, not a permanent design ceiling.
 
 ## Phase 2 sequence
 
-Session G defines the new research dependency order.
+Session G has passed independent re-review and defines the frozen Phase 2 dependency order.
 
-### Stage 1: complete Session G review corrections
+### Stage 1: Session G architecture
 
 Status:
 
-**SESSION G REVIEW REQUIRED.**
+**REVIEW_PASSED / PHASE_2_BASELINE_FROZEN**
 
-The synthesis artifacts exist, but independent review found six required corrections before the architecture may be frozen.
+Frozen baseline:
 
-Review:
-https://github.com/Isshhin/stridelab-development/blob/research/runna-garmin-coaching-20261102/docs/research/2026-11-04-engine2x-session-g-independent-review.md
+`26a8331e642c888dd73acb94755dded063baab8d`
 
-Required corrections:
-- G-R1 explicit per-state implementation/validation contracts
-- G-R2 KEEP vs ABSTAIN vs NO_AUTOMATED_DECISION vs hard-hold semantics
-- G-R3 mechanism-location provenance
-- G-R4 Phase 2 freeze/readiness gate
-- G-R5 explicit differentiator classifications
-- G-R6 authoritative Phase 2 / E009-E012 naming map
+Independent re-review:
 
-Review the synthesis against:
+https://github.com/Isshhin/stridelab-development/blob/research/runna-garmin-coaching-20261102/docs/research/2026-11-04-engine2x-session-g-independent-rereview.md
 
-- the final Session G prompt
-- the pre-synthesis review
-- the A-F + H specialist findings
+The architecture, state contracts, candidate register, control states, contradiction handling, experiment-ID map and Phase 2 dependency graph are frozen for Phase 2 planning.
 
-Resolve G-R1 through G-R6, re-review the changed contracts, then freeze the architecture, candidate register, contradiction register, state contracts, and Phase 2 dependency graph only if the review passes.
+Future changes require evidence, a rights/safety issue, a measurement failure, or implementation impossibility that materially invalidates the frozen contract.
 
-After the freeze, change the architecture only when experiments falsify or materially weaken an assumption.
+### Stage 2: P2-F feasibility and admission/linkage
 
-### Stage 2: freeze Phase 2 baseline
+Current authorization:
 
-Current state:
+`P2-F_FEASIBILITY_PREPARATION_AUTHORIZED`
 
-**BLOCKED_PENDING_G_CORRECTIONS**
+`CONFIRMATORY_HELD_OUT_EVALUATION_BLOCKED_PENDING_GATE_2_MANIFEST`
 
-Do not start active Phase 2 validation until G-R1 through G-R6 pass re-review.
+Architecture approval does not authorize opening sealed confirmatory outcomes.
 
-After review passes, mark the baseline REVIEW_PASSED / PHASE_2_BASELINE_FROZEN.
+Before confirmatory evaluation, P2-F must freeze and independently review its Gate 2 manifest.
 
 ### Stage 3: P2-F data admission and linkage
 
