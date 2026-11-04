@@ -68,7 +68,8 @@ internal fun TracksideScreenHeader(
     eyebrow: String,
     compactTitle: Boolean = false,
     onProfileClick: () -> Unit,
-    dense: Boolean = false
+    dense: Boolean = false,
+    titleBadge: String? = null
 ) {
     if (eyebrow == "ACTIVITY DETAIL") return
     if (title == "Today") {
@@ -82,9 +83,31 @@ internal fun TracksideScreenHeader(
         return
     }
     if (title == "Training" || title == "Manage plan") {
-        Text(title, fontSize = 29.sp, lineHeight = 35.sp, fontWeight = FontWeight.Bold,
-            color = TracksidePalette.text,
-            modifier = Modifier.fillMaxWidth().testTag("screen-title").semantics { heading() })
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(title, fontSize = 29.sp, lineHeight = 35.sp, fontWeight = FontWeight.Bold,
+                color = TracksidePalette.text,
+                modifier = Modifier.weight(1f).testTag("screen-title").semantics { heading() })
+            if (titleBadge != null) {
+                Surface(
+                    modifier = Modifier.testTag("screen-title-badge"),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, TracksidePalette.text),
+                    color = Color.Transparent
+                ) {
+                    Text(
+                        titleBadge,
+                        Modifier.padding(horizontal = 13.dp, vertical = 6.dp),
+                        fontSize = 10.6f.sp,
+                        color = TracksidePalette.text,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
         return
     }
     Column(Modifier.fillMaxWidth()) {

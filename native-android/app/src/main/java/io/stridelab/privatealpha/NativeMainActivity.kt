@@ -491,7 +491,7 @@ private fun NavHostController.openActivity(id: String) {
 internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
 
 @Composable internal fun Screen(title: String, eyebrow: String, compactTitle: Boolean = false,
-    dense: Boolean = false, edgeToEdge: Boolean = false,
+    dense: Boolean = false, edgeToEdge: Boolean = false, titleBadge: String? = null,
     content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         val horizontal = if (edgeToEdge) 0.dp else if (dense) 18.dp else 22.dp
@@ -499,7 +499,10 @@ internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
         val gap = if (edgeToEdge) 0.dp else if (dense) 12.dp else 18.dp
         LazyColumn(Modifier.widthIn(max = 760.dp).fillMaxSize().testTag("screen").semantics { paneTitle = title }, contentPadding = PaddingValues(start = horizontal, end = horizontal, top = top, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(gap)) {
             if (!edgeToEdge) item {
-                TracksideScreenHeader(title, eyebrow, compactTitle, LocalProfileAction.current, dense = dense)
+                TracksideScreenHeader(
+                    title, eyebrow, compactTitle, LocalProfileAction.current,
+                    dense = dense, titleBadge = titleBadge
+                )
             }
             content()
         }

@@ -1097,6 +1097,24 @@ class TracksideResponsiveQaTest {
             .assertIsDisplayed().performClick()
         compose.waitForIdle()
         compose.onNodeWithText("DRAFT").assertExists()
+        val titleBounds = compose.onNodeWithTag("screen-title")
+            .getUnclippedBoundsInRoot()
+        val badgeBounds = compose.onNodeWithTag("screen-title-badge")
+            .getUnclippedBoundsInRoot()
+        val titleCenter = (titleBounds.top.value + titleBounds.bottom.value) / 2f
+        val badgeCenter = (badgeBounds.top.value + badgeBounds.bottom.value) / 2f
+        assertTrue("Draft badge must share the Training title row",
+            kotlin.math.abs(titleCenter - badgeCenter) <= 10f)
+
+        val agendaBounds = compose.onNodeWithTag("training-view-agenda")
+            .getUnclippedBoundsInRoot()
+        val weekBounds = compose.onNodeWithTag("training-week-span")
+            .getUnclippedBoundsInRoot()
+        val agendaCenter = (agendaBounds.top.value + agendaBounds.bottom.value) / 2f
+        val weekCenter = (weekBounds.top.value + weekBounds.bottom.value) / 2f
+        assertTrue("Draft week navigation must share the Day/Agenda row",
+            kotlin.math.abs(agendaCenter - weekCenter) <= 12f)
+
         compose.onNodeWithTag("training-draft-approval-dock")
             .assertIsDisplayed()
         compose.onNodeWithText("Approve plan").assertIsDisplayed()

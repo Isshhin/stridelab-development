@@ -68,7 +68,8 @@ internal fun tracksideTrainingWeek(plan: PlanSnapshot, selected: LocalDate): Lis
 internal fun TracksideTrainingWeekChart(
     plan: PlanSnapshot,
     selected: LocalDate,
-    onSelect: (LocalDate) -> Unit
+    onSelect: (LocalDate) -> Unit,
+    showNavigation: Boolean = true
 ) {
     val first = plan.request.start
     val last = first.plusWeeks(plan.request.weeks.toLong()).minusDays(1)
@@ -86,27 +87,29 @@ internal fun TracksideTrainingWeekChart(
 
     Column(Modifier.fillMaxWidth().testTag("training-week-chart"),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween) {
-            TextButton(
-                onClick = { onSelect(maxOf(first, weekStart.minusWeeks(1))) },
-                enabled = weekStart > firstMonday,
-                modifier = Modifier.testTag("training-prev-week")
-            ) { Text("‹", style = MaterialTheme.typography.headlineSmall) }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                val end = weekStart.plusDays(6)
-                val span = if (weekStart.month == end.month)
-                    "${weekStart.dayOfMonth}–${end.dayOfMonth} ${end.month.getDisplayName(java.time.format.TextStyle.SHORT, Locale.getDefault())}"
-                else "${weekStart.format(DateTimeFormatter.ofPattern("d MMM"))} – ${end.format(DateTimeFormatter.ofPattern("d MMM"))}"
-                Text(span, style = MaterialTheme.typography.titleMedium, color = TracksidePalette.text)
-                Text("Week $weekIndex of $totalWeeks", style = MaterialTheme.typography.labelSmall,
-                    color = TracksidePalette.textMuted)
+        if (showNavigation) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween) {
+                TextButton(
+                    onClick = { onSelect(maxOf(first, weekStart.minusWeeks(1))) },
+                    enabled = weekStart > firstMonday,
+                    modifier = Modifier.testTag("training-prev-week")
+                ) { Text("‹", style = MaterialTheme.typography.headlineSmall) }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    val end = weekStart.plusDays(6)
+                    val span = if (weekStart.month == end.month)
+                        "${weekStart.dayOfMonth}–${end.dayOfMonth} ${end.month.getDisplayName(java.time.format.TextStyle.SHORT, Locale.getDefault())}"
+                    else "${weekStart.format(DateTimeFormatter.ofPattern("d MMM"))} – ${end.format(DateTimeFormatter.ofPattern("d MMM"))}"
+                    Text(span, style = MaterialTheme.typography.titleMedium, color = TracksidePalette.text)
+                    Text("Week $weekIndex of $totalWeeks", style = MaterialTheme.typography.labelSmall,
+                        color = TracksidePalette.textMuted)
+                }
+                TextButton(
+                    onClick = { onSelect(minOf(last, weekStart.plusWeeks(1))) },
+                    enabled = weekStart < lastMonday,
+                    modifier = Modifier.testTag("training-next-week")
+                ) { Text("›", style = MaterialTheme.typography.headlineSmall) }
             }
-            TextButton(
-                onClick = { onSelect(minOf(last, weekStart.plusWeeks(1))) },
-                enabled = weekStart < lastMonday,
-                modifier = Modifier.testTag("training-next-week")
-            ) { Text("›", style = MaterialTheme.typography.headlineSmall) }
         }
 
         if (byDiscipline.isNotEmpty()) {

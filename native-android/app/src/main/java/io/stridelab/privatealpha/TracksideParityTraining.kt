@@ -20,6 +20,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.Locale
 
 /** Figma master gallery 614:500 (draft) and 795:839 (active).
@@ -29,7 +32,10 @@ import java.util.Locale
 @Composable
 internal fun TracksideParityTrainingControls(
     agenda: Boolean, draft: Boolean, hasPlan: Boolean,
-    onDay: () -> Unit, onAgenda: () -> Unit, onManage: () -> Unit
+    onDay: () -> Unit, onAgenda: () -> Unit, onManage: () -> Unit,
+    plan: PlanSnapshot? = null,
+    selected: LocalDate? = null,
+    onSelectWeek: (LocalDate) -> Unit = {}
 ) {
     Row(
         Modifier.fillMaxWidth().height(44.dp),
@@ -58,13 +64,73 @@ internal fun TracksideParityTrainingControls(
                 }
             }
         }
-        if (draft) Surface(
-            shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(1.dp, TracksidePalette.text),
-            color = Color.Transparent
-        ) {
-            Text("DRAFT", Modifier.padding(horizontal = 13.dp, vertical = 7.dp),
-                fontSize = 10.6f.sp, color = TracksidePalette.text, fontWeight = FontWeight.Bold)
+        if (draft && plan != null && selected != null) {
+            val first = plan.request.start
+            val last = first.plusWeeks(plan.request.weeks.toLong()).minusDays(1)
+            val firstMonday = tracksideCalendarMonday(first)
+            val weekStart = tracksideCalendarMonday(selected)
+            val lastMonday = tracksideCalendarMonday(last)
+            val weekIndex = ChronoUnit.WEEKS.between(firstMonday, weekStart).toInt() + 1
+            val totalWeeks = ChronoUnit.WEEKS.between(firstMonday, lastMonday).toInt() + 1
+            val weekEnd = weekStart.plusDays(6)
+            val span = if (weekStart.month == weekEnd.month)
+                "${weekStart.dayOfMonth}–${weekEnd.dayOfMonth} " +
+                    weekEnd.format(DateTimeFormatter.ofPattern("MMM"))
+            else "${weekStart.format(DateTimeFormatter.ofPattern("d MMM"))} – " +
+                weekEnd.format(DateTimeFormatter.ofPattern("d MMM"))
+
+            Row(
+                Modifier.weight(1f).padding(start = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(
+                    onClick = { onSelectWeek(maxOf(first, weekStart.minusWeeks(1))) },
+                    enabled = weekStart > firstMonday,
+                    contentPadding = PaddingValues(0.dp),
+                    modifier = Modifier.size(30.dp).testTag("training-prev-week")
+                ) {
+                    Text("‹", fontSize = 21.sp, color = TracksidePalette.text)
+                }
+                Column(
+                    Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        span,
+                        fontSize = 14.8f.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TracksidePalette.text,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.testTag("training-week-span")
+                    )
+                    Text(
+                        "Week $weekIndex of $totalWeeks",
+                        fontSize = 10.6f.sp,
+                        color = TracksidePalette.textMuted,
+                        maxLines = 1,
+                        modifier = Modifier.testTag("training-week-counter")
+                    )
+                }
+                TextButton(
+                    onClick = { onSelectWeek(minOf(last, weekStart.plusWeeks(1))) },
+                    enabled = weekStart < lastMonday,
+                    contentPadding = PaddingValues(0.dp),
+                    modifier = Modifier.size(30.dp).testTag("training-next-week")
+                ) {
+                    Text("›", fontSize = 21.sp, color = TracksidePalette.text)
+                }
+            }
+        } else if (draft) {
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, TracksidePalette.text),
+                color = Color.Transparent
+            ) {
+                Text("DRAFT", Modifier.padding(horizontal = 13.dp, vertical = 7.dp),
+                    fontSize = 10.6f.sp, color = TracksidePalette.text,
+                    fontWeight = FontWeight.Bold)
+            }
         } else if (hasPlan) TextButton(onClick = onManage,
             modifier = Modifier.testTag("training-manage-plan")) {
             Text("Manage ›", color = TracksidePalette.text, fontWeight = FontWeight.Bold)
@@ -85,7 +151,7 @@ internal fun TracksideParityAgendaDay(
     if (day.sessions.isEmpty()) return
     Column(
         Modifier.fillMaxWidth().testTag("training-agenda-day-" + day.date),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         day.sessions.forEachIndexed { index, session ->
             Row(
@@ -152,7 +218,7 @@ private fun TracksideParityAgendaWorkoutRow(
 
     Surface(
         onClick = onOpen,
-        modifier = modifier.heightIn(min = 46.dp)
+        modifier = modifier.heightIn(min = 44.dp)
             .testTag("workout-" + session.id),
         shape = RoundedCornerShape(11.dp),
         color = TracksidePalette.surface,
