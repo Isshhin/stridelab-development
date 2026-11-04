@@ -7,6 +7,9 @@ on:
     paths:
       - '.github/workflows/trackside-strength-self-hosted-windows.yml'
       - 'native-android/app/src/androidTest/java/io/stridelab/privatealpha/TracksideResponsiveQaTest.kt'
+      - 'native-android/app/src/main/java/io/stridelab/privatealpha/TracksideFigmaBuilderScreens.kt'
+      - 'native-android/app/src/main/java/io/stridelab/privatealpha/TracksideFigmaRunningSetup.kt'
+      - 'native-android/app/src/main/res/drawable/trackside_*'
   workflow_dispatch:
 
 permissions:
