@@ -20,7 +20,14 @@ internal object PlanBackup {
                 plan.sessions.forEach { s ->
                     RecordPolicy.identifier(s.id)
                     require(s.date>=plan.request.start && s.date<plan.request.start.plusWeeks(plan.request.weeks.toLong()))
-                    require(s.minutes in 0..1440 && s.discipline in setOf("run","str","cal","cond") && s.status in setOf("planned","in_progress","completed","missed","skipped"))
+                    val reviewOnlyUnassigned = plan.engineVersion==ENGINE15_VERSION &&
+                        Engine1Engines.canManage(plan) &&
+                        plan.status in setOf("draft","paused") && s.status=="unassigned" &&
+                        s.log==null && s.linkedActivityId==null
+                    require(s.minutes in 0..1440 &&
+                        s.discipline in setOf("run","str","cal","cond") &&
+                        (s.status in setOf("planned","in_progress","completed","missed","skipped") ||
+                            reviewOnlyUnassigned))
                     require(s.swaps.size<=s.exercises.size && s.swaps.map { it.originalId }.distinct().size==s.swaps.size && s.swaps.all { swap -> s.exercises.any { it.id==swap.originalId } })
                     require(s.exercises.size<=30 && s.effectiveExercises.map { it.id }.distinct().size==s.effectiveExercises.size && (s.exercises+s.effectiveExercises).all { it.sets in 1..20 && (it.reps==null||it.reps in 0..500) && (it.seconds==null||it.seconds in 0..3600) })
                     s.log?.let { log ->
