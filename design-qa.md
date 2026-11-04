@@ -65,3 +65,39 @@ The pending source update changes only Strength Setup's fixed-height rows, selec
 - The successful 360dp/130% screenshots explicitly show Upper Body after tap 1, Upper Body and Lower Body after tap 2, `2 of 2 placed`, and the enabled red Continue CTA. All ten tests passed with no weakening of placement checks.
 
 **Final Strength Setup outcome: ACCEPTED.** Exact-head compilation, JVM/unit, smoke, 4-profile responsive interaction, screenshots, and visual P1/P2 checks pass. No actionable P0/P1/P2 issues remain within the requested Strength Setup acceptance scope. Calisthenics Setup is the next screen to verify; this acceptance does not approve the full Plan Builder, Trackside or a release APK.
+
+
+## Calisthenics Setup - accepted Windows verification (2026-11-04)
+
+**Status: ACCEPTED for Calisthenics Setup only.** Approved Figma source: file `v73TsYo6gKxUoiUock2sSE`, node `614:335` (412 × 950). Android source: `native-android/app/src/main/java/io/stridelab/privatealpha/TracksideFigmaCalisthenicsSetup.kt`.
+
+**Verified exact head:** `5389cdbe00fdf83f59288fce38044fc56ff52a0c`. Windows self-hosted run [41773842247](https://github.com/Isshhin/stridelab-development/actions/runs/41773842247) completed successfully. Screenshot and instrumentation artifact ID: `13295619254` (`trackside-strength-windows-evidence`). The workflow keeps its existing name for now, but covers Calisthenics Setup and Strength regression checks.
+
+### CI and responsive result
+
+- Exercise-library shared schema validation, Android JVM/unit tests, debug app compilation and instrumentation APK compilation: **passed**.
+- Pixel 9 Android API 35 x86_64 emulator smoke: **22/22 passed**.
+- Responsive instrumentation: **412dp/100% 11/11; 360dp/100% 11/11; 360dp/130% 11/11; 412dp/150% 11/11**.
+- **23 PNG screenshots per profile**, collected on the actual emulator and retained with Android instrumentation reports. No production release APK generated.
+- Primary matched-state screenshot: `qa-screenshots/figma-412dp-font100/StrideLabBatchB/builder-calisthenics-figma-reference-412dp-font100.png`. Other profiles use the same basename in `figma-360dp-font100`, `compact-360dp-font130`, and `standard-412dp-font150`.
+- Figma/Android comparison: reference is 412 × 950 at 1×; Android screenshot is 824 × 1900 at 2×, visually normalized to 412 × 950. Android root screenshot excludes simulated system status/navigation chrome; compare application content rather than unmatched system bars.
+
+### Rendered acceptance review
+
+- Matched the approved manual example: Wednesday Push, Friday Pull, Saturday unavailable, Wednesday edit-session controls, Starting Levels below the weekly card, and a fixed Continue action.
+- At 412dp/100%, the weekly card measures approximately **467dp**, close to Figma's **470px**; Starting Levels is approximately **90dp**, close to Figma's **86px**. Both were oversized in the preceding render. The mode selector and weekly card start positions closely match the reference.
+- Approved card hierarchy, weekday selection cells, session chips, stepper sizes, editable schedule content, and action buttons remain intact. The labels now show **Suggested days · editable** and **Remove**, matching the Figma source.
+- At 130% and 150% fonts, **Let StrideLab decide** wraps inside its selector. Both text-bound assertions pass. The body scrolls to Starting Levels at reduced viewport heights without losing the fixed Continue action.
+- The previously inserted explanatory paragraph below Pin/Remove was not in the approved 470px card. It was removed from that visible region; the existing coaching-support advisory on focus selection remains, so unsupported Engine 1 focus enforcement is not misrepresented.
+- The responsive suite also verifies the manual placed-state label and enabled Continue. The prior accepted Strength Setup regression tests remain green in the same run.
+- The fixed CTA's absolute vertical placement differs from Figma because the Android root screenshot does not render the simulated system chrome. Dynamic request data and Engine 1-supported controls may also differ from demonstration copy. These do not create an actionable P0/P1/P2 defect.
+
+### Changes and scope
+
+- `702f559e3ddfcbf8f784e2625d66c60e98f801f9`: added matched Figma state and screenshot capture across all four profiles.
+- `f7763f1c237e49275b2c97cb204c2bc2d0b002ab`: added accessible multiline mode labels.
+- `5cf249c85e0453861dec94000463cf9c41085625`: added mode-label clipping assertions.
+- `5b27af37c5aa54be442006c020a3df0dfe056c8d`: restored Figma weekly/Starting Levels proportions and source labels while retaining advisory behavior.
+- `5389cdbe00fdf83f59288fce38044fc56ff52a0c`: tightened normal-font height and approved-label regression checks.
+
+**Acceptance result:** Calisthenics Setup is complete for this Trackside 3.0 screen. No actionable P0/P1/P2 issues remain within its reviewed scope. This is close rendered parity, not a perfect pixel-by-pixel identity. Strength Setup acceptance remains unchanged. Engine 1.5 and Engine 2.0 were not modified or integrated. The next acceptance target is the remaining Plan Builder screens and review states, not Engine 1.5 integration.
