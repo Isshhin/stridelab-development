@@ -414,8 +414,19 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("builder-running-day-6").performClick()
         compose.onNodeWithTag("builder-running-custom").performScrollTo()
         compose.onNodeWithTag("builder-running-custom").performClick()
+        // This guidance text is immediately below the horizontally scrollable
+        // session-selector row. Scroll it in the outer vertical page first:
+        // horizontal performScrollTo alone does not expose an offscreen row.
+        compose.onNodeWithText("Selected:", substring=true).performScrollTo()
         compose.onNodeWithTag("builder-run-session-2").performScrollTo()
+        compose.onNodeWithTag("builder-run-session-2").assertIsDisplayed()
+        screenshot("builder-running-week-session-selector-visible")
         compose.onNodeWithTag("builder-run-session-2").performClick()
+        compose.runOnIdle {
+            assertTrue("Explicit Easy 1 session selection did not register",
+                selected.value==2)
+        }
+        screenshot("builder-running-week-session-selected")
         // The picker sits below the fold inside the frame's vertical scroll,
         // with Saturday additionally inside a horizontal scroll row. Match the
         // working integration test: reveal the lower editor first, then the row.
