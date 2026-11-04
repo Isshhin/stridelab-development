@@ -15,6 +15,29 @@ Each session must reuse relevant existing StrideLab research rather than restart
 
 Every session must separate SCIENCE, VENDOR, OBSERVATION, ATHLETE, SYNTHETIC, and HYPOTHESIS evidence; actively search for contradictory/null evidence; grade applicability and confidence; avoid false precision; and state what would falsify each proposed rule.
 
+
+## Mandatory continuity protocol for every session
+
+All sessions in this document also inherit the requirements in:
+
+`docs/research/2026-11-04-research-session-continuity-protocol.md`
+
+The user does not need to request this separately.
+
+At meaningful checkpoints, and before ending or when interruption risk becomes material, each session must create or update a durable GitHub handoff containing:
+- live branch head and PR state;
+- important commits/files changed;
+- completed work;
+- current findings and contradictions;
+- decisions that should be preserved;
+- unresolved questions;
+- boundaries and do-not-modify areas;
+- the exact next action for a fresh session.
+
+Preferred path: `docs/research/handoffs/<session-or-track>-handoff.md`.
+
+A fresh session must verify the live branch first and preserve anything newer than the handoff checkpoint.
+
 ---
 
 ## Session A prompt - Competitive coaching audit
