@@ -62,6 +62,7 @@ internal fun TracksideFigmaBuilderFrame(
     continueEnabled: Boolean = true,
     footer: (@Composable () -> Unit)? = null,
     descriptionBottomGap: Int = 40,
+    descriptionFontSize: Float = 12.5f,
     contentTopPadding: Int = 47,
     headlineLineHeight: Int = 35,
     body: @Composable ColumnScope.() -> Unit
@@ -98,7 +99,7 @@ internal fun TracksideFigmaBuilderFrame(
                 modifier = Modifier.fillMaxWidth())
             if(description.isNotBlank()) {
                 Spacer(Modifier.height(4.dp))
-                Text(description, fontSize = 12.5f.sp,
+                Text(description, fontSize = descriptionFontSize.sp,
                     lineHeight = 17.sp, color = muted)
                 Spacer(Modifier.height(descriptionBottomGap.dp))
             } else Spacer(Modifier.height(10.dp))
