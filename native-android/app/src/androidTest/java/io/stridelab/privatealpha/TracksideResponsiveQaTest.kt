@@ -401,6 +401,11 @@ class TracksideResponsiveQaTest {
                 (week.bottom-week.top).value <= 241f)
             assertTrue("Running legend starts away from Figma 548:95",
                 legend.top.value in 530f..571f)
+            val lastDescription=compose.onNodeWithText(
+                "Endurance session on one preferred day"
+            ).getUnclippedBoundsInRoot()
+            assertTrue("Running legend last description too close to bottom stroke",
+                legend.bottom - lastDescription.bottom >= 14.dp)
         }
         // The final weekday must be reachable even on 360dp screens without
         // shrinking below the existing 46dp day-cell hit area.
