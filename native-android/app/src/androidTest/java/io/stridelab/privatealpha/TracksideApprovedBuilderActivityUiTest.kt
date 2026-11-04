@@ -71,6 +71,8 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-running-day-6").performClick()
         compose.onNodeWithTag("builder-run-session-2").performScrollTo()
         compose.onNodeWithTag("builder-run-session-2").performClick()
+        // Reveal the nested weekday row via the outer vertical scroll first.
+        compose.onNodeWithTag("builder-run-clear-selected").performScrollTo()
         compose.onNodeWithTag("builder-run-editor-day-6").performScrollTo()
         compose.onNodeWithTag("builder-run-editor-day-6").assertIsDisplayed()
         compose.onNodeWithTag("builder-run-editor-day-6").performClick()
@@ -255,6 +257,8 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-running-day-6").performClick()
         compose.onNodeWithTag("builder-run-session-2").performScrollTo()
         compose.onNodeWithTag("builder-run-session-2").performClick()
+        // Reveal the nested weekday row via the outer vertical scroll first.
+        compose.onNodeWithTag("builder-run-clear-selected").performScrollTo()
         compose.onNodeWithTag("builder-run-editor-day-6").performScrollTo()
         compose.onNodeWithTag("builder-run-editor-day-6").assertIsDisplayed()
         compose.onNodeWithTag("builder-run-editor-day-6").performClick()
@@ -263,6 +267,8 @@ class TracksideApprovedBuilderActivityUiTest {
         assertEquals(true,6 in saved.value.days)
         compose.onNodeWithTag("builder-run-session-3").performScrollTo()
         compose.onNodeWithTag("builder-run-session-3").performClick()
+        // Reveal the nested weekday row via the outer vertical scroll first.
+        compose.onNodeWithTag("builder-run-clear-selected").performScrollTo()
         compose.onNodeWithTag("builder-run-editor-day-6").performScrollTo()
         compose.onNodeWithTag("builder-run-editor-day-6").assertIsDisplayed()
         compose.onNodeWithTag("builder-run-editor-day-6").performClick()
