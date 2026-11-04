@@ -154,11 +154,24 @@ The current Figma remains a baseline, not a permanent design ceiling.
 
 Session G defines the new research dependency order.
 
-### Stage 1: review and freeze Session G
+### Stage 1: complete Session G review corrections
 
 Status:
 
-**Session G complete; coordinating review next.**
+**SESSION G REVIEW REQUIRED.**
+
+The synthesis artifacts exist, but independent review found six required corrections before the architecture may be frozen.
+
+Review:
+https://github.com/Isshhin/stridelab-development/blob/research/runna-garmin-coaching-20261102/docs/research/2026-11-04-engine2x-session-g-independent-review.md
+
+Required corrections:
+- G-R1 explicit per-state implementation/validation contracts
+- G-R2 KEEP vs ABSTAIN vs NO_AUTOMATED_DECISION vs hard-hold semantics
+- G-R3 mechanism-location provenance
+- G-R4 Phase 2 freeze/readiness gate
+- G-R5 explicit differentiator classifications
+- G-R6 authoritative Phase 2 / E009-E012 naming map
 
 Review the synthesis against:
 
@@ -166,11 +179,21 @@ Review the synthesis against:
 - the pre-synthesis review
 - the A-F + H specialist findings
 
-If it passes, freeze its architecture, candidate register, contradiction register, state dictionary, and Phase 2 dependency graph as the research baseline.
+Resolve G-R1 through G-R6, re-review the changed contracts, then freeze the architecture, candidate register, contradiction register, state contracts, and Phase 2 dependency graph only if the review passes.
 
 After the freeze, change the architecture only when experiments falsify or materially weaken an assumption.
 
-### Stage 2: P2-F data admission and linkage
+### Stage 2: freeze Phase 2 baseline
+
+Current state:
+
+**BLOCKED_PENDING_G_CORRECTIONS**
+
+Do not start active Phase 2 validation until G-R1 through G-R6 pass re-review.
+
+After review passes, mark the baseline REVIEW_PASSED / PHASE_2_BASELINE_FROZEN.
+
+### Stage 3: P2-F data admission and linkage
 
 Start here.
 
@@ -190,7 +213,7 @@ Required outcomes include:
 
 A public activity is not automatically permission to use it.
 
-### Stage 3: P2-B aerobic-efficiency repeatability
+### Stage 4: P2-B aerobic-efficiency repeatability
 
 After the data pipeline is trustworthy, validate repeated within-athlete measurements.
 
@@ -207,7 +230,7 @@ Test:
 
 Repeatability does not itself authorize progression or prove training benefit.
 
-### Stage 4: P2-A athlete-state estimation
+### Stage 5: P2-A athlete-state estimation
 
 Compare:
 
@@ -217,7 +240,7 @@ Compare:
 
 Wearable signals such as HRV, sleep and resting HR must demonstrate useful incremental value before they can independently alter decisions.
 
-### Stage 5: P2-C progression and re-entry
+### Stage 6: P2-C progression and re-entry
 
 Test:
 
@@ -240,7 +263,7 @@ Keep separate:
 
 No universal 10%, ACWR, automatic make-up, or calendar deload rule.
 
-### Stage 6: P2-D adaptive prescription
+### Stage 7: P2-D adaptive prescription
 
 Evaluate in shadow mode first:
 
@@ -257,7 +280,7 @@ Evaluate in shadow mode first:
 
 The action should preserve training intent when possible and re-evaluate the surrounding week.
 
-### Stage 7: P2-E cross-discipline and strength interaction
+### Stage 8: P2-E cross-discipline and strength interaction
 
 Test endpoint-specific coordination across:
 
@@ -270,13 +293,13 @@ Avoid blanket rules such as "leg day before intervals is always bad."
 
 Model local muscle demand, eccentric novelty, goal, order, spacing, priority, and subsequent session quality separately from long-term adaptation.
 
-### Stage 8: research-only executable Engine 2.x
+### Stage 9: research-only executable Engine 2.x
 
 Build isolated candidate logic capable of replaying histories and producing shadow recommendations.
 
 Do not silently update production Trackside plans.
 
-### Stage 9: adversarial and real-data shadow validation
+### Stage 10: adversarial and real-data shadow validation
 
 Test difficult cases such as:
 
@@ -294,7 +317,7 @@ Test difficult cases such as:
 - outdated plan versions
 - user rejection of a proposal
 
-### Stage 10: prospective athlete validation
+### Stage 11: prospective athlete validation
 
 Measure:
 
@@ -312,7 +335,7 @@ Measure:
 
 A statistically significant but practically useless improvement is not enough.
 
-### Stage 11: Engine 2.x production candidate
+### Stage 12: Engine 2.x production candidate
 
 Promote only components that pass their specific gates.
 
@@ -328,7 +351,7 @@ Preserve Engine 1.5 principles:
 
 Keep Engine 1.5 available as fallback during controlled promotion.
 
-### Stage 12: Trackside integration
+### Stage 13: Trackside integration
 
 Update Trackside around the mature Engine 2.x model.
 
@@ -344,7 +367,7 @@ The UI should eventually expose, where useful:
 - accept/reject
 - longitudinal trends
 
-### Stage 13: integrated dogfood APK
+### Stage 14: integrated dogfood APK
 
 Only after the engine and UI are ready, compile the next major dogfood build.
 
