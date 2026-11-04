@@ -1,53 +1,16 @@
 # Session G synthesis handoff
 
-4 November 2026.
+4 November 2026. **READY_FOR_INDEPENDENT_RE_REVIEW.** Phase 2 remains **BLOCKED_PENDING_G_CORRECTIONS** until independent acceptance. No baseline freeze, data collection or Phase 2 evaluation occurred.
 
-Session G produced the synthesis artifacts at commit `4b734f1b97a54e6c15ba3bf0662d456de5c68413`.
+Starting head `2c6e663fcb286573070b347159f3faeb68b60067` included the [independent review](../2026-11-04-engine2x-session-g-independent-review.md) of synthesis `4b734f1`. Its verdict remains the last independent decision: PASS_WITH_REQUIRED_CORRECTIONS_BEFORE_FREEZE. PR #34 was open, draft and unmerged.
 
-Independent review is now complete at:
+| Correction | Artifact and independent check |
+|---|---|
+| G-R1 | [State](../2026-11-04-engine2x-session-g-state.md). Join 24 field IDs to the contracts; check missing/conflict behavior, authority and falsifier for each. |
+| G-R2 | [Synthesis](../2026-11-04-engine2x-session-g-synthesis.md). Exercise all four control outcomes including overlapping holds and manual execution. |
+| G-R3 | [Candidates](../2026-11-04-engine2x-session-g-candidates.md). Trace G01–G17 to the named native snapshot, research contract or absent mechanism. Check transfer scope. |
+| G-R4 | [Phase 2](../2026-11-04-engine2x-session-g-phase2.md). Distinguish architecture approval from release of a sealed confirmatory evaluation. |
+| G-R5 | Synthesis differentiator table. Check classification against the scoped mechanism and comparative claim. |
+| G-R6 | Phase 2 authoritative ID map. Verify narrower legacy protocols, shared E012/E013 contributions and independent vendor captures. |
 
-`docs/research/2026-11-04-engine2x-session-g-independent-review.md`
-
-Review verdict:
-
-`PASS_WITH_REQUIRED_CORRECTIONS_BEFORE_FREEZE`
-
-Session G is therefore **not finished/frozen yet**.
-
-## Required corrections
-
-Resolve G-R1 through G-R6 before Phase 2:
-
-1. Expand the state dictionary into an explicit per-variable implementation/validation contract.
-2. Formalize KEEP vs ABSTAIN vs NO_AUTOMATED_DECISION vs hard-hold semantics and reason codes.
-3. Add current mechanism location/provenance to the capability scorecard.
-4. Add an explicit Phase 2 baseline-freeze/readiness gate.
-5. Make differentiator classifications explicit.
-6. Reconcile P2-A through P2-F naming with E009-E012 and legacy experiment IDs.
-
-The literature synthesis does not need to be restarted. These are contract/documentation corrections.
-
-## Current decision
-
-Phase 2 status:
-
-`BLOCKED_PENDING_G_CORRECTIONS`
-
-P2-F administrative/source-rights preparation may continue only if it does not collect data or open held-out evaluation under an unfrozen schema.
-
-Do not start P2-A, P2-B, P2-C, P2-D or P2-E as active validation tracks yet.
-
-## Continuation
-
-Before continuing:
-
-1. Verify live `research/runna-garmin-coaching-20261102`.
-2. Preserve anything newer than this handoff.
-3. Keep PR #34 open, draft and unmerged.
-4. Read the final G prompt, pre-synthesis review, G synthesis artifacts, and independent review.
-5. Resolve G-R1 through G-R6.
-6. Re-run independent review on only the changed contracts unless new evidence creates a substantive contradiction.
-7. If all corrections pass, mark G `REVIEW_PASSED / PHASE_2_BASELINE_FROZEN`.
-8. Start P2-F first, then P2-B when the linkage gate permits.
-
-Engine 1.5 remains the safe fallback. Trackside remains separate. Do not modify APK/release infrastructure.
+Next: verify live research/runna-garmin-coaching-20261102 and PR #34, preserve any newer work, then independently re-review the changed contracts. Only a passing reviewer may record REVIEW_PASSED / PHASE_2_BASELINE_FROZEN. Pilot-dependent effect, coverage and burden margins remain unset. Preserve the frozen Engine 1.5 fallback, separate Trackside and APK/release work, and keep PR #34 draft and unmerged.

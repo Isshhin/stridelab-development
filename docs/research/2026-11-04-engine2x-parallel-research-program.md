@@ -353,7 +353,7 @@ This common structure is required so Session G can synthesize results efficientl
 
 ## 15. Progress tracking
 
-Phase 1 checkpoint, 4 November 2026. Discovery reports passed pre-synthesis review. Session G produced a synthesis at `4b734f1`, but the independent review at `docs/research/2026-11-04-engine2x-session-g-independent-review.md` found six required contract/documentation corrections before the architecture may be frozen. Phase 2 is blocked pending those corrections and re-review.
+Phase 1 checkpoint, 4 November 2026. Discovery reports passed pre-synthesis review. Session G produced a synthesis at `4b734f1`, but the independent review at `docs/research/2026-11-04-engine2x-session-g-independent-review.md` found six required contract/documentation corrections before the architecture may be frozen. The six corrections are documented in the existing G artifacts. Independent re-review is pending; Phase 2 remains blocked and the baseline is unfrozen.
 
 | Session | Status |
 | --- | --- |
@@ -364,7 +364,7 @@ Phase 1 checkpoint, 4 November 2026. Discovery reports passed pre-synthesis revi
 | E - Adaptive prescription | COMPLETE |
 | F - Real data and validation | COMPLETE |
 | H - Researcher/framework audit | COMPLETE |
-| G - Synthesis | REVIEW_REQUIRED_CORRECTIONS |
+| G - Synthesis | READY_FOR_INDEPENDENT_RE_REVIEW |
 
 Each session should update its status to `IN_PROGRESS`, `BLOCKED`, `REVIEW`, or `COMPLETE` in its report and in the TickTick parent tracker.
 

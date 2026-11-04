@@ -1,6 +1,6 @@
 # Session G | What may change the next workout?
 
-4 November 2026 · Phase 1 synthesis complete · Phase 2 protocols proposed. At entry, GitHub compared the reviewed checkpoint `faf98c5595598d41d643a1dfff39145e3f01791e` with `research/runna-garmin-coaching-20261102`: identical, zero commits ahead or behind. PR #34 was open, draft and unmerged.
+4 November 2026 · Synthesis drafted, corrections ready for independent re-review · Phase 2 protocols proposed. At entry, GitHub compared the reviewed checkpoint `faf98c5595598d41d643a1dfff39145e3f01791e` with `research/runna-garmin-coaching-20261102`: identical, zero commits ahead or behind. PR #34 was open, draft and unmerged.
 
 During writing, the branch advanced five commits to `580843c56868fcdb0a7590cad9a95b14c62c90f4`, adding the final prompt and continuity material. This synthesis builds on that newer tree.
 
@@ -55,6 +55,19 @@ All references to investigators and vendor comparisons below refer to the linked
 6. **Simulate downstream effects before asking the athlete.** Re-evaluate adjacent quality, long run, lower-body lifting, locks, daily capacity, actual accumulated exposure and next week. Discard hidden catch-up or a second unapproved edit. If no feasible revision exists, expose the constraint.
 7. **Review then execute.** Show original and proposed doses, intent retained/lost, evidence for and against, uncertainty, alternatives, affected days and expiry. Accept against the exact plan version, dismiss, or retain the approved plan. Recheck changed inputs, preserve idempotent offline replay and rollback. Execution records actual dose, partial/skipped/substituted/unknown, RPE, symptoms/context and subsequent response. Only future decisions may use these outcomes.
 
+### G-R2 | Control outcomes at the decision boundary
+
+Assess scopes separately. For an affected workout the precedence is HARD_HOLD, then NO_AUTOMATED_DECISION, then ABSTAIN_NEED_MORE_INFORMATION, then a supported KEEP or reviewed revision. Record all applicable reasons even if only one primary outcome is shown. Re-evaluation creates a fresh versioned decision. Retaining a calendar entry never grants execution clearance.
+
+| Control | Plan and execution | Question and review surface | Logged reason codes | Expiry, reevaluation and automatic clearing |
+|---|---|---|---|---|
+| KEEP | Retain approved version. Existing execution permission continues only after constraints pass and positive evidence supports the same intent/dose. | No routine question. Show grounds, counterevidence and decision time. | SUPPORTED_DOSE, CURRENT_CONSTRAINTS_MET | Expires on new material event, version change or session start review. May recompute automatically; never cache as default. |
+| ABSTAIN_NEED_MORE_INFORMATION | Preserve approved plan. Withhold automated recommendation and execution endorsement; manual athlete choice is separate, subject to existing restrictions. | Ask one low-burden question only if its answer would resolve the decision. Show what is missing and why it matters. | UNKNOWN_INTERRUPTION_REASON, CONFLICTING_RESPONSE, STALE_EXPOSURE | Re-evaluate when that fact arrives. Can resolve automatically only through a fresh eligible decision with affirmative grounds; elapsed time cannot turn it into KEEP. |
+| NO_AUTOMATED_DECISION | Preserve plan. Disable automated prescription/launch for this scope. Independent manual review remains available under applicable restrictions. | Show the unsupported domain or invalid lineage and route to manual review. Do not ask an athlete to repair policy validation. | OUTSIDE_DOMAIN, INVALID_LINEAGE, POLICY_UNVALIDATED | Requires documented domain eligibility, verified provenance repair or approved policy version. No automatic clearance from routine athlete signals. Rerun only after the underlying gate is restored. |
+| HARD_HOLD | Preserve plan history, mark affected execution blocked and suppress conflicting recommendations. Independent unaffected activities retain their own gates. | Show scope, source and release condition. Request clarification only from an appropriate source when needed. No ordinary accept/dismiss bypass. | ATHLETE_STOP, SUPPLIED_RESTRICTION | No automatic clearance. Explicit athlete release for an athlete stop; documented release per source terms for a supplied restriction. Time or favorable physiology may trigger review only. Recheck all overlapping holds and other controls before execution. |
+
+Example: normal HRV plus an explicit athlete stop yields HARD_HOLD. A missing upload plus confirmed cross-training records the other activity; if running exposure remains decision-critical, abstain. Unsupported sensor provenance yields NO_AUTOMATED_DECISION for the affected estimate even if the athlete can independently choose an approved activity.
+
 ### Interpreting a concrete week
 
 A runner completes three of four planned threshold bouts before class. Easy speed at the same HR looked better last week, today’s route was hotter, and recent long-run exposure is thin. Keep those facts separate. A confirmed time limit with three controlled bouts supports recording partial execution without fitness penalty or compensatory work. Repeated fade late in each bout raises a different hypothesis about bout duration. If no reason is known and tomorrow’s dose depends on it, abstain and ask what ended the session. A locked long run stays visible for review if the proposed move would crowd it.
@@ -92,7 +105,19 @@ For running, strength, calisthenics and conditioning, preserve movement, local m
 
 **On-par candidate** additionally requires longitudinal individual adaptation, robust calibration with missing or conflicting signals, mature strength and cross-discipline decisions, forward-time and athlete-held-out validation, prospective shadow use, controlled outcome studies for major adaptations, and no regression in Engine 1.5 reliability. Comparable claims require matched goals, population, conditions, horizon and endpoints; proprietary inputs or screenshots alone cannot establish efficacy. Neither milestone is demonstrated.
 
-Existing foundations include deterministic planning and user-reviewed changes. Prototype distinctions include provenance, offline revision replay, rollback and explicit affected-session review. Hypotheses include transparent abstention, context-separated fitness trends, more useful mixed-discipline coordination and fewer disruptive changes. No comparative advantage is validated. Evaluate reconstruction accuracy, user comprehension, override burden and retained workout quality alongside performance.
+| Candidate differentiator | Classification | What exists and what would test comparative value |
+|---|---|---|
+| Explicit uncertainty and abstention | HYPOTHESIS | Four controls specified. Test whether users understand them and unnecessary changes decrease at matched coverage. |
+| Evidence provenance | PROTOTYPE | Research source-attestation and linkage contracts. Audit whether reviewers reconstruct input lineage more accurately. |
+| Reviewed adaptations | EXISTING | Engine 1.5 offers reviewed feedback. Compare acceptance comprehension and appropriate revisions at equal burden. |
+| Transparent counterevidence | HYPOTHESIS | Review contract calls for evidence against each proposal. Blind-test comprehension against reasons alone. |
+| Mixed-discipline coordination | PROTOTYPE | Scheduling and research overlap mechanisms exist. Test protected-session quality and goal-specific outcomes. |
+| Environment vs fitness separation | HYPOTHESIS | Matching protocol specified. Test false fitness alerts and coverage across climates. |
+| Offline deterministic replay | PROTOTYPE | Research ledger and synthetic replay cover selected paths. Compare real-device recovery after interruption. |
+| Rollback | PROTOTYPE | Research revision ledger exercises rollback. Audit reconstruction, safe recovery and user success. |
+| Conservative missing-data handling | PROTOTYPE | Selected synthetic cases defer on uncertain sources. Test difficult cases and disclose coverage loss. |
+
+These grades describe the differentiator as scoped. VALIDATED requires direct comparative evidence for the claimed advantage. No row qualifies.
 
 After Phase 2 validation, introduce only passed components in dependency order: provenance and plan linkage, review/rollback and safe abstention, descriptive measures, calibrated state, exposure/re-entry suggestions, workout-level edits, then endpoint-specific mixed-discipline and strength decisions. Release decisions would require separate authorization and Engine 1.5 fallback verification. Research-only questions include actionable HRV thresholds, personal heat corrections, MAF prescription, dose from drift, causal injury prevention, spacing rules and equivalence of substitutes. The open design choices are minimum baseline length, acceptable abstention by group, smallest useful change by endpoint and the cost of false restriction versus escalation. Freeze those choices with athletes/reviewers before unblinding results.
 

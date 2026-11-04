@@ -1,6 +1,42 @@
 # Session G | Phase 2 experiments and promotion decisions
 
-**Status: proposed, not run.** Start P2-F admission and prospective logging first, then P2-B repeatability. Only after linkage is trustworthy can P2-A compare state estimates and P2-C/D/E evaluate decisions. The identifiers extend the focused agenda; preserve its original E009–E012 protocols and denominators.
+**Status: blocked pending independent G re-review. No track has started.** Start P2-F admission and prospective logging first, then P2-B repeatability. Only after linkage is trustworthy can P2-A compare state estimates and P2-C/D/E evaluate decisions. The identifiers extend the focused agenda; preserve its original E009–E012 protocols and denominators.
+
+## G-R6 | Authoritative experiment ID map
+
+P2-* is a track/owner ID. E-number IDs retain their original protocol, population, endpoint and denominator. They are never aliases for a whole track. Bare letters in older state or contradiction tables identify the corresponding P2 owner only when used as an experiment reference; discovery Session A–H names are evidence sources.
+
+| Track (canonical) | Associated earlier IDs and their role | Dependency and handoff |
+|---|---|---|
+| P2-F admission and linkage | E009 retained protocol ID for rights, source admission and capability audit. P2-F additionally owns plan linkage. E006 traceability is a protocol ancestor. | First after independent architecture freeze. Pass source/linkage audit for each supported use. |
+| P2-B comparable easy response | E010 retained protocol ID for matched-HR repeatability; narrower than P2-B. | Requires eligible P2-F sources and linked repeated segments. Pass repeatability before trend-dependent evaluations. |
+| P2-A athlete state | E005 synthetic state/load ancestor. E013 retained shadow/ablation protocol contributes the model comparison. | Requires P2-F decision-time data and independent follow-up; P2-B required for any matched-efficiency feature. |
+| P2-C progression and re-entry | E011 retained session/weekly exposure replication, E012 retained interruption/coordination observation. E003 synthetic load-policy ancestor. | Requires P2-F exposure coverage and verified reasons. Use P2-A/B estimates only in their validated scope. |
+| P2-D reviewed adaptive prescription | E013 retained shadow-policy comparison shared with P2-A. E003 and E006 are design ancestors. | Requires linked plan, reason, decision and follow-up from P2-F. Any state/progression-dependent arm waits for its input gate. |
+| P2-E cross-discipline and strength | E004 synthetic coordination ancestor. E012 contributes its concurrent-leg observation subset, owned by P2-C for that protocol. | Requires P2-F discipline-native exposure and independent outcomes. Acute and chronic comparisons have distinct endpoints. |
+
+E001 is a historical published-plan baseline. E002 is the controlled Runna generator protocol, E007 the matched-frequency capture, E008 the prospective Garmin Run Coach capture. These retain their original independent competitive-audit IDs. They provide comparator evidence only. Reusing E012 or E013 in two tracks must reference the same protocol version and observation IDs, with no double-counting or implied replication. “Retained” identifies a protocol for potential use, never permission to run it.
+
+## G-R4 | Baseline freeze and release of held-out evaluation
+
+**Gate 1, architecture.** Independent re-review must explicitly accept G-R1–G-R6 against a versioned Git snapshot. Until then Phase 2 remains blocked. A passing review can freeze the architecture and authorize preparation of the initial P2-F feasibility protocol. No held-out data may be opened under that architecture approval alone.
+
+**Gate 2, track-specific evaluation.** After Gate 1, a separately authorized development-only feasibility pilot may inform margins. Before pilot acquisition, lock its rights, minimal acquisition/linkage schema, purpose, access and exclusion from confirmatory evaluation. Before active confirmatory validation the track owner and independent reviewer must record and sign the following versioned manifest. Unresolved entries block release. A change after opening outcomes requires a new version and a fresh untouched test set.
+
+| Manifest item | Owner, evidence and freeze decision |
+|---|---|
+| Source/admission scope | P2-F owner records source/version, purpose, permission, withdrawal, retention and supported devices. Quarantine unresolved sources. |
+| Linkage schema | P2-F owner freezes event IDs, as-of times, plan/revision/decision/actual/outcome links, duplicate rules, units and missing codes against manually reconciled pilot events. |
+| Comparator and endpoint | Track owner pins comparator code/config and simple baseline, target population, unit, horizon, denominator, adjudication and independent reference before inspecting test outcomes. |
+| Smallest worthwhile effect | Athletes and blinded reviewers identify the smallest change that would alter a real decision. Analyst checks units, pilot error and precision; record margin, justification and design (superiority/noninferiority/equivalence). If precision is insufficient, redesign. |
+| False restriction and escalation | Athletes and reviewers compare costs in blinded example decisions. Freeze separate limits and tie-breaking for missed interventions and unnecessary changes; justify inapplicability for measurement-only tracks. |
+| Minimum coverage and burden | Use feasibility eligibility and participant logs to fix usable opportunities per target group, acceptable prompts/time, override and rejection limits. Record denominator and uncertainty. |
+| Abstention accounting | Freeze codes for all four controls, denominators for eligible, acted-on, abstained, excluded and missing outcomes. Compare at matched coverage and report risk–coverage curves. |
+| Subgroups and controls | Freeze device, climate, discipline and experience strata, sparse-stratum fallback and each card’s negative control. Register expected control behavior and exclusion rules. |
+| Leakage boundaries | Independent analyst locks athlete/time splits, feature availability, purge windows, train-only fitting and access logs. Keep pilot and tuning labels away from the sealed test sample. |
+| Stops and sign-off | Predeclare structural violations, compromised rights, leakage, unacceptable harm/burden, subgroup failures and inconclusive precision. Name stop/restart authority, rollback and evidence needed for a new evaluation. |
+
+Feasibility evidence sets numerical values where needed. Publish the chosen values and their rationale before confirmatory access. This correction supplies the process only; both gates are pending.
 
 ## Admission and data map
 
