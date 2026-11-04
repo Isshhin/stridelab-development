@@ -164,6 +164,9 @@ internal fun TracksideFigmaDisciplineScreen(
             }
         }
     ) {
+        // Figma 551:580 has a larger description-to-card gap than other
+        // builder stages. Keep this adjustment local to discipline selection.
+        Spacer(Modifier.height(23.dp))
         entries.forEachIndexed { i, (discipline, name, desc) ->
             val selected = when(discipline) {
                 "run" -> request.runDays > 0
@@ -171,7 +174,12 @@ internal fun TracksideFigmaDisciplineScreen(
                 "cal" -> request.calDays > 0
                 else -> request.conditioningDays > 0
             }
-            val accent = tracksideDisciplineColor(discipline)
+            val accent = when(discipline) {
+                "run" -> Color(0xFFF18B7E)
+                "str" -> Color(0xFF78AFFF)
+                "cal" -> Color(0xFFB394F0)
+                else -> Color(0xFFE5C478)
+            }
             val selectedBg = if (discipline == "run") darkWine
                 else if (discipline == "str") Color(0xFF203E60)
                 else Color(0xFF332742)
@@ -183,29 +191,30 @@ internal fun TracksideFigmaDisciplineScreen(
                 color = if(selected) selectedBg else slate,
                 border = BorderStroke(1.dp, if(selected) accent else outline)
             ) {
-                Row(Modifier.padding(horizontal = 21.dp),
+                Row(Modifier.padding(horizontal = 15.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                    Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
+                    horizontalArrangement = Arrangement.spacedBy(13.dp)) {
+                    Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
                         Icon(
                             painterResource(when(discipline) {
-                                "run" -> R.drawable.trackside_figma_run
-                                "str" -> R.drawable.trackside_figma_activity
-                                "cal" -> R.drawable.trackside_figma_loop
-                                else -> R.drawable.trackside_figma_activity
+                                "run" -> R.drawable.trackside_discipline_running
+                                "str" -> R.drawable.trackside_discipline_strength
+                                "cal" -> R.drawable.trackside_discipline_calisthenics
+                                else -> R.drawable.trackside_discipline_conditioning
                             }),
-                            tint = accent, contentDescription = null,
-                            modifier = Modifier.size(27.dp)
+                            tint = Color.Unspecified, contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                                .testTag("discipline-icon-"+discipline)
                         )
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text(name, color = white, fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold)
+                        Text(name, color = white, fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold)
                         Text(desc, color = muted, fontSize = 12.sp)
                     }
                 }
             }
-            if (i < entries.lastIndex) Spacer(Modifier.height(11.dp))
+            if (i < entries.lastIndex) Spacer(Modifier.height(12.dp))
         }
     }
 }
