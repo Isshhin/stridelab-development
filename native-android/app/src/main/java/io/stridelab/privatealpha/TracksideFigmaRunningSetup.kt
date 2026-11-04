@@ -198,7 +198,9 @@ internal fun TracksideFigmaRunningSetup(
             color=weekPanel,shape=RoundedCornerShape(13.dp),
             border=BorderStroke(1.dp,weekOutline)
         ) {
-            Column(Modifier.padding(horizontal=10.dp,vertical=7.dp)) {
+            // Retain the approved 143dp card while moving the last subtitle
+            // clear of the bottom stroke (Figma 548:95).
+            Column(Modifier.padding(start=10.dp,end=10.dp,top=2.dp,bottom=12.dp)) {
                 RunningWeekLegendRow("E","Easy run","Aerobic base and recovery",
                     Color(0xFF532B35),weekWhite)
                 RunningWeekLegendRow("Q","Quality",
