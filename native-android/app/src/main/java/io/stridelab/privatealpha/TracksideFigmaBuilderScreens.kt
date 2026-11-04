@@ -223,35 +223,62 @@ internal fun TracksideFigmaDisciplineScreen(
 private fun TracksideFigmaOption(
     label: String, description: String, selected: Boolean,
     icon: Int, onClick: () -> Unit, height: Int = 88,
-    tag: String = label
+    tag: String = label, runningGoal: Boolean = false
 ) {
+    // Race-goal options retain their existing appearance. The approved
+    // Running Goal 551:603 uses separate icon assets and no checkmark.
+    val cardSize = if (runningGoal) Modifier.heightIn(min = height.dp)
+        else Modifier.height(height.dp)
     Surface(
-        modifier = Modifier.fillMaxWidth().height(height.dp)
+        modifier = Modifier.fillMaxWidth().then(cardSize)
             .testTag("builder-option-$tag"),
         onClick = onClick,
-        color = if(selected) darkWine else slate,
-        shape = RoundedCornerShape(13.dp),
-        border = BorderStroke(1.dp, if(selected) Color(0xFFE36676) else outline)
+        color = if (selected && runningGoal) Color(0xFF51202E)
+            else if (selected) darkWine else slate,
+        shape = RoundedCornerShape(if (runningGoal) 14.dp else 13.dp),
+        border = BorderStroke(1.dp,
+            if (selected && runningGoal) Color(0xFFF18B7E)
+            else if (selected) Color(0xFFE36676) else outline)
     ) {
-        Row(Modifier.padding(horizontal = 12.dp),
+        Row(
+            Modifier.padding(
+                horizontal = if (runningGoal) 14.dp else 12.dp,
+                vertical = if (runningGoal) 12.dp else 0.dp
+            ),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Box(Modifier.size(43.dp).background(
-                if (selected) Color(0xFF6B3645) else Color(0xFF243643),
-                RoundedCornerShape(11.dp)
-            ), contentAlignment = Alignment.Center) {
-                Icon(painterResource(icon), contentDescription = null,
-                    tint = if(selected) Color(0xFFFFA7AD) else Color(0xFFA3BECE),
-                    modifier = Modifier.size(24.dp))
+            horizontalArrangement = Arrangement.spacedBy(if (runningGoal) 13.dp else 14.dp)
+        ) {
+            Box(
+                Modifier.size(if (runningGoal) 41.dp else 43.dp)
+                    .background(
+                        if (selected && runningGoal) Color(0xFF6B313F)
+                        else if (selected) Color(0xFF6B3645) else Color(0xFF243643),
+                        RoundedCornerShape(11.dp)
+                    ), contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painterResource(icon), contentDescription = null,
+                    tint = if (runningGoal) Color.Unspecified
+                        else if (selected) Color(0xFFFFA7AD)
+                        else Color(0xFFA3BECE),
+                    modifier = Modifier.size(if (runningGoal) 25.dp else 24.dp)
+                        .testTag("builder-goal-icon-$tag")
+                )
             }
             Column(Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(label, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-                    color = white, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(label,
+                    fontSize = if (runningGoal) 16.sp else 15.sp,
+                    fontWeight = if (runningGoal) FontWeight.Bold
+                        else FontWeight.SemiBold,
+                    color = white,
+                    maxLines = if (runningGoal) 2 else 1,
+                    overflow = TextOverflow.Ellipsis)
                 Text(description, fontSize = 11.5f.sp, lineHeight = 14.sp,
-                    color = muted, maxLines = 2)
+                    color = muted, maxLines = if (runningGoal) 3 else 2)
             }
-            if (selected) Text("✓", fontSize = 16.sp, color = white)
+            if (selected && !runningGoal)
+                Text("✓", fontSize = 16.sp, color = white)
         }
     }
 }
@@ -275,16 +302,19 @@ internal fun TracksideFigmaRunningGoalScreen(
         description = "Your training plan starts with what you want to achieve.",
         onBack = onBack, onContinue = onContinue
     ) {
+        // The 8dp stage-specific gap matches the approved choices' starting
+        // position without affecting Strength, Calisthenics, or other screens.
+        Spacer(Modifier.height(8.dp))
         entries.forEachIndexed { i, (route, label, desc) ->
             TracksideFigmaOption(label, desc, selected == route,
-                icon = when(route) {
-                    "race" -> R.drawable.trackside_figma_calendar
-                    "faster" -> R.drawable.trackside_figma_run
-                    "endurance" -> R.drawable.trackside_figma_activity
-                    "fitness" -> R.drawable.trackside_figma_activity
-                    else -> R.drawable.trackside_figma_edit
+                icon = when (route) {
+                    "race" -> R.drawable.trackside_running_goal_race
+                    "faster" -> R.drawable.trackside_running_goal_faster
+                    "endurance" -> R.drawable.trackside_running_goal_endurance
+                    "fitness" -> R.drawable.trackside_running_goal_fitness
+                    else -> R.drawable.trackside_running_goal_custom
                 },
-                onClick = { onSelect(route) }, tag = route
+                onClick = { onSelect(route) }, tag = route, runningGoal = true
             )
             if (i < entries.lastIndex) Spacer(Modifier.height(10.dp))
         }
