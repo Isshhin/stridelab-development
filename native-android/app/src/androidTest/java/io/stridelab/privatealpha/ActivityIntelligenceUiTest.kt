@@ -3,6 +3,7 @@ package io.stridelab.privatealpha
 import androidx.activity.compose.setContent
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.semantics.SemanticsActions
 import org.junit.Rule
 import org.junit.Test
 import java.time.Instant
@@ -15,11 +16,18 @@ class ActivityIntelligenceUiTest {
         val rows = listOf(run) + (1..3).map { run.copy(id="analysis-$it", startedAt=run.startedAt.minusSeconds(it*86400L),recordedPace=400.0) }
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(TrainingState(initializing=false,account="synthetic-analysis",activities=rows),false,NativeActions({},{},{},{},{_,_->})) } } }
         compose.onNodeWithTag("activity-analysis-current").performClick()
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("ACTIVITY HIGHLIGHTS"))
+        compose.onNodeWithTag("activity-sheet-scroll")
+            .performSemanticsAction(SemanticsActions.Expand)
+        compose.onNodeWithTag("activity-sheet-scroll")
+            .performScrollToNode(hasText("ACTIVITY HIGHLIGHTS"))
         compose.onNodeWithText("ACTIVITY HIGHLIGHTS").assertIsDisplayed()
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Your recorded average pace",substring=true))
+        compose.onNodeWithTag("activity-sheet-scroll")
+            .performScrollToNode(hasText("Your recorded average pace",substring=true))
         compose.onNodeWithText("not improved or reduced fitness",substring=true).assertIsDisplayed()
         compose.onNodeWithTag("offline-status").assertIsDisplayed()
+        // An expanded approved activity sheet consumes Back before the route.
+        compose.onNodeWithTag("activity-map-back").performClick()
+        compose.onNodeWithTag("activity-map-hero").assertExists()
         compose.onNodeWithTag("activity-map-back").performClick()
         compose.onNodeWithTag("screen-title").assertTextEquals("Activities")
     }

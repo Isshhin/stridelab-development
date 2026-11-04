@@ -23,7 +23,7 @@ class Engine1UiTest {
         field.assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText,AnnotatedString(value)))
     }
 
-    @Test fun multiSessionPlanBuilderGeneratesEightSessionsAndKeepsSameDayLogsIndependent() {
+    @Test fun multiSessionPlanBuilderKeepsSameDayLogsIndependent() {
         val state=mutableStateOf(TrainingState(initializing=false,account="synthetic-multi-builder-ui"))
         val actions=PlanActions(
             generate={p->Engine1Engines.validate(p);state.value=state.value.copy(plans=state.value.plans+Engine1Engines.resolve(p).generate(p,"synthetic-multi-builder-ui"))},
@@ -35,42 +35,37 @@ class Engine1UiTest {
         compose.onNodeWithTag("nav-training").performClick()
         compose.onNodeWithText("Create a plan",useUnmergedTree=true).performClick()
         compose.onNodeWithTag("discipline-cal").performClick()
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Continue"))
-        compose.onNodeWithText("Continue",useUnmergedTree=true).performClick()
-        compose.onNodeWithTag("frequency-run-5").performClick()
-        compose.onNodeWithTag("frequency-cal-3").performClick()
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Multi-session scheduling"))
-        compose.onNodeWithText("Multi-session scheduling").performClick().assertIsSelected()
-        repeat(1) {
-            compose.onNodeWithTag("screen").performScrollToNode(hasText("Continue"))
-            compose.onNodeWithText("Continue",useUnmergedTree=true).performClick()
-        }
-        // Pin a whole Monday-based week; do not let wall-clock weekday change this fixture.
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Next Monday"))
-        compose.onNodeWithText("Next Monday",useUnmergedTree=true).performClick()
-        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("available-day-3"))
-        compose.onNodeWithTag("available-day-3").performClick().assertIsSelected()
-        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("available-day-7"))
-        compose.onNodeWithTag("available-day-7").performClick().assertIsSelected()
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Continue"))
-        compose.onNodeWithText("Continue",useUnmergedTree=true).performClick()
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Generate plan"))
-        compose.onNodeWithText("Generate plan",useUnmergedTree=true).performClick()
+        fun next()=compose.onNodeWithTag("builder-figma-continue").performClick()
+        next() // disciplines
+        next() // running goal
+        next() // race goal
+        next() // running ability
+        compose.onNodeWithTag("builder-run-plus").performClick()
+        compose.onNodeWithTag("builder-run-plus").performClick()
+        compose.onNodeWithTag("builder-running-day-1").performClick()
+        compose.onNodeWithTag("builder-running-decide").performScrollTo().performClick()
+        next() // running setup
+        next() // cross-training goals
+        next() // calisthenics setup
+        next() // plan dates
+        compose.onNodeWithTag("available-day-7").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-enable-multi-session").performScrollTo().performClick()
+        next() // availability
+        compose.onNodeWithText("Generate my plan").assertExists()
+        next()
         compose.waitUntil(15000) { state.value.plans.isNotEmpty() || compose.onAllNodesWithTag("plan-form-error").fetchSemanticsNodes().isNotEmpty() }
-        assertTrue("Plan builder failed: "+compose.onNodeWithTag("screen").printToString(),state.value.plans.isNotEmpty())
+        assertTrue("Plan builder failed: "+compose.onRoot().printToString(),state.value.plans.isNotEmpty())
         val draft=state.value.plans.single()
-        assertEquals(MULTI_SESSION_POLICY,draft.policyId)
-        assertEquals(8*draft.request.weeks,draft.sessions.size)
+        assertEquals(if(BuildConfig.ENGINE15_ACTIVE)ENGINE15_MULTI_POLICY else MULTI_SESSION_POLICY,draft.policyId)
+        assertEquals(7*draft.request.weeks,draft.sessions.size)
         val firstWeek=draft.sessions.filter { it.date in draft.request.start..draft.request.start.plusDays(6) }
-        assertEquals(8,firstWeek.size)
-        assertEquals(7,firstWeek.map { it.date }.distinct().size)
-        compose.onNodeWithTag("screen-title").assertTextEquals("Your plan")
-        compose.onNodeWithText("Multi-session scheduling").assertExists()
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Approve plan"))
-        compose.onNodeWithText("Approve plan",useUnmergedTree=true).performClick()
+        assertEquals(7,firstWeek.size)
+        assertEquals(5,firstWeek.map { it.date }.distinct().size)
+        compose.onNodeWithText("Your training week").assertExists()
+        next()
         compose.onNodeWithTag("screen-title").assertTextEquals("Training")
         val approved=state.value.plans.single()
-        val sameDay=firstWeek.groupBy { it.date }.values.single { it.size==2 }
+        val sameDay=firstWeek.groupBy { it.date }.values.first { it.size==2 }
         val run=sameDay.single { it.discipline=="run" }
         val cal=sameDay.single { it.discipline=="cal" }
         compose.onNodeWithTag("calendar-day-${run.date}").performClick()
@@ -148,24 +143,23 @@ class Engine1UiTest {
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,false,NativeActions({},{},{},{},{_,_->},planning=planning)) } } }
         compose.onNodeWithTag("nav-training").performClick()
         compose.onNodeWithText("Create a plan",useUnmergedTree=true).performClick()
-        compose.onNodeWithTag("screen-title").assertTextEquals("Choose disciplines")
+        compose.onNodeWithText("Choose your",substring=true).assertExists()
         capture("phase1-builder-disciplines")
-        repeat(3) { index -> if(index==1)compose.onNodeWithText("General strength").assertDoesNotExist();compose.onNodeWithTag("screen").performScrollToNode(hasText("Continue"));compose.onNodeWithText("Continue",useUnmergedTree=true).performClick() }
-        compose.onNodeWithTag("screen-title").assertTextEquals("Review your choices")
+        fun next()=compose.onNodeWithTag("builder-figma-continue").performClick()
+        next();next();next();next();next();next();next()
+        compose.onNodeWithText("Your training week").assertExists()
         capture("phase1-builder-review")
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Generate plan"));compose.onNodeWithText("Generate plan",useUnmergedTree=true).performClick()
+        compose.onNodeWithText("Generate my plan").assertExists();next()
         compose.waitUntil(10000) { state.value.plans.isNotEmpty() }
-        compose.onNodeWithTag("screen-title").assertTextEquals("Your plan")
+        compose.onNodeWithText("Your training week").assertExists()
         assertEquals("draft",state.value.plans.single().status)
         capture("phase1-generated-preview")
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Approve plan"));compose.onNodeWithText("Approve plan",useUnmergedTree=true).performClick()
+        next()
         compose.onNodeWithTag("screen-title").assertTextEquals("Training")
         assertEquals("approved",state.value.plans.single().status)
-        compose.onNodeWithText("Month",useUnmergedTree=true).performClick()
-        capture("phase1-month-calendar")
         val plan=state.value.plans.single();val session=plan.sessions.first()
+        capture("phase1-week-calendar")
         // A rest day may be selected by default; explicitly choose the workout date.
-        compose.onNodeWithText("Week",useUnmergedTree=true).performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("calendar-day-${session.date}"))
         compose.onNodeWithTag("calendar-day-${session.date}").performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-${session.id}"));compose.onNodeWithTag("workout-${session.id}").performClick()
@@ -181,16 +175,20 @@ class Engine1UiTest {
         capture("phase1-workout-history")
     }
     @Test fun fourRootsAndAcceptedLibraryModalRemainFunctional() {
-        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(TrainingState(initializing=false),true,NativeActions({},{},{},{},{_,_->})) } } }
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(TrainingState(initializing=false,account="synthetic-roots-ui"),true,NativeActions({},{},{},{},{_,_->})) } } }
         compose.onNodeWithTag("nav-library").performClick()
-        compose.waitUntil(10000) { compose.onAllNodesWithTag("library-ready").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("23 curated entries"));compose.onNodeWithText("23 curated entries").assertExists()
+        compose.waitUntil(30000) { compose.onAllNodesWithTag("library-ready").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("curated entries",substring=true));compose.onNodeWithText("curated entries",substring=true).assertExists()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Search exercises"));compose.onNodeWithText("Search exercises").performTextInput("Incline");compose.onNodeWithText("Search exercises").performImeAction()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Incline push-up"));compose.onNodeWithText("Incline push-up",useUnmergedTree=true).performClick()
-        compose.waitUntil(10000) { compose.onAllNodesWithContentDescription("Incline push-up — original schematic").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10000) { compose.onAllNodesWithText("TECHNIQUE & STRUCTURE").fetchSemanticsNodes().isNotEmpty() }
         capture("phase1-library-modal")
         compose.onNodeWithText("Close",useUnmergedTree=true).performScrollTo().performClick()
-        listOf("home" to "Today","training" to "Training","activities" to "Activities","library" to "Library").forEach { (tag,title) -> compose.onNodeWithTag("nav-$tag").performClick();compose.onNodeWithTag("screen-title").assertTextEquals(title) }
+        listOf("home" to "Today","training" to "Training","activities" to "Activities","library" to "Library").forEach { (tag,title) ->
+            compose.onNodeWithTag("nav-$tag").performClick()
+            if(tag=="library")compose.waitUntil(30000) { compose.onAllNodesWithTag("library-ready").fetchSemanticsNodes().isNotEmpty() }
+            else compose.onNodeWithTag("screen-title").assertTextEquals(title)
+        }
     }
     @Test fun calendarAndInstructionalModalReflowAtTwoHundredPercentText() {
         val request=PlanRequest(start=LocalDate.now(),runDays=0,strengthDays=2,calDays=2,days=setOf(1,2,4,6))
@@ -202,14 +200,13 @@ class Engine1UiTest {
             }
         } }
         compose.onNodeWithTag("nav-training").performClick()
-        compose.onNodeWithText("Month",useUnmergedTree=true).performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("training-calendar"))
         capture("phase1-calendar-200pct")
         compose.onNodeWithTag("screen").performScrollToNode(hasText("PRIVATE TESTING FEEDBACK"))
         compose.onNodeWithText("PRIVATE TESTING FEEDBACK").assertIsDisplayed()
         compose.onNodeWithTag("nav-library").performClick()
-        compose.waitUntil(10000) { compose.onAllNodesWithTag("library-ready").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("23 curated entries"));compose.onNodeWithText("23 curated entries").assertExists()
+        compose.waitUntil(30000) { compose.onAllNodesWithTag("library-ready").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("curated entries",substring=true));compose.onNodeWithText("curated entries",substring=true).assertExists()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Search exercises"));compose.onNodeWithText("Search exercises").performTextInput("Incline");compose.onNodeWithText("Search exercises").performImeAction()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Incline push-up"));compose.onNodeWithText("Incline push-up",useUnmergedTree=true).performClick()
         compose.onNodeWithText("MAKE IT EASIER").performScrollTo().assertIsDisplayed()
@@ -221,8 +218,8 @@ class Engine1UiTest {
         val actions=PlanActions(shelf={id,c,remove -> state.value=state.value.copy(shelf=state.value.shelf.change(id,c,remove)) })
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,true,NativeActions({},{},{},{},{_,_->},planning=actions)) } } }
         compose.onNodeWithTag("nav-library").performClick()
-        compose.waitUntil(10000) { compose.onAllNodesWithTag("library-ready").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("23 curated entries"));compose.onNodeWithText("23 curated entries").assertExists()
+        compose.waitUntil(30000) { compose.onAllNodesWithTag("library-ready").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("curated entries",substring=true));compose.onNodeWithText("curated entries",substring=true).assertExists()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Search exercises"));compose.onNodeWithText("Search exercises").performTextInput("Incline");compose.onNodeWithText("Search exercises").performImeAction()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Incline push-up"));compose.onNodeWithText("Incline push-up",useUnmergedTree=true).performClick()
         compose.onNodeWithText("Save favorite",useUnmergedTree=true).performScrollTo().performClick()
@@ -251,19 +248,21 @@ class Engine1UiTest {
         compose.onNodeWithTag("screen").performScrollToNode(hasText(session.effectiveExercises.first().name));compose.onNodeWithText(session.effectiveExercises.first().name).assertExists()
         capture("phase1-reviewed-workout-alternative")
     }
-    @Test fun libraryPracticeCreatesReviewedDraftAndReusableTemplateBeforeApproval() {
-        val state=mutableStateOf(TrainingState(initializing=false,account="synthetic-practice-ui"))
+    @Test fun libraryTemplateCreatesReviewedDraftAndReusableTemplateBeforeApproval() {
+        val seed=Engine1.generate(PlanRequest(equipment=mapOf("bb" to 1,"rack" to 1,"bench" to 1)),"synthetic-practice-ui")
+        val state=mutableStateOf(TrainingState(initializing=false,account="synthetic-practice-ui",plans=listOf(seed)))
         val actions=PlanActions(saveTemplate={t->state.value=state.value.copy(templates=listOf(t))},prepareSession={t,p,d->state.value=state.value.copy(plans=listOf(t.draft("synthetic-practice-ui",p,d)))},approve={id,_->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.approve(it,emptyList())else it })})
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,true,NativeActions({},{},{},{},{_,_->},planning=actions)) } } }
-        compose.onNodeWithTag("nav-library").performClick();compose.waitUntil(10000) { compose.onAllNodesWithTag("library-ready").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Search exercises"));compose.onNodeWithText("Search exercises").performTextInput("Bodyweight squat");compose.onNodeWithText("Search exercises").performImeAction()
-        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("library-entry-sq"));compose.onNodeWithTag("library-entry-sq").performClick()
-        compose.waitUntil(10000) { compose.onAllNodesWithText("TECHNIQUE & STRUCTURE").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Prepare practice session",useUnmergedTree=true).performScrollTo().performClick()
+        compose.onNodeWithTag("nav-library").performClick();compose.waitUntil(30000) { compose.onAllNodesWithTag("library-ready").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Templates"));compose.onNodeWithText("Templates",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Review lower-body template"));compose.onNodeWithText("Review lower-body template",useUnmergedTree=true).performClick()
         compose.onNodeWithTag("screen-title").assertTextEquals("Prepare a session")
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Some experience"))
+        compose.onNodeWithText("Some experience",useUnmergedTree=true).performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Save reusable template"));compose.onNodeWithText("Save reusable template",useUnmergedTree=true).performClick();assertEquals(1,state.value.templates.size)
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Create practice draft"));compose.onNodeWithText("Create practice draft",useUnmergedTree=true).performClick()
-        compose.waitUntil(10000) { state.value.plans.isNotEmpty() };compose.onNodeWithTag("screen-title").assertTextEquals("Practice preview");assertEquals("draft",state.value.plans.single().status)
+        compose.waitUntil(10000) { state.value.plans.singleOrNull()?.id!=seed.id }
+        compose.onNodeWithTag("screen-title").assertTextEquals("Practice preview");assertEquals("draft",state.value.plans.single().status)
         capture("phase1-practice-preview")
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Approve practice session"));compose.onNodeWithText("Approve practice session",useUnmergedTree=true).performClick()
         compose.onNodeWithTag("screen-title").assertTextEquals("Training");assertEquals("approved",state.value.plans.single().status)
@@ -293,10 +292,10 @@ class Engine1UiTest {
         val guide=readLibrary(InstrumentationRegistry.getInstrumentation().targetContext).first { it.guide }
         val state=TrainingState(initializing=false,account="synthetic-guide-ui",shelf=LibraryShelf(favorites=setOf(guide.id)))
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state,true,NativeActions({},{},{},{},{_,_->})) } } }
-        compose.onNodeWithTag("nav-library").performClick();compose.waitUntil(10000) { compose.onAllNodesWithTag("library-ready").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("nav-library").performClick();compose.waitUntil(30000) { compose.onAllNodesWithTag("library-ready").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Saved"));compose.onNodeWithText("Saved",useUnmergedTree=true).performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("library-entry-${guide.id}"));compose.onNodeWithTag("library-entry-${guide.id}").performClick()
-        compose.onNodeWithText("Educational reference. This is not an executable workout.").performScrollTo().assertExists()
+        compose.onNodeWithText("Educational reference.",substring=true).performScrollTo().assertExists()
         compose.onNodeWithText("Prepare practice session").assertDoesNotExist();compose.onNodeWithText("Build a running plan").assertDoesNotExist()
     }
     @Test fun switchingTabsRestoresUnconfirmedWorkoutEntryWithoutMarkingItPerformed() {

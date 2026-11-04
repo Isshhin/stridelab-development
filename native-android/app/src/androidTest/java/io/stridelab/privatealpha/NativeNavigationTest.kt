@@ -22,6 +22,11 @@ class NativeNavigationTest {
             compose.onAllNodesWithTag("nav-settings").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithTag("nav-settings").performClick()
+        // Trackside Settings is intentionally longer than the legacy screen;
+        // account actions are lazy-list items below the provider sections.
+        compose.onNodeWithTag("screen").performScrollToNode(
+            hasText("Sign out on this device") or hasText("Sign in")
+        )
         compose.waitUntil(timeoutMillis = 5000) {
             compose.onAllNodesWithText("Sign out on this device", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() ||
                 compose.onAllNodesWithText("Sign in", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()

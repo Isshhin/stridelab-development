@@ -427,6 +427,7 @@ private fun NavHostController.openActivity(id: String) {
                             item { TracksideSectionHeader("Private account") }
                             item { SignalCard { Text("ACCOUNT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text(state.account!!, style = MaterialTheme.typography.bodyMedium) } }
                             item { TracksideSectionHeader("Connections") }
+                            item { GarminSettingsCard(state.account!!) }
                             item { SignalCard {
                                 Text("ACTIVITY SOURCE", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                                 Text("Intervals.icu",style = MaterialTheme.typography.titleLarge)
