@@ -144,3 +144,25 @@ P2-A/C/D/E remain dependency-gated.
 3. Prepare P2-F feasibility/admission under frozen baseline `26a8331`.
 4. Maintain a P2-F handoff under the project continuity protocol.
 5. Do not open confirmatory held-out outcomes until the P2-F Gate 2 manifest is frozen and independently reviewed.
+
+
+## Phase 2 Wave 1 multi-session execution
+
+Wave 1 is now organized as controlled parallel work.
+
+Program:
+`docs/research/2026-11-04-engine2x-phase2-multisession-program.md`
+
+Prompts:
+`docs/research/2026-11-04-engine2x-phase2-wave1-prompts.md`
+
+Launch in parallel:
+
+1. P2-F1 rights/source admission
+2. P2-F2 linkage/data contract
+3. P2-F3 parser/provenance/reconciliation reliability
+4. P2-B0 repeatability protocol preparation only
+
+Then run P2-FI integration/Gate 2 readiness review.
+
+P2-B0 is preparation only. Active P2-B validation still waits for eligible linked P2-F data. P2-A/C/D/E remain dependency-gated.
