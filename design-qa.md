@@ -114,3 +114,27 @@ The pending source update changes only Strength Setup's fixed-height rows, selec
 **Accessibility:** At 360dp/130%, the fourth Conditioning card extends below the fold in the initial viewport. The scroll-reachability test at `5aa0094` invokes `performScrollTo()`, asserts the card displays, and captures `qa-screenshots/compact-360dp-font130/StrideLabBatchB/builder-disciplines-last-card-reachable-360dp-font130.png`. The actual after-scroll screenshot displays the complete Conditioning name and description above the fixed footer; the count and Continue button remain visible. All four responsive profiles passed. Card hit areas were preserved and the accepted Strength and Calisthenics screen checks remained green.
 
 **Outcome:** No actionable P0/P1/P2 issue remains in Discipline Selection. This is close rendered Figma parity, not pixel-for-pixel identity. Next acceptance target: Running Goal Selection (Figma `551:603`); later Plan Builder and draft-review screens are not yet accepted. No Engine 1.5/2.0 integration or release APK changes.
+
+
+## Plan Builder: Running Goal Selection — accepted rendered QA (2026-11-04)
+
+**Status: ACCEPTED for Running Goal Selection only.** Approved Figma source: file `v73TsYo6gKxUoiUock2sSE`, node `551:603` (412 × 950). Exact verified branch head `52f74d89911e683497741a40e91eb768595148af`. Windows API 35 self-hosted run [41792675823](https://github.com/Isshhin/stridelab-development/actions/runs/41792675823), artifact `13304457851` (`trackside-strength-windows-evidence`).
+
+### Build and four-profile device evidence
+
+- Shared exercise-library schema validation, JVM/unit tests, debug Android compilation and instrumentation compilation: passed.
+- Pixel 9 Android API 35 x86_64 emulator smoke: **22/22 passed**.
+- Responsive instrumentation: **412dp/100% 13/13, 360dp/100% 13/13, 360dp/130% 13/13, 412dp/150% 13/13**.
+- **27 screenshots per profile**, uploaded with instrumentation reports.
+- Primary matched screenshot: `qa-screenshots/figma-412dp-font100/StrideLabBatchB/builder-running-goal-figma-reference-412dp-font100.png`. Scrolled accessibility evidence: `qa-screenshots/compact-360dp-font130/StrideLabBatchB/builder-running-goal-last-card-reachable-360dp-font130.png` and analogous files in other profile folders.
+
+### Figma 551:603 rendered comparison
+
+- The actual 824×1900 emulator root was normalized to 412×950 and compared with approved Figma reference. Differences in status/nav-system chrome are excluded from parity.
+- The five editable goal vectors now match Figma's race flag, faster runner, endurance chart, fitness heartbeat, and custom sliders. Their approved 25dp paths and selected/default treatment are preserved in Android VectorDrawables, not substituted with generic icons.
+- The selected race card has the correct emphasis without an additional checkmark. Card sizing, gaps, copy hierarchy, and action area are close to Figma at 412dp/100%.
+- At 360dp/130% and 412dp/150%, content expands vertically without truncating the titles or subtitles; the final `Train your way` card is fully reachable through the scrollable body, and Continue remains fixed.
+- The test verifies all five card/icon nodes, baseline card placement, final-card scroll reachability, changing the selected goal to `faster`, and Continue enablement.
+- No actionable P0/P1/P2 issue was observed in the rendered accepted scope. This is close rendered parity rather than pixel-by-pixel identity.
+
+**Result: ACCEPTED.** This does not approve Race Goal Selection, Running Ability, other Plan Builder stages, or Engine 1.5 integration. Next target: Race & Performance (Figma `551:796`). No Engine 1.5/Engine 2.0 or release APK infrastructure change.
