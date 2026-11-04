@@ -566,11 +566,13 @@ internal fun TracksideFigmaRaceGoalScreen(
 @Composable
 private fun TracksideFigmaAbilityRange(
     header: String, title: String, note: String,
-    value: Double, maxValue: Float, unit: String, onValue: (Double) -> Unit
+    value: Double, maxValue: Float, unit: String, tag: String,
+    onValue: (Double) -> Unit
 ) {
     Text(header, fontSize=11.sp, color=muted, fontWeight=FontWeight.Bold)
     Spacer(Modifier.height(11.dp))
-    Surface(Modifier.fillMaxWidth().height(127.dp),
+    Surface(Modifier.fillMaxWidth().heightIn(min=127.dp)
+        .testTag("builder-ability-$tag-card"),
         color=Color(0xFF1A2D38),shape=RoundedCornerShape(13.dp),
         border=BorderStroke(1.dp,outline)) {
         Column(Modifier.padding(horizontal=14.dp,vertical=13.dp)) {
@@ -595,6 +597,7 @@ private fun TracksideFigmaAbilityRange(
                     inactiveTrackColor=Color(0xFF4C6674)
                 ),
                 modifier=Modifier.fillMaxWidth().height(29.dp)
+                    .testTag("builder-ability-$tag-slider")
             )
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
                 Text("0 km",fontSize=9.sp,color=muted)
@@ -650,12 +653,14 @@ internal fun TracksideFigmaRunningAbilityScreen(
         TracksideFigmaAbilityRange(
             header="CURRENT WEEKLY DISTANCE",title="Typical weekly volume",
             note="Last 4–6 weeks",value=weeklyKm,maxValue=120f,unit="km / week",
+            tag="weekly",
             onValue=onWeeklyKm
         )
         Spacer(Modifier.height(27.dp))
         TracksideFigmaAbilityRange(
             header="LONGEST RECENT RUN",title="Longest run completed",
             note="Recent training",value=longestKm,maxValue=42f,unit="km",
+            tag="longest",
             onValue=onLongestKm
         )
         Spacer(Modifier.height(24.dp))
@@ -663,7 +668,8 @@ internal fun TracksideFigmaRunningAbilityScreen(
             color=muted,fontWeight=FontWeight.Bold)
         Spacer(Modifier.height(11.dp))
         Surface(
-            modifier=Modifier.fillMaxWidth().height(75.dp),
+            modifier=Modifier.fillMaxWidth().heightIn(min=75.dp)
+                .testTag("builder-ability-optional-card"),
             shape=RoundedCornerShape(12.dp),color=Color(0xFF172A36),
             border=BorderStroke(1.dp,outline)
         ) {
@@ -675,7 +681,8 @@ internal fun TracksideFigmaRunningAbilityScreen(
                     Text("Helps estimate appropriate training intensities.",
                         fontSize=10.sp,color=muted)
                 }
-                TextButton(onClick={resultInfoOpen=true}) {
+                TextButton(onClick={resultInfoOpen=true},
+                    modifier=Modifier.testTag("builder-ability-add-result")) {
                     Text("Add result",fontSize=11.sp,color=white)
                 }
             }
