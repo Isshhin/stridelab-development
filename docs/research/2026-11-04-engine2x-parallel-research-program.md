@@ -353,18 +353,18 @@ This common structure is required so Session G can synthesize results efficientl
 
 ## 15. Progress tracking
 
-Initial Phase 1 state:
+Phase 1 checkpoint, 4 November 2026. Discovery reports passed the pre-synthesis review. [Session G synthesis](2026-11-04-engine2x-session-g-synthesis.md) is complete. Phase 2 protocols are proposed and await authorized data.
 
 | Session | Status |
 | --- | --- |
-| A - Competitive audit | NOT_STARTED |
-| B - Athlete state and response | NOT_STARTED |
-| C - Progression, deload, re-entry | NOT_STARTED |
-| D - Aerobic efficiency and environment | NOT_STARTED |
-| E - Adaptive prescription | NOT_STARTED |
-| F - Real data and validation | NOT_STARTED |
-| H - Researcher/framework audit | NOT_STARTED |
-| G - Synthesis | BLOCKED_ON_A_TO_F_AND_H |
+| A - Competitive audit | COMPLETE |
+| B - Athlete state and response | COMPLETE |
+| C - Progression, deload, re-entry | COMPLETE |
+| D - Aerobic efficiency and environment | COMPLETE |
+| E - Adaptive prescription | COMPLETE |
+| F - Real data and validation | COMPLETE |
+| H - Researcher/framework audit | COMPLETE |
+| G - Synthesis | COMPLETE |
 
 Each session should update its status to `IN_PROGRESS`, `BLOCKED`, `REVIEW`, or `COMPLETE` in its report and in the TickTick parent tracker.
 
