@@ -112,16 +112,15 @@ import kotlinx.coroutines.withContext
             if(agendaView && !monthView) {
                 val rows=tracksideTrainingWeek(plan,date)
                 if(rows.all { it.sessions.isEmpty() }) item { SignalCard { Text("No sessions scheduled for this week",style=MaterialTheme.typography.titleLarge) } }
-                rows.forEach { day ->
-                    if(day.sessions.isNotEmpty()) {
-                        item(key="agenda-day-${day.date}") {
-                            Text(day.date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")),
-                                style=MaterialTheme.typography.titleMedium,
-                                color=if(day.date==date)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-                        }
-                        day.sessions.forEach { session ->
-                            item(key="agenda-workout-${session.id}") { PlannedWorkoutCard(session,state.workoutDrafts.containsKey(plan.id to session.id),compact=true) { onOpen(plan.id,session.id) } }
-                        }
+                rows.filter { it.sessions.isNotEmpty() }.forEach { day ->
+                    item(key="agenda-day-${day.date}") {
+                        TracksideParityAgendaDay(
+                            day = day,
+                            hasWorkoutDraft = { sessionId ->
+                                state.workoutDrafts.containsKey(plan.id to sessionId)
+                            },
+                            onOpen = { sessionId -> onOpen(plan.id,sessionId) }
+                        )
                     }
                 }
             } else {
