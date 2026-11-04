@@ -55,7 +55,7 @@ def main():
            'FitContainerReader','IntervalConnection','LibraryShelf','MultiSessionEngine1',
            'PlanBackup','PlanOperations','PlanScheduleValidation','SessionTemplate',
            'SupabaseGateway','WearableProviderContracts','WellnessRecord',
-           'WorkoutEntryDraft','WorkoutLogValidation']
+           'WeeklyPlacement','WorkoutEntryDraft','WorkoutLogValidation']
     kotlin=[native/'main/java/io/stridelab/privatealpha'/f'{n}.kt' for n in names]
     # One existing pure helper lives in a Compose file. Compile its exact source, not a stub.
     # Full Android compilation remains a separate CI gate.
@@ -66,11 +66,11 @@ def main():
     extracted.write_text('package io.stridelab.privatealpha\nimport java.time.Instant\nimport java.time.ZoneId\n'+helper.group(0)+'\n')
     kotlin.append(extracted)
     all_tests=sorted((native/'test/java/io/stridelab/privatealpha').glob('*.kt'))
-    # FIT SDK and Trackside Compose-bound tests run with the Android Gradle
+    # FIT SDK, generated BuildConfig, and Compose-bound tests run with the Android Gradle
     # classpath. They MUST run in :app:testDebugUnitTest (the independent CI job).
     # This pinned, SDK-free harness checks every other native JVM test as well as
     # the legacy Java/library compatibility suite, even when new tests appear.
-    gradle_only={'FitActivityDecoderTest.kt','FitContainerReaderTest.kt','TracksideTrainingCalendarTest.kt','TracksideParityPlanStateTest.kt'}
+    gradle_only={'FitActivityDecoderTest.kt','FitContainerReaderTest.kt','TracksideTrainingCalendarTest.kt','TracksideParityPlanStateTest.kt','TracksideCoachingIntegrationTest.kt'}
     if not gradle_only.issubset({p.name for p in all_tests}):
         raise RuntimeError('FIT SDK test boundary changed; review both CI suites')
     tests=[p for p in all_tests if p.name not in gradle_only]

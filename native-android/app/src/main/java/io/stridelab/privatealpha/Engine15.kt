@@ -19,14 +19,19 @@ internal object Engine15 : PlanGenerationEngine {
     internal fun validate(request: PlanRequest) {
         if (request.policyChoice != "engine15")
             throw PlanConstraint("Engine 1.5 must be selected explicitly.")
+        if (request.disciplineGoals.any { (d, goal) -> goal !in Engine1Engines.goals[d].orEmpty() })
+            throw PlanConstraint("Choose supported goals for each discipline.")
         Engine15SessionLocks.validateRequest(request)
         if (requiresMulti(request))
             MultiSessionEngine1.validate(request.copy(policyChoice = "multi-session"))
         else Engine1.validate(request)
     }
 
-    private fun requiresMulti(p:PlanRequest) =
-        p.runDays + p.strengthDays + p.calDays + p.conditioningDays > p.days.size
+    private fun requiresMulti(p:PlanRequest): Boolean {
+        val assigned = p.weeklySlots.values.flatten()
+        return p.runDays + p.strengthDays + p.calDays + p.conditioningDays > p.days.size ||
+            assigned.distinct().size != assigned.size
+    }
 
     private data class QualityStructure(
         val title: String, val instructions: String, val requiredMinutes: Int
@@ -107,6 +112,8 @@ internal object Engine15 : PlanGenerationEngine {
         val baseline = when {
             interference -> Engine15InterferenceScheduling.generateBase(request, owner, id, now)
             multi -> MultiSessionEngine1.generate(request.copy(policyChoice = "multi-session"), owner, id, now)
+            request.disciplineGoals.isNotEmpty() -> CoordinatedEngine1.generate(
+                request.copy(policyChoice = "coordinated"), owner, id, now)
             else -> Engine1.generate(request.copy(policyChoice = "baseline"), owner, id, now)
         }
         val weekly = baseline.sessions.groupBy { weekIndex(request, it) }

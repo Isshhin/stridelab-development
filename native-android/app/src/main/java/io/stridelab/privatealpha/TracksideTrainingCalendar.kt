@@ -57,7 +57,7 @@ internal fun tracksideTrainingWeek(plan: PlanSnapshot, selected: LocalDate): Lis
     val monday = tracksideCalendarMonday(selected)
     return (0L..6L).map { offset ->
         val date = monday.plusDays(offset)
-        TracksideTrainingDay(date, plan.sessions.filter { it.date == date })
+        TracksideTrainingDay(date, plan.sessions.filter { it.date == date && it.status != "unassigned" }.map(plan::cardPresentation))
     }
 }
 

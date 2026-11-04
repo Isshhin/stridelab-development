@@ -34,6 +34,10 @@ internal fun TracksideParityPausedPlan(
         item {
             TextButton(onClick = onBack) { Text("‹ Back to Training") }
         }
+        if (plan.engineVersion == ENGINE15_VERSION && Engine1Engines.canManage(plan)) {
+            item { Engine15ScheduleReview(plan, actions, busy) }
+            item { Engine15RecommendationReview(plan, actions, busy) }
+        }
         item {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -65,7 +69,7 @@ internal fun TracksideParityPausedPlan(
                         color = TracksidePalette.textMuted, style = MaterialTheme.typography.bodyMedium)
                     Button(
                         onClick = { actions.approve(plan.id, plan.revision) },
-                        enabled = !busy && Engine1Engines.canManage(plan),
+                        enabled = !busy && Engine1Engines.canManage(plan) && plan.sessions.none { it.status == "unassigned" },
                         modifier = Modifier.fillMaxWidth().height(48.dp).testTag("manage-resume"),
                         colors = ButtonDefaults.buttonColors(containerColor = TracksidePalette.red),
                         shape = RoundedCornerShape(13.dp)

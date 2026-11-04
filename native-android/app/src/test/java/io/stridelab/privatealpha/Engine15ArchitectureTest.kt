@@ -41,6 +41,25 @@ class Engine15ArchitectureTest {
         }
     }
 
+    @Test fun tracksidePreferencesAndExactSessionLocksSurviveTheSameSnapshot() {
+        val original = request().copy(
+            dailyMinutes = 85,
+            weeklySlots = mapOf("run" to listOf(6, 1, 2)),
+            preferredQuality = "Intervals",
+            allowedQualityTypes = setOf("Intervals")
+        )
+        val draft = Engine15.generate(original, owner, "trackside-lock", now)
+        val target = draft.sessions.first()
+        val locked = PlanOperations.setSessionLock(draft, target.id, true)
+        val reopened = PlanSnapshot.decode(locked.encode(), owner)
+        assertEquals(original.weeklySlots, reopened.request.weeklySlots)
+        assertEquals(original.preferredQuality, reopened.request.preferredQuality)
+        assertEquals(original.allowedQualityTypes, reopened.request.allowedQualityTypes)
+        assertEquals(85, reopened.request.dailyMinutes)
+        assertEquals(target.date.toString(), reopened.request.lockedSessionDays[target.id])
+        assertEquals(locked, reopened)
+    }
+
     @Test fun candidateKeepsBaselineDatesAndEquipmentWithBoundedRunChanges() {
         val request = request()
         val old = Engine1.generate(request.copy(policyChoice = "baseline"), owner, "same-id", now)

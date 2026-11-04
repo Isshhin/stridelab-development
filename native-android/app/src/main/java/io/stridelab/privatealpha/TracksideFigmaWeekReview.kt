@@ -174,7 +174,7 @@ internal fun TracksideFigmaWeekReview(
                         fontWeight=FontWeight.Bold
                     )
                     Text(
-                        if(request.policyChoice=="multi-session")"MAX 2 / DAY"
+                        if(plan?.let { PlanScheduleValidation.isMultiPolicy(it.policyId) } ?: (request.policyChoice=="multi-session"))"MAX 2 / DAY"
                         else "CURRENT POLICY · 1 / DAY",
                         fontSize=10.sp,color=Color(0xFFB6C0CA))
                 }

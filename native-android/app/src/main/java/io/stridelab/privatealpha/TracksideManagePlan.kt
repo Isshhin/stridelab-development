@@ -102,6 +102,10 @@ internal fun TracksideManagePlanScreen(
             TracksidePlanWeekOverview(plan, inRange)
         }
         item { TracksideSectionHeader("Manage your plan") }
+        if (plan.engineVersion == ENGINE15_VERSION && Engine1Engines.canManage(plan)) {
+            item { Engine15ScheduleReview(plan, actions, busy) }
+            item { Engine15RecommendationReview(plan, actions, busy) }
+        }
         item {
             TracksideManageAction(
                 title = "Edit a workout",
@@ -130,7 +134,13 @@ internal fun TracksideManagePlanScreen(
                                 Text(session.date.toString() + " · " + session.effectiveMinutes + " planned min",
                                     style = MaterialTheme.typography.bodySmall, color = TracksidePalette.textMuted)
                             }
-                            TextButton(onClick = { movingWorkout = session },
+                            if (plan.engineVersion == ENGINE15_VERSION && session.status == "planned" && session.log == null && session.linkedActivityId == null) {
+                                val locked = session.id in plan.request.lockedSessionDays
+                                TextButton(onClick = { actions.lockWorkout(plan.id, plan.revision, session.id, !locked) }, enabled = canManage) {
+                                    Text(if (locked) "Unlock" else "Lock")
+                                }
+                            }
+                            TextButton(onClick = { movingWorkout = session }, enabled = session.id !in plan.request.lockedSessionDays,
                                 modifier = Modifier.testTag("manage-move-" + session.id)) {
                                 Text("Move ›", style = MaterialTheme.typography.labelMedium,
                                     color = TracksidePalette.text)

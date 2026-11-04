@@ -36,7 +36,7 @@ internal object Engine15InterferenceScheduling {
         // Engine 1.0 alternates lower and upper strength only alongside running.
         // Generate a disposable one-run strength draft, then retain strength only.
         val solo=p.copy(goal=Engine1Engines.goal(p,discipline),
-            policyChoice="baseline",
+            policyChoice="baseline", weeklySlots=emptyMap(),
             runDays=if(discipline=="run")count else if(strength)1 else 0,
             strengthDays=if(strength)count else 0,
             calDays=if(discipline=="cal")count else 0,
@@ -74,8 +74,9 @@ internal object Engine15InterferenceScheduling {
                 if(index==ordered.size)return true
                 if(++attempts>250_000)return false
                 val session=ordered[index]
+                val pinnedDay=WeeklyPlacement.fixedDay(p,session)
                 val candidates=slots.filter {
-                    when {
+                    (pinnedDay==null || it.dayOfWeek.value==pinnedDay) && when {
                         session.kind=="long"->it.dayOfWeek.value==p.longDay
                         session.quality->it.dayOfWeek.value in p.qualityDays
                         else->true

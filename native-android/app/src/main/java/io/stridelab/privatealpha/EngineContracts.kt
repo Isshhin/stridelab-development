@@ -113,7 +113,7 @@ internal data class PlanSnapshot(val id:String,val owner:String,val engineVersio
             require(j.getString("user_id")==owner) { "Plan owner does not match" }
             val sessions=j.getJSONArray("sessions").objects().map(PlannedSession::decode)
             require(sessions.size<=400 && sessions.map { it.id }.distinct().size==sessions.size && sessions.all { it.logRevision>=0 })
-            return PlanSnapshot(j.getString("id"),owner,j.getString("engineVersion"),j.getString("policyId"),Instant.parse(j.getString("createdAt")),PlanRequest.decode(j.getJSONObject("request")),sessions,j.getJSONArray("explanations").strings(),j.getString("status"),j.getJSONArray("feedback").objects().map(PlanFeedback::decode),j.getInt("revision"),if(j.getString("engineVersion")!=ENGINE1_VERSION || j.getString("policyId") !in Engine1Engines.knownPolicies)j.toString()else null,j.nullString("name"))
+            return PlanSnapshot(j.getString("id"),owner,j.getString("engineVersion"),j.getString("policyId"),Instant.parse(j.getString("createdAt")),PlanRequest.decode(j.getJSONObject("request")),sessions,j.getJSONArray("explanations").strings(),j.getString("status"),j.getJSONArray("feedback").objects().map(PlanFeedback::decode),j.getInt("revision"),if(!Engine1Engines.supports(j.getString("engineVersion"),j.getString("policyId")))j.toString()else null,j.nullString("name"))
         }
     }
 }

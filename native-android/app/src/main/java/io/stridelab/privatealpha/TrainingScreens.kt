@@ -36,9 +36,9 @@ import kotlinx.coroutines.withContext
     SignalCard {
         Text(plan.status.uppercase()+" · ENGINE ${plan.engineVersion}",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
         Text(plan.name ?: plan.request.goal,style=MaterialTheme.typography.headlineSmall)
-        Text(if(!Engine1Engines.canManage(plan))"Saved engine/policy · read-only here" else when(plan.policyId) {CoordinatedEngine1.policyId->"Coordinated discipline goals";MultiSessionEngine1.policyId->"Multi-session scheduling";SessionTemplate.POLICY_ID->"User-reviewed session targets";else->"Verified baseline fallback"},style=MaterialTheme.typography.bodySmall)
+        Text(if(!Engine1Engines.canManage(plan))"Saved engine/policy · read-only here" else when(plan.policyId) {ENGINE15_POLICY->"Engine 1.5 training plan";ENGINE15_MULTI_POLICY->"Engine 1.5 multi-session scheduling";ENGINE15_INTERFERENCE_POLICY->"Engine 1.5 interference-aware scheduling";CoordinatedEngine1.policyId->"Coordinated discipline goals";MultiSessionEngine1.policyId->"Multi-session scheduling";SessionTemplate.POLICY_ID->"User-reviewed session targets";else->"Verified baseline fallback"},style=MaterialTheme.typography.bodySmall)
         Text("${plan.request.start} – ${plan.request.start.plusWeeks(plan.request.weeks.toLong()).minusDays(1)} · ${plan.request.weeks} weeks",style=MaterialTheme.typography.bodyMedium)
-        if(plan.policyId==MULTI_SESSION_POLICY) {
+        if(PlanScheduleValidation.isMultiPolicy(plan.policyId)) {
             val requested=plan.request.runDays+plan.request.strengthDays+plan.request.calDays+plan.request.conditioningDays
             Text("$requested sessions/week · ${firstWeek.map { it.date }.distinct().size} scheduled training days/week · ${plan.request.days.size} available days",style=MaterialTheme.typography.bodyMedium)
             Text("${plan.sessions.size} total prescribed sessions · ${plan.sessions.count { it.status=="completed" }} completed · ${plan.request.dailyMinutes} min daily budget",style=MaterialTheme.typography.bodyMedium)
@@ -145,7 +145,7 @@ import kotlinx.coroutines.withContext
                     } else {
                         item { Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")).uppercase(),
                             style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant) }
-                        val day=plan.sessions.filter { it.date==date }
+                        val day=plan.sessions.filter { it.date==date && it.status!="unassigned" }.map(plan::cardPresentation)
                         if(day.isEmpty()) item { SignalCard { Text("No workout scheduled",style=MaterialTheme.typography.titleLarge);Text("This calendar date has no prescribed session. No workout or completion is assumed.") } }
                         day.forEach { session -> item { PlannedWorkoutCard(session,state.workoutDrafts.containsKey(plan.id to session.id),compact=true) { onOpen(plan.id,session.id) } } }
                     }
@@ -161,7 +161,7 @@ import kotlinx.coroutines.withContext
         if(plan != null && plan.status in setOf("draft","paused")) {
             TracksideParityDraftApprovalDock(
                 plan,
-                enabled = !state.busy && Engine1Engines.canManage(plan),
+                enabled = !state.busy && Engine1Engines.canManage(plan) && plan.sessions.none { it.status == "unassigned" },
                 onApprove = { actions.approve(plan.id,plan.revision) },
                 modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp)
             )
@@ -182,7 +182,7 @@ import kotlinx.coroutines.withContext
         }
         Row { (1..7).forEach { d -> Text(dayName(d).take(2),Modifier.weight(1f),style=MaterialTheme.typography.labelSmall) } }
         val gridStart=ym.atDay(1).minusDays((ym.atDay(1).dayOfWeek.value-1).toLong())
-        (0 until 6).forEach { row -> Row(Modifier.fillMaxWidth()) { (0 until 7).forEach { col -> val d=gridStart.plusDays((row*7+col).toLong());DayCell(d,d==selected,plan.sessions.filter { it.date==d },d in first..last && YearMonth.from(d)==ym,{onSelect(d)},Modifier.weight(1f),showWeekday=false) } } }
+        (0 until 6).forEach { row -> Row(Modifier.fillMaxWidth()) { (0 until 7).forEach { col -> val d=gridStart.plusDays((row*7+col).toLong());DayCell(d,d==selected,plan.sessions.filter { it.date==d && it.status!="unassigned" }.map(plan::cardPresentation),d in first..last && YearMonth.from(d)==ym,{onSelect(d)},Modifier.weight(1f),showWeekday=false) } } }
     } else {
         TracksideTrainingWeekChart(
             plan, selected, showNavigation = showWeekNavigation, onSelect = onSelect
@@ -227,9 +227,9 @@ import kotlinx.coroutines.withContext
     val next=plan.sessions.filter { it.date>=LocalDate.now() && it.status in setOf("planned","in_progress") }.minByOrNull { it.date }
     if(next!=null) {
         Text(if(next.date==LocalDate.now()) "TODAY" else "UP NEXT",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        PlannedWorkoutCard(next) { onOpen(next.id) }
+        PlannedWorkoutCard(plan.cardPresentation(next)) { onOpen(next.id) }
         SignalCard { Text("COACH",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
-            Text(if(next.suggestion!=null&&!next.suggestion.accepted) "Your recent missed-workout reason prompted a recovery suggestion. Review the shorter alternative or choose rest; there is no extra catch-up volume." else "Your next session is ${next.title.lowercase()} on ${next.date}. ${next.reason} Use the planned prescription as a starting point and record what you actually complete.",style=MaterialTheme.typography.bodyLarge)
+            Text(if(plan.cardPresentation(next)!=next) plan.cardPresentation(next).reason else if(next.suggestion!=null&&!next.suggestion.accepted) "Your recent missed-workout reason prompted a recovery suggestion. Review the shorter alternative or choose rest; there is no extra catch-up volume." else "Your next session is ${next.title.lowercase()} on ${next.date}. ${next.reason} Use the planned prescription as a starting point and record what you actually complete.",style=MaterialTheme.typography.bodyLarge)
         }
     }
     val start=LocalDate.now().with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))

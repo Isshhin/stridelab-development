@@ -180,14 +180,14 @@ private fun NavHostController.openActivity(id: String) {
                             Button(onClick = { nav.navigate("auth") }, modifier = Modifier.fillMaxWidth()) { Text("Sign in") }
                         } else {
                             val plan = state.plans.firstOrNull { it.status == "approved" }
-                            val todaySessions = plan?.sessions?.filter { it.date == java.time.LocalDate.now() } ?: emptyList()
+                            val todaySessions = plan?.sessions?.filter { it.date == java.time.LocalDate.now() && it.status != "unassigned" } ?: emptyList()
                             val activeMultiSession = todaySessions.size >= 2 &&
                                 todaySessions.any { it.status == "completed" }
                             val next = plan?.sessions?.filter {
                                 it.date >= java.time.LocalDate.now() && it.status in setOf("planned", "in_progress")
                             }?.sortedWith(compareBy<PlannedSession>({ it.date }, { it.id }))?.firstOrNull()
                             if(next != null && plan != null && !activeMultiSession) item(key = "today-featured") {
-                                TracksideTodayHero(next) { nav.openWorkout(plan.id, next.id) }
+                                TracksideTodayHero(plan.cardPresentation(next)) { nav.openWorkout(plan.id, next.id) }
                             }
                             if(plan == null) item {
                                 SignalCard {
@@ -208,7 +208,7 @@ private fun NavHostController.openActivity(id: String) {
                                         TextButton(onClick = { nav.openTabRoot("training") }) { Text("View week ›") }
                                     }
                                 }
-                                val today = todaySessions
+                                val today = todaySessions.map(plan::cardPresentation)
                                 if(today.isEmpty()) item {
                                     Text("No workouts scheduled for today", color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         style = MaterialTheme.typography.bodyMedium)

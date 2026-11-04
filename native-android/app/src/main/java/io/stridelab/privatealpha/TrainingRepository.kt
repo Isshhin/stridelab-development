@@ -198,7 +198,13 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             ?: return null
         return Engine15Availability.preview(plan,newDays,mutable.value.plans)
     }
-    suspend fun updateAvailability(id:String,revision:Int,days:Set<Int>)=changePlan(id,revision) { plan->PlanOperations.updateAvailability(plan,days,mutable.value.plans) }
+    suspend fun updateAvailability(id:String,revision:Int,days:Set<Int>,expectedImpact:Engine15Availability.Impact?=null)=changePlan(id,revision) { plan->
+        val plans=mutable.value.plans
+        val today=java.time.LocalDate.now()
+        if(expectedImpact!=null && Engine15Availability.preview(plan,days,plans,today)!=expectedImpact)
+            throw PlanConstraint("The schedule changed. Preview availability again before applying.")
+        PlanOperations.updateAvailability(plan,days,plans,today)
+    }
     suspend fun setLongRunDay(id:String,revision:Int,day:Int)=changePlan(id,revision) { plan->PlanOperations.setLongRunDay(plan,day) }
     suspend fun setQualityDays(id:String,revision:Int,days:Set<Int>)=changePlan(id,revision) { plan->PlanOperations.setQualityDays(plan,days) }
     suspend fun recordWorkout(id:String,revision:Int,sessionId:String,log:WorkoutLog,complete:Boolean)=changePlan(id,revision) { PlanOperations.record(it,sessionId,log,complete) }

@@ -18,11 +18,15 @@ import kotlinx.coroutines.flow.drop
 @Composable internal fun WorkoutScreen(state:TrainingState,planId:String,sessionId:String,actions:PlanActions,onBack:()->Unit,onMissed:(()->Unit)?=null,onMove:(()->Unit)?=null) {
     val plan=state.plans.find { it.id==planId };val session=plan?.sessions?.find { it.id==sessionId }
     if(plan==null||session==null) { Screen("Workout unavailable","TRAINING") { item { Text("This workout is not saved for the current account.");TextButton(onClick=onBack) { Text("Back to Training") } } };return }
-    val exercises=session.effectiveExercises
+    val current = Engine15SessionPresentation.forSession(plan, session.id)
+    val shown = plan.cardPresentation(session)
+    val rest = current.state == Engine15SessionPresentation.State.ACCEPTED_REST
+    val timeOnly = current.state == Engine15SessionPresentation.State.ACCEPTED_TIME_ONLY
+    val exercises=shown.effectiveExercises
     val entryDraft=state.workoutDrafts[plan.id to session.id]?.takeIf { it.owner==plan.owner && it.logRevision==session.logRevision }
     var pendingSwap by rememberSaveable(plan.owner,session.id) { mutableStateOf<String?>(null) }
     var swapId by rememberSaveable(plan.owner,session.id) { mutableStateOf<String?>(null) }
-    val done=session.status=="completed";val active=Engine1Engines.canManage(plan) && plan.status in setOf("approved","paused") && session.status !in setOf("completed","missed","skipped")
+    val done=session.status=="completed";val active=Engine1Engines.canManage(plan) && plan.status in setOf("approved","paused") && session.status in setOf("planned","in_progress")
     var minutes by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.minutes ?: session.log?.minutes?.toString() ?: "") };var distance by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.distance ?: session.log?.distanceKm?.toString() ?: "") };var effort by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.effort ?: session.log?.effort?.toString() ?: "") };var notes by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.notes ?: session.log?.notes ?: "") }
     var performedOn by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.performedOn ?: session.log?.performedOn?.toString() ?: if(session.log==null)LocalDate.now().toString() else "") }
     var entries by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.visibleEntries(exercises) ?: JSONObject().apply { session.log?.sets?.forEach { r -> put("${r.exerciseId}|${r.set}|reps",r.reps?.toString() ?: "");put("${r.exerciseId}|${r.set}|kg",r.kg?.toString() ?: "");put("${r.exerciseId}|${r.set}|seconds",r.seconds?.toString() ?: "") } }.toString()) }
@@ -90,20 +94,28 @@ import kotlinx.coroutines.flow.drop
                 } catch(e:PlanConstraint) {formError=e.message;false}
             },error=formError)
     } else {
-    Screen(session.effectiveTitle,"${disciplineLabel(session.discipline).uppercase()} · ${session.status.uppercase()}",compactTitle=true) {
+    Screen(shown.effectiveTitle,"${disciplineLabel(session.discipline).uppercase()} · ${session.status.uppercase()}",compactTitle=true) {
         if(active && exercises.isNotEmpty()) item { SignalButton("Return to guided workout",{guided=true}) }
-        item { TextButton(onClick=onBack) { Text("Back to Training") };Text("${session.date} · ${session.effectiveMinutes} planned min",style=MaterialTheme.typography.bodyMedium);Text(session.reason,style=MaterialTheme.typography.bodyLarge) }
+        item { TextButton(onClick=onBack) { Text("Back to Training") };Text("${session.date} · ${current.currentMinutes} planned min",style=MaterialTheme.typography.bodyMedium);Text(shown.reason,style=MaterialTheme.typography.bodyLarge) }
         session.linkedActivityId?.let { activityId -> item { SignalCard { Text("LINKED SOURCE RUN",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary);val source=state.activities.find { it.id==activityId };Text(source?.let { "${it.title} · ${it.dateLabel} · ${it.distanceLabel} · ${it.durationLabel}" } ?: "The linked source is not currently cached. Its link and original prescription remain saved.");Text("The manual link confirms your association, not whether every prescribed interval or effort was performed. Manage the link in Activities.",style=MaterialTheme.typography.bodySmall) } } }
-        session.suggestion?.let { suggestion -> item { SignalCard {
+        if (plan.engineVersion == ENGINE15_VERSION && Engine1Engines.canManage(plan) && (plan.status == "approved" || current.disclosure != null)) item {
+            Engine15RecommendationReview(plan, actions, state.busy, session.id)
+        }
+        session.suggestion?.takeUnless { current.disclosure != null }?.let { suggestion -> item { SignalCard {
             Text(if(suggestion.accepted) "RECOVERY CHANGE ACCEPTED" else "SUGGESTED · YOUR CHOICE",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
             Text(suggestion.reason)
             if(!suggestion.accepted&&active) { SignalButton(if(suggestion.minutes==0) "Choose rest for this session" else "Accept lighter alternative",{actions.acceptSuggestion(plan.id,plan.revision,session.id)},!state.busy);Text("Original prescriptions remain saved. No catch-up workout is added.",style=MaterialTheme.typography.bodySmall) }
         } } }
         item { SignalCard {
             Text("YOUR PRESCRIPTION",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
-            if(session.suggestion?.accepted==true && session.suggestion.minutes==0) Text("You chose rest for this session. The original prescription remains saved; no workout completion is inferred.")
-            else if(session.suggestion?.accepted==true) { Text("Keep any running conversational. Use an easier variation and fewer controlled resistance sets, or rest if needed. Stop at ${session.effectiveMinutes} minutes; do not chase the original distance or hard intervals.");Text("Original target: ${session.minutes} min · ${session.title}",style=MaterialTheme.typography.bodySmall) }
-            else {session.steps.forEach { Text(it) };session.distanceKm?.let { Text("Planned target: %.1f km. This is not a recorded distance.".format(it),style=MaterialTheme.typography.bodySmall) } }
+            if (rest || timeOnly) {
+                Text(if (rest) "Reviewed rest · 0 minutes" else "Time-only run · ${current.currentMinutes} minutes")
+                current.currentSteps.forEach { Text(it) }
+                Text("Original prescription · ${current.originalMinutes} min" + (current.originalDistanceKm?.let { " · $it km" } ?: ""), style=MaterialTheme.typography.bodySmall)
+            }
+            else if(session.suggestion?.accepted==true && current.disclosure == null && session.suggestion.minutes==0) Text("You chose rest for this session. The original prescription remains saved; no workout completion is inferred.")
+            else if(session.suggestion?.accepted==true && current.disclosure == null) { Text("Keep any running conversational. Use an easier variation and fewer controlled resistance sets, or rest if needed. Stop at ${session.effectiveMinutes} minutes; do not chase the original distance or hard intervals.");Text("Original target: ${session.minutes} min · ${session.title}",style=MaterialTheme.typography.bodySmall) }
+            else {current.currentSteps.forEach { Text(it) };current.currentDistanceTargetKm?.let { Text("Planned target: %.1f km. This is not a recorded distance.".format(it),style=MaterialTheme.typography.bodySmall) } }
         } }
         if(exercises.isNotEmpty()) {
             val ex=exercises[exerciseIndex.coerceIn(0,exercises.lastIndex)]
@@ -134,7 +146,7 @@ import kotlinx.coroutines.flow.drop
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick={restSeconds=ex.rest;restRunning=true}) { Text("Start rest") };TextButton(onClick={restRunning=!restRunning},enabled=restSeconds>0) { Text(if(restRunning) "Pause" else "Resume") } }
             } }
         }
-        item { SignalCard {
+        if (!rest && session.status!="unassigned") item { SignalCard {
             Text(if(done) "SAVED WORKOUT" else "ACTUAL WORKOUT RECORD",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
             if(active)Text(if(entryDraft?.contentKey==currentCandidate?.contentKey)"Entry draft saved on this device · not yet confirmed as training" else "Entries auto-save on this device. Save progress or completion to confirm what you performed.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Only enter values you actually performed. Blank values stay unrecorded; no target is copied into your history.",style=MaterialTheme.typography.bodySmall)
@@ -149,7 +161,7 @@ import kotlinx.coroutines.flow.drop
         formError?.let { item { Text(it,color=MaterialTheme.colorScheme.error) } }
         if(active) item { SignalButton("Save completed workout",{try {formError=null;actions.record(plan.id,plan.revision,session.id,log(),true)}catch(e:PlanConstraint){formError=e.message}},!state.busy)
             OutlinedButton(onClick={try {formError=null;actions.record(plan.id,plan.revision,session.id,log(),false)}catch(e:PlanConstraint){formError=e.message}},enabled=!state.busy,modifier=Modifier.fillMaxWidth()) { Text("Save progress for offline reopening") }
-            Row { TextButton(onClick={ if(onMissed!=null) onMissed() else missed=true }) { Text("Missed / skipped") };TextButton(onClick={ if(onMove!=null) onMove() else move=true },enabled=session.log==null) { Text("Move workout") } }
+            Row { TextButton(onClick={ if(onMissed!=null) onMissed() else missed=true }) { Text("Missed / skipped") };TextButton(onClick={ if(onMove!=null) onMove() else move=true },enabled=session.log==null && session.id !in plan.request.lockedSessionDays) { Text("Move workout") } }
         }
         if(done) item { Text("Completion is your recorded confirmation, not a sensor-verified activity. It appears separately in workout history without invented pace, GPS or heart rate.",style=MaterialTheme.typography.bodySmall) }
         item { PlanFeedbackForm(plan,actions,session.id) }

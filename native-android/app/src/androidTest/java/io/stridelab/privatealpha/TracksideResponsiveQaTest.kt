@@ -48,7 +48,7 @@ class TracksideResponsiveQaTest {
         explanations = emptyList(), status = "approved"
     )
 
-    private fun matchedNineSessionDraft(id: String): PlanSnapshot {
+    private fun matchedNineSessionDraft(id: String, engine15: Boolean = false): PlanSnapshot {
         val request = PlanRequest(
             start = LocalDate.of(2026, 11, 9), weeks = 1,
             goal = "Aerobic foundation",
@@ -58,8 +58,9 @@ class TracksideResponsiveQaTest {
             weeklyKm = 35.0, longestKm = 12.0, minutes = 60,
             dailyMinutes = 120, policyChoice = "multi-session"
         )
-        val plan = MultiSessionEngine1.generate(
-            request, "synthetic-responsive", id, Instant.EPOCH
+        val selected = TracksideCoaching.request(request, engine15Active = engine15)
+        val plan = Engine1Engines.resolve(selected).generate(
+            selected, "synthetic-responsive", id, Instant.EPOCH
         )
         assertTrue("Matched draft must stay a draft before explicit approval",
             plan.status == "draft")
@@ -996,8 +997,13 @@ class TracksideResponsiveQaTest {
         }
     }
 
-    @Test fun weekPreviewSeparatesRequestedStateFromGeneratedNineSessionDraft() {
-        val plan = matchedNineSessionDraft("week-preview-matched")
+    @Test fun weekPreviewSeparatesRequestedStateFromGeneratedNineSessionDraft() = verifyWeekPreview(engine15 = false)
+
+    @Test fun engine15WeekPreviewSeparatesRequestedStateFromGeneratedNineSessionDraft() = verifyWeekPreview(engine15 = true)
+
+    private fun verifyWeekPreview(engine15: Boolean) {
+        val plan = matchedNineSessionDraft("week-preview-matched", engine15)
+        val prefix = if (engine15) "engine15-" else ""
         val displayed = mutableStateOf<PlanSnapshot?>(null)
         var opened: String? = null
         compose.runOnUiThread {
@@ -1026,7 +1032,7 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithText(
             "Unassigned sessions will be placed", substring = true
         ).assertExists()
-        screenshot("builder-week-preview-requested-nine")
+        screenshot(prefix + "builder-week-preview-requested-nine")
 
         compose.runOnUiThread { displayed.value = plan }
         compose.waitForIdle()
@@ -1035,6 +1041,7 @@ class TracksideResponsiveQaTest {
         // comes from the saved draft and approval remains a separate action.
         compose.onNodeWithText("ACTIVE DAYS").assertExists()
         compose.onNodeWithText("Approve plan").assertExists()
+        compose.onNodeWithText("MAX 2 / DAY").assertExists()
         compose.onNodeWithText("5 Running").assertExists()
         compose.onNodeWithText("4 Cali").assertExists()
         val first = plan.sessions.sortedWith(
@@ -1042,7 +1049,7 @@ class TracksideResponsiveQaTest {
         ).first()
         compose.onNodeWithTag("builder-preview-session-" + first.id)
             .assertExists()
-        screenshot("builder-week-preview-generated-nine")
+        screenshot(prefix + "builder-week-preview-generated-nine")
 
         compose.onNodeWithText(
             "Saved engine prescriptions", substring = true
@@ -1057,7 +1064,7 @@ class TracksideResponsiveQaTest {
             .getUnclippedBoundsInRoot().top
         assertTrue("Generated Week Preview status must clear the fixed CTA",
             statusBottom <= ctaTop - 2.dp)
-        screenshot("builder-week-preview-generated-reachable")
+        screenshot(prefix + "builder-week-preview-generated-reachable")
 
         compose.onNodeWithTag("builder-preview-session-" + first.id)
             .performScrollTo().performClick()
@@ -1067,8 +1074,13 @@ class TracksideResponsiveQaTest {
         }
     }
 
-    @Test fun draftApprovalAgendaUsesCompactNineSessionRowsAndClearsNavigation() {
-        val plan = matchedNineSessionDraft("draft-approval-matched")
+    @Test fun draftApprovalAgendaUsesCompactNineSessionRowsAndClearsNavigation() = verifyDraftApproval(engine15 = false)
+
+    @Test fun engine15DraftApprovalAgendaUsesCompactNineSessionRowsAndClearsNavigation() = verifyDraftApproval(engine15 = true)
+
+    private fun verifyDraftApproval(engine15: Boolean) {
+        val plan = matchedNineSessionDraft("draft-approval-matched", engine15)
+        val prefix = if (engine15) "engine15-" else ""
         val state = TrainingState(
             initializing = false,
             account = "synthetic-responsive",
@@ -1132,7 +1144,7 @@ class TracksideResponsiveQaTest {
             assertTrue("Draft Agenda row is too tall for the approved compact state",
                 (row.bottom - row.top).value <= 58f)
         }
-        screenshot("training-draft-approval")
+        screenshot(prefix + "training-draft-approval")
 
         // The final prescription must be normally scrollable above the approval
         // dock, and the approval dock itself must stay above bottom navigation.
@@ -1149,7 +1161,7 @@ class TracksideResponsiveQaTest {
             .getUnclippedBoundsInRoot().top
         assertTrue("Draft approval dock overlaps bottom navigation",
             dock.bottom <= navTop - 2.dp)
-        screenshot("training-draft-approval-last-session-reachable")
+        screenshot(prefix + "training-draft-approval-last-session-reachable")
 
         compose.onNodeWithText("Approve plan").performClick()
         compose.runOnIdle {

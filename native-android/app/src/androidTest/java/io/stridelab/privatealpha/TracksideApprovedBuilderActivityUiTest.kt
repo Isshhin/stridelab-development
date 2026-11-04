@@ -200,7 +200,7 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
         compose.onNodeWithTag("builder-enable-multi-session").performClick()
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
-        compose.onNodeWithText("Engine 1 only permits selected pairings",
+        compose.onNodeWithText("Only compatible sessions can share a day",
             substring=true).assertExists()
         compose.onNodeWithTag("builder-other-discipline-editor").assertExists()
         compose.onNodeWithTag("builder-discipline-day-tab-str").assertExists()

@@ -17,7 +17,7 @@ import org.json.JSONObject
 
 @Composable internal fun PlanBuilder(state:TrainingState,actions:PlanActions,discipline:String="all",onDone:()->Unit,onSignIn:()->Unit,onPreview:(String,String)->Unit) {
     if(state.account==null) { Screen("Create a plan","TRAINING") { item { SignalCard { Text("A watch is optional.",style=MaterialTheme.typography.headlineSmall);Text("Sign in once to keep plans and logs private to your account. You can then build, approve and manage plans offline.");SignalButton("Sign in",onSignIn) } } };return }
-    val baseline=remember { state.plans.firstOrNull { it.policyId in setOf(ENGINE1_POLICY,CoordinatedEngine1.policyId,MultiSessionEngine1.policyId) }?.request ?: PlanRequest(policyChoice="coordinated",weeklyKm=historyWeeklyKm(state.activities,plans=state.plans) ?: 0.0,longestKm=state.activities.filter { DashboardSummary.isRun(it) }.mapNotNull { it.distanceM }.maxOrNull()?.div(1000) ?: 0.0) }
+    val baseline=remember { state.plans.firstOrNull { Engine1Engines.canManage(it) && it.policyId != SessionTemplate.POLICY_ID }?.let(TracksideCoaching::setupFor) ?: PlanRequest(policyChoice="coordinated",weeklyKm=historyWeeklyKm(state.activities,plans=state.plans) ?: 0.0,longestKm=state.activities.filter { DashboardSummary.isRun(it) }.mapNotNull { it.distanceM }.maxOrNull()?.div(1000) ?: 0.0) }
     val initial=remember {
         when(discipline) {
             "run" -> baseline.copy(
@@ -663,10 +663,10 @@ import org.json.JSONObject
                     val p = request()
                     if (p.start < LocalDate.now())
                         throw PlanConstraint("Choose today or a future start date.")
-                    Engine1Engines.validate(p)
+                    val selected = TracksideCoaching.request(p)
                     beforeId = state.plans.firstOrNull()?.id
                     awaiting = true
-                    actions.generate(p)
+                    actions.generate(selected)
                 } catch(e: PlanConstraint) { error = e.message }
             },
             error = error

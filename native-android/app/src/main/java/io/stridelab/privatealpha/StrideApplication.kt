@@ -60,6 +60,23 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
         swap={id,r,s,e->viewModelScope.launch { repo.swapExercise(id,r,s,e) }},
         saveTemplate={t->viewModelScope.launch { repo.saveTemplate(t) }},
         prepareSession={t,p,d->viewModelScope.launch { repo.prepareSession(t,p,d) }},
+        lockWorkout={id,r,s,locked->viewModelScope.launch { repo.setSessionLock(id,r,s,locked) }},
+        previewAvailability={id,days->kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { repo.previewAvailabilityChange(id,days) }},
+        applyAvailability={id,r,days,impact->viewModelScope.launch { repo.updateAvailability(id,r,days,impact) }},
+        longDay={id,r,day->viewModelScope.launch { repo.setLongRunDay(id,r,day) }},
+        qualityDays={id,r,days->viewModelScope.launch { repo.setQualityDays(id,r,days) }},
+        previewAdjustments={id->repo.previewEngine15Adjustments(id)},
+        stageAdjustment={p->viewModelScope.launch { repo.stageEngine15Adjustment(p.planId,p.planRevision,p) }},
+        dismissPreview={p->viewModelScope.launch { repo.dismissEngine15Adjustment(p.planId,p.planRevision,p) }},
+        dismissPending={id,r,s->viewModelScope.launch { repo.dismissStagedEngine15Adjustment(id,r,s) }},
+        pendingError={id,s->
+            val snapshot=state.value
+            val plan=snapshot.plans.find { it.id==id && it.owner==snapshot.account }
+            if(plan==null) "This plan is unavailable." else try {
+                Engine15Feedback.requireCurrentPendingAcceptance(plan,s,java.time.LocalDate.now(),snapshot.plans)
+                null
+            } catch(e:PlanConstraint) { e.message }
+        },
         stageWorkoutDraft={draft->viewModelScope.launch { repo.stageWorkoutDraft(draft) }}
     )
     fun signOut() { viewModelScope.launch { repo.signOut() } }

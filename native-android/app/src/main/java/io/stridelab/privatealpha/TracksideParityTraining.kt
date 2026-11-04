@@ -342,7 +342,9 @@ internal fun TracksideParityWorkoutCard(
                 }
                 Text("Open ›", fontSize = 12.sp, color = TracksidePalette.text)
             }
-            if (isRun) {
+            if (session.kind == "rest" || session.kind == "time only") {
+                Text(session.reason, style = MaterialTheme.typography.bodySmall, color = TracksidePalette.textMuted)
+            } else if (isRun) {
                 val stages = session.steps.take(3).filter { it.isNotBlank() }
                 Row(
                     Modifier.fillMaxWidth().height(25.dp),
