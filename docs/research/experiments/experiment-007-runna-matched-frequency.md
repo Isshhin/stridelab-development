@@ -54,6 +54,10 @@ The capture analyzer records **first, peak and final weekly mileage**, peak long
 
 The comparison remains limited by a coupled **assigned-weekday confound** when the app cannot preserve identical availability settings across frequencies. Even under full matched availability, selecting more run days changes scheduling structure as part of the treatment; do not claim it isolates a physiological dose-response effect.
 
+## Secondary planned-session reconciliation
+
+The primary endpoint remains BUILD-to-BUILD weekly mileage progression at matched frequency. A separate [session-level audit protocol](experiment-007-runna-session-audit.md) describes the secondary capture of individual workout dates, total prescribed distances, long-run identity and per-session distribution. It refuses to treat seven sessions on six calendar days as seven running days, and blocks apparent volume matches if the sum of recorded sessions disagrees with weekly cards. This supplementary lane requires independently reviewable authorized captures; it cannot infer the proprietary generator or an athlete's injury hazard from prescribed workouts.
+
 ## StrideLab research decision rule
 
 - If valid matched outputs consistently show lower ordinary build-to-build progression for 6/7 days, record **directly observed app behavior** with capture provenance and move to independent safety/athlete-outcome research. Do **not** copy an inferred Runna coefficient.
