@@ -66,11 +66,11 @@ Latest verified head at this handoff:
 
 Status:
 
-**SESSION G REVIEW REQUIRED BEFORE PHASE 2 FREEZE**
+**SESSION G REVIEW PASSED / PHASE 2 BASELINE FROZEN**
 
 Sessions A-F + H are complete and reviewed.
 
-Session G synthesis artifacts exist, but independent review found six required corrections before the architecture may be frozen.
+Session G passed independent re-review. The frozen architecture baseline is `26a8331e642c888dd73acb94755dded063baab8d`.
 
 Key outputs:
 
@@ -104,20 +104,20 @@ Unknown or conflicting evidence must not silently become KEEP, REST, REDUCE, or 
 
 ### Immediate Engine 2.x next step
 
-1. Read the independent Session G review.
-2. Resolve G-R1 through G-R6.
-3. Re-review the changed contracts.
-4. Only if they pass, mark G REVIEW_PASSED / PHASE_2_BASELINE_FROZEN.
-5. Start P2-F data admission and linkage.
-6. Start P2-B aerobic-efficiency repeatability only when the linkage gate permits.
-7. Begin dependent adaptive-model tracks only after their declared prerequisites pass.
+1. Prepare P2-F admission/linkage feasibility under frozen baseline `26a8331`.
+2. Verify source rights, acquisition schema, parser/source correctness, plan-to-actual linkage, duplicate/account isolation and pilot audit.
+3. Freeze and independently review the P2-F Gate 2 manifest before confirmatory held-out access.
+4. Start P2-B only after P2-F supplies eligible, correctly linked repeated segments.
+5. Keep P2-A/C/D/E dependency-gated.
 
-Independent review:
-https://github.com/Isshhin/stridelab-development/blob/research/runna-garmin-coaching-20261102/docs/research/2026-11-04-engine2x-session-g-independent-review.md
+Independent Session G re-review:
+https://github.com/Isshhin/stridelab-development/blob/research/runna-garmin-coaching-20261102/docs/research/2026-11-04-engine2x-session-g-independent-rereview.md
 
 Current Phase 2 status:
 
-BLOCKED_PENDING_G_CORRECTIONS
+P2-F_FEASIBILITY_PREPARATION_AUTHORIZED
+
+CONFIRMATORY_HELD_OUT_EVALUATION_BLOCKED_PENDING_GATE_2_MANIFEST
 
 Do not begin production implementation simply because Session G is complete.
 
