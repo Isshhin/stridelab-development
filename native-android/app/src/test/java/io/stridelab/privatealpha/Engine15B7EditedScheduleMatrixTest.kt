@@ -2,6 +2,7 @@ package io.stridelab.privatealpha
 
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -31,7 +32,10 @@ class Engine15B7EditedScheduleMatrixTest {
             it.kind=="easy" && it.discipline=="run" &&
                 it.date.dayOfWeek.value!=5
         }
-        val actual=WorkoutLog(now,minutes=35.0,distanceKm=5.0,effort=4)
+        // Actual history occurs on the scheduled workout day, after plan creation.
+        val performedAt=completed.date.atTime(18,0).toInstant(ZoneOffset.UTC)
+        assertTrue(performedAt.isAfter(now))
+        val actual=WorkoutLog(performedAt,minutes=35.0,distanceKm=5.0,effort=4)
         val recorded=PlanOperations.record(locked,completed.id,actual,true)
         val newDays=setOf(1,2,3,4,6,7)
         val displaced=recorded.sessions.filter {
@@ -39,7 +43,8 @@ class Engine15B7EditedScheduleMatrixTest {
         }.map { it.id }.toSet()
         assertTrue(displaced.isNotEmpty())
 
-        val revised=PlanOperations.updateAvailability(recorded,newDays,asOf=start)
+        val revised=PlanOperations.updateAvailability(
+            recorded,newDays,asOf=completed.date.plusDays(1))
         assertEquals("paused",revised.status)
         assertEquals(newDays,revised.request.days)
         assertEquals(original.sessions.size,revised.sessions.size)
@@ -105,6 +110,36 @@ class Engine15B7EditedScheduleMatrixTest {
         assertThrows(PlanConstraint::class.java) {
             PlanOperations.approve(changed,emptyList())
         }
+    }
+
+    @Test fun unlockedManualMoveIntoConflictingQualityDayIsRejectedWithoutChangingPlan() {
+        val original=plan()
+        val quality=original.sessions.first { it.quality && it.status=="planned" }
+        val easy=original.sessions.first {
+            it.discipline=="run" && it.kind=="easy" && it.status=="planned" &&
+                it.date!=quality.date
+        }
+        assertFalse(original.request.lockedSessionDays.containsKey(easy.id))
+        assertTrue(quality.date.dayOfWeek.value in original.request.days)
+        assertTrue(quality.date>=original.request.start)
+        assertTrue(quality.date<original.request.start.plusWeeks(original.request.weeks.toLong()))
+        assertTrue(
+            "Fixture must exercise recovery/scheduling conflict, not an invalid destination",
+            PlanScheduleValidation.conflict(
+                easy.copy(date=quality.date),quality,original.policyId,original.policyId)
+        )
+        val unchanged=original.encode().toString()
+        val failure=assertThrows(PlanConstraint::class.java) {
+            PlanOperations.move(original,easy.id,quality.date)
+        }
+        assertTrue(
+            "Rejection must come from the scheduling conflict guard: ${failure.message}",
+            failure.message.orEmpty().contains("conflicts with another workout")
+        )
+        assertEquals(easy.date,original.sessions.single { it.id==easy.id }.date)
+        assertEquals(unchanged,original.encode().toString())
+        PlanScheduleValidation.validatePlan(original)
+        assertEquals(original,PlanSnapshot.decode(original.encode(),owner))
     }
 
     @Test fun lockedPlacementStopsUnavailableDayAndManualUnsafeMove() {
