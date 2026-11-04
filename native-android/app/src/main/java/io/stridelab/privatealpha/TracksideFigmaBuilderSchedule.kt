@@ -91,7 +91,7 @@ internal fun TracksideFigmaPlanDetailsScreen(
                     fontWeight=FontWeight.SemiBold,color=Color.White)
                 Spacer(Modifier.height(18.dp))
                 Surface(
-                    modifier=Modifier.fillMaxWidth().height(68.dp)
+                    modifier=Modifier.fillMaxWidth().heightIn(min=68.dp)
                         .testTag("builder-start-date"),
                     color=Color(0xFF25485E),shape=RoundedCornerShape(11.dp),
                     border=BorderStroke(1.dp,Color(0xFF698EAB)),
@@ -103,7 +103,7 @@ internal fun TracksideFigmaPlanDetailsScreen(
                         ).show()
                     }
                 ) {
-                    Row(Modifier.padding(horizontal=11.dp),
+                    Row(Modifier.padding(horizontal=11.dp, vertical=10.dp),
                         verticalAlignment=Alignment.CenterVertically,
                         horizontalArrangement=Arrangement.spacedBy(11.dp)) {
                         PlanDatesIconTile(R.drawable.trackside_plan_dates_calendar, "builder-date-calendar-vector")

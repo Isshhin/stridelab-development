@@ -719,6 +719,11 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithText("Set your plan dates").assertExists()
         compose.onNodeWithTag("builder-start-date").assertExists()
         compose.onNodeWithTag("builder-date-calendar-vector", useUnmergedTree=true).assertExists()
+        val dateCard = compose.onNodeWithTag("builder-start-date").getUnclippedBoundsInRoot()
+        val dateHelper = compose.onNodeWithText("Tap to choose a date", useUnmergedTree=true)
+            .getUnclippedBoundsInRoot()
+        assertTrue("Plan Dates helper clips the date row at this font scale",
+            dateHelper.bottom <= dateCard.bottom - 4.dp)
         compose.onNodeWithTag("builder-weeks-8").assertExists()
         compose.onNodeWithTag("builder-time-limit").assertExists()
         compose.onNodeWithTag("builder-time-clock-vector", useUnmergedTree=true).assertExists()
