@@ -952,7 +952,8 @@ class TracksideResponsiveQaTest {
             val card=compose.onNodeWithTag("builder-other-session-$index")
                 .getUnclippedBoundsInRoot()
             val weekday=compose.onNodeWithTag(
-                "builder-other-session-weekday-$index").getUnclippedBoundsInRoot()
+                "builder-other-session-weekday-$index",
+                useUnmergedTree=true).getUnclippedBoundsInRoot()
             assertTrue("Mixed-sport session weekday clips its chip at index $index",
                 weekday.bottom <= card.bottom - 2.dp)
         }
