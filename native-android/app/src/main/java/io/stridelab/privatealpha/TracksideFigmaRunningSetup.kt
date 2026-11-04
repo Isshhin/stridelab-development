@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -65,7 +66,8 @@ internal fun TracksideFigmaRunningSetup(
         eyebrow="RUNNING / WEEKLY SCHEDULE",
         headline="Your running week",
         description="Suggested from your goals and recent training. Tap a day to change it.",
-        descriptionBottomGap=42,
+        descriptionBottomGap=49,
+        descriptionFontSize=11f,
         contentTopPadding=54,
         onBack=onBack,
         onContinue=onContinue,
@@ -108,7 +110,7 @@ internal fun TracksideFigmaRunningSetup(
                         Text("+",color=weekWhite,fontSize=23.sp,fontWeight=FontWeight.Bold)
                     }}
                 }
-                Spacer(Modifier.height(42.dp))
+                Spacer(Modifier.height(32.dp))
                 // At 360dp the cells scroll horizontally instead of shrinking
                 // to unreachable < 44dp targets.
                 Row(
@@ -186,7 +188,7 @@ internal fun TracksideFigmaRunningSetup(
             }
         }
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(14.dp))
         Text("RUNNING SESSION TYPES",fontSize=11.sp,
             fontWeight=FontWeight.Bold,color=weekMuted)
         Spacer(Modifier.height(10.dp))
@@ -288,8 +290,30 @@ internal fun TracksideFigmaRunningSetup(
                 }
                 Spacer(Modifier.height(9.dp))
                 Text("Selected: "+WeeklyPlacement.label(request,"run",selected)+
-                    ". Tap a weekday in the card above to assign or swap it.",
+                    ". Tap a weekday below to assign or swap it.",
                     fontSize=11.sp,lineHeight=15.sp,color=weekMuted)
+                Spacer(Modifier.height(10.dp))
+                Text("ASSIGN TO WEEKDAY",color=weekMuted,fontSize=11.sp,
+                    fontWeight=FontWeight.Bold)
+                Spacer(Modifier.height(7.dp))
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+                    (1..7).forEach { day ->
+                        val active=slots.getOrNull(selected)==day
+                        Surface(
+                            onClick={onAssignDay(day)},
+                            modifier=Modifier.size(46.dp)
+                                .testTag("builder-run-editor-day-"+day),
+                            color=if(active) Color(0xFFCE3F54) else Color(0xFF23313C),
+                            shape=RoundedCornerShape(9.dp),
+                            border=BorderStroke(1.dp,
+                                if(active)Color(0xFFEC8090) else weekOutline)
+                        ) { Box(contentAlignment=Alignment.Center) {
+                            Text(DayOfWeek.of(day).name.take(3),fontSize=10.sp,
+                                color=weekWhite,fontWeight=FontWeight.Bold)
+                        }}
+                    }
+                }
                 TextButton(onClick=onClearSlot,
                     modifier=Modifier.testTag("builder-run-clear-selected")) {
                     Text("Remove selected session's day",
@@ -351,7 +375,9 @@ private fun RunningWeekLegendRow(
     code: String, title: String, subtitle: String,
     tileColor: Color, codeColor: Color
 ) {
-    Row(Modifier.fillMaxWidth().heightIn(min=43.dp),
+    val fontScale=LocalDensity.current.fontScale
+    Row(if(fontScale<=1.01f) Modifier.fillMaxWidth().height(43.dp)
+        else Modifier.fillMaxWidth().heightIn(min=43.dp),
         verticalAlignment=Alignment.CenterVertically,
         horizontalArrangement=Arrangement.spacedBy(12.dp)) {
         Surface(modifier=Modifier.size(32.dp),color=tileColor,
