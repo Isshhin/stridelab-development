@@ -353,7 +353,7 @@ This common structure is required so Session G can synthesize results efficientl
 
 ## 15. Progress tracking
 
-Phase 1 checkpoint, 4 November 2026. Discovery reports passed pre-synthesis review. Session G produced a synthesis at `4b734f1`, but the independent review at `docs/research/2026-11-04-engine2x-session-g-independent-review.md` found six required contract/documentation corrections before the architecture may be frozen. The six corrections are documented in the existing G artifacts. Independent re-review is pending; Phase 2 remains blocked and the baseline is unfrozen.
+Phase 1 checkpoint, 4 November 2026. Discovery reports passed pre-synthesis review. Session G produced synthesis `4b734f1`, resolved G-R1 through G-R6 at `26a8331`, and passed independent re-review in `docs/research/2026-11-04-engine2x-session-g-independent-rereview.md`. The Session G architecture baseline is frozen at `26a8331`. P2-F feasibility preparation is authorized; confirmatory held-out evaluation remains blocked until the relevant Gate 2 manifest is frozen and independently reviewed.
 
 | Session | Status |
 | --- | --- |
@@ -364,7 +364,7 @@ Phase 1 checkpoint, 4 November 2026. Discovery reports passed pre-synthesis revi
 | E - Adaptive prescription | COMPLETE |
 | F - Real data and validation | COMPLETE |
 | H - Researcher/framework audit | COMPLETE |
-| G - Synthesis | READY_FOR_INDEPENDENT_RE_REVIEW |
+| G - Synthesis | REVIEW_PASSED / PHASE_2_BASELINE_FROZEN |
 
 Each session should update its status to `IN_PROGRESS`, `BLOCKED`, `REVIEW`, or `COMPLETE` in its report and in the TickTick parent tracker.
 
@@ -399,13 +399,13 @@ Parity is a demonstrated property, not a percentage assigned from feature count.
 
 ## 17. Phase 2 after synthesis
 
-Phase 2 must not start until Session G passes independent review and its architecture/state/candidate/experiment baseline is explicitly frozen.
+Session G has passed independent re-review and its architecture/state/candidate/experiment baseline is frozen at `26a8331e642c888dd73acb94755dded063baab8d`.
 
-Current gate: `BLOCKED_PENDING_G_CORRECTIONS`.
+Current gate: `P2-F_FEASIBILITY_PREPARATION_AUTHORIZED`.
 
-The required corrections are G-R1 through G-R6 in `docs/research/2026-11-04-engine2x-session-g-independent-review.md`.
+Confirmatory held-out evaluation remains blocked until the applicable Gate 2 manifest in the Session G Phase 2 protocol is frozen and independently reviewed.
 
-After the freeze, the dependency order begins with P2-F admission/linkage, then P2-B repeatability, followed by the dependent adaptive-model tracks.
+The dependency order begins with P2-F admission/linkage, then P2-B repeatability, followed by the dependent adaptive-model tracks.
 
 Likely experimental tracks:
 
