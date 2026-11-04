@@ -115,7 +115,7 @@ internal fun TracksideFigmaOtherDisciplineSlots(
                     val activeSlot=i==current
                     Surface(
                         onClick={onSelectSlot(i)},
-                        modifier=Modifier.widthIn(min=99.dp).height(49.dp)
+                        modifier=Modifier.widthIn(min=99.dp).heightIn(min=49.dp)
                             .testTag("builder-other-session-"+i),
                         shape=RoundedCornerShape(9.dp),
                         color=if(activeSlot)Color(0xFF315E76)
@@ -132,7 +132,9 @@ internal fun TracksideFigmaOtherDisciplineSlots(
                             Text(if(!manual)"Coach places"
                                  else if(day==0)"Unassigned"
                                  else java.time.DayOfWeek.of(day).name.take(3),
-                                fontSize=10.sp,color=textMuted)
+                                fontSize=10.sp,color=textMuted,
+                                modifier=Modifier.testTag(
+                                    "builder-other-session-weekday-"+i))
                         }
                     }
                 }

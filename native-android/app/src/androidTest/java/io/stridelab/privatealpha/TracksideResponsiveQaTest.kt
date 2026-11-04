@@ -946,6 +946,16 @@ class TracksideResponsiveQaTest {
                 })
         }
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        // The assigned weekday must remain wholly inside its session chip,
+        // including at 150% font scale. Do not hide the second label.
+        for(index in 0..1) {
+            val card=compose.onNodeWithTag("builder-other-session-$index")
+                .getUnclippedBoundsInRoot()
+            val weekday=compose.onNodeWithTag(
+                "builder-other-session-weekday-$index").getUnclippedBoundsInRoot()
+            assertTrue("Mixed-sport session weekday clips its chip at index $index",
+                weekday.bottom <= card.bottom - 2.dp)
+        }
         screenshot("builder-availability-compatible-double-day")
         compose.onNodeWithTag("builder-other-day-2").performClick()
         compose.onNodeWithText("This engine allows only easy running with calisthenics",
