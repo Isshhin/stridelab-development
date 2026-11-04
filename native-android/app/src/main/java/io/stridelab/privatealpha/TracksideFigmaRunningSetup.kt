@@ -198,9 +198,9 @@ internal fun TracksideFigmaRunningSetup(
             color=weekPanel,shape=RoundedCornerShape(13.dp),
             border=BorderStroke(1.dp,weekOutline)
         ) {
-            // Retain the approved 143dp card while moving the last subtitle
-            // clear of the bottom stroke (Figma 548:95).
-            Column(Modifier.padding(start=10.dp,end=10.dp,top=2.dp,bottom=12.dp)) {
+            // Keep the approved 143dp card: 3 x 40dp rows plus a reserved
+            // 18dp bottom inset prevents the final subtitle touching its border.
+            Column(Modifier.padding(start=10.dp,end=10.dp,top=2.dp,bottom=18.dp)) {
                 RunningWeekLegendRow("E","Easy run","Aerobic base and recovery",
                     Color(0xFF532B35),weekWhite)
                 RunningWeekLegendRow("Q","Quality",
@@ -380,7 +380,7 @@ private fun RunningWeekLegendRow(
     tileColor: Color, codeColor: Color
 ) {
     val fontScale=LocalDensity.current.fontScale
-    Row(if(fontScale<=1.01f) Modifier.fillMaxWidth().height(43.dp)
+    Row(if(fontScale<=1.01f) Modifier.fillMaxWidth().height(40.dp)
         else Modifier.fillMaxWidth().heightIn(min=43.dp),
         verticalAlignment=Alignment.CenterVertically,
         horizontalArrangement=Arrangement.spacedBy(12.dp)) {
