@@ -58,120 +58,59 @@ jobs:
         run: python research/validation/field_outcome_gate.py --output research-field-outcome-readiness.json
       - name: Publish scope-aware summary
         if: always()
-        shell: bash
+        shell: pwsh
         run: |
-          {
-            echo '## StrideLab research-only validation'
-            echo
-            echo '**This is not a test of the real coaching engine.**'
-            echo 'Checks run against an isolated synthetic reference model.'
-            echo
-            if [ -f research-validation.json ]; then
-              python - <<'PY'
-          import json
-          with open('research-validation.json', encoding='utf-8') as f:
-              j = json.load(f)
-          print('### Synthetic contract checks')
-          for k, v in j['contract_by_experiment'].items():
-              print(f"- {k}: {v['PASS']} PASS, {v['FAIL']} FAIL")
-          print()
-          print('### Engine integration')
-          print(f"- Actual Engine 2.0: {j['engine_results']['BLOCKED']} BLOCKED, 0 executed")
-          print('- Runna Experiment 002: 0 of 16 authenticated cases run')
-          print('- Garmin Run Coach: no paired controlled observations')
-          PY
-            else
-              echo '**Validation runner did not produce a report. Check logs.**'
-            fi
-            if [ -f research-policy-comparison.json ]; then
-              python - <<'PY'
-          import json
-          with open('research-policy-comparison.json', encoding='utf-8') as f:
-              p = json.load(f)
-          counts = p['counts']
-          print()
-          print('### New B0/H1 research policy implementations (NOT production or old local lab)')
-          print(f"- Frozen scenarios: {counts['PASS']} structural PASS, {counts['FAIL']} FAIL, {counts['BLOCKED_UNCALIBRATED_PREDICTION']} BLOCKED")
-          print(f"- Action disagreement scenarios: {p['cases_with_B0_H1_action_difference']}")
-          print('- Predictive models are uncalibrated; no athlete effectiveness or clinical safety conclusions.')
-          PY
-            else
-              echo '**B0/H1 policy report missing. Check logs.**'
-            fi
-            if [ -f research-heldout-results.json ]; then
-              python - <<'PY'
-          import json
-          with open('research-heldout-results.json', encoding='utf-8') as f:
-              h = json.load(f)
-          print()
-          print('### Newly generated seeded adversarial scenarios (research only)')
-          print(f"- {h['counts']['PASS']} PASS, {h['counts']['FAIL']} FAIL, {h['counts']['TOTAL']} total; seed {h['seed']}")
-          print('- These are structural synthetic checks, NOT longitudinal coaching effectiveness.')
-          PY
-            else
-              echo '**Held-out scenario report missing. Check logs.**'
-            fi
-            if [ -f research-decision-differences.json ]; then
-              python - <<'PY'
-          import json
-          with open('research-decision-differences.json', encoding='utf-8') as f:
-              r = json.load(f)
-          print()
-          print('### B0/H1 difference audit (research only)')
-          print(f"- {r['scenarios_with_difference']} scenarios with different proposed actions")
-          print('- All review entries remain unvalidated for coaching benefit.')
-          PY
-            fi
-            if [ -f research-multiweek-results.json ]; then
-              python - <<'PY'
-          import json
-          with open('research-multiweek-results.json', encoding='utf-8') as f:
-              m = json.load(f)
-          print()
-          print('### Eight-week training-history reconciliation (research only)')
-          print(f"- {m['counts']['PASS']} profile PASS, {m['counts']['FAIL']} FAIL, {m['total_week_scenarios']} simulated athlete-weeks")
-          for item in m['results']:
-              print(f"- {item['profile']}: {item['status']}; {len(item['weeks'])} weeks, {item['source_records']} source records, {item['summary']['h1_diff_weeks']} B0/H1 differing weeks")
-          print('- No athlete effectiveness, local lab, or Android engine tested.')
-          PY
-            else
-              echo '**Multiweek report missing. Inspect failing step logs.**'
-            fi
-            if [ -f research-adapter-status.json ]; then
-              python - <<'PY'
-          import json
-          with open('research-adapter-status.json', encoding='utf-8') as f:
-              r = json.load(f)
-          print()
-          print('### Batch 8E adapter provenance')
-          for a in r['adapters']:
-              print(f"- {a['adapter_id']}: {a['status']}")
-          print('- Provider credentials and source authorization not connected.')
-          PY
-            fi
-            if [ -f research-original-lab-admission.json ]; then
-              python - <<'PY'
-          import json
-          with open('research-original-lab-admission.json', encoding='utf-8') as f:
-              r = json.load(f)
-          print()
-          print('### Batch 8F original independent lab source admission')
-          print(f"- Status: {r['original_lab_status']}")
-          print(f"- Source executed: {r['execution']}; original provenance independently verified: {r['origin_verified']}")
-          PY
-            fi
-            if [ -f research-field-outcome-readiness.json ]; then
-              python - <<'PY'
-          import json
-          with open('research-field-outcome-readiness.json', encoding='utf-8') as f:
-              r = json.load(f)
-          print()
-          print('### Batch 8F real athlete outcome evidence readiness')
-          print(f"- Status: {r['status']}; athlete outcomes analyzed: {r['athlete_outcomes_analyzed']}")
-          print(f"- Real effect demonstrated: {r['actual_performance_effect_demonstrated']}")
-          PY
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          $lines = [System.Collections.Generic.List[string]]::new()
+          $lines.Add('## StrideLab research-only validation')
+          $lines.Add('')
+          $lines.Add('**Structural research tests only. No real coaching engine or athlete benefit established.**')
+          $lines.Add('')
+          if (Test-Path 'research-validation.json') {
+            $j = Get-Content 'research-validation.json' -Raw | ConvertFrom-Json
+            $lines.Add('### Synthetic contract checks')
+            foreach ($item in $j.contract_by_experiment.PSObject.Properties) {
+              $lines.Add("- $($item.Name): $($item.Value.PASS) PASS, $($item.Value.FAIL) FAIL")
+            }
+            $lines.Add("- Actual Engine 2.0: $($j.engine_results.BLOCKED) BLOCKED, zero executed")
+          } else {
+            $lines.Add('Validation report unavailable; inspect job logs.')
+          }
+          if (Test-Path 'research-policy-comparison.json') {
+            $r = Get-Content 'research-policy-comparison.json' -Raw | ConvertFrom-Json
+            $lines.Add('### New B0/H1 research candidate policies (not production or original local lab)')
+            $lines.Add("- Frozen synthetic cases: $($r.counts.PASS) PASS, $($r.counts.FAIL) FAIL, $($r.counts.BLOCKED_UNCALIBRATED_PREDICTION) forecast BLOCKED")
+            $lines.Add("- B0/H1 differing actions: $($r.cases_with_B0_H1_action_difference)")
+          }
+          if (Test-Path 'research-heldout-results.json') {
+            $r = Get-Content 'research-heldout-results.json' -Raw | ConvertFrom-Json
+            $lines.Add("- Synthetic adversarial checks: $($r.counts.PASS) PASS, $($r.counts.FAIL) FAIL of $($r.counts.TOTAL); seed $($r.seed)")
+          }
+          if (Test-Path 'research-decision-differences.json') {
+            $r = Get-Content 'research-decision-differences.json' -Raw | ConvertFrom-Json
+            $lines.Add("- Action disagreements audited: $($r.scenarios_with_difference); not proven clinically useful")
+          }
+          if (Test-Path 'research-multiweek-results.json') {
+            $r = Get-Content 'research-multiweek-results.json' -Raw | ConvertFrom-Json
+            $lines.Add("- Synthetic multiweek profiles: $($r.counts.PASS) PASS, $($r.counts.FAIL) FAIL; $($r.total_week_scenarios) simulated athlete-weeks")
+          }
+          if (Test-Path 'research-adapter-status.json') {
+            $r = Get-Content 'research-adapter-status.json' -Raw | ConvertFrom-Json
+            foreach ($adapter in $r.adapters) { $lines.Add("- Adapter $($adapter.adapter_id): $($adapter.status)") }
+          }
+          if (Test-Path 'research-original-lab-admission.json') {
+            $r = Get-Content 'research-original-lab-admission.json' -Raw | ConvertFrom-Json
+            $lines.Add("- Original lab: $($r.original_lab_status); source executed $($r.execution), origin independently verified $($r.origin_verified)")
+          }
+          if (Test-Path 'research-field-outcome-readiness.json') {
+            $r = Get-Content 'research-field-outcome-readiness.json' -Raw | ConvertFrom-Json
+            $lines.Add("- Athlete field outcome readiness: $($r.status); real performance effect demonstrated $($r.actual_performance_effect_demonstrated)")
+          }
+          $lines.Add('')
+          $lines.Add('- Runna Experiment 002: zero of 16 authenticated cases run.')
+          $lines.Add('- Runna Experiment 007: zero of six matched-frequency drafts captured.')
+          $lines.Add('- Garmin Run Coach Experiment 008: zero prospective paired observations.')
+          $lines.Add('- Structural passing results do not establish safety, efficacy, calibrated forecasts or proprietary generator behavior.')
+          $lines | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
       - uses: actions/upload-artifact@v4
         if: always()
         with:
