@@ -239,6 +239,56 @@ class TracksideResponsiveQaTest {
         screenshot("builder-calisthenics-assigned")
     }
 
+    @Test fun calisthenicsFigmaReferenceAndLargeFontSectionsRemainReachable() {
+        // Figma 614:335: Wednesday Push, Friday Pull, Saturday unavailable.
+        // Match the approved manual state with the editor focused on Wednesday.
+        val request=PlanRequest(
+            runDays=0,strengthDays=0,calDays=2,
+            days=setOf(1,2,3,4,5,7),
+            weeklySlots=mapOf("cal" to listOf(3,5)),
+            calLevel=1,pullLevel=0,coreLevel=1
+        )
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideFigmaCalisthenicsSetup(
+                        request=request,
+                        selectedSlot=0,onSelectedSlot={},
+                        onMode={},onCount={},onAssign={_,_->},
+                        onClear={},onAbility={_,_->},
+                        onBack={},onContinue={}
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("builder-cali-customize").assertIsDisplayed()
+        compose.onNodeWithTag("builder-cali-weekly").assertExists()
+        compose.onNodeWithTag("builder-cali-starting-levels").assertExists()
+        compose.onNodeWithText("2 of 2 placed").assertExists()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        screenshot("builder-calisthenics-figma-reference")
+
+        val config=compose.activity.resources.configuration
+        if(config.fontScale <= 1.01f) {
+            val weekly=compose.onNodeWithTag("builder-cali-weekly")
+                .getUnclippedBoundsInRoot()
+            assertTrue("Calisthenics weekly preview exceeds reference tolerance: " +
+                (weekly.bottom-weekly.top), (weekly.bottom-weekly.top).value <= 500f)
+            if(config.screenHeightDp >= 900) {
+                val levels=compose.onNodeWithTag("builder-cali-starting-levels")
+                    .getUnclippedBoundsInRoot()
+                val cta=compose.onNodeWithTag("builder-figma-continue")
+                    .getUnclippedBoundsInRoot()
+                assertTrue("Calisthenics starting levels overlap fixed Continue",
+                    levels.bottom <= cta.top - 2.dp)
+            }
+        }
+        // With larger fonts these sections can be below the fold but must scroll
+        // into view. Preserve the fixed CTA without shrinking readable content.
+        compose.onNodeWithTag("builder-cali-starting-levels").performScrollTo()
+        compose.onNodeWithTag("builder-cali-starting-levels").assertIsDisplayed()
+    }
+
     @Test fun activityFixedMapAndIndependentSheetRenderAtCurrentViewport() {
         val recorded=ActivityRecord(
             "synthetic-responsive-activity","Recorded Evening Run","run","manual",
