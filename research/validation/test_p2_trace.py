@@ -115,6 +115,82 @@ class TraceChecks(unittest.TestCase):
         with self.assertRaisesRegex(Quarantine, "unsupported_fit_trace"):
             decode(self.raw, "fit")
 
+    def test_original_lap_fields_are_separate_from_timer_and_sample_span(self):
+        # A realistic single-lap exporter shape; reported time is deliberately
+        # different from independent timer and from first-to-last sample elapsed.
+        src = self.raw.replace(b"<Track>", b"<TotalTimeSeconds>1740</TotalTimeSeconds>"
+                b"<DistanceMeters>5450.5</DistanceMeters><Calories>12</Calories>"
+                b"<AverageHeartRateBpm><Value>131</Value></AverageHeartRateBpm>"
+                b"<MaximumHeartRateBpm><Value>141</Value></MaximumHeartRateBpm>"
+                b"<Intensity>Active</Intensity><Cadence>83</Cadence>"
+                b"<TriggerMethod>Manual</TriggerMethod><Track>")
+        trace = decode(src, "tcx")
+        qc = acquisition_probe(trace, replace(self.ref, source_digest=trace.source_digest))
+        self.assertEqual(tuple(qc[k] for k in ("source_session_ordinal","source_lap_ordinal",
+            "first_to_last_sample_elapsed_s","lap_reported_time_s","duration_s",
+            "lap_reported_m","lap_reported_mean_hr_bpm","lap_reported_max_hr_bpm","lap_native_cadence")),
+            (0,0,1800,1740,1200,5450.5,131,141,83))
+
+    def test_alternate_namespace_prefix_bom_typed_hr_and_sensor_state(self):
+        import re
+        data = tcx((point(0, 0), point(1, None))).replace(b"<HeartRateBpm>",
+            b'<HeartRateBpm xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
+            b' xsi:type="HeartRateInBeatsPerMinute_t">').replace(b"</Trackpoint>",
+            b"<Cadence>0</Cadence><SensorState>Present</SensorState></Trackpoint>")
+        data = re.sub(rb"<(/?)([a-zA-Z])", rb"<\1n:\2", data).replace(b" xmlns=", b" xmlns:n=")
+        # No type assertion in the prefix-only document: unprefixed xsi:type
+        # would require a default namespace as well.
+        data = data.replace(b' xsi:type="HeartRateInBeatsPerMinute_t"', b"")
+        out = decode(b"\xef\xbb\xbf" + data, "tcx")
+        self.assertEqual([(p.source_hr, p.hr, p.cadence) for p in out.points], [(0,None,0),(None,None,0)])
+        with self.assertRaisesRegex(Quarantine, "unknown_hr_type_namespace"):
+            decode(data.replace(b'<n:HeartRateBpm ', b'<n:HeartRateBpm xmlns="urn:other"'
+                  b' xsi:type="HeartRateInBeatsPerMinute_t" '), "tcx")
+        typed = tcx((point(0), point(1))).replace(b"<HeartRateBpm>",
+            b'<HeartRateBpm xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
+            b' xsi:type="HeartRateInBeatsPerMinute_t">')
+        self.assertEqual(decode(typed, "tcx").points[0].source_hr,132)
+
+    def test_ambiguous_or_multiple_session_dialects(self):
+        data = tcx((point(0), point(1)))
+        extra = data[data.index(b"<Activity "):data.index(b"</Activity>")+len(b"</Activity>")]
+        for src in (data.replace(b"</Activities>", extra+b"</Activities>"),
+                    data.replace(b'<Activity Sport=', b'<Activity Id="other" Sport='),
+                    data.replace(b"</Lap>", b"</Lap><Lap/>"),
+                    data.replace(b"</Activity>", b"<Notes><Track/></Notes></Activity>"),
+                    data.replace(b"</Activities>", b'<Activity xmlns="urn:other"/></Activities>'),
+                    data.replace(b"<Id>", b"<OtherId>"), data.replace(b"<Id>", b"<Id unit='local'>"),
+                    data.replace(b"<TrainingCenterDatabase xmlns=", b"<TrainingCenterDatabase schema=")):
+            with self.subTest(prefix=src[:120]), self.assertRaises(Quarantine):
+                decode(src, "tcx")
+
+    def test_bad_offset_not_normalized_by_datetime(self):
+        small = tcx((point(0), point(1)))
+        for suffix in (b"+08:60", b"+14:01", b"-00:00", b"+24:00"):
+            with self.subTest(offset=suffix), self.assertRaises(Quarantine):
+                decode(small.replace(b"+00:00",suffix), "tcx")
+
+    def test_bad_or_ambiguous_sample_and_summary_field(self):
+        data = tcx((point(0), point(1)))
+        for bad in (b"<Cadence>2.5</Cadence>", b"<Cadence>256</Cadence>",
+                    b"<Cadence>2</Cadence><Cadence>2</Cadence>", b"<SensorState>Absent</SensorState>"):
+            with self.subTest(field=bad), self.assertRaises(Quarantine):
+                decode(data.replace(b"</Trackpoint>", bad+b"</Trackpoint>"), "tcx")
+        for bad in (b"<TotalTimeSeconds>-1</TotalTimeSeconds>", b"<DistanceMeters>1_0</DistanceMeters>",
+                    b"<Cadence>1</Cadence><Cadence>1</Cadence>"):
+            with self.subTest(field=bad), self.assertRaises(Quarantine):
+                decode(data.replace(b"<Track>", bad+b"<Track>"), "tcx")
+        for bad in (b"<Value units='hz'>132</Value>", b"<Value>132<Nested/></Value>",
+                    b"<Value>132</Value><AlternateValue>80</AlternateValue>"):
+            with self.subTest(field=bad), self.assertRaises(Quarantine):
+                decode(data.replace(b"<Value>132</Value>",bad), "tcx")
+
+    def test_partial_end_or_incomplete_timer_provenance_never_returns_segment(self):
+        with self.assertRaisesRegex(Quarantine, "unobserved_exact_boundary"):
+            self.measure(lambda t: "" if t > 1780 else point(t))
+        with self.assertRaisesRegex(Quarantine, "reference_incomplete"):
+            acquisition_probe(self.trace, replace(self.ref, reference_complete=False))
+
 
 if __name__ == "__main__":
     unittest.main()

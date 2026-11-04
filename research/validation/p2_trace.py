@@ -2,13 +2,15 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
+from io import StringIO
 from math import isfinite
 import re
 from xml.etree import ElementTree as ET
 
-VERSION = "p2-trace/0.1"
+VERSION = "p2-trace/0.2"
 TCX = "{http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2}"
 GPX = "{http://www.topografix.com/GPX/1/1}"
+XSI = "{http://www.w3.org/2001/XMLSchema-instance}"
 
 
 class Quarantine(ValueError):
@@ -24,6 +26,10 @@ def clock(s):
     need(isinstance(s, str) and re.fullmatch(
         r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,6})?(?:Z|[+-]\d\d:\d\d)", s),
         "missing_or_ambiguous_clock")
+    if not s.endswith("Z"):
+        hh, mm = int(s[-5:-3]), int(s[-2:])
+        need(mm < 60 and (hh < 14 or (hh == 14 and mm == 0))
+             and s[-6:] != "-00:00", "invalid_or_unknown_offset")
     try:
         return datetime.fromisoformat(s.replace("Z", "+00:00")).astimezone(timezone.utc)
     except (ValueError, OverflowError) as err:
@@ -39,6 +45,10 @@ def single(node, tag, optional=False):
 
 
 def num(s):
+    need(not isinstance(s, bool), "bad_number")
+    if isinstance(s, str):
+        need(re.fullmatch(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?",
+                          s.strip()), "bad_number")
     try:
         n = float(s)
     except (ValueError, TypeError) as err:
@@ -47,11 +57,37 @@ def num(s):
     return n
 
 
+def scalar(node):
+    need(len(node) == 0 and not node.attrib and node.text is not None, "ambiguous_scalar")
+    return node.text.strip()
+
+
+def children(node, allowed):
+    need(all(c.tag in {TCX + name for name in allowed} for c in node), "unknown_or_misplaced_element")
+
+
+def channel(node, tag, *, byte=False, bpm=False):
+    field = single(node, tag, optional=True)
+    if field is None:
+        return None
+    if bpm:
+        xsi_type = XSI + "type"
+        need(all(k == xsi_type and v == "HeartRateInBeatsPerMinute_t"
+                 for k, v in field.attrib.items()), "unknown_hr_type")
+        children(field, ("Value",))
+        field = single(field, "Value")
+    n = num(scalar(field))
+    need(n >= 0 and (not (byte or bpm) or (n.is_integer() and n <= 255)), "invalid_" + tag)
+    return int(n) if byte or bpm else n
+
+
 @dataclass(frozen=True)
 class Point:
     at: datetime
     hr: float | None
     meters: float
+    source_hr: int | None = None  # preserve reported zero separately from missing
+    cadence: int | None = None  # native channel; never auto-convert to steps/min
 
 
 @dataclass(frozen=True)
@@ -59,6 +95,11 @@ class Trace:
     source_digest: str
     start: datetime
     points: tuple[Point, ...]
+    lap_reported_time_s: float | None
+    lap_reported_m: float | None
+    lap_mean_hr: int | None
+    lap_max_hr: int | None
+    lap_cadence: int | None
 
 
 def decode(data, fmt):
@@ -70,7 +111,23 @@ def decode(data, fmt):
     try:
         xml = data.decode("utf-8-sig")
         need("<!" not in xml and "\x00" not in xml, "unsupported_xml")
-        root = ET.fromstring(xml)
+        # ElementTree expands element names, but not unprefixed QName *values*
+        # of xsi:type. Resolve the default namespace in scope for those values.
+        parser = ET.iterparse(StringIO(xml), events=("start-ns", "start", "end"))
+        default_ns, pending_default = [""], None
+        for event, item in parser:
+            if event == "start-ns":
+                if item[0] == "":
+                    pending_default = item[1]
+            elif event == "start":
+                default_ns.append(default_ns[-1] if pending_default is None else pending_default)
+                pending_default = None
+                if item.tag in {TCX+"HeartRateBpm", TCX+"AverageHeartRateBpm", TCX+"MaximumHeartRateBpm"}:
+                    if XSI+"type" in item.attrib:
+                        need(default_ns[-1] == TCX[1:-1], "unknown_hr_type_namespace")
+            else:
+                default_ns.pop()
+        root = parser.root
     except (UnicodeError, ET.ParseError) as err:
         raise Quarantine("corrupt_xml") from err
     if fmt == "gpx":
@@ -78,30 +135,49 @@ def decode(data, fmt):
         need(len(list(root.iter(GPX + "trkseg"))) == 1, "ambiguous_gpx_segments")
         raise Quarantine("unsupported_gpx_distance_and_timer")
     need(root.tag == TCX + "TrainingCenterDatabase", "unsupported_tcx_dialect")
+    need(set(root.attrib) <= {XSI+"schemaLocation"}, "unsupported_root_attributes")
     need(not any(e.tag.rsplit("}", 1)[-1] == "Extensions" for e in root.iter()),
          "unreviewed_tcx_extension")
-    activity = single(single(root, "Activities"), "Activity")
+    children(root, ("Activities", "Author"))
+    activities = single(root, "Activities")
+    need(not activities.attrib, "unsupported_activities_attributes")
+    children(activities, ("Activity",))
+    activity = single(activities, "Activity")
+    children(activity, ("Id", "Lap", "Notes", "Creator"))
     need(activity.get("Sport") == "Running", "wrong_sport")
-    start = clock(single(activity, "Id").text)
+    need(set(activity.attrib) == {"Sport"}, "unsupported_attribute_identity")
+    start = clock(scalar(single(activity, "Id")))
     lap = single(activity, "Lap")
+    need(set(lap.attrib) == {"StartTime"}, "unsupported_lap_identity")
+    children(lap, ("TotalTimeSeconds", "DistanceMeters", "MaximumSpeed", "Calories",
+                   "AverageHeartRateBpm", "MaximumHeartRateBpm", "Intensity", "Cadence",
+                   "TriggerMethod", "Track", "Notes"))
+    for name in ("Activity", "Lap", "Track"):
+        need(sum(1 for _ in root.iter(TCX + name)) == 1, "ambiguous_" + name)
     need(clock(lap.get("StartTime")) == start, "ambiguous_start")
     track = single(lap, "Track")
+    need(not track.attrib, "unsupported_track_attributes")
     points = []
     for p in track:
         need(p.tag == TCX + "Trackpoint", "unsupported_track_element")
+        need(not p.attrib, "unsupported_trackpoint_attributes")
         # Unknown extensions may encode status, sensor changes or alternate observations.
-        need(all(c.tag in {TCX + t for t in ("Time", "HeartRateBpm", "DistanceMeters",
-                 "Position", "AltitudeMeters", "Cadence")} for c in p), "unknown_sample_channel")
-        at = clock(single(p, "Time").text)
+        children(p, ("Time", "HeartRateBpm", "DistanceMeters", "Position", "AltitudeMeters",
+                     "Cadence", "SensorState"))
+        sensor_state = single(p, "SensorState", optional=True)
+        if sensor_state is not None:
+            need(scalar(sensor_state) == "Present", "absent_or_unknown_sensor_state")
+        at = clock(scalar(single(p, "Time")))
         need(at >= start and (not points or at > points[-1].at), "timestamp_order")
-        dist = num(single(p, "DistanceMeters").text)
+        dist = num(scalar(single(p, "DistanceMeters")))
         need(dist >= 0 and (not points or dist >= points[-1].meters), "distance_reset")
-        hrnode = single(p, "HeartRateBpm", optional=True)
-        hr = num(single(hrnode, "Value").text) if hrnode is not None else None
-        need(hr is None or (hr.is_integer() and 0 <= hr <= 255), "invalid_hr_encoding")
-        points.append(Point(at, hr if hr else None, dist))
+        hr = channel(p, "HeartRateBpm", bpm=True)
+        points.append(Point(at, hr or None, dist, hr, channel(p, "Cadence", byte=True)))
     need(len(points) >= 2, "incomplete_track")
-    return Trace(sha256(data).hexdigest(), start, tuple(points))
+    return Trace(sha256(data).hexdigest(), start, tuple(points),
+                 channel(lap, "TotalTimeSeconds"), channel(lap, "DistanceMeters"),
+                 channel(lap, "AverageHeartRateBpm", bpm=True),
+                 channel(lap, "MaximumHeartRateBpm", bpm=True), channel(lap, "Cadence", byte=True))
 
 
 @dataclass(frozen=True)
@@ -177,6 +253,12 @@ def acquisition_probe(trace, ref):
             total[q] += p.hr * dt
     need(all(w >= 285 for w in valid), "quarter_coverage")
     return {"status": "PRIVATE_TRACE_QC_ONLY", "parser": VERSION, "start_offset_s": first,
+            "source_session_ordinal": 0, "source_lap_ordinal": 0,
+            "first_to_last_sample_elapsed_s": (trace.points[-1].at-trace.points[0].at).total_seconds(),
+            "lap_reported_time_s": trace.lap_reported_time_s,
+            "lap_reported_m": trace.lap_reported_m,
+            "lap_reported_mean_hr_bpm": trace.lap_mean_hr,
+            "lap_reported_max_hr_bpm": trace.lap_max_hr, "lap_native_cadence": trace.lap_cadence,
             "duration_s": 1200, "distance_m": rel[last].meters - rel[first].meters,
             "quarter_valid_s": tuple(valid), "quarter_mean_hr_bpm": tuple(s/w for s,w in zip(total,valid)),
             "quarter_distance_m": tuple(rel[b].meters-rel[a].meters for a,b in zip(boundaries,boundaries[1:])),

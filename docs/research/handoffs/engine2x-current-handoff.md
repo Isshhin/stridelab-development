@@ -1,6 +1,10 @@
 # StrideLab Engine 2.x current coordinating handoff
 
-## Current action after feasibility implementation
+## Current action after private pilot hardening
+
+Use the [private pilot readiness handoff](p2-f-private-pilot-readiness-handoff.md). A steward must complete the private particulars and verify the actual staging controls before intake. The participant can then decide on the specific grant. No human source or supported device has been established. Gate 2 and P2-B remain blocked.
+
+## Historical action after feasibility implementation
 
 Consult the [implementation handoff](p2-f-feasibility-implementation-handoff.md) for the current pilot decision, verification scope and remaining prerequisites. The earlier wave instructions below are historical. Gate 2 remains unsigned and P2-B remains protocol-only.
 

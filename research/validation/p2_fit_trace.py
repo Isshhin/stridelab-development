@@ -7,7 +7,8 @@ EPOCH = datetime(1989, 12, 31, tzinfo=timezone.utc)
 # FIT profile scalar fields used here: (wire size, base type).
 TIME = (4, 0x86)
 PROFILE = {18: {253: TIME, 2: TIME}, 20: {253: TIME, 3: (1, 2), 5: TIME},
-           21: {253: TIME, 0: (1, 0), 1: (1, 0)}}
+           21: {253: TIME, 0: (1, 0), 1: (1, 0), 4: (1, 2)}}
+MIN_ABSOLUTE_TIME = 0x10000000
 
 
 class Quarantine(ValueError):
@@ -39,6 +40,21 @@ class Trace:
     end: datetime
     samples: tuple
     timer_events: tuple
+
+    @property
+    def coverage(self):
+        """Describe observed gaps; no interpolated values or acceptance thresholds."""
+        points = self.samples
+        return {
+            "leading_gap_s": int((points[0].at - self.start).total_seconds()),
+            "trailing_gap_s": int((self.end - points[-1].at).total_seconds()),
+            "max_record_gap_s": max((int((b.at - a.at).total_seconds())
+                                     for a, b in zip(points, points[1:])), default=None),
+            "missing_hr": sum(p.hr_bpm is None for p in points),
+            "zero_hr": sum(p.hr_bpm == 0 for p in points),
+            "missing_distance": sum(p.distance_m is None for p in points),
+            "unknown_timer": sum(p.timer_running is None for p in points),
+        }
 
     @property
     def b0_eligible(self):
@@ -107,16 +123,22 @@ def inspect_fit(data, *, session_index=None):
         t = vals.get(253)
         if t is None:
             raise Quarantine("missing timestamp")
+        if t < MIN_ABSOLUTE_TIME:
+            raise Quarantine("device-relative timestamp")
         if msg == 18:
             start = vals.get(2)
             if start is None or start >= t:
                 raise Quarantine("invalid session bounds")
+            if start < MIN_ABSOLUTE_TIME:
+                raise Quarantine("device-relative session start")
             sessions.append((start, t))
         elif msg == 20:
             rows.append((t, "record", (vals.get(3), vals.get(5))))
         elif vals.get(0) is None:
             raise Quarantine("unknown event kind")
         elif vals[0] == 0:
+            if 4 in vals and vals[4] != 0:
+                raise Quarantine("unsupported timer group")
             kind = vals.get(1)
             if kind not in (0, 1, 4):  # start, stop, stop_all
                 raise Quarantine("unsupported timer event")
@@ -153,8 +175,12 @@ def inspect_fit(data, *, session_index=None):
             raise Quarantine("contradictory timer transition")
         state = active
         events.append((EPOCH + timedelta(seconds=t), ("start", "stop", None, None, "stop_all")[kind]))
-    state, j, samples = None, 0, []
+    state, j, samples, last_distance = None, 0, [], None
     for t, (hr, distance) in records:
+        if distance is not None:
+            if last_distance is not None and distance < last_distance:
+                raise Quarantine("distance regression in selected session")
+            last_distance = distance
         while j < len(timers) and timers[j][0] <= t:
             state = timers[j][1] == 0
             j += 1

@@ -5,7 +5,8 @@ import unittest
 
 from p2_pilot_probe import inspect_linked_tcx
 from p2_trace import Reference
-from p2f_linkage import PilotLedger, Quarantine
+from p2f_linkage import CurrentAuthority, PilotLedger, Quarantine
+from p2f_linkage_audit import AuditSeries
 from test_p2_trace import tick, point, tcx
 
 
@@ -25,8 +26,11 @@ class IntegratedPilot(unittest.TestCase):
     def setUp(self):
         self.scope = ("a", "p", "grant", "development-pilot", "reviewer")
         key = ("direct", "original", "file", "tcx")
+        self.authority = CurrentAuthority(lambda: tick(5000).isoformat())
+        self.authority.register(self.scope, tick(-100).isoformat(), tick(6000).isoformat(),
+                                ("fixture-participant",))
         self.ledger = PilotLedger(self.scope, tick(-100).isoformat(), {key: "bout"},
-                                  {"review": ("bout", "opp", "rev")})
+                                  {"review": ("bout", "opp", "rev")}, authority=self.authority)
         def row(event, kind, t, **data):
             stamp = tick(t).isoformat()
             return dict(id=event, kind=kind, scope=self.scope, effective=stamp,
@@ -43,9 +47,15 @@ class IntegratedPilot(unittest.TestCase):
                 evidence="review")]
         self.ledger.append(self.scope, list(reversed(self.rows)))
 
-    def inspect(self, *, cutoff=4000, raw=None, ref=None, scope=None):
+    def inspect(self, *, cutoff=4000, raw=None, ref=None, scope=None, frozen=3700):
         return inspect_linked_tcx(self.ledger, scope or self.scope, tick(cutoff).isoformat(),
-                                  "edge", "file", self.raw if raw is None else raw, ref or self.ref)
+                                  "edge", "file", self.raw if raw is None else raw, ref or self.ref,
+                                  reference_frozen_at=tick(frozen).isoformat())
+
+    def test_reference_cannot_appear_before_intake_or_reach_back_from_future(self):
+        for frozen in (3500, 4000, 4100):
+            with self.subTest(frozen=frozen), self.assertRaises(Quarantine):
+                self.inspect(frozen=frozen)
 
     def test_linked_measurement_is_replayable_after_duplicate(self):
         original = self.inspect()
@@ -57,6 +67,28 @@ class IntegratedPilot(unittest.TestCase):
         for cutoff in (1801, 3605):
             with self.subTest(cutoff=cutoff), self.assertRaises(Quarantine):
                 self.inspect(cutoff=cutoff)
+
+    def test_pinned_trace_comparison_rejects_edited_reference_and_withdrawal(self):
+        # Artificial frozen reference, with an expected distance chosen before decoding.
+        worksheet = b'expected distance in meters = 3600'
+        def compare_original(original, frozen_sheet):
+            measured = self.inspect(raw=original)
+            expected = int(frozen_sheet.split(b'=')[1])
+            if measured["distance_m"] != expected:
+                raise Quarantine("distance discrepancy")
+            return measured
+        series = AuditSeries(self.ledger, self.scope, {"fixture-implementation": compare_original})
+        version = series.pin("file", "edge", "fixture-implementation", worksheet)
+        self.assertTrue(series.compare(version, self.raw, worksheet)["active"])
+        with self.assertRaises(Quarantine):
+            series.compare(version, self.raw, worksheet + b"0")
+        changed = b'expected distance in meters = 3000'
+        revised = series.pin("file", "edge", "fixture-implementation", changed)
+        self.assertEqual(series.compare(revised, self.raw, changed)["disposition"], "QUARANTINED")
+        self.assertFalse(series.compare(version, self.raw, worksheet)["active"])
+        self.ledger.withdraw(self.scope)
+        with self.assertRaises(Quarantine):
+            series.compare(version, self.raw, worksheet)
 
     def test_wrong_original_or_reference(self):
         with self.assertRaises(Quarantine):

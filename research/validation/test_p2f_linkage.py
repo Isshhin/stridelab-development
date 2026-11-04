@@ -1,7 +1,7 @@
 """All IDs and timestamps are fabricated. No file or custodian network access."""
 import unittest
 
-from p2f_linkage import PilotLedger, Quarantine
+from p2f_linkage import PilotLedger, Quarantine, CurrentAuthority
 
 
 S = ("A","P","G","development-pilot","server")
@@ -14,9 +14,16 @@ def T(hour):
     return f"2026-10-01T{hour:02}:00:00Z"
 
 
-def pilot(scope=S):
+def auth(scope=S):
+    a = CurrentAuthority(lambda: T(23))
+    a.register(scope,T(0),"2026-10-02T00:00:00Z",("fixture-"+scope[0],))
+    return a
+
+
+def pilot(scope=S, authority=None):
     return PilotLedger(scope, T(0), {K:"B", J:"B"}, {"E1":("B","O","R1"),
-                       "E2":("B","O","R2"), "E3":("B","O","R1")}, [(K,H,H2)])
+                       "E2":("B","O","R2"), "E3":("B","O","R1")}, [(K,H,H2)],
+                       authority=authority or auth(scope))
 
 
 def row(id_, kind, hour, data, scope=S, **changes):
@@ -206,13 +213,13 @@ class Linkage(unittest.TestCase):
             self.assertEqual(led.followup_state(S,"O",T(h)),expected)
 
     def test_reused_identical_bytes_with_incompatible_bout(self):
-        led = PilotLedger(S,T(0),{K:"B",J:"other"},{})
+        led = PilotLedger(S,T(0),{K:"B",J:"other"},{},authority=auth())
         led.append(S,[source(),source(key=J,id_="S2",hour=14,activity="other")])
         with self.assertRaises(Quarantine):
             led.replay(S,T(20))
 
     def test_late_followup_requires_independent_evidence_and_correct_window(self):
-        led = PilotLedger(S,T(0),{},{},followups=[("F1","O","F",T(12))])
+        led = PilotLedger(S,T(0),{},{},followups=[("F1","O","F",T(12))],authority=auth())
         w = row("W","followup_window",5,dict(opportunity="O",protocol="F",opens=T(10),closes=T(15)))
         f = row("F","followup_observation",18,dict(opportunity="O",observation="F1",observed_at=T(12)))
         led.append(S,base()+[w,f])

@@ -21,3 +21,24 @@ Run `python -m unittest discover -s research/validation -p test_p2_fit_trace.py 
 | Session bounds, ordered sample timestamps, time differences, HR, cumulative meters, timer events when present | SUPPORTED_AND_VERIFIED on enumerated fixtures | SUPPORTED_NEEDS_REAL_DEVICE_AUDIT; blocked from human intake through this prototype |
 | No timer evidence, ambiguous session ownership, unordered records | AMBIGUOUS_QUARANTINE for segment use | AMBIGUOUS_QUARANTINE |
 | B0 marker and interval QC, calibrated distance basis, sensor epoch, lap reconciliation and B0 emission | UNSUPPORTED | UNSUPPORTED |
+
+## Operational hardening audit (baseline 32c9ed7)
+
+**Disposition: `FIT_REAL_DEVICE_AUDIT_REQUIRED`. No FIT device, firmware, export family or human session is supported for the private pilot by this probe.** Raw extraction and diagnostics below are synthetic. They make no claim about whether a recorded HR is physiologically valid, or whether an observed gap represents a pause.
+
+| Field or failure | Decision in `inspect_fit` |
+| --- | --- |
+| Absolute time vs device uptime | FIT date_time values below 0x10000000 are device-relative, not UTC. Quarantine unanchored record/event times and session bounds. This corrects the baseline fixture's low-valued synthetic timestamps. |
+| Session and lap identity | File digest + session-message ordinal and time bounds only. Reject duplicate, overlapping or touching intervals and orphan records/timers. Lap IDs, sport and lap membership are **unsupported**; F3 summary checks do not supply record-to-lap membership. |
+| Timestamp ordering | Reject ties and reversals within each selected record/timer stream. Event at record time takes effect at that instant. Interleaving two streams on wire does not itself establish a single chronological order. |
+| Event/time basis | Timer start, stop and stop_all for absent/default group only; quarantine nondefault or invalid group, unsupported timer type, repeated state transitions and ambiguous event type. Other identified event kinds are ignored. No moving time, elapsed-vs-timer equality or pause-free interval derived. |
+| Cumulative distance | Decode raw cm to m. Equal consecutive values allowed. A decrease in selected session quarantines, even across a pause or a missing-distance record. No rebasing, smoothing or interpolation. Independent sessions may restart distance. |
+| HR / missing / zero | Retain recorded bpm and distinguish zero from missing/invalid; zero is not classified as physiological evidence. No substitute from summaries. |
+| Sampling and partial traces | Report leading/trailing seconds without records, largest adjacent record interval (unknown for a singleton), and counts of missing HR, zero HR, missing distance and unknown timer state. No adequate-cadence, complete-recording or gap acceptance threshold; no invented samples. |
+| Native speed and cadence | **Unsupported**. Base and enhanced speed, cadence and fractional cadence are not exposed. A fixture containing native speed and cadence changes the byte digest without changing trace samples. No speed/cadence derived. |
+| Sensor and device | **Unsupported**. No sensor ID/model, source type, hardware/firmware, HR acquisition method, GPS or environmental provenance. Presence of a device-info message does not establish which sensor supplied a record. |
+| Developer fields / compression | Quarantine unsupported message header before interpreting bytes. Other well-framed unrecognized standard fields/messages are skipped without exposure or validation against their profiles. |
+| Corruption | Check header/file CRC and exact length, read boundaries, local definitions and allowlisted field encodings. Even a valid file CRC cannot rescue an undefined local message, short field or bad known-field encoding. |
+| Identity across versions | Equal content digest establishes equal bytes only; different encodings can give equal samples. No automatic cross-export deduplication, correction, alias resolution or release to B0. |
+
+FIT time reference: [Garmin FIT date/time cookbook](https://developer.garmin.com/fit/articles/cookbook/datetime.html) and [FIT profile date_time system-time exception](https://docs.rs/garminfit/latest/src/garminfit/profile/types.rs.html#324-327). No participant, external activity file or online activity viewer was used. Local only: CPython 3.12.10, `py -m unittest discover -s research/validation -p test_p2_fit_trace.py -v`, 10 passed, 0 failed/skipped on the hardening changes above 32c9ed7. The suite uses a fixture writer independent of the probe; this is not independent real-device reconciliation.

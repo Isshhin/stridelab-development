@@ -1,5 +1,28 @@
 # P2-F Gate 2 manifest draft | E009
 
+## Decision register after operational hardening
+
+`FROZEN` below identifies an existing architectural rule or a fixed instruction for this development protocol version. It does not sign or freeze the confirmatory manifest. For every pending item retain the dated evidence and reviewer disposition in the private worksheet.
+
+| Manifest field | Classification | Freeze basis or evidence still required |
+| --- | --- | --- |
+| Purpose and candidate source | FROZEN | One directly exported S1 original plus separately authored diary, development feasibility only. |
+| Source rights and participant approval | PARTICIPANT_APPROVAL_PENDING | Complete the private receipt, affirmative per-purpose decisions, steward determination, expiry and role assignments. No signed receipt exists here. |
+| Pilot partition and leakage boundaries | FROZEN | Register before access. Original, aliases, corrections, duplicates and derivatives inherit participant-level exclusion. Unresolved alias is ineligible. Operational verification remains private. |
+| Linkage schema and parser version | FROZEN | Pin the exact Git commit containing this register, module versions and interpreter for a development run. Changed versions require a fresh independent comparison. |
+| Format scope and unsupported fields | FROZEN | Narrow single-activity TCX with audited external evidence. FIT remains experimental, GPX outside the window. Apply the field matrices, including explicit abstentions. |
+| Supported device/firmware/sensor strata | REAL_DEVICE_AUDIT_PENDING | Zero supported configurations. Record exporter and configurations separately, including unsupported or quarantined configurations. |
+| Comparator and manual reference | FROZEN | Blind offline independent reviewer and ordered worksheet. Freeze expected identities, measurements, availability, units and tolerances before opening harness output. |
+| Endpoint and denominators | FROZEN | Correct eligible plan links per independently eligible audited opportunity. Correct source identities per **all audited incoming observations**, including unsupported, quarantined and reference-indeterminate observations. Count an observed re-export in the source roster, but count the performed activity once. Keep injected controls separate. Follow the [blank worksheets](p2-f-private-audit-worksheets.md), including zero-denominator handling. |
+| Account isolation, duplicate and correction rules | FROZEN | Current authority and account-scoped adjudication before projection. Identical bytes cannot resolve ownership. Supersession and independent re-audit preserve history and invalidate active derived claims. |
+| Withdrawal and adverse restore | DEVELOPMENT_EVIDENCE_PENDING | Synthetic exercises supplement the required drill on the actual private store, cache, viewer, backups and suppression controls. |
+| Negative controls / critical mismatch | FROZEN | Inject identity, ancestry, timing, version, trace, restore and revocation errors. Zero silent critical mismatches. One false acceptance stops the affected path. |
+| Linkage coverage and source-identity coverage | DEVELOPMENT_EVIDENCE_PENDING | **UNRESOLVED — REQUIRES DEVELOPMENT PILOT.** Report raw fractions by stratum and all abstentions. No minimum margin has been inferred. |
+| Burden and tolerability | DEVELOPMENT_EVIDENCE_PENDING | **UNRESOLVED — REQUIRES DEVELOPMENT PILOT.** Record actual reviewer/operator minutes and retries, with a separate unresolved acceptable margin. |
+| Confirmatory partition | INDEPENDENT_REVIEW_PENDING | No allocation or access. Define a future untouched roster and verify participant-level disjointness against the live exclusion authority. |
+| Stop and restart | FROZEN | Stop on rights ambiguity, critical error, split contamination, changed code or loss of independent reference. Steward clears custody failures. Affected development path requires versioned correction and independent re-audit. |
+| Independent reviewer and signatures | INDEPENDENT_REVIEW_PENDING | No Gate 2 approval. Identify independent signatories and obtain their judgment only after real development evidence and proposed margins exist. |
+
 **P2_F_GATE_2_MANIFEST_NOT_READY.** Development draft, unsigned. The frozen Session G architecture at `26a8331e642c888dd73acb94755dded063baab8d` supplies the endpoint and zero-critical-mismatch stop rule. A synthetic pass contributes no person, opportunity or device to a coverage estimate.
 
 | Item | Procedure or current evidence |

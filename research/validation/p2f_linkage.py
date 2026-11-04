@@ -11,7 +11,7 @@ import json
 import re
 
 
-SCHEMA = "F2.1-pilot.1"
+SCHEMA = "F2.1-pilot.2"
 
 
 class Quarantine(ValueError):
@@ -45,8 +45,75 @@ def digest(x):
     return hashlib.sha256(encode(x).encode()).hexdigest()
 
 
+class CurrentAuthority:
+    """Steward-side reference implementation. NEVER restore from a participant backup.
+
+    Private operators must supply a current clock and authoritative non-rollback
+    grant/suppression state before opening any staging or backup contents.
+    This in-memory adapter is not a durable consent register or identity service.
+    """
+    def __init__(self, clock):
+        self._clock = clock
+        self._grants, self._aliases, self._heads = {}, {}, {}
+        self._suppressed = set()
+        self._audits = {}  # private current pins; never packaged with a working copy
+
+    def __deepcopy__(self, memo):
+        raise Quarantine("current authority cannot be checkpointed")
+
+    def register(self, scope, start, end, aliases):
+        require(isinstance(scope, tuple) and len(scope) == 5 and scope[3] == "development-pilot"
+                and all(ident(x) for x in scope), "invalid development scope")
+        require(isinstance(aliases,(tuple,list)), "explicit aliases required")
+        aliases = tuple(ident(a) for a in aliases)
+        lo, hi = instant(start), instant(end)
+        require(lo < hi and aliases and len(set(aliases)) == len(aliases)
+                and scope not in self._grants and scope not in self._suppressed
+                and not any(a in self._aliases for a in aliases), "scope or alias unavailable")
+        self._grants[scope] = (lo, hi)
+        self._aliases.update(dict.fromkeys(aliases, scope))
+        self._heads[scope] = digest({})
+
+    def bind_alias(self, scope, alias):
+        self.check(scope)
+        alias = ident(alias)
+        require(self._aliases.get(alias, scope) == scope, "alias unavailable")
+        self._aliases[alias] = scope
+
+    def resolve(self, scope, alias):
+        self.check(scope)
+        require(self._aliases.get(alias) == scope, "alias unavailable")
+        return scope
+
+    def check(self, scope):
+        require(isinstance(scope, tuple) and scope not in self._suppressed
+                and scope in self._grants, "access denied")
+        try:
+            now = instant(self._clock())
+        except Exception as error:
+            raise Quarantine("current authority unavailable") from error
+        lo, hi = self._grants[scope]
+        require(lo <= now < hi, "access denied")
+        return lo, now
+
+    def revoke(self, scope):
+        # Steward can suppress a known grant even after it expires.
+        require(scope in self._grants, "access denied")
+        self._suppressed.add(scope)
+        self._heads.pop(scope, None)
+        self._audits.pop(scope, None)
+
+    def head(self, scope):
+        self.check(scope)
+        return self._heads[scope]
+
+    def advance(self, scope, previous, new):
+        require(self.head(scope) == previous, "stale working state")
+        self._heads[scope] = new
+
+
 class PilotLedger:
-    def __init__(self, scope, grant_start, sources, links, corrections=(), followups=()):
+    def __init__(self, scope, grant_start, sources, links, corrections=(), followups=(), *, authority):
         """Open only after private authorization. No grant discovery or signing.
 
         scope=(account, study pseudonym, grant, 'development-pilot', view).
@@ -58,17 +125,37 @@ class PilotLedger:
         self.scope = tuple(ident(x) for x in scope)
         require(scope[3] == "development-pilot", "invalid partition")
         self.start = instant(grant_start)
+        require(authority.check(scope)[0] == self.start, "grant start mismatch")
+        self._authority = authority
         self._sources, self._links = deepcopy(sources), deepcopy(links)
         self._corrections = set(corrections)  # (source key, previous digest, new digest)
         self._followups = set(followups)  # (observation, opportunity, protocol, observed_at)
         self._rows = {}
         self._revoked = False
+        self._head = digest({})
 
     def _access(self, scope):
         require(not self._revoked and self.scope == tuple(scope), "access denied")
+        lo, now = self._authority.check(self.scope)
+        require(self._head == self._authority.head(self.scope), "stale working state")
+        return now
+
+    def checkpoint(self, scope):
+        self._access(scope)
+        return deepcopy(self._rows)
+
+    def restore(self, scope, load_rows):
+        """Authorize BEFORE invoking the restricted store's read/decrypt callback."""
+        require(not self._revoked and self.scope == tuple(scope), "access denied")
+        expected = self._authority.head(self.scope)
+        rows = load_rows()
+        require(isinstance(rows, dict) and digest(rows) == expected, "backup is not current")
+        require(self._authority.head(self.scope) == expected, "authority changed during restore")
+        self._rows, self._head = deepcopy(rows), expected
 
     def withdraw(self, scope):
-        self._access(scope)
+        require(self.scope == tuple(scope), "access denied")
+        self._authority.revoke(self.scope)
         self._revoked = True
         self._rows.clear()
         self._sources.clear()
@@ -78,14 +165,14 @@ class PilotLedger:
 
     def append(self, scope, rows):
         """Atomic discovery/ingest; byte-identical event retries are idempotent."""
-        self._access(scope)
+        now = self._access(scope)
         candidate = self._rows.copy()
         for row in deepcopy(rows):
             try:
                 self._access(row["scope"])
                 eid = ident(row["id"])
                 a, r, e = (instant(row[k]) for k in ("available", "recorded", "effective"))
-                require(self.start <= r <= a and e <= a, "invalid chronology")
+                require(self.start <= r <= a <= now and self.start <= e <= a, "invalid chronology")
                 seq = row.get("sequence")
                 require(seq is None or type(seq) is int and seq >= 0, "invalid order")
                 require(eid not in candidate or candidate[eid] == row, "event ID collision")
@@ -94,13 +181,15 @@ class PilotLedger:
                 raise Quarantine("malformed envelope") from error
         # Preserve ambiguity rather than silently reverting to an older projection.
         # Semantic quarantine happens at replay, scoped to the affected cutoff.
-        self._rows = candidate
+        new_head = digest(candidate)
+        self._authority.advance(self.scope, self._head, new_head)
+        self._rows, self._head = candidate, new_head
 
     def replay(self, scope, cutoff, watermark=None):
         """Return a fresh later or historical projection. Unordered cutoff ties unavailable."""
-        self._access(scope)
+        now = self._access(scope)
         stop = instant(cutoff)
-        require(stop >= self.start, "outside grant")
+        require(self.start <= stop <= now, "outside grant")
         require(watermark is None or type(watermark) is int and watermark >= 0,
                 "invalid watermark")
         stream = []
