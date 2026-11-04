@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertTrue
@@ -247,6 +248,73 @@ class TracksideResponsiveQaTest {
         // may enter a saved PlanRequest under the current coaching engine.
         compose.onNodeWithTag("builder-option-pr").performScrollTo()
         compose.onNodeWithTag("builder-option-pr").performClick()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+    }
+
+    @Test fun runningAbilityMatchesFigmaAndRemainsInteractiveAtCurrentViewport() {
+        // Figma 551:865: Intermediate, 30 km/week, longest recent run 14 km.
+        val experience=mutableStateOf(1)
+        val weekly=mutableStateOf(30.0)
+        val longest=mutableStateOf(14.0)
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideFigmaRunningAbilityScreen(
+                        experience=experience.value,
+                        weeklyKm=weekly.value,longestKm=longest.value,
+                        onExperience={ experience.value=it },
+                        onWeeklyKm={ weekly.value=it },
+                        onLongestKm={ longest.value=it },
+                        onBack={},onContinue={},onAdvanced={}
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("builder-experience-1").assertExists()
+        compose.onNodeWithTag("builder-ability-weekly-card").assertExists()
+        compose.onNodeWithTag("builder-ability-longest-card").assertExists()
+        compose.onNodeWithTag("builder-ability-optional-card").assertExists()
+        compose.onNodeWithTag("builder-ability-weekly-slider").assertExists()
+        compose.onNodeWithTag("builder-ability-longest-slider").assertExists()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        screenshot("builder-running-ability-figma-reference")
+
+        val config=compose.activity.resources.configuration
+        if(config.screenWidthDp>=400 && config.fontScale<=1.01f) {
+            val optional=compose.onNodeWithTag("builder-ability-optional-card")
+                .getUnclippedBoundsInRoot()
+            val cta=compose.onNodeWithTag("builder-figma-continue")
+                .getUnclippedBoundsInRoot()
+            assertTrue("Optional performance obscured by fixed Continue",
+                optional.bottom <= cta.top - 2.dp)
+            val weeklyCard=compose.onNodeWithTag("builder-ability-weekly-card")
+                .getUnclippedBoundsInRoot()
+            assertTrue("Weekly ability card exceeds Figma tolerance",
+                (weeklyCard.bottom-weeklyCard.top).value<=137f)
+        }
+        compose.onNodeWithTag("builder-ability-optional-card").performScrollTo()
+        compose.onNodeWithTag("builder-ability-optional-card").assertIsDisplayed()
+        screenshot("builder-running-ability-optional-reachable")
+
+        compose.onNodeWithTag("builder-experience-2").performScrollTo()
+        compose.onNodeWithTag("builder-experience-2").performClick()
+        compose.runOnIdle { assertTrue("Experience selection not updated",
+            experience.value==2) }
+        compose.onNodeWithTag("builder-ability-weekly-slider").performScrollTo()
+        compose.onNodeWithTag("builder-ability-weekly-slider")
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(40f) }
+        compose.runOnIdle { assertTrue("Weekly mileage slider ignored input",
+            weekly.value in 39.0..41.0) }
+        compose.onNodeWithTag("builder-ability-longest-slider").performScrollTo()
+        compose.onNodeWithTag("builder-ability-longest-slider")
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(16f) }
+        compose.runOnIdle { assertTrue("Longest run slider ignored input",
+            longest.value in 15.0..17.0) }
+        compose.onNodeWithTag("builder-ability-add-result").performScrollTo()
+        compose.onNodeWithTag("builder-ability-add-result").performClick()
+        compose.onNodeWithText("This coaching engine does not yet store",
+            substring=true).assertExists()
+        compose.onNodeWithText("Close").performClick()
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
     }
 
