@@ -38,12 +38,12 @@ internal fun TracksideParityTrainingControls(
     onSelectWeek: (LocalDate) -> Unit = {}
 ) {
     Row(
-        Modifier.fillMaxWidth().height(44.dp),
+        Modifier.fillMaxWidth().heightIn(min = 44.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(
-            Modifier.width(162.dp).fillMaxHeight()
+            Modifier.width(162.dp).height(44.dp)
                 .background(Color(0xFF14232D), RoundedCornerShape(12.dp))
                 .padding(3.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -97,7 +97,7 @@ internal fun TracksideParityTrainingControls(
                 ) {
                     Text(
                         span,
-                        fontSize = 14.8f.sp,
+                        fontSize = 14.8f.sp, lineHeight = 17.sp,
                         fontWeight = FontWeight.Bold,
                         color = TracksidePalette.text,
                         maxLines = 1,
@@ -106,7 +106,7 @@ internal fun TracksideParityTrainingControls(
                     )
                     Text(
                         "Week $weekIndex of $totalWeeks",
-                        fontSize = 10.6f.sp,
+                        fontSize = 10.6f.sp, lineHeight = 13.sp,
                         color = TracksidePalette.textMuted,
                         maxLines = 1,
                         modifier = Modifier.testTag("training-week-counter")

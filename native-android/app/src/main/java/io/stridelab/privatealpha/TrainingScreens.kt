@@ -92,80 +92,80 @@ import kotlinx.coroutines.withContext
     val date=LocalDate.parse(selectedDate).let { stored ->
         plan?.let { stored.coerceIn(it.request.start,it.request.start.plusWeeks(it.request.weeks.toLong()).minusDays(1)) } ?: stored
     }
-    Box(Modifier.fillMaxSize()) {
-    Screen(
-        "Training", "YOUR SHARED CALENDAR", compactTitle = true, dense = true,
-        titleBadge = if (plan?.status == "draft") "DRAFT" else null,
-        bottomOverlayPadding = if (plan?.status in setOf("draft", "paused")) 76.dp else 0.dp
-    ) {
-        item {
-            TracksideParityTrainingControls(
-                agenda = agendaView && !monthView,
-                draft = plan?.status == "draft",
-                hasPlan = plan != null,
-                onDay = { agendaView = false; monthView = false },
-                onAgenda = { agendaView = true; monthView = false },
-                onManage = { plan?.let { onManage(it.id, date) } },
-                plan = plan,
-                selected = date,
-                onSelectWeek = { selectedDate = it.toString() }
-            )
-        }
-        if(state.account==null) item { SignalCard { Text("Plan without a watch",style=MaterialTheme.typography.headlineSmall);Text("Sign in once to create private, account-isolated plans. Generation, calendar and logging then work offline.");SignalButton("Sign in",onSignIn) } }
-        else if(plan==null) item { SignalCard { Text("Build your training around your life.",style=MaterialTheme.typography.headlineMedium);Text("Running, strength, calisthenics and conditioning share one calendar. Choose your goal, ability, days and equipment. Review real prescriptions before approving.");SignalButton("Create a plan",onBuild) } }
-        if(plans.size>1) item { Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) { plans.forEach { p -> SignalChip(p.id==plan?.id,{selectedId=p.id},label={Text((p.name ?: p.request.goal)+" · "+p.status)}) } } }
-        if(plan!=null) {
-            item {
-                Column(Modifier.testTag("training-calendar")) {
-                    TrainingCalendar(
-                        plan, date, monthView,
-                        showWeekNavigation = plan.status != "draft"
-                    ) { selectedDate = it.toString() }
+    Column(Modifier.fillMaxSize()) {
+        Box(Modifier.weight(1f)) {
+            Screen(
+                "Training", "YOUR SHARED CALENDAR", compactTitle = true, dense = true,
+                titleBadge = if (plan?.status == "draft") "DRAFT" else null
+            ) {
+                item {
+                    TracksideParityTrainingControls(
+                        agenda = agendaView && !monthView,
+                        draft = plan?.status == "draft",
+                        hasPlan = plan != null,
+                        onDay = { agendaView = false; monthView = false },
+                        onAgenda = { agendaView = true; monthView = false },
+                        onManage = { plan?.let { onManage(it.id, date) } },
+                        plan = plan,
+                        selected = date,
+                        onSelectWeek = { selectedDate = it.toString() }
+                    )
                 }
-            }
-            if(agendaView && !monthView) {
-                val rows=tracksideTrainingWeek(plan,date)
-                if(rows.all { it.sessions.isEmpty() }) item { SignalCard { Text("No sessions scheduled for this week",style=MaterialTheme.typography.titleLarge) } }
-                val agendaRows = rows.filter { it.sessions.isNotEmpty() }
-                if (agendaRows.isNotEmpty()) {
-                    item(key = "agenda-week-${agendaRows.first().date}") {
-                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            agendaRows.forEach { day ->
-                                TracksideParityAgendaDay(
-                                    day = day,
-                                    hasWorkoutDraft = { sessionId ->
-                                        state.workoutDrafts.containsKey(plan.id to sessionId)
-                                    },
-                                    onOpen = { sessionId -> onOpen(plan.id,sessionId) }
-                                )
-                            }
+                if(state.account==null) item { SignalCard { Text("Plan without a watch",style=MaterialTheme.typography.headlineSmall);Text("Sign in once to create private, account-isolated plans. Generation, calendar and logging then work offline.");SignalButton("Sign in",onSignIn) } }
+                else if(plan==null) item { SignalCard { Text("Build your training around your life.",style=MaterialTheme.typography.headlineMedium);Text("Running, strength, calisthenics and conditioning share one calendar. Choose your goal, ability, days and equipment. Review real prescriptions before approving.");SignalButton("Create a plan",onBuild) } }
+                if(plans.size>1) item { Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) { plans.forEach { p -> SignalChip(p.id==plan?.id,{selectedId=p.id},label={Text((p.name ?: p.request.goal)+" · "+p.status)}) } } }
+                if(plan!=null) {
+                    item {
+                        Column(Modifier.testTag("training-calendar")) {
+                            TrainingCalendar(
+                                plan, date, monthView,
+                                showWeekNavigation = plan.status != "draft"
+                            ) { selectedDate = it.toString() }
                         }
                     }
+                    if(agendaView && !monthView) {
+                        val rows=tracksideTrainingWeek(plan,date)
+                        if(rows.all { it.sessions.isEmpty() }) item { SignalCard { Text("No sessions scheduled for this week",style=MaterialTheme.typography.titleLarge) } }
+                        val agendaRows = rows.filter { it.sessions.isNotEmpty() }
+                        if (agendaRows.isNotEmpty()) {
+                            item(key = "agenda-week-${agendaRows.first().date}") {
+                                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    agendaRows.forEach { day ->
+                                        TracksideParityAgendaDay(
+                                            day = day,
+                                            hasWorkoutDraft = { sessionId ->
+                                                state.workoutDrafts.containsKey(plan.id to sessionId)
+                                            },
+                                            onOpen = { sessionId -> onOpen(plan.id,sessionId) }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        item { Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")).uppercase(),
+                            style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant) }
+                        val day=plan.sessions.filter { it.date==date }
+                        if(day.isEmpty()) item { SignalCard { Text("No workout scheduled",style=MaterialTheme.typography.titleLarge);Text("This calendar date has no prescribed session. No workout or completion is assumed.") } }
+                        day.forEach { session -> item { PlannedWorkoutCard(session,state.workoutDrafts.containsKey(plan.id to session.id),compact=true) { onOpen(plan.id,session.id) } } }
+                    }
+                    item { PlanOverview(plan) }
+                    item { PlanFeedbackForm(plan,actions) }
+                    item { NativePlanExport(state.plans) }
                 }
-            } else {
-                item { Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")).uppercase(),
-                    style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant) }
-                val day=plan.sessions.filter { it.date==date }
-                if(day.isEmpty()) item { SignalCard { Text("No workout scheduled",style=MaterialTheme.typography.titleLarge);Text("This calendar date has no prescribed session. No workout or completion is assumed.") } }
-                day.forEach { session -> item { PlannedWorkoutCard(session,state.workoutDrafts.containsKey(plan.id to session.id),compact=true) { onOpen(plan.id,session.id) } } }
+                if(state.account!=null) item { NativePlanImport(state,actions) }
+                if(state.account!=null && plan!=null) item { OutlinedButton(onClick=onBuild,modifier=Modifier.fillMaxWidth()) { Text("Create / edit a reviewed draft") } }
+                if(plan?.status in setOf("draft","paused")) item { Spacer(Modifier.height(96.dp)) }
             }
-            item { PlanOverview(plan) }
-            item { PlanFeedbackForm(plan,actions) }
-            item { NativePlanExport(state.plans) }
         }
-        if(state.account!=null) item { NativePlanImport(state,actions) }
-        if(state.account!=null && plan!=null) item { OutlinedButton(onClick=onBuild,modifier=Modifier.fillMaxWidth()) { Text("Create / edit a reviewed draft") } }
-        if(plan?.status in setOf("draft","paused")) item { Spacer(Modifier.height(96.dp)) }
-    }
-    if(plan != null && plan.status in setOf("draft","paused")) {
-        TracksideParityDraftApprovalDock(
-            plan,
-            enabled = !state.busy && Engine1Engines.canManage(plan),
-            onApprove = { actions.approve(plan.id,plan.revision) },
-            modifier = Modifier.align(Alignment.BottomCenter)
-                .padding(horizontal = 18.dp, vertical = 6.dp)
-        )
-    }
+        if(plan != null && plan.status in setOf("draft","paused")) {
+            TracksideParityDraftApprovalDock(
+                plan,
+                enabled = !state.busy && Engine1Engines.canManage(plan),
+                onApprove = { actions.approve(plan.id,plan.revision) },
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp)
+            )
+        }
     }
 }
 @Composable internal fun TrainingCalendar(
