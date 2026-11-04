@@ -67,6 +67,9 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
+        // The approved compact weekly view opens its inline editor on day tap.
+        compose.onNodeWithTag("builder-running-day-6").performClick()
+        compose.onNodeWithTag("builder-run-session-2").performScrollTo()
         compose.onNodeWithTag("builder-run-session-2").performClick()
         compose.onNodeWithTag("builder-running-day-6").performScrollTo()
         compose.onNodeWithTag("builder-running-day-6").performClick()
@@ -246,6 +249,10 @@ class TracksideApprovedBuilderActivityUiTest {
                 }
             }
         }
+        // First tap reveals the editor; second tap after selecting a workout
+        // performs the existing real WeekPlacement.put/slot-swap action.
+        compose.onNodeWithTag("builder-running-day-6").performClick()
+        compose.onNodeWithTag("builder-run-session-2").performScrollTo()
         compose.onNodeWithTag("builder-run-session-2").performClick()
         compose.onNodeWithTag("builder-running-day-6").performClick()
         assertEquals(6,saved.value.weeklySlots["run"]!![2])
