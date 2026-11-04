@@ -113,25 +113,30 @@ A technical handoff is not enough when the project strategy itself changed.
 
 The current strategic sequence is:
 
-1. complete Session G corrections and freeze the Engine 2.x Phase 2 baseline
-2. P2-F data admission/linkage
-3. P2-B aerobic-efficiency repeatability
-4. dependent P2-A/P2-C/P2-D/P2-E experiments
-5. research-only Engine 2.x candidates
-6. adversarial and real-data shadow validation
-7. prospective athlete validation
-8. Engine 2.x production candidate with Engine 1.5 fallback
-9. Trackside integration
-10. integrated dogfood APK
-11. broader whole-athlete expansion
+1. P2-F data admission/linkage feasibility
+2. P2-B aerobic-efficiency repeatability after the P2-F linkage gate
+3. dependent P2-A/P2-C/P2-D/P2-E experiments
+4. research-only Engine 2.x candidates
+5. adversarial and real-data shadow validation
+6. prospective athlete validation
+7. Engine 2.x production candidate with Engine 1.5 fallback
+8. Trackside integration
+9. integrated dogfood APK
+10. broader whole-athlete expansion
 
-Session G is currently:
+Session G is:
 
-`REVIEW_REQUIRED_CORRECTIONS`
+`REVIEW_PASSED / PHASE_2_BASELINE_FROZEN`
 
-Phase 2 is:
+Frozen baseline:
 
-`BLOCKED_PENDING_G_CORRECTIONS`
+`26a8331e642c888dd73acb94755dded063baab8d`
+
+Current Phase 2 authorization:
+
+`P2-F_FEASIBILITY_PREPARATION_AUTHORIZED`
+
+`CONFIRMATORY_HELD_OUT_EVALUATION_BLOCKED_PENDING_GATE_2_MANIFEST`
 
 Do not revert to the older APK-first roadmap unless the user explicitly changes direction.
 
