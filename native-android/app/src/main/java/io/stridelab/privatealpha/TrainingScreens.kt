@@ -184,7 +184,7 @@ import kotlinx.coroutines.withContext
         (0 until 6).forEach { row -> Row(Modifier.fillMaxWidth()) { (0 until 7).forEach { col -> val d=gridStart.plusDays((row*7+col).toLong());DayCell(d,d==selected,plan.sessions.filter { it.date==d },d in first..last && YearMonth.from(d)==ym,{onSelect(d)},Modifier.weight(1f),showWeekday=false) } } }
     } else {
         TracksideTrainingWeekChart(
-            plan, selected, onSelect, showNavigation = showWeekNavigation
+            plan, selected, showNavigation = showWeekNavigation, onSelect = onSelect
         )
     }
 }

@@ -68,8 +68,8 @@ internal fun tracksideTrainingWeek(plan: PlanSnapshot, selected: LocalDate): Lis
 internal fun TracksideTrainingWeekChart(
     plan: PlanSnapshot,
     selected: LocalDate,
-    onSelect: (LocalDate) -> Unit,
-    showNavigation: Boolean = true
+    showNavigation: Boolean = true,
+    onSelect: (LocalDate) -> Unit
 ) {
     val first = plan.request.start
     val last = first.plusWeeks(plan.request.weeks.toLong()).minusDays(1)
