@@ -135,9 +135,23 @@ The product should not claim capabilities that are still only part of the long-t
 
 The immediate milestone is not a public launch.
 
-The goal is a stable dogfood build that can be trusted for normal daily training.
+The current strategic priority is to mature and validate Engine 2.x before the next major dogfood build.
 
-The minimum useful loop is:
+The user explicitly accepts delaying the compiled APK if that delay materially improves coaching quality.
+
+The near-term sequence is:
+
+1. complete and review the Engine 2.x synthesis architecture
+2. validate data admission and plan-to-performance linkage
+3. validate repeatable athlete measurements
+4. test athlete-state, progression, adaptive-prescription, and cross-discipline decisions
+5. build research-only Engine 2.x candidates
+6. run shadow and prospective validation
+7. harden a production candidate while preserving Engine 1.5 as fallback
+8. integrate the mature engine into Trackside
+9. compile the next major dogfood APK
+
+The eventual dogfood loop still must be trustworthy:
 
 1. open StrideLab
 2. understand today's training
@@ -148,7 +162,7 @@ The minimum useful loop is:
 7. update the plan safely
 8. close and reopen the app without losing trust in the schedule
 
-If that loop is unreliable, broader intelligence is not the priority.
+Reliability remains non-negotiable, but the current project direction no longer treats the APK calendar as more important than coaching-engine maturity.
 
 ## Coaching architecture
 
@@ -180,22 +194,26 @@ Make it conservative, deterministic, explainable, and dependable enough for dogf
 
 Do not keep adding advanced intelligence once the release-reliability requirements are met.
 
-### Engine 2.0
+### Engine 2.x
 
-Use as the research track for more advanced coaching behavior.
+Use as the primary research and validation track for the next coaching generation.
 
-Research priorities include:
+Phase 1 discovery and synthesis now define a multidimensional athlete-state architecture with explicit uncertainty, abstention, training intent, reviewable decisions, and separate validation gates.
 
+Current priorities include:
+
+- authorized data admission and plan-to-performance linkage
+- aerobic-efficiency measurement repeatability
 - athlete-state modeling
-- progression and periodization
-- recovery and adaptation decisions
-- workout selection
+- progression and re-entry
+- adaptive session modification
 - cross-discipline interference
-- real-data validation
+- real-data calibration
 - comparison against established coaching systems
 - uncertainty and fail-closed behavior
+- prospective shadow and outcome validation
 
-Engine 2.0 should only replace simpler logic when evidence supports the change.
+Engine 2.x should replace simpler logic only when the relevant measurement, prediction, decision, and safety gates support the change.
 
 ## Product principles
 
@@ -319,7 +337,7 @@ The goal is to understand useful behavior, test it independently, and adopt only
 
 ### Near term
 
-StrideLab becomes trustworthy enough to use for real daily training.
+StrideLab develops a defensible, validated coaching architecture and then becomes trustworthy enough to use for real daily training with that architecture integrated safely.
 
 ### Medium term
 
