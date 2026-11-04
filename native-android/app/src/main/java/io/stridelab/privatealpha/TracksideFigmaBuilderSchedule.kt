@@ -439,6 +439,10 @@ internal fun TracksideFigmaAvailabilityScreen(
                     color=Color(0xFFB6C0CA))
             }
         }
+        // Local scroll clearance keeps the final coaching label above the
+        // fixed Continue dock even with extra same-day and placement controls.
+        Spacer(Modifier.fillMaxWidth().height(24.dp)
+            .testTag("builder-availability-coaching-clearance"))
     }
     if(pendingRemovalDay in 1..7) {
         val day=pendingRemovalDay

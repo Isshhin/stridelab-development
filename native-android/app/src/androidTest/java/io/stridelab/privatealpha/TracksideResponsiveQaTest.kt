@@ -803,6 +803,11 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithText("Recovery balance",substring=true).assertIsDisplayed()
         compose.onNodeWithText("Training load and progression",substring=true)
             .assertIsDisplayed()
+        // Scroll to the local bottom clearance, not merely to the last
+        // text node: performScrollTo() on text can stop at partial visibility.
+        compose.onNodeWithTag("builder-availability-coaching-clearance")
+            .performScrollTo()
+        compose.onNodeWithText("Evaluated after plan generation").assertIsDisplayed()
         val coachingBottom=compose.onNodeWithText("Evaluated after plan generation")
             .getUnclippedBoundsInRoot().bottom
         val continueTop=compose.onNodeWithTag("builder-figma-continue")
@@ -852,7 +857,9 @@ class TracksideResponsiveQaTest {
         }
         compose.onNodeWithTag("available-day-7").performClick()
         compose.onNodeWithText("Change Sunday availability?").assertExists()
-        screenshot("builder-availability-pinned-confirmation")
+        // The native AlertDialog occupies a separate root window. Capturing
+        // the activity root during the dialog fails on the emulator; assert
+        // dialog behavior here and capture after it has closed.
         compose.onNodeWithText("Cancel").performClick()
         compose.runOnIdle {
             assertTrue(state.value.weeklySlots["run"]==listOf(7,3,1))
@@ -867,6 +874,91 @@ class TracksideResponsiveQaTest {
         }
         compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
         screenshot("builder-availability-pinned-unassigned")
+    }
+
+
+    @Test fun availabilityManualDoubleDayAssignmentsRespectActualPairing() {
+        val initial=PlanRequest(
+            start=LocalDate.of(2026,11,9),weeks=1,goal="Aerobic foundation",
+            days=setOf(1,2,3,4,5,7),longDay=7,
+            runDays=3,calDays=2,strengthDays=0,conditioningDays=0,
+            qualityCount=1,qualityDays=setOf(2),experience=1,
+            weeklyKm=35.0,longestKm=12.0,minutes=60,dailyMinutes=120,
+            policyChoice="multi-session",
+            weeklySlots=mapOf("run" to listOf(7,2,1))
+        )
+        val state=mutableStateOf(initial)
+        val selected=mutableStateOf(0)
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideFigmaAvailabilityScreen(
+                        request=state.value,
+                        onDay={ day ->
+                            state.value=state.value.copy(
+                                days=if(day in state.value.days)
+                                    state.value.days-day else state.value.days+day)
+                        },
+                        onRemovePinnedDay={ day ->
+                            state.value=WeeklyPlacement.makeUnavailable(state.value,day)
+                        },
+                        onMultiSessionToggle={ enabled ->
+                            state.value=state.value.copy(
+                                policyChoice=if(enabled)"multi-session" else "coordinated")
+                        },
+                        selectedOtherDiscipline="cal",
+                        selectedOtherSlot=selected.value,
+                        onSelectOtherDiscipline={},
+                        onSelectOtherSlot={ selected.value=it },
+                        onAssignOtherDay={ discipline,index,day ->
+                            state.value=WeeklyPlacement.put(
+                                state.value,discipline,index,day)
+                        },
+                        onClearOtherSlot={ discipline,index ->
+                            state.value=WeeklyPlacement.clear(
+                                state.value,discipline,index)
+                        },
+                        onAutoOther={ discipline ->
+                            state.value=state.value.copy(
+                                weeklySlots=state.value.weeklySlots-discipline)
+                        },
+                        dailyBudget="120",onBack={},onContinue={}
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("builder-other-discipline-editor").performScrollTo()
+        compose.onNodeWithTag("builder-other-day-1").performClick()
+        compose.runOnIdle {
+            assertTrue(state.value.weeklySlots["cal"]==listOf(1,0))
+        }
+        compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
+        compose.onNodeWithTag("builder-other-session-1").performClick()
+        compose.onNodeWithTag("builder-other-day-5").performClick()
+        compose.runOnIdle {
+            assertTrue(state.value.weeklySlots["cal"]==listOf(1,5))
+            val generated=MultiSessionEngine1.generate(
+                state.value,"synthetic-responsive","manual-double",Instant.EPOCH)
+            assertTrue(generated.sessions.groupBy { it.date }.values
+                .any { sessions ->
+                    sessions.size==2 &&
+                        sessions.map { it.discipline }.toSet()==setOf("run","cal")
+                })
+        }
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        screenshot("builder-availability-compatible-double-day")
+        compose.onNodeWithTag("builder-other-day-2").performClick()
+        compose.onNodeWithText("This engine allows only easy running with calisthenics",
+            substring=true).assertExists()
+        compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
+        compose.runOnIdle {
+            assertTrue(state.value.weeklySlots["cal"]==listOf(1,2))
+        }
+        compose.onNodeWithTag("builder-other-day-5").performClick()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        compose.runOnIdle {
+            assertTrue(state.value.weeklySlots["cal"]==listOf(1,5))
+        }
     }
 
     @Test fun builderAvailabilityAndDraftReviewRenderAtCurrentViewport() {
