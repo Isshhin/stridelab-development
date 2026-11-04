@@ -297,6 +297,14 @@ class TracksideResponsiveQaTest {
                 (longestCard.bottom-longestCard.top).value<=137f)
             assertTrue("Optional result panel exceeds Figma tolerance",
                 (optional.bottom-optional.top).value<=85f)
+            // Reference 551:865: baseline positions are 392, 570 and 741dp.
+            // Keep enough tolerance for device font rasterization, not large drift.
+            assertTrue("Weekly ability card drifts from Figma",
+                weeklyCard.top.value in 379f..407f)
+            assertTrue("Longest-run card drifts from Figma",
+                longestCard.top.value in 556f..584f)
+            assertTrue("Optional result panel drifts from Figma",
+                optional.top.value in 728f..758f)
         }
         compose.onNodeWithTag("builder-ability-optional-card").performScrollTo()
         compose.onNodeWithTag("builder-ability-optional-card").assertIsDisplayed()
