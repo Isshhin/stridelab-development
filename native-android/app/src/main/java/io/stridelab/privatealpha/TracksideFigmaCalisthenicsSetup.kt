@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.DayOfWeek
@@ -59,25 +60,30 @@ internal fun TracksideFigmaCalisthenicsSetup(
         continueEnabled=!custom || WeeklyPlacement.full(request,"cal")
     ) {
         Row(
-            Modifier.fillMaxWidth().height(48.dp)
+            Modifier.fillMaxWidth().heightIn(min=48.dp)
                 .background(Color(0xFF151D29),RoundedCornerShape(12.dp))
                 .padding(4.dp),
-            horizontalArrangement=Arrangement.spacedBy(6.dp)
+            horizontalArrangement=Arrangement.spacedBy(6.dp),
+            verticalAlignment=Alignment.CenterVertically
         ) {
             listOf(true to "Customize",false to "Let StrideLab decide").forEach { (selectedMode,label) ->
                 val isSelected=selectedMode==custom
                 Surface(
                     onClick={onMode(selectedMode)},
-                    modifier=Modifier.weight(1f).fillMaxHeight()
+                    modifier=Modifier.weight(1f).heightIn(min=40.dp)
                         .testTag(if(selectedMode)"builder-cali-customize" else "builder-cali-auto"),
                     color=if(isSelected)Color(0xFF49345D) else Color(0xFF16232D),
                     shape=RoundedCornerShape(9.dp),
                     border=BorderStroke(1.dp,
                         if(isSelected)Color(0xFFA284CA) else Color(0xFF344854))
                 ) {
-                    Box(contentAlignment=Alignment.Center) {
+                    Box(
+                        Modifier.fillMaxWidth().padding(horizontal=5.dp,vertical=11.dp),
+                        contentAlignment=Alignment.Center
+                    ) {
                         Text(label,color=if(isSelected)caliInk else caliSubtle,
-                            fontSize=12.sp,fontWeight=FontWeight.Bold)
+                            fontSize=12.sp,fontWeight=FontWeight.Bold,
+                            textAlign=TextAlign.Center,maxLines=2)
                     }
                 }
             }
