@@ -1026,6 +1026,7 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithText("9").assertExists()
         compose.onNodeWithText("AVAILABLE DAYS").assertExists()
         compose.onNodeWithText("Generate my plan").assertExists()
+        compose.onNodeWithText("MAX 2 / DAY").assertExists()
         compose.onNodeWithText(
             "Chosen weekdays are requests", substring = true
         ).assertDoesNotExist()

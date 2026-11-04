@@ -173,9 +173,10 @@ internal fun TracksideFigmaWeekReview(
                         fontSize=10.sp,color=Color(0xFFB6C0CA),
                         fontWeight=FontWeight.Bold
                     )
+                    val doubleDays = plan?.let { PlanScheduleValidation.isMultiPolicy(it.policyId) }
+                        ?: (request.policyChoice == "multi-session" || request.allowDoubleDays)
                     Text(
-                        if(plan?.let { PlanScheduleValidation.isMultiPolicy(it.policyId) } ?: (request.policyChoice=="multi-session"))"MAX 2 / DAY"
-                        else "CURRENT POLICY · 1 / DAY",
+                        if (doubleDays) "MAX 2 / DAY" else "CURRENT POLICY · 1 / DAY",
                         fontSize=10.sp,color=Color(0xFFB6C0CA))
                 }
                 Spacer(Modifier.height(7.dp))
