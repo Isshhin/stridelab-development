@@ -72,6 +72,150 @@ internal fun TracksideParityTrainingControls(
     }
 }
 
+/**
+ * Compact Agenda rows from the approved draft/active Training states.
+ * Day view keeps the larger workout cards below; only Agenda uses this density.
+ */
+@Composable
+internal fun TracksideParityAgendaDay(
+    day: TracksideTrainingDay,
+    hasWorkoutDraft: (String) -> Boolean,
+    onOpen: (String) -> Unit
+) {
+    if (day.sessions.isEmpty()) return
+    Column(
+        Modifier.fillMaxWidth().testTag("training-agenda-day-" + day.date),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        day.sessions.forEachIndexed { index, session ->
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (index == 0) {
+                    Column(
+                        Modifier.width(34.dp),
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        Text(
+                            day.date.dayOfWeek.name.take(3),
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TracksidePalette.textMuted
+                        )
+                        Text(
+                            day.date.dayOfMonth.toString(),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TracksidePalette.text
+                        )
+                    }
+                } else {
+                    Spacer(Modifier.width(34.dp))
+                }
+                Spacer(Modifier.width(7.dp))
+                TracksideParityAgendaWorkoutRow(
+                    session = session,
+                    hasDraft = hasWorkoutDraft(session.id),
+                    onOpen = { onOpen(session.id) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TracksideParityAgendaWorkoutRow(
+    session: PlannedSession,
+    hasDraft: Boolean,
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val accent = tracksideDisciplineColor(session.discipline)
+    val detail = if (session.discipline == "run") {
+        listOfNotNull(
+            session.distanceKm?.let {
+                String.format(Locale.getDefault(), "%.0f km", it)
+            },
+            session.effectiveMinutes.toString() + " min"
+        ).joinToString(" · ")
+    } else {
+        session.effectiveMinutes.toString() + " min"
+    }
+    val iconRes = when (session.discipline) {
+        "run" -> R.drawable.trackside_discipline_running
+        "str" -> R.drawable.trackside_discipline_strength
+        "cal" -> R.drawable.trackside_discipline_calisthenics
+        else -> R.drawable.trackside_discipline_conditioning
+    }
+
+    Surface(
+        onClick = onOpen,
+        modifier = modifier.heightIn(min = 46.dp)
+            .testTag("workout-" + session.id),
+        shape = RoundedCornerShape(11.dp),
+        color = TracksidePalette.surface,
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.45f))
+    ) {
+        Row(
+            Modifier.fillMaxWidth()
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(accent.copy(alpha = 0.13f), Color.Transparent)
+                    )
+                )
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier.size(29.dp)
+                    .background(accent.copy(alpha = 0.18f), RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painterResource(iconRes),
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(19.dp)
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                session.effectiveTitle,
+                modifier = Modifier.weight(1f),
+                fontSize = 11.5f.sp,
+                fontWeight = FontWeight.Bold,
+                color = TracksidePalette.text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                detail,
+                fontSize = 9.5f.sp,
+                color = TracksidePalette.textMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (hasDraft) {
+                Spacer(Modifier.width(5.dp))
+                Box(
+                    Modifier.size(6.dp)
+                        .background(TracksidePalette.red, RoundedCornerShape(3.dp))
+                )
+            }
+            Spacer(Modifier.width(6.dp))
+            Text(
+                "⇄",
+                fontSize = 16.sp,
+                color = TracksidePalette.textMuted,
+                modifier = Modifier.width(22.dp)
+            )
+        }
+    }
+}
+
 /** Approved running card 614:500 x17/y380/w378/h155 and multi-exercise card y548/h232.
  * All labels and segments below are rendered from actual saved plan prescriptions.
  */
