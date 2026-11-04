@@ -1,0 +1,128 @@
+name: Engine 1.5 B7 self-hosted Android 35 device verification
+
+on:
+  push:
+    branches:
+      - infra/self-hosted-runner-smoke-20261104
+    paths:
+      - '.github/workflows/engine15-b7-device-self-hosted.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: engine15-b7-device-self-hosted
+  cancel-in-progress: true
+
+jobs:
+  engine15-b7-device-windows:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out exact B7 head
+        uses: actions/checkout@v4
+        with:
+          ref: fde15492d2d9193e61d388b09f8468f1128e1c12
+          fetch-depth: 1
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Bind local Android SDK
+        shell: powershell
+        run: |
+          $Sdk = "$env:LOCALAPPDATA\Android\Sdk"
+          if (!(Test-Path "$Sdk\platform-tools\adb.exe")) { throw "adb.exe not found" }
+          if (!(Test-Path "$Sdk\emulator\emulator.exe")) { throw "emulator.exe not found" }
+          $Avds = & "$Sdk\emulator\emulator.exe" -list-avds
+          if ($Avds -notcontains "Pixel_9") { throw "Pixel_9 AVD not found" }
+          "ANDROID_HOME=$Sdk" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "ANDROID_SDK_ROOT=$Sdk" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "ANDROID_SERIAL=emulator-5556" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "$Sdk\platform-tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Compile Android instrumentation tests
+        shell: powershell
+        run: |
+          gradle --no-daemon --stacktrace -p native-android :app:assembleDebug :app:assembleDebugAndroidTest
+
+      - name: Start isolated API 35 emulator
+        shell: powershell
+        run: |
+          $Sdk = "$env:LOCALAPPDATA\Android\Sdk"
+          $Adb = "$Sdk\platform-tools\adb.exe"
+          $Emulator = "$Sdk\emulator\emulator.exe"
+
+          & $Adb start-server | Out-Host
+          & $Adb -s emulator-5556 emu kill 2>$null
+          Start-Sleep -Seconds 2
+
+          $Process = Start-Process -FilePath $Emulator -ArgumentList @(
+            "-avd", "Pixel_9",
+            "-port", "5556",
+            "-no-window",
+            "-no-audio",
+            "-no-boot-anim",
+            "-no-snapshot",
+            "-gpu", "swiftshader_indirect",
+            "-accel", "on"
+          ) -PassThru
+          "CI_EMULATOR_PID=$($Process.Id)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          $Ready = $false
+          for ($i = 0; $i -lt 150; $i++) {
+            $State = (& $Adb -s emulator-5556 get-state 2>$null | Out-String).Trim()
+            if ($State -eq "device") {
+              $Boot = (& $Adb -s emulator-5556 shell getprop sys.boot_completed 2>$null | Out-String).Trim()
+              if ($Boot -eq "1") {
+                $Ready = $true
+                break
+              }
+            }
+            Start-Sleep -Seconds 2
+          }
+          if (!$Ready) { throw "API 35 emulator did not finish booting within 5 minutes" }
+
+          $Api = (& $Adb -s emulator-5556 shell getprop ro.build.version.sdk | Out-String).Trim()
+          if ($Api -ne "35") { throw "Expected Android API 35, got API $Api" }
+
+          & $Adb -s emulator-5556 shell settings put global window_animation_scale 0
+          & $Adb -s emulator-5556 shell settings put global transition_animation_scale 0
+          & $Adb -s emulator-5556 shell settings put global animator_duration_scale 0
+          & $Adb -s emulator-5556 shell input keyevent 82
+          & $Adb devices -l
+
+      - name: Validate SQLite, revision safety and offline reopen on Android 35
+        shell: powershell
+        run: |
+          gradle --no-daemon --stacktrace -p native-android :app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=io.stridelab.privatealpha.Engine15FeedbackRepositoryTest,io.stridelab.privatealpha.Engine1RepositoryTest"
+
+      - name: Retain device evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine15-b7-self-hosted-device-evidence
+          retention-days: 30
+          path: |
+            native-android/app/build/reports/androidTests/
+            native-android/app/build/outputs/androidTest-results/
+          if-no-files-found: warn
+
+      - name: Stop CI emulator
+        if: always()
+        shell: powershell
+        run: |
+          $Adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
+          if (Test-Path $Adb) {
+            & $Adb -s emulator-5556 emu kill 2>$null
+          }
