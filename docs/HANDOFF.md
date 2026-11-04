@@ -66,11 +66,11 @@ Latest verified head at this handoff:
 
 Status:
 
-**PHASE 1 SYNTHESIS COMPLETE**
+**SESSION G REVIEW REQUIRED BEFORE PHASE 2 FREEZE**
 
 Sessions A-F + H are complete and reviewed.
 
-Session G is complete.
+Session G synthesis artifacts exist, but independent review found six required corrections before the architecture may be frozen.
 
 Key outputs:
 
@@ -104,11 +104,20 @@ Unknown or conflicting evidence must not silently become KEEP, REST, REDUCE, or 
 
 ### Immediate Engine 2.x next step
 
-1. Review Session G once against the final prompt and pre-synthesis review.
-2. If it passes, freeze the Phase 2 architecture baseline.
-3. Start P2-F data admission and linkage.
-4. Then start P2-B aerobic-efficiency repeatability.
-5. Only after those foundations are trustworthy, begin dependent adaptive-model tracks.
+1. Read the independent Session G review.
+2. Resolve G-R1 through G-R6.
+3. Re-review the changed contracts.
+4. Only if they pass, mark G REVIEW_PASSED / PHASE_2_BASELINE_FROZEN.
+5. Start P2-F data admission and linkage.
+6. Start P2-B aerobic-efficiency repeatability only when the linkage gate permits.
+7. Begin dependent adaptive-model tracks only after their declared prerequisites pass.
+
+Independent review:
+https://github.com/Isshhin/stridelab-development/blob/research/runna-garmin-coaching-20261102/docs/research/2026-11-04-engine2x-session-g-independent-review.md
+
+Current Phase 2 status:
+
+BLOCKED_PENDING_G_CORRECTIONS
 
 Do not begin production implementation simply because Session G is complete.
 
