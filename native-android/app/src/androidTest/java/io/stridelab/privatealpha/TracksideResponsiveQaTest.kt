@@ -102,6 +102,44 @@ class TracksideResponsiveQaTest {
         }
     }
 
+    @Test fun disciplineSelectionMatchesApprovedFigmaAtCurrentViewport() {
+        // Figma 551:580: Running and Strength selected, two of four disciplines.
+        // Test this matched state rather than the strength-only builder screenshot.
+        val request=PlanRequest(
+            runDays=3,strengthDays=2,calDays=0,conditioningDays=0,
+            days=setOf(1,2,3,4,5,7)
+        )
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideFigmaDisciplineScreen(
+                        request=request,onToggle={},onBack={},onContinue={}
+                    )
+                }
+            }
+        }
+        listOf("run","str","cal","cond").forEach { discipline ->
+            val card=compose.onNodeWithTag("discipline-"+discipline)
+            card.assertExists()
+            val icon=compose.onNodeWithTag("discipline-icon-"+discipline,
+                useUnmergedTree=true)
+            icon.assertExists()
+            val bounds=card.getUnclippedBoundsInRoot()
+            assertTrue("Discipline card too tall: "+discipline,
+                (bounds.bottom-bounds.top).value <= 90f)
+        }
+        compose.onNodeWithText("2 of 4").assertExists()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        screenshot("builder-disciplines-figma-reference")
+        val config=compose.activity.resources.configuration
+        if(config.screenWidthDp >= 400 && config.fontScale <= 1.01f) {
+            val running=compose.onNodeWithTag("discipline-run")
+                .getUnclippedBoundsInRoot()
+            assertTrue("Discipline cards deviate from approved vertical rhythm",
+                running.top.value in 300f..336f)
+        }
+    }
+
     @Test fun approvedBuilderStrengthGoalAndSetupRenderAtCurrentViewport() {
         val state=TrainingState(initializing=false,account="synthetic-responsive")
         compose.runOnUiThread {
