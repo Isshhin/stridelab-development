@@ -1,0 +1,27 @@
+# P2-R source admission
+
+Decisions apply only to this research branch and the specified release. File ingestion and publication review are separate decisions. Where a field is unverified, the adapter must leave it unknown. No current source is admitted for production. Keep raw records in a private cache outside Git. Publish only attributed aggregate findings and generated test fixtures. Retain DOI, version, processing code, source channel and availability assumptions on derived results. Do not export coefficients, normative ranges, thresholds, athlete identifiers, routes or decision labels to product code.
+
+| Source and steward | Decision | Rights and permitted purpose |
+|---|---|---|
+| [Groningen / DataverseNL](https://doi.org/10.34894/UWU9PV), Lövdal, den Hartigh and Azzopardi | QUARANTINE_PENDING_TERMS | [Catalogue](https://b2find.eudat.eu/dataset/81993c46-eab9-5ed5-b008-8a38ee2a2e49) reports CC0 for v2. Original deposit returned an anti-bot challenge. Confirm file-level restrictions, checksums and README before history reconstruction. Ethics approval PSY-1920-S-0007. |
+| [Twente / 4TU v1](https://doi.org/10.4121/efa64223-ba51-48fa-91be-53f0e48460b4.v1), Reenalda, Buurke and Scheltinga | QUARANTINE_PENDING_TERMS | Catalogue reports CC BY 4.0. Creator page confirms design, journal confirms protocol. Versioned deposit and file inventory could not be inspected. Published comparisons only. |
+| [Sport DB 2.0 v2](https://data.mendeley.com/datasets/kzkjkt7mx2/2), Burattini and colleagues, Marche and Chieti-Pescara | RESEARCH_ONLY_ISOLATED | Publisher specifies CC BY 4.0. Attribute authors, release and transformations. No separate access DUA shown. Device-specific measurement research only. File manifest unavailable here. Individual consent scope unverified. |
+| [Simultaneous measurements v1.0.2](https://physionet.org/content/simultaneous-measurements/1.0.2/), Vollmer et al., Greifswald/Dortmund | RESEARCH_ONLY_ISOLATED | Open access, CC BY 4.0, DOI 10.13026/wce5-fj54. Consent and ethics BB 171/17. Admit RR/device/context research. Cite authors, identify derived summaries and retain attribution on redistribution. |
+| [Wrist PPG v1.0.0](https://physionet.org/content/wrist/1.0.0/), Jarchi/Casson, Manchester | RESEARCH_ONLY_ISOLATED | Open Data Commons Attribution v1.0, DOI 10.13026/C2PQ1X. Attribute database and original paper. Admit sensor timing and reference agreement only. Separate participant consent particulars unknown. |
+| [Málaga treadmill v1.0.1](https://physionet.org/content/treadmill-exercise-cardioresp/1.0.1/) | QUARANTINE_PENDING_TERMS | Individual contributor approval required under the versioned Health Data License and DUA v1.5.0. No grant acquired. See P2-F1 S5. |
+| [FitRec / Endomondo, UCSD](https://cseweb.ucsd.edu/~jmcauley/datasets/fitrec.html), Ni, Muhlstein and McAuley | REJECT | Academic use only, commercial use and redistribution prohibited. Product-directed policy work lacks a demonstrated qualifying purpose. No records, derived weights or fixtures. Dataset DOI unverified. |
+
+CC BY permits commercial reuse under its terms. The narrower project decision covers isolated research only. An open license alone supplies no permission for reidentification or contact. No raw redistribution is needed here.
+
+| Source | Population, structure and available signals | Missing or unresolved |
+|---|---|---|
+| Groningen | 74 high-level Dutch runners, 2012–19, selected event rows with lagged daily or weekly exposure, injury labels, reported recovery | No verified continuous calendar, decision-time plans, raw HR/GPS or receipt times |
+| 4TU | 12 runners, three different track sessions on separate days, watch GPS and chest HR at 1 Hz, seven IMUs at 120 Hz, post-run perceived effort | No verified repeated easy pair, independent speed or HR reference, missingness inventory or weather series |
+| Sport DB | 130 people, 168 recordings, 11 sports. Training/competition notes, weekly training rate, demographics. Device-dependent ECG, RR, HR and respiration | Unequal channel coverage. Sampling, clocks, missingness and participant linkage must be established per file |
+| Simultaneous | 13 healthy adults, four lab phases on one visit, synchronized ECG, movement, respiration and HR/RR. Native 1–8000 Hz by channel, processed 256 Hz, Polar beat intervals in ms | No overnight recovery, training history, plans or injury context. Acquisition precedes alignment and manual correction |
+| Wrist | 8 adults aged 22–32, walking, jogging and cycling. 256 Hz wrist PPG, IMU, chest ECG and adjudicated R peaks. Self-selected loads, mostly 4–6 min | No multiweek baseline. Activity pace can change, cycling PPG prefiltered. No time-aligned watch HR product output |
+| Málaga | Laboratory maximal tests with physiological measurements | No inspection of restricted participant records, rates, longitudinal repeats or missingness |
+| FitRec | 1,104 users, 253,020 original workouts across sports. HR, speed, GPS, selected weather, sequential observations | Consent scope, plan, injury, subjective recovery, individual history completeness and sensor timing unverified |
+
+No other field (sleep, symptoms, environment, plan revisions, validated pace, IMU, GPS, RR, injury, workload or timestamp) is inferred from silence. Unknown fields cannot contribute to the replay.

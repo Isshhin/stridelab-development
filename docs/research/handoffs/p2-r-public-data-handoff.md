@@ -1,0 +1,5 @@
+# P2-R public-data handoff
+
+Start with the [program tracker](../phase2/p2-r-public-real-data-program.md) and [source decisions](../phase2/p2-r-dataset-admission-registry.md). First real RR prefix replay: 13/13 subjects, 32 intervals each. Three generated-fixture tests passed. No public artifact was copied to Git. No phase discrimination, cross-sensor comparison, coaching-effectiveness or production validation was completed.
+
+Priority: reproduce the prefix results on the official files and add aligned ECG/Polar comparisons stratified by verified phase. Carry manual correction availability separately. Then inventory Sport DB v2. Groningen and 4TU require original archive and terms verification before ingestion. Use the existing private operator handoff for S1 separately. No participant contact, S1 intake, device reconciliation, held-out evaluation or Gate 2 change occurred.

@@ -1,0 +1,9 @@
+# R1 • Groningen progression replay
+
+**File admission pending.** The institutional record describes 74 competitive middle- and long-distance runners observed across seven years. The authors' day model uses windows covering the seven days preceding an event. Adjacent rows can represent overlapping history. Summing their distances would count days repeatedly. Event selection also makes a missing row ambiguous. A gap between rows cannot establish missed training, rest, injury onset or a return date.
+
+Before admitting a file, freeze the v2 manifest, terms and original dictionary. Inspect athlete key, event clock, lag direction, units, row selection, missing-value codes and duplicate windows. Reconstruct unique athlete-days only where overlapping windows agree. Preserve disagreements as unavailable. Require coverage and an independently justified availability convention before emitting a prior-week total. Keep injury labels and later observations in a separate evaluator input. Release train/test windows by athlete and forward time with overlap purged. Log later training only after freezing the proposed action.
+
+P2-C disposition is INSUFFICIENT_EVIDENCE. Zero observed athlete decisions, no comparison of aggressive versus conservative progression and no new injury or re-entry threshold. The proposed falsifier is a RE_ENTRY decision emitted solely because selected rows are missing. Use a generated gap fixture once the actual schema is verified. No mirror or injury predictor was used.
+
+[Institutional record](https://research.rug.nl/en/datasets/replication-data-for-injury-prediction-in-competitive-runners-wit/) · [Authors' methods](https://pure.rug.nl/ws/files/183763727/_15550273_International_Journal_of_Sports_Physiology_and_Performance_Injury_Prediction_in_Competitive_Runners_With_Machine_Learning.pdf) · [Deposit](https://doi.org/10.34894/UWU9PV)
