@@ -247,6 +247,9 @@ internal fun TracksideFigmaAvailabilityScreen(
     onDailyBudget: (String) -> Unit = {}
 ) {
     var pendingRemovalDay by rememberSaveable { mutableIntStateOf(0) }
+    val daysBrush=Brush.horizontalGradient(listOf(Color(0xFF233541),Color(0xFF111E27)))
+    val capacityBrush=Brush.horizontalGradient(listOf(Color(0xFF162B33),Color(0xFF102029)))
+    val coachingBrush=Brush.horizontalGradient(listOf(Color(0xFF172730),Color(0xFF101B23)))
     val chosen=request.days.size
     val total=request.runDays+request.strengthDays+request.calDays+request.conditioningDays
     val maxPerDay=if(request.policyChoice=="multi-session") 2 else 1
@@ -290,9 +293,9 @@ internal fun TracksideFigmaAvailabilityScreen(
         continueEnabled=capacityFits
     ) {
         Surface(Modifier.fillMaxWidth().height(224.dp),
-            shape=RoundedCornerShape(14.dp),color=Color(0xFF1B303B),
+            shape=RoundedCornerShape(14.dp),color=Color.Transparent,
             border=BorderStroke(1.dp,Color(0xFF4F7487))) {
-            Column(Modifier.padding(13.dp)) {
+            Column(Modifier.fillMaxSize().background(daysBrush).padding(13.dp)) {
                 TracksideFigmaFormLabel("YOUR TRAINING DAYS")
                 Spacer(Modifier.height(23.dp))
                 Row(verticalAlignment=Alignment.Bottom) {
@@ -345,9 +348,9 @@ internal fun TracksideFigmaAvailabilityScreen(
         }
         Spacer(Modifier.height(23.dp))
         Surface(Modifier.fillMaxWidth().heightIn(min=125.dp),
-            shape=RoundedCornerShape(14.dp),color=Color(0xFF112A33),
+            shape=RoundedCornerShape(14.dp),color=Color.Transparent,
             border=BorderStroke(1.dp,Color(0xFF3A6A76))) {
-            Column(Modifier.padding(13.dp)) {
+            Column(Modifier.fillMaxWidth().background(capacityBrush).padding(13.dp)) {
                 TracksideFigmaFormLabel("AUTOMATIC CAPACITY CHECK")
                 Spacer(Modifier.height(17.dp))
                 Row(verticalAlignment=Alignment.CenterVertically) {
@@ -426,9 +429,9 @@ internal fun TracksideFigmaAvailabilityScreen(
         )
         Spacer(Modifier.height(18.dp))
         Surface(Modifier.fillMaxWidth().heightIn(min=131.dp),
-            shape=RoundedCornerShape(14.dp),color=Color(0xFF132934),
+            shape=RoundedCornerShape(14.dp),color=Color.Transparent,
             border=BorderStroke(1.dp,Color(0xFF3E6474))) {
-            Column(Modifier.padding(13.dp)) {
+            Column(Modifier.fillMaxWidth().background(coachingBrush).padding(13.dp)) {
                 TracksideFigmaFormLabel("NEXT: COACHING CHECKS")
                 Spacer(Modifier.height(23.dp))
                 Text("◷  Recovery balance",fontSize=11.sp,color=Color.White)
