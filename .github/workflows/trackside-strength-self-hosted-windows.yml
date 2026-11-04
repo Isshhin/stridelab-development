@@ -76,7 +76,7 @@ jobs:
           gradle --no-daemon --stacktrace -p native-android :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --console=plain
           if ($LASTEXITCODE -ne 0) { throw "JVM / debug compile failed" }
 
-      - name: Start verified API 35 x86_64 emulator
+      - name: Boot API 35 emulator and execute Trackside smoke plus all four responsive suites
         shell: powershell
         run: |
           $Sdk = "$env:LOCALAPPDATA\Android\Sdk"
@@ -119,23 +119,27 @@ jobs:
           if ($Connected.Count -ne 1 -or $Connected[0] -notmatch "^emulator-5556\s+") {
             throw "Expected only emulator-5556, found: $Devices"
           }
+          $env:ANDROID_SERIAL = "emulator-5556"
           "ANDROID_SERIAL=emulator-5556" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
           & $Adb -s emulator-5556 shell settings put global window_animation_scale 0
           & $Adb -s emulator-5556 shell settings put global transition_animation_scale 0
           & $Adb -s emulator-5556 shell settings put global animator_duration_scale 0
 
-      - name: Run Trackside emulator smoke suite
-        shell: powershell
-        run: |
+          Write-Host "Before instrumentation: emulator PID=$($Process.Id) exited=$($Process.HasExited)"
+          $DeviceState = (& $Adb -s emulator-5556 get-state 2>&1 | Out-String).Trim()
+          Write-Host "Before instrumentation: $DeviceState"
+          if ($DeviceState -ne "device" -or $Process.HasExited) {
+            if (Test-Path $StdOut) { Get-Content $StdOut -Tail 100 | Out-Host }
+            if (Test-Path $StdErr) { Get-Content $StdErr -Tail 100 | Out-Host }
+            throw "API 35 emulator disconnected before instrumentation"
+          }
           adb shell wm size 720x1600
           adb shell wm density 320
           adb shell settings put system font_scale 1.0
           gradle --no-daemon --stacktrace -p native-android :app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=io.stridelab.privatealpha.TracksideTabTest,io.stridelab.privatealpha.TracksideTodayTest,io.stridelab.privatealpha.TracksideTrainingCalendarUiTest,io.stridelab.privatealpha.TracksideManagePlanTest,io.stridelab.privatealpha.TracksideManageNavigationTest,io.stridelab.privatealpha.TracksideBatch345UiTest,io.stridelab.privatealpha.TracksideParityStatesUiTest,io.stridelab.privatealpha.TracksideApprovedBuilderActivityUiTest" --console=plain
-          if ($LASTEXITCODE -ne 0) { throw "Trackside emulator smoke failed" }
+          $SmokeExit = $LASTEXITCODE
+          Write-Host "Trackside smoke Gradle exit code: $SmokeExit"
 
-      - name: Run four viewport/font responsive suites and collect screenshot evidence
-        shell: powershell
-        run: |
           $Profiles = @(
             @{ Name="figma-412dp-font100"; Size="824x1900"; Font="1.0" },
             @{ Name="figma-360dp-font100"; Size="720x1600"; Font="1.0" },
@@ -143,6 +147,7 @@ jobs:
             @{ Name="standard-412dp-font150"; Size="824x1900"; Font="1.5" }
           )
           $Failures = @()
+          if ($SmokeExit -ne 0) { $Failures += "Trackside smoke failed ($SmokeExit)" }
           foreach ($P in $Profiles) {
             Write-Host "::group::Responsive QA $($P.Name)"
             $Out = "native-android/app/build/qa-screenshots/$($P.Name)"
