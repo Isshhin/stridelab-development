@@ -11,6 +11,10 @@ on:
       - 'native-android/app/src/main/java/io/stridelab/privatealpha/TracksideFigmaBuilderScreens.kt'
       - 'native-android/app/src/main/java/io/stridelab/privatealpha/TracksideFigmaBuilderSchedule.kt'
       - 'native-android/app/src/main/java/io/stridelab/privatealpha/TracksideFigmaOtherDisciplineSlots.kt'
+      - 'native-android/app/src/main/java/io/stridelab/privatealpha/TracksideFigmaWeekReview.kt'
+      - 'native-android/app/src/main/java/io/stridelab/privatealpha/TracksideParityTraining.kt'
+      - 'native-android/app/src/main/java/io/stridelab/privatealpha/TracksideParityDraftApprovalDock.kt'
+      - 'native-android/app/src/main/java/io/stridelab/privatealpha/TrainingScreens.kt'
       - 'native-android/app/src/main/java/io/stridelab/privatealpha/TracksideFigmaRunningSetup.kt'
       - 'native-android/app/src/main/res/drawable/trackside_*'
   workflow_dispatch:
