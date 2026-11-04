@@ -137,32 +137,19 @@ P2-A/C/D/E remain dependency-gated.
 - Raw sensitive athlete data stays outside Git.
 - No parity, readiness, injury-prevention, personalized heat, MAF-prescription or adaptive-effectiveness claim without the required evidence.
 
+## Wave 1 preparation checkpoint
+
+The four workstreams reached their preparation stopping points on the existing research branch. The last workstream commit was `ae4f34bc254beda6b3f369fe9233ab06624a3323`. No human records were admitted or evaluated.
+
+| Workstream | Published research | Handoff | Commit |
+|---|---|---|---|
+| F1 | [Source decisions and purpose restrictions](../phase2/p2-f1-rights-admission.md) | [Rights handoff](p2-f1-rights-handoff.md) | `48a060e` |
+| F2 | [Decision-time linkage contract](../phase2/p2-f2-linkage-contract.md) | [Linkage handoff](p2-f2-linkage-handoff.md) | `aa4e39a` |
+| F3 | [Parser verification and audit procedure](../phase2/p2-f3-parser-reconciliation.md) | [Reconciliation handoff](p2-f3-reconciliation-handoff.md) | `ae4f34b` |
+| B0 | [Comparable-easy repeatability protocol](../phase2/p2-b0-repeatability-protocol.md) | [Protocol handoff](p2-b0-protocol-handoff.md) | `0898aab` |
+
 ## Exact next step for a fresh session
 
-1. Verify live research branch and PR #34.
-2. Read the Session G independent re-review and frozen Phase 2 protocol.
-3. Prepare P2-F feasibility/admission under frozen baseline `26a8331`.
-4. Maintain a P2-F handoff under the project continuity protocol.
-5. Do not open confirmatory held-out outcomes until the P2-F Gate 2 manifest is frozen and independently reviewed.
+Verify the live branch head and PR #34, then run only the P2-FI assignment in the [Wave 1 prompts](../2026-11-04-engine2x-phase2-wave1-prompts.md) under the [multi-session program](../2026-11-04-engine2x-phase2-multisession-program.md). Read all four artifacts and handoffs, the independent Session G re-review and the frozen Phase 2 protocol.
 
-
-## Phase 2 Wave 1 multi-session execution
-
-Wave 1 is now organized as controlled parallel work.
-
-Program:
-`docs/research/2026-11-04-engine2x-phase2-multisession-program.md`
-
-Prompts:
-`docs/research/2026-11-04-engine2x-phase2-wave1-prompts.md`
-
-Launch in parallel:
-
-1. P2-F1 rights/source admission
-2. P2-F2 linkage/data contract
-3. P2-F3 parser/provenance/reconciliation reliability
-4. P2-B0 repeatability protocol preparation only
-
-Then run P2-FI integration/Gate 2 readiness review.
-
-P2-B0 is preparation only. Active P2-B validation still waits for eligible linked P2-F data. P2-A/C/D/E remain dependency-gated.
+The new reviewer owns the separate feasibility and Gate 2 manifest verdicts. No pilot has been authorized by this checkpoint. Human-source permission, manual reconciliation on authorized events and real-device coverage remain outstanding. Active P2-B requires eligible linked repeated segments. Confirmatory outcomes remain sealed pending a frozen manifest and independent review.
