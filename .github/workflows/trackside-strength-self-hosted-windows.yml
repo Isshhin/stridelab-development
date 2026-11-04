@@ -6,6 +6,7 @@ on:
       - design/trackside3-figma-parity-no-build-20261103
     paths:
       - '.github/workflows/trackside-strength-self-hosted-windows.yml'
+      - 'native-android/app/src/androidTest/java/io/stridelab/privatealpha/TracksideResponsiveQaTest.kt'
   workflow_dispatch:
 
 permissions:
