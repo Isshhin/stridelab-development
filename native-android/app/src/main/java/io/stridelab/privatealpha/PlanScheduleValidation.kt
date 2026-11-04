@@ -9,6 +9,10 @@ internal object PlanScheduleValidation {
     fun conflict(a:PlannedSession,b:PlannedSession,policyA:String,policyB:String)=
         if(policyA==ENGINE15_INTERFERENCE_POLICY && policyB==ENGINE15_INTERFERENCE_POLICY)
             Engine15InterferenceScheduling.conflict(a,b)
+        else if(policyA==ENGINE15_INTERFERENCE_POLICY || policyB==ENGINE15_INTERFERENCE_POLICY)
+            // Retain baseline cross-policy restrictions and also honor the
+            // interference policy's symmetric hard-day spacing.
+            Engine1.conflict(a,b) || Engine15InterferenceScheduling.conflict(a,b)
         else if(policyA==policyB && isMultiPolicy(policyA))MultiSessionScheduling.conflict(a,b)
         else Engine1.conflict(a,b)
 

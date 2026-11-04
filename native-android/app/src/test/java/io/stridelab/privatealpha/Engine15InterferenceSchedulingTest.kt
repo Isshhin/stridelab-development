@@ -115,4 +115,58 @@ class Engine15InterferenceSchedulingTest {
                 request=b3.request.copy(dailyMinutes=20)))
         }
     }
+
+    @Test fun mixedPolicyHardSpacingPreservesLegacyRestrictionsAndSymmetry() {
+        val sunday=start.plusDays(6)
+        val longSunday=PlannedSession("long-sun",sunday,"run","Long",60,12.0,"long")
+        val longMonday=longSunday.copy(id="long-mon",date=sunday.plusDays(1))
+        val qualityMonday=longMonday.copy(id="quality-mon",kind="quality",quality=true)
+        val lowerMonday=PlannedSession("lower-mon",sunday.plusDays(1),
+            "str","Lower",45,null,"strength",lower=true)
+        assertFalse(Engine1.conflict(longSunday,longMonday))
+        assertFalse(PlanScheduleValidation.conflict(
+            longSunday,longMonday,ENGINE1_POLICY,ENGINE1_POLICY))
+        for (otherPolicy in listOf(ENGINE1_POLICY,MULTI_SESSION_POLICY,
+            ENGINE15_POLICY,ENGINE15_MULTI_POLICY)) {
+            for (next in listOf(longMonday,qualityMonday,lowerMonday)) {
+                assertTrue("Hard spacing lost across $otherPolicy: ${next.id}",
+                    PlanScheduleValidation.conflict(longSunday,next,
+                        ENGINE15_INTERFERENCE_POLICY,otherPolicy))
+                assertTrue("Cross-policy order mismatch: ${next.id}",
+                    PlanScheduleValidation.conflict(next,longSunday,
+                        otherPolicy,ENGINE15_INTERFERENCE_POLICY))
+            }
+        }
+        val easy=longSunday.copy(id="easy",kind="easy")
+        val upper=PlannedSession("upper",sunday,"str","Upper",30,null,
+            "strength",lower=false)
+        assertFalse(Engine15InterferenceScheduling.conflict(easy,upper))
+        assertTrue(PlanScheduleValidation.conflict(
+            easy,upper,ENGINE15_INTERFERENCE_POLICY,ENGINE1_POLICY))
+    }
+
+    @Test fun mixedPolicyAdjacentLongRunsRejectApprovalAndRestore() {
+        val sunday=start.plusDays(6)
+        val monday=sunday.plusDays(1)
+        val req=PlanRequest(goal="Improve 5K",policyChoice="engine15",
+            start=start,weeks=1,days=(1..7).toSet(),runDays=1,
+            longDay=7,minutes=60,weeklyKm=30.0)
+        val candidate=PlanSnapshot("review-interference",owner,ENGINE15_VERSION,
+            ENGINE15_INTERFERENCE_POLICY,now,req,
+            listOf(PlannedSession("new-long",sunday,"run","Long",60,12.0,"long")),
+            listOf("Adversarial cross-policy fixture"))
+        val existing=PlanSnapshot("legacy-long",owner,ENGINE1_VERSION,ENGINE1_POLICY,
+            now,req.copy(policyChoice="baseline",start=monday,longDay=1),
+            listOf(PlannedSession("old-long",monday,"run","Long",60,12.0,"long")),
+            listOf("Existing approved historical policy"),status="approved")
+        assertThrows(PlanConstraint::class.java) {
+            PlanOperations.approve(candidate,listOf(existing))
+        }
+        assertThrows(PlanConstraint::class.java) {
+            PlanScheduleValidation.validateRestoration(
+                listOf(candidate.copy(status="approved"),existing))
+        }
+        assertEquals("draft",candidate.status)
+        assertEquals("approved",existing.status)
+    }
 }
