@@ -132,6 +132,78 @@ def analyze(case_csv: str | Path, week_csv: str | Path) -> dict:
         return {"status": "BLOCKED_APP_VERSION_MISMATCH", "reported_comparisons": 0}
     if len({by_case[cid]["source_ref"] for cid in EXPECTED}) != 6:
         raise ValueError("six captures need distinct evidence references")
+    # Frequency is an actual exposure, not merely a requested configuration field.
+    # An app may silently omit workouts or reduce days; retain the observation but
+    # do not report it as a clean matched-frequency progression comparison.
+    plan_summaries = {}
+    frequency_deviations = []
+    for cid in sorted(EXPECTED):
+        plan = observed[cid]
+        target_days = EXPECTED[cid][0]
+        transitions = []
+        for week in range(2, 13):
+            old, new = plan[week - 1], plan[week]
+            transitions.append({
+                "from_week": week - 1, "to_week": week,
+                "from_phase": old["phase"], "to_phase": new["phase"],
+                "kind": "BUILD_TO_BUILD" if old["phase"] == new["phase"] == "BUILD"
+                    else "NON_BUILD_TRANSITION",
+                "weekly_change_pct": round(pct_change(new["total_km"], old["total_km"]), 4),
+                "long_run_change_pct": round(pct_change(new["long_run_km"], old["long_run_km"]), 4)
+                    if old["long_run_km"] > 0 else None,
+            })
+        for week, data in sorted(plan.items()):
+            if data["phase"] == "BUILD" and data["run_days"] != target_days:
+                frequency_deviations.append({
+                    "case_id": cid, "week": week,
+                    "requested_runs_per_week": target_days,
+                    "observed_run_days": data["run_days"],
+                    "source_ref": data["source_ref"],
+                })
+        first = plan[1]
+        peak_week = max(plan, key=lambda n: plan[n]["total_km"])
+        long_peak_week = max(plan, key=lambda n: plan[n]["long_run_km"])
+        plan_summaries[cid] = {
+            "first_week_km": first["total_km"],
+            "peak_week_index": peak_week,
+            "peak_week_km": plan[peak_week]["total_km"],
+            "last_week_km": plan[12]["total_km"],
+            "peak_long_run_week": long_peak_week,
+            "peak_long_run_km": plan[long_peak_week]["long_run_km"],
+            "deload_weeks": [w for w, d in sorted(plan.items()) if d["phase"] == "DELOAD"],
+            "taper_weeks": [w for w, d in sorted(plan.items()) if d["phase"] == "TAPER"],
+            "race_weeks": [w for w, d in sorted(plan.items()) if d["phase"] == "RACE"],
+            "weekly_composition": [
+                {"week": w, "phase": d["phase"], "quality_count": d["quality_count"],
+                 "quality_types": d["quality_types"], "easy_count": d["easy_count"],
+                 "run_days": d["run_days"], "recovery_days": d["recovery_days"],
+                 "long_run_share": round(d["long_run_km"] / d["total_km"], 4),
+                 "warning_state": d["warning_state"]}
+                for w, d in sorted(plan.items())
+            ],
+            "transitions": transitions,
+        }
+    # A/B draft repeats help quantify generator variability before attributing
+    # small changes to the frequency treatment.
+    replicate_stability = {}
+    for days in (5, 6, 7):
+        lhs, rhs = observed[f"F{days}A"], observed[f"F{days}B"]
+        absolute_diffs = [abs(lhs[w]["total_km"] - rhs[w]["total_km"]) for w in range(1, 13)]
+        replicate_stability[str(days)] = {
+            "identical_weekly_total_count": sum(d < 1e-6 for d in absolute_diffs),
+            "mean_abs_weekly_total_difference_km": round(statistics.mean(absolute_diffs), 4),
+            "max_abs_weekly_total_difference_km": round(max(absolute_diffs), 4),
+            "phase_sequence_identical": all(lhs[w]["phase"] == rhs[w]["phase"] for w in range(1, 13)),
+        }
+    if frequency_deviations:
+        return {
+            "status": "BLOCKED_FREQUENCY_NOT_REALIZED",
+            "reported_comparisons": 0,
+            "reason": "Generated BUILD weeks do not consistently contain the requested number of run days",
+            "frequency_deviations": frequency_deviations,
+            "plan_summaries": plan_summaries,
+            "replicate_stability": replicate_stability,
+        }
     by_pair = {}
     for rep in ("A", "B"):
         for days in (6, 7):
@@ -156,11 +228,12 @@ def analyze(case_csv: str | Path, week_csv: str | Path) -> dict:
                 "matched_build_weeks": values,
             }
     if any(v["build_to_build_week_count"] < 2 for v in by_pair.values()):
-        return {"status": "BLOCKED_TOO_FEW_MATCHED_BUILD_WEEKS", "pair_details": by_pair}
+        return {"status": "BLOCKED_TOO_FEW_MATCHED_BUILD_WEEKS", "pair_details": by_pair, "plan_summaries": plan_summaries, "replicate_stability": replicate_stability}
     return {
         "status": "DESCRIPTIVE_ONLY_PENDING_CAPTURE_REVIEW",
         "evidence": "MANUALLY_TRANSCRIBED_PLAN_OUTPUTS_NOT_INDEPENDENTLY_VERIFIED",
         "generated_drafts": 6, "pair_details": by_pair,
+        "plan_summaries": plan_summaries, "replicate_stability": replicate_stability,
         "interpretation_limit": "Two replicas per frequency are descriptive, not independent proof of causal policy or physiological superiority.",
     }
 

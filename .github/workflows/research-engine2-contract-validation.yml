@@ -42,6 +42,8 @@ jobs:
         run: python -m unittest discover -s research/validation -p 'test_*.py' -v
       - name: Test research registry and synthetic contract model
         run: python research/validation/runner.py --output research-validation.json
+      - name: Record Runna matched-frequency capture readiness (not observed Runna output)
+        run: python research/validation/runna_frequency_comparison.py --output research-runna-frequency-readiness.json
       - name: Execute B0/H1 frozen policy comparisons
         run: python research/validation/policy_runner.py --output research-policy-comparison.json
       - name: Execute seeded adversarial cohorts (unseen by 8B frozen comparisons)
@@ -107,7 +109,12 @@ jobs:
           }
           $lines.Add('')
           $lines.Add('- Runna Experiment 002: zero of 16 authenticated cases run.')
-          $lines.Add('- Runna Experiment 007: zero of six matched-frequency drafts captured.')
+          if (Test-Path 'research-runna-frequency-readiness.json') {
+            $e007 = Get-Content 'research-runna-frequency-readiness.json' -Raw | ConvertFrom-Json
+            $lines.Add("- Runna Experiment 007 registered capture gate: $($e007.status)")
+          } else {
+            $lines.Add('- Runna Experiment 007 capture-gate report missing. Check logs.')
+          }
           $lines.Add('- Garmin Run Coach Experiment 008: zero prospective paired observations.')
           $lines.Add('- Structural passing results do not establish safety, efficacy, calibrated forecasts or proprietary generator behavior.')
           $lines | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
@@ -124,5 +131,6 @@ jobs:
             research-adapter-status.json
             research-original-lab-admission.json
             research-field-outcome-readiness.json
+            research-runna-frequency-readiness.json
           if-no-files-found: warn
           retention-days: 30

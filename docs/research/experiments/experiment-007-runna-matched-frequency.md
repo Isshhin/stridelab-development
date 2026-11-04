@@ -34,7 +34,7 @@ For each consecutive pair of weeks:
 - Match same week index and same A/B replicate against five-day control; `delta_pp = progression_pct[6_or_7] - progression_pct[5]`. Compare mean matched BUILD→BUILD deltas across weeks and A/B, with per-week variation and long-run progression analyzed separately.
 - Compare session category counts, easy distribution, run/no-run days, quality types, long-run share, deload placement, taper timing and any warning/rejection. Do not interpret quality-session total km as hard-work km.
 
-**Reporting gate:** Analyze no real output until six distinct authorized draft captures, all 12 weeks for each and matching app version/config are present. Three plan frequencies × two replicates = 72 week rows expected. The analyzer reports `BLOCKED_NO_CURRENT_APP_OUTPUT` on the registered empty template; a complete, internally consistent capture remains `DESCRIPTIVE_ONLY_PENDING_CAPTURE_REVIEW` until original evidence is independently inspected. Do not call two repeats a confidence interval or an outcome trial. If input ranges prohibit a matched set, the primary contrast is **not identifiable** in that cohort.
+**Reporting gate:** Analyze no real output until six distinct authorized draft captures, all 12 weeks for each and matching app version/config are present. Three plan frequencies × two replicates = 72 week rows expected. The analyzer reports `BLOCKED_NO_CURRENT_APP_OUTPUT` on the registered empty template. A complete matched capture remains `DESCRIPTIVE_ONLY_PENDING_CAPTURE_REVIEW` until source evidence is independently inspected; programmatic CSV checks cannot authenticate screenshots or prove they came from the Runna app. **Actual exposure gate:** if any BUILD week contains fewer or more running days than the configured five/six/seven, the primary analysis is `BLOCKED_FREQUENCY_NOT_REALIZED`, and the observed schedule deviations are reported. Taper/race deload day changes are reported but do not alone invalidate BUILD-week matching. Do not call two repeats a confidence interval or an outcome trial. If input ranges prohibit a matched set, the primary contrast is **not identifiable** in that cohort.
 
 ## Analysis execution and quality controls
 
@@ -46,7 +46,13 @@ python research/validation/runna_frequency_comparison.py \
 python -m unittest discover -s research/validation -p 'test_runna_frequency_comparison.py' -v
 ```
 
-The seven synthetic unit tests exercise the **data-analysis harness only**: blocked empty cases, 5/6/7 contrast arithmetic, deload/taper exclusion, missing weeks, invalid captures, matching input and app-version checks. They do not simulate proprietary Runna training plans or validate results. The report is preliminary and must not be promoted to an Engine 2.0 policy.
+The eleven synthetic unit tests exercise the **data-analysis harness only**: blocked empty cases, 5/6/7 contrast arithmetic, deload/taper exclusion, missing weeks, invalid captures, matching input, app-version checks, BUILD-week frequency realization, taper day-count exceptions, A/B repeatability, and transition auditing. They do not simulate proprietary Runna training plans or validate results. The report is preliminary and must not be promoted to an Engine 2.0 policy.
+
+### Newly auditable descriptive outputs
+
+The capture analyzer records **first, peak and final weekly mileage**, peak long run, quality-session counts and types, easy-session counts, recovery days, long-run share, deload/taper/race week indices, warnings, and **every** consecutive weekly/long-run percentage transition with BUILD-to-BUILD or excluded status. It also computes A-versus-B repeatability at each frequency: number of equal weekly totals, mean and maximum absolute variation, and phase-sequence identity. Repeatability is descriptive, not statistical proof of random variation. A confidence interval is **not justified** by two repeated drafts.
+
+The comparison remains limited by a coupled **assigned-weekday confound** when the app cannot preserve identical availability settings across frequencies. Even under full matched availability, selecting more run days changes scheduling structure as part of the treatment; do not claim it isolates a physiological dose-response effect.
 
 ## StrideLab research decision rule
 

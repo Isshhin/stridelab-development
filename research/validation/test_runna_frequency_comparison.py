@@ -104,6 +104,48 @@ class MatchedFrequencyCaptureTests(unittest.TestCase):
         write_csv(self.cases, CASE_FIELDS, self.rows)
         self.assertEqual(analyze(self.cases, self.weeks)["status"], "BLOCKED_APP_VERSION_MISMATCH")
 
+    def test_actual_build_frequency_deviation_blocks_comparison(self):
+        rows = self.populate()
+        for row in rows:
+            if row["case_id"] == "F6A" and row["week_index"] == "2":
+                row["run_days"] = "5"
+                row["recovery_days"] = "2"
+        write_csv(self.weeks, WEEK_FIELDS, rows)
+        report = analyze(self.cases, self.weeks)
+        self.assertEqual(report["status"], "BLOCKED_FREQUENCY_NOT_REALIZED")
+        self.assertEqual(report["reported_comparisons"], 0)
+        self.assertEqual(report["frequency_deviations"][0]["case_id"], "F6A")
+
+    def test_taper_day_reduction_does_not_fake_build_difference(self):
+        rows = self.populate()
+        for row in rows:
+            if row["case_id"] == "F7B" and row["week_index"] == "11":
+                row["run_days"] = "6"
+                row["recovery_days"] = "1"
+        write_csv(self.weeks, WEEK_FIELDS, rows)
+        report = analyze(self.cases, self.weeks)
+        self.assertEqual(report["status"], "DESCRIPTIVE_ONLY_PENDING_CAPTURE_REVIEW")
+        self.assertEqual(report["plan_summaries"]["F7B"]["taper_weeks"], [11])
+
+    def test_replicate_stability_exposes_draft_variability(self):
+        rows = self.populate()
+        for row in rows:
+            if row["case_id"] == "F5B" and row["week_index"] == "3":
+                row["total_km"] = str(float(row["total_km"]) + 1)
+        write_csv(self.weeks, WEEK_FIELDS, rows)
+        report = analyze(self.cases, self.weeks)
+        self.assertEqual(report["status"], "DESCRIPTIVE_ONLY_PENDING_CAPTURE_REVIEW")
+        self.assertEqual(report["replicate_stability"]["5"]["identical_weekly_total_count"], 11)
+        self.assertEqual(report["replicate_stability"]["5"]["max_abs_weekly_total_difference_km"], 1.0)
+
+    def test_transitions_exclude_post_deload_rebound(self):
+        self.populate()
+        report = analyze(self.cases, self.weeks)
+        transitions = report["plan_summaries"]["F5A"]["transitions"]
+        self.assertEqual(next(t for t in transitions if t["to_week"] == 5)["kind"], "NON_BUILD_TRANSITION")
+        self.assertEqual(next(t for t in transitions if t["to_week"] == 6)["kind"], "BUILD_TO_BUILD")
+        self.assertEqual(report["replicate_stability"]["7"]["identical_weekly_total_count"], 12)
+
 
 if __name__ == "__main__":
     unittest.main()
