@@ -6,11 +6,10 @@ Repository: `Isshhin/stridelab-development`
 Research branch: `research/runna-garmin-coaching-20261102`  
 Research PR: #34, keep open, draft and unmerged.
 
-Before continuing, verify the live branch and preserve anything newer than this handoff.
-
-Project-level direction is maintained in GitHub Issue #42:
-
+Project-level direction:
 https://github.com/Isshhin/stridelab-development/issues/42
+
+Before continuing, verify the live branch and preserve anything newer than this handoff.
 
 ## Current priority
 
@@ -18,85 +17,55 @@ Engine 2.x remains the primary StrideLab workstream.
 
 Current strategic order:
 
-1. finish Session G corrections and freeze the Phase 2 baseline
-2. P2-F data admission/linkage
-3. P2-B aerobic-efficiency repeatability
-4. dependent P2-A/P2-C/P2-D/P2-E experiments
-5. research-only Engine 2.x executable candidates
-6. adversarial and real-data shadow validation
-7. prospective athlete validation
-8. Engine 2.x production candidate with Engine 1.5 fallback
-9. Trackside integration
-10. dogfood APK
+1. P2-F data admission/linkage feasibility
+2. P2-B aerobic-efficiency repeatability after P2-F linkage gate
+3. dependent P2-A/P2-C/P2-D/P2-E experiments
+4. research-only Engine 2.x executable candidates
+5. adversarial and real-data shadow validation
+6. prospective athlete validation
+7. Engine 2.x production candidate with Engine 1.5 fallback
+8. Trackside integration
+9. dogfood APK
 
 The user explicitly accepts delaying the APK to improve coaching maturity.
 
-## Phase 1 discovery
+## Phase 1 status
 
-Sessions A-F + H are complete and passed pre-synthesis review.
+Sessions A-F + H passed pre-synthesis review.
 
-Pre-synthesis review:
-
-`docs/research/2026-11-04-engine2x-pre-synthesis-review.md`
-
-## Session G
-
-Synthesis commit:
+Session G synthesis was produced at:
 
 `4b734f1b97a54e6c15ba3bf0662d456de5c68413`
 
-Artifacts:
+G-R1 through G-R6 were corrected at:
 
-- `docs/research/2026-11-04-engine2x-session-g-synthesis.md`
-- `docs/research/2026-11-04-engine2x-session-g-state.md`
-- `docs/research/2026-11-04-engine2x-session-g-candidates.md`
-- `docs/research/2026-11-04-engine2x-session-g-phase2.md`
+`26a8331e642c888dd73acb94755dded063baab8d`
 
-Independent review:
+Independent re-review:
 
-`docs/research/2026-11-04-engine2x-session-g-independent-review.md`
+`docs/research/2026-11-04-engine2x-session-g-independent-rereview.md`
 
-Verdict:
+Final G status:
 
-`PASS_WITH_REQUIRED_CORRECTIONS_BEFORE_FREEZE`
+`REVIEW_PASSED / PHASE_2_BASELINE_FROZEN`
 
-Session G status:
+Frozen architecture baseline:
 
-`REVIEW_REQUIRED_CORRECTIONS`
+`26a8331e642c888dd73acb94755dded063baab8d`
 
-Phase 2 status:
+Do not casually redesign the frozen architecture during experiments. Change it only when evidence, rights/safety, measurement failure, or implementation impossibility materially invalidates a contract.
 
-`BLOCKED_PENDING_G_CORRECTIONS`
+## Current Phase 2 authorization
 
-## Required G corrections
+`P2-F_FEASIBILITY_PREPARATION_AUTHORIZED`
 
-### G-R1
-Expand every state variable into an explicit implementation/validation contract including baseline, missingness, conflict behavior, evidence/applicability/confidence, direct-decision permission, validation status and Phase 2 owner.
+`CONFIRMATORY_HELD_OUT_EVALUATION_BLOCKED_PENDING_GATE_2_MANIFEST`
 
-### G-R2
-Formalize separate control semantics and reason codes for:
-- KEEP
-- ABSTAIN_NEED_MORE_INFORMATION
-- NO_AUTOMATED_DECISION
-- hard hold / supplied restriction
+Architecture approval does not authorize opening sealed held-out outcomes.
 
-### G-R3
-Add current mechanism location to the capability scorecard so Engine 1.5/shared foundations are not mistaken for already implemented Engine 2.x behavior.
+Each confirmatory track must separately freeze and independently review its Gate 2 manifest before held-out access.
 
-### G-R4
-Add an explicit Phase 2 baseline-freeze/readiness checklist before held-out evaluation or active data collection under the research schema.
-
-### G-R5
-Classify potential differentiators explicitly as EXISTING, PROTOTYPE, HYPOTHESIS or VALIDATED.
-
-### G-R6
-Create one authoritative map between P2-A through P2-F and E009-E012/legacy experiment IDs.
-
-No broad research rerun is required.
-
-## Architecture that survived review
-
-The core architecture is accepted directionally:
+## Frozen Engine 2.x architecture
 
 `OBSERVATIONS`
 → provenance / quality / eligibility
@@ -109,65 +78,69 @@ The core architecture is accepted directionally:
 → athlete review
 → execution
 → outcome
-→ state update
+→ updated athlete state
 
-Preserve:
+Control outcomes include:
 
-- multidimensional state rather than one readiness score
-- explicit abstention
-- training-intent-preserving edits
-- separate capability and evidence maturity
-- practical promotion gates
-- contradictory/null evidence
-- Engine 1.5 reliability principles as fallback constraints
+- KEEP
+- ABSTAIN_NEED_MORE_INFORMATION
+- NO_AUTOMATED_DECISION
+- HARD_HOLD
 
-## Research conclusions to preserve
+The athlete is not reduced to one opaque readiness score.
 
-- HRV/sleep/RHR are contextual, not standalone workout controllers.
-- Matched-HR pace is promising but not yet a progression gate.
+## Key preserved conclusions
+
+- HRV, sleep and RHR are contextual, not standalone workout controllers.
+- Matched-HR pace is promising but not a progression gate until repeatability passes.
 - MAF 180 Formula is not a validated individual threshold.
-- No universal polarized/pyramidal/threshold-heavy winner.
+- No universal polarized/pyramidal/threshold-heavy winner is established.
 - Watch Zone 2 is not automatically LT1/VT1/Fatmax/lactate flux.
-- 10% and ACWR are not universal personal safety thresholds.
+- Universal 10% and ACWR rules are not personal safety thresholds.
 - Session and weekly exposure remain separate.
 - Taper, deload and re-entry are distinct decisions.
 - Environment must be separated from fitness interpretation.
 - Concurrent-training interference is endpoint/context dependent.
 - Active recovery is optional, not mandatory.
 - Synthetic correctness is not coaching-effectiveness evidence.
-- Real-athlete data and prospective validation are the major next bottlenecks.
+- Real-athlete data and prospective validation are now the main bottlenecks.
 
-## Exact next step
+## Immediate next track: P2-F
 
-1. Verify live research head and PR #34.
-2. Read the G independent review.
-3. Resolve G-R1 through G-R6 without broadening scope.
-4. Update the G artifacts and G handoff.
-5. Independently re-review the changed contracts.
-6. If all corrections pass, mark:
-   `REVIEW_PASSED / PHASE_2_BASELINE_FROZEN`
-7. Start P2-F first.
-8. Start P2-B only when the linkage/admission gate permits.
-9. Keep P2-A/C/D/E blocked until their prerequisites pass.
+Prepare and execute only the feasibility/admission portion allowed by Gate 1.
+
+P2-F should establish:
+
+- lawful source rights and intended use
+- minimal acquisition schema
+- parser/source correctness
+- plan version before decision
+- plan/revision/decision/actual/outcome linkage
+- duplicate handling
+- account isolation
+- explicit missing/unknown codes
+- retention/withdrawal behavior
+- manually reconciled pilot audit
+
+Before any confirmatory held-out evaluation, freeze and independently review the P2-F Gate 2 manifest.
+
+P2-B begins only after P2-F supplies eligible, correctly linked repeated segments.
+
+P2-A/C/D/E remain dependency-gated.
 
 ## Boundaries
 
-- Engine 1.5 production remains feature-frozen except reliability fixes.
-- Trackside production/UI work stays on its own branch.
+- Engine 1.5 remains feature-frozen fallback except reliability fixes.
+- Trackside production UI remains separate.
 - No APK/release infrastructure changes.
-- No merge of PR #34.
-- No parity/injury-prevention/readiness/heat/MAF/adaptive-effectiveness claim without required evidence.
+- PR #34 stays open, draft and unmerged.
 - Raw sensitive athlete data stays outside Git.
+- No parity, readiness, injury-prevention, personalized heat, MAF-prescription or adaptive-effectiveness claim without the required evidence.
 
-## Continuity
+## Exact next step for a fresh session
 
-All substantial StrideLab work now follows project-wide continuity, not only research continuity.
-
-Canonical docs branch contains:
-
-- `docs/PROJECT_CONTINUITY.md`
-- `docs/HANDOFF.md`
-- `docs/ROADMAP.md`
-- `docs/PRODUCT_VISION.md`
-
-A fresh session should read Issue #42 plus the relevant branch handoff, verify live state, preserve newer work, and continue the exact next step without asking the user to reconstruct prior chats.
+1. Verify live research branch and PR #34.
+2. Read the Session G independent re-review and frozen Phase 2 protocol.
+3. Prepare P2-F feasibility/admission under frozen baseline `26a8331`.
+4. Maintain a P2-F handoff under the project continuity protocol.
+5. Do not open confirmatory held-out outcomes until the P2-F Gate 2 manifest is frozen and independently reviewed.
