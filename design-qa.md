@@ -101,3 +101,16 @@ The pending source update changes only Strength Setup's fixed-height rows, selec
 - `5389cdbe00fdf83f59288fce38044fc56ff52a0c`: tightened normal-font height and approved-label regression checks.
 
 **Acceptance result:** Calisthenics Setup is complete for this Trackside 3.0 screen. No actionable P0/P1/P2 issues remain within its reviewed scope. This is close rendered parity, not a perfect pixel-by-pixel identity. Strength Setup acceptance remains unchanged. Engine 1.5 and Engine 2.0 were not modified or integrated. The next acceptance target is the remaining Plan Builder screens and review states, not Engine 1.5 integration.
+
+
+## Plan Builder: Discipline Selection — accepted rendered QA (2026-11-04)
+
+**Status: ACCEPTED for the discipline-selection screen only.** Approved Figma reference: `v73TsYo6gKxUoiUock2sSE`, node `551:580` (412×950). Verified production implementation at `c37084c7c31230f2d0961721dca24b5cf03a4294`, with an additional reachability-only instrumentation change at `5aa0094b165c28d54bee8aba68e2315a8633c84b`.
+
+**Windows self-hosted evidence:** successful run [41775319723](https://github.com/Isshhin/stridelab-development/actions/runs/41775319723) attempt 2, artifact `13303820362`; final reachability run [41791067053](https://github.com/Isshhin/stridelab-development/actions/runs/41791067053), artifact `13303228531` (`trackside-strength-windows-evidence`). Both checked out their exact commit SHA. The final run passed JVM/unit tests, debug app compilation, debug instrumentation compilation, 22/22 API 35 Pixel 9 emulator smoke tests, and **12/12 responsive tests** at each of 412dp/100%, 360dp/100%, 360dp/130%, and 412dp/150%. **25 PNGs per profile** were uploaded.
+
+**Primary visual reference:** `qa-screenshots/figma-412dp-font100/StrideLabBatchB/builder-disciplines-figma-reference-412dp-font100.png`. Compared the actual 824×1900 emulator-root screenshot normalized to 412×950 against approved Figma node `551:580`. Content is vertically shifted relative to the Figma mock status bar, as expected, but card positions, 87dp heights, 12dp gaps, selected Running/Strength colors, and four distinctive 24dp icons now match closely. The new vectors are faithful to Figma nodes `571:6`, `571:24`, `571:39`, and `571:60`, with no generic icon substitutes. The selected count reads `2 of 4` and Continue remains enabled.
+
+**Accessibility:** At 360dp/130%, the fourth Conditioning card extends below the fold in the initial viewport. The scroll-reachability test at `5aa0094` invokes `performScrollTo()`, asserts the card displays, and captures `qa-screenshots/compact-360dp-font130/StrideLabBatchB/builder-disciplines-last-card-reachable-360dp-font130.png`. The actual after-scroll screenshot displays the complete Conditioning name and description above the fixed footer; the count and Continue button remain visible. All four responsive profiles passed. Card hit areas were preserved and the accepted Strength and Calisthenics screen checks remained green.
+
+**Outcome:** No actionable P0/P1/P2 issue remains in Discipline Selection. This is close rendered Figma parity, not pixel-for-pixel identity. Next acceptance target: Running Goal Selection (Figma `551:603`); later Plan Builder and draft-review screens are not yet accepted. No Engine 1.5/2.0 integration or release APK changes.
