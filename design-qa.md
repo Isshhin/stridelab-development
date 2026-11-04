@@ -138,3 +138,22 @@ The pending source update changes only Strength Setup's fixed-height rows, selec
 - No actionable P0/P1/P2 issue was observed in the rendered accepted scope. This is close rendered parity rather than pixel-by-pixel identity.
 
 **Result: ACCEPTED.** This does not approve Race Goal Selection, Running Ability, other Plan Builder stages, or Engine 1.5 integration. Next target: Race & Performance (Figma `551:796`). No Engine 1.5/Engine 2.0 or release APK infrastructure change.
+
+
+## Plan Builder: Race & Performance — accepted rendered QA (2026-11-04)
+
+**Status: ACCEPTED for rendered Race Goal layout, not unsupported coaching inputs.** Approved Figma source: file `v73TsYo6gKxUoiUock2sSE`, node `551:796` (412×950). Current production correction `9a924f9e6fd60d0a0b6051e76d58625698002d2f`; additional regression test `559422fd2301850256c50a566f74cc45dbc9bf78`.
+
+**Final exact-head Windows QA:** successful [run 41795914728](https://github.com/Isshhin/stridelab-development/actions/runs/41795914728), artifact `13305623206` (`trackside-strength-windows-evidence`). Shared schema validation, JVM/unit checks, debug Android and instrumentation compilation all passed. Pixel 9 API 35 x86_64 emulator smoke **22/22 passed**. Four responsive suites: **412dp/100% 14/14**, **360dp/100% 14/14**, **360dp/130% 14/14**, and **412dp/150% 14/14**. **29 screenshots per profile** uploaded.
+
+### Screenshot comparison and issue resolution
+
+- Figma reference: four 68px single-choice cards, compact 10K distance selector, optional PR panel, target-day field directly above fixed Continue. Matched reference PNG: `qa-screenshots/figma-412dp-font100/StrideLabBatchB/builder-race-goal-figma-reference-412dp-font100.png`. At normal width the Android emulator captured an 824×1900 root normalized to 412×950 for review; simulated Figma status/nav chrome is excluded.
+- Initial screenshot at `f61c83c` passed 22/22 smoke and 14/14 responsive tests in all four profiles, but revealed a **P1**: the target-day field sat behind fixed Continue at 412dp/100%. Source-only and prior automated tests had missed the overlap. Artifact `13304968110` preserves that historical finding.
+- Corrected source `9a924f9` allows an independent smaller post-description gap for Race Goal only (the shared Builder default for accepted screens remains 40dp). It also shortens the pre-distance gap and noninteractive PR-panel spacing while keeping Add PR's 44dp tap target. The corrected first card starts approximately at y258 in the normalized capture, matching Figma's y257. The optional PR panel is close to Figma's 116px height, with the target-day field fully above the fixed CTA.
+- The P1 is now **resolved** in the final screenshot and is enforced by a direct 412dp/100% baseline assertion that both the PR panel remains within tolerance and `builder-race-target-day` ends above `builder-figma-continue`, rather than relying on a green interaction-only test.
+- All four approved goal icons (trophy, timer, finish flag, benchmark), selected-state check, calendar and chevron use the exported editable Figma vector geometry. Distance choice, current-PR label, and date field are legible and proportioned closely to Figma.
+- At 360dp and increased fonts, the scrollable page reveals the bottom target-day field; screenshots named `builder-race-goal-target-day-reachable-<profile>.png` demonstrate this while Continue stays fixed. Tests verify changing 10K to 21K, the current PR label update, and disabled Continue for unsupported `time` intent. Re-selecting `pr` restores Continue.
+- Known semantic limitations of the current Engine 1 contract: Add PR and target-date actions display an explicit no-persistence advisory, and target-time coaching cannot proceed. Neither data field is silently accepted. These are **not** claims of full feature equivalence with the Figma mock.
+
+**Result: ACCEPTED for Race Goal rendered and currently supported interactions.** No remaining actionable P0/P1/P2 issue in the reviewed scope. Strength, Calisthenics, Discipline Selection, and Running Goal acceptance stays intact; Engine 1.5 and Engine 2.0 were not changed or integrated. Next: Running Ability, Figma `551:865`.
