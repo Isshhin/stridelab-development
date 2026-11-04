@@ -82,3 +82,5 @@ jobs:
             native-android/app/build/test-results/
             native-android/app/build/reports/tests/
           if-no-files-found: warn
+
+# self-hosted trigger marker
