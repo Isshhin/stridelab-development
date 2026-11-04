@@ -1,6 +1,8 @@
 # StrideLab Development Roadmap
 
-Updated: 2026-10-26. **Private developer-only project. No public launch is planned.**
+Updated: 2026-11-05. **Private developer-only project. No public launch is planned.**
+
+> **Engine development roadmap:** See [ENGINE_DEVELOPMENT_ROADMAP.md](ENGINE_DEVELOPMENT_ROADMAP.md) for the canonical Engine 1.5 -> Engine 2.x plan, Engine 2.x remote-configuration architecture, fallback strategy, research-freeze gates, and the decision to begin the major UI revamp only after Engine 2.x is done and stable.
 
 ## Current milestone
 
