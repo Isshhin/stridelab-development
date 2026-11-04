@@ -61,6 +61,7 @@ internal fun TracksideFigmaBuilderFrame(
     onContinue: () -> Unit,
     continueEnabled: Boolean = true,
     footer: (@Composable () -> Unit)? = null,
+    descriptionBottomGap: Int = 40,
     body: @Composable ColumnScope.() -> Unit
 ) {
     Column(Modifier.fillMaxSize().background(black).testTag("figma-builder-frame")) {
@@ -96,7 +97,7 @@ internal fun TracksideFigmaBuilderFrame(
                 Spacer(Modifier.height(4.dp))
                 Text(description, fontSize = 12.5f.sp,
                     lineHeight = 17.sp, color = muted)
-                Spacer(Modifier.height(40.dp))
+                Spacer(Modifier.height(descriptionBottomGap.dp))
             } else Spacer(Modifier.height(10.dp))
             body()
         }
@@ -393,6 +394,8 @@ internal fun TracksideFigmaRaceGoalScreen(
         description = "Choose what success looks like for you.",
         onBack = onBack,
         onContinue = onContinue,
+        // Race reference is more compact than other builder stages.
+        descriptionBottomGap = 10,
         // Never silently accept a target-time instruction that the current
         // PlanRequest contract cannot represent or apply.
         continueEnabled = intent != "time"
@@ -409,7 +412,7 @@ internal fun TracksideFigmaRaceGoalScreen(
             )
             if(i < intents.lastIndex) Spacer(Modifier.height(9.dp))
         }
-        Spacer(Modifier.height(25.dp))
+        Spacer(Modifier.height(14.dp))
         Text("DISTANCE", modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center, fontSize=11.sp,
             color=muted, fontWeight=FontWeight.Bold)
@@ -440,8 +443,8 @@ internal fun TracksideFigmaRaceGoalScreen(
                 color=Color(0xFF15232C), shape=RoundedCornerShape(13.dp),
                 border=BorderStroke(1.dp,Color(0xFF354A55))
             ) {
-                Column(Modifier.padding(13.dp),
-                    verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.padding(11.dp),
+                    verticalArrangement=Arrangement.spacedBy(5.dp)) {
                     Row(Modifier.fillMaxWidth(),
                         horizontalArrangement=Arrangement.SpaceBetween) {
                         Text("Your current $distance PR",fontSize=15.sp,
@@ -511,10 +514,10 @@ internal fun TracksideFigmaRaceGoalScreen(
                 }
             }
         }
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(8.dp))
         Text("TARGET DAY",fontSize=11.sp,color=muted,
             fontWeight=FontWeight.Bold)
-        Spacer(Modifier.height(7.dp))
+        Spacer(Modifier.height(5.dp))
         Surface(
             onClick={unsupportedAction="Target date"},
             modifier=Modifier.fillMaxWidth().heightIn(min=44.dp)
