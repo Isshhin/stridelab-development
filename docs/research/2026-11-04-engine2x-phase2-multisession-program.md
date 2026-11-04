@@ -1,5 +1,9 @@
 # Engine 2.x Phase 2 multi-session execution program
 
+## Feasibility implementation milestone
+
+The [implementation handoff](handoffs/p2-f-feasibility-implementation-handoff.md) supersedes the original launch sequence below. The [unsigned draft manifest](phase2/p2-f-gate2-manifest-draft.md) records which decisions require a separately authorized real-device development pilot.
+
 Date: 2026-11-04 (Asia/Manila)
 
 Repository: `Isshhin/stridelab-development`  

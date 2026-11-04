@@ -1,5 +1,9 @@
 # StrideLab Engine 2.x current coordinating handoff
 
+## Current action after feasibility implementation
+
+Consult the [implementation handoff](p2-f-feasibility-implementation-handoff.md) for the current pilot decision, verification scope and remaining prerequisites. The earlier wave instructions below are historical. Gate 2 remains unsigned and P2-B remains protocol-only.
+
 Last updated: 2026-11-04 (Asia/Manila)
 
 Repository: `Isshhin/stridelab-development`  
@@ -187,4 +191,3 @@ Next wave:
 6. freeze Gate 2 manifest for separate review.
 
 P2-A/C/D/E remain dependency-gated.
-
