@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -19,7 +20,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -30,6 +33,24 @@ import androidx.compose.ui.unit.sp
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+/** Decorative 38dp Plan Dates icon tile. The parent card retains its full click target and label. */
+@Composable
+private fun PlanDatesIconTile(icon: Int, tag: String) {
+    Box(
+        modifier = Modifier.size(38.dp)
+            .background(Color(0xFF29495D), RoundedCornerShape(10.dp))
+            .testTag(tag),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+            tint = Color.Unspecified
+        )
+    }
+}
 
 /** Approved 720:546 Plan details, kept separate from the availability screen. */
 @Composable
@@ -43,6 +64,7 @@ internal fun TracksideFigmaPlanDetailsScreen(
     onDailyBudget: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
+    val panelBrush = Brush.horizontalGradient(listOf(Color(0xFF233541), Color(0xFF111E27)))
     var customWeeks by rememberSaveable { mutableStateOf(false) }
     var timeExpanded by rememberSaveable { mutableStateOf(false) }
     var goalDateInfo by rememberSaveable { mutableStateOf(false) }
@@ -60,9 +82,9 @@ internal fun TracksideFigmaPlanDetailsScreen(
     ) {
         Surface(
             Modifier.fillMaxWidth(), shape=RoundedCornerShape(14.dp),
-            color=Color(0xFF1A2F3A), border=BorderStroke(1.dp,Color(0xFF496878))
+            color=Color.Transparent, border=BorderStroke(1.dp,Color(0xFF496878))
         ) {
-            Column(Modifier.padding(13.dp)) {
+            Column(Modifier.fillMaxWidth().background(panelBrush).padding(13.dp)) {
                 TracksideFigmaFormLabel("START DATE")
                 Spacer(Modifier.height(18.dp))
                 Text("When should the plan begin?",fontSize=13.sp,
@@ -81,10 +103,10 @@ internal fun TracksideFigmaPlanDetailsScreen(
                         ).show()
                     }
                 ) {
-                    Row(Modifier.padding(horizontal=14.dp),
+                    Row(Modifier.padding(horizontal=11.dp),
                         verticalAlignment=Alignment.CenterVertically,
-                        horizontalArrangement=Arrangement.spacedBy(14.dp)) {
-                        Text("▣",color=Color(0xFFB6D9E8),fontSize=22.sp)
+                        horizontalArrangement=Arrangement.spacedBy(11.dp)) {
+                        PlanDatesIconTile(R.drawable.trackside_plan_dates_calendar, "builder-date-calendar-vector")
                         Column(Modifier.weight(1f)) {
                             Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM",
                                 Locale.getDefault())),fontSize=13.sp,
@@ -100,10 +122,10 @@ internal fun TracksideFigmaPlanDetailsScreen(
         }
         Spacer(Modifier.height(17.dp))
         Surface(
-            Modifier.fillMaxWidth(),color=Color(0xFF1A2F3A),
+            Modifier.fillMaxWidth(),color=Color.Transparent,
             shape=RoundedCornerShape(14.dp),border=BorderStroke(1.dp,Color(0xFF496878))
         ) {
-            Column(Modifier.padding(13.dp)) {
+            Column(Modifier.fillMaxWidth().background(panelBrush).padding(13.dp)) {
                 TracksideFigmaFormLabel("PLAN LENGTH")
                 Spacer(Modifier.height(18.dp))
                 Text("How many weeks?",color=Color.White,
@@ -150,16 +172,17 @@ internal fun TracksideFigmaPlanDetailsScreen(
         }
         Spacer(Modifier.height(18.dp))
         Surface(
-            modifier=Modifier.fillMaxWidth()
+            modifier=Modifier.fillMaxWidth().heightIn(min=99.dp)
                 .testTag("builder-time-limit"),
             onClick={timeExpanded=!timeExpanded},
-            color=Color(0xFF1A2F3A),shape=RoundedCornerShape(14.dp),
+            color=Color.Transparent,shape=RoundedCornerShape(14.dp),
             border=BorderStroke(1.dp,Color(0xFF496878))
         ) {
-            Column(Modifier.padding(15.dp)) {
+            Column(Modifier.fillMaxWidth().background(panelBrush)
+                .padding(horizontal=12.dp, vertical=20.dp)) {
                 Row(verticalAlignment=Alignment.CenterVertically) {
-                    Text("◷",fontSize=24.sp,color=Color(0xFF9ACADB))
-                    Spacer(Modifier.width(15.dp))
+                    PlanDatesIconTile(R.drawable.trackside_plan_dates_clock, "builder-time-clock-vector")
+                    Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text("Time limits",color=Color.White,fontSize=13.sp,
                             fontWeight=FontWeight.SemiBold)

@@ -718,8 +718,10 @@ class TracksideResponsiveQaTest {
         }
         compose.onNodeWithText("Set your plan dates").assertExists()
         compose.onNodeWithTag("builder-start-date").assertExists()
+        compose.onNodeWithTag("builder-date-calendar-vector", useUnmergedTree=true).assertExists()
         compose.onNodeWithTag("builder-weeks-8").assertExists()
         compose.onNodeWithTag("builder-time-limit").assertExists()
+        compose.onNodeWithTag("builder-time-clock-vector", useUnmergedTree=true).assertExists()
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
         screenshot("builder-plan-dates-figma-reference")
 

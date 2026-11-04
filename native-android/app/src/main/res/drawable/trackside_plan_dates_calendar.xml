@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="22dp" android:height="22dp"
+    android:viewportWidth="22" android:viewportHeight="22">
+    <!-- Approved Figma 720:564, composed from its three vector children. -->
+    <group android:translateX="3.2083333" android:translateY="5.0416665">
+        <path android:fillColor="@android:color/transparent"
+            android:strokeColor="#B8DDF5" android:strokeWidth="2.5"
+            android:strokeLineCap="round" android:strokeLineJoin="round"
+            android:pathData="M1.83333,0 L13.75,0 C14.76252,0 15.58333,0.82081 15.58333,1.83333 L15.58333,11.45833 C15.58333,12.47086 14.76252,13.29167 13.75,13.29167 L1.83333,13.29167 C0.82081,13.29167 0,12.47086 0,11.45833 L0,1.83333 C0,0.82081 0.82081,0 1.83333,0 Z" />
+    </group>
+    <group android:translateX="3.2083333" android:translateY="2.75">
+        <path android:fillColor="@android:color/transparent"
+            android:strokeColor="#B8DDF5" android:strokeWidth="2.5"
+            android:strokeLineCap="round" android:strokeLineJoin="round"
+            android:pathData="M3.20833,0 L3.20833,4.58333 M12.375,0 L12.375,4.58333 M0,6.41667 L15.58333,6.41667" />
+    </group>
+    <group android:translateX="7.7916665" android:translateY="12.833333">
+        <path android:fillColor="@android:color/transparent"
+            android:strokeColor="#B8DDF5" android:strokeWidth="2.5"
+            android:strokeLineCap="round" android:strokeLineJoin="round"
+            android:pathData="M0,0 L3.66667,0 M0,2.29167 L5.95833,2.29167" />
+    </group>
+</vector>
