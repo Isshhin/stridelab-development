@@ -64,8 +64,11 @@ jobs:
           $Emulator = "$Sdk\emulator\emulator.exe"
 
           & $Adb start-server | Out-Host
-          & $Adb -s emulator-5556 emu kill 2>$null
-          Start-Sleep -Seconds 2
+          $Existing = (& $Adb devices | Out-String)
+          if ($Existing -match "emulator-5556\s+device") {
+            & $Adb -s emulator-5556 emu kill
+            Start-Sleep -Seconds 2
+          }
 
           $Process = Start-Process -FilePath $Emulator -ArgumentList @(
             "-avd", "Pixel_9",
@@ -124,5 +127,8 @@ jobs:
         run: |
           $Adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
           if (Test-Path $Adb) {
-            & $Adb -s emulator-5556 emu kill 2>$null
+            $Existing = (& $Adb devices | Out-String)
+            if ($Existing -match "emulator-5556\s+device") {
+              & $Adb -s emulator-5556 emu kill
+            }
           }
