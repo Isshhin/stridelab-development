@@ -17,6 +17,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -220,7 +224,11 @@ internal fun TracksideParityActivityTabs(selected: Int, onSelect: (Int) -> Unit)
             Surface(
                 onClick = { onSelect(index) },
                 modifier = Modifier.weight(1f).fillMaxHeight()
-                    .testTag("activity-tab-" + title.lowercase()),
+                    .testTag("activity-tab-" + title.lowercase())
+                    .semantics {
+                        role = Role.Tab
+                        this.selected = selected == index
+                    },
                 color = if (selected == index) Color(0xFF314351) else Color.Transparent,
                 shape = RoundedCornerShape(14.dp)
             ) {

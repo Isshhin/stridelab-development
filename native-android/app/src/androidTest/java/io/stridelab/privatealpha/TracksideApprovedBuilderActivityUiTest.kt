@@ -1,8 +1,10 @@
 package io.stridelab.privatealpha
 
 import androidx.activity.compose.setContent
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -279,6 +281,113 @@ class TracksideApprovedBuilderActivityUiTest {
         assertEquals(4,saved.value.weeklySlots["run"]!!.distinct().size)
     }
 
+    @Test fun occupiedRunningDaySelectsItsOwningEasyRunBeforeMovingIt() {
+        val saved=androidx.compose.runtime.mutableStateOf(
+            PlanRequest(
+                runDays=4,experience=2,weeklyKm=45.0,
+                days=setOf(1,2,3,4,5,6),longDay=6,
+                qualityCount=1,qualityDays=setOf(2),
+                weeklySlots=mapOf("run" to listOf(6,2,3,4))
+            )
+        )
+        val selected=androidx.compose.runtime.mutableIntStateOf(0)
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideFigmaRunningSetup(
+                        request=saved.value,
+                        selectedSlot=selected.intValue,
+                        onSelectSlot={ selected.intValue=it },
+                        custom=true,onCustom={},
+                        qualityPreference="Threshold",onQualityPreference={},
+                        onQualityCount={},onRunningCount={},
+                        onAssignDay={ day ->
+                            saved.value=WeeklyPlacement.put(
+                                saved.value,"run",selected.intValue,day)
+                        },
+                        onClearSlot={
+                            saved.value=WeeklyPlacement.clear(
+                                saved.value,"run",selected.intValue)
+                        },
+                        onBack={},onContinue={}
+                    )
+                }
+            }
+        }
+
+        // Open the editor through an empty day. The production state owner
+        // still has slot 0 (Long Run) selected at this point.
+        compose.onNodeWithTag("builder-running-day-1").performClick()
+        assertEquals(0,selected.intValue)
+
+        // Wednesday owns Easy 1. Selecting the occupied compact day must
+        // select that slot without immediately moving Long Run to Wednesday.
+        compose.onNodeWithTag("builder-running-day-3").performClick()
+        compose.runOnIdle {
+            assertEquals(2,selected.intValue)
+            assertEquals(listOf(6,2,3,4),saved.value.weeklySlots["run"])
+            assertEquals(6,saved.value.longDay)
+        }
+
+        // A separate destination tap moves only Easy 1 to Friday.
+        compose.onNodeWithTag("builder-run-editor-weekday-row").performScrollTo()
+        compose.onNodeWithTag("builder-run-editor-day-5").performScrollTo()
+        compose.onNodeWithTag("builder-run-editor-day-5").performClick()
+        compose.runOnIdle {
+            assertEquals(listOf(6,2,5,4),saved.value.weeklySlots["run"])
+            assertEquals(6,saved.value.longDay)
+            assertEquals(setOf(2),saved.value.qualityDays)
+        }
+    }
+
+    @Test fun occupiedRunningDaysSelectLongQualityAndEveryEasyIdentity() {
+        val original=listOf(6,2,4,1,3,5)
+        val saved=androidx.compose.runtime.mutableStateOf(
+            PlanRequest(
+                runDays=6,experience=2,weeklyKm=48.0,
+                days=setOf(1,2,3,4,5,6),longDay=6,
+                qualityCount=2,qualityDays=setOf(2,4),
+                weeklySlots=mapOf("run" to original)
+            )
+        )
+        val selected=androidx.compose.runtime.mutableIntStateOf(0)
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideFigmaRunningSetup(
+                        request=saved.value,selectedSlot=selected.intValue,
+                        onSelectSlot={ selected.intValue=it },
+                        custom=true,onCustom={},qualityPreference="Threshold",
+                        onQualityPreference={},onQualityCount={},onRunningCount={},
+                        onAssignDay={ day ->
+                            saved.value=WeeklyPlacement.put(
+                                saved.value,"run",selected.intValue,day)
+                        },
+                        onClearSlot={},onBack={},onContinue={}
+                    )
+                }
+            }
+        }
+
+        // Sunday is unavailable and unoccupied. It may reveal the editor but
+        // must not change any session or silently make Sunday available.
+        compose.onNodeWithTag("builder-running-day-7").performClick()
+        compose.runOnIdle {
+            assertEquals(original,saved.value.weeklySlots["run"])
+            assertEquals(setOf(1,2,3,4,5,6),saved.value.days)
+        }
+
+        original.forEachIndexed { expectedSlot,day ->
+            compose.onNodeWithTag("builder-running-day-$day").performClick()
+            compose.runOnIdle {
+                assertEquals(expectedSlot,selected.intValue)
+                assertEquals(original,saved.value.weeklySlots["run"])
+                assertEquals(6,saved.value.longDay)
+                assertEquals(setOf(2,4),saved.value.qualityDays)
+            }
+        }
+    }
+
     @Test fun strengthAndCaliUiDaySelectionPersistsPerDiscipline() {
         val saved=androidx.compose.runtime.mutableStateOf(
             PlanRequest(runDays=0,strengthDays=2,calDays=1,
@@ -410,5 +519,101 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("activity-parity-overview").assertExists()
         compose.onNodeWithTag("activity-change-glass-variant").performClick()
         compose.onNodeWithTag("activity-matte-overview").assertExists()
+    }
+
+    @Test fun activitySheetDragSnapsAndKeepsMapAndTabState() {
+        val activity = ActivityRecord(
+            "synthetic-drag", "Recorded Drag Run", "run", "manual",
+            Instant.parse("2026-11-01T09:00:00Z"),
+            7400.0, 2830.0, 2790.0, 379.0, 150.0, 64.0
+        )
+        val state = TrainingState(
+            initializing = false, account = "synthetic-ui",
+            activities = listOf(activity)
+        )
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    NativeStrideContent(
+                        state,false,
+                        NativeActions({}, {}, {}, {}, { _, _ -> })
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("nav-activities").performClick()
+        compose.onNodeWithTag("screen")
+            .performScrollToNode(hasTestTag("activity-synthetic-drag"))
+        compose.onNodeWithTag("activity-synthetic-drag").performClick()
+
+        val collapsedTop=compose.onNodeWithTag("activity-sheet-scroll")
+            .getUnclippedBoundsInRoot().top
+        compose.onNodeWithTag("activity-sheet-scroll")
+            .performTouchInput { swipeUp() }
+        compose.waitUntil(10_000L) {
+            compose.onNodeWithTag("activity-sheet-scroll")
+                .getUnclippedBoundsInRoot().top < collapsedTop - 100.dp
+        }
+        val expandedTop=compose.onNodeWithTag("activity-sheet-scroll")
+            .getUnclippedBoundsInRoot().top
+        compose.onNodeWithTag("activity-map-hero").assertExists()
+        compose.onNodeWithTag("activity-tab-charts").performScrollTo().performClick()
+        compose.onNodeWithTag("activity-tab-charts").assertIsSelected()
+        assertTrue(
+            "Switching tabs reset the expanded sheet",
+            compose.onNodeWithTag("activity-sheet-scroll")
+                .getUnclippedBoundsInRoot().top <= expandedTop + 2.dp
+        )
+
+        compose.onNodeWithTag("activity-sheet-scroll")
+            .performTouchInput { swipeDown() }
+        compose.waitUntil(10_000L) {
+            compose.onNodeWithTag("activity-sheet-scroll")
+                .getUnclippedBoundsInRoot().top > expandedTop + 100.dp
+        }
+        compose.onNodeWithTag("activity-map-hero").assertExists()
+    }
+
+    @Test fun activitySheetAccessibilityAndBackCollapseBeforeLeaving() {
+        val activity = ActivityRecord(
+            "synthetic-back", "Recorded Back Run", "run", "manual",
+            Instant.parse("2026-11-01T09:00:00Z"),
+            7400.0, 2830.0, 2790.0, 379.0, 150.0, 64.0
+        )
+        val state = TrainingState(
+            initializing = false, account = "synthetic-ui",
+            activities = listOf(activity)
+        )
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    NativeStrideContent(
+                        state,false,
+                        NativeActions({}, {}, {}, {}, { _, _ -> })
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("nav-activities").performClick()
+        compose.onNodeWithTag("screen")
+            .performScrollToNode(hasTestTag("activity-synthetic-back"))
+        compose.onNodeWithTag("activity-synthetic-back").performClick()
+        val collapsedTop=compose.onNodeWithTag("activity-sheet-scroll")
+            .getUnclippedBoundsInRoot().top
+
+        compose.onNodeWithTag("activity-sheet-scroll")
+            .performSemanticsAction(SemanticsActions.Expand)
+        compose.waitUntil(10_000L) {
+            compose.onNodeWithTag("activity-sheet-scroll")
+                .getUnclippedBoundsInRoot().top < collapsedTop - 100.dp
+        }
+        compose.onNodeWithTag("activity-map-back").performClick()
+        compose.waitUntil(10_000L) {
+            compose.onNodeWithTag("activity-sheet-scroll")
+                .getUnclippedBoundsInRoot().top > collapsedTop - 5.dp
+        }
+        compose.onNodeWithTag("activity-map-hero").assertExists()
+        compose.onNodeWithTag("activity-map-back").performClick()
+        compose.onNodeWithTag("screen-title").assertTextEquals("Activities")
     }
 }

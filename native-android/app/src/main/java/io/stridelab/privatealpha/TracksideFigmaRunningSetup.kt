@@ -150,13 +150,13 @@ internal fun TracksideFigmaRunningSetup(
                             Spacer(Modifier.height(19.dp))
                             Surface(
                                 onClick={
-                                    if(!editorOpen) {
-                                        editorOpen=true
-                                        if(slot>=0) onSelectSlot(slot)
-                                    } else if(custom) {
-                                        onAssignDay(day)
-                                    } else if(slot>=0) {
-                                        onSelectSlot(slot)
+                                    when {
+                                        slot>=0 -> {
+                                            editorOpen=true
+                                            onSelectSlot(slot)
+                                        }
+                                        !editorOpen -> editorOpen=true
+                                        custom -> onAssignDay(day)
                                     }
                                 },
                                 modifier=Modifier.size(46.dp)

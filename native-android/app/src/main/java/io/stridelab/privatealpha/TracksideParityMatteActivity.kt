@@ -18,6 +18,10 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -156,7 +160,11 @@ internal fun TracksideParityMatteActivityTabs(
         Row(Modifier.fillMaxSize()) {
             listOf("Overview", "Splits", "Charts").forEachIndexed { index, name ->
                 Box(Modifier.weight(1f).fillMaxHeight().clickable { onSelect(index) }
-                    .testTag("activity-tab-" + name.lowercase()),
+                    .testTag("activity-tab-" + name.lowercase())
+                    .semantics {
+                        role = Role.Tab
+                        this.selected = selected == index
+                    },
                     contentAlignment = Alignment.Center) {
                     Text(name, fontSize = 12.sp,
                         fontWeight = if (selected == index) FontWeight.Bold else FontWeight.Normal,
