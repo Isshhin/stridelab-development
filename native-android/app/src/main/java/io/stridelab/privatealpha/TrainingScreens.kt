@@ -95,7 +95,8 @@ import kotlinx.coroutines.withContext
     Box(Modifier.fillMaxSize()) {
     Screen(
         "Training", "YOUR SHARED CALENDAR", compactTitle = true, dense = true,
-        titleBadge = if (plan?.status == "draft") "DRAFT" else null
+        titleBadge = if (plan?.status == "draft") "DRAFT" else null,
+        bottomOverlayPadding = if (plan?.status in setOf("draft", "paused")) 76.dp else 0.dp
     ) {
         item {
             TracksideParityTrainingControls(

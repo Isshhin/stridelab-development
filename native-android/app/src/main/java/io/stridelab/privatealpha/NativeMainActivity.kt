@@ -492,8 +492,12 @@ internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
 
 @Composable internal fun Screen(title: String, eyebrow: String, compactTitle: Boolean = false,
     dense: Boolean = false, edgeToEdge: Boolean = false, titleBadge: String? = null,
+    bottomOverlayPadding: androidx.compose.ui.unit.Dp = 0.dp,
     content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    Box(
+        Modifier.fillMaxSize().padding(bottom = bottomOverlayPadding),
+        contentAlignment = Alignment.TopCenter
+    ) {
         val horizontal = if (edgeToEdge) 0.dp else if (dense) 18.dp else 22.dp
         val top = if (edgeToEdge) 0.dp else if (dense) 12.dp else 24.dp
         val gap = if (edgeToEdge) 0.dp else if (dense) 12.dp else 18.dp
