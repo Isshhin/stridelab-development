@@ -296,7 +296,9 @@ internal fun TracksideFigmaRunningSetup(
                 Text("ASSIGN TO WEEKDAY",color=weekMuted,fontSize=11.sp,
                     fontWeight=FontWeight.Bold)
                 Spacer(Modifier.height(7.dp))
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                Row(Modifier.fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .testTag("builder-run-editor-weekday-row"),
                     horizontalArrangement=Arrangement.spacedBy(5.dp)) {
                     (1..7).forEach { day ->
                         val active=slots.getOrNull(selected)==day
