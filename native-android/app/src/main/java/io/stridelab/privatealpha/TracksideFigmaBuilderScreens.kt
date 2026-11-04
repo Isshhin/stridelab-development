@@ -566,6 +566,7 @@ internal fun TracksideFigmaRaceGoalScreen(
     )
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun TracksideFigmaAbilityRange(
     header: String, title: String, note: String,
