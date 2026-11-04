@@ -48,6 +48,30 @@ class TracksideResponsiveQaTest {
         explanations = emptyList(), status = "approved"
     )
 
+    private fun matchedNineSessionDraft(id: String): PlanSnapshot {
+        val request = PlanRequest(
+            start = LocalDate.of(2026, 11, 9), weeks = 1,
+            goal = "Aerobic foundation",
+            days = setOf(1, 2, 3, 4, 5, 7), longDay = 7,
+            runDays = 5, strengthDays = 0, calDays = 4, conditioningDays = 0,
+            qualityCount = 1, qualityDays = setOf(2), experience = 1,
+            weeklyKm = 35.0, longestKm = 12.0, minutes = 60,
+            dailyMinutes = 120, policyChoice = "multi-session"
+        )
+        val plan = MultiSessionEngine1.generate(
+            request, "synthetic-responsive", id, Instant.EPOCH
+        )
+        assertTrue("Matched draft must stay a draft before explicit approval",
+            plan.status == "draft")
+        assertTrue("Matched draft must contain nine real prescriptions",
+            plan.sessions.size == 9)
+        assertTrue("Matched draft must occupy six active days",
+            plan.sessions.map { it.date }.distinct().size == 6)
+        assertTrue("Matched draft must contain three legal double days",
+            plan.sessions.groupBy { it.date }.values.count { it.size == 2 } == 3)
+        return plan
+    }
+
     private fun show(content: @Composable () -> Unit) {
         compose.runOnUiThread {
             compose.activity.setContent {
@@ -969,6 +993,150 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
         compose.runOnIdle {
             assertTrue(state.value.weeklySlots["cal"]==listOf(1,5))
+        }
+    }
+
+    @Test fun weekPreviewSeparatesRequestedStateFromGeneratedNineSessionDraft() {
+        val plan = matchedNineSessionDraft("week-preview-matched")
+        val displayed = mutableStateOf<PlanSnapshot?>(null)
+        var opened: String? = null
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideFigmaWeekReview(
+                        request = plan.request,
+                        plan = displayed.value,
+                        busy = false,
+                        onBack = {},
+                        onContinue = {},
+                        onOpenSession = { opened = it }
+                    )
+                }
+            }
+        }
+
+        // Before generation, show truthful demand/availability only. Do not
+        // manufacture the engine's eventual weekday prescriptions.
+        compose.onNodeWithText("9").assertExists()
+        compose.onNodeWithText("AVAILABLE DAYS").assertExists()
+        compose.onNodeWithText("Generate my plan").assertExists()
+        compose.onNodeWithText(
+            "Chosen weekdays are requests", substring = true
+        ).assertDoesNotExist()
+        compose.onNodeWithText(
+            "Unassigned sessions will be placed", substring = true
+        ).assertExists()
+        screenshot("builder-week-preview-requested-nine")
+
+        compose.runOnUiThread { displayed.value = plan }
+        compose.waitForIdle()
+
+        // After the actual Engine 1 draft exists, every displayed prescription
+        // comes from the saved draft and approval remains a separate action.
+        compose.onNodeWithText("ACTIVE DAYS").assertExists()
+        compose.onNodeWithText("Approve plan").assertExists()
+        compose.onNodeWithText("5 Running").assertExists()
+        compose.onNodeWithText("4 Cali").assertExists()
+        val first = plan.sessions.sortedWith(
+            compareBy<PlannedSession>({ it.date }, { it.id })
+        ).first()
+        compose.onNodeWithTag("builder-preview-session-" + first.id)
+            .assertExists()
+        screenshot("builder-week-preview-generated-nine")
+
+        compose.onNodeWithText(
+            "Saved engine prescriptions", substring = true
+        ).performScrollTo()
+        compose.onNodeWithText(
+            "Saved engine prescriptions", substring = true
+        ).assertIsDisplayed()
+        val statusBottom = compose.onNodeWithText(
+            "Saved engine prescriptions", substring = true
+        ).getUnclippedBoundsInRoot().bottom
+        val ctaTop = compose.onNodeWithTag("builder-figma-continue")
+            .getUnclippedBoundsInRoot().top
+        assertTrue("Generated Week Preview status must clear the fixed CTA",
+            statusBottom <= ctaTop - 2.dp)
+        screenshot("builder-week-preview-generated-reachable")
+
+        compose.onNodeWithTag("builder-preview-session-" + first.id)
+            .performScrollTo().performClick()
+        compose.runOnIdle {
+            assertTrue("Generated preview session did not remain interactive",
+                opened == first.id)
+        }
+    }
+
+    @Test fun draftApprovalAgendaUsesCompactNineSessionRowsAndClearsNavigation() {
+        val plan = matchedNineSessionDraft("draft-approval-matched")
+        val state = TrainingState(
+            initializing = false,
+            account = "synthetic-responsive",
+            plans = listOf(plan)
+        )
+        var approvals = 0
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    NativeStrideContent(
+                        state,
+                        true,
+                        NativeActions(
+                            {}, {}, {}, {}, { _, _ -> },
+                            planning = PlanActions(
+                                approve = { _, _ -> approvals++ }
+                            )
+                        )
+                    )
+                }
+            }
+        }
+
+        compose.onNodeWithTag("nav-training").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("training-view-agenda")
+            .assertIsDisplayed().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("DRAFT").assertExists()
+        compose.onNodeWithTag("training-draft-approval-dock")
+            .assertIsDisplayed()
+        compose.onNodeWithText("Approve plan").assertIsDisplayed()
+
+        val ordered = plan.sessions.sortedWith(
+            compareBy<PlannedSession>({ it.date }, { it.id })
+        )
+        val first = ordered.first()
+        val last = ordered.last()
+        compose.onNodeWithTag("workout-" + first.id).assertExists()
+        val config = compose.activity.resources.configuration
+        if (config.screenWidthDp >= 400 && config.fontScale <= 1.01f) {
+            val row = compose.onNodeWithTag("workout-" + first.id)
+                .getUnclippedBoundsInRoot()
+            assertTrue("Draft Agenda row is too tall for the approved compact state",
+                (row.bottom - row.top).value <= 58f)
+        }
+        screenshot("training-draft-approval")
+
+        // The final prescription must be normally scrollable above the approval
+        // dock, and the approval dock itself must stay above bottom navigation.
+        compose.onNodeWithTag("screen")
+            .performScrollToNode(hasTestTag("workout-" + last.id))
+        compose.onNodeWithTag("workout-" + last.id).assertIsDisplayed()
+        val lastBottom = compose.onNodeWithTag("workout-" + last.id)
+            .getUnclippedBoundsInRoot().bottom
+        val dock = compose.onNodeWithTag("training-draft-approval-dock")
+            .getUnclippedBoundsInRoot()
+        assertTrue("Last draft Agenda row is obscured by approval dock",
+            lastBottom <= dock.top - 2.dp)
+        val navTop = compose.onNodeWithTag("nav-training")
+            .getUnclippedBoundsInRoot().top
+        assertTrue("Draft approval dock overlaps bottom navigation",
+            dock.bottom <= navTop - 2.dp)
+        screenshot("training-draft-approval-last-session-reachable")
+
+        compose.onNodeWithText("Approve plan").performClick()
+        compose.runOnIdle {
+            assertTrue("Approve plan did not call the guarded approval action",
+                approvals == 1)
         }
     }
 
