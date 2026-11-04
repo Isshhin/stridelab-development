@@ -322,6 +322,59 @@ internal fun TracksideFigmaRunningGoalScreen(
 }
 
 @Composable
+private fun TracksideFigmaRaceOption(
+    title: String, description: String, selected: Boolean, icon: Int,
+    tag: String, onClick: () -> Unit
+) {
+    // Figma 551:796: native 25dp vectors and 68dp baseline cards.
+    // Allow cards to expand rather than clip at accessible font scales.
+    Surface(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 68.dp)
+            .testTag("builder-option-$tag"),
+        onClick = onClick,
+        color = if (selected) Color(0xFF532631) else Color(0xFF15212B),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp,
+            if (selected) Color(0xFFB86674) else Color(0xFF354652))
+    ) {
+        Row(
+            Modifier.padding(horizontal = 11.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(13.dp)
+        ) {
+            Box(
+                Modifier.width(41.dp).height(43.dp)
+                    .background(
+                        if (selected) Color(0xFF753E4C) else Color(0xFF243540),
+                        RoundedCornerShape(9.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painterResource(icon), contentDescription = null,
+                    tint = Color.Unspecified,
+                    modifier = Modifier.size(25.dp)
+                        .testTag("builder-race-icon-$tag")
+                )
+            }
+            Column(Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text(title, fontSize = 14.3f.sp, color = white,
+                    fontWeight = FontWeight.Bold, maxLines = 2,
+                    overflow = TextOverflow.Ellipsis)
+                Text(description, fontSize = 11.3f.sp, lineHeight = 15.sp,
+                    color = muted, maxLines = 3)
+            }
+            if (selected) Icon(
+                painterResource(R.drawable.trackside_race_goal_check),
+                contentDescription = null, tint = Color.Unspecified,
+                modifier = Modifier.size(18.dp)
+                    .testTag("builder-race-selected-check")
+            )
+        }
+    }
+}
+
+@Composable
 internal fun TracksideFigmaRaceGoalScreen(
     intent: String, distance: String,
     onIntent: (String) -> Unit, onDistance: (String) -> Unit,
@@ -345,13 +398,14 @@ internal fun TracksideFigmaRaceGoalScreen(
         continueEnabled = intent != "time"
     ) {
         intents.forEachIndexed { i,(id,title,desc) ->
-            TracksideFigmaOption(title,desc,intent==id,
+            TracksideFigmaRaceOption(title,desc,intent==id,
                 icon=when(id) {
-                    "time" -> R.drawable.trackside_figma_activity
-                    "finish" -> R.drawable.trackside_figma_calendar
-                    else -> R.drawable.trackside_figma_run
+                    "pr" -> R.drawable.trackside_race_goal_pr
+                    "time" -> R.drawable.trackside_race_goal_time
+                    "finish" -> R.drawable.trackside_race_goal_finish
+                    else -> R.drawable.trackside_race_goal_benchmark
                 },
-                onClick={onIntent(id)}, height=68, tag=id
+                onClick={onIntent(id)}, tag=id
             )
             if(i < intents.lastIndex) Spacer(Modifier.height(9.dp))
         }
@@ -360,17 +414,19 @@ internal fun TracksideFigmaRaceGoalScreen(
             textAlign = TextAlign.Center, fontSize=11.sp,
             color=muted, fontWeight=FontWeight.Bold)
         Spacer(Modifier.height(7.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+        Row(Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(15.dp,Alignment.CenterHorizontally)) {
             listOf("5K","10K","21K","42K").forEach { dist ->
                 Surface(
-                    modifier = Modifier.width(72.dp).height(38.dp)
+                    modifier = Modifier.width(63.dp).height(38.dp)
                         .testTag("builder-distance-"+dist),
                     onClick={onDistance(dist)},
-                    color=if(distance==dist) darkWine else Color.Transparent,
+                    color=if(distance==dist) Color(0xFF652735) else Color.Transparent,
                     shape=RoundedCornerShape(22.dp)
                 ) {
                     Box(contentAlignment=Alignment.Center) {
-                        Text(dist,fontSize=13.sp,color=white,
+                        Text(dist,fontSize=13.sp,
+                            color=if(distance==dist)white else muted,
                             fontWeight=if(distance==dist) FontWeight.Bold else FontWeight.Normal)
                     }
                 }
@@ -379,33 +435,34 @@ internal fun TracksideFigmaRaceGoalScreen(
         Spacer(Modifier.height(12.dp))
         when(intent) {
             "pr" -> Surface(
-                modifier=Modifier.fillMaxWidth().heightIn(min=114.dp),
-                color=Color(0xFF162A36), shape=RoundedCornerShape(13.dp),
-                border=BorderStroke(1.dp,outline)
+                modifier=Modifier.fillMaxWidth().heightIn(min=116.dp)
+                    .testTag("builder-race-pr-panel"),
+                color=Color(0xFF15232C), shape=RoundedCornerShape(13.dp),
+                border=BorderStroke(1.dp,Color(0xFF354A55))
             ) {
                 Column(Modifier.padding(13.dp),
                     verticalArrangement=Arrangement.spacedBy(12.dp)) {
                     Row(Modifier.fillMaxWidth(),
                         horizontalArrangement=Arrangement.SpaceBetween) {
-                        Text("Your current $distance PR",fontSize=12.sp,
+                        Text("Your current $distance PR",fontSize=15.sp,
                             color=white,fontWeight=FontWeight.Bold)
                         Text("OPTIONAL",fontSize=10.sp,color=muted)
                     }
                     Row(Modifier.fillMaxWidth(),
                         verticalAlignment=Alignment.CenterVertically) {
-                        Text("Not entered",fontSize=12.sp,color=muted,
+                        Text("Not entered",fontSize=13.sp,color=muted,
                             modifier=Modifier.weight(1f))
                         Surface(
                             onClick={unsupportedAction="PR entry"},
-                            shape=RoundedCornerShape(10.dp),
-                            color=Color(0xFF2A4050),
-                            border=BorderStroke(1.dp,Color(0xFF536F80)),
-                            modifier=Modifier.height(38.dp)
+                            shape=RoundedCornerShape(9.dp),
+                            color=Color(0xFF293945),
+                            border=BorderStroke(1.dp,Color(0xFF50606D)),
+                            modifier=Modifier.heightIn(min=44.dp)
                                 .testTag("builder-race-add-pr")
                         ) {
                             Box(contentAlignment=Alignment.Center,
                                 modifier=Modifier.padding(horizontal=16.dp)) {
-                                Text("Add PR",fontSize=11.sp,color=white)
+                                Text("Add PR",fontSize=12.sp,color=white)
                             }
                         }
                     }
@@ -460,19 +517,23 @@ internal fun TracksideFigmaRaceGoalScreen(
         Spacer(Modifier.height(7.dp))
         Surface(
             onClick={unsupportedAction="Target date"},
-            modifier=Modifier.fillMaxWidth().height(50.dp)
+            modifier=Modifier.fillMaxWidth().heightIn(min=44.dp)
                 .testTag("builder-race-target-day"),
-            color=Color(0xFF071017),
-            shape=RoundedCornerShape(12.dp),
-            border=BorderStroke(1.dp,outline)
+            color=Color(0xFF080D12),
+            shape=RoundedCornerShape(13.dp),
+            border=BorderStroke(1.dp,Color(0xFF35444F))
         ) {
             Row(Modifier.padding(horizontal=12.dp),
                 verticalAlignment=Alignment.CenterVertically) {
-                Text("▢",fontSize=19.sp,color=muted)
+                Icon(painterResource(R.drawable.trackside_race_goal_calendar),
+                    contentDescription=null,tint=Color.Unspecified,
+                    modifier=Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
-                Text("Choose a date (optional)",fontSize=12.sp,
+                Text("Choose a date (optional)",fontSize=12.5f.sp,
                     color=muted,modifier=Modifier.weight(1f))
-                Text("⌄",fontSize=18.sp,color=muted)
+                Icon(painterResource(R.drawable.trackside_race_goal_chevron),
+                    contentDescription=null,tint=Color.Unspecified,
+                    modifier=Modifier.size(16.dp))
             }
         }
         if(intent=="time") {
