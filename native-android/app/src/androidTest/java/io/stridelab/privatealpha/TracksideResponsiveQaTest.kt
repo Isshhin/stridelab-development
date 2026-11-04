@@ -145,6 +145,46 @@ class TracksideResponsiveQaTest {
         }
     }
 
+    @Test fun runningGoalSelectionMatchesApprovedFigmaAtCurrentViewport() {
+        // Figma 551:603: Train for a race selected and five reusable goal cards.
+        val selected=mutableStateOf("race")
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideFigmaRunningGoalScreen(
+                        selected=selected.value,
+                        onSelect={ selected.value=it },onBack={},onContinue={}
+                    )
+                }
+            }
+        }
+        listOf("race","faster","endurance","fitness","custom").forEach { goal ->
+            compose.onNodeWithTag("builder-option-"+goal).assertExists()
+            compose.onNodeWithTag("builder-goal-icon-"+goal,
+                useUnmergedTree=true).assertExists()
+        }
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        screenshot("builder-running-goal-figma-reference")
+        val config=compose.activity.resources.configuration
+        if(config.screenWidthDp>=400 && config.fontScale<=1.01f) {
+            val first=compose.onNodeWithTag("builder-option-race")
+                .getUnclippedBoundsInRoot()
+            assertTrue("Running Goal card vertical rhythm deviates from Figma",
+                first.top.value in 278f..325f)
+            assertTrue("Running Goal card exceeds baseline Figma height",
+                (first.bottom-first.top).value <= 90f)
+        }
+        compose.onNodeWithTag("builder-option-custom").performScrollTo()
+        compose.onNodeWithTag("builder-option-custom").assertIsDisplayed()
+        screenshot("builder-running-goal-last-card-reachable")
+        compose.onNodeWithTag("builder-option-faster").performScrollTo()
+        compose.onNodeWithTag("builder-option-faster").performClick()
+        compose.runOnIdle {
+            assertTrue("Running goal selection did not update",selected.value=="faster")
+        }
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+    }
+
     @Test fun approvedBuilderStrengthGoalAndSetupRenderAtCurrentViewport() {
         val state=TrainingState(initializing=false,account="synthetic-responsive")
         compose.runOnUiThread {
