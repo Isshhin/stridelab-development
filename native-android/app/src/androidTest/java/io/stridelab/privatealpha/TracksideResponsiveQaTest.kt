@@ -131,6 +131,11 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithText("2 of 4").assertExists()
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
         screenshot("builder-disciplines-figma-reference")
+        // At 360dp and enlarged fonts the fourth card is initially below the
+        // fold. Verify that users can scroll it fully into the body viewport.
+        compose.onNodeWithTag("discipline-cond").performScrollTo()
+        compose.onNodeWithTag("discipline-cond").assertIsDisplayed()
+        screenshot("builder-disciplines-last-card-reachable")
         val config=compose.activity.resources.configuration
         if(config.screenWidthDp >= 400 && config.fontScale <= 1.01f) {
             val running=compose.onNodeWithTag("discipline-run")
