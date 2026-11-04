@@ -58,7 +58,7 @@ jobs:
         run: python research/validation/field_outcome_gate.py --output research-field-outcome-readiness.json
       - name: Publish scope-aware summary
         if: always()
-        shell: pwsh
+        shell: powershell
         run: |
           $lines = [System.Collections.Generic.List[string]]::new()
           $lines.Add('## StrideLab research-only validation')
