@@ -62,6 +62,8 @@ internal fun TracksideFigmaBuilderFrame(
     continueEnabled: Boolean = true,
     footer: (@Composable () -> Unit)? = null,
     descriptionBottomGap: Int = 40,
+    contentTopPadding: Int = 47,
+    headlineLineHeight: Int = 35,
     body: @Composable ColumnScope.() -> Unit
 ) {
     Column(Modifier.fillMaxSize().background(black).testTag("figma-builder-frame")) {
@@ -84,13 +86,14 @@ internal fun TracksideFigmaBuilderFrame(
             .background(Color(0xFF20303A)))
         Column(
             Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
-                .padding(start = 20.dp, end = 20.dp, top = 47.dp, bottom = 16.dp),
+                .padding(start = 20.dp, end = 20.dp,
+                    top = contentTopPadding.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             Text(eyebrow, fontSize = 11.sp, lineHeight = 14.sp,
                 fontWeight = FontWeight.Bold, color = Color(0xFFFF8E89))
             Spacer(Modifier.height(19.dp))
-            Text(headline, fontSize = 30.sp, lineHeight = 35.sp,
+            Text(headline, fontSize = 30.sp, lineHeight = headlineLineHeight.sp,
                 fontWeight = FontWeight.Bold, color = white,
                 modifier = Modifier.fillMaxWidth())
             if(description.isNotBlank()) {
@@ -594,12 +597,23 @@ private fun TracksideFigmaAbilityRange(
                 value=value.toFloat().coerceIn(0f,maxValue),
                 onValueChange={ onValue(it.toDouble()) },
                 valueRange=0f..maxValue,
-                colors=SliderDefaults.colors(
-                    thumbColor=Color(0xFFEE6E88), activeTrackColor=Color(0xFFCF3755),
-                    inactiveTrackColor=Color(0xFF4C6674)
-                ),
                 modifier=Modifier.fillMaxWidth().height(29.dp)
-                    .testTag("builder-ability-$tag-slider")
+                    .testTag("builder-ability-$tag-slider"),
+                // Material3 supplies the drag, keyboard and accessibility actions.
+                // Draw only the 5dp track and 15dp circular thumb from Figma 551:865.
+                thumb={ _ ->
+                    Box(Modifier.size(15.dp).background(
+                        Color(0xFFEE6E88),RoundedCornerShape(50)))
+                },
+                track={ _ ->
+                    Box(Modifier.fillMaxWidth().height(5.dp)
+                        .background(Color(0xFF40515D),RoundedCornerShape(3.dp))) {
+                        Box(Modifier.fillMaxWidth(
+                            (value.toFloat()/maxValue).coerceIn(0f,1f))
+                            .height(5.dp).background(
+                                Color(0xFFCF475B),RoundedCornerShape(3.dp)))
+                    }
+                }
             )
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
                 Text("0 km",fontSize=9.sp,color=muted)
@@ -628,7 +642,9 @@ internal fun TracksideFigmaRunningAbilityScreen(
         headline="Where are you\nstarting?",
         description="Use your recent training, not the mileage you hope to reach.",
         onBack=onBack,onContinue=onContinue,
-        descriptionBottomGap=15
+        descriptionBottomGap=11,
+        contentTopPadding=61,
+        headlineLineHeight=30
     ) {
         Text("RUNNING EXPERIENCE", fontSize=11.sp, color=muted,
             fontWeight=FontWeight.Bold)
@@ -652,21 +668,21 @@ internal fun TracksideFigmaRunningAbilityScreen(
                 }
             }
         }
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(13.dp))
         TracksideFigmaAbilityRange(
             header="CURRENT WEEKLY DISTANCE",title="Typical weekly volume",
             note="Last 4–6 weeks",value=weeklyKm,maxValue=120f,unit="km / week",
             tag="weekly",
             onValue=onWeeklyKm
         )
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(15.dp))
         TracksideFigmaAbilityRange(
             header="LONGEST RECENT RUN",title="Longest run completed",
             note="Recent training",value=longestKm,maxValue=42f,unit="km",
             tag="longest",
             onValue=onLongestKm
         )
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(11.dp))
         Text("RECENT PERFORMANCE  (OPTIONAL)",fontSize=11.sp,
             color=muted,fontWeight=FontWeight.Bold)
         Spacer(Modifier.height(9.dp))
