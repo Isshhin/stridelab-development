@@ -332,6 +332,102 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
     }
 
+    @Test fun runningWeekMatchesFigmaAndKeepsWeekdayEditingUsable() {
+        // Figma 548:95: five sessions Tue–Fri plus Sunday long; Saturday closed.
+        val saved=mutableStateOf(PlanRequest(
+            runDays=5, experience=1, weeklyKm=30.0,
+            days=setOf(2,3,4,5,7), longDay=7,
+            qualityCount=1, qualityDays=setOf(2)
+        ))
+        val custom=mutableStateOf(false)
+        val selected=mutableStateOf(0)
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideFigmaRunningSetup(
+                        request=saved.value, selectedSlot=selected.value,
+                        onSelectSlot={selected.value=it},
+                        custom=custom.value,
+                        onCustom={ enabled ->
+                            custom.value=enabled
+                            saved.value=saved.value.copy(
+                                weeklySlots=if(enabled)
+                                    saved.value.weeklySlots +
+                                        ("run" to WeeklyPlacement.days(saved.value,"run"))
+                                else saved.value.weeklySlots-"run")
+                        },
+                        qualityPreference="Threshold",
+                        onQualityPreference={},
+                        onQualityCount={ n ->
+                            saved.value=saved.value.copy(qualityCount=n)
+                        },
+                        onRunningCount={ n ->
+                            saved.value=WeeklyPlacement.resize(saved.value,"run",n)
+                        },
+                        onAssignDay={ day ->
+                            saved.value=WeeklyPlacement.put(saved.value,"run",
+                                selected.value,day)
+                        },
+                        onClearSlot={
+                            saved.value=WeeklyPlacement.clear(saved.value,"run",
+                                selected.value)
+                        },
+                        onBack={},onContinue={}
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("builder-running-week-card").assertExists()
+        compose.onNodeWithTag("builder-running-legend").assertExists()
+        compose.onNodeWithTag("builder-running-pinned-note").assertExists()
+        compose.onNodeWithTag("builder-run-plus").assertExists()
+        compose.onNodeWithTag("builder-run-minus").assertExists()
+        compose.onNodeWithText("5 of 5 placed",substring=true).assertExists()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        listOf(1,2,3,4,5,6,7).forEach { day ->
+            compose.onNodeWithTag("builder-running-day-"+day).assertExists()
+        }
+        screenshot("builder-running-week-figma-reference")
+
+        val cfg=compose.activity.resources.configuration
+        if(cfg.screenWidthDp>=400 && cfg.fontScale<=1.01f) {
+            val week=compose.onNodeWithTag("builder-running-week-card")
+                .getUnclippedBoundsInRoot()
+            val legend=compose.onNodeWithTag("builder-running-legend")
+                .getUnclippedBoundsInRoot()
+            assertTrue("Running weekly card starts away from Figma 548:95",
+                week.top.value in 255f..288f)
+            assertTrue("Running weekly card too tall for 227dp reference",
+                (week.bottom-week.top).value <= 241f)
+            assertTrue("Running legend starts away from Figma 548:95",
+                legend.top.value in 530f..571f)
+        }
+        // The final weekday must be reachable even on 360dp screens without
+        // shrinking below the existing 46dp day-cell hit area.
+        compose.onNodeWithTag("builder-running-day-7").performScrollTo()
+        compose.onNodeWithTag("builder-running-day-7").assertIsDisplayed()
+        screenshot("builder-running-week-last-day-reachable")
+
+        // A first tap reveals the non-modal editor, rather than secretly moving
+        // a workout; explicit selection and the second day tap perform the move.
+        compose.onNodeWithTag("builder-running-day-6").performScrollTo()
+        compose.onNodeWithTag("builder-running-day-6").performClick()
+        compose.onNodeWithTag("builder-running-custom").performScrollTo()
+        compose.onNodeWithTag("builder-running-custom").performClick()
+        compose.onNodeWithTag("builder-run-session-2").performScrollTo()
+        compose.onNodeWithTag("builder-run-session-2").performClick()
+        compose.onNodeWithTag("builder-running-day-6").performScrollTo()
+        compose.onNodeWithTag("builder-running-day-6").performClick()
+        compose.runOnIdle {
+            assertTrue("Chosen day not persisted in weekly slots",
+                saved.value.weeklySlots["run"]?.get(2)==6)
+            assertTrue("Newly chosen weekday not made available",6 in saved.value.days)
+        }
+        compose.onNodeWithTag("builder-running-assignment-progress").assertExists()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        screenshot("builder-running-week-manual-placement")
+    }
+
     @Test fun approvedBuilderStrengthGoalAndSetupRenderAtCurrentViewport() {
         val state=TrainingState(initializing=false,account="synthetic-responsive")
         compose.runOnUiThread {
