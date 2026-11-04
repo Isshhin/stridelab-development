@@ -1,0 +1,84 @@
+name: Engine 1.5 B7 self-hosted verification
+
+on:
+  push:
+    branches:
+      - infra/self-hosted-runner-smoke-20261104
+    paths:
+      - '.github/workflows/engine15-b7-self-hosted.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: engine15-b7-self-hosted
+  cancel-in-progress: true
+
+jobs:
+  engine15-b7-windows:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out exact B7 head
+        uses: actions/checkout@v4
+        with:
+          ref: fde15492d2d9193e61d388b09f8468f1128e1c12
+          fetch-depth: 1
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Bind local Android SDK
+        shell: powershell
+        run: |
+          $Sdk = "$env:LOCALAPPDATA\Android\Sdk"
+          if (!(Test-Path "$Sdk\platform-tools\adb.exe")) { throw "adb.exe not found at $Sdk" }
+          if (!(Test-Path "$Sdk\platforms\android-36")) { throw "Android platform 36 is not installed" }
+          if (!(Test-Path "$Sdk\build-tools\35.0.0")) { throw "Android build-tools 35.0.0 are not installed" }
+          "ANDROID_HOME=$Sdk" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "ANDROID_SDK_ROOT=$Sdk" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "$Sdk\platform-tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Verify protected sources and library schema
+        shell: powershell
+        run: |
+          python -m pip install jsonschema==4.26.0
+          python native-android/tools/validate_exercise_library.py
+          python -m unittest discover -s native-android/tools/tests -v
+
+      - name: Run standalone JVM regression suite including B7 matrices
+        shell: powershell
+        run: |
+          python native-android/tools/run_library_jvm_checks.py
+          python native-android/tools/run_library_jvm_checks.py --offline
+
+      - name: Run full Android unit suite
+        shell: powershell
+        run: |
+          gradle --no-daemon --stacktrace -p native-android :app:testDebugUnitTest
+
+      - name: Retain B7 unit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine15-b7-self-hosted-unit-evidence
+          retention-days: 14
+          path: |
+            native-android/app/build/test-results/
+            native-android/app/build/reports/tests/
+          if-no-files-found: warn
