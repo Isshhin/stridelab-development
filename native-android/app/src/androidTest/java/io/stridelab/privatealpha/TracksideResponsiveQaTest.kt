@@ -417,8 +417,10 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("builder-run-session-2").performScrollTo()
         compose.onNodeWithTag("builder-run-session-2").performClick()
         // The weekday row is nested in a horizontally scrolling container.
-        // First scroll the outer builder body to the clear action beneath it,\n        // then scroll the weekday horizontally; either action alone may\n        // leave the weekday clipped by the other scroll container.\n        compose.onNodeWithTag("builder-run-clear-selected").performScrollTo()
+        // First scroll the outer builder body to the clear action beneath it,\n        // then scroll the weekday horizontally; either action alone may\n        // leave the weekday clipped by the other scroll container.\n        compose.onNodeWithTag("builder-run-editor-weekday-row").performScrollTo()
+        compose.onNodeWithTag("builder-run-editor-weekday-row").assertIsDisplayed()
         compose.onNodeWithTag("builder-run-editor-day-6").performScrollTo()
+        screenshot("builder-running-week-editor-weekday-row-visible")
         compose.onNodeWithTag("builder-run-editor-day-6").assertIsDisplayed()
         compose.onNodeWithTag("builder-run-editor-day-6").performClick()
         screenshot("builder-running-week-after-editor-assignment")
