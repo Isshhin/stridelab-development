@@ -25,14 +25,16 @@ internal data class PlanRequest(
     val excluded:Set<String> = emptySet(),val limitations:String="",val recoveryNotes:String="",val strengthExperience:Int=0,val pullLevel:Int=0,val coreLevel:Int=0,val policyChoice:String="baseline",val disciplineGoals:Map<String,String> = emptyMap(),val dailyMinutes:Int=90,
     val weeklySlots:Map<String,List<Int>> = emptyMap(),
     val preferredQuality:String = "Threshold",
-    val allowedQualityTypes:Set<String> = emptySet()
+    val allowedQualityTypes:Set<String> = emptySet(),
+    val lockedSessionDays:Map<String,String> = emptyMap()
 ) {
     fun encode():JSONObject {
         val encoded=JSONObject().put("goal",goal).put("secondaryGoal",secondaryGoal).put("experience",experience).put("start",start.toString()).put("weeks",weeks).put("minutes",minutes)
             .put("days",JSONArray(days.sorted())).put("runDays",runDays).put("strengthDays",strengthDays).put("calDays",calDays).put("conditioningDays",conditioningDays).put("longDay",longDay)
             .put("qualityDays",JSONArray(qualityDays.sorted())).put("qualityCount",qualityCount).put("weeklyKm",weeklyKm).put("longestKm",longestKm).put("planningPace",planningPace)
             .put("equipment",JSONObject(equipment)).put("calLevel",calLevel).put("returning",returning).put("excluded",JSONArray(excluded.sorted())).put("limitations",limitations).put("recoveryNotes",recoveryNotes).put("strengthExperience",strengthExperience).put("pullLevel",pullLevel).put("coreLevel",coreLevel).put("policyChoice",policyChoice).put("disciplineGoals",JSONObject(disciplineGoals))
-        if(policyChoice=="multi-session")encoded.put("dailyMinutes",dailyMinutes)
+        if(policyChoice=="engine15")encoded.put("lockedSessionDays",JSONObject(lockedSessionDays))
+        if(policyChoice=="multi-session" || policyChoice=="engine15")encoded.put("dailyMinutes",dailyMinutes)
         if(weeklySlots.isNotEmpty()) {
             val assignments=JSONObject()
             weeklySlots.forEach { (discipline, slots) ->
@@ -61,7 +63,10 @@ internal data class PlanRequest(
                 j.optString("preferredQuality","Threshold"),
                 j.optJSONArray("allowedQualityTypes")?.let { qualities ->
                     (0 until qualities.length()).map { qualities.getString(it) }.toSet()
-                } ?: emptySet())
+                } ?: emptySet(),
+                j.optJSONObject("lockedSessionDays")?.let { locks ->
+                    locks.keys().asSequence().associateWith { locks.getString(it) }
+                } ?: emptyMap())
         }
     }
 }
