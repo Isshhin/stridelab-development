@@ -698,6 +698,47 @@ class TracksideResponsiveQaTest {
         screenshot("activity-map-persistent")
     }
 
+    @Test fun planDatesFigmaBaselineAndControlsAtCurrentViewport() {
+        // Approved Figma 720:546. On 2026-11-04, plus five days matches the
+        // illustrated Monday 9 November; keep the date valid on future reruns.
+        val date=mutableStateOf(LocalDate.now().plusDays(5).toString())
+        val weeks=mutableStateOf("8")
+        val minutes=mutableStateOf("60")
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideFigmaPlanDetailsScreen(
+                        start=date.value,weeks=weeks.value,minutes=minutes.value,
+                        onStart={ date.value=it },onWeeks={ weeks.value=it },
+                        onMinutes={ minutes.value=it },
+                        onBack={},onContinue={}
+                    )
+                }
+            }
+        }
+        compose.onNodeWithText("Set your plan dates").assertExists()
+        compose.onNodeWithTag("builder-start-date").assertExists()
+        compose.onNodeWithTag("builder-weeks-8").assertExists()
+        compose.onNodeWithTag("builder-time-limit").assertExists()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        screenshot("builder-plan-dates-figma-reference")
+
+        // Validate a real selectable weeks control and an expandable optional
+        // time budget through visible Compose UI, not direct state changes.
+        compose.onNodeWithTag("builder-weeks-12").performScrollTo()
+        compose.onNodeWithTag("builder-weeks-12").performClick()
+        compose.runOnIdle {
+            assertTrue("Plan length choice not reflected in builder state",
+                weeks.value=="12")
+        }
+        compose.onNodeWithTag("builder-time-limit").performScrollTo()
+        compose.onNodeWithTag("builder-time-limit").assertIsDisplayed()
+        screenshot("builder-plan-dates-time-limit-reachable")
+        compose.onNodeWithTag("builder-time-limit").performClick()
+        compose.onNodeWithText("Minutes available per session (15–120)").assertExists()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+    }
+
     @Test fun builderAvailabilityAndDraftReviewRenderAtCurrentViewport() {
         val state=TrainingState(initializing=false,account="synthetic-responsive")
         compose.runOnUiThread {
