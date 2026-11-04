@@ -1,0 +1,7 @@
+# P2-F3 handoff | Synthetic parser and reconciliation checks
+
+**Checkpoint:** seven fixture test methods passed against original parser source at coaching-lab `e255c5d`, fitdecode 0.11.0 and generated FIT/TCX/GPX. Review the [matrix, reproduction steps, limits and manual audit](../phase2/p2-f3-parser-reconciliation.md). Research files: `research/validation/p2_f3_reconciliation.py` and `research/validation/p2_f3_fixture_check.py`.
+
+**Inputs:** frozen G `26a8331`, independent re-review and Wave 1 at `d2d8e4c`, F2.1 at `aa4e39a`. The implemented subset verifies manually reviewed account, source digest, session ordinal, canonical actual, single opportunity, accepted prestart revision and acquisition/review cutoff. It withholds ambiguous links. No athlete data were acquired or opened.
+
+**For the separate reviewer:** verify pins and rerun the fixture command. Seven synthetic methods do not establish real-device coverage. Check source rights, the authenticated account and reviewer boundary, stable first import, withdrawal, true device clock/availability and manually adjudicated pilot denominator before allowing any pilot under the frozen protocol. Multiple intent allocations, full F2 event replay, source authentication and sample-level measures require separate validation. Moving time, summary power/pace and steady segment support are unavailable through this adapter. Audit all pilot rows, preserve unknowns, and stop on any silent mislink or violated restriction. No authorization or integrated verdict is issued here.
