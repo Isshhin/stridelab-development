@@ -206,12 +206,17 @@ private fun TracksideParityAgendaWorkoutRow(
                 )
             }
             Spacer(Modifier.width(6.dp))
-            Text(
-                "⇄",
-                fontSize = 16.sp,
-                color = TracksidePalette.textMuted,
-                modifier = Modifier.width(22.dp)
-            )
+            Box(
+                Modifier.width(22.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painterResource(R.drawable.trackside_draft_move),
+                    contentDescription = "Move session",
+                    tint = Color.Unspecified,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
     }
 }
