@@ -1,10 +1,12 @@
 # Garmin E01/E02 and on-device Activity history sync — 2026-11-05
 
-**Status: SOURCE IMPLEMENTATION COMMITTED; TEST EXECUTION AND LIVE GARMIN VERIFICATION PENDING.**
+**Status: Garmin source implementation and E18 grouping committed. User emulator has displayed a Garmin-sourced run; focused exact-head regression, reliable status/timestamp acceptance, and E18 refreshed UI acceptance remain OPEN.**
+
+**CURRENT PRIORITY:** (1) E01/E02 real Garmin source reliability and error classification, with E18 display/totals regression; (2) E19 real OpenStreetMap-backed route for existing GPS; (3) Garmin detailed GPS import if supported and authorized. Engine 1.5 follows afterward. See [current master roadmap](engine15-manual-remediation-roadmap-20261105.md).
 
 **Scope:** User requested correcting Garmin's misleading expired-auth message (E01), invalid activity timestamp (E02), and actually seeing Garmin activities inside StrideLab's existing Activity tab. This is a personal-device integration, not Engine 1.5 activation or a Garmin-to-server history backfill.
 
-Branch: `fix/trackside-usability-garmin-20261105`. Initial source checkpoint: `d4e862c0172fbb2035be2f8392a1963e54f0edbb`. All changes after that checkpoint are confined to the listed Garmin files and the minimum repository/ViewModel/UI wiring and tests. **No application build, emulator test or live Garmin fetch has been executed in this session; do not mark E01/E02 fixed without results.**
+Branch: `fix/trackside-usability-garmin-20261105`. Initial source checkpoint: `d4e862c0172fbb2035be2f8392a1963e54f0edbb`. All changes after that checkpoint are confined to the listed Garmin files and the minimum repository/ViewModel/UI wiring and tests. **The original source-implementation session did not execute Gradle or the Garmin API. Since then, the owner reported a local Kotlin compile and unit run (274 tests, seven ExerciseLibraryV2 failures) and showed a Garmin-sourced activity in the emulator. That establishes that some live import path works, but not that the latest source head, timestamp edge cases, status-classification tests, or E18 pairing all pass.**
 
 ## Implemented source behavior
 
