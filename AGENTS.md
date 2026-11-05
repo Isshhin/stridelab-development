@@ -19,9 +19,9 @@ This is the persistent default for work in this repository. Follow the user's **
 ## Skills (load only when relevant)
 
 - Check currently available skills; do not claim that a skill is installed unless its instructions are accessible in this environment.
-- For **UI, navigation, gesture, accessibility, or responsive work**, read `.agents/skills/ui-ux-pro-max/SKILL.md` and its **Jetpack Compose** guidance. Follow relevant Android-specific rules, not web-only advice.
-- For non-UI API, FIT, database, or pure data-layer work, skip the UI skill unless user-visible behavior is actually being changed.
-- If available, use targeted Android testing, debugging, systematic troubleshooting, or review skills. Do not load every skill for every task.
+- For **approved Compose UI, navigation, gesture, accessibility, responsive, or Figma parity work**, read both `.agents/skills/stridelab-ui-safe-parity/SKILL.md` (project-specific logic-preservation and owner-approval gates) and `.agents/skills/ui-ux-pro-max/SKILL.md` (including its **Jetpack Compose** guidance). Do not substitute generic web design guidance for native Android behavior.
+- Discover, then selectively use any actually available Impeccable (visual critique), Superpowers (debugging/verification), Android testing, or Sentry Code Review skills. User-level or plugin installations are **not guaranteed** to be mounted into Codex. Never mass-install or load every skill, and never let skill suggestions override approved Figma or existing app logic. See `docs/qa/codex-skills-setup-20261106.md` for the verified inventory and read-only skill check.
+- For non-UI API, FIT, database, or pure data-layer work, **skip the UI skills** unless a user-visible interface behavior is actually being changed.
 
 ## Product boundaries and priorities
 
