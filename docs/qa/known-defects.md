@@ -2,6 +2,8 @@
 
 **Approved new target:** [Engine 1.5 primary / Engine 1.0 controlled fallback / quality-session requirements](engine15-primary-plan-quality-requirements-20261105.md). The new items below remain open despite green historical Engine 1.0-default QA.
 
+**Current fixing priority (November 5, 2026):** E01/E02 Garmin authentication-versus-data error handling and live source synchronization first, with E18 duplicate cross-provider display and volume verification included; **E19 real OpenStreetMap geographic Activity map second**. Garmin summary import carries no GPS track, so Garmin-only mapped routes require a separately validated/authorized detailed-GPS source. Engine 1.5 routing and remaining defects are retained, not resolved or cancelled. See [reordered master roadmap](engine15-manual-remediation-roadmap-20261105.md).
+
 | ID | Severity | Status | Reproduction / impact |
 |---|---|---|---|
 | QA-20261105-01 | P2 | Source implementation staged; acceptance pending | User-requested Garmin source summaries now have a foreground `Sync to Activity` path into account-scoped offline SQLite Activity history, without cross-source overwrites. No build, emulator or live Garmin sync has been verified yet. Detailed Garmin streams/FIT, backend backfill and automatic cross-provider dedupe remain unimplemented. See [Garmin implementation handoff](garmin-e01-e02-offline-history-implementation-20261105.md). |
