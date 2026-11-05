@@ -292,7 +292,6 @@ class Engine1RepositoryTest {
         override fun refresh(session:NativeSession)=session
         override fun verify(session:NativeSession) { connected() }
         override fun activities(session:NativeSession,before:ActivityRecord?):JSONArray { connected();return if(before==null) rows else JSONArray() }
-        override fun intervals(session:NativeSession,action:String):JSONObject { connected();return JSONObject().put("configured",false) }
         override fun signOut(session:NativeSession) { connected() }
     }
 }
