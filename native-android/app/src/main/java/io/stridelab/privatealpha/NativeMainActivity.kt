@@ -143,6 +143,10 @@ private fun NavHostController.openActivity(id: String) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
+    val groupedActivities = remember(state.activities) {
+        ActivityDisplayConsolidation.groups(state.activities)
+    }
+    val visibleActivities = remember(groupedActivities) { groupedActivities.map { it.primary } }
     CompositionLocalProvider(LocalProfileAction provides { nav.openTabRoot("settings") }) {
     Scaffold(
         bottomBar = {
@@ -227,9 +231,12 @@ private fun NavHostController.openActivity(id: String) {
                                 }
                             }
                             item { Text("Recent activity", style = MaterialTheme.typography.titleLarge) }
-                            state.activities.sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenBy { it.id }).take(2).forEach { activity ->
-                                item(key = "recent-" + activity.id) {
-                                    TracksideTodayActivity(activity) { nav.openActivity(activity.id) }
+                            groupedActivities.take(2).forEach { group ->
+                                item(key = "recent-" + group.primary.id) {
+                                    TracksideTodayActivity(group.primary,
+                                        sourceLabel=group.sourceLabel) {
+                                        nav.openActivity(group.primary.id)
+                                    }
                                 }
                             }
                             if(state.activities.isEmpty()) item {
@@ -238,8 +245,9 @@ private fun NavHostController.openActivity(id: String) {
                             item { SyncStatus(state) }
                             item { WeeklyDashboard(state.activities, plans = state.plans) }
                             item { WellnessOverview(state.wellness, actions.refreshWellness, online && !state.busy && !state.needsSignIn) }
-                            item { HistoryOverview(state.activities) }
-                            if(state.activities.count { it.durationS != null } >= 2) item { RecordedDurationChart(state.activities) }
+                            item { HistoryOverview(visibleActivities) }
+                            if(visibleActivities.count { it.durationS != null } >= 2)
+                                item { RecordedDurationChart(visibleActivities) }
                             item { FilledTonalButton(onClick = actions.refresh, enabled = !state.busy,
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
                             if(state.needsSignIn) item { Button(onClick = { nav.navigate("auth") }) { Text("Sign in again") } }
@@ -249,7 +257,8 @@ private fun NavHostController.openActivity(id: String) {
                 composable("activities") {
                     Screen("Activities", "YOUR HISTORY") {
                         item { SyncStatus(state) }
-                        if(state.account != null && state.activities.isNotEmpty()) item { HistoryOverview(state.activities) }
+                        if(state.account != null && visibleActivities.isNotEmpty())
+                            item { HistoryOverview(visibleActivities) }
                         if(state.account == null) item { EmptyState("Sign in to view your history", "Only records belonging to your signed-in account are displayed."); Button(onClick = { nav.navigate("auth") }) { Text("Sign in") } }
                         else {
                             item { OutlinedButton(onClick = actions.refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
@@ -257,7 +266,11 @@ private fun NavHostController.openActivity(id: String) {
                             val logged=state.plans.flatMap { p -> p.sessions.filter { it.status=="completed" && (it.linkedActivityId==null || state.activities.none { a->a.id==it.linkedActivityId }) }.map { p to it } }.sortedByDescending { it.second.log?.at }
                             if(logged.isNotEmpty()) item { Text("WORKOUT LOGS · ON THIS DEVICE",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary) }
                             logged.forEach { (p,s) -> item(key="logged-${s.id}") { PlannedWorkoutCard(s) { nav.openWorkout(p.id,s.id) } } }
-                            items(state.activities, key = { it.id }) { activity -> ActivityRow(activity) { nav.openActivity(activity.id) } }
+                            items(groupedActivities, key = { it.primary.id }) { group ->
+                                ActivityRow(group.primary, sourceLabel=group.sourceLabel) {
+                                    nav.openActivity(group.primary.id)
+                                }
+                            }
                         }
                     }
                 }
@@ -561,7 +574,9 @@ internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
         }
     }
 }
-@Composable internal fun ActivityRow(activity: ActivityRecord, onClick: () -> Unit) {
+@Composable internal fun ActivityRow(
+    activity: ActivityRecord, onClick: () -> Unit, sourceLabel:String=activity.sourceLabel
+) {
     val accent = when { activity.supportsPace -> TracksidePalette.running; activity.type.contains("strength", true) || activity.type == "training" -> TracksidePalette.strength; else -> TracksidePalette.calisthenics }
     Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().testTag("activity-${activity.id}"), shape = RoundedCornerShape(22.dp),
         color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f))) {
@@ -575,7 +590,7 @@ internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
             Text(activity.dateLabel, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Text(if(activity.distanceM == null && !activity.supportsPace) activity.durationLabel else "${activity.distanceLabel} · ${activity.durationLabel}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(activity.sourceLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(sourceLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
