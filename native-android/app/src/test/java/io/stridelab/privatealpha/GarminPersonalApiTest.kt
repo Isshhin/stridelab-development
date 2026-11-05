@@ -66,6 +66,39 @@ class GarminPersonalApiTest {
         assertTrue(http.request.url.contains("start=0&limit=20"))
     }
 
+    @Test fun acceptsSpaceSeparatedGmtWithFractionAndExplicitOffsetWithoutLocalTimeShift() {
+        val token=GarminBearerToken("test-token",now.plusSeconds(600))
+        val examples=listOf(
+            "2026-11-04 22:30:00" to "2026-11-04T22:30:00Z",
+            "2026-11-04 22:30:00.000" to "2026-11-04T22:30:00Z",
+            "2026-11-04T22:30:00.0" to "2026-11-04T22:30:00Z",
+            "2026-11-05T06:30:00+08:00" to "2026-11-04T22:30:00Z"
+        )
+        examples.forEach { (raw,expected) ->
+            val body=org.json.JSONArray().put(org.json.JSONObject()
+                .put("activityId","source-123")
+                .put("activityName","Realistic timestamp fixture")
+                .put("activityType","running")
+                .put("startTimeGMT",raw)).toString()
+            val actual=GarminPersonalClient(FakeTransport(GarminHttpResponse(200,body))){now}
+                .activities(token,0,20).single()
+            assertEquals("Wrong conversion for $raw",Instant.parse(expected),actual.startedAt)
+        }
+    }
+
+    @Test fun trulyInvalidOrMissingActivityTimestampStillFailsClosed() {
+        val token=GarminBearerToken("test-token",now.plusSeconds(600))
+        listOf("", "not-a-date", "2026-99-99 99:99:99").forEach { raw ->
+            val body=org.json.JSONArray().put(org.json.JSONObject()
+                .put("activityId","source-123").put("startTimeGMT",raw)).toString()
+            val error=assertFails<GarminProtocolException> {
+                GarminPersonalClient(FakeTransport(GarminHttpResponse(200,body))){now}
+                    .activities(token,0,20)
+            }
+            assertTrue(error.message.orEmpty().contains("timestamp"))
+        }
+    }
+
     @Test fun emptyListDuplicateAndCrossAccountClassificationStayExplicit() {
         val empty=GarminPersonalClient(FakeTransport(GarminHttpResponse(200,"[]"))){now}
             .activities(GarminBearerToken("token",now.plusSeconds(100)),0,20)
