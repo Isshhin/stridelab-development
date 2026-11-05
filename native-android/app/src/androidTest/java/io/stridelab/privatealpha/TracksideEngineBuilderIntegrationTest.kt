@@ -129,10 +129,6 @@ class TracksideEngineBuilderIntegrationTest {
             connected()
             return JSONArray()
         }
-        override fun intervals(session: NativeSession, action: String): JSONObject {
-            connected()
-            return JSONObject().put("configured", false)
-        }
         override fun signOut(session: NativeSession) = connected()
     }
 }
