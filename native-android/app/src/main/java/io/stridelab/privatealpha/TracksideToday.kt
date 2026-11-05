@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -134,55 +136,140 @@ private fun TodayMetric(label: String, value: String, modifier: Modifier = Modif
     }
 }
 
-/** Opens the unchanged workout route; the UI is a compact training-day summary. */
+/** Compact approved Today card; the tap still opens the existing workout route. */
 @Composable
 internal fun TracksideTodaySession(session: PlannedSession, onOpen: () -> Unit) {
-    Surface(onClick = onOpen, modifier = Modifier.fillMaxWidth().testTag("today-session-" + session.id),
-        color = TracksidePalette.surface, shape = RoundedCornerShape(13.dp),
-        border = BorderStroke(1.dp, TracksidePalette.outline.copy(alpha = 0.6f))) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.size(9.dp).background(tracksideDisciplineColor(session.discipline), RoundedCornerShape(5.dp)))
+    val accent = tracksideDisciplineColor(session.discipline)
+    Surface(
+        onClick = onOpen,
+        modifier = Modifier.fillMaxWidth().testTag("today-session-" + session.id),
+        color = TracksidePalette.surface,
+        shape = RoundedCornerShape(13.dp),
+        border = BorderStroke(1.dp, TracksidePalette.outline.copy(alpha = 0.6f)),
+        shadowElevation = 3.dp
+    ) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 64.dp)
+                .padding(horizontal = 13.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(11.dp)
+        ) {
+            Icon(
+                painter = painterResource(
+                    if (session.discipline == "run") R.drawable.trackside_figma_run
+                    else R.drawable.trackside_figma_activity
+                ),
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.size(27.dp)
+            )
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(session.effectiveTitle, style = MaterialTheme.typography.titleMedium, color = TracksidePalette.text,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(disciplineLabel(session.discipline) + " · " + session.effectiveMinutes + " min planned · " +
-                    session.status.replace('_',' '), style = MaterialTheme.typography.bodySmall, color = TracksidePalette.textMuted)
+                Text(
+                    session.effectiveTitle,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TracksidePalette.text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    disciplineLabel(session.discipline) + " · " +
+                        session.effectiveMinutes + " min · " +
+                        session.status.replace('_', ' '),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TracksidePalette.textMuted,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
-            Text("›", style = MaterialTheme.typography.headlineSmall, color = TracksidePalette.textMuted)
+            Text("›", style = MaterialTheme.typography.titleLarge, color = TracksidePalette.textMuted)
         }
     }
 }
 
-/** Summary record, never a fabricated route thumbnail or inferred pace. */
+/** Recent activity uses only persisted facts. The left tile is an icon, never a fake GPS route. */
 @Composable
 internal fun TracksideTodayActivity(
-    activity: ActivityRecord, sourceLabel:String=activity.sourceLabel, onOpen: () -> Unit
+    activity: ActivityRecord, sourceLabel: String = activity.sourceLabel, onOpen: () -> Unit
 ) {
-    Surface(onClick = onOpen, modifier = Modifier.fillMaxWidth().testTag("activity-" + activity.id),
-        shape = RoundedCornerShape(13.dp), color = TracksidePalette.surface,
-        border = BorderStroke(1.dp, TracksidePalette.outline.copy(alpha = 0.6f))) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.size(width = 58.dp, height = 54.dp)
-                .background(Color(0xFF102A37), RoundedCornerShape(9.dp)),
-                contentAlignment = Alignment.Center) {
-                Text(activity.type.take(1).uppercase(Locale.getDefault()), color = TracksidePalette.text,
-                    style = MaterialTheme.typography.titleLarge)
+    val isRun = activity.supportsPace || activity.type.contains("run", ignoreCase = true)
+    val accent = if (isRun) TracksidePalette.running else
+        if (activity.type.contains("strength", ignoreCase = true)) TracksidePalette.strength
+        else TracksidePalette.calisthenics
+    Surface(
+        onClick = onOpen,
+        modifier = Modifier.fillMaxWidth().testTag("activity-" + activity.id),
+        color = TracksidePalette.surface,
+        shape = RoundedCornerShape(13.dp),
+        border = BorderStroke(1.dp, TracksidePalette.outline.copy(alpha = 0.6f)),
+        shadowElevation = 3.dp
+    ) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 78.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier.width(104.dp).height(78.dp)
+                    .background(
+                        Brush.linearGradient(
+                            listOf(Color(0xFF152B38), Color(0xFF09202B), Color(0xFF06151F))
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(
+                        if (isRun) R.drawable.trackside_figma_run else R.drawable.trackside_figma_activity
+                    ),
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(30.dp)
+                )
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(activity.title, color = TracksidePalette.text, style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(listOfNotNull(activity.distanceM?.let { activity.distanceLabel },
-                    activity.durationS?.let { activity.durationLabel }).ifEmpty { listOf("Metrics not recorded") }.joinToString(" · "),
-                    color = TracksidePalette.textMuted, style = MaterialTheme.typography.bodySmall)
-                Text(activity.dateLabel, color = TracksidePalette.textMuted,
-                    style = MaterialTheme.typography.labelSmall)
-                if(sourceLabel!=activity.sourceLabel)
-                    Text(sourceLabel,color=TracksidePalette.textMuted,
-                        style=MaterialTheme.typography.labelSmall)
+            Column(
+                Modifier.weight(1f).padding(start = 11.dp, end = 5.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Text(
+                    activity.title,
+                    color = TracksidePalette.text,
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    listOfNotNull(
+                        activity.distanceM?.let { activity.distanceLabel },
+                        activity.durationS?.let { activity.durationLabel }
+                    ).ifEmpty { listOf("Metrics not recorded") }.joinToString(" · "),
+                    color = TracksidePalette.textMuted,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    activity.dateLabel,
+                    color = TracksidePalette.textMuted,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (sourceLabel != activity.sourceLabel) {
+                    Text(
+                        sourceLabel,
+                        color = TracksidePalette.textMuted,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1
+                    )
+                }
             }
-            Text("›", style = MaterialTheme.typography.headlineSmall, color = TracksidePalette.textMuted)
+            Text(
+                "›",
+                modifier = Modifier.padding(horizontal = 11.dp),
+                style = MaterialTheme.typography.titleLarge,
+                color = TracksidePalette.textMuted
+            )
         }
     }
 }
