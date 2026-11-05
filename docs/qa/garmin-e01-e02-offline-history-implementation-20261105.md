@@ -1,5 +1,7 @@
 # Garmin E01/E02 and on-device Activity history sync — 2026-11-05
 
+**CURRENT DECISION (2026-11-05): Intervals.icu integration was removed from the active native app.** Older cross-provider grouping instructions in this historical handoff no longer apply. Garmin is now the only active connected wearable source; Activity, Today and training-volume views exclude archived Intervals rows, while original records remain untouched. Direct native Intervals status/sync endpoints were removed. [Current source-retirement QA and verification](intervals-icu-native-retirement-20261105.md). The Garmin FIT GPS importer remains active but awaits a verified device download.
+
 **Status: E01/E02/E18 source corrections extended; real Garmin activity has appeared in owner emulator. Latest-head unit, instrumentation and refreshed duplicate-display acceptance are NOT YET VERIFIED.**
 
 **CURRENT PRIORITY:** (1) E01/E02 real Garmin source reliability and error classification, with E18 display/totals regression; (2) E19 real OpenStreetMap-backed route for existing GPS; (3) Garmin detailed GPS import if supported and authorized. Engine 1.5 follows afterward. See [current master roadmap](engine15-manual-remediation-roadmap-20261105.md).
