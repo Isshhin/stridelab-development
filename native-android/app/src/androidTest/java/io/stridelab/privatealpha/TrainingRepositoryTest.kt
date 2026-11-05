@@ -25,8 +25,8 @@ class TrainingRepositoryTest {
     private val prefs = "synthetic-native-repository-test"
     private lateinit var repo: TrainingRepository
     private lateinit var remote: FakeGateway
-    private fun row(id: String = "activity-1", owner: String = account): JSONObject = JSONObject()
-        .put("id", id).put("user_id", owner).put("source", "intervals").put("title", "Synthetic fixture")
+    private fun row(id: String = "activity-1", owner: String = account, source:String="manual"): JSONObject = JSONObject()
+        .put("id", id).put("user_id", owner).put("source", source).put("title", "Synthetic fixture")
         .put("activity_type", "run").put("started_at", "2026-10-25T12:00:00Z").put("distance_m", 5000)
     private fun open() = runBlocking {
         repo = TrainingRepository(context, remote, database, prefs)
@@ -59,14 +59,13 @@ class TrainingRepositoryTest {
         assertEquals(1, repo.state.value.activities.size)
         assertNull(repo.state.value.activities.single().recordedPace)
     }
-    @Test fun successfulSharedRefreshAndProviderSyncNeverPublishPersistentSuccessMessages() = runBlocking {
+    @Test fun successfulSharedHistoryRefreshNeverInvokesRetiredSourceSync() = runBlocking {
         remote.rows = listOf(row())
         assertTrue(repo.signIn("fixture@example.invalid", "fixture"))
         assertNull(repo.state.value.message)
         // The background worker calls this same refresh method, with no UI feedback emitter.
         repeat(2) { assertTrue(repo.refresh()); assertNull(repo.state.value.message) }
-        remote.configured = true
-        assertTrue(repo.syncIntervals())
+        assertEquals(0,remote.syncCount)
         assertNull(repo.state.value.message)
         assertNotNull(repo.state.value.lastSync)
         assertEquals(1, repo.state.value.activities.size)
@@ -164,17 +163,28 @@ class TrainingRepositoryTest {
         remote.orderCorrectly = false; remote.rows = listOf(row("a"),row("z"))
         assertFalse(repo.refresh()); assertEquals(1,repo.state.value.activities.size); assertEquals(last,repo.state.value.lastSync)
     }
-    @Test fun disconnectedSourceDoesNotTriggerSyncOrClaimSuccess() = runBlocking {
-        remote.rows = listOf(row()); assertTrue(repo.signIn("fixture@example.invalid","fixture"))
-        assertTrue(repo.checkIntervals()); assertFalse(repo.state.value.intervals!!.configured)
-        assertFalse(repo.syncIntervals()); assertEquals(0,remote.syncCount)
-        assertEquals(1,repo.state.value.activities.size)
+    @Test fun remoteRetiredActivitiesNeverEnterActiveHistory() = runBlocking {
+        remote.rows=listOf(row("legacy",source="intervals"),row("garmin-run",source="garmin"))
+        assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        assertEquals(listOf("garmin-run"),repo.state.value.activities.map { it.id })
+        assertEquals(0,remote.syncCount)
+        assertNull(repo.state.value.intervals)
     }
-    @Test fun realConnectionStateIsCachedPerAccountAndReopenedOffline() = runBlocking {
-        remote.rows = listOf(row()); remote.configured = true
-        assertTrue(repo.signIn("fixture@example.invalid","fixture")); assertTrue(repo.checkIntervals())
-        repo.close(); remote.offline = true; open()
-        assertTrue(repo.state.value.intervals!!.configured); assertTrue(repo.state.value.intervals!!.checkedAt > 0)
+    @Test fun previouslyCachedRetiredActivityRemainsOnDiskButInvisibleOffline() = runBlocking {
+        remote.rows=listOf(row());assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        repo.close()
+        val legacy=row("archived-original",source="intervals")
+        val storage=TrainingStore(context,database)
+        storage.applyRemotePage(account,"activity",
+            listOf(TrainingStore.RemoteRecord("archived-original",legacy.toString(),null)),
+            null,System.currentTimeMillis())
+        storage.close()
+        remote.offline=true;open()
+        assertEquals(listOf("activity-1"),repo.state.value.activities.map { it.id })
+        val archive=TrainingStore(context,database)
+        assertNotNull(archive.get(account,"activity","archived-original"))
+        archive.close()
+        assertEquals(0,remote.syncCount)
     }
     @Test fun logoutHidesDataBeforeWaitingForServerRevocation() = runBlocking {
         remote.rows = listOf(row()); assertTrue(repo.signIn("fixture@example.invalid","fixture"))
@@ -225,9 +235,18 @@ class TrainingRepositoryTest {
         assertFalse(repo.refreshWellness()); assertEquals(1,repo.state.value.wellness.size)
         remote.offline=false; assertTrue(repo.signOut()); assertTrue(repo.state.value.wellness.isEmpty())
     }
-    @Test fun garminSummarySyncAppearsInActivityTabAndSurvivesOfflineReopen() = runBlocking {
-        remote.rows=listOf(row("intervals-saved"))
+    @Test fun retiredWellnessReadingsNeverReenterActiveHistory() = runBlocking {
+        remote.wellnessSource="intervals"
         assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        assertTrue(repo.refreshWellness())
+        assertTrue(repo.state.value.wellness.isEmpty())
+        assertEquals(0,remote.syncCount)
+    }
+
+    @Test fun garminSummarySyncAppearsInActivityTabAndSurvivesOfflineReopen() = runBlocking {
+        remote.rows=listOf(row("intervals-saved",source="intervals"))
+        assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        assertTrue(repo.state.value.activities.isEmpty())
         val credentials=object:GarminCredentialStore {
             var saved:GarminCredentialRecord?=null
             override fun read(accountId:String)=saved?.takeIf { it.accountId==accountId }
@@ -247,20 +266,20 @@ class TrainingRepositoryTest {
         val first=repo.syncGarmin(source)
         assertEquals("connected",first.state)
         assertEquals(1,first.importedCount)
-        assertEquals(2,repo.state.value.activities.size)
+        assertEquals(1,repo.state.value.activities.size)
         val run=repo.state.value.activities.single { it.source=="garmin" }
         assertEquals("Garmin Run",run.title)
         assertTrue(run.id.startsWith("garmin-"))
         assertEquals(9560.0,run.distanceM!!,0.0)
         assertEquals(138.0,run.averageHr!!,0.0)
         assertEquals(0,repo.syncGarmin(source).importedCount)
-        assertEquals(2,repo.state.value.activities.size)
-        assertNotNull(repo.state.value.activities.find { it.id=="intervals-saved" })
+        assertEquals(1,repo.state.value.activities.size)
+        assertNull(repo.state.value.activities.find { it.id=="intervals-saved" })
 
         repo.close();remote.offline=true;open()
-        assertEquals(2,repo.state.value.activities.size)
+        assertEquals(1,repo.state.value.activities.size)
         assertNotNull(repo.state.value.activities.find { it.id==run.id && it.source=="garmin" })
-        assertNotNull(repo.state.value.activities.find { it.id=="intervals-saved" })
+        assertNull(repo.state.value.activities.find { it.id=="intervals-saved" })
     }
 
     @Test fun duplicateGarminIdsWithinOnePageDoNotPartiallyWriteHistory() = runBlocking {
@@ -303,6 +322,7 @@ class TrainingRepositoryTest {
         var orderCorrectly = true
         var configured = false
         var syncCount = 0
+        var wellnessSource="health_connect"
         var logoutEntered: CountDownLatch? = null
         var finishLogout: CountDownLatch? = null
         private fun connected() { if(offline) throw IOException("Synthetic offline") }
@@ -321,7 +341,7 @@ class TrainingRepositoryTest {
         }
         override fun wellness(session: NativeSession): JSONArray {
             connected()
-            return JSONArray().put(JSONObject().put("id","wellness-1").put("user_id",account).put("source","intervals")
+            return JSONArray().put(JSONObject().put("id","wellness-1").put("user_id",account).put("source",wellnessSource)
                 .put("metric_type","sleep_duration").put("value",7.5).put("unit","hours").put("recorded_at","2026-10-25T12:00:00Z"))
         }
         override fun detail(session: NativeSession, id: String): JSONObject {
