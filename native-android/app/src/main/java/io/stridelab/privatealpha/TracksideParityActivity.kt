@@ -154,8 +154,8 @@ internal fun TracksideParityActivityOverview(activity: ActivityRecord) {
                     activity.movingTimeS?.let { ActivityRecord.duration(it) } ?: "—",
                     Modifier.weight(1f))
                 Box(Modifier.width(1.dp).height(76.dp).background(Color(0x667F929E)))
-                TracksideActivityMetric("AVG PACE",
-                    if (activity.supportsPace) activity.paceLabel else "—",
+                TracksideActivityMetric(activity.detailPaceHeading,
+                    if (activity.supportsPace) activity.detailPaceLabel else "—",
                     Modifier.weight(1f))
             }
         }
