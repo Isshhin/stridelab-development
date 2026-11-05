@@ -12,7 +12,7 @@ import java.time.Instant
 class ActivityIntelligenceUiTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
     @Test fun comparisonIsReachableFromDetailAndCaveatsRemainVisible() {
-        val run = ActivityRecord("analysis-current", "Recorded run", "run", "intervals", Instant.parse("2026-10-26T00:00:00Z"),5000.0,1800.0,1750.0,360.0,145.0,0.0)
+        val run = ActivityRecord("analysis-current", "Recorded run", "run", "manual", Instant.parse("2026-10-26T00:00:00Z"),5000.0,1800.0,1750.0,360.0,145.0,0.0)
         val rows = listOf(run) + (1..3).map { run.copy(id="analysis-$it", startedAt=run.startedAt.minusSeconds(it*86400L),recordedPace=400.0) }
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(TrainingState(initializing=false,account="synthetic-analysis",activities=rows),false,NativeActions({},{},{},{},{_,_->})) } } }
         compose.onNodeWithTag("activity-analysis-current").performClick()
