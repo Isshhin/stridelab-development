@@ -30,8 +30,8 @@ import kotlin.math.roundToInt
  * independently scrolling, overlapping activity sheet. The old implementation
  * incorrectly placed the map in a LazyColumn, so scrolling erased it entirely.
  *
- * Map texture is decorative, not a geographic tile. Route is a schematic
- * visualization of actual source coordinates, or absent when not recorded.
+ * MapLibre shows geographically correct OSM-derived streets when actual
+ * recorded GPS and network access exist; offline retains source coordinates.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -108,7 +108,8 @@ internal fun TracksideFigmaActivityDetailSurface(
                 detail = recorded,
                 onBack = collapseOrBack,
                 heightDp = maxHeight,
-                onChangeStyle = onToggleMatte
+                onChangeStyle = onToggleMatte,
+                online = online
             )
         }
     }
