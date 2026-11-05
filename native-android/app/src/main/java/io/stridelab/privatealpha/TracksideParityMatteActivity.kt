@@ -111,9 +111,9 @@ internal fun TracksideParityMatteActivityOverview(activity: ActivityRecord) {
                     .background(Color(0xFF657985)))
                 Column(Modifier.weight(1f).padding(start = 9.dp),
                     verticalArrangement = Arrangement.Center) {
-                    MatteMetric("AVG PACE",
+                    MatteMetric(activity.detailPaceHeading,
                         if (activity.supportsPace)
-                            activity.paceLabel.removeSuffix("/km").trim()
+                            activity.detailPaceLabel.removeSuffix("/km").trim()
                         else "—", "/km")
                 }
             }
