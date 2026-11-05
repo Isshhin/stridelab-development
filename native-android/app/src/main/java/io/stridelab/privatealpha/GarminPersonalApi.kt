@@ -143,7 +143,16 @@ internal class GarminPersonalClient(
         val typeObject=json.optJSONObject("activityType") ?: json.optJSONObject("activityTypeDTO")
         val type=typeObject?.optString("typeKey")?.ifBlank { typeObject.optString("activityTypeKey") }
             ?.ifBlank { null } ?: json.optString("activityType","unknown")
-        val timestamp=json.optString("startTimeGMT").ifBlank { json.optString("startTimeLocal") }
+        val gmt=json.optString("startTimeGMT").trim()
+        val timestamp=if(gmt.isNotEmpty()) gmt else {
+            val local=json.optString("startTimeLocal").trim()
+            // A zone-less "local" timestamp cannot be safely mapped to UTC.
+            // It is NOT interchangeable with a UTC/GMT timestamp.
+            if(local.isNotEmpty() &&
+                !Regex("(?:Z|[+-][0-9]{2}:[0-9]{2})$",RegexOption.IGNORE_CASE).containsMatchIn(local))
+                throw GarminProtocolException("Garmin activity is missing a UTC timestamp; local time has no offset")
+            local
+        }
         return GarminActivity(id,json.optString("activityName","Garmin activity"),type,
             parseGarminTime(timestamp),metric("duration"),metric("distance"),
             metric("movingDuration"),metric("averageHR","averageHeartRate"))
