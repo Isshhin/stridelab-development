@@ -35,6 +35,7 @@ internal object GarminHistoryImport {
             .put("user_id",input.accountId)
             .put("source","garmin")
             .put("external_id",input.externalId)
+            .put("garmin_activity_id",input.numericActivityId ?: JSONObject.NULL)
             .put("title",input.title?.takeIf { it.isNotBlank() } ?: "Garmin activity")
             .put("activity_type",input.activityType)
             .put("started_at",input.startedAt.toString())
