@@ -94,13 +94,25 @@ internal class GarminPersonalSource(
         require(start>=0)
         val record=credentials.read(accountId)
             ?: throw GarminAuthenticationException("Garmin is not connected")
-        val token=if(record.bearerToken!=null && record.tokenExpiresAt!=null) {
+        val storedToken=if(record.bearerToken!=null && record.tokenExpiresAt!=null) {
             GarminBearerToken(record.bearerToken,record.tokenExpiresAt)
         } else null
-        val usable=token?.takeIf { it.usableAt(clock()) } ?: api.exchange(record.apiKey).also {
+        // Refresh close to expiry, not a whole hour early: a paged sync can
+        // otherwise exchange a short-lived token separately on every page.
+        val usableStored=storedToken?.takeIf { it.usableAt(clock(),refreshWindowSeconds=60) }
+        fun exchangeAndStore():GarminBearerToken=api.exchange(record.apiKey).also {
             credentials.save(GarminCredentialRecord(accountId,record.apiKey,it.value,it.expiresAt))
         }
-        val records=api.activities(usable,start,limit).map { GarminActivityNormalizer.normalize(accountId,it) }
+        val current=usableStored ?: exchangeAndStore()
+        val activities=try {
+            api.activities(current,start,limit)
+        } catch(error:GarminAuthenticationException) {
+            // A stored token may be revoked before its expiry. Retry exactly once
+            // with a freshly exchanged token. Never retry a just-exchanged token.
+            if(usableStored==null)throw error
+            api.activities(exchangeAndStore(),start,limit)
+        }
+        val records=activities.map { GarminActivityNormalizer.normalize(accountId,it) }
         return WearablePage(accountId,records,(start+records.size).takeIf { records.size==limit }?.toString())
     }
 
