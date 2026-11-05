@@ -354,6 +354,58 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         mutable.value = mutable.value.copy(needsSignIn = false)
     }
     suspend fun refresh() = operation("Refreshing history…") { fetchActivities() }
+    /**
+     * Explicit, foreground Garmin source sync. Source summaries are cached under
+     * provider-derived IDs for offline Activity browsing. No backend mutation,
+     * automatic provider merge, training-plan change, or invented measurements.
+     * The repository lock preserves sign-out and account isolation throughout.
+     */
+    internal suspend fun syncGarmin(source:GarminPersonalSource):GarminConnectionStatus =
+        withContext(Dispatchers.IO) { mutex.withLock {
+            val account=mutable.value.account
+                ?: throw GarminAuthenticationException("Sign in to StrideLab before importing Garmin activity")
+            var cursor:String?=null
+            var pages=0
+            var imported=0
+            val seen=HashSet<String>()
+            do {
+                if(pages>=100)throw GarminProtocolException(
+                    "Garmin history exceeds the bounded 10,000-record sync. Earlier pages are saved; contact support for the remaining range.")
+                val page=source.activities(account,cursor,100)
+                if(page.accountId!=account)throw GarminProtocolException(
+                    "Garmin activity page belongs to a different account")
+                val rows=ArrayList<TrainingStore.RemoteRecord>()
+                for(input in page.records) {
+                    if(input.accountId!=account || input.provider!="garmin")
+                        throw GarminProtocolException("Garmin returned incompatible source identity")
+                    val raw=try { GarminHistoryImport.payload(input) }
+                        catch(error:Exception) { throw GarminProtocolException(
+                            "Garmin returned an activity that cannot be saved safely") }
+                    val id=raw.getString("id")
+                    if(!seen.add(id))throw GarminProtocolException(
+                        "Garmin returned a duplicate activity across pages")
+                    val old=store.get(account,"activity",id)
+                    if(old!=null) {
+                        val existing=JSONObject(old.payload)
+                        if(existing.optString("source")!="garmin" ||
+                            existing.optString("external_id")!=input.externalId)
+                            throw GarminProtocolException("Garmin activity ID conflicts with saved history")
+                        continue // Source-owned original remains unchanged on repeated sync.
+                    }
+                    rows+=TrainingStore.RemoteRecord(id,raw.toString(),null)
+                }
+                store.applyRemotePage(account,"activity",rows,null,System.currentTimeMillis())
+                imported+=rows.size
+                loadCache(account) // Durable, offline-accessible after each completed page.
+                pages++
+                val next=page.nextCursor
+                if(next!=null && (next==cursor || next.toIntOrNull()==null))
+                    throw GarminProtocolException("Garmin pagination did not advance safely")
+                cursor=next
+            } while(cursor!=null)
+            GarminConnectionStatus("connected",java.time.Instant.now(),imported)
+        } }
+
     private fun connection(): IntervalConnection {
         val current = authenticated { gateway.intervals(it,"status") }
         val parsed = IntervalConnection.parse(current,System.currentTimeMillis())
