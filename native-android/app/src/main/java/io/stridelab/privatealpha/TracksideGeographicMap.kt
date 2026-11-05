@@ -114,8 +114,8 @@ private fun MapLibreRouteView(
     )
     LaunchedEffect(mapView,geoJson) {
         mapView.getMapAsync { map ->
-            map.uiSettings.isTiltGesturesEnabled=false
-            map.uiSettings.isRotateGesturesEnabled=false
+            map.uiSettings.setTiltGesturesEnabled(false)
+            map.uiSettings.setRotateGesturesEnabled(false)
             map.setStyle(TracksideMapTiles.STYLE_URL) { style ->
                 style.addSource(GeoJsonSource("stride-actual-gps",geoJson))
                 style.addLayer(
