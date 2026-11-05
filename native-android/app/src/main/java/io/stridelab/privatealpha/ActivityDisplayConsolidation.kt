@@ -18,6 +18,11 @@ internal data class DisplayActivity(
 ) {
     val sourceLabel:String get()=(listOf(primary) + additionalSources)
         .map { it.sourceLabel }.distinct().joinToString(" + ")
+
+    /** Supplemental recorded streams never change the original Garmin summary. */
+    val detailedSource:ActivityRecord get() =
+        if(primary.source=="garmin") additionalSources.firstOrNull { it.source=="intervals" } ?: primary
+        else primary
 }
 
 internal object ActivityDisplayConsolidation {
@@ -66,8 +71,12 @@ internal object ActivityDisplayConsolidation {
             garminId to intervalsId
         }.toMap()
         val byId=rows.associateBy { it.id }
-        val secondaryByPrimary=partnered.entries.groupBy({ it.value },{ it.key })
-        return rows.asSequence().filterNot { it.id in partnered }.map { primary ->
+        // Garmin is the canonical *display* record. Intervals.icu remains a
+        // supplementary source for detailed GPS, charts and existing links.
+        // Both source records remain unchanged in the account's offline store.
+        val secondaryByPrimary=partnered.entries.groupBy({ it.key },{ it.value })
+        val hiddenSecondaryIds=partnered.values.toSet()
+        return rows.asSequence().filterNot { it.id in hiddenSecondaryIds }.map { primary ->
             DisplayActivity(primary,secondaryByPrimary[primary.id].orEmpty()
                 .mapNotNull(byId::get))
         }.sortedWith(compareByDescending<DisplayActivity> { it.primary.startedAt }
