@@ -48,4 +48,4 @@
 - Correction: default `ENGINE15_ACTIVE` to `false`; retain the explicit `-PstrideEngine15Active=true` path and all frozen Engine 1.5 tests.
 - Regression: `TracksideCoachingIntegrationTest.packagedDefaultSelectsTheConfiguredPolicy` now asserts the packaged flag is false and the generated policy/version are Engine 1.0.
 - RED/GREEN: the new flag assertion failed against the prior default, then passed after the one-line fallback correction.
-- Verified so far: focused engine/default test, 56 focused reliability tests, 269/269 Gradle unit tests, 247/247 pure-JVM tests, 31/31 tooling tests and catalog validation. Exact-head MARC emulator verification remains required before final acceptance.
+- Verified so far: focused engine/default test, 56 focused reliability tests, 269/269 Gradle unit tests, 247/247 pure-JVM tests, 31/31 tooling tests, catalog validation, and the focused builder/approval/offline-reopen journey on an API 35 Pixel 9 AVD. Exact-head MARC verification remains required before final acceptance.

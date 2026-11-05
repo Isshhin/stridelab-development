@@ -31,6 +31,8 @@ The XML artifact contains 450 unique Gradle test executions (269 + 1 + 84 + 96) 
 
 Earlier implementation-head evidence is preserved in [run 41946839417](https://github.com/Isshhin/stridelab-development/actions/runs/41946839417). The preceding failed gate is [run 41946014635](https://github.com/Isshhin/stridelab-development/actions/runs/41946014635); it did not execute Android tests and is not passing evidence.
 
+Engine-default correction run [41951434494](https://github.com/Isshhin/stridelab-development/actions/runs/41951434494) is also not passing evidence: 83/84 smoke tests passed and all four responsive suites passed, but `TracksideEngineBuilderIntegrationTest` still asserted the superseded Engine 1.5 default. The corrected test now requires Engine 1.0 prescriptions and passed 1/1 on a local API 35 Pixel 9 AVD before redispatch.
+
 ## Evidence boundaries
 
 - The tests use synthetic accounts, fixtures, local SQLite/Keystore state and an emulator. They are not physical-phone acceptance.
@@ -67,7 +69,7 @@ TCX and GPX imports do not exist. FIT is not an end-to-end user-facing history i
 
 ## Findings and readiness
 
-- **P1 fixed, exact-head emulator verification pending:** the Android packaged default enabled Engine 1.5 (`strideEngine15Active` defaulted to `true`) contrary to the explicit Engine 1.0 production-default requirement. The new flag assertion failed against the old fallback and passed after changing only the fallback to `false`. Explicit research-build Engine 1.5 tests remain intact. Focused 56/56, Gradle unit 269/269, pure-JVM 247/247, and tooling 31/31 pass locally.
+- **P1 fixed, exact-head emulator verification pending:** the Android packaged default enabled Engine 1.5 (`strideEngine15Active` defaulted to `true`) contrary to the explicit Engine 1.0 production-default requirement. The new flag assertion failed against the old fallback and passed after changing only the fallback to `false`. Explicit research-build Engine 1.5 tests remain intact. Focused 56/56, Gradle unit 269/269, pure-JVM 247/247, tooling 31/31, and the focused API 35 builder/offline integration test pass locally.
 - Existing open P2 limitations are Garmin history persistence, live Garmin credential verification, and current-branch physical-phone smoke acceptance.
 - No newly reproduced data-loss, crash, or account-isolation P0 was found during source/test mapping.
 

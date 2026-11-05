@@ -74,16 +74,16 @@ class TracksideEngineBuilderIntegrationTest {
             compose.waitUntil(15_000) { repo.state.value.plans.isNotEmpty() }
             val draft = repo.state.value.plans.single()
             assertEquals("draft", draft.status)
-            assertEquals(ENGINE15_POLICY, draft.policyId)
-            assertEquals(ENGINE15_VERSION, draft.engineVersion)
+            assertEquals(CoordinatedEngine1.policyId, draft.policyId)
+            assertEquals(ENGINE1_VERSION, draft.engineVersion)
             assertEquals("Improve 10K", draft.request.goal)
             assertEquals(12.0, draft.request.weeklyKm, 0.0)
             assertEquals(12, draft.sessions.size)
-            val expected = Engine15.generate(draft.request, fixture, draft.id, draft.createdAt)
+            val expected = CoordinatedEngine1.generate(draft.request, fixture, draft.id, draft.createdAt)
             assertEquals(expected.sessions, draft.sessions)
-            val legacy = CoordinatedEngine1.generate(draft.request.copy(policyChoice="coordinated"),
+            val frozenEngine15 = Engine15.generate(draft.request.copy(policyChoice="engine15"),
                 fixture, draft.id, draft.createdAt)
-            assertNotEquals(legacy.sessions.map { it.distanceKm }, draft.sessions.map { it.distanceKm })
+            assertNotEquals(frozenEngine15.sessions.map { it.distanceKm }, draft.sessions.map { it.distanceKm })
             val workout = draft.sessions.first()
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithTag("builder-preview-session-" + workout.id)
