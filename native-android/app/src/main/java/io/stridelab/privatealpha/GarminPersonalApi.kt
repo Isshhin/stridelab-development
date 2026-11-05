@@ -65,7 +65,9 @@ internal data class GarminActivity(
     val durationSeconds:Double?,
     val distanceMeters:Double?,
     val movingDurationSeconds:Double?,
-    val averageHeartRate:Double?
+    val averageHeartRate:Double?,
+    /** Garmin summary averageSpeed in meters/second, not moving pace. */
+    val averageSpeedMetersPerSecond:Double?=null
 )
 
 internal interface GarminApi {
@@ -156,7 +158,8 @@ internal class GarminPersonalClient(
         }
         return GarminActivity(id,json.optString("activityName","Garmin activity"),type,
             parseGarminTime(timestamp),metric("duration"),metric("distance"),
-            metric("movingDuration"),metric("averageHR","averageHeartRate"))
+            metric("movingDuration"),metric("averageHR","averageHeartRate"),
+            metric("averageSpeed")?.takeIf { it>0 })
     }
 
     private fun parseGarminTime(value:String):Instant {
@@ -179,7 +182,8 @@ internal object GarminActivityNormalizer {
         activityType=activity.type,startedAt=activity.startedAt,
         durationSeconds=activity.durationSeconds,distanceMeters=activity.distanceMeters,
         title=activity.title,movingDurationSeconds=activity.movingDurationSeconds,
-        averageHeartRate=activity.averageHeartRate?.takeIf { it>0 }
+        averageHeartRate=activity.averageHeartRate?.takeIf { it>0 },
+        averageSpeedMetersPerSecond=activity.averageSpeedMetersPerSecond?.takeIf { it>0 }
     )
     fun candidate(accountId:String,activity:GarminActivity)=ImportedActivityCandidate(
         ImportedSourceIdentity(accountId,"garmin",activity.externalId),activity.type,
