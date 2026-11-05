@@ -93,28 +93,56 @@ internal class GarminPersonalSource(
         require(limit in 1..100)
         val start=cursor?.toIntOrNull() ?: 0
         require(start>=0)
-        val record=credentials.read(accountId)
-            ?: throw GarminAuthenticationException("Garmin is not connected")
-        val storedToken=if(record.bearerToken!=null && record.tokenExpiresAt!=null) {
-            GarminBearerToken(record.bearerToken,record.tokenExpiresAt)
-        } else null
-        // Refresh close to expiry, not a whole hour early: a paged sync can
-        // otherwise exchange a short-lived token separately on every page.
-        val usableStored=storedToken?.takeIf { it.usableAt(clock(),refreshWindowSeconds=60) }
-        fun exchangeAndStore():GarminBearerToken=api.exchange(record.apiKey).also {
-            credentials.save(GarminCredentialRecord(accountId,record.apiKey,it.value,it.expiresAt))
-        }
-        val current=usableStored ?: exchangeAndStore()
-        val activities=try {
-            api.activities(current,start,limit)
-        } catch(error:GarminAuthenticationException) {
-            // A stored token may be revoked before its expiry. Retry exactly once
-            // with a freshly exchanged token. Never retry a just-exchanged token.
-            if(usableStored==null)throw error
-            api.activities(exchangeAndStore(),start,limit)
-        }
+        val activities=withBearer(accountId) { api.activities(it,start,limit) }
         val records=activities.map { GarminActivityNormalizer.normalize(accountId,it) }
         return WearablePage(accountId,records,(start+records.size).takeIf { records.size==limit }?.toString())
+    }
+
+    /** A single owner's explicit activity detail fetch, never background bulk ingestion. */
+    fun downloadFitForSource(accountId:String,externalId:String,numericHint:Long?=null):ByteArray {
+        require(accountId==this.accountId)
+        require(externalId.isNotBlank() && externalId.length<=512)
+        require(numericHint==null || numericHint>0)
+        return withBearer(accountId) { token ->
+            // Earlier offline summaries stored Garmin's UUID without the
+            // numeric activityId needed for the FIT ZIP endpoint. Resolve
+            // against the same owner's activity search on demand.
+            var numeric=numericHint ?: externalId.toLongOrNull()?.takeIf { it>0 }
+            if(numeric==null) {
+                for(pageIndex in 0 until 20) {
+                    val page=api.activities(token,pageIndex*100,100)
+                    val found=page.firstOrNull { it.externalId==externalId }
+                    if(found!=null) {
+                        numeric=found.numericActivityId
+                            ?: throw GarminProtocolException("Garmin did not provide the numeric activity ID")
+                        break
+                    }
+                    if(page.size<100)break
+                }
+            }
+            val id=numeric ?: throw GarminProtocolException(
+                "The Garmin activity could not be found in the latest 2,000 records. No GPS was imported.")
+            api.downloadActivity(token,id)
+        }
+    }
+
+    /** Shared bound bearer lifecycle for list and FIT download. */
+    private fun <T> withBearer(account:String,action:(GarminBearerToken)->T):T {
+        require(account==accountId)
+        val stored=credentials.read(account)
+            ?: throw GarminAuthenticationException("Garmin is not connected")
+        val reusable=if(stored.bearerToken!=null && stored.tokenExpiresAt!=null)
+            GarminBearerToken(stored.bearerToken,stored.tokenExpiresAt)
+                .takeIf { it.usableAt(clock(),refreshWindowSeconds=60) }
+        else null
+        fun exchangeAndSave():GarminBearerToken=api.exchange(stored.apiKey).also {
+            credentials.save(GarminCredentialRecord(account,stored.apiKey,it.value,it.expiresAt))
+        }
+        val active=reusable ?: exchangeAndSave()
+        return try { action(active) } catch(error:GarminAuthenticationException) {
+            if(reusable==null)throw error
+            action(exchangeAndSave()) // One retry for a revoked stored bearer.
+        }
     }
 
     override fun wellness(accountId:String,cursor:String?,limit:Int):WearablePage<WearableWellnessInput> {
