@@ -21,6 +21,15 @@ internal object GarminHistoryImport {
     fun payload(input:WearableActivityInput):JSONObject {
         require(input.provider=="garmin") { "Only Garmin source data belongs in this importer" }
         val id=recordId(input.externalId)
+        // Garmin averageSpeed is a source measurement in meters/second.
+        // Convert only for pace-bearing sports; NEVER substitute stopped/elapsed
+        // time for moving time or call a calculated moving pace "average pace".
+        val paceSport=input.activityType.lowercase(java.util.Locale.ROOT)
+            .replace(Regex("[ _-]"),"") in setOf(
+                "run","running","trailrun","trailrunning","virtualrun","treadmill",
+                "walk","walking","hike","hiking")
+        val recordedPace=if(paceSport) input.averageSpeedMetersPerSecond
+            ?.takeIf { it.isFinite() && it>0 }?.let { 1000.0/it } else null
         val raw=JSONObject()
             .put("id",id)
             .put("user_id",input.accountId)
@@ -33,6 +42,7 @@ internal object GarminHistoryImport {
             .put("duration_s",input.durationSeconds ?: JSONObject.NULL)
             .put("moving_time_s",input.movingDurationSeconds ?: JSONObject.NULL)
             .put("avg_hr",input.averageHeartRate ?: JSONObject.NULL)
+            .put("avg_pace_sec_per_km",recordedPace ?: JSONObject.NULL)
         // Validate using the actual canonical Activity tab parser before a DB write.
         ActivityRecord.parse(raw.toString(),input.accountId)
         return raw
