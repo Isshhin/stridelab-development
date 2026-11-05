@@ -43,14 +43,18 @@ class ActivityDisplayConsolidationTest {
     }
 
     @Test fun builderVolumeIncludesGarminButNotArchivedIntervals() {
-        val garmin=row("g-456","garmin",duration=3816.0)
+        val garmin=listOf(
+            row("g-456","garmin",duration=3816.0),
+            row("g-next","garmin",start.minusSeconds(86400),1800.0,5000.0),
+            row("g-third","garmin",start.minusSeconds(172800),2000.0,6000.0)
+        )
         val retired=listOf(
             row("i-123","intervals"),
             row("i-next","intervals",start.minusSeconds(86400),1800.0,5000.0),
             row("i-third","intervals",start.minusSeconds(172800),2000.0,6000.0)
         )
-        val actual=historyWeeklyKm(listOf(garmin)+retired,now)
-        assertEquals(9560.0/4000.0,actual!!,0.00001)
+        val actual=historyWeeklyKm(garmin+retired,now)
+        assertEquals((9560.0+5000.0+6000.0)/4000.0,actual!!,0.00001)
     }
 
     @Test fun distinctGarminRunsRemainDistinctWithoutCrossProviderPairing() {
