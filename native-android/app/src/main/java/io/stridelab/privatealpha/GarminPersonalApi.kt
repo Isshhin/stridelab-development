@@ -46,6 +46,7 @@ internal class GarminUrlConnectionTransport:GarminHttpTransport {
 internal open class GarminException(message:String,cause:Throwable?=null):Exception(message,cause)
 internal class GarminAuthenticationException(message:String):GarminException(message)
 internal class GarminRateLimitException:GarminException("Garmin rate limit reached; try again later")
+internal class GarminServiceException(status:Int):GarminException("Garmin service request failed with status $status")
 internal class GarminProtocolException(message:String):GarminException(message)
 internal class GarminNetworkException(message:String,cause:Throwable):GarminException(message,cause)
 
@@ -119,7 +120,7 @@ internal class GarminPersonalClient(
             in 200..299 -> return
             401,403 -> throw GarminAuthenticationException("Garmin authentication was rejected")
             429 -> throw GarminRateLimitException()
-            else -> throw GarminProtocolException("Garmin request failed with status ${response.status}")
+            else -> throw GarminServiceException(response.status)
         }
     }
 
