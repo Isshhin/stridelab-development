@@ -63,6 +63,7 @@ class GarminPersonalApiTest {
         assertEquals(Instant.parse("2026-11-04T22:30:00Z"),normalized.startedAt)
         assertEquals(5012.5,normalized.distanceMeters!!,0.0)
         assertEquals(2.8,normalized.averageSpeedMetersPerSecond!!,0.0)
+        assertEquals(123L,normalized.numericActivityId)
         assertEquals("Bearer token",http.request.headers["Authorization"])
         assertTrue(http.request.url.contains("start=0&limit=20"))
     }
@@ -113,6 +114,29 @@ class GarminPersonalApiTest {
                     .activities(token,0,20)
             }
             assertTrue(error.message.orEmpty().contains("timestamp"))
+        }
+    }
+
+    @Test fun ownerFitDownloadUsesNumericIdAndDoesNotExposeBearerInRequestLogs() {
+        val expected=byteArrayOf('P'.code.toByte(),'K'.code.toByte(),3,4,1,2)
+        var seen:GarminHttpRequest?=null
+        val client=GarminPersonalClient(object:GarminHttpTransport {
+            override fun execute(request:GarminHttpRequest):GarminHttpResponse =
+                throw AssertionError("Only the binary endpoint is expected")
+            override fun executeBinary(request:GarminHttpRequest):GarminBinaryResponse {
+                seen=request
+                return GarminBinaryResponse(200,expected)
+            }
+        }) { now }
+        assertArrayEquals(expected,client.downloadActivity(
+            GarminBearerToken("test-secret",now.plusSeconds(600)),123456789L))
+        assertEquals("GET",seen!!.method)
+        assertEquals("https://personal.connectapi.garmin.com/download-service/files/activity/123456789",
+            seen!!.url)
+        assertEquals("Bearer test-secret",seen!!.headers["Authorization"])
+        assertFalse(seen.toString().contains("test-secret"))
+        assertFails<IllegalArgumentException> {
+            client.downloadActivity(GarminBearerToken("token",now.plusSeconds(600)),0L)
         }
     }
 
