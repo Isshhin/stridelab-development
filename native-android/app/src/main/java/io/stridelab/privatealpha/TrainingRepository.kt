@@ -70,7 +70,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 } catch (_: Exception) { rejected++ } // Retain invalid raw records; never invent replacement metrics.
             }
         }
-        val allowedIds=records.mapTo(HashSet()) { it.id }
+        val allowedIds=records.mapTo(HashSet<String>()) { it.id }
         val details = mutable.value.details.filterKeys { it in allowedIds }.toMutableMap()
         store.readableDatabase.query("records",arrayOf("record_id","payload"),"account=? AND kind=?",arrayOf(account,"activity_detail"),null,null,null).use { c ->
             while(c.moveToNext()) {
