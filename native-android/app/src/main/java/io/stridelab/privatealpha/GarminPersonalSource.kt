@@ -36,6 +36,7 @@ internal data class GarminConnectionStatus(
                 is GarminAuthenticationException -> GarminIssueKind.AUTHENTICATION
                 is GarminRateLimitException -> GarminIssueKind.RATE_LIMIT
                 is GarminServiceException -> GarminIssueKind.SERVICE
+                is GarminTokenException -> GarminIssueKind.SERVICE
                 is GarminProtocolException -> GarminIssueKind.ACTIVITY_DATA
                 is GarminNetworkException -> GarminIssueKind.NETWORK
                 is java.io.IOException -> GarminIssueKind.SECURE_STORAGE
