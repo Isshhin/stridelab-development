@@ -8,15 +8,15 @@ Read [README.md](README.md) before continuing this work. Verification below appl
 - Working branch: `fix/trackside-usability-garmin-20261105`
 - Trackside interaction fix: `12c75faf31be6e1382d644485585d894b95ec60d`
 - Garmin/QA foundation: `d0d6224efd8b3743f4875960700dd44579acd371`
-- Exact application/test head verified on Windows: `f4078f40db9d161731b9e13551b963326a62ed9b`
+- Exact final branch head verified on Windows: `8dc606fec3209824fc02f3ba5196290be2b11705`
 
 ## Exact-head Windows evidence
 
-- Successful workflow: <https://github.com/Isshhin/stridelab-development/actions/runs/41946839417>
-- Successful job: <https://github.com/Isshhin/stridelab-development/actions/runs/41946839417/job/126981062268>
+- Final successful workflow: <https://github.com/Isshhin/stridelab-development/actions/runs/41948579450>
+- Final successful job: <https://github.com/Isshhin/stridelab-development/actions/runs/41948579450/job/126986801760>
 - Runner: `MARC`; verified labels `[self-hosted, Windows, X64]`.
-- Duration: 2026-11-05 01:12:02Z–01:22:56Z; conclusion `success`.
-- Artifact: `trackside-engine15-windows-evidence-f4078f40db9d161731b9e13551b963326a62ed9b`, artifact ID `13379093327`, 37,030,940 bytes, retained through 2026-11-26.
+- Duration: 2026-11-05 01:26:56Z–01:38:17Z; conclusion `success`.
+- Artifact: `trackside-engine15-windows-evidence-8dc606fec3209824fc02f3ba5196290be2b11705`, artifact ID `13379664916`, 37,007,651 bytes, retained through 2026-11-26.
 - Pure-JVM regression: 247/247 passed.
 - Android Gradle unit suite: 269/269 passed.
 - Packaged Engine 1.0 default-builder rollback: 1/1 passed.
