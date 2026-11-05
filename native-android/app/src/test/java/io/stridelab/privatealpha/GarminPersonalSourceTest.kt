@@ -53,6 +53,76 @@ class GarminPersonalSourceTest {
         assertNull(store.records.getValue("owner").bearerToken)
     }
 
+    @Test fun shortLivedButUsableTokenIsReusedAcrossHistoryPages() {
+        val store=Store()
+        val expiry=now.plusSeconds(15*60)
+        store.save(GarminCredentialRecord("owner","key","stored",expiry))
+        var exchanges=0
+        var activityCalls=0
+        val api=object:GarminApi {
+            override fun exchange(apiKey:String):GarminBearerToken {
+                exchanges++
+                return GarminBearerToken("fresh",now.plusSeconds(3600))
+            }
+            override fun activities(token:GarminBearerToken,start:Int,limit:Int):List<GarminActivity> {
+                assertEquals("stored",token.value)
+                activityCalls++
+                return emptyList()
+            }
+        }
+        val source=GarminPersonalSource("owner",store,api){now}
+        source.activities("owner",null,100)
+        source.activities("owner","100",100)
+        assertEquals(0,exchanges)
+        assertEquals(2,activityCalls)
+        assertEquals("stored",store.records.getValue("owner").bearerToken)
+    }
+
+    @Test fun revokedStoredTokenGetsOneFreshExchangeAndRetry() {
+        val store=Store()
+        store.save(GarminCredentialRecord("owner","key","revoked",now.plusSeconds(7200)))
+        var exchanges=0
+        var activityCalls=0
+        val api=object:GarminApi {
+            override fun exchange(apiKey:String):GarminBearerToken {
+                exchanges++
+                return GarminBearerToken("fresh",now.plusSeconds(7200))
+            }
+            override fun activities(token:GarminBearerToken,start:Int,limit:Int):List<GarminActivity> {
+                activityCalls++
+                if(token.value=="revoked")throw GarminAuthenticationException("Rejected old bearer")
+                assertEquals("fresh",token.value)
+                return listOf(GarminActivity("source-1","Run","running",now,1200.0,3000.0,null,null))
+            }
+        }
+        val source=GarminPersonalSource("owner",store,api){now}
+        assertEquals(1,source.activities("owner",null,100).records.size)
+        assertEquals(1,exchanges)
+        assertEquals(2,activityCalls)
+        assertEquals("fresh",store.records.getValue("owner").bearerToken)
+    }
+
+    @Test fun newlyExchangedTokenRejectionDoesNotCauseRetryLoop() {
+        val store=Store()
+        store.save(GarminCredentialRecord("owner","key"))
+        var exchanges=0
+        var calls=0
+        val api=object:GarminApi {
+            override fun exchange(apiKey:String):GarminBearerToken {
+                exchanges++
+                return GarminBearerToken("fresh",now.plusSeconds(7200))
+            }
+            override fun activities(token:GarminBearerToken,start:Int,limit:Int):List<GarminActivity> {
+                calls++
+                throw GarminAuthenticationException("Rejected new bearer")
+            }
+        }
+        val source=GarminPersonalSource("owner",store,api){now}
+        assertFails<GarminAuthenticationException> { source.activities("owner",null,100) }
+        assertEquals(1,exchanges)
+        assertEquals(1,calls)
+    }
+
     @Test fun dataFailureIsNeverMisclassifiedAsAuthenticationExpiry() {
         val data=GarminConnectionStatus.fromError(
             GarminProtocolException("Garmin activity has an invalid timestamp"))
