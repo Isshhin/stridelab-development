@@ -8,6 +8,7 @@ import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.time.LocalDateTime
+import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.util.Base64
 
@@ -148,11 +149,16 @@ internal class GarminPersonalClient(
     }
 
     private fun parseGarminTime(value:String):Instant {
-        if(value.isBlank())throw GarminProtocolException("Garmin activity is missing its timestamp")
-        return runCatching { Instant.parse(value) }.getOrElse {
-            runCatching { LocalDateTime.parse(value).toInstant(ZoneOffset.UTC) }
-                .getOrElse { throw GarminProtocolException("Garmin activity has an invalid timestamp") }
-        }
+        val timestamp=value.trim()
+        if(timestamp.isEmpty())throw GarminProtocolException("Garmin activity is missing its timestamp")
+        // Garmin's GMT activity field can use either ISO T or a space separator.
+        // Explicit UTC offsets are honored; a zone-less GMT field is interpreted
+        // as UTC. Do not use the device timezone for a server GMT timestamp.
+        val iso=timestamp.replace(' ','T')
+        return runCatching { Instant.parse(iso) }.getOrNull()
+            ?: runCatching { OffsetDateTime.parse(iso).toInstant() }.getOrNull()
+            ?: runCatching { LocalDateTime.parse(iso).toInstant(ZoneOffset.UTC) }.getOrNull()
+            ?: throw GarminProtocolException("Garmin activity has an invalid timestamp")
     }
 }
 
