@@ -16,7 +16,8 @@ internal object DashboardSummary {
     fun isRun(a: ActivityRecord) = a.type.lowercase(Locale.ROOT).replace(Regex("[ _-]"),"") in setOf("run","running","trailrun","trailrunning","virtualrun","treadmill")
     fun window(history: List<ActivityRecord>, now: Instant, zone: ZoneId, daysAgo: Int = 0, plans:List<PlanSnapshot> = emptyList()): TrainingWindow {
         val end=now.atZone(zone).toLocalDate().minusDays(daysAgo.toLong()); val start=end.minusDays(6)
-        val records=history.distinctBy { it.id }.filter { it.startedAt<=now && it.startedAt.atZone(zone).toLocalDate() in start..end }
+        val records=ActivityDisplayConsolidation.visible(history)
+            .filter { it.startedAt<=now && it.startedAt.atZone(zone).toLocalDate() in start..end }
         val sources=history.map { it.id }.toSet()
         val confirmed=confirmedWorkouts(plans,history,now)
         val native=confirmed.filter { it.date in start..end }
