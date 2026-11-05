@@ -1,6 +1,6 @@
 # Garmin E01/E02 and on-device Activity history sync — 2026-11-05
 
-**Status: Garmin source implementation and E18 grouping committed. User emulator has displayed a Garmin-sourced run; focused exact-head regression, reliable status/timestamp acceptance, and E18 refreshed UI acceptance remain OPEN.**
+**Status: E01/E02/E18 source corrections extended; real Garmin activity has appeared in owner emulator. Latest-head unit, instrumentation and refreshed duplicate-display acceptance are NOT YET VERIFIED.**
 
 **CURRENT PRIORITY:** (1) E01/E02 real Garmin source reliability and error classification, with E18 display/totals regression; (2) E19 real OpenStreetMap-backed route for existing GPS; (3) Garmin detailed GPS import if supported and authorized. Engine 1.5 follows afterward. See [current master roadmap](engine15-manual-remediation-roadmap-20261105.md).
 
@@ -37,6 +37,28 @@ The owner provided a screenshot showing **Santa Mesa Running** at the same local
 - `ActivityDisplayConsolidationTest.kt`: four synthetic tests covering same-run one-card + total, 28-day volume, genuinely distinct runs, and ambiguous near matches. **Unexecuted** until owner runs targeted Gradle tests.
 - Remaining limitation: grouping is a conservative **presentation calculation**, not proof that differently identified source records are the same underlying event. It does not merge/delete data or provide a full review/merge UX.
 - Manual acceptance: After fast-forward pull and rebuild, verify the example appears as **one Activity card labeled Intervals.icu + Garmin**, with unchanged source data on disk; weekly distance and run count are not doubled; inspect a genuinely separate run and confirm it remains visible.
+
+## Follow-up source corrections for Garmin priority 1 (2026-11-05)
+
+The owner explicitly selected priority 1 (**E01/E02/E18**) for the next manual correction pass. The following new source corrections are committed on the same QA branch; **none of these new tests has been executed at the new branch head in this conversation**:
+
+- **Token refresh**: `GarminPersonalSource.activities` now refreshes a stored bearer when under 60 seconds remain (instead of under one hour), avoiding excessive exchanges on paginated Garmin history. A still-valid stored bearer rejected with Garmin 401 gets **one new key exchange and one retry**. Rejection of a freshly exchanged bearer fails immediately; there is no infinite retry or secret logging.
+- **Error precision**: malformed newly issued access tokens use `GarminTokenException` with a service-oriented status, not an activity-timestamp error. Actual rejected bearer uses authentication status, while malformed activity timestamps still use data status.
+- **Timestamp integrity**: `startTimeGMT` accepts UTC ISO/space formats. When GMT is absent, `startTimeLocal` is accepted only if it carries an explicit `Z` or numeric UTC offset. Zone-less local times are **rejected with an actionable error**, not silently interpreted as UTC or device local time. This protects week/date comparisons and cross-provider matching.
+- **E18 grouping performance and tolerance**: `ActivityDisplayConsolidation` uses a time-indexed lookup rather than scanning all Intervals.icu records for every Garmin record; a unique one-to-one running match accepts at most 60 seconds start-time difference plus the existing conservative duration and distance checks. Both provider originals remain in account-scoped storage. The Activity/Today card and dashboard/Plan Builder totals use one logical run.
+- **New focused tests**: `GarminPersonalSourceTest.shortLivedButUsableTokenIsReusedAcrossHistoryPages`, `revokedStoredTokenGetsOneFreshExchangeAndRetry`, `newlyExchangedTokenRejectionDoesNotCauseRetryLoop`, `GarminPersonalApiTest.localOnlyTimeRequiresAnExplicitOffsetToAvoidWrongDay`, `ActivityDisplayConsolidationTest.sameDisplayedMinuteCanMatchDespiteDifferentProviderSeconds` and `manyUnrelatedProviderActivitiesKeepTheirOwnRecordsAndOrder`. Existing tests for malformed tokens were updated.
+
+**Owner's earlier Android Gradle result:** Kotlin compilation passed and 274 unit tests completed, with seven failures all in `ExerciseLibraryV2Test` due to a shared `IllegalArgumentException`. That prior result **predates these new corrections** and does not verify the latest source. Full-suite Exercise Library failures remain open and must not be ignored or attributed to Garmin without the actual XML stack trace.
+
+### Focused commands for the owner (PowerShell in `native-android`)
+
+```powershell
+$gradle = Get-ChildItem "$env:USERPROFILE\.gradle\wrapper\dists\gradle-8.13-bin" -Recurse -Filter gradle.bat | Select-Object -First 1 -ExpandProperty FullName
+& $gradle --no-daemon :app:testDebugUnitTest --tests "io.stridelab.privatealpha.Garmin*Test" --tests "io.stridelab.privatealpha.ActivityDisplayConsolidationTest" --tests "io.stridelab.privatealpha.DashboardSummaryTest" --console=plain
+if ($LASTEXITCODE -eq 0) { & $gradle --no-daemon :app:assembleDebug --console=plain }
+```
+
+Then use the already configured emulator (without clearing existing data) to confirm Garmin sync works, status messages distinguish errors, Santa Mesa appears **once** with both source labels, and 7-day/28-day totals are not doubled. Verify a second successful sync adds **zero** copies of previously saved Garmin IDs. Run `TrainingRepositoryTest` connected Android instrumentation when convenient; no code-only claim substitutes for that result.
 
 ## Required manual verification before DONE
 
