@@ -48,8 +48,6 @@ internal fun TracksideFigmaActivityDetailSurface(
     onTab: (Int) -> Unit,
     matte: Boolean,
     onToggleMatte: () -> Unit,
-    detailSource: ActivityRecord = activity,
-    matchedSourceIds: Set<String> = setOf(activity.id),
     onBack: () -> Unit
 ) {
     BoxWithConstraints(
@@ -127,6 +125,8 @@ private fun ActivitySheetContent(
     modifier: Modifier,
     activity: ActivityRecord,
     recorded: ActivityDetail?,
+    detailSource: ActivityRecord,
+    matchedSourceIds: Set<String>,
     history: List<ActivityRecord>,
     state: TrainingState,
     actions: NativeActions,
