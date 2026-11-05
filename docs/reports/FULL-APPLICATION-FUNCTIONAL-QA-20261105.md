@@ -1,5 +1,7 @@
 # StrideLab full-application functional QA — 2026-11-05
 
+> **POST-AUDIT REQUIREMENTS ADDENDUM (2026-11-05):** The user's revised approved target is [Engine 1.5 primary with Engine 1.0 controlled fallback and quality-session acceptance](../qa/engine15-primary-plan-quality-requirements-20261105.md). The run counts and verdict below are historical evidence of an **Engine 1.0-default** product, and do **not** satisfy the revised target. The packaged routing, requested quality count/type, 30/40 km eligibility mismatch, actual generated prescriptions, and requested-versus-generated explanations remain uncorrected/unaccepted. No source fix or new corresponding exact-head test has occurred.
+
 ## Scope and baseline
 
 - Previous QA integration baseline: `9d3c559e4b92a366a3b52934b19ea37fb0e65084`.
@@ -114,7 +116,7 @@ Do not uninstall, clear data, change package identity, or replace signing. Compa
 
 1. Launch the existing app and verify the prior account remains private and available only after valid authentication.
 2. Open each root tab; open a Today workout and Activity card; verify Back returns to the owning tab and prior list position.
-3. Build an Engine 1.0 plan through running plus one secondary discipline; confirm occupied-day selection does not move another session; approve and reopen it offline.
+3. **Historical test:** build an Engine 1.0 plan through running plus one secondary discipline; confirm occupied-day selection and offline reopen. **Additional pending required test:** build via the packaged Engine 1.5 default, request one Threshold session, compare requested/generated contents, approve and reopen offline.
 4. Move one future workout, cancel another move, pause/cancel, lock/unlock, and reopen Training to verify only the intended item changed.
 5. Record one valid set, leave/reopen the draft, reject an empty completion, then complete and reopen history.
 6. Open Activity Details; drag between both anchors, scroll each tab, confirm the map remains behind the sheet, use the accessibility action, and verify first Back collapses.
