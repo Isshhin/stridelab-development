@@ -1,6 +1,7 @@
 package io.stridelab.privatealpha
 
 import android.graphics.Color as AndroidColor
+import android.view.View
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -126,21 +127,34 @@ private fun MapLibreRouteView(
                 )
                 val gps=route.cameraPoints()
                 if(gps.isNotEmpty()) {
-                    mapView.post {
-                        if(mapView.width>0 && mapView.height>0) {
-                            val latRange=gps.maxOf{it.latitude}-gps.minOf{it.latitude}
-                            val lonRange=gps.maxOf{it.longitude}-gps.minOf{it.longitude}
-                            if(latRange<0.00001 && lonRange<0.00001) {
-                                map.moveCamera(CameraUpdateFactory.newLatLngZoom(
-                                    LatLng(gps.first().latitude,gps.first().longitude),15.0))
-                            } else {
-                                val bounds=LatLngBounds.Builder()
-                                gps.forEach { bounds.include(LatLng(it.latitude,it.longitude)) }
-                                map.moveCamera(CameraUpdateFactory.newLatLngBounds(
-                                    bounds.build(),64))
-                            }
+                    fun fitCamera() {
+                        if(mapView.width<=0 || mapView.height<=0)return
+                        val latRange=gps.maxOf{it.latitude}-gps.minOf{it.latitude}
+                        val lonRange=gps.maxOf{it.longitude}-gps.minOf{it.longitude}
+                        if(latRange<0.00001 && lonRange<0.00001) {
+                            map.moveCamera(CameraUpdateFactory.newLatLngZoom(
+                                LatLng(gps.first().latitude,gps.first().longitude),15.0))
+                        } else {
+                            val bounds=LatLngBounds.Builder()
+                            gps.forEach { bounds.include(LatLng(it.latitude,it.longitude)) }
+                            map.moveCamera(CameraUpdateFactory.newLatLngBounds(
+                                bounds.build(),64))
                         }
                     }
+                    // Style loading can finish before Compose measures AndroidView.
+                    // Fit only after layout, not to a zero-sized map at (0,0).
+                    if(mapView.width>0 && mapView.height>0)mapView.post { fitCamera() }
+                    else mapView.addOnLayoutChangeListener(object:View.OnLayoutChangeListener {
+                        override fun onLayoutChange(
+                            view:View,left:Int,top:Int,right:Int,bottom:Int,
+                            oldLeft:Int,oldTop:Int,oldRight:Int,oldBottom:Int
+                        ) {
+                            if(right>left && bottom>top) {
+                                mapView.removeOnLayoutChangeListener(this)
+                                fitCamera()
+                            }
+                        }
+                    })
                 }
                 onStyleReady()
             }
