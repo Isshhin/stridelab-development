@@ -123,6 +123,52 @@ class GarminPersonalSourceTest {
         assertEquals(1,calls)
     }
 
+    @Test fun legacyUuidLooksUpItsNumericIdBeforeOwnerFitDownload() {
+        val store=Store()
+        store.save(GarminCredentialRecord("owner","key","token",now.plusSeconds(7200)))
+        var requests=0
+        var downloadedId=0L
+        val api=object:GarminApi {
+            override fun exchange(apiKey:String)=
+                GarminBearerToken("replacement",now.plusSeconds(7200))
+            override fun activities(token:GarminBearerToken,start:Int,limit:Int):List<GarminActivity> {
+                requests++
+                assertEquals(0,start)
+                return listOf(GarminActivity("uuid-source","Batis Running","running",
+                    now,1800.0,5000.0,null,null,numericActivityId=123456789L))
+            }
+            override fun downloadActivity(token:GarminBearerToken,numericId:Long):ByteArray {
+                downloadedId=numericId
+                return byteArrayOf(1,2,3)
+            }
+        }
+        val source=GarminPersonalSource("owner",store,api){now}
+        assertArrayEquals(byteArrayOf(1,2,3),
+            source.downloadFitForSource("owner","uuid-source"))
+        assertEquals(1,requests)
+        assertEquals(123456789L,downloadedId)
+        assertFails<IllegalArgumentException> {
+            source.downloadFitForSource("not-owner","uuid-source")
+        }
+    }
+
+    @Test fun sourceWithPersistedNumericIdSkipsListSearch() {
+        val store=Store()
+        store.save(GarminCredentialRecord("owner","key","token",now.plusSeconds(7200)))
+        val api=object:GarminApi {
+            override fun exchange(apiKey:String)=GarminBearerToken("fresh",now.plusSeconds(7200))
+            override fun activities(token:GarminBearerToken,start:Int,limit:Int):List<GarminActivity> =
+                throw AssertionError("Numeric ID already resolved")
+            override fun downloadActivity(token:GarminBearerToken,numericId:Long):ByteArray {
+                assertEquals(789L,numericId)
+                return byteArrayOf(4)
+            }
+        }
+        assertArrayEquals(byteArrayOf(4),
+            GarminPersonalSource("owner",store,api){now}
+                .downloadFitForSource("owner","uuid-source",789L))
+    }
+
     @Test fun dataFailureIsNeverMisclassifiedAsAuthenticationExpiry() {
         val data=GarminConnectionStatus.fromError(
             GarminProtocolException("Garmin activity has an invalid timestamp"))
