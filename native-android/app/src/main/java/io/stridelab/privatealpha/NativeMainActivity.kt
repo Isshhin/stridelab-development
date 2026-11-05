@@ -270,6 +270,7 @@ private fun NavHostController.openActivity(id: String) {
                         // Fetch a real recorded route once when opening a running detail.
                         // Offline cache remains available; no invented route or retry loop.
                         if (!automaticDetailAttempted && activity != null && activity.supportsPace &&
+                            activity.source!="garmin" && // Garmin summaries do not have backend stream IDs.
                             state.account != null && online && !state.busy && !state.needsSignIn &&
                             !state.details.containsKey(activity.id)) {
                             automaticDetailAttempted = true
