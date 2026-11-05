@@ -398,10 +398,6 @@ class Engine15FeedbackRepositoryTest {
             online()
             return JSONArray()
         }
-        override fun intervals(session: NativeSession, action: String): JSONObject {
-            online()
-            return JSONObject().put("configured", false)
-        }
         override fun signOut(session: NativeSession) { online() }
     }
 }
