@@ -83,8 +83,31 @@ Owner's emulator showed an authentic Garmin Batis Running summary (13.69 km and 
 **Garmin-only GPS diagnosis and next step:**
 - Garmin's maintained official Personal API example supports authenticated `GET /download-service/files/activity/{activityId}`, returning a ZIP of the athlete's own activity file, and Garmin says Personal API includes activity JSON and FIT. Official sources: https://github.com/garmin/connect-personal-api-python/blob/main/README.md ; https://developer.garmin.com/gc-developer-program/overview/ ; https://developer.garmin.com/gc-developer-program/personal/personal-faq .
 - StrideLab's current `GarminPersonalClient` only calls the activity **list** endpoint. `GarminHistoryImport.payload` intentionally stores no GPS samples. `TracksideGeographicMap` cannot map a summary without GPS. `FitActivityDecoder` already supports source-validated FIT GPS point decoding, but is **not yet connected to Garmin's authenticated download**.
-- Next isolated work: retrieve only the owner's authorized activity FIT using its **numeric Garmin activityId** (current cached provider ID may be UUID), enforce bounded ZIP/FIT sizes and one session, confirm owner/source identity and date/distance plausibility, derive a valid `ActivityDetail` for the **same Garmin local source ID**, save GPS details account-scoped/offline, then expose an explicit `Load Garmin GPS` action. Do not silently rewrite source summaries or fetch hundreds of FIT files during ordinary sync. Do not claim the GPS is available until a real file is downloaded and inspected.
+- The follow-up source implementation for bounded authorized FIT import and the `Load Garmin GPS` UI is documented below. **Not yet Android-build/device verified.** Do not claim a real route is available until a FIT download succeeds on the owner's emulator.
 - For public/commercial multi-user integration, Garmin explicitly distinguishes its **personal-only** API from the Garmin Connect Developer Program business API. Do not repurpose a personal credential for a public multi-user release without appropriate Garmin authorization.
+
+## Garmin-only FIT GPS source implementation (2026-11-05, pending Android acceptance)
+
+The missing map in the owner's **Batis Running** Garmin screenshot is caused by missing GPS samples, not a MapLibre positioning problem. In the same screenshot the calculated moving pace displays correctly. The owner requested a shorter **PACE** label, now committed. The source facts remain unchanged: if Garmin provides official `averageSpeed`, use that value; if only saved distance and moving time exist, calculate pace and preserve a separate provenance note in Activity Detail.
+
+**New implementation on `fix/trackside-usability-garmin-20261105`:**
+- `GarminPersonalApi.kt` now has a bounded authenticated binary download for the official `GET /download-service/files/activity/{numericActivityId}`. Only owner-authorized bearer tokens are used, with existing 401 refresh / typed failure handling. ZIP downloads are capped at 20 MiB.
+- `GarminPersonalSource.kt` resolves the numeric ID for older saved UUID-based Garmin records by searching the current owner's activity list (bounded to 2,000 results). Newly imported summary records include the numeric ID in metadata for direct lookup. No existing summaries are overwritten or bulk exported.
+- `GarminFitArchive.kt`: bounded ZIP entry count and expanded size, safe names, exactly one FIT activity, and 16 MiB FIT cap. `FitActivityDecoder` verifies FIT file integrity and one-session constraints and decodes recorded GPS coordinates.
+- `GarminGpsDetail.kt`: checks athlete ownership, sport, start time, source distance and elapsed duration before building the saved `ActivityDetail`; rejects trackless FIT files and invents no GPS. Encoded coordinates/HR/pace/laps are source-derived. Stored under the Garmin summary's original hashed ID, account-scoped, without changing the source summary.
+- `TrainingRepository.loadGarminGps` stores the validated detail offline only after all checks pass. An existing stored detail is preserved. The foreground UI loads once when opening a Garmin-only activity and offers **Load Garmin GPS** to retry. Matched Intervals.icu details remain separately attributed.
+- The main map hero automatically uses the stored real GPS samples to show the geographic route. There is no need to replace the map SDK or change any Engine 1.5 code.
+- Tests added for downloaded binary endpoint, UUID lookup and numeric-ID reuse, ZIP safety, real FIT-to-ActivityDetail GPS and cross-account/different-run rejection. Test execution is **pending**.
+
+**Important:** All of the above is **source code committed, not a successfully executed Garmin activity download**. An emulator run against the owner's live Garmin account is required. Garmin may return no FIT/GPS for indoor or unsupported recordings; the honest no-map state must remain. No unbounded history downloading, credentials in logs, source deletion or token sharing.
+
+**Suggested local verification:**
+```powershell
+git pull --ff-only
+& $gradle --no-daemon :app:testDebugUnitTest --tests "io.stridelab.privatealpha.Garmin*Test" --tests "io.stridelab.privatealpha.ActivityDisplayConsolidationTest" --tests "io.stridelab.privatealpha.RecordedGpsRouteTest"
+if ($LASTEXITCODE -eq 0) { & $gradle --no-daemon :app:assembleDebug }
+```
+Then install/run without clearing app data, open **Batis Running**, verify **PACE** heading, the source-accurate calculated value, automatic single FIT request and real map. If unavailable, tap **Load Garmin GPS** and capture the exact reported Garmin error. Close only after real Garmin track loads, offline reopen works, Garmin-first summary unchanged, route aligns with known geography, and the glass sheet overlaps correctly.
 
 ## Required manual verification before DONE
 
