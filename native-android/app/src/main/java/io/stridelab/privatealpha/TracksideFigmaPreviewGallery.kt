@@ -169,8 +169,9 @@ private fun TracksidePreviewActivity(matte: Boolean) {
         activities=listOf(synthetic)
     )
     TracksideFigmaActivityDetailSurface(
-        activity=synthetic,recorded=null,history=listOf(synthetic),
-        state=state,
+        activity=synthetic,recorded=null,
+        detailSource=synthetic,matchedSourceIds=setOf(synthetic.id),
+        history=listOf(synthetic),state=state,
         actions=NativeActions({}, {}, {}, {}, {_,_->}),
         online=false,
         selectedTab=0,onTab={},matte=matte,onToggleMatte={},onBack={}
