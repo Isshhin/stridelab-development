@@ -37,7 +37,8 @@ internal fun TracksideParityActivityMapHero(
     onBack: () -> Unit,
     heightDp: Dp = 425.dp,
     onChangeStyle: (() -> Unit)? = null,
-    online:Boolean = true
+    online:Boolean = true,
+    gpsSourceLabel:String? = null
 ) {
     val route=remember(detail) { RecordedGpsRoute.from(detail?.samples.orEmpty()) }
     Box(Modifier.fillMaxWidth().height(heightDp).testTag("activity-map-hero")) {
@@ -97,7 +98,7 @@ internal fun TracksideParityActivityMapHero(
             when {
                 route.pointCount<2 -> "NO RECORDED GPS TRACK · NO MAP LOCATION"
                 !online -> "RECORDED GPS TRACE · OFFLINE (NO STREET TILES)"
-                else -> "RECORDED GPS ON GEOGRAPHIC STREET MAP"
+                else -> "RECORDED GPS FROM " + (gpsSourceLabel ?: "SOURCE")
             },
             modifier=Modifier.align(Alignment.TopStart)
                 .padding(top=101.dp,start=16.dp)
