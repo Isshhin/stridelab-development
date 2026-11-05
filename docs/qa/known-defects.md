@@ -26,4 +26,7 @@
 
 | QA-20261105-17 | P2 Current Ability auto-detection gap | User observed; source confirmed | Emulator E11: Running experience is a manual 0/1/2 selection with beginner default; no automatic Beginner/Intermediate/Advanced classification from stored Intervals.icu activities. Recent cached activities may supply 28-day average weekly mileage/longest run, but provenance and saved-plan preference must be checked. Specify explainable, overrideable experience recommendation without weakening training safeguards. |
 
+| QA-20261105-18 | P2 Activity sheet full-height limitation | User-observed / code-confirmed | Emulator E12: expanded Recorded Activity sheet stops below the upper screen edge because `TracksideFigmaActivityDetailSurface.kt` sizes it to `maxHeight - 96.dp` on a typical emulator; preserve map behind partial sheet, expand to safe top edge, then independently scroll contents, with collapse-first Back and device regression. |
+| QA-20261105-19 | P2 Activity chart readability | User-observed / code-confirmed | Emulator E13: `RecordedActivityDetail.kt` draws `SampleGraph` traces on a bare Canvas without a chart background panel; reported graphs are hard to read. Provide distinct accessible dark panels, visible grid/axes and source-faithful plotting; test missing and partial stream data. |
+
 No item may be removed from this file until a correction commit and passing regression evidence are recorded in [resolved defects](resolved-defects.md).
