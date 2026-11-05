@@ -1,5 +1,7 @@
 # Trackside 3.0 Usability and Garmin Foundation Design
 
+> **Later approved product requirement (2026-11-05):** [Engine 1.5 primary with Engine 1.0 controlled fallback and quality-workout acceptance](../../qa/engine15-primary-plan-quality-requirements-20261105.md). This UI/Garmin QA spec and its original source/test baselines remain historical. The old Engine 1.0 default is a current code mismatch, not a newly accepted release condition. Implementation and tests still pending.
+
 ## Intent
 
 Make the frozen Engine 1.5 + Trackside integration genuinely usable on a real phone by verifying outcomes through production routes, correcting confirmed interaction defects, protecting persistence and Engine 1.0 rollback, and adding only a bounded official Garmin Personal API foundation after core usability is stable.
