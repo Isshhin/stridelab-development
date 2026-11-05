@@ -57,12 +57,10 @@ class NativeVisualTest {
         capture("simulation-narrow-200pct")
     }
     @Test fun populatedScreensUseNativeNavigationAndRealActions() {
-        var checks = 0
-        var syncs = 0
         val fixture = TrainingState(initializing = false, account = "synthetic-visual-account",
             activities = listOf(activity, activity.copy(id = "synthetic-second", title = "Evening walk", type = "Walking", distanceM = 2500.0, durationS = 1800.0)),
-            intervals = IntervalConnection(true,"connected",null,1792972800000), lastSync = 1792972800000)
-        val actions = NativeActions({}, { checks++ }, { syncs++ }, {}, { _, _ -> })
+            lastSync = 1792972800000)
+        val actions = NativeActions({}, {}, {}, {}, { _, _ -> })
         show { StrideTheme { NativeStrideContent(fixture, true, actions) } }
         compose.onNodeWithTag("activity-synthetic-visual").assertExists()
         capture("simulation-dashboard")
@@ -72,16 +70,15 @@ class NativeVisualTest {
         capture("simulation-history")
         compose.onNodeWithText("Morning trail run").performClick()
         compose.onNodeWithTag("activity-parity-overview").assertExists()
-        compose.onNodeWithText("AVG PACE").assertExists()
+        compose.onNodeWithText("PACE").assertExists()
         capture("simulation-detail")
         compose.onNodeWithTag("activity-map-back").performClick()
         compose.onNodeWithTag("nav-settings").performClick()
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Check connection"))
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("GARMIN"))
         capture("simulation-source-settings")
-        compose.onNodeWithText("Check connection").performClick()
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Synchronize Intervals.icu"))
-        compose.onNodeWithText("Synchronize Intervals.icu").performClick()
-        compose.runOnIdle { assertEquals(1,checks); assertEquals(1,syncs) }
+        compose.onNodeWithTag("garmin-connection-card").assertExists()
+        compose.onNodeWithText("Synchronize Intervals.icu").assertDoesNotExist()
+        compose.onNodeWithText("Check connection").assertDoesNotExist()
     }
 
     @Test fun loadingOfflineAndFailureStayVisibleWithCachedHistory() {
@@ -128,7 +125,7 @@ class NativeVisualTest {
                 StrideTheme { Surface { Column(Modifier.width(300.dp).verticalScroll(rememberScrollState()).padding(16.dp)) {
                     Text("UI SIMULATION · SYNTHETIC DASHBOARD")
                     WeeklyDashboard(listOf(activity),now,java.time.ZoneId.of("Asia/Manila"))
-                    WellnessOverview(listOf(WellnessRecord("synthetic-wellness","sleep_duration",7.5,"hours",now.minusSeconds(86400),"intervals")),{refreshed=true},true)
+                    WellnessOverview(listOf(WellnessRecord("synthetic-wellness","sleep_duration",7.5,"hours",now.minusSeconds(86400),"health_connect")),{refreshed=true},true)
                 } } }
             }
         }
