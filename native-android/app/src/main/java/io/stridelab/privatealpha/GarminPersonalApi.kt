@@ -166,7 +166,9 @@ internal object GarminActivityNormalizer {
     fun normalize(accountId:String,activity:GarminActivity)=WearableActivityInput(
         accountId=accountId,provider="garmin",externalId=activity.externalId,
         activityType=activity.type,startedAt=activity.startedAt,
-        durationSeconds=activity.durationSeconds,distanceMeters=activity.distanceMeters
+        durationSeconds=activity.durationSeconds,distanceMeters=activity.distanceMeters,
+        title=activity.title,movingDurationSeconds=activity.movingDurationSeconds,
+        averageHeartRate=activity.averageHeartRate?.takeIf { it>0 }
     )
     fun candidate(accountId:String,activity:GarminActivity)=ImportedActivityCandidate(
         ImportedSourceIdentity(accountId,"garmin",activity.externalId),activity.type,
