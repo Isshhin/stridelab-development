@@ -42,7 +42,7 @@ class GarminPersonalApiTest {
         assertFails<GarminRateLimitException> {
             GarminPersonalClient(FakeTransport(GarminHttpResponse(429,"slow"))){now}.exchange("key")
         }
-        assertFails<GarminProtocolException> {
+        assertFails<GarminTokenException> {
             GarminPersonalClient(FakeTransport(GarminHttpResponse(200,"not-a-jwt"))){now}.exchange("key")
         }
         assertFails<GarminAuthenticationException> {
