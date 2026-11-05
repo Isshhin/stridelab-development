@@ -86,6 +86,22 @@ class GarminPersonalApiTest {
         }
     }
 
+    @Test fun localOnlyTimeRequiresAnExplicitOffsetToAvoidWrongDay() {
+        val token=GarminBearerToken("test-token",now.plusSeconds(600))
+        fun body(timestamp:String)=org.json.JSONArray().put(org.json.JSONObject()
+            .put("activityId","source-123").put("startTimeLocal",timestamp)).toString()
+        val valid=GarminPersonalClient(
+            FakeTransport(GarminHttpResponse(200,body("2026-11-05 06:30:00+08:00")))){now}
+            .activities(token,0,20).single()
+        assertEquals(Instant.parse("2026-11-04T22:30:00Z"),valid.startedAt)
+        val invalid=assertFails<GarminProtocolException> {
+            GarminPersonalClient(
+                FakeTransport(GarminHttpResponse(200,body("2026-11-05 06:30:00")))){now}
+                .activities(token,0,20)
+        }
+        assertTrue(invalid.message.orEmpty().contains("UTC timestamp"))
+    }
+
     @Test fun trulyInvalidOrMissingActivityTimestampStillFailsClosed() {
         val token=GarminBearerToken("test-token",now.plusSeconds(600))
         listOf("", "not-a-date", "2026-99-99 99:99:99").forEach { raw ->
