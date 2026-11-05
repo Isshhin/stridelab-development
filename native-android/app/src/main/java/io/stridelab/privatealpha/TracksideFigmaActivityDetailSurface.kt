@@ -182,9 +182,6 @@ private fun ActivitySheetContent(
                     Text(activity.sourceLabel + " · " + activity.dateLabel,
                         color = TracksidePalette.textMuted, fontSize = 12.sp)
                     Spacer(Modifier.height(13.dp))
-                    if(detailSource.id!=activity.id)
-                        Text("Supplemental recorded streams: " + detailSource.sourceLabel,
-                            color = TracksidePalette.textMuted, fontSize = 11.sp)
                     if(activity.garminMovingPaceSPerKm!=null)
                         Text("Pace calculated from Garmin moving time and distance.",
                             color = TracksidePalette.textMuted, fontSize = 11.sp)
@@ -211,14 +208,6 @@ private fun ActivitySheetContent(
             }
         }
 
-        if(activity.source=="garmin" && detailSource.id!=activity.id) {
-            Spacer(Modifier.height(14.dp))
-            Text(
-                "Garmin is the primary activity source. GPS, splits and charts come from matching ${detailSource.sourceLabel} records when available; Garmin summary metrics are not replaced.",
-                modifier=Modifier.fillMaxWidth().padding(horizontal=17.dp),
-                color=TracksidePalette.textMuted,fontSize=11.sp
-            )
-        }
         if(activity.source=="garmin" && recorded==null && detailSource.id==activity.id) {
             Spacer(Modifier.height(18.dp))
             Text(
