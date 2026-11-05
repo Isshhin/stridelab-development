@@ -32,4 +32,4 @@ Produce a privately downloadable, signed QA APK from the latest verified Tracksi
 
 ## Delivery
 
-A workflow-dispatch-only job runs on `[self-hosted, Windows, X64]` with `contents: read`, validates the exact checkout and private repository, executes the required non-emulator checks, builds the default debug APK with the pre-existing MARC keystore, verifies metadata/signature, and uploads a 21-day private Actions artifact. The complete exact-head emulator workflow runs separately and serially before distribution.
+A branch-scoped manual job in the already registered candidate workflow runs on `[self-hosted, Windows, X64]` with `contents: read`, validates the exact checkout and private repository, executes the required non-emulator checks, builds the default debug APK with the pre-existing MARC keystore, verifies metadata/signature, and uploads a 21-day private Actions artifact. The existing candidate job remains unchanged for its prior refs. The complete exact-head emulator workflow runs separately and serially before distribution.

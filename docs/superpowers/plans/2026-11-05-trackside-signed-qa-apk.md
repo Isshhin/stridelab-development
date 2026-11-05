@@ -4,7 +4,7 @@
 
 **Goal:** Build, verify, and privately deliver a signed Trackside QA APK without risking the existing phone installation.
 
-**Architecture:** Add one dispatch-only MARC workflow that uses the runner's existing debug keystore, fails if it is absent, and emits only an APK plus public verification metadata. Run the established exact-head suite first, then independently inspect the uploaded APK and record the result in `docs/qa/`.
+**Architecture:** Add a branch-scoped MARC job to the already registered candidate workflow; it uses the runner's existing debug keystore, fails if it is absent, and emits only an APK plus public verification metadata. Run the established exact-head suite first, then independently inspect the uploaded APK and record the result in `docs/qa/`.
 
 **Tech Stack:** GitHub Actions, Windows PowerShell, Gradle 8.13, JDK 17, Android SDK 35/36, `aapt`, `apksigner`.
 
@@ -30,7 +30,7 @@
 ### Task 1: Add the scoped MARC APK workflow
 
 **Files:**
-- Create: `.github/workflows/trackside-signed-qa-apk-windows.yml`
+- Modify: `.github/workflows/trackside-candidate-apk.yml`
 
 - [ ] Add manual dispatch, read-only contents permission, private-repository assertion, exact-checkout assertion, and `[self-hosted, Windows, X64]` labels.
 - [ ] Verify the existing debug keystore exists before Gradle runs.
@@ -43,7 +43,7 @@
 
 **Files:**
 - Verify: `.github/workflows/trackside-engine15-windows.yml`
-- Verify: `.github/workflows/trackside-signed-qa-apk-windows.yml`
+- Verify: `.github/workflows/trackside-candidate-apk.yml`
 
 - [ ] Dispatch and wait for the existing full exact-head MARC workflow.
 - [ ] If it succeeds, dispatch the signed QA APK workflow at that same SHA.
