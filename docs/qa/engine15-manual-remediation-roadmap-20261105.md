@@ -17,14 +17,14 @@
 
 ## Unified priority-ordered execution — one item at a time
 
-This is the **single combined development queue** for Engine 1.5 corrections **and** the user's current Android-emulator observations. Priority means severity; order also reflects dependencies and the user's decision to finish the core engine before unrelated integrations. A reported symptom is not automatically a reproduced defect. Work item IDs `E01–E07` link the original emulator observations below to implementation phases; existing Engine 1.5 mismatches are included in the same queue.
+This is the **single combined development queue** for Engine 1.5 corrections **and** the user's current Android-emulator observations. Priority means severity; order also reflects dependencies and the user's decision to finish the core engine before unrelated integrations. A reported symptom is not automatically a reproduced defect. Work item IDs `E01–E09` link the current emulator observations below to implementation phases; existing Engine 1.5 mismatches are included in the same queue.
 
 | Order | Priority | Work item | Minimum acceptance criterion | Evidence / status |
 |---|---|---|---|---|
 | 0 | Gate | Record baseline and create reproducible fixtures | Verify live SHA and safe emulator profile; capture one experienced 60–70 km/week, 5-running-day, one-Threshold plan plus a low-mileage safety case. Do not clear emulator/phone accounts. | Requirements documented; real source test pending |
 | 1 | P1 | Restore Engine 1.5 as primary | Default build generates Engine 1.5 version/policy through actual builder. A **separate, explicitly selected** Engine 1.0 fallback works without changing existing plans. | Mismatch confirmed; current default false |
-| 2 | P1 | Fix quality request and saved state | Requested count/type/weekday and manual-vs-automatic intent survive UI navigation, serialization, generation and reopen. Fix displayed-but-not-saved quality chips and count/day inconsistency. | Code risks confirmed; device repro pending |
-| 3 | P1 | Align quality eligibility and safety | UI and Engine 1.5 agree on 30–39 vs 40+ km two-quality limits, experience, duration, returning, deload/taper, and spacing. No weakened safety thresholds. | Confirmed UI/engine discrepancy |
+| 2 | P1 | Fix quality request, Coach decides and saved state (`E08`, `E09`) | Auto mode proposes an **eligible, explainable** quality count/type where justified, keeps 0 when safeguards require it, and lets the user override; manual/auto mode selector remains visible and accessible. Count/type/weekday survive navigation and storage. Fix displayed-but-not-saved quality chips and count/day inconsistency. | E08 and E09 user-observed; source confirms auto only changes placement and hides mode controls; fix pending |
+| 3 | P1 | Align quality eligibility and safety | UI, Coach decides proposals and Engine 1.5 agree on 30–39 vs 40+ km two-quality limits, experience, duration, returning, deload/taper, and spacing. Explain any zero-quality recommendation; do not weaken safety gates. | Confirmed UI/engine discrepancy |
 | 4 | P1 | Make quality type and running goal truthful | Eligible requested Threshold yields correct structured workout; honor supported styles, or label unsupported ones advisory. Use the running-discipline goal in mixed plans. | Type/goal mapping gap confirmed |
 | 5 | P1 | Explain actual draft prescriptions | Display requested vs generated quality count, type, day, volume, duration, and exact reason for withheld/downgraded quality before explicit approval. | Not fully implemented |
 | 6 | P1 | End-to-end plan-content acceptance | Actual UI selection → Engine 1.5 generation → real prescribed session → approval → offline reopen, with quality assertion and separate safety/fallback scenarios. | Existing test checks Engine 1.0 + session totals |
@@ -41,7 +41,7 @@ This is the **single combined development queue** for Engine 1.5 corrections **a
 
 ## Emulator observation register — November 5, 2026
 
-The original **seven** emulator items are retained below with stable IDs, not counted as seven additional confirmed crashes. `E04` and `E05` are linked visual observations; `E06` and `E07` are two deliberate UI removals within one implementation task.
+The **nine** emulator items are retained below with stable IDs. They are observations and requirements, not nine independently reproduced crashes. `E04` and `E05` are linked visual observations; `E06` and `E07` are two deliberate UI removals; `E08` and `E09` concern Coach decides behavior and mode-switch discoverability.
 
 | ID | Screen | Observed or requested behavior | Classification | Unified queue |
 |---|---|---|---|---|
@@ -52,6 +52,14 @@ The original **seven** emulator items are retained below with stable IDs, not co
 | E05 | Today on Medium Phone API | Today cards, spacing and bottom navigation appear appropriately sized; useful comparison against More. | **Reference observation, not a defect** | 12 |
 | E06 | More → Device & Data | Remove obsolete **Legacy Data & Backups** card, preservation explanation and **Open preserved prototype** button. | **Explicit UI removal request** | 14 |
 | E07 | More → Device & Data | Remove **Private testing** heading and notice; remove **Device & Data** heading only if empty. | **Explicit UI removal request** | 14 |
+| E08 | Running Setup → Coach decides | With six weekly runs, preview displays **0 quality / 1 long**. Auto mode preserves existing `qualityCount=0` and only removes weekday pins. User expects coach to propose appropriate quality frequency based on ability, recent volume and safety constraints. | **Observed expectation gap; coaching proposal not implemented** | 2–3 |
+| E09 | Running Setup → Coach decides | After choosing auto, **Choose my days / Coach decides** buttons disappear. `editorOpen=false` hides them; recovery requires an undiscoverable weekday-tile tap to reopen editor. Keep an explicit mode selector reachable. | **Confirmed UI discoverability defect** | 2 |
+
+### Running Setup coach-mode acceptance (`E08`, `E09`)
+
+- Experienced runner with six sessions, sufficient training volume and time: selecting Coach decides should propose an eligibility-aware quality frequency and workout type and indicate why a zero-quality week is appropriate when safety requires it. Do not promise quality for every week.
+- An explicit **Choose my days** control remains reachable after switching to Coach decides; switch back and forth without stale weekday pins, silent quality removal or state corruption.
+- Verify mode, quality choice, actual generated workouts and approved plans after back navigation and offline reopening on 360dp/412dp profiles.
 
 ### Safe reproduction sequence for Garmin and account warnings
 
