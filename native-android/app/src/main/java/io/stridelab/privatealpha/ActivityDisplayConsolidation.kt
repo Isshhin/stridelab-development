@@ -26,7 +26,7 @@ internal object ActivityDisplayConsolidation {
         if(intervals.source!="intervals" || garmin.source!="garmin") return false
         if(!DashboardSummary.isRun(intervals) || !DashboardSummary.isRun(garmin)) return false
         val start=abs(Duration.between(intervals.startedAt,garmin.startedAt).seconds)
-        if(start>45L) return false
+        if(start>60L) return false
         val a=intervals.durationS ?: return false
         val b=garmin.durationS ?: return false
         if(!a.isFinite() || !b.isFinite() || a<=0 || b<=0) return false
@@ -52,7 +52,7 @@ internal object ActivityDisplayConsolidation {
         val reverse=HashMap<String,MutableList<String>>()
         garmin.forEach { g ->
             val second=g.startedAt.epochSecond
-            val possible=intervalsBySecond.subMap(second-46,true,second+46,true)
+            val possible=intervalsBySecond.subMap(second-61,true,second+61,true)
                 .values.asSequence().flatMap { it.asSequence() }
                 .filter { confidentSameRun(it,g) }.map { it.id }.toList()
             forward[g.id]=possible
