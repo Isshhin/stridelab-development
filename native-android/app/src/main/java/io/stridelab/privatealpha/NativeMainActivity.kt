@@ -276,18 +276,23 @@ private fun NavHostController.openActivity(id: String) {
                 }
                 composable("activity/{id}") { detail ->
                     val activity = state.activities.firstOrNull { it.id == detail.arguments?.getString("id") }
-                    var automaticDetailAttempted by rememberSaveable(activity?.id) { mutableStateOf(false) }
+                    // Garmin stays primary in the activity view. Matching
+                    // Intervals.icu streams remain explicitly supplemental.
+                    val matchedGroup = groupedActivities.firstOrNull { it.primary.id == activity?.id }
+                    val detailSource = matchedGroup?.detailedSource ?: activity
+                    var automaticDetailAttempted by rememberSaveable(detailSource?.id) { mutableStateOf(false) }
                     var activityTab by rememberSaveable(activity?.id) { mutableIntStateOf(0) }
                     var matteStyle by rememberSaveable(activity?.id) { mutableStateOf(false) }
-                    LaunchedEffect(activity?.id, online, state.busy, state.needsSignIn) {
-                        // Fetch a real recorded route once when opening a running detail.
-                        // Offline cache remains available; no invented route or retry loop.
-                        if (!automaticDetailAttempted && activity != null && activity.supportsPace &&
-                            activity.source!="garmin" && // Garmin summaries do not have backend stream IDs.
+                    LaunchedEffect(detailSource?.id, online, state.busy, state.needsSignIn) {
+                        // Load real supplementary Intervals.icu streams when
+                        // Garmin is the canonical summary. Never use the Garmin
+                        // local summary ID as a remote stream endpoint.
+                        if (!automaticDetailAttempted && detailSource != null &&
+                            detailSource.supportsPace && detailSource.source!="garmin" &&
                             state.account != null && online && !state.busy && !state.needsSignIn &&
-                            !state.details.containsKey(activity.id)) {
+                            !state.details.containsKey(detailSource.id)) {
                             automaticDetailAttempted = true
-                            actions.loadDetail(activity.id)
+                            actions.loadDetail(detailSource.id)
                         }
                     }
                     if (activity == null) {
@@ -301,7 +306,11 @@ private fun NavHostController.openActivity(id: String) {
                     } else {
                         TracksideFigmaActivityDetailSurface(
                             activity = activity,
-                            recorded = state.details[activity.id],
+                            recorded = detailSource?.let { state.details[it.id] },
+                            detailSource = detailSource ?: activity,
+                            matchedSourceIds = matchedGroup?.let { group ->
+                                (listOf(group.primary) + group.additionalSources).map { it.id }.toSet()
+                            } ?: setOf(activity.id),
                             history = state.activities,
                             state = state,
                             actions = actions,
