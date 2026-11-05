@@ -281,6 +281,18 @@ private fun NavHostController.openActivity(id: String) {
                     // Intervals.icu streams remain explicitly supplemental.
                     val matchedGroup = groupedActivities.firstOrNull { it.primary.id == activity?.id }
                     val detailSource = matchedGroup?.detailedSource ?: activity
+                    val context=LocalContext.current
+                    val garminSource=remember(state.account,context) {
+                        state.account?.let { account ->
+                            GarminPersonalSource(account,GarminCredentialVault(context.applicationContext),
+                                GarminPersonalClient())
+                        }
+                    }
+                    val garminId=activity?.takeIf { it.source=="garmin" }?.id
+                    val onLoadGarminGps:(()->Unit)?=actions.loadGarminGps?.let { load ->
+                        if(garminId!=null && garminSource!=null) ({ load(garminId,garminSource) })
+                        else null
+                    }
                     var automaticDetailAttempted by rememberSaveable(detailSource?.id) { mutableStateOf(false) }
                     var activityTab by rememberSaveable(activity?.id) { mutableIntStateOf(0) }
                     var matteStyle by rememberSaveable(activity?.id) { mutableStateOf(false) }
@@ -289,11 +301,16 @@ private fun NavHostController.openActivity(id: String) {
                         // Garmin is the canonical summary. Never use the Garmin
                         // local summary ID as a remote stream endpoint.
                         if (!automaticDetailAttempted && detailSource != null &&
-                            detailSource.supportsPace && detailSource.source!="garmin" &&
+                            detailSource.supportsPace &&
                             state.account != null && online && !state.busy && !state.needsSignIn &&
                             !state.details.containsKey(detailSource.id)) {
-                            automaticDetailAttempted = true
-                            actions.loadDetail(detailSource.id)
+                            if(detailSource.source!="garmin") {
+                                automaticDetailAttempted=true
+                                actions.loadDetail(detailSource.id)
+                            } else if(onLoadGarminGps!=null) {
+                                automaticDetailAttempted=true
+                                onLoadGarminGps()
+                            }
                         }
                     }
                     if (activity == null) {
@@ -320,7 +337,8 @@ private fun NavHostController.openActivity(id: String) {
                             onTab = { activityTab = it },
                             matte = matteStyle,
                             onToggleMatte = { matteStyle = !matteStyle },
-                            onBack = { nav.popBackStack() }
+                            onBack = { nav.popBackStack() },
+                            onLoadGarminGps = onLoadGarminGps
                         )
                     }
                 }
