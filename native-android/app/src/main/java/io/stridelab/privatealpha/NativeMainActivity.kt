@@ -106,11 +106,13 @@ class NativeMainActivity: ComponentActivity() {
 @Composable internal fun NativeStrideApp(model: TrainingViewModel = viewModel()) {
     val state by model.state.collectAsStateWithLifecycle(context=kotlinx.coroutines.Dispatchers.Main.immediate)
     val online by model.online.collectAsStateWithLifecycle(context=kotlinx.coroutines.Dispatchers.Main.immediate)
-    val actions = remember(model) { NativeActions(model::refresh, model::checkIntervals, model::syncIntervals, model::signOut, model::signIn, model::loadDetail, model::refreshWellness, model.planActions(), syncGarmin=model::syncGarmin, loadGarminGps=model::loadGarminGps) }
+    val actions = remember(model) { NativeActions(model::refresh, {}, {}, model::signOut, model::signIn, model::loadDetail, model::refreshWellness, model.planActions(), syncGarmin=model::syncGarmin, loadGarminGps=model::loadGarminGps) }
     NativeStrideContent(state, online, actions)
 }
 
 /** Presentation boundary allows isolated screenshots without a real session or fake production data. */
+// Two retired-source callback slots are inert, kept temporarily so older
+// Android UI fixtures compile. No production provider or control uses them.
 internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: () -> Unit,
     val syncIntervals: () -> Unit, val signOut: () -> Unit, val signIn: (String, String) -> Unit, val loadDetail: (String) -> Unit = {}, val refreshWellness: () -> Unit = {}, val planning:PlanActions = PlanActions(),
     val syncGarmin: (suspend (GarminPersonalSource) -> GarminConnectionStatus)? = null,
@@ -145,7 +147,7 @@ private fun NavHostController.openActivity(id: String) {
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
     val groupedActivities = remember(state.activities) {
-        ActivityDisplayConsolidation.groups(state.activities)
+        ActivityDisplayConsolidation.groups(ActiveActivitySources.filter(state.activities))
     }
     val visibleActivities = remember(groupedActivities) { groupedActivities.map { it.primary } }
     CompositionLocalProvider(LocalProfileAction provides { nav.openTabRoot("settings") }) {
@@ -244,7 +246,7 @@ private fun NavHostController.openActivity(id: String) {
                                 Text("No saved activities yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             item { SyncStatus(state) }
-                            item { WeeklyDashboard(state.activities, plans = state.plans) }
+                            item { WeeklyDashboard(visibleActivities, plans = state.plans) }
                             item { WellnessOverview(state.wellness, actions.refreshWellness, online && !state.busy && !state.needsSignIn) }
                             item { HistoryOverview(visibleActivities) }
                             if(visibleActivities.count { it.durationS != null } >= 2)
@@ -263,7 +265,7 @@ private fun NavHostController.openActivity(id: String) {
                         if(state.account == null) item { EmptyState("Sign in to view your history", "Only records belonging to your signed-in account are displayed."); Button(onClick = { nav.navigate("auth") }) { Text("Sign in") } }
                         else {
                             item { OutlinedButton(onClick = actions.refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
-                            if(state.activities.isEmpty()) item { EmptyState("No activities cached", "Your saved history will appear here after a successful refresh.") }
+                            if(visibleActivities.isEmpty()) item { EmptyState("No active activities cached", "Garmin activities will appear after syncing from Connections.") }
                             val logged=state.plans.flatMap { p -> p.sessions.filter { it.status=="completed" && (it.linkedActivityId==null || state.activities.none { a->a.id==it.linkedActivityId }) }.map { p to it } }.sortedByDescending { it.second.log?.at }
                             if(logged.isNotEmpty()) item { Text("WORKOUT LOGS · ON THIS DEVICE",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary) }
                             logged.forEach { (p,s) -> item(key="logged-${s.id}") { PlannedWorkoutCard(s) { nav.openWorkout(p.id,s.id) } } }
@@ -276,9 +278,11 @@ private fun NavHostController.openActivity(id: String) {
                     }
                 }
                 composable("activity/{id}") { detail ->
-                    val activity = state.activities.firstOrNull { it.id == detail.arguments?.getString("id") }
-                    // Garmin stays primary in the activity view. Matching
-                    // Intervals.icu streams remain explicitly supplemental.
+                    val activity = state.activities.firstOrNull {
+                        it.id == detail.arguments?.getString("id") &&
+                            ActiveActivitySources.accepts(it.source)
+                    }
+                    // Only enabled sources can open an active detail route.
                     val matchedGroup = groupedActivities.firstOrNull { it.primary.id == activity?.id }
                     val detailSource = matchedGroup?.detailedSource ?: activity
                     val context=LocalContext.current
@@ -329,7 +333,7 @@ private fun NavHostController.openActivity(id: String) {
                             matchedSourceIds = matchedGroup?.let { group ->
                                 (listOf(group.primary) + group.additionalSources).map { it.id }.toSet()
                             } ?: setOf(activity.id),
-                            history = state.activities,
+                            history = visibleActivities,
                             state = state,
                             actions = actions,
                             online = online,
@@ -471,19 +475,6 @@ private fun NavHostController.openActivity(id: String) {
                             item { SignalCard { Text("ACCOUNT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text(state.account!!, style = MaterialTheme.typography.bodyMedium) } }
                             item { TracksideSectionHeader("Connections") }
                             item { GarminSettingsCard(state.account!!,actions.syncGarmin) }
-                            item { SignalCard {
-                                Text("ACTIVITY SOURCE", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                                Text("Intervals.icu",style = MaterialTheme.typography.titleLarge)
-                                val connection = state.intervals
-                                Text(when { connection == null -> "Connection not checked"; !connection.configured -> "Not connected"; connection.status == "error" -> "Connected source needs attention"; else -> "Saved connection · ${connection.status}" }, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                connection?.let {
-                                    Text("Last checked ${timestamp(it.checkedAt)}",style = MaterialTheme.typography.bodySmall)
-                                    it.lastProviderSync?.let { synced -> Text("Source last synchronized ${timestamp(synced.toEpochMilli())}",style = MaterialTheme.typography.bodySmall) }
-                                }
-                                OutlinedButton(onClick = actions.checkIntervals,enabled = !state.busy && !state.needsSignIn,modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Check connection") }
-                                Button(onClick = actions.syncIntervals, enabled = !state.busy && !state.needsSignIn && state.intervals?.configured == true, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Synchronize Intervals.icu") }
-                                Text("Uses your existing source connection. Manage credentials in your existing StrideLab integration settings, then check again here. Native setup and backfill are not yet available.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            } }
                             item { OutlinedButton(onClick = { confirmSignOut = true }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Sign out on this device") } }
                         } else item { Button(onClick = { nav.navigate("auth") }, modifier = Modifier.fillMaxWidth()) { Text("Sign in") } }
                         item { TracksideSectionHeader("Device & data") }
