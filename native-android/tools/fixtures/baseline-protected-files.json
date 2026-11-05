@@ -16,7 +16,7 @@
     "android-app/android/app/src/test/java/io/stridelab/privatealpha/RecordPolicyTest.java": "1316a66ef0a37aa4a912586e48564f6b37eb315bb3fb144fcda62d06fd25bdad",
     "android-app/android/build.gradle": "d07a81f5aa5b192e3428b12ffd659f59f52d081d2208babec7678888aa385c58",
     "android-app/android/settings.gradle": "3b22222ec2a666f7e114b55bd6aca774af8cc74348ac16591294191d1a8049b0",
-    "native-android/app/build.gradle": "291945d8b9fc324344e6efeeec06d6ebe6780e6a18c215ae38349946139328aa",
+    "native-android/app/build.gradle": "96161c50f342407026c802ec37d63ca1443a4f83aae4ce27e30b3183653a9141",
     "native-android/app/src/androidTest/java/io/stridelab/privatealpha/ActivityIntelligenceUiTest.kt": "1d1f93097399098dc8ea854255fd6b5ba2eab6a399fdb482157e2c7eeb007a4e",
     "native-android/app/src/androidTest/java/io/stridelab/privatealpha/CorruptCacheTest.java": "f29e65654b381d5cad21607e5aff4af14aca6d2eed0bb0f512ad410047502f8f",
     "native-android/app/src/androidTest/java/io/stridelab/privatealpha/Engine1RepositoryTest.kt": "c487da3ea4ed1bacc712abe97645829a7068ddf6348d960f7fb050ac36685dcc",

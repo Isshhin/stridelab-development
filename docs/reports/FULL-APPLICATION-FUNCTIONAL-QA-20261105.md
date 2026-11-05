@@ -66,6 +66,6 @@ TCX and GPX imports do not exist. FIT is not an end-to-end user-facing history i
 
 ## Findings and readiness
 
-- **P1 reproduced:** the Android packaged default enabled Engine 1.5 (`strideEngine15Active` defaulted to `true`) contrary to the explicit Engine 1.0 production-default requirement. A focused test failed at the build flag assertion; the candidate correction changes only the default to `false` while retaining explicit research-build override coverage. Broad verification is pending.
+- **P1 fixed, exact-head emulator verification pending:** the Android packaged default enabled Engine 1.5 (`strideEngine15Active` defaulted to `true`) contrary to the explicit Engine 1.0 production-default requirement. The new flag assertion failed against the old fallback and passed after changing only the fallback to `false`. Explicit research-build Engine 1.5 tests remain intact. Focused 56/56, Gradle unit 269/269, pure-JVM 247/247, and tooling 31/31 pass locally.
 - Existing open P2 limitations are Garmin history persistence, live Garmin credential verification, and current-branch physical-phone smoke acceptance.
 - No newly reproduced data-loss, crash, or account-isolation P0 was found during source/test mapping. Final severity counts wait for focused and broad verification of the engine-default correction.

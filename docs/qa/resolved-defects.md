@@ -39,3 +39,13 @@
 - Correction: update only the five reviewed hashes; move the credential contract to a platform-neutral file and include all Garmin pure sources in the JVM harness.
 - Commit: `f4078f40db9d161731b9e13551b963326a62ed9b`.
 - Verified: schema/tooling checks, 247 pure-JVM tests, 269 Gradle unit tests, and exact-head MARC run `41946839417` all passed.
+
+## QA-20261105-R6 — packaged Android default enabled frozen Engine 1.5
+
+- Severity: P1.
+- Original failure: a new unqualified Trackside draft used Engine 1.5 because `strideEngine15Active` defaulted to `true`, contrary to the required Engine 1.0 production default.
+- Root cause: the build flag used the integration-candidate value as its fallback instead of requiring an explicit research-build property.
+- Correction: default `ENGINE15_ACTIVE` to `false`; retain the explicit `-PstrideEngine15Active=true` path and all frozen Engine 1.5 tests.
+- Regression: `TracksideCoachingIntegrationTest.packagedDefaultSelectsTheConfiguredPolicy` now asserts the packaged flag is false and the generated policy/version are Engine 1.0.
+- RED/GREEN: the new flag assertion failed against the prior default, then passed after the one-line fallback correction.
+- Verified so far: focused engine/default test, 56 focused reliability tests, 269/269 Gradle unit tests, 247/247 pure-JVM tests, 31/31 tooling tests and catalog validation. Exact-head MARC emulator verification remains required before final acceptance.
