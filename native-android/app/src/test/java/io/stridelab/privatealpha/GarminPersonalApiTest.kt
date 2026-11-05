@@ -51,7 +51,7 @@ class GarminPersonalApiTest {
     }
 
     @Test fun officialActivitySearchNormalizesProvenanceAndKeepsUpstreamId() {
-        val body="""[{"activityId":123,"activityUUID":{"uuid":"upstream-uuid"},"activityName":"Morning Run","startTimeGMT":"2026-11-04T22:30:00.0","activityType":{"typeKey":"running"},"distance":5012.5,"duration":1800.0,"movingDuration":1750.0,"averageHR":147.0}]"""
+        val body="""[{"activityId":123,"activityUUID":{"uuid":"upstream-uuid"},"activityName":"Morning Run","startTimeGMT":"2026-11-04T22:30:00.0","activityType":{"typeKey":"running"},"distance":5012.5,"duration":1800.0,"movingDuration":1750.0,"averageHR":147.0,"averageSpeed":2.8}]"""
         val http=FakeTransport(GarminHttpResponse(200,body))
         val client=GarminPersonalClient(http){now}
         val activities=client.activities(GarminBearerToken("token",now.plusSeconds(100)),0,20)
@@ -62,6 +62,7 @@ class GarminPersonalApiTest {
         assertEquals("running",normalized.activityType)
         assertEquals(Instant.parse("2026-11-04T22:30:00Z"),normalized.startedAt)
         assertEquals(5012.5,normalized.distanceMeters!!,0.0)
+        assertEquals(2.8,normalized.averageSpeedMetersPerSecond!!,0.0)
         assertEquals("Bearer token",http.request.headers["Authorization"])
         assertTrue(http.request.url.contains("start=0&limit=20"))
     }
