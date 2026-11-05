@@ -70,9 +70,14 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 } catch (_: Exception) { rejected++ } // Retain invalid raw records; never invent replacement metrics.
             }
         }
-        val details = mutable.value.details.toMutableMap()
+        val allowedIds=records.mapTo(HashSet()) { it.id }
+        val details = mutable.value.details.filterKeys { it in allowedIds }.toMutableMap()
         store.readableDatabase.query("records",arrayOf("record_id","payload"),"account=? AND kind=?",arrayOf(account,"activity_detail"),null,null,null).use { c ->
-            while(c.moveToNext()) if(!details.containsKey(c.getString(0))) runCatching { details[c.getString(0)] = ActivityDetail.parse(JSONObject(c.getString(1)),account,c.getString(0)) }
+            while(c.moveToNext()) {
+                val id=c.getString(0)
+                if(id in allowedIds && !details.containsKey(id))
+                    runCatching { details[id]=ActivityDetail.parse(JSONObject(c.getString(1)),account,id) }
+            }
         }
         val wellness=mutableListOf<WellnessRecord>()
         store.readableDatabase.query("records",arrayOf("payload"),"account=? AND kind=?",arrayOf(account,"wellness"),null,null,null).use { c ->
