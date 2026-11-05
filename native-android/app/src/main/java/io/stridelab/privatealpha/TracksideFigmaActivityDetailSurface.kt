@@ -194,7 +194,15 @@ private fun ActivitySheetContent(
             }
         }
 
-        if (online && !state.busy && !state.needsSignIn) {
+        if(activity.source=="garmin" && recorded==null) {
+            Spacer(Modifier.height(18.dp))
+            Text(
+                "Garmin summary only. GPS traces, sample charts and laps are not yet imported; no data is estimated.",
+                modifier=Modifier.fillMaxWidth().padding(horizontal=17.dp),
+                color=TracksidePalette.textMuted,fontSize=11.sp
+            )
+        }
+        if (activity.source!="garmin" && online && !state.busy && !state.needsSignIn) {
             Spacer(Modifier.height(18.dp))
             OutlinedButton(
                 onClick = { actions.loadDetail(activity.id) },
