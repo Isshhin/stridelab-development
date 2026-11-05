@@ -31,7 +31,7 @@ Branch: `fix/trackside-usability-garmin-20261105`. Initial source checkpoint: `d
 
 The owner provided a screenshot showing **Santa Mesa Running** at the same local start time and distance (9.56 km), with Garmin duration 1:03:36 versus Intervals.icu duration 1:03:27. This confirms the live Garmin source appeared in local Activity history, but does not prove every imported record is correct or complete.
 
-- `ActivityDisplayConsolidation.kt`: strictly match Garmin and Intervals.icu **running** activities only when start times differ by <=45 seconds, durations by <=max(30 seconds,1%), distances by <=max(30 m,0.5%), and there is a unique 1:1 candidate in both directions. Prefer the detailed Intervals.icu record; retain both originals unchanged.
+- `ActivityDisplayConsolidation.kt`: strictly match Garmin and Intervals.icu **running** activities only when start times differ by <=60 seconds, durations by <=max(30 seconds,1%), distances by <=max(30 m,0.5%), and there is a unique 1:1 candidate in both directions. Prefer **Garmin** for the visible summary, dates, metrics and training totals; retain matched Intervals.icu as a clearly labeled **supplemental source for GPS/charts**. Retain both originals unchanged.
 - `NativeMainActivity.kt`, `TracksideToday.kt`: show a single Activity card/Today item with combined source label for a confidently matched pair.
 - `DashboardSummary.kt` and `PlanBuilder.kt`: count that run once in seven-day totals and 28-day mileage seeding, respectively.
 - `ActivityDisplayConsolidationTest.kt`: four synthetic tests covering same-run one-card + total, 28-day volume, genuinely distinct runs, and ambiguous near matches. **Unexecuted** until owner runs targeted Gradle tests.
@@ -60,6 +60,17 @@ if ($LASTEXITCODE -eq 0) { & $gradle --no-daemon :app:assembleDebug --console=pl
 
 Then use the already configured emulator (without clearing existing data) to confirm Garmin sync works, status messages distinguish errors, Santa Mesa appears **once** with both source labels, and 7-day/28-day totals are not doubled. Verify a second successful sync adds **zero** copies of previously saved Garmin IDs. Run `TrainingRepositoryTest` connected Android instrumentation when convenient; no code-only claim substitutes for that result.
 
+## User-selected source precedence — Garmin first (2026-11-05)
+
+The user explicitly prefers **Garmin as the primary activity source** when a run is confidently paired across Garmin and Intervals.icu.
+
+- `ActivityDisplayConsolidation.groups` now keeps the Garmin record as `primary` for the Activity list, Today, seven-day summaries and recent-mileage planning hints; primary values are the actual Garmin record's title, start, distance, elapsed time and available source metrics. Group labels read **Garmin + Intervals.icu**.
+- The matched Intervals.icu record is retained separately in the offline database and exposed through `detailedSource` only for recorded GPS, laps, detailed charts or older manually linked workouts. The UI labels those streams **Intervals.icu** rather than misattributing them to Garmin.
+- On a Garmin-first Activity Detail, the existing Intervals.icu backend stream ID is used when available; the locally hashed Garmin summary ID is never sent to the Intervals.icu detail API. A Garmin-only summary continues to show **no GPS**.
+- Existing manual plan links to either source ID are still discoverable after the presentation preference changes. No source data is deleted, overwritten or silently merged.
+- `ActivityDisplayConsolidationTest` now asserts Garmin-first values, combined source order, preserved independent metrics, Intervals-only behavior, and no double-counting.
+- **Verification pending:** targeted unit build, Android compile, loaded Intervals.icu GPS under Garmin-first detail, source attribution, existing manual links, and offline reopen. Do not mark accepted until verified.
+
 ## Required manual verification before DONE
 
 1. From Android Studio on this branch, fetch/pull exact source head, sync Gradle with JDK 17 / Gradle 8.13 / Android API 36.
@@ -73,6 +84,6 @@ Then use the already configured emulator (without clearing existing data) to con
 ## Explicit limitations and safety
 
 - User-triggered local **summary** sync only: this does not create Garmin detail streams, mapped routes, FIT files, training effects, canonical cloud backfill or automatic planned-workout matching.
-- **Cross-provider display consolidation added after owner emulator report:** When Garmin and Intervals.icu runs have a strict, unambiguous one-to-one time/duration/distance match, Activity and Today present **one card with both source labels**, preferring the Intervals.icu detail record. Neither original record is deleted, overwritten, merged on disk, or auto-linked to a planned workout. Ambiguous matches, missing metrics, and genuinely different workouts remain separate. The 7-day dashboard and Plan Builder recent mileage use the same logical run count. This functionality is committed but not yet exact-head build/device verified.
+- **Cross-provider display consolidation added after owner emulator report:** When Garmin and Intervals.icu runs have a strict, unambiguous one-to-one time/duration/distance match, Activity and Today present **one card with both source labels**, preferring the **Garmin** summary while using Intervals.icu only as a labeled source of additional streams when available. Neither original record is deleted, overwritten, merged on disk, or auto-linked to a planned workout. Ambiguous matches, missing metrics, and genuinely different workouts remain separate. The 7-day dashboard and Plan Builder recent mileage use the same logical run count. This functionality is committed but not yet exact-head build/device verified.
 - Garmin's Personal API is meant for the key owner's individual use, not a multi-user public product. Treat any public release separately under authorized Garmin developer agreements.
 - CI on this QA branch does not automatically run the integrated Windows workflow. An actual exact-head build and emulator run are necessary before marking E01, E02 or history integration resolved.
