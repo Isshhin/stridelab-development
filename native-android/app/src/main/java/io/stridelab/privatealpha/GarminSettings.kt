@@ -53,8 +53,8 @@ internal fun GarminSettingsCard(
         } else {
             Button(onClick={
                 operation {
-                    val import=syncGarmin ?: throw IllegalStateException("Garmin history sync is not available here")
-                    import(source)
+                    val syncAction=syncGarmin ?: throw IllegalStateException("Garmin history sync is not available here")
+                    syncAction(source)
                 }
             },enabled=!busy && syncGarmin!=null,modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)
                 .testTag("garmin-sync")) { Text("Sync to Activity") }
