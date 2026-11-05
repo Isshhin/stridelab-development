@@ -1,6 +1,6 @@
 # StrideLab Trackside 3.0 — Engine 1.5 manual remediation roadmap (2026-11-05)
 
-**Status: MASTER ROADMAP. Garmin summary sync and cross-provider display-grouping source changes are staged; exact-head build and emulator regression are NOT YET VERIFIED. Other items remain pending.**  
+**Status: MASTER ROADMAP. User retired Intervals.icu from the active native app; Garmin summary/FIT GPS and OSM map are staged for exact-head build and emulator acceptance. Legacy records are preserved. Other findings remain pending.**  
 **Authority:** [Latest approved product and quality-session requirements](engine15-primary-plan-quality-requirements-20261105.md), followed by latest explicit user direction, approved Trackside Figma, current QA and earlier safety handoffs. Older Engine-1.0-default instructions are historical and superseded for product intent.
 
 **Repository:** `Isshhin/stridelab-development`. Reviewed branch `fix/trackside-usability-garmin-20261105` at `646f353bc09511dfaa6dcb9c629c034dcf68fc54`. Engine 1.5 PR #37 remains open/draft/unmerged; Engine 2.x stays untouched.
