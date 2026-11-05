@@ -22,6 +22,18 @@ data class ActivityRecord(
     val durationLabel: String get() = durationS?.let { duration(it) } ?: "Not recorded"
     // Do not infer running pace from elapsed time: stopped time and discipline can make it misleading.
     val paceLabel: String get() = recordedPace?.let { "${duration(it)} /km" } ?: "Not recorded"
+    /** Historical Garmin summaries may lack averageSpeed but include moving time and distance.
+     * This is a calculated MOVING pace, never presented as Garmin's average pace. */
+    val garminMovingPaceSPerKm: Double? get() {
+        if(source!="garmin" || !supportsPace || recordedPace!=null) return null
+        val meters=distanceM?.takeIf { it.isFinite() && it>0 } ?: return null
+        val seconds=movingTimeS?.takeIf { it.isFinite() && it>0 } ?: return null
+        return (1000.0*seconds/meters).takeIf { it.isFinite() && it>0 }
+    }
+    val detailPaceHeading:String get()=if(garminMovingPaceSPerKm!=null)
+        "MOVING PACE" else "AVG PACE"
+    val detailPaceLabel:String get()=recordedPace?.let { "${duration(it)} /km" }
+        ?: garminMovingPaceSPerKm?.let { "${duration(it)} /km" } ?: "Not recorded"
     companion object {
         fun duration(seconds: Double): String {
             val total = kotlin.math.round(seconds).toLong()
