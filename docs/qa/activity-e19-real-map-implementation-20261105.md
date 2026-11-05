@@ -20,6 +20,19 @@ Activity Detail's decorative street grid must become a real, interactive, geogra
 - `TracksideFigmaActivityDetailSurface.kt`: passes the existing `online` connectivity state into the hero. The glass/matte switch and sheet-height issues remain separate E14/E12 work; no unexpected UI changes to them.
 - `RecordedGpsRouteTest.kt`: four source-data tests covering exact GeoJSON coordinates, missing/large time gaps, antimeridian crossings and Garmin summary/no-GPS behavior.
 
+## Garmin-only GPS follow-up source checkpoint (2026-11-05)
+
+The first owner emulator showed the genuine Garmin **Batis Running** summary with **NO RECORDED GPS TRACK**. The original Garmin summary search endpoint doesn't contain route coordinates. This is a source-data gap, not a reason to draw a fake map.
+
+A new **owner-initiated/on-open** Garmin FIT detail path has now been committed:
+- Garmin Personal API authenticated activity ZIP download, strict size/path validation and FIT checksum parsing
+- Legacy UUID-to-numeric Garmin activity ID lookup without rewriting original activity summaries
+- Source/account/start time/distance/duration checks before account-scoped offline `ActivityDetail` persistence
+- Automatic single attempt when opening Garmin-only Activity Detail and a manual **Load Garmin GPS** retry
+- Genuine FIT GPS points now feed the existing MapLibre map when available; no GPS still means no map
+
+This **has not been compiled or validated against a live Garmin FIT download**, and E19 remains OPEN. See [Garmin integration handoff](garmin-e01-e02-offline-history-implementation-20261105.md). Garmin Personal API keys are for personal use; public multiple-user integrations require appropriate Garmin API agreements.
+
 ## Important limitations
 
 1. Garmin E01/E02 imported activity **summaries**, which contain no lat/lon track. They cannot show a mapped Garmin-only route. Garmin detailed track import remains separate stage 3 and must use authorized real sources. An E18 matched Intervals.icu record can show a route when it has actual detailed GPS samples.
