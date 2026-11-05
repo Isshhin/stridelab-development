@@ -28,17 +28,14 @@ internal fun GarminSettingsCard(accountId:String) {
         busy=true
         scope.launch {
             status=try { withContext(Dispatchers.IO) { block() } }
-            catch(error:Exception) { GarminConnectionStatus("error",error=error.message ?: "Garmin connection failed") }
+            catch(error:Exception) { GarminConnectionStatus.fromError(error) }
             finally { busy=false }
         }
     }
     SignalCard(Modifier.testTag("garmin-connection-card")) {
         Text("GARMIN",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
-        Text(when(status.state) {
-            "connected" -> "Connected"
-            "error" -> "Authentication expired or needs attention"
-            else -> "Not connected"
-        },style=MaterialTheme.typography.titleLarge,modifier=Modifier.testTag("garmin-status"))
+        Text(status.heading(),style=MaterialTheme.typography.titleLarge,
+            modifier=Modifier.testTag("garmin-status"))
         status.lastSuccessfulSync?.let { Text("Last successful check ${it}",style=MaterialTheme.typography.bodySmall) }
         status.error?.let { Text(it,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall) }
         if(status.state=="not_connected") {
