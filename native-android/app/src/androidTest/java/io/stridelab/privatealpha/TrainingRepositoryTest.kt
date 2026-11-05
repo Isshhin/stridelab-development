@@ -350,11 +350,6 @@ class TrainingRepositoryTest {
                 .put("samples",JSONArray().put(JSONObject().put("activity_id",id).put("sample_index",0).put("elapsed_s",0).put("heart_rate",145)))
                 .put("laps",JSONArray())
         }
-        override fun intervals(session: NativeSession, action: String): JSONObject {
-            connected()
-            if(action == "status") return JSONObject().put("configured",configured).put("syncStatus",if(configured) "connected" else "disconnected")
-            syncCount++; return JSONObject().put("ok",true)
-        }
         override fun signOut(session: NativeSession) { connected(); logoutEntered?.countDown(); if(finishLogout != null) check(finishLogout!!.await(10,TimeUnit.SECONDS)) }
     }
 }
