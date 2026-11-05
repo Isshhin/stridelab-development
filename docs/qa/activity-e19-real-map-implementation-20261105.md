@@ -1,4 +1,6 @@
 # E19 — Geographic OpenStreetMap-backed Activity Map
+
+**CURRENT DECISION (2026-11-05): Garmin is the only active wearable provider in native Android.** Intervals.icu activity/details are now archival and excluded from the UI; the geographic map can render genuine Garmin FIT GPS when downloaded and verified. Historical references below to supplemental Intervals.icu routes are superseded. [Retirement handoff](intervals-icu-native-retirement-20261105.md).
 Date: 2026-11-05
 
 **Status: SOURCE IMPLEMENTATION COMMITTED; exact-head Gradle build, tests, network map load and owner emulator acceptance NOT RUN.**
