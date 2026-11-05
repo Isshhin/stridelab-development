@@ -9,6 +9,7 @@ Read [README.md](README.md) before continuing this work. Verification below appl
 - Trackside interaction fix: `12c75faf31be6e1382d644485585d894b95ec60d`
 - Garmin/QA foundation: `d0d6224efd8b3743f4875960700dd44579acd371`
 - Exact final branch head verified on Windows: `8dc606fec3209824fc02f3ba5196290be2b11705`
+- Full-audit application/test correction head: `a57bedd0a4bca7112308cd6f453056b925247af7` (Engine 1.0 packaged default; final exact-head workflow pending at report commit time).
 
 ## Exact-head Windows evidence
 
@@ -33,6 +34,8 @@ The first authorized dispatch at `d0d6224` failed before Android execution becau
 - Outdated navigation/visual assertions now target the current Trackside routes without ignored tests.
 - Garmin Personal API foundation uses the official endpoint contract, account-scoped Android Keystore/AES-GCM storage, token lifecycle/error handling, provenance and explicit dedupe boundaries.
 - Permanent QA navigation, defect history, regression index, environment and verification procedures live in `docs/qa/`.
+- Full implemented-feature and critical-journey inventory is in `docs/reports/FULL-APPLICATION-FUNCTIONAL-QA-20261105.md`.
+- Engine 1.0 is now the packaged default; Engine 1.5 requires an explicit research/integration build property.
 
 ## Unresolved work and blockers
 

@@ -4,7 +4,8 @@
 
 - Previous QA integration baseline: `9d3c559e4b92a366a3b52934b19ea37fb0e65084`.
 - Approved Trackside source branch at audit start: `origin/design/trackside3-figma-parity-no-build-20261103` = `0b06bb894d791ee7c51f355f79d7c32316cb0e3a`.
-- Follow-up audit baseline and final exact-head evidence target: `8dc606fec3209824fc02f3ba5196290be2b11705` on `fix/trackside-usability-garmin-20261105`.
+- Follow-up audit baseline: `8dc606fec3209824fc02f3ba5196290be2b11705` on `fix/trackside-usability-garmin-20261105`.
+- Final application/test correction head before this report: `a57bedd0a4bca7112308cd6f453056b925247af7`.
 - The design head is an ancestor of the verified integration/fix head; no reset, force-push, merge, release build, signing change, or runner change was performed.
 - Open related pull-request boundary: draft PR [#37](https://github.com/Isshhin/stridelab-development/pull/37), Engine 1.5 versioned foundation `ff9cfdd03a9fe7ff7ff1ef7b5ccc37d8c9296ce6` into `integration/native-pre-trackside3-verified-20261030`. The current QA branch has no open PR and nothing was merged.
 
@@ -68,4 +69,57 @@ TCX and GPX imports do not exist. FIT is not an end-to-end user-facing history i
 
 - **P1 fixed, exact-head emulator verification pending:** the Android packaged default enabled Engine 1.5 (`strideEngine15Active` defaulted to `true`) contrary to the explicit Engine 1.0 production-default requirement. The new flag assertion failed against the old fallback and passed after changing only the fallback to `false`. Explicit research-build Engine 1.5 tests remain intact. Focused 56/56, Gradle unit 269/269, pure-JVM 247/247, and tooling 31/31 pass locally.
 - Existing open P2 limitations are Garmin history persistence, live Garmin credential verification, and current-branch physical-phone smoke acceptance.
-- No newly reproduced data-loss, crash, or account-isolation P0 was found during source/test mapping. Final severity counts wait for focused and broad verification of the engine-default correction.
+- No newly reproduced data-loss, crash, or account-isolation P0 was found during source/test mapping.
+
+### Confirmed defect accounting
+
+| Classification | Count | Items |
+|---|---:|---|
+| Fixed application defects | 5 | Running occupied-day P1; Activity anchored sheet/Back P1; Activity tab semantics P2; outdated route assertions P2; Engine 1.0 packaged default P1 |
+| Resolved QA gate defect | 1 | Protected-source manifest / pure-JVM boundary; not an application defect |
+| Unresolved P0 | 0 | None known |
+| Unresolved P1 | 0 | None known after exact-head verification succeeds |
+| Unresolved P2 | 3 | Garmin history persistence; live Garmin credential verification; physical-phone smoke |
+| Unresolved P3 | 0 | None recorded |
+
+Critical-journey status: 6 automated PASS, 2 PARTIAL, 0 automated FAIL. “Partial” is used for hosted authentication and the incomplete provider/file-import journey; it is not upgraded from fixture evidence.
+
+### Engine boundary
+
+- The packaged fallback is Engine 1.0 (`ENGINE15_ACTIVE=false`).
+- Engine 1.5 remains reachable only through an explicit build property for frozen research/integration verification; its existing matrices are unchanged.
+- Rollback tests prove only new drafts change routing; saved Engine 1.5 snapshots and prescriptions decode unchanged.
+- No Engine 2.x production or research source was modified by this audit.
+
+### Garmin and import findings
+
+- Garmin tests cover the official Personal API transport contract, token expiry/re-exchange, error mapping, activity normalization, dedupe classification, account isolation, disconnect and encrypted credential recreation.
+- The tests use controlled transports. No live key, Garmin account, device, or athlete record was used.
+- FIT bounds/CRC/profile decoding, original-file cache and safe URI helpers pass; the app does not expose a complete picker/share-to-history workflow.
+- TCX and GPX are unimplemented.
+- Intervals.icu state/sync is fixture-tested but not live-account verified.
+
+### Offline and persistence findings
+
+- Synthetic offline repository recreation passes for plans, workout drafts/logs, activity detail/history, wellness, feedback, locks, manual links, templates and outbox operations.
+- Corrupt database/session/cache and interrupted write/ack paths fail closed or preserve the last good data in their named tests.
+- Account-switch, wrong-owner refresh/restore/ack and Garmin vault boundaries have dedicated tests.
+- These are automated SQLite/Keystore/failure-injection results, not proof against every device or OS failure mode.
+
+### Physical-phone smoke checklist
+
+Do not uninstall, clear data, change package identity, or replace signing. Compare package/version/signer read-only before installation.
+
+1. Launch the existing app and verify the prior account remains private and available only after valid authentication.
+2. Open each root tab; open a Today workout and Activity card; verify Back returns to the owning tab and prior list position.
+3. Build an Engine 1.0 plan through running plus one secondary discipline; confirm occupied-day selection does not move another session; approve and reopen it offline.
+4. Move one future workout, cancel another move, pause/cancel, lock/unlock, and reopen Training to verify only the intended item changed.
+5. Record one valid set, leave/reopen the draft, reject an empty completion, then complete and reopen history.
+6. Open Activity Details; drag between both anchors, scroll each tab, confirm the map remains behind the sheet, use the accessibility action, and verify first Back collapses.
+7. At 360dp/130% and 412dp/150% equivalents, verify keyboard/forms, Continue/Save/Back actions and bottom navigation remain reachable.
+8. Toggle airplane mode after a successful sync; reopen cached plans, logs and activities; create a supported local change; restore connectivity and verify no duplicate or cross-account data.
+9. If an owner Personal API key is intentionally supplied, test Garmin connect, paging, expiry recovery, offline error, disconnect and restart without representing fetched pages as imported history.
+
+## Verdict
+
+**READY WITH DOCUMENTED LIMITATIONS**, contingent on the final exact-head MARC workflow passing. Automated evidence supports personal emulator testing and a cautious phone smoke pass. It does not establish live Garmin, end-to-end FIT/TCX/GPX import, hosted authentication, or complete application correctness.
