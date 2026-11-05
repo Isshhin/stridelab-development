@@ -24,6 +24,7 @@ Read this file before starting QA work. This directory is the durable index; det
 - [Verification playbook](verification-playbook.md)
 - [Environment and MARC runner](environment.md)
 - [Current handoff](current-handoff.md)
+- [Prioritized manual Engine 1.5 remediation roadmap](engine15-manual-remediation-roadmap-20261105.md)
 
 Authoritative current-task sources:
 
