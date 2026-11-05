@@ -48,11 +48,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             mutable.value = TrainingState(initializing = true, account = account)
             if (account != null) {
                 loadCache(account)
-                val cachedConnection = preferences.getString("intervals.$account",null)
-                if(cachedConnection != null) runCatching {
-                    val cached = JSONObject(cachedConnection)
-                    mutable.value = mutable.value.copy(intervals = IntervalConnection.parse(cached,cached.getLong("checkedAt")))
-                }
+                // Retired Intervals.icu connection settings remain untouched on
+                // disk but can no longer trigger a provider connection.
                 if(vault.read(account) == null) mutable.value = mutable.value.copy(needsSignIn = true, message = "Sign in again to synchronize. Your saved activities remain available.")
             }
             mutable.value = mutable.value.copy(initializing = false)
@@ -67,8 +64,11 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         // No fixed history cap. Stream cursor rows without materializing raw JSON twice.
         store.readableDatabase.query("records", arrayOf("payload"), "account=? AND kind=?", arrayOf(account, "activity"), null, null, null).use { c ->
             while(c.moveToNext()) {
-                try { records += ActivityRecord.parse(c.getString(0), account) }
-                catch (_: Exception) { rejected++ } // Retain invalid raw records; never invent replacement metrics.
+                try {
+                    val record=ActivityRecord.parse(c.getString(0),account)
+                    if(ActiveActivitySources.accepts(record.source))records+=record
+                    // Preserve retired source rows in the original SQLite cache.
+                } catch (_: Exception) { rejected++ } // Retain invalid raw records; never invent replacement metrics.
             }
         }
         val details = mutable.value.details.toMutableMap()
@@ -340,8 +340,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 val parsed = ActivityRecord.parse(raw.toString(), account)
                 require((last ?: before)?.let { parsed.isBefore(it) } != false) { "History page is not in stable cursor order" }
                 require(seen.add(parsed.id)) { "Repeated page; synchronization stopped safely" }
-                // These server rows have no contractual revision token. Never fabricate one for edits.
-                rows += TrainingStore.RemoteRecord(parsed.id, raw.toString(), null)
+                // Advance the history cursor across retired-source rows,
+                // but never re-import new Intervals.icu activities.
+                if(ActiveActivitySources.accepts(parsed.source))
+                    rows += TrainingStore.RemoteRecord(parsed.id, raw.toString(), null)
                 last = parsed
             }
             val completed = page.length() == 0 // A short page can reflect a lower server page limit.
@@ -458,21 +460,6 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             mutable.value=mutable.value.copy(details=mutable.value.details+(id to parsed))
         }
 
-    private fun connection(): IntervalConnection {
-        val current = authenticated { gateway.intervals(it,"status") }
-        val parsed = IntervalConnection.parse(current,System.currentTimeMillis())
-        val account = mutable.value.account ?: throw IllegalStateException("Sign in first")
-        check(preferences.edit().putString("intervals.$account",parsed.encode()).commit())
-        mutable.value = mutable.value.copy(intervals = parsed)
-        return parsed
-    }
-    suspend fun checkIntervals() = operation("Checking Intervals.icu…") { connection() }
-    suspend fun syncIntervals() = operation("Synchronizing Intervals.icu…") {
-        if(!connection().configured) throw ServiceFailure(409,"Connect Intervals.icu in your existing integration settings before synchronizing.")
-        val result = authenticated { gateway.intervals(it,"sync") }
-        if(result.optBoolean("ok",false).not() || result.has("error")) throw java.io.IOException("Integration sync did not complete")
-        fetchActivities()
-    }
     internal fun close() { scope.cancel(); store.close() }
 
     suspend fun signOut() = operation("Signing out…") {
