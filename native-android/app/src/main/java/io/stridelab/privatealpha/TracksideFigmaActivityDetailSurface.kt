@@ -38,6 +38,8 @@ import kotlin.math.roundToInt
 internal fun TracksideFigmaActivityDetailSurface(
     activity: ActivityRecord,
     recorded: ActivityDetail?,
+    detailSource: ActivityRecord,
+    matchedSourceIds: Set<String>,
     history: List<ActivityRecord>,
     state: TrainingState,
     actions: NativeActions,
@@ -46,6 +48,8 @@ internal fun TracksideFigmaActivityDetailSurface(
     onTab: (Int) -> Unit,
     matte: Boolean,
     onToggleMatte: () -> Unit,
+    detailSource: ActivityRecord = activity,
+    matchedSourceIds: Set<String> = setOf(activity.id),
     onBack: () -> Unit
 ) {
     BoxWithConstraints(
@@ -94,6 +98,8 @@ internal fun TracksideFigmaActivityDetailSurface(
                         },
                     activity = activity,
                     recorded = recorded,
+                    detailSource = detailSource,
+                    matchedSourceIds = matchedSourceIds,
                     history = history,
                     state = state,
                     actions = actions,
@@ -106,6 +112,7 @@ internal fun TracksideFigmaActivityDetailSurface(
         ) {
             TracksideParityActivityMapHero(
                 detail = recorded,
+                gpsSourceLabel = detailSource.sourceLabel,
                 onBack = collapseOrBack,
                 heightDp = maxHeight,
                 onChangeStyle = onToggleMatte,
@@ -163,7 +170,7 @@ private fun ActivitySheetContent(
                     }
                     if (DashboardSummary.isRun(activity)) {
                         Spacer(Modifier.height(12.dp))
-                        ActivityPlanLink(state, activity, actions.planning)
+                        ActivityPlanLink(state, activity, actions.planning, matchedSourceIds)
                     }
                     Spacer(Modifier.height(18.dp))
                     Text("RECORDING DETAILS", fontSize = 14.sp,
@@ -172,6 +179,9 @@ private fun ActivitySheetContent(
                     Text(activity.sourceLabel + " · " + activity.dateLabel,
                         color = TracksidePalette.textMuted, fontSize = 12.sp)
                     Spacer(Modifier.height(13.dp))
+                    if(detailSource.id!=activity.id)
+                        Text("Supplemental recorded streams: " + detailSource.sourceLabel,
+                            color = TracksidePalette.textMuted, fontSize = 11.sp)
                     Text("Source-derived values only. Missing GPS, splits, heart rate and training effect are not estimated.",
                         color = TracksidePalette.textMuted, fontSize = 11.sp)
                 }
@@ -195,7 +205,15 @@ private fun ActivitySheetContent(
             }
         }
 
-        if(activity.source=="garmin" && recorded==null) {
+        if(activity.source=="garmin" && detailSource.id!=activity.id) {
+            Spacer(Modifier.height(14.dp))
+            Text(
+                "Garmin is the primary activity source. GPS, splits and charts come from matching ${detailSource.sourceLabel} records when available; Garmin summary metrics are not replaced.",
+                modifier=Modifier.fillMaxWidth().padding(horizontal=17.dp),
+                color=TracksidePalette.textMuted,fontSize=11.sp
+            )
+        }
+        if(activity.source=="garmin" && recorded==null && detailSource.id==activity.id) {
             Spacer(Modifier.height(18.dp))
             Text(
                 "Garmin summary only. GPS traces, sample charts and laps are not yet imported; no data is estimated.",
@@ -203,10 +221,10 @@ private fun ActivitySheetContent(
                 color=TracksidePalette.textMuted,fontSize=11.sp
             )
         }
-        if (activity.source!="garmin" && online && !state.busy && !state.needsSignIn) {
+        if (detailSource.source!="garmin" && online && !state.busy && !state.needsSignIn) {
             Spacer(Modifier.height(18.dp))
             OutlinedButton(
-                onClick = { actions.loadDetail(activity.id) },
+                onClick = { actions.loadDetail(detailSource.id) },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 17.dp)
                     .testTag("activity-refresh-streams")
             ) {
