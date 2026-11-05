@@ -47,6 +47,7 @@ internal open class GarminException(message:String,cause:Throwable?=null):Except
 internal class GarminAuthenticationException(message:String):GarminException(message)
 internal class GarminRateLimitException:GarminException("Garmin rate limit reached; try again later")
 internal class GarminServiceException(status:Int):GarminException("Garmin service request failed with status $status")
+internal class GarminTokenException:GarminException("Garmin returned an invalid access token")
 internal class GarminProtocolException(message:String):GarminException(message)
 internal class GarminNetworkException(message:String,cause:Throwable):GarminException(message,cause)
 
@@ -129,7 +130,7 @@ internal class GarminPersonalClient(
         if(parts.size!=3)throw IllegalArgumentException()
         val payload=String(Base64.getUrlDecoder().decode(parts[1]),StandardCharsets.UTF_8)
         Instant.ofEpochSecond(JSONObject(payload).getLong("exp"))
-    } catch(error:Exception) { throw GarminProtocolException("Garmin returned a malformed access token") }
+    } catch(error:Exception) { throw GarminTokenException() }
 
     private fun decodeActivity(json:JSONObject):GarminActivity {
         fun metric(vararg keys:String):Double?=keys.firstNotNullOfOrNull { key ->
