@@ -1,5 +1,7 @@
 # Engine 1.5 — Batch D verification and Batch E Trackside integration handoff
 
+> **HISTORICAL HANDOFF — activation rule superseded (2026-11-05).** This document originally prohibited enabling Engine 1.5 and specified Engine 1.0 as default during the candidate stage. The user's latest approved Trackside requirements now specify Engine 1.5 primary and Engine 1.0 controlled fallback: [current contract](qa/engine15-primary-plan-quality-requirements-20261105.md). Preserve this handoff for its historical technical and safety findings, but do not use its earlier activation prohibition as the current product requirement. Code and verification remain pending.
+
 **Owner branch:** `feature/engine15-versioned-foundation-20261103` · **Draft PR:** [#37](https://github.com/Isshhin/stridelab-development/pull/37) · **Trackside draft:** [#36](https://github.com/Isshhin/stridelab-development/pull/36)
 
 **Do not merge, release or enable Engine 1.5 in Plan Builder from this document.** This file is a verifiable implementation handoff for a private, review-only candidate. It is not evidence that prescriptions improve physiological performance.
