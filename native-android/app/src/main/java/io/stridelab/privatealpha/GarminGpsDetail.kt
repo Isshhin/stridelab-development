@@ -1,0 +1,75 @@
+package io.stridelab.privatealpha
+
+import org.json.JSONArray
+import org.json.JSONObject
+import java.time.Duration
+import kotlin.math.abs
+import kotlin.math.max
+
+/** Verified FIT records become an ActivityDetail for the existing Garmin summary ID. */
+internal object GarminGpsDetail {
+    fun payload(account:String,summary:ActivityRecord,fit:FitActivityDecoder.Activity,
+                fetchedAt:Long):JSONObject {
+        require(summary.source=="garmin")
+        require(fit.identity.accountId==account)
+        require(DashboardSummary.isRun(summary) &&
+            fit.sport.lowercase(java.util.Locale.ROOT) in setOf("running","trail_running","walking","hiking")) {
+            "FIT sport does not match the cached Garmin running summary"
+        }
+        require(abs(Duration.between(summary.startedAt,fit.startedAt).seconds)<=120) {
+            "Downloaded FIT activity does not match the Garmin start time"
+        }
+        val sourceDistance=summary.distanceM
+        val fitDistance=fit.distanceM
+        if(sourceDistance!=null && fitDistance!=null) {
+            require(abs(sourceDistance-fitDistance)<=max(200.0,sourceDistance*0.03)) {
+                "Downloaded FIT distance does not match Garmin's saved summary"
+            }
+        }
+        val sourceElapsed=summary.durationS
+        val fitElapsed=fit.elapsedS
+        if(sourceElapsed!=null && fitElapsed!=null) {
+            require(abs(sourceElapsed-fitElapsed)<=max(120.0,sourceElapsed*0.03)) {
+                "Downloaded FIT duration does not match Garmin's saved summary"
+            }
+        }
+        fun optional(value:Double?):Any=value?.takeIf { it.isFinite() } ?: JSONObject.NULL
+        val samples=JSONArray()
+        fit.points.forEachIndexed { i,p ->
+            val elapsed=Duration.between(fit.startedAt,p.at).toMillis()/1000.0
+            samples.put(JSONObject()
+                .put("activity_id",summary.id)
+                .put("sample_index",i)
+                .put("elapsed_s",elapsed)
+                .put("pace_sec_per_km",optional(p.speedMps?.takeIf{it>0}?.let{1000.0/it}))
+                .put("heart_rate",optional(p.heartRate))
+                .put("altitude_m",optional(p.altitudeM))
+                .put("latitude",optional(p.latitude))
+                .put("longitude",optional(p.longitude)))
+        }
+        val laps=JSONArray()
+        fit.laps.forEachIndexed { i,lap ->
+            laps.put(JSONObject()
+                .put("activity_id",summary.id)
+                .put("lap_index",i)
+                .put("distance_m",optional(lap.distanceM))
+                .put("duration_s",optional(lap.timerS ?: lap.elapsedS))
+                .put("avg_pace_sec_per_km",optional(
+                    lap.distanceM?.takeIf { it>0 }?.let { meters ->
+                        (lap.timerS ?: lap.elapsedS)?.takeIf{it>0}?.let{1000.0*it/meters}
+                    }))
+                .put("avg_hr",optional(lap.averageHr)))
+        }
+        val raw=JSONObject()
+            .put("user_id",account)
+            .put("activity_id",summary.id)
+            .put("fetched_at",fetchedAt)
+            .put("samples",samples)
+            .put("laps",laps)
+        val validated=ActivityDetail.parse(raw,account,summary.id)
+        require(RecordedGpsRoute.from(validated.samples).pointCount>=2) {
+            "Garmin FIT contains no continuous recorded outdoor GPS track"
+        }
+        return raw
+    }
+}
