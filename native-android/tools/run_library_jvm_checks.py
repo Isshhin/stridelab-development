@@ -53,6 +53,7 @@ def main():
            'BackendConfig','DashboardSummary','Engine1','Engine15','Engine15Feedback',
            'Engine1Engines','Engine15InterferenceScheduling','Engine15SessionLocks','Engine15Availability','Engine15SessionPresentation','EngineContracts','ExerciseAlternatives','ExerciseLibraryV2',
            'FitContainerReader','IntervalConnection','LibraryShelf','MultiSessionEngine1',
+           'GarminCredentialStore','GarminPersonalApi','GarminPersonalSource',
            'PlanBackup','PlanOperations','PlanScheduleValidation','SessionTemplate',
            'SupabaseGateway','WearableProviderContracts','WellnessRecord',
            'WeeklyPlacement','WorkoutEntryDraft','WorkoutLogValidation']
