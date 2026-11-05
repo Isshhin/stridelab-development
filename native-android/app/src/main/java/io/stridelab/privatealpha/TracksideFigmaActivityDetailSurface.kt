@@ -48,7 +48,8 @@ internal fun TracksideFigmaActivityDetailSurface(
     onTab: (Int) -> Unit,
     matte: Boolean,
     onToggleMatte: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onLoadGarminGps:(()->Unit)?=null
 ) {
     BoxWithConstraints(
         Modifier.fillMaxSize().background(Color(0xFF000000))
@@ -104,7 +105,8 @@ internal fun TracksideFigmaActivityDetailSurface(
                     online = online,
                     selectedTab = selectedTab,
                     onTab = onTab,
-                    matte = matte
+                    matte = matte,
+                    onLoadGarminGps=onLoadGarminGps
                 )
             }
         ) {
@@ -133,7 +135,8 @@ private fun ActivitySheetContent(
     online: Boolean,
     selectedTab: Int,
     onTab: (Int) -> Unit,
-    matte: Boolean
+    matte: Boolean,
+    onLoadGarminGps:(()->Unit)?
 ) {
     Column(
         modifier.verticalScroll(rememberScrollState())
@@ -182,6 +185,9 @@ private fun ActivitySheetContent(
                     if(detailSource.id!=activity.id)
                         Text("Supplemental recorded streams: " + detailSource.sourceLabel,
                             color = TracksidePalette.textMuted, fontSize = 11.sp)
+                    if(activity.garminMovingPaceSPerKm!=null)
+                        Text("Pace calculated from Garmin moving time and distance.",
+                            color = TracksidePalette.textMuted, fontSize = 11.sp)
                     Text("Source-derived values only. Missing GPS, splits, heart rate and training effect are not estimated.",
                         color = TracksidePalette.textMuted, fontSize = 11.sp)
                 }
@@ -216,10 +222,25 @@ private fun ActivitySheetContent(
         if(activity.source=="garmin" && recorded==null && detailSource.id==activity.id) {
             Spacer(Modifier.height(18.dp))
             Text(
-                "Garmin summary only. GPS traces, sample charts and laps are not yet imported; no data is estimated.",
+                "No Garmin GPS track is cached for this activity. StrideLab can request the original FIT recording when available; no route is invented.",
                 modifier=Modifier.fillMaxWidth().padding(horizontal=17.dp),
                 color=TracksidePalette.textMuted,fontSize=11.sp
             )
+        }
+        if(activity.source=="garmin" && detailSource.id==activity.id && recorded==null) {
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(
+                onClick={ onLoadGarminGps?.invoke() },
+                enabled=online && !state.busy && !state.needsSignIn && onLoadGarminGps!=null,
+                modifier=Modifier.fillMaxWidth().padding(horizontal=17.dp)
+                    .testTag("garmin-load-gps")
+            ) { Text(if(state.busy && state.task?.contains("Garmin")==true)
+                "Loading Garmin GPS…" else "Load Garmin GPS") }
+            if(state.message?.contains("Garmin",ignoreCase=true)==true) {
+                Text(state.message.orEmpty(),
+                    modifier=Modifier.fillMaxWidth().padding(horizontal=17.dp),
+                    color=TracksidePalette.textMuted,fontSize=11.sp)
+            }
         }
         if (detailSource.source!="garmin" && online && !state.busy && !state.needsSignIn) {
             Spacer(Modifier.height(18.dp))
