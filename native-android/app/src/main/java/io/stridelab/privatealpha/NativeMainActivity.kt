@@ -223,7 +223,7 @@ private fun NavHostController.openActivity(id: String) {
                                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                         Text(if (activeMultiSession) "Your workouts" else "Today's plan",
                                             style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                                        TextButton(onClick = { nav.openTabRoot("training") }) { Text("View all ›") }
+                                        TextButton(onClick = { nav.openTabRoot("training") }) { Text(if (activeMultiSession) "View week ›" else "View all ›") }
                                     }
                                 }
                                 val today = todaySessions.map(plan::cardPresentation)
