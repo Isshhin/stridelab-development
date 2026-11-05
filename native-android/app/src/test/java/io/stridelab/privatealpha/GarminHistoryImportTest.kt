@@ -40,7 +40,7 @@ class GarminHistoryImportTest {
         )
         val parsed=ActivityRecord.parse(GarminHistoryImport.payload(input).toString(),"athlete-a")
         assertEquals(1000.0/3.0,parsed.recordedPace!!,0.00001)
-        assertEquals("AVG PACE",parsed.detailPaceHeading)
+        assertEquals("PACE",parsed.detailPaceHeading)
         assertEquals("5:33 /km",parsed.detailPaceLabel)
     }
 
@@ -52,11 +52,11 @@ class GarminHistoryImportTest {
         )
         val parsed=ActivityRecord.parse(GarminHistoryImport.payload(cached).toString(),"athlete-a")
         assertNull(parsed.recordedPace)
-        assertEquals("MOVING PACE",parsed.detailPaceHeading)
+        assertEquals("PACE",parsed.detailPaceHeading)
         assertEquals(5832.0/13.69,parsed.garminMovingPaceSPerKm!!,0.00001)
         assertEquals("7:06 /km",parsed.detailPaceLabel)
         val noMoving=parsed.copy(movingTimeS=null)
-        assertEquals("AVG PACE",noMoving.detailPaceHeading)
+        assertEquals("PACE",noMoving.detailPaceHeading)
         assertEquals("Not recorded",noMoving.detailPaceLabel)
     }
 
