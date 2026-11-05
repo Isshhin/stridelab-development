@@ -71,6 +71,21 @@ The user explicitly prefers **Garmin as the primary activity source** when a run
 - `ActivityDisplayConsolidationTest` now asserts Garmin-first values, combined source order, preserved independent metrics, Intervals-only behavior, and no double-counting.
 - **Verification pending:** targeted unit build, Android compile, loaded Intervals.icu GPS under Garmin-first detail, source attribution, existing manual links, and offline reopen. Do not mark accepted until verified.
 
+## Garmin pace field correction and FIT route assessment (2026-11-05)
+
+Owner's emulator showed an authentic Garmin Batis Running summary (13.69 km and moving time 1:37:12), with the activity hero accurately reporting **no recorded GPS track** and the metric card reporting **AVG PACE: Not recorded**. These are different issues.
+
+**Pace implementation committed, device verification pending:**
+- `GarminPersonalClient.decodeActivity` now reads Garmin source `averageSpeed` in meters/second when present. The normalized source and `GarminHistoryImport` store an authentic `avg_pace_sec_per_km = 1000 / averageSpeed` for pace-capable sports only.
+- For **previously cached Garmin runs** with no average-speed metric, `ActivityRecord` can calculate a **moving pace** from available Garmin `movingTimeS` and `distanceM`. Both approved and matte Activity Detail card variants label this `MOVING PACE`, not `AVG PACE`, preventing false provenance. For the screenshot's displayed 13.69 km and 1:37:12, this is approximately **7:06/km**, but depends on the full source precision in the actual cache. When required values are absent, remain `Not recorded`.
+- No existing Garmin summaries are overwritten or deleted, and the saved records can show the fallback without resyncing. Newly imported Garmin summaries use source speed where supplied. Two dedicated importer regression tests and a source-speed API fixture assertion were added. **No exact-head Android compile or test result yet**.
+
+**Garmin-only GPS diagnosis and next step:**
+- Garmin's maintained official Personal API example supports authenticated `GET /download-service/files/activity/{activityId}`, returning a ZIP of the athlete's own activity file, and Garmin says Personal API includes activity JSON and FIT. Official sources: https://github.com/garmin/connect-personal-api-python/blob/main/README.md ; https://developer.garmin.com/gc-developer-program/overview/ ; https://developer.garmin.com/gc-developer-program/personal/personal-faq .
+- StrideLab's current `GarminPersonalClient` only calls the activity **list** endpoint. `GarminHistoryImport.payload` intentionally stores no GPS samples. `TracksideGeographicMap` cannot map a summary without GPS. `FitActivityDecoder` already supports source-validated FIT GPS point decoding, but is **not yet connected to Garmin's authenticated download**.
+- Next isolated work: retrieve only the owner's authorized activity FIT using its **numeric Garmin activityId** (current cached provider ID may be UUID), enforce bounded ZIP/FIT sizes and one session, confirm owner/source identity and date/distance plausibility, derive a valid `ActivityDetail` for the **same Garmin local source ID**, save GPS details account-scoped/offline, then expose an explicit `Load Garmin GPS` action. Do not silently rewrite source summaries or fetch hundreds of FIT files during ordinary sync. Do not claim the GPS is available until a real file is downloaded and inspected.
+- For public/commercial multi-user integration, Garmin explicitly distinguishes its **personal-only** API from the Garmin Connect Developer Program business API. Do not repurpose a personal credential for a public multi-user release without appropriate Garmin authorization.
+
 ## Required manual verification before DONE
 
 1. From Android Studio on this branch, fetch/pull exact source head, sync Gradle with JDK 17 / Gradle 8.13 / Android API 36.
