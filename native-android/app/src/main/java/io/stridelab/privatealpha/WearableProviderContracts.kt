@@ -14,7 +14,10 @@ internal data class WearableActivityInput(
     val activityType: String,
     val startedAt: Instant,
     val durationSeconds: Double?,
-    val distanceMeters: Double?
+    val distanceMeters: Double?,
+    val title: String? = null,
+    val movingDurationSeconds: Double? = null,
+    val averageHeartRate: Double? = null
 ) {
     init {
         require(accountId.isNotBlank() && externalId.isNotBlank() && provider.isNotBlank())
@@ -22,6 +25,10 @@ internal data class WearableActivityInput(
             (durationSeconds.isFinite() && durationSeconds>=0))
         require(distanceMeters==null ||
             (distanceMeters.isFinite() && distanceMeters>=0))
+        require(movingDurationSeconds==null ||
+            (movingDurationSeconds.isFinite() && movingDurationSeconds>=0))
+        require(averageHeartRate==null ||
+            (averageHeartRate.isFinite() && averageHeartRate>0))
     }
 }
 
