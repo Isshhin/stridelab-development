@@ -42,14 +42,28 @@ internal object ActivityDisplayConsolidation {
         val rows=history.distinctBy { it.id }
         val intervals=rows.filter { it.source=="intervals" }
         val garmin=rows.filter { it.source=="garmin" }
-        val matches=garmin.associateWith { g -> intervals.filter { confidentSameRun(it,g) } }
-        val reverse=intervals.associateWith { i -> garmin.filter { confidentSameRun(i,it) } }
+        // Index start times to avoid an O(Garmin x Intervals) scan during
+        // Compose recomposition when a user has many years of activity history.
+        val intervalsBySecond=java.util.TreeMap<Long,MutableList<ActivityRecord>>()
+        intervals.forEach { row ->
+            intervalsBySecond.getOrPut(row.startedAt.epochSecond) { mutableListOf() }.add(row)
+        }
+        val forward=HashMap<String,List<String>>()
+        val reverse=HashMap<String,MutableList<String>>()
+        garmin.forEach { g ->
+            val second=g.startedAt.epochSecond
+            val possible=intervalsBySecond.subMap(second-46,true,second+46,true)
+                .values.asSequence().flatMap { it.asSequence() }
+                .filter { confidentSameRun(it,g) }.map { it.id }.toList()
+            forward[g.id]=possible
+            possible.forEach { id -> reverse.getOrPut(id) { mutableListOf() }.add(g.id) }
+        }
 
         // Only unambiguous, one-to-one provider matches may be grouped.
-        val partnered=matches.mapNotNull { (g,potential) ->
-            val i=potential.singleOrNull() ?: return@mapNotNull null
-            if(reverse[i]?.singleOrNull()!=g) return@mapNotNull null
-            g.id to i.id
+        val partnered=forward.mapNotNull { (garminId,potential) ->
+            val intervalsId=potential.singleOrNull() ?: return@mapNotNull null
+            if(reverse[intervalsId]?.singleOrNull()!=garminId) return@mapNotNull null
+            garminId to intervalsId
         }.toMap()
         val byId=rows.associateBy { it.id }
         val secondaryByPrimary=partnered.entries.groupBy({ it.value },{ it.key })
