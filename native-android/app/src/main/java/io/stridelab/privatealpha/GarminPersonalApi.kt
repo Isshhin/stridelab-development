@@ -3,6 +3,7 @@ package io.stridelab.privatealpha
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
+import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.charset.StandardCharsets
@@ -20,9 +21,48 @@ internal data class GarminHttpRequest(
     override fun toString()="GarminHttpRequest(method=$method,url=$url,headerNames=${headers.keys})"
 }
 internal data class GarminHttpResponse(val status:Int,val body:String)
-internal fun interface GarminHttpTransport { fun execute(request:GarminHttpRequest):GarminHttpResponse }
+internal data class GarminBinaryResponse(val status:Int,val body:ByteArray)
+internal fun interface GarminHttpTransport {
+    fun execute(request:GarminHttpRequest):GarminHttpResponse
+    fun executeBinary(request:GarminHttpRequest):GarminBinaryResponse =
+        throw GarminProtocolException("This transport does not support FIT downloads")
+}
 
 internal class GarminUrlConnectionTransport:GarminHttpTransport {
+    companion object { const val MAX_ZIP_BYTES=20*1024*1024 }
+    override fun executeBinary(request:GarminHttpRequest):GarminBinaryResponse {
+        val conn=(URL(request.url).openConnection() as HttpURLConnection).apply {
+            requestMethod=request.method
+            connectTimeout=15_000
+            readTimeout=30_000
+            useCaches=false
+            request.headers.forEach(::setRequestProperty)
+        }
+        try {
+            val status=conn.responseCode
+            if(status !in 200..299) {
+                conn.errorStream?.close()
+                return GarminBinaryResponse(status,byteArrayOf())
+            }
+            if(conn.contentLengthLong>MAX_ZIP_BYTES)
+                throw GarminProtocolException("Garmin activity download exceeds the size limit")
+            val output=ByteArrayOutputStream()
+            conn.inputStream.use { stream ->
+                val chunk=ByteArray(8192)
+                while(true) {
+                    val n=stream.read(chunk)
+                    if(n<0) break
+                    if(output.size()+n>MAX_ZIP_BYTES)
+                        throw GarminProtocolException("Garmin activity download exceeds the size limit")
+                    output.write(chunk,0,n)
+                }
+            }
+            return GarminBinaryResponse(status,output.toByteArray())
+        } catch(error:IOException) {
+            throw GarminNetworkException("Garmin FIT download failed",error)
+        } finally { conn.disconnect() }
+    }
+
     override fun execute(request:GarminHttpRequest):GarminHttpResponse {
         try {
             val connection=(URL(request.url).openConnection() as HttpURLConnection).apply {
@@ -67,12 +107,16 @@ internal data class GarminActivity(
     val movingDurationSeconds:Double?,
     val averageHeartRate:Double?,
     /** Garmin summary averageSpeed in meters/second, not moving pace. */
-    val averageSpeedMetersPerSecond:Double?=null
+    val averageSpeedMetersPerSecond:Double?=null,
+    /** Numeric activityId is required by Garmin's authorized FIT export endpoint. */
+    val numericActivityId:Long?=null
 )
 
 internal interface GarminApi {
     fun exchange(apiKey:String):GarminBearerToken
     fun activities(token:GarminBearerToken,start:Int,limit:Int):List<GarminActivity>
+    fun downloadActivity(token:GarminBearerToken,numericId:Long):ByteArray =
+        throw GarminProtocolException("Garmin FIT download is unavailable from this provider")
 }
 
 /** Official Garmin Connect Personal API boundary. It neither persists nor alters coaching. */
@@ -84,6 +128,7 @@ internal class GarminPersonalClient(
         const val BASE_URL="https://personal.connectapi.garmin.com"
         const val TOKEN_PATH="/personalapitoken-service/personal-api/personal-api-key/token"
         const val SEARCH_PATH="/activitylist-service/activities/search/activities"
+        const val FIT_DOWNLOAD_PATH="/download-service/files/activity/"
     }
 
     override fun exchange(apiKey:String):GarminBearerToken {
@@ -112,6 +157,22 @@ internal class GarminPersonalClient(
             (0 until array.length()).map { decodeActivity(array.getJSONObject(it)) }
         } catch(error:GarminException) { throw error }
         catch(error:Exception) { throw GarminProtocolException("Garmin returned malformed activity data") }
+    }
+
+    override fun downloadActivity(token:GarminBearerToken,numericId:Long):ByteArray {
+        require(numericId>0) { "Numeric Garmin activity ID is required" }
+        if(!token.expiresAt.isAfter(clock()))
+            throw GarminAuthenticationException("Garmin authentication has expired")
+        val response=transport.executeBinary(GarminHttpRequest(
+            "GET",BASE_URL+FIT_DOWNLOAD_PATH+numericId,
+            mapOf("Accept" to "application/zip","Authorization" to "Bearer ${token.value}")
+        ))
+        validate(GarminHttpResponse(response.status,""))
+        val bytes=response.body
+        if(bytes.size !in 4..GarminUrlConnectionTransport.MAX_ZIP_BYTES ||
+            bytes[0]!=0x50.toByte() || bytes[1]!=0x4b.toByte())
+            throw GarminProtocolException("Garmin activity did not contain a valid ZIP download")
+        return bytes
     }
 
     private fun execute(request:GarminHttpRequest)=try { transport.execute(request) }
@@ -159,7 +220,8 @@ internal class GarminPersonalClient(
         return GarminActivity(id,json.optString("activityName","Garmin activity"),type,
             parseGarminTime(timestamp),metric("duration"),metric("distance"),
             metric("movingDuration"),metric("averageHR","averageHeartRate"),
-            metric("averageSpeed")?.takeIf { it>0 })
+            metric("averageSpeed")?.takeIf { it>0 },
+            json.opt("activityId")?.toString()?.toLongOrNull()?.takeIf { it>0 })
     }
 
     private fun parseGarminTime(value:String):Instant {
@@ -183,7 +245,8 @@ internal object GarminActivityNormalizer {
         durationSeconds=activity.durationSeconds,distanceMeters=activity.distanceMeters,
         title=activity.title,movingDurationSeconds=activity.movingDurationSeconds,
         averageHeartRate=activity.averageHeartRate?.takeIf { it>0 },
-        averageSpeedMetersPerSecond=activity.averageSpeedMetersPerSecond?.takeIf { it>0 }
+        averageSpeedMetersPerSecond=activity.averageSpeedMetersPerSecond?.takeIf { it>0 },
+        numericActivityId=activity.numericActivityId
     )
     fun candidate(accountId:String,activity:GarminActivity)=ImportedActivityCandidate(
         ImportedSourceIdentity(accountId,"garmin",activity.externalId),activity.type,
