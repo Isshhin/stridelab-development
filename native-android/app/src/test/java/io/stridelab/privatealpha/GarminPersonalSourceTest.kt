@@ -144,6 +144,9 @@ class GarminPersonalSourceTest {
         val service=GarminConnectionStatus.fromError(GarminServiceException(503))
         assertEquals(GarminIssueKind.SERVICE,service.issueKind)
         assertFalse(service.heading().contains("authentication"))
+        val malformedToken=GarminConnectionStatus.fromError(GarminTokenException())
+        assertEquals(GarminIssueKind.SERVICE,malformedToken.issueKind)
+        assertFalse(malformedToken.heading().contains("activity",ignoreCase=true))
     }
 
     private inline fun <reified T:Throwable> assertFails(block:()->Unit) {
