@@ -19,7 +19,7 @@ internal object ActivityDisplayConsolidation {
             .distinctBy { it.id }
             .sortedWith(compareByDescending<ActivityRecord> { it.startedAt }
                 .thenBy { it.id })
-            .map(::DisplayActivity)
+            .map { DisplayActivity(it) }
 
     fun visible(history:List<ActivityRecord>):List<ActivityRecord> =
         groups(history).map { it.primary }
