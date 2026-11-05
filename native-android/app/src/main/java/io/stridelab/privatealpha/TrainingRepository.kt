@@ -22,7 +22,6 @@ internal data class TrainingState(
     val lastSync: Long? = null,
     val needsSignIn: Boolean = false,
     val loginGeneration: Long = 0,
-    val intervals: IntervalConnection? = null,
     val plans: List<PlanSnapshot> = emptyList(),
     val shelf:LibraryShelf = LibraryShelf(),
     val templates:List<SessionTemplate> = emptyList(),
