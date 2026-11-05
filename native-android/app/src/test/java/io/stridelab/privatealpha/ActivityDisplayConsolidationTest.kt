@@ -20,16 +20,17 @@ class ActivityDisplayConsolidationTest {
         val saved=listOf(garmin,intervals)
         val grouped=ActivityDisplayConsolidation.groups(saved)
         assertEquals(1,grouped.size)
-        assertEquals(intervals,grouped.single().primary)
-        assertEquals(listOf(garmin),grouped.single().additionalSources)
-        assertEquals("Intervals.icu + Garmin",grouped.single().sourceLabel)
+        assertEquals(garmin,grouped.single().primary)
+        assertEquals(listOf(intervals),grouped.single().additionalSources)
+        assertEquals(intervals,grouped.single().detailedSource)
+        assertEquals("Garmin + Intervals.icu",grouped.single().sourceLabel)
         assertEquals(2,saved.size) // Both original provider records are still available.
 
         val week=DashboardSummary.window(saved,now,ZoneId.of("Asia/Manila"))
         assertEquals(1,week.sessionCount)
         assertEquals(1,week.activeDays)
         assertEquals(9560.0,week.runningDistanceM!!,0.0)
-        assertEquals(3807.0,week.durationSeconds!!,0.0)
+        assertEquals(3816.0,week.durationSeconds!!,0.0)
     }
 
     @Test fun historyVolumeUsesOneWorkoutPerConfirmedPair() {
@@ -45,8 +46,8 @@ class ActivityDisplayConsolidationTest {
         val intervals=row("i-1","intervals")
         val garmin=row("g-1","garmin",start.plusSeconds(55),3816.0)
         val group=ActivityDisplayConsolidation.groups(listOf(garmin,intervals)).single()
-        assertEquals("Intervals.icu + Garmin",group.sourceLabel)
-        assertEquals(intervals,group.primary)
+        assertEquals("Garmin + Intervals.icu",group.sourceLabel)
+        assertEquals(garmin,group.primary)
     }
 
     @Test fun manyUnrelatedProviderActivitiesKeepTheirOwnRecordsAndOrder() {
@@ -59,8 +60,32 @@ class ActivityDisplayConsolidationTest {
         }
         val grouped=ActivityDisplayConsolidation.groups(garmin.reversed()+intervals)
         assertEquals(500,grouped.size)
-        assertTrue(grouped.all { it.primary.source=="intervals" && it.additionalSources.size==1 })
+        assertTrue(grouped.all { it.primary.source=="garmin" && it.additionalSources.size==1 })
         assertEquals(1000,(garmin+intervals).distinctBy { it.id }.size)
+    }
+
+    @Test fun garminFirstDoesNotReplaceSupplementarySourceMetrics() {
+        val intervals=row("i-source","intervals",distance=9570.0,duration=3807.0)
+        val garmin=row("g-source","garmin",distance=9560.0,duration=3816.0)
+        val original=listOf(intervals,garmin)
+        val group=ActivityDisplayConsolidation.groups(original).single()
+        assertEquals(garmin,group.primary)
+        assertEquals(intervals,group.detailedSource)
+        assertEquals("Garmin + Intervals.icu",group.sourceLabel)
+        assertEquals(9560.0,group.primary.distanceM!!,0.0)
+        assertEquals(9570.0,group.detailedSource.distanceM!!,0.0)
+        assertEquals(2,original.size)
+        // Garmin distance must also win in weekly source totals.
+        assertEquals(9560.0,DashboardSummary.window(original,now,ZoneId.of("Asia/Manila"))
+            .runningDistanceM!!,0.0)
+    }
+
+    @Test fun intervalsOnlyHistoryRetainsItsOwnDetailIdentity() {
+        val intervals=row("i-only","intervals")
+        val group=ActivityDisplayConsolidation.groups(listOf(intervals)).single()
+        assertEquals(intervals,group.primary)
+        assertEquals(intervals,group.detailedSource)
+        assertTrue(group.additionalSources.isEmpty())
     }
 
     @Test fun sameProviderOrDifferentWorkoutMustStaySeparate() {
