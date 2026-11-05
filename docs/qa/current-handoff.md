@@ -1,42 +1,49 @@
 # Current QA handoff — 2026-11-05
 
-This file is updated at task completion. Entries marked pending are not verified claims.
+Read [README.md](README.md) before continuing this work. Verification below applies only to the stated commits; it is not phone or live-Garmin acceptance.
 
 ## Repository
 
 - Starting integration commit: `9d3c559e4b92a366a3b52934b19ea37fb0e65084`
 - Working branch: `fix/trackside-usability-garmin-20261105`
-- Current committed checkpoint: `12c75faf31be6e1382d644485585d894b95ec60d`
-- Final commit: pending
+- Trackside interaction fix: `12c75faf31be6e1382d644485585d894b95ec60d`
+- Garmin/QA foundation: `d0d6224efd8b3743f4875960700dd44579acd371`
+- Exact application/test head verified on Windows: `f4078f40db9d161731b9e13551b963326a62ed9b`
 
-## Completed evidence
+## Exact-head Windows evidence
 
-- Running occupied-day selection and Activity sheet corrections committed at `12c75fa`.
-- `TracksideApprovedBuilderActivityUiTest`: 16/16 passed at `12c75fa`.
-- JVM suite: 262/262 passed at `12c75fa`.
-- Responsive profiles: 96/96 passed with 220 screenshots at `12c75fa` (412/1.0, 360/1.0, 360/1.3, 412/1.5).
-- Garmin client/source JVM tests: 7/7 passed on the current uncommitted tree.
-- Garmin encrypted-vault instrumentation: 1/1 passed on the current uncommitted tree.
+- Successful workflow: <https://github.com/Isshhin/stridelab-development/actions/runs/41946839417>
+- Successful job: <https://github.com/Isshhin/stridelab-development/actions/runs/41946839417/job/126981062268>
+- Runner: `MARC`; verified labels `[self-hosted, Windows, X64]`.
+- Duration: 2026-11-05 01:12:02Z–01:22:56Z; conclusion `success`.
+- Artifact: `trackside-engine15-windows-evidence-f4078f40db9d161731b9e13551b963326a62ed9b`, artifact ID `13379093327`, 37,030,940 bytes, retained through 2026-11-26.
+- Pure-JVM regression: 247/247 passed.
+- Android Gradle unit suite: 269/269 passed.
+- Packaged Engine 1.0 default-builder rollback: 1/1 passed.
+- API 35 integration-smoke instrumentation: 84/84 passed.
+- Responsive instrumentation: 96/96 passed across four serialized profiles; 220 screenshots produced (55 per profile).
+- Tooling/schema checks: catalog validator passed and 31/31 Python tests passed locally before dispatch.
 
-## Work in progress
+The first authorized dispatch at `d0d6224` failed before Android execution because five intentionally modified protected files still had old hashes. Run: <https://github.com/Isshhin/stridelab-development/actions/runs/41946014635>. The five hashes were reviewed and updated; the Garmin pure-JVM source boundary was also repaired. No runner labels, registration, workflow permissions, or security controls were weakened.
 
-- Current navigation/visual/legacy regression assertions are being aligned with the authoritative Trackside flow without ignored tests.
-- Garmin foundation is implemented; live key verification and main-history persistence remain open.
-- Exact-head `MARC` workflow and final broad regression are pending.
+## Completed work
 
-## Garmin status
+- Running occupied-day taps select the owning Long/Quality/Easy slot; only the explicit editor moves a selected slot.
+- Activity Details uses real partial/expanded anchors, keeps the map behind the sheet, supports inner scrolling, publishes accessible expand/collapse and tab state, and collapses before route Back.
+- Outdated navigation/visual assertions now target the current Trackside routes without ignored tests.
+- Garmin Personal API foundation uses the official endpoint contract, account-scoped Android Keystore/AES-GCM storage, token lifecycle/error handling, provenance and explicit dedupe boundaries.
+- Permanent QA navigation, defect history, regression index, environment and verification procedures live in `docs/qa/`.
 
-- Uses only the official Garmin Connect Personal API base URL, token exchange, and activity search contract.
-- Personal key and bearer token are account-scoped and encrypted with Android Keystore/AES-GCM.
-- Token expiry/re-exchange, error mapping, provenance, explicit dedupe, disconnect, restart, offline, and account isolation have automated coverage.
-- Engine 1.5 receives no new hidden Garmin coaching inputs.
+## Unresolved work and blockers
+
+- Garmin activity pages are not yet persisted into `TrainingRepository`; the Settings UI states this limitation.
 - `LIVE GARMIN CONNECTION REQUIRES USER PERSONAL API KEY`.
-- Official references: <https://developer.garmin.com/gc-developer-program/personal/personal-api/>, <https://developer.garmin.com/gc-developer-program/personal/personal-faq>, <https://developer.garmin.com/gc-developer-program/personal/swagger-docs/>, <https://github.com/garmin/connect-personal-api-python>.
+- Physical-phone smoke acceptance has not been rerun for this branch; emulator results are not phone acceptance.
+- No release APK was built, installed, signed, or published during this QA task.
 
-## Next verification
+## Recommended next verification
 
-1. Finish and pass `Engine1UiTest`, navigation, visual, and full instrumentation.
-2. Run all JVM tests after the Garmin changes.
-3. Rerun the four responsive profiles because Settings content changed.
-4. Commit, push, and dispatch the serialized Windows Android workflow on `MARC` at the exact SHA.
-5. Update counts, URLs, unresolved gaps, and final verdict here.
+1. On a compatible physical phone, run the smoke checklist in [verification-playbook.md](verification-playbook.md) without uninstalling, clearing data, or changing signing.
+2. With an owner-provided Personal API key, verify live connect, token refresh, activity paging, offline recovery and disconnect using a non-production test account where possible.
+3. Design and test an explicit Garmin-to-`TrainingRepository` persistence transaction before enabling history import.
+4. After any subsequent source change, treat this run as historical evidence and select fresh tests from [regression-coverage.md](regression-coverage.md).

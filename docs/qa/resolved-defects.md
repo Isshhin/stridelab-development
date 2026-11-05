@@ -23,3 +23,19 @@
 - Root cause: selectable controls did not publish `Role.Tab` and selected state.
 - Correction: tab role and selected semantics added.
 - Commit and verification: same as QA-20261105-R2.
+
+## QA-20261105-R4 — current UI regressions asserted superseded routes and labels
+
+- Original failure: navigation, visual and `Engine1UiTest` assertions still expected UI that had been replaced by the authoritative Trackside flow.
+- Root cause: regression maintenance did not accompany earlier navigation and layout changes.
+- Correction: assertions now exercise the current Trackside routes and outcomes; no test was ignored or suppressed.
+- Commit: `d0d6224efd8b3743f4875960700dd44579acd371`.
+- Verified: exact-head MARC run `41946839417`, including 84 integration-smoke tests and 96 responsive tests.
+
+## QA-20261105-R5 — Windows verification stopped at the protected-source gate
+
+- Original failure: MARC run `41946014635` stopped before Android execution because five intentionally changed protected files retained old baseline hashes.
+- Root cause: the protected-file manifest and pure-JVM Garmin source boundary were not synchronized with the reviewed changes.
+- Correction: update only the five reviewed hashes; move the credential contract to a platform-neutral file and include all Garmin pure sources in the JVM harness.
+- Commit: `f4078f40db9d161731b9e13551b963326a62ed9b`.
+- Verified: schema/tooling checks, 247 pure-JVM tests, 269 Gradle unit tests, and exact-head MARC run `41946839417` all passed.
