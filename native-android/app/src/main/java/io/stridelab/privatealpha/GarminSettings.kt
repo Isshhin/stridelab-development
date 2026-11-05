@@ -11,10 +11,12 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.Instant
 
 @Composable
-internal fun GarminSettingsCard(accountId:String) {
+internal fun GarminSettingsCard(
+    accountId:String,
+    syncGarmin: (suspend (GarminPersonalSource) -> GarminConnectionStatus)? = null
+) {
     val context=LocalContext.current
     val source=remember(accountId) {
         GarminPersonalSource(accountId,GarminCredentialVault(context),GarminPersonalClient())
@@ -51,19 +53,22 @@ internal fun GarminSettingsCard(accountId:String) {
         } else {
             Button(onClick={
                 operation {
-                    val page=source.activities(accountId,null,100)
-                    GarminConnectionStatus("connected",Instant.now(),page.records.size)
+                    val import=syncGarmin ?: throw IllegalStateException("Garmin history sync is not available here")
+                    import(source)
                 }
-            },enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)
-                .testTag("garmin-sync")) { Text("Sync now") }
+            },enabled=!busy && syncGarmin!=null,modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)
+                .testTag("garmin-sync")) { Text("Sync to Activity") }
             OutlinedButton(onClick={
                 operation { source.disconnect();GarminConnectionStatus("not_connected") }
             },enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)
                 .testTag("garmin-disconnect")) { Text("Disconnect") }
         }
         if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())
-        if(status.importedCount>0)Text("${status.importedCount} Garmin activities available from the latest source check.",style=MaterialTheme.typography.bodySmall)
-        Text("Official Garmin Connect Personal API. The key and short-lived token are encrypted on this device. This foundation checks the source; importing it into saved StrideLab history remains disabled until repository-level persistence is verified.",
+        if(status.lastSuccessfulSync!=null)Text(
+            if(status.importedCount>0) "${status.importedCount} new Garmin activities saved to your offline Activity history."
+            else "No new Garmin activities. Existing offline history is unchanged.",
+            style=MaterialTheme.typography.bodySmall)
+        Text("Official Garmin Connect Personal API. Credentials are encrypted on this device. Sync to Activity saves Garmin activity summaries into account-scoped offline history without deleting, merging or overwriting your existing sources. Detailed Garmin GPS and charts are not imported by this summary sync.",
             style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
