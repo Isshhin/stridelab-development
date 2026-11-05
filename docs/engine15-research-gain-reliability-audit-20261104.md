@@ -1,5 +1,7 @@
 # Engine 1.5 | Research-gain reliability review (4 November 2026)
 
+> **HISTORICAL RESEARCH / SAFETY AUDIT — activation rule superseded (2026-11-05).** Existing safety evidence and conservative constraints remain historical and must be preserved. The earlier Engine 1.0-default/Engine 1.5-candidate activation rule was superseded by the [current approved Trackside contract](qa/engine15-primary-plan-quality-requirements-20261105.md). This notice does not claim the new default has been implemented or verified.
+
 **Branch:** `feature/engine15-versioned-foundation-20261103`  
 **PR:** [#37](https://github.com/Isshhin/stridelab-development/pull/37), open/draft/unmerged  
 **Starting frozen checkpoint:** `66fd5cf75226d8785fe599986f3c6f2d18be7668`  
