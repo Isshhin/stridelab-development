@@ -19,7 +19,8 @@ internal data class WearableActivityInput(
     val movingDurationSeconds: Double? = null,
     val averageHeartRate: Double? = null,
     /** Optional Garmin source averageSpeed, meters/second. Not a computed moving pace. */
-    val averageSpeedMetersPerSecond:Double? = null
+    val averageSpeedMetersPerSecond:Double? = null,
+    val numericActivityId:Long?=null
 ) {
     init {
         require(accountId.isNotBlank() && externalId.isNotBlank() && provider.isNotBlank())
@@ -33,6 +34,7 @@ internal data class WearableActivityInput(
             (averageHeartRate.isFinite() && averageHeartRate>0))
         require(averageSpeedMetersPerSecond==null ||
             (averageSpeedMetersPerSecond.isFinite() && averageSpeedMetersPerSecond>0))
+        require(numericActivityId==null || numericActivityId>0)
     }
 }
 
