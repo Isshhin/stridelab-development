@@ -6,9 +6,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-@Composable internal fun ActivityPlanLink(state:TrainingState,activity:ActivityRecord,actions:PlanActions) {
+@Composable internal fun ActivityPlanLink(
+    state:TrainingState,
+    activity:ActivityRecord,
+    actions:PlanActions,
+    matchedSourceIds:Set<String> = setOf(activity.id)
+) {
     var choosing by remember { mutableStateOf(false) }
-    val linked=state.plans.flatMap { p->p.sessions.filter { it.linkedActivityId==activity.id }.map { p to it } }.firstOrNull()
+    // Existing manually linked Intervals.icu records must remain discoverable
+    // after the matched Garmin summary becomes the primary visible activity.
+    val linked=state.plans.flatMap { p->
+        p.sessions.filter { it.linkedActivityId in matchedSourceIds }.map { p to it }
+    }.firstOrNull()
     SignalCard {
         Text("PLANNED & RECORDED",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
         if(linked!=null) {
