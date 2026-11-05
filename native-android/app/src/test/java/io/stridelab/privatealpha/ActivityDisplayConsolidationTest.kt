@@ -41,6 +41,28 @@ class ActivityDisplayConsolidationTest {
         assertEquals((9560.0+5000+6000)/4000.0,actual!!,0.00001)
     }
 
+    @Test fun sameDisplayedMinuteCanMatchDespiteDifferentProviderSeconds() {
+        val intervals=row("i-1","intervals")
+        val garmin=row("g-1","garmin",start.plusSeconds(55),3816.0)
+        val group=ActivityDisplayConsolidation.groups(listOf(garmin,intervals)).single()
+        assertEquals("Intervals.icu + Garmin",group.sourceLabel)
+        assertEquals(intervals,group.primary)
+    }
+
+    @Test fun manyUnrelatedProviderActivitiesKeepTheirOwnRecordsAndOrder() {
+        val first=Instant.parse("2026-01-01T00:00:00Z")
+        val intervals=(0 until 500).map { n ->
+            row("i-$n","intervals",first.plusSeconds(n*7200L),1800.0,5000.0)
+        }
+        val garmin=(0 until 500).map { n ->
+            row("g-$n","garmin",first.plusSeconds(n*7200L+10),1808.0,5000.0)
+        }
+        val grouped=ActivityDisplayConsolidation.groups(garmin.reversed()+intervals)
+        assertEquals(500,grouped.size)
+        assertTrue(grouped.all { it.primary.source=="intervals" && it.additionalSources.size==1 })
+        assertEquals(1000,(garmin+intervals).distinctBy { it.id }.size)
+    }
+
     @Test fun sameProviderOrDifferentWorkoutMustStaySeparate() {
         val original=row("i-1","intervals")
         val sameProvider=row("i-2","intervals",duration=3808.0)
