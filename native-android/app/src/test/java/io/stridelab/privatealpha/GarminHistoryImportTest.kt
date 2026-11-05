@@ -32,6 +32,34 @@ class GarminHistoryImportTest {
         assertNotEquals(raw.getString("id"),GarminHistoryImport.recordId("source-activity/124"))
     }
 
+    @Test fun garminReportedAverageSpeedConvertsToPaceWithoutMovingTimeGuess() {
+        val input=WearableActivityInput(
+            "athlete-a","garmin","speed-123","running",started,
+            durationSeconds=3807.0,distanceMeters=9560.0,
+            movingDurationSeconds=3600.0,averageSpeedMetersPerSecond=3.0
+        )
+        val parsed=ActivityRecord.parse(GarminHistoryImport.payload(input).toString(),"athlete-a")
+        assertEquals(1000.0/3.0,parsed.recordedPace!!,0.00001)
+        assertEquals("AVG PACE",parsed.detailPaceHeading)
+        assertEquals("5:33 /km",parsed.detailPaceLabel)
+    }
+
+    @Test fun cachedGarminSummaryShowsCalculatedMovingPaceWithHonestLabel() {
+        val cached=WearableActivityInput(
+            "athlete-a","garmin","cached-123","running",started,
+            durationSeconds=5900.0,distanceMeters=13690.0,
+            movingDurationSeconds=5832.0
+        )
+        val parsed=ActivityRecord.parse(GarminHistoryImport.payload(cached).toString(),"athlete-a")
+        assertNull(parsed.recordedPace)
+        assertEquals("MOVING PACE",parsed.detailPaceHeading)
+        assertEquals(5832.0/13.69,parsed.garminMovingPaceSPerKm!!,0.00001)
+        assertEquals("7:06 /km",parsed.detailPaceLabel)
+        val noMoving=parsed.copy(movingTimeS=null)
+        assertEquals("AVG PACE",noMoving.detailPaceHeading)
+        assertEquals("Not recorded",noMoving.detailPaceLabel)
+    }
+
     @Test fun absentMetricsRemainAbsentAndWrongProviderOrOwnerIsRejected() {
         val input=WearableActivityInput("athlete-a","garmin","source-2","cycling",
             started,null,null)
