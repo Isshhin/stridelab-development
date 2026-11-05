@@ -10,13 +10,14 @@ class GarminGpsDetailTest {
         "garmin-record","Batis Running","running","garmin",whenRun,
         5000.0,1800.0,1780.0,null,149.0,null
     )
-    private fun fit(start:Instant=whenRun,offset:Double=5000.0):FitActivityDecoder.Activity {
+    private fun fit(start:Instant=whenRun,offset:Double=5000.0,
+                    elapsed:Double=1800.0,timer:Double=1780.0):FitActivityDecoder.Activity {
         val id=ImportedSourceIdentity("owner","fit-file",sha256="a".repeat(64))
         val points=(0..2).map { i ->
             FitActivityDecoder.Point(start.plusSeconds(i*30L),
                 i*25.0,2.5,145.0,15.0,14.60+i*.001,121.0+i*.001,null,null)
         }
-        return FitActivityDecoder.Activity(id,"running",start,1800.0,1780.0,
+        return FitActivityDecoder.Activity(id,"running",start,elapsed,timer,
             offset,145.0,167.0,points,emptyList())
     }
     @Test fun acceptedFitGpsBelongsToOriginalGarminRecordAndAccount() {
@@ -37,5 +38,11 @@ class GarminGpsDetailTest {
         catch(_:IllegalArgumentException) {}
         try { GarminGpsDetail.payload("owner",summary,fit(offset=9000.0),123L);fail("Distance mismatch") }
         catch(_:IllegalArgumentException) {}
+    }
+    @Test fun pausedFitUsesTimerDurationForGarminSummaryValidation() {
+        val pausedSummary=summary.copy(durationS=5841.134765625,movingTimeS=5831.903961181641)
+        val raw=GarminGpsDetail.payload("owner",pausedSummary,
+            fit(elapsed=6903.84814453125,timer=5841.134765625),12345L)
+        assertEquals(3,ActivityDetail.parse(raw,"owner",summary.id).samples.size)
     }
 }

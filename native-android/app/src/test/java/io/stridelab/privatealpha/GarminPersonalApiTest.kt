@@ -117,7 +117,7 @@ class GarminPersonalApiTest {
         }
     }
 
-    @Test fun ownerFitDownloadUsesNumericIdAndDoesNotExposeBearerInRequestLogs() {
+    @Test fun ownerFitDownloadUsesOfficialArchiveContractAndDoesNotExposeBearerInRequestLogs() {
         val expected=byteArrayOf('P'.code.toByte(),'K'.code.toByte(),3,4,1,2)
         var seen:GarminHttpRequest?=null
         val client=GarminPersonalClient(object:GarminHttpTransport {
@@ -133,6 +133,8 @@ class GarminPersonalApiTest {
         assertEquals("GET",seen!!.method)
         assertEquals("https://personal.connectapi.garmin.com/download-service/files/activity/123456789",
             seen!!.url)
+        assertEquals("application/zip, application/x-zip-compressed, application/octet-stream",
+            seen!!.headers["Accept"])
         assertEquals("Bearer test-secret",seen!!.headers["Authorization"])
         assertFalse(seen.toString().contains("test-secret"))
         assertFails<IllegalArgumentException> {

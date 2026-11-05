@@ -165,7 +165,8 @@ internal class GarminPersonalClient(
             throw GarminAuthenticationException("Garmin authentication has expired")
         val response=transport.executeBinary(GarminHttpRequest(
             "GET",BASE_URL+FIT_DOWNLOAD_PATH+numericId,
-            mapOf("Accept" to "application/zip","Authorization" to "Bearer ${token.value}")
+            mapOf("Accept" to "application/zip, application/x-zip-compressed, application/octet-stream",
+                "Authorization" to "Bearer ${token.value}")
         ))
         validate(GarminHttpResponse(response.status,""))
         val bytes=response.body

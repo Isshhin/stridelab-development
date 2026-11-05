@@ -26,10 +26,10 @@ internal object GarminGpsDetail {
                 "Downloaded FIT distance does not match Garmin's saved summary"
             }
         }
-        val sourceElapsed=summary.durationS
-        val fitElapsed=fit.elapsedS
-        if(sourceElapsed!=null && fitElapsed!=null) {
-            require(abs(sourceElapsed-fitElapsed)<=max(120.0,sourceElapsed*0.03)) {
+        val sourceDuration=summary.durationS
+        val fitDuration=fit.timerS ?: fit.elapsedS
+        if(sourceDuration!=null && fitDuration!=null) {
+            require(abs(sourceDuration-fitDuration)<=max(120.0,sourceDuration*0.03)) {
                 "Downloaded FIT duration does not match Garmin's saved summary"
             }
         }

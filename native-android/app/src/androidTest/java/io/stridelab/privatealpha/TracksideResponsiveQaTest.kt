@@ -703,7 +703,8 @@ class TracksideResponsiveQaTest {
             compose.activity.setContent {
                 StrideTheme {
                     TracksideFigmaActivityDetailSurface(
-                        activity=recorded,recorded=null,history=listOf(recorded),
+                        activity=recorded,recorded=null,detailSource=recorded,
+                        matchedSourceIds=setOf(recorded.id),history=listOf(recorded),
                         state=state,
                         actions=NativeActions({}, {}, {}, {}, { _, _ -> }),
                         online=false,selectedTab=tab.value,onTab={ tab.value=it },
