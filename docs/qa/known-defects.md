@@ -19,4 +19,7 @@
 | QA-20261105-12 | P2 More-screen layout density | User observation / verify scale | Emulator E04: Garmin Connections card uses substantial vertical space while Today looks balanced (E05). Compare same device/font/display size before adjusting text/card density. |
 | QA-20261105-13 | P3 requested obsolete UI removal | Requested / not implemented | Emulator E06 and E07: remove Legacy Data & Backups card, Open preserved prototype, and Private testing notice, potentially empty Device & Data header. Preserve actual history, backup/restore and migrations. |
 
+| QA-20261105-14 | P1 Coach decides quality-intent gap | Observed and source-confirmed | Emulator E08: on six weekly runs, coach mode shows 0 quality and does not propose an eligible frequency; current toggle only removes pinned weekdays and retains `qualityCount=0`. Define and test a safe coaching proposal, with clear reason if no quality appropriate. |
+| QA-20261105-15 | P1 Coach-mode control discoverability | Observed and source-confirmed | Emulator E09: tapping Coach decides sets `editorOpen=false`, hiding Choose my days and Coach decides controls; weekday tap is an unintuitive way to reopen. Keep mode selector visibly accessible and test switching repeatedly. |
+
 No item may be removed from this file until a correction commit and passing regression evidence are recorded in [resolved defects](resolved-defects.md).
