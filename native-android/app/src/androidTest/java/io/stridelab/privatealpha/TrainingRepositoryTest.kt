@@ -225,6 +225,67 @@ class TrainingRepositoryTest {
         assertFalse(repo.refreshWellness()); assertEquals(1,repo.state.value.wellness.size)
         remote.offline=false; assertTrue(repo.signOut()); assertTrue(repo.state.value.wellness.isEmpty())
     }
+    @Test fun garminSummarySyncAppearsInActivityTabAndSurvivesOfflineReopen() = runBlocking {
+        remote.rows=listOf(row("intervals-saved"))
+        assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        val credentials=object:GarminCredentialStore {
+            var saved:GarminCredentialRecord?=null
+            override fun read(accountId:String)=saved?.takeIf { it.accountId==accountId }
+            override fun save(record:GarminCredentialRecord) { saved=record }
+            override fun clear(accountId:String) { saved=null }
+        }
+        val api=object:GarminApi {
+            override fun exchange(apiKey:String)=GarminBearerToken("fixture-bearer",
+                Instant.now().plusSeconds(86_400))
+            override fun activities(token:GarminBearerToken,start:Int,limit:Int)=
+                listOf(GarminActivity("garmin-original-123","Garmin Run","running",
+                    Instant.parse("2026-11-04T02:06:00Z"),3807.0,9560.0,3720.0,138.0))
+                    .drop(start).take(limit)
+        }
+        val source=GarminPersonalSource(account,credentials,api)
+        assertEquals("connected",source.connect("test-only-key").state)
+        val first=repo.syncGarmin(source)
+        assertEquals("connected",first.state)
+        assertEquals(1,first.importedCount)
+        assertEquals(2,repo.state.value.activities.size)
+        val run=repo.state.value.activities.single { it.source=="garmin" }
+        assertEquals("Garmin Run",run.title)
+        assertTrue(run.id.startsWith("garmin-"))
+        assertEquals(9560.0,run.distanceM!!,0.0)
+        assertEquals(138.0,run.averageHr!!,0.0)
+        assertEquals(0,repo.syncGarmin(source).importedCount)
+        assertEquals(2,repo.state.value.activities.size)
+        assertNotNull(repo.state.value.activities.find { it.id=="intervals-saved" })
+
+        repo.close();remote.offline=true;open()
+        assertEquals(2,repo.state.value.activities.size)
+        assertNotNull(repo.state.value.activities.find { it.id==run.id && it.source=="garmin" })
+        assertNotNull(repo.state.value.activities.find { it.id=="intervals-saved" })
+    }
+
+    @Test fun duplicateGarminIdsWithinOnePageDoNotPartiallyWriteHistory() = runBlocking {
+        remote.rows=listOf(row())
+        assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        val store=object:GarminCredentialStore {
+            override fun read(accountId:String)=GarminCredentialRecord(accountId,"key",
+                "bearer",Instant.now().plusSeconds(86_400))
+            override fun save(record:GarminCredentialRecord) {}
+            override fun clear(accountId:String) {}
+        }
+        val duplicate=GarminActivity("same-source-id","Run","running",
+            Instant.parse("2026-11-04T02:06:00Z"),1800.0,5000.0,null,null)
+        val api=object:GarminApi {
+            override fun exchange(apiKey:String)=GarminBearerToken("bearer",Instant.now().plusSeconds(86_400))
+            override fun activities(token:GarminBearerToken,start:Int,limit:Int)=
+                listOf(duplicate,duplicate).drop(start).take(limit)
+        }
+        val source=GarminPersonalSource(account,store,api)
+        try { repo.syncGarmin(source); fail("Duplicate source records must fail closed") }
+        catch(_:GarminProtocolException) {}
+        assertEquals(1,repo.state.value.activities.size)
+        assertTrue(repo.state.value.activities.none { it.source=="garmin" })
+    }
+
     private class FakeGateway(val account: String): TrainingGateway {
         var wrongDetailOwner = false
         var rows: List<JSONObject> = emptyList()
