@@ -1,5 +1,21 @@
 # Trackside 3.0 Functional Behavior Audit — 2026-11-05
 
+> **2026-11-05 current product correction:** [Approved Engine 1.5 primary and quality-session acceptance requirements](../qa/engine15-primary-plan-quality-requirements-20261105.md). The matrix below preserves the original QA scope and its recorded final statuses. The later Engine 1.5-primary acceptance work is **NOT COMPLETE**. Do not convert any of the historical `NOT RUN` rows to PASS based on aggregate workflow results.
+
+## Post-QA mismatch register (new requirements, not yet resolved)
+
+| ID | Requirement | Reviewed implementation / test discrepancy | Acceptance |
+|---|---|---|---|
+| E15-R1 | Engine 1.5 default for new Trackside plans | Current Gradle default and packaged UI test require Engine 1.0 | NOT RUN / MISMATCH |
+| E15-R2 | Engine 1.0 explicit controlled rollback | Existing fallback coverage exists; behavior under revised default has not been jointly verified | NOT RUN |
+| Q-R1 | Requested quality count survives all stages | Running flow may start at zero; Builder end-to-end test asserts plan count rather than eligible quality content | NOT RUN |
+| Q-R2 | Requested Threshold/Tempo and other displayed types map to accurate prescriptions | Selection is advisory; Engine 1.5 structures quality from overall goal | NOT RUN / MISMATCH |
+| Q-R3 | UI quality frequency agrees with conservative engine eligibility | UI enables two quality sessions from 30 km/week; Engine 1.5 limits to one below 40 km/week | NOT RUN / MISMATCH |
+| Q-R4 | Explicit requested-vs-generated difference with specific reason | Engine 1.5 can convert requested quality to easy; draft review lacks explicit side-by-side quality summary | NOT RUN |
+| Q-R5 | New-plan production route preserves Engine 1.5 prescription after approval/reopen | Current main integration assertion expects Engine 1.0 | NOT RUN |
+| QA-R1 | Full behavioral acceptance backed by explicit evidence | 35/41 historical matrix final-status cells remain `NOT RUN` | INCOMPLETE |
+
+
 **Starting SHA:** `9d3c559e4b92a366a3b52934b19ea37fb0e65084`  
 **Starting branch:** `origin/integration/trackside3-engine15-20261105`  
 **Approved Figma:** `v73TsYo6gKxUoiUock2sSE`  
