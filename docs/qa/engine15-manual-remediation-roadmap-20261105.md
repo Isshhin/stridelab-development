@@ -17,7 +17,7 @@
 
 ## Unified priority-ordered execution — one item at a time
 
-This is the **single combined development queue** for Engine 1.5 corrections **and** the user's current Android-emulator observations. Priority means severity; order also reflects dependencies and the user's decision to finish the core engine before unrelated integrations. A reported symptom is not automatically a reproduced defect. Work item IDs `E01–E09` link the current emulator observations below to implementation phases; existing Engine 1.5 mismatches are included in the same queue.
+This is the **single combined development queue** for Engine 1.5 corrections **and** the user's current Android-emulator observations. Priority means severity; order also reflects dependencies and the user's decision to finish the core engine before unrelated integrations. A reported symptom is not automatically a reproduced defect. Work item IDs `E01–E10` link the current emulator observations below to implementation phases; existing Engine 1.5 mismatches are included in the same queue.
 
 | Order | Priority | Work item | Minimum acceptance criterion | Evidence / status |
 |---|---|---|---|---|
@@ -25,7 +25,7 @@ This is the **single combined development queue** for Engine 1.5 corrections **a
 | 1 | P1 | Restore Engine 1.5 as primary | Default build generates Engine 1.5 version/policy through actual builder. A **separate, explicitly selected** Engine 1.0 fallback works without changing existing plans. | Mismatch confirmed; current default false |
 | 2 | P1 | Fix quality request, Coach decides and saved state (`E08`, `E09`) | Auto mode proposes an **eligible, explainable** quality count/type where justified, keeps 0 when safeguards require it, and lets the user override; manual/auto mode selector remains visible and accessible. Count/type/weekday survive navigation and storage. Fix displayed-but-not-saved quality chips and count/day inconsistency. | E08 and E09 user-observed; source confirms auto only changes placement and hides mode controls; fix pending |
 | 3 | P1 | Align quality eligibility and safety | UI, Coach decides proposals and Engine 1.5 agree on 30–39 vs 40+ km two-quality limits, experience, duration, returning, deload/taper, and spacing. Explain any zero-quality recommendation; do not weaken safety gates. | Confirmed UI/engine discrepancy |
-| 4 | P1 | Make quality type and running goal truthful | Eligible requested Threshold yields correct structured workout; honor supported styles, or label unsupported ones advisory. Use the running-discipline goal in mixed plans. | Type/goal mapping gap confirmed |
+| 4 | P1 | Make quality type and running goal truthful | Eligible requested Threshold yields correct structured workout; honor supported styles, or label unsupported ones advisory. Use the running-discipline goal in mixed plans. **Review E10's missing PR-entry and race-goal inputs as a separately scoped PlanRequest compatibility decision; do not expand the coaching algorithm without acceptance tests.** | Type/goal mapping gap confirmed; PR entry intentionally not implemented |
 | 5 | P1 | Explain actual draft prescriptions | Display requested vs generated quality count, type, day, volume, duration, and exact reason for withheld/downgraded quality before explicit approval. | Not fully implemented |
 | 6 | P1 | End-to-end plan-content acceptance | Actual UI selection → Engine 1.5 generation → real prescribed session → approval → offline reopen, with quality assertion and separate safety/fallback scenarios. | Existing test checks Engine 1.0 + session totals |
 | 7 | P1 | **Garmin timestamp + error classification** (`E01`, `E02`) | Reproduce source timestamp (without exposing credential/data), accept verified formats correctly, distinguish parsing/protocol errors from invalid credentials, preserve source data and add red/green tests. Avoid implying that this completes canonical activity-history imports. | Misleading header **confirmed**; exact live timestamp cause **suspected**, not proven |
@@ -41,7 +41,7 @@ This is the **single combined development queue** for Engine 1.5 corrections **a
 
 ## Emulator observation register — November 5, 2026
 
-The **nine** emulator items are retained below with stable IDs. They are observations and requirements, not nine independently reproduced crashes. `E04` and `E05` are linked visual observations; `E06` and `E07` are two deliberate UI removals; `E08` and `E09` concern Coach decides behavior and mode-switch discoverability.
+The **ten** emulator items are retained below with stable IDs. They are observations and requirements, not ten independently reproduced crashes. `E04` and `E05` are linked visual observations; `E06` and `E07` are two deliberate UI removals; `E08` and `E09` concern Coach decides behavior and mode-switch discoverability.
 
 | ID | Screen | Observed or requested behavior | Classification | Unified queue |
 |---|---|---|---|---|
@@ -54,6 +54,14 @@ The **nine** emulator items are retained below with stable IDs. They are observa
 | E07 | More → Device & Data | Remove **Private testing** heading and notice; remove **Device & Data** heading only if empty. | **Explicit UI removal request** | 14 |
 | E08 | Running Setup → Coach decides | With six weekly runs, preview displays **0 quality / 1 long**. Auto mode preserves existing `qualityCount=0` and only removes weekday pins. User expects coach to propose appropriate quality frequency based on ability, recent volume and safety constraints. | **Observed expectation gap; coaching proposal not implemented** | 2–3 |
 | E09 | Running Setup → Coach decides | After choosing auto, **Choose my days / Coach decides** buttons disappear. `editorOpen=false` hides them; recovery requires an undiscoverable weekday-tile tap to reopen editor. Keep an explicit mode selector reachable. | **Confirmed UI discoverability defect** | 2 |
+| E10 | Running race/performance goal → Beat my personal best → Add PR | **Add PR** opens a disclaimer that the current engine does not store PR or target date. `TracksideFigmaRaceGoalScreen` deliberately sets `unsupportedAction="PR entry"` and `PlanRequest` has no PR field. The adjacent target-date control is also a placeholder, and selecting target-time route disables Continue. | **Confirmed unimplemented feature / misleading actionable CTA, not a crash.** The user specifically reported Add PR; target date/time are related design decisions, not yet user-approved implementation scope. | 2 (input contract review), 4 (prescription intent), 6 (E2E) |
+
+### Race goal and PR-entry acceptance (`E10`)
+
+- Preserve the user's *Beat my personal best* goal even if PR entry is optional. The **Add PR** control must not imply that an entered value will be saved unless a verified input and persistence path exists.
+- Decide how to represent an optional current PR (distance, duration, provenance/date where applicable), a distinct target finish time, and a race/target date. These are different data fields. Validate and serialize only after a deliberate, backwards-compatible `PlanRequest` contract change with old-plan roundtrips.
+- If in scope, an athlete can enter/edit/clear a PR, navigate back and forward, generate and approve a plan, and reopen it offline with the exact saved PR. The draft accurately explains whether the current Engine 1.5 actually uses that PR for prescription. Do not fabricate adaptive pace/physiology or silently claim a target-time plan is supported.
+- Until implemented, change or disable the misleading **Add PR** CTA while preserving a truthful optional-PR explanation. Any target-date/time flow remains a separately approved requirement.
 
 ### Running Setup coach-mode acceptance (`E08`, `E09`)
 
