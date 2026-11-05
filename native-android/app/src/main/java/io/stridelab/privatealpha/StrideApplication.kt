@@ -42,6 +42,9 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
     fun refresh() { viewModelScope.launch { repo.refresh() } }
     fun checkIntervals() { viewModelScope.launch { repo.checkIntervals() } }
     fun syncIntervals() { viewModelScope.launch { repo.syncIntervals() } }
+    /** UI-triggered foreground Garmin history import; completed pages remain offline. */
+    internal suspend fun syncGarmin(source:GarminPersonalSource):GarminConnectionStatus =
+        repo.syncGarmin(source)
     fun refreshWellness() { viewModelScope.launch { repo.refreshWellness() } }
     fun loadDetail(id: String) { viewModelScope.launch { repo.loadDetail(id) } }
     internal fun planActions()=PlanActions(
