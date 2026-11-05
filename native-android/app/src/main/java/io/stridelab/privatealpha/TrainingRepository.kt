@@ -274,6 +274,11 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             mutable.value = mutable.value.copy(busy = true, message = null, task = label)
             try { action(); true }
             catch (e: PlanConstraint) { mutable.value = mutable.value.copy(message=e.message); false }
+            catch (e: GarminException) {
+                val error=GarminConnectionStatus.fromError(e)
+                mutable.value=mutable.value.copy(message=error.heading()+": "+error.error.orEmpty())
+                false
+            }
             catch (e: ServiceFailure) {
                 mutable.value = mutable.value.copy(message = e.message, needsSignIn = e.requiresSignIn || mutable.value.needsSignIn); false
             } catch (_: java.io.IOException) {
@@ -405,6 +410,53 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             } while(cursor!=null)
             GarminConnectionStatus("connected",java.time.Instant.now(),imported)
         } }
+
+    /**
+     * One on-demand Garmin FIT import for a cached source record. The original
+     * Garmin summary is never replaced, and Activity Detail is saved offline
+     * only after FIT checksum, source, dates, GPS and account have been checked.
+     */
+    internal suspend fun loadGarminGps(id:String,source:GarminPersonalSource) =
+        operation("Loading recorded Garmin GPS…") {
+            val account=mutable.value.account
+                ?: throw GarminAuthenticationException("Sign in to StrideLab before loading Garmin GPS")
+            val activity=mutable.value.activities.firstOrNull { it.id==id && it.source=="garmin" }
+                ?: throw GarminProtocolException("That Garmin activity is not saved for this account")
+            val saved=store.get(account,"activity_detail",id)
+            if(saved!=null) {
+                val existing=try { ActivityDetail.parse(JSONObject(saved.payload),account,id) }
+                    catch(_:Exception) { throw GarminProtocolException(
+                        "Previously saved GPS data needs review; the original was retained") }
+                mutable.value=mutable.value.copy(details=mutable.value.details+(id to existing))
+                return@operation
+            }
+            val original=store.get(account,"activity",id)
+                ?: throw GarminProtocolException("The Garmin source record is not saved")
+            val metadata=JSONObject(original.payload)
+            if(metadata.optString("source")!="garmin" ||
+                metadata.optString("id")!=id || metadata.optString("user_id")!=account)
+                throw GarminProtocolException("Garmin source ownership could not be verified")
+            val externalId=metadata.optString("external_id")
+                .takeIf { it.isNotBlank() }
+                ?: throw GarminProtocolException("The Garmin source ID is unavailable")
+            val numeric=metadata.optLong("garmin_activity_id",0L).takeIf { it>0L }
+            val archive=source.downloadFitForSource(account,externalId,numeric)
+            val bytes=try { GarminFitArchive.extractSingleFit(archive) }
+                catch(e:Exception) { throw GarminProtocolException(
+                    "Garmin FIT download could not be safely unpacked") }
+            val fit=try { FitActivityDecoder.decode(bytes,account) }
+                catch(e:Exception) { throw GarminProtocolException(
+                    "Garmin FIT file failed validation; original history was retained") }
+            val raw=try { GarminGpsDetail.payload(
+                account,activity,fit,System.currentTimeMillis()) }
+                catch(e:Exception) { throw GarminProtocolException(
+                    e.message?.take(200) ?: "Garmin FIT did not match this activity") }
+            val parsed=ActivityDetail.parse(raw,account,id)
+            store.applyRemotePage(account,"activity_detail",
+                listOf(TrainingStore.RemoteRecord(id,raw.toString(),null)),
+                null,System.currentTimeMillis())
+            mutable.value=mutable.value.copy(details=mutable.value.details+(id to parsed))
+        }
 
     private fun connection(): IntervalConnection {
         val current = authenticated { gateway.intervals(it,"status") }
