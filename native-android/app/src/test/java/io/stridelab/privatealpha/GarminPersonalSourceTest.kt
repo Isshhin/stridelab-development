@@ -71,6 +71,9 @@ class GarminPersonalSourceTest {
         assertFalse(network.error.orEmpty().contains("secret details"))
         val rate=GarminConnectionStatus.fromError(GarminRateLimitException())
         assertEquals(GarminIssueKind.RATE_LIMIT,rate.issueKind)
+        val service=GarminConnectionStatus.fromError(GarminServiceException(503))
+        assertEquals(GarminIssueKind.SERVICE,service.issueKind)
+        assertFalse(service.heading().contains("authentication"))
     }
 
     private inline fun <reified T:Throwable> assertFails(block:()->Unit) {
