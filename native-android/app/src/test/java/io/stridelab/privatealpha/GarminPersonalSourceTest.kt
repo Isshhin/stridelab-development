@@ -53,6 +53,26 @@ class GarminPersonalSourceTest {
         assertNull(store.records.getValue("owner").bearerToken)
     }
 
+    @Test fun dataFailureIsNeverMisclassifiedAsAuthenticationExpiry() {
+        val data=GarminConnectionStatus.fromError(
+            GarminProtocolException("Garmin activity has an invalid timestamp"))
+        assertEquals(GarminIssueKind.ACTIVITY_DATA,data.issueKind)
+        assertEquals("Garmin activity data needs attention",data.heading())
+        assertEquals("Garmin activity has an invalid timestamp",data.error)
+        assertFalse(data.heading().contains("Authentication"))
+
+        val auth=GarminConnectionStatus.fromError(
+            GarminAuthenticationException("Garmin authentication was rejected"))
+        assertEquals(GarminIssueKind.AUTHENTICATION,auth.issueKind)
+        assertTrue(auth.heading().contains("authentication"))
+        val network=GarminConnectionStatus.fromError(
+            GarminNetworkException("offline",java.io.IOException("secret details")))
+        assertEquals(GarminIssueKind.NETWORK,network.issueKind)
+        assertFalse(network.error.orEmpty().contains("secret details"))
+        val rate=GarminConnectionStatus.fromError(GarminRateLimitException())
+        assertEquals(GarminIssueKind.RATE_LIMIT,rate.issueKind)
+    }
+
     private inline fun <reified T:Throwable> assertFails(block:()->Unit) {
         try { block() } catch(error:Throwable) { if(error is T)return;throw error }
         fail("Expected ${T::class.java.simpleName}")
