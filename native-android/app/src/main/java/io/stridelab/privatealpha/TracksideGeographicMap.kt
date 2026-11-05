@@ -43,7 +43,7 @@ import kotlin.math.cos
  */
 internal object TracksideMapTiles {
     const val STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
-    const val ATTRIBUTION = "© OpenStreetMap contributors · OpenFreeMap"
+    const val ATTRIBUTION = "© OpenStreetMap contributors · © OpenMapTiles · OpenFreeMap"
 }
 
 /**
