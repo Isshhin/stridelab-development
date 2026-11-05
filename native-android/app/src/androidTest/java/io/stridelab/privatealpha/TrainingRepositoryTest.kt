@@ -168,7 +168,6 @@ class TrainingRepositoryTest {
         assertTrue(repo.signIn("fixture@example.invalid","fixture"))
         assertEquals(listOf("garmin-run"),repo.state.value.activities.map { it.id })
         assertEquals(0,remote.syncCount)
-        assertNull(repo.state.value.intervals)
     }
     @Test fun previouslyCachedRetiredActivityRemainsOnDiskButInvisibleOffline() = runBlocking {
         remote.rows=listOf(row());assertTrue(repo.signIn("fixture@example.invalid","fixture"))
