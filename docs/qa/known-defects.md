@@ -22,4 +22,6 @@
 | QA-20261105-14 | P1 Coach decides quality-intent gap | Observed and source-confirmed | Emulator E08: on six weekly runs, coach mode shows 0 quality and does not propose an eligible frequency; current toggle only removes pinned weekdays and retains `qualityCount=0`. Define and test a safe coaching proposal, with clear reason if no quality appropriate. |
 | QA-20261105-15 | P1 Coach-mode control discoverability | Observed and source-confirmed | Emulator E09: tapping Coach decides sets `editorOpen=false`, hiding Choose my days and Coach decides controls; weekday tap is an unintuitive way to reopen. Keep mode selector visibly accessible and test switching repeatedly. |
 
+| QA-20261105-16 | P2 Plan Builder feature gap | User observed; source confirmed | Emulator E10: Add PR under Beat my personal best opens a placeholder alert; no PR is stored in PlanRequest. Target date likewise shows an unsupported dialog, and target-time intent cannot Continue. Classify as unimplemented goal inputs and misleading actionable controls, not a crash. Determine the user-approved scope and backwards-compatible persistence, separate from Engine 1.5 physiology. |
+
 No item may be removed from this file until a correction commit and passing regression evidence are recorded in [resolved defects](resolved-defects.md).
