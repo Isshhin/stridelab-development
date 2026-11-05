@@ -1,5 +1,7 @@
 # Trackside 3.0 Usability and Garmin Foundation Implementation Plan
 
+> **Product requirement supersession (2026-11-05):** See [approved Engine 1.5 primary / Engine 1.0 fallback / quality-plan gates](../../qa/engine15-primary-plan-quality-requirements-20261105.md). The tasks below document their original QA scope; a later correction to packaged engine routing and full plan-quality acceptance is required before the product can be accepted.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Deliver a behaviorally verified Trackside private-alpha with no known P0/P1 interaction defects after current verification and a bounded, official Garmin integration foundation.
