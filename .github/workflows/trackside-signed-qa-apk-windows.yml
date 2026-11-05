@@ -1,0 +1,176 @@
+name: Trackside signed QA APK on MARC
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trackside-signed-qa-apk-windows
+  cancel-in-progress: false
+
+env:
+  PYTHONUTF8: '1'
+
+jobs:
+  build-signed-qa-apk:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 60
+    env:
+      REPOSITORY_PRIVATE: ${{ github.event.repository.private }}
+      RECORDED_VERSION_14_SIGNER_SHA256: fbf186fc95d790c566583830bfca6942c017e77c4968dace023bf490114efe95
+    steps:
+      - name: Checkout exact workflow head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify exact private source and existing MARC signer
+        shell: powershell
+        run: |
+          if ((git rev-parse HEAD).Trim() -ne $env:GITHUB_SHA) { throw "Checkout does not match workflow head" }
+          if ($env:REPOSITORY_PRIVATE -ne 'true') { throw "QA APK artifacts must remain in a private repository" }
+          $DebugKeystore = Join-Path $env:USERPROFILE '.android\debug.keystore'
+          if (!(Test-Path -LiteralPath $DebugKeystore -PathType Leaf)) {
+            throw "Existing MARC debug keystore is unavailable; refusing to let Gradle create a substitute signing key"
+          }
+          Write-Host "Exact QA APK source: $env:GITHUB_SHA"
+          Write-Host "Existing MARC debug keystore is present; its contents and path will not be uploaded"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Bind verified Windows Android SDK
+        shell: powershell
+        run: |
+          $Sdk = "$env:LOCALAPPDATA\Android\Sdk"
+          if (!(Test-Path "$Sdk\platforms\android-36")) { throw "Android 36 compile SDK not found" }
+          if (!(Test-Path "$Sdk\build-tools\35.0.0\aapt.exe")) { throw "aapt.exe 35.0.0 not found" }
+          if (!(Test-Path "$Sdk\build-tools\35.0.0\apksigner.bat")) { throw "apksigner.bat 35.0.0 not found" }
+          "ANDROID_HOME=$Sdk" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "ANDROID_SDK_ROOT=$Sdk" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Verify protected sources, tooling and pure JVM regression
+        shell: powershell
+        run: |
+          python -m pip install jsonschema==4.26.0
+          if ($LASTEXITCODE -ne 0) { throw "jsonschema setup failed" }
+          python native-android/tools/validate_exercise_library.py
+          if ($LASTEXITCODE -ne 0) { throw "Exercise library validation failed" }
+          python -m unittest discover -s native-android/tools/tests -v
+          if ($LASTEXITCODE -ne 0) { throw "Protected-source or tooling tests failed" }
+          python native-android/tools/run_library_jvm_checks.py
+          if ($LASTEXITCODE -ne 0) { throw "Standalone JVM suite failed" }
+
+      - name: Verify Android unit regression and build Engine 1.0 default QA APK
+        shell: powershell
+        run: |
+          gradle --no-daemon --stacktrace -p native-android :app:testDebugUnitTest :app:assembleDebug --console=plain
+          if ($LASTEXITCODE -ne 0) { throw "Android unit regression or QA APK build failed" }
+
+      - name: Verify APK identity, signature and update classification
+        shell: powershell
+        run: |
+          $Sdk = $env:ANDROID_HOME
+          $Aapt = "$Sdk\build-tools\35.0.0\aapt.exe"
+          $ApkSigner = "$Sdk\build-tools\35.0.0\apksigner.bat"
+          $Apk = "native-android\app\build\outputs\apk\debug\app-debug.apk"
+          if (!(Test-Path -LiteralPath $Apk -PathType Leaf)) { throw "QA APK was not produced" }
+
+          $Badging = (& $Aapt dump badging $Apk | Out-String)
+          if ($LASTEXITCODE -ne 0) { throw "aapt could not inspect the QA APK" }
+          $Signature = (& $ApkSigner verify --verbose --print-certs $Apk | Out-String)
+          if ($LASTEXITCODE -ne 0) { throw "apksigner verification failed" }
+
+          $PackageMatch = [regex]::Match($Badging, "package: name='([^']+)' versionCode='(\d+)' versionName='([^']+)'")
+          $MinMatch = [regex]::Match($Badging, "sdkVersion:'(\d+)'")
+          $TargetMatch = [regex]::Match($Badging, "targetSdkVersion:'(\d+)'")
+          $SignerMatch = [regex]::Match($Signature, 'Signer #1 certificate SHA-256 digest:\s*([0-9a-fA-F:]+)')
+          if (!$PackageMatch.Success -or !$MinMatch.Success -or !$TargetMatch.Success -or !$SignerMatch.Success) {
+            throw "Complete package, SDK and signer metadata is required"
+          }
+
+          $ApplicationId = $PackageMatch.Groups[1].Value
+          $VersionCode = [int]$PackageMatch.Groups[2].Value
+          $VersionName = $PackageMatch.Groups[3].Value
+          $MinSdk = [int]$MinMatch.Groups[1].Value
+          $TargetSdk = [int]$TargetMatch.Groups[1].Value
+          $Signer = $SignerMatch.Groups[1].Value.ToLowerInvariant().Replace(':','')
+          if ($ApplicationId -ne 'io.stridelab.privatealpha') { throw "Unexpected application ID: $ApplicationId" }
+          if ($VersionCode -ne 15 -or $VersionName -ne '0.6.6-guided-workout') { throw "Unexpected version metadata" }
+          if ($MinSdk -ne 26 -or $TargetSdk -ne 35) { throw "Unexpected Android SDK metadata" }
+
+          $Compatibility = if ($Signer -ne $env:RECORDED_VERSION_14_SIGNER_SHA256) {
+            'INCOMPATIBLE_WITH_RECORDED_VERSION_14_SIGNER'
+          } elseif ($VersionCode -le 14) {
+            'INCOMPATIBLE_VERSION_CODE'
+          } else {
+            'UPDATE COMPATIBILITY UNVERIFIED'
+          }
+
+          $Output = 'native-android\app\build\signed-qa-apk'
+          New-Item -ItemType Directory -Path $Output -Force | Out-Null
+          $ShortSha = $env:GITHUB_SHA.Substring(0,12)
+          $Filename = "StrideLab-Trackside-3.0-QA-$ShortSha.apk"
+          $Destination = Join-Path $Output $Filename
+          Copy-Item -LiteralPath $Apk -Destination $Destination
+          $Sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $Destination).Hash.ToLowerInvariant()
+
+          $Metadata = [ordered]@{
+            sourceCommit = $env:GITHUB_SHA
+            workflowRun = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+            apkFilename = $Filename
+            apkSha256 = $Sha256
+            applicationId = $ApplicationId
+            versionCode = $VersionCode
+            versionName = $VersionName
+            minimumSdk = $MinSdk
+            targetSdk = $TargetSdk
+            buildType = 'debug'
+            signatureVerified = $true
+            signingCertificateSha256 = $Signer
+            recordedInstalledVersionCode = 14
+            recordedVersion14SignerSha256 = $env:RECORDED_VERSION_14_SIGNER_SHA256
+            updateCompatibility = $Compatibility
+            physicalInstallAttempted = $false
+            physicalUpgradeValidated = $false
+          }
+          $Metadata | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Output 'apk-metadata.json') -Encoding utf8
+          $Badging | Set-Content -LiteralPath (Join-Path $Output 'aapt-badging.txt') -Encoding utf8
+          $Signature | Set-Content -LiteralPath (Join-Path $Output 'apksigner-verification.txt') -Encoding utf8
+          "$Sha256  $Filename" | Set-Content -LiteralPath (Join-Path $Output 'SHA256SUMS') -Encoding ascii
+          @(
+            'PRIVATE PERSONAL-QA BUILD. No phone installation was attempted by CI.'
+            "Compatibility classification: $Compatibility"
+            'Do not uninstall StrideLab and do not clear its data if Android rejects the update.'
+            'Signature verification proves APK integrity; it does not prove compatibility with the APK currently installed on the phone.'
+            'Run a read-only installed/candidate signer and version comparison before an in-place update.'
+            'If the signer differs, keep the existing app and use a separate device, work profile, or emulator for this QA APK.'
+          ) | Set-Content -LiteralPath (Join-Path $Output 'READ-BEFORE-INSTALL.txt') -Encoding utf8
+
+          Write-Host "APK filename: $Filename"
+          Write-Host "APK SHA-256: $Sha256"
+          Write-Host "Signing certificate SHA-256: $Signer"
+          Write-Host "Update classification: $Compatibility"
+
+      - name: Upload private signed QA APK and public evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: stridelab-trackside-signed-qa-${{ github.sha }}
+          path: native-android/app/build/signed-qa-apk/
+          if-no-files-found: error
+          retention-days: 21
