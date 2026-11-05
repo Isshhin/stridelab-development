@@ -26,6 +26,7 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
+import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.PropertyFactory
@@ -78,7 +79,9 @@ private fun MapLibreRouteView(
     val mapView=remember(context) {
         // MapLibre must be initialized before MapView is constructed.
         MapLibre.getInstance(context.applicationContext)
-        MapView(context).apply { onCreate(null) }
+        // TextureView is required for correct Compose bottom-sheet overlap.
+        MapView(context,MapLibreMapOptions().textureMode(true))
+            .apply { onCreate(null) }
     }
     val geoJson=remember(route) { route.toGeoJson() }
 
