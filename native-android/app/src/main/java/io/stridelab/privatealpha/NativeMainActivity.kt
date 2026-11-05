@@ -575,7 +575,7 @@ internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
     }
 }
 @Composable internal fun ActivityRow(
-    activity: ActivityRecord, onClick: () -> Unit, sourceLabel:String=activity.sourceLabel
+    activity: ActivityRecord, sourceLabel:String=activity.sourceLabel, onClick: () -> Unit
 ) {
     val accent = when { activity.supportsPace -> TracksidePalette.running; activity.type.contains("strength", true) || activity.type == "training" -> TracksidePalette.strength; else -> TracksidePalette.calisthenics }
     Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().testTag("activity-${activity.id}"), shape = RoundedCornerShape(22.dp),
