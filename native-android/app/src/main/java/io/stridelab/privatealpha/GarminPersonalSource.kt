@@ -3,7 +3,7 @@ package io.stridelab.privatealpha
 import java.time.Instant
 
 internal enum class GarminIssueKind {
-    AUTHENTICATION, NETWORK, RATE_LIMIT, ACTIVITY_DATA, SECURE_STORAGE, OTHER
+    AUTHENTICATION, NETWORK, RATE_LIMIT, SERVICE, ACTIVITY_DATA, SECURE_STORAGE, OTHER
 }
 
 internal data class GarminConnectionStatus(
@@ -23,6 +23,7 @@ internal data class GarminConnectionStatus(
             GarminIssueKind.AUTHENTICATION -> "Garmin authentication needs attention"
             GarminIssueKind.NETWORK -> "Garmin connection unavailable"
             GarminIssueKind.RATE_LIMIT -> "Garmin is rate limiting requests"
+            GarminIssueKind.SERVICE -> "Garmin service needs attention"
             GarminIssueKind.ACTIVITY_DATA -> "Garmin activity data needs attention"
             GarminIssueKind.SECURE_STORAGE -> "Saved Garmin connection needs attention"
             else -> "Garmin sync needs attention"
@@ -34,6 +35,7 @@ internal data class GarminConnectionStatus(
             val kind=when(error) {
                 is GarminAuthenticationException -> GarminIssueKind.AUTHENTICATION
                 is GarminRateLimitException -> GarminIssueKind.RATE_LIMIT
+                is GarminServiceException -> GarminIssueKind.SERVICE
                 is GarminProtocolException -> GarminIssueKind.ACTIVITY_DATA
                 is GarminNetworkException -> GarminIssueKind.NETWORK
                 is java.io.IOException -> GarminIssueKind.SECURE_STORAGE
@@ -44,6 +46,7 @@ internal data class GarminConnectionStatus(
                 GarminIssueKind.AUTHENTICATION -> error.message ?: "Garmin authorization was rejected"
                 GarminIssueKind.NETWORK -> "Garmin could not be reached. Check your connection."
                 GarminIssueKind.RATE_LIMIT -> "Garmin rate limit reached; try again later."
+                GarminIssueKind.SERVICE -> error.message ?: "Garmin service request failed"
                 GarminIssueKind.ACTIVITY_DATA -> error.message ?: "Garmin returned unsupported activity data"
                 GarminIssueKind.SECURE_STORAGE -> "Secure Garmin credential storage is unavailable."
                 else -> "Garmin synchronization could not be completed."
