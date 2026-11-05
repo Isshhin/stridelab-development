@@ -39,8 +39,33 @@ Earlier implementation-head evidence is preserved in [run 41946839417](https://g
 
 ## Implemented functionality and journey audit
 
-Task 2 expands this section from production routes and tests. Unimplemented behavior is kept separate from defects.
+The detailed component inventory is [docs/qa/feature-inventory.md](../qa/feature-inventory.md). The application implements authentication/session persistence; five root navigation destinations; Today; Training; the staged multi-discipline Plan Builder; Manage Plan; workout player/logging; Activity history/detail; Intervals.icu state/sync; FIT validation/cache helpers; Garmin Personal API foundations; Library/templates; backup/restore; and offline outbox/repository recovery.
+
+TCX and GPX imports do not exist. FIT is not an end-to-end user-facing history importer. Garmin fetch results are not persisted. These are unimplemented boundaries, not passing journeys.
+
+### Critical journey evidence
+
+| Journey | Status | Evidence | Boundary |
+|---|---|---|---|
+| A. Open → authenticate → Today | PARTIAL PASS | Auth/session repository tests, `NativeNavigationTest`, `TracksideTodayTest` | Synthetic gateway/emulator; no hosted-auth or fresh-device phone run |
+| B. Builder → configure → generate → review → approve | PASS (automated) | `TracksideEngineBuilderIntegrationTest`, builder UI tests, 24-case responsive suite on four profiles | Synthetic account/local database; no phone acceptance |
+| C. Training → selected workout → edit/move → save/reopen | PASS (automated core) | calendar/manage navigation, movement validation, feedback repository offline reopen | Archive UI outcome is not directly asserted |
+| D. Record/complete workout → history/persistence | PASS (automated) | `WorkoutPlayerTest`, `Engine1RepositoryTest`, reliability validation | Emulator and SQLite evidence only |
+| E. Import → metrics → dedupe → match | PARTIAL | FIT decoder/cache, provider repository, matcher and manual-link tests | No end-to-end FIT UI/history commit; no TCX/GPX; Garmin not persisted; no live provider |
+| F. Activity Detail map/sheet/scroll/Back | PASS (automated) | focused Activity sheet tests plus four responsive profiles | No real-hand gesture/phone acceptance |
+| G. Restart → reopen plans/workouts/activities | PASS (automated) | repository recreation, navigation recreation, upgrade and cache tests | Process/device restart behavior is simulated by repository/activity recreation |
+| H. Offline operations → reopen → integrity | PASS (automated) | repository, outbox, feedback and FIT cache recovery suites | Synthetic offline/failure injection |
+
+### Interaction and outcome gaps
+
+- Manage Plan archive has a confirmation implementation but no dedicated UI outcome assertion.
+- Garmin Settings connect/disconnect UI is backed by client/source/vault tests, but not a live key or canonical-history import.
+- FIT safe-intake helpers are not reachable through a production picker or manifest share target.
+- Intervals.icu actions are covered with fixture gateways, not an authenticated real provider.
+- Phone touch ergonomics, soft-keyboard variants and OEM Back behavior remain untested.
 
 ## Findings and readiness
 
-Pending the journey/coverage map. No unresolved P0/P1 claim will be made until that review is complete.
+- **P1 reproduced:** the Android packaged default enabled Engine 1.5 (`strideEngine15Active` defaulted to `true`) contrary to the explicit Engine 1.0 production-default requirement. A focused test failed at the build flag assertion; the candidate correction changes only the default to `false` while retaining explicit research-build override coverage. Broad verification is pending.
+- Existing open P2 limitations are Garmin history persistence, live Garmin credential verification, and current-branch physical-phone smoke acceptance.
+- No newly reproduced data-loss, crash, or account-isolation P0 was found during source/test mapping. Final severity counts wait for focused and broad verification of the engine-default correction.
