@@ -77,7 +77,11 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         }
         val wellness=mutableListOf<WellnessRecord>()
         store.readableDatabase.query("records",arrayOf("payload"),"account=? AND kind=?",arrayOf(account,"wellness"),null,null,null).use { c ->
-            while(c.moveToNext()) runCatching { WellnessRecord.parse(JSONObject(c.getString(0)),account)?.let { wellness.add(it) } }
+            while(c.moveToNext()) runCatching {
+                WellnessRecord.parse(JSONObject(c.getString(0)),account)?.let {
+                    if(ActiveActivitySources.accepts(it.source))wellness.add(it)
+                }
+            }
         }
         val plans=mutableListOf<PlanSnapshot>();var unsupportedPlans=0
         store.readableDatabase.query("records",arrayOf("payload"),"account=? AND kind=?",arrayOf(account,"plan"),null,null,null).use { c ->
@@ -255,6 +259,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         for(i in 0 until raw.length()) {
             val row=raw.getJSONObject(i)
             val record=WellnessRecord.parse(row,account) ?: continue
+            if(!ActiveActivitySources.accepts(record.source))continue
             require(seen.add(record.id))
             rows+=TrainingStore.RemoteRecord(record.id,row.toString(),null)
         }
