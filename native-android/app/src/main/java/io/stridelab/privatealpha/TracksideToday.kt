@@ -156,7 +156,9 @@ internal fun TracksideTodaySession(session: PlannedSession, onOpen: () -> Unit) 
 
 /** Summary record, never a fabricated route thumbnail or inferred pace. */
 @Composable
-internal fun TracksideTodayActivity(activity: ActivityRecord, onOpen: () -> Unit) {
+internal fun TracksideTodayActivity(
+    activity: ActivityRecord, sourceLabel:String=activity.sourceLabel, onOpen: () -> Unit
+) {
     Surface(onClick = onOpen, modifier = Modifier.fillMaxWidth().testTag("activity-" + activity.id),
         shape = RoundedCornerShape(13.dp), color = TracksidePalette.surface,
         border = BorderStroke(1.dp, TracksidePalette.outline.copy(alpha = 0.6f))) {
@@ -176,6 +178,9 @@ internal fun TracksideTodayActivity(activity: ActivityRecord, onOpen: () -> Unit
                     color = TracksidePalette.textMuted, style = MaterialTheme.typography.bodySmall)
                 Text(activity.dateLabel, color = TracksidePalette.textMuted,
                     style = MaterialTheme.typography.labelSmall)
+                if(sourceLabel!=activity.sourceLabel)
+                    Text(sourceLabel,color=TracksidePalette.textMuted,
+                        style=MaterialTheme.typography.labelSmall)
             }
             Text("›", style = MaterialTheme.typography.headlineSmall, color = TracksidePalette.textMuted)
         }
