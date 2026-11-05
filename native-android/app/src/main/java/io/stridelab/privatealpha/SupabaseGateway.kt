@@ -13,7 +13,6 @@ internal interface TrainingGateway {
     fun refresh(session: NativeSession): NativeSession
     fun verify(session: NativeSession)
     fun activities(session: NativeSession, before: ActivityRecord?): JSONArray
-    fun intervals(session: NativeSession, action: String): JSONObject
     fun wellness(session: NativeSession): JSONArray = throw java.io.IOException("Wellness unavailable")
     fun detail(session: NativeSession, id: String): JSONObject = throw java.io.IOException("Activity streams unavailable")
     fun signOut(session: NativeSession)
@@ -34,7 +33,7 @@ internal object ServiceErrors {
             path.contains("grant_type=refresh_token") && status in setOf(400,401,403) -> "Your saved session has expired or was revoked. Sign in again; cached activities are retained."
             status == 401 -> "Your session needs to be renewed. Cached activities are retained."
             status == 403 -> "This account does not have permission for this request. Cached data is retained."
-            status == 409 -> "Intervals.icu is not connected or needs attention in your existing integration settings."
+            status == 409 -> "The requested service is unavailable. Saved records are retained."
             status == 400 && path.startsWith("/auth/") -> "Sign-in was not accepted. Check your email and password."
             else -> "The service could not complete the request (HTTP $status). Cached data is retained."
         }
@@ -99,10 +98,6 @@ internal class SupabaseGateway(private val transport: BackendTransport = HttpsBa
             "&or=" + URLEncoder.encode(filter,"UTF-8")
         } ?: ""
         return JSONArray(request("/rest/v1/activities?select=*&user_id=eq.$owner&source=neq.demo&order=started_at.desc,id.desc&limit=200$cursor",session.accessToken))
-    }
-    override fun intervals(session: NativeSession, action: String): JSONObject {
-        require(action in setOf("status","sync","backfill"))
-        return JSONObject(request("/functions/v1/stridelab-intervals",session.accessToken,JSONObject().put("action",action)))
     }
     override fun wellness(session: NativeSession): JSONArray {
         val all=JSONArray(); var offset=0
