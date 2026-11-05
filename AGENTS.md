@@ -21,6 +21,7 @@ This is the persistent default for work in this repository. Follow the user's **
 - Check currently available skills; do not claim that a skill is installed unless its instructions are accessible in this environment.
 - For **approved Compose UI, navigation, gesture, accessibility, responsive, or Figma parity work**, read both `.agents/skills/stridelab-ui-safe-parity/SKILL.md` (project-specific logic-preservation and owner-approval gates) and `.agents/skills/ui-ux-pro-max/SKILL.md` (including its **Jetpack Compose** guidance). Do not substitute generic web design guidance for native Android behavior.
 - Discover, then selectively use any actually available Impeccable (visual critique), Superpowers (debugging/verification), Android testing, or Sentry Code Review skills. User-level or plugin installations are **not guaranteed** to be mounted into Codex. Never mass-install or load every skill, and never let skill suggestions override approved Figma or existing app logic. See `docs/qa/codex-skills-setup-20261106.md` for the verified inventory and read-only skill check.
+- Use `design-system` for tokens and component states, `graphify` for targeted dependency/caller inspection when useful, and `unslop` only for requested code-quality cleanup. For Compose regression coverage, select only the relevant testing skills for test choice, structure, synchronization, semantics assertions, bounds, state restoration, and accessibility.
 - For non-UI API, FIT, database, or pure data-layer work, **skip the UI skills** unless a user-visible interface behavior is actually being changed.
 
 ## Product boundaries and priorities
@@ -30,6 +31,7 @@ This is the persistent default for work in this repository. Follow the user's **
 - **Analysis under More is backlog only.** Do not build or add new analytics features unless separately approved.
 - Figma file: `v73TsYo6gKxUoiUock2sSE`. Treat approval as explicit, not implied by a design's presence. Current designs may still be reorganized; verify the exact approved node before implementing it.
 - UI reconstruction: keep working Garmin, MapLibre, persistence, and engine boundaries intact. Pass functionality and focused tests, check visual/interaction parity on an emulator, then **STOP for owner acceptance** before moving to the next page. Green tests alone are not visual or device acceptance.
+- Preserve all existing application logic and data contracts, including training engines, databases, persistence, synchronization, backup/recovery behavior, and provider boundaries. Do not change navigation, routes, feature behavior, business rules, storage, or migrations without explicit approval.
 - Do not modify Engine 1.5 (draft PR #37), Engine 2.x research (draft PR #34), unrelated branches, or unrelated data providers as part of a UI/Garmin fix. Any change to these requires specific authorization and branch verification.
 - Garmin is the active wearable source in the native QA workflow. Do not re-enable the retired Intervals.icu UI/sync or destroy preserved historical records without explicit authorization. Keep real recorded GPS provenance; never synthesize geographic tracks.
 
@@ -47,3 +49,5 @@ This is the persistent default for work in this repository. Follow the user's **
 - Report the actual root cause and minimal diff; exact commit SHA and branch; successful and failed test commands/counts; UI/device/API evidence and blockers; remaining risks; and a short owner verification checklist.
 - Maintain the task-specific QA/handoff documents after confirmed findings. If one capability cannot be verified (e.g., an authenticated Garmin FIT download), mark it **UNVERIFIED** rather than claiming full success.
 - Stop at the agreed task boundary. Do not silently begin the next screen, redesign, algorithm project, or provider integration.
+
+Keep UI changes at the presentation layer unless a deeper change is explicitly authorized. Do not weaken validation, error handling, offline behavior, permissions, or accessibility to make a design fit. For UI changes, add or update relevant Compose regression tests covering the user-visible state, important interaction, and relevant accessibility semantics. Use bounds assertions only when geometry is part of the contract.
