@@ -24,4 +24,6 @@
 
 | QA-20261105-16 | P2 Plan Builder feature gap | User observed; source confirmed | Emulator E10: Add PR under Beat my personal best opens a placeholder alert; no PR is stored in PlanRequest. Target date likewise shows an unsupported dialog, and target-time intent cannot Continue. Classify as unimplemented goal inputs and misleading actionable controls, not a crash. Determine the user-approved scope and backwards-compatible persistence, separate from Engine 1.5 physiology. |
 
+| QA-20261105-17 | P2 Current Ability auto-detection gap | User observed; source confirmed | Emulator E11: Running experience is a manual 0/1/2 selection with beginner default; no automatic Beginner/Intermediate/Advanced classification from stored Intervals.icu activities. Recent cached activities may supply 28-day average weekly mileage/longest run, but provenance and saved-plan preference must be checked. Specify explainable, overrideable experience recommendation without weakening training safeguards. |
+
 No item may be removed from this file until a correction commit and passing regression evidence are recorded in [resolved defects](resolved-defects.md).
