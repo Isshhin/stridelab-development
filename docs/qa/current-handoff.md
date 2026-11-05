@@ -1,5 +1,7 @@
 # Current QA handoff — 2026-11-05
 
+**LATEST PRODUCT REQUIREMENTS:** [Engine 1.5 primary and quality-session acceptance](engine15-primary-plan-quality-requirements-20261105.md). The code and the green QA checkpoint below still use the older Engine 1.0 packaged default and therefore do **not** meet the revised product contract. Code correction and new acceptance tests remain pending.
+
 Read [README.md](README.md) before continuing this work. Verification below applies only to the stated commits; it is not phone or live-Garmin acceptance.
 
 ## Repository
@@ -57,7 +59,15 @@ The first authorized dispatch at `d0d6224` failed before Android execution becau
 - Garmin Personal API foundation uses the official endpoint contract, account-scoped Android Keystore/AES-GCM storage, token lifecycle/error handling, provenance and explicit dedupe boundaries.
 - Permanent QA navigation, defect history, regression index, environment and verification procedures live in `docs/qa/`.
 - Full implemented-feature and critical-journey inventory is in `docs/reports/FULL-APPLICATION-FUNCTIONAL-QA-20261105.md`.
-- Engine 1.0 is now the packaged default; Engine 1.5 requires an explicit research/integration build property.
+- **Historical verified code, now a P1 product mismatch:** Engine 1.0 is the packaged default; Engine 1.5 requires an explicit property. The approved new-plan target instead requires Engine 1.5 primary and Engine 1.0 controlled fallback.
+
+## Newly confirmed contract / acceptance blockers (requirements updated; source unchanged)
+
+- P1: new-plan packaged Engine 1.0 default contradicts the approved Engine 1.5-primary configuration; the existing unit/instrumentation tests explicitly enforce Engine 1.0.
+- P1: quality `count=0` initialization, advisory Threshold/Tempo/Intervals/Hills style selection, and UI vs Engine 1.5 30/40 km quality-frequency limits have not been reconciled.
+- P1: no production-route test proves an eligible quality workout survives selection, generation, review, approval and offline reopen. User-facing requested-versus-generated explanation needs acceptance.
+- The detailed behavior matrix still records many `NOT RUN` outcomes; do not present historical suite counts as all-feature behavioral acceptance.
+- See [mandatory requirements and test scenarios](engine15-primary-plan-quality-requirements-20261105.md). No new runtime or test code was changed by this documentation update.
 
 ## Unresolved work and blockers
 
