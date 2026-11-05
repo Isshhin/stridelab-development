@@ -30,8 +30,7 @@ data class ActivityRecord(
         val seconds=movingTimeS?.takeIf { it.isFinite() && it>0 } ?: return null
         return (1000.0*seconds/meters).takeIf { it.isFinite() && it>0 }
     }
-    val detailPaceHeading:String get()=if(garminMovingPaceSPerKm!=null)
-        "MOVING PACE" else "AVG PACE"
+    val detailPaceHeading:String get()="PACE"
     val detailPaceLabel:String get()=recordedPace?.let { "${duration(it)} /km" }
         ?: garminMovingPaceSPerKm?.let { "${duration(it)} /km" } ?: "Not recorded"
     companion object {
