@@ -153,7 +153,7 @@ jobs:
           adb shell wm density 320
           adb shell settings put system font_scale 1.0
           $Classes = @(Get-ChildItem native-android/app/src/androidTest/java/io/stridelab/privatealpha -File |
-            Where-Object { $_.BaseName -match '^(Trackside.*Test|Engine15.*Test|Engine1RepositoryTest|TrainingRepositoryTest|OutboxOfflineRecoveryTest)$' -and $_.BaseName -ne 'TracksideResponsiveQaTest' } |
+            Where-Object { $_.BaseName -match '^(Trackside.*Test|Engine15.*Test|Engine1RepositoryTest|TrainingRepositoryTest|OutboxOfflineRecoveryTest|GarminCredentialVaultTest)$' -and $_.BaseName -ne 'TracksideResponsiveQaTest' } |
             ForEach-Object { "io.stridelab.privatealpha.$($_.BaseName)" })
           $EngineUiClass = "io.stridelab.privatealpha.Engine1UiTest"
           $ParityTest = "$EngineUiClass#runningPrimaryAndStrengthSecondaryGoalProduceActualDifferentPrescriptions"
