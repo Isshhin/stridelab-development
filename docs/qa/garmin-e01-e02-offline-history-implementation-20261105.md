@@ -25,6 +25,17 @@ Branch: `fix/trackside-usability-garmin-20261105`. Initial source checkpoint: `d
 - `TrainingRepositoryTest.garminSummarySyncAppearsInActivityTabAndSurvivesOfflineReopen`
 - `TrainingRepositoryTest.duplicateGarminIdsWithinOnePageDoNotPartiallyWriteHistory`
 
+## Additional owner finding: cross-provider duplicate display (E18)
+
+The owner provided a screenshot showing **Santa Mesa Running** at the same local start time and distance (9.56 km), with Garmin duration 1:03:36 versus Intervals.icu duration 1:03:27. This confirms the live Garmin source appeared in local Activity history, but does not prove every imported record is correct or complete.
+
+- `ActivityDisplayConsolidation.kt`: strictly match Garmin and Intervals.icu **running** activities only when start times differ by <=45 seconds, durations by <=max(30 seconds,1%), distances by <=max(30 m,0.5%), and there is a unique 1:1 candidate in both directions. Prefer the detailed Intervals.icu record; retain both originals unchanged.
+- `NativeMainActivity.kt`, `TracksideToday.kt`: show a single Activity card/Today item with combined source label for a confidently matched pair.
+- `DashboardSummary.kt` and `PlanBuilder.kt`: count that run once in seven-day totals and 28-day mileage seeding, respectively.
+- `ActivityDisplayConsolidationTest.kt`: four synthetic tests covering same-run one-card + total, 28-day volume, genuinely distinct runs, and ambiguous near matches. **Unexecuted** until owner runs targeted Gradle tests.
+- Remaining limitation: grouping is a conservative **presentation calculation**, not proof that differently identified source records are the same underlying event. It does not merge/delete data or provide a full review/merge UX.
+- Manual acceptance: After fast-forward pull and rebuild, verify the example appears as **one Activity card labeled Intervals.icu + Garmin**, with unchanged source data on disk; weekly distance and run count are not doubled; inspect a genuinely separate run and confirm it remains visible.
+
 ## Required manual verification before DONE
 
 1. From Android Studio on this branch, fetch/pull exact source head, sync Gradle with JDK 17 / Gradle 8.13 / Android API 36.
@@ -38,6 +49,6 @@ Branch: `fix/trackside-usability-garmin-20261105`. Initial source checkpoint: `d
 ## Explicit limitations and safety
 
 - User-triggered local **summary** sync only: this does not create Garmin detail streams, mapped routes, FIT files, training effects, canonical cloud backfill or automatic planned-workout matching.
-- Same physical run may appear once per source (Intervals.icu and Garmin); avoid silent cross-provider deduplication or deletion.
+- **Cross-provider display consolidation added after owner emulator report:** When Garmin and Intervals.icu runs have a strict, unambiguous one-to-one time/duration/distance match, Activity and Today present **one card with both source labels**, preferring the Intervals.icu detail record. Neither original record is deleted, overwritten, merged on disk, or auto-linked to a planned workout. Ambiguous matches, missing metrics, and genuinely different workouts remain separate. The 7-day dashboard and Plan Builder recent mileage use the same logical run count. This functionality is committed but not yet exact-head build/device verified.
 - Garmin's Personal API is meant for the key owner's individual use, not a multi-user public product. Treat any public release separately under authorized Garmin developer agreements.
 - CI on this QA branch does not automatically run the integrated Windows workflow. An actual exact-head build and emulator run are necessary before marking E01, E02 or history integration resolved.
