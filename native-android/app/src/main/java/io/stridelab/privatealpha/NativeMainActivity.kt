@@ -106,13 +106,14 @@ class NativeMainActivity: ComponentActivity() {
 @Composable internal fun NativeStrideApp(model: TrainingViewModel = viewModel()) {
     val state by model.state.collectAsStateWithLifecycle(context=kotlinx.coroutines.Dispatchers.Main.immediate)
     val online by model.online.collectAsStateWithLifecycle(context=kotlinx.coroutines.Dispatchers.Main.immediate)
-    val actions = remember(model) { NativeActions(model::refresh, model::checkIntervals, model::syncIntervals, model::signOut, model::signIn, model::loadDetail, model::refreshWellness, model.planActions()) }
+    val actions = remember(model) { NativeActions(model::refresh, model::checkIntervals, model::syncIntervals, model::signOut, model::signIn, model::loadDetail, model::refreshWellness, model.planActions(), syncGarmin=model::syncGarmin) }
     NativeStrideContent(state, online, actions)
 }
 
 /** Presentation boundary allows isolated screenshots without a real session or fake production data. */
 internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: () -> Unit,
-    val syncIntervals: () -> Unit, val signOut: () -> Unit, val signIn: (String, String) -> Unit, val loadDetail: (String) -> Unit = {}, val refreshWellness: () -> Unit = {}, val planning:PlanActions = PlanActions())
+    val syncIntervals: () -> Unit, val signOut: () -> Unit, val signIn: (String, String) -> Unit, val loadDetail: (String) -> Unit = {}, val refreshWellness: () -> Unit = {}, val planning:PlanActions = PlanActions(),
+    val syncGarmin: (suspend (GarminPersonalSource) -> GarminConnectionStatus)? = null)
 
 /** Save each tab's root state, never its transient detail/auth destination. */
 private fun NavHostController.openTabRoot(path: String) {
@@ -427,7 +428,7 @@ private fun NavHostController.openActivity(id: String) {
                             item { TracksideSectionHeader("Private account") }
                             item { SignalCard { Text("ACCOUNT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text(state.account!!, style = MaterialTheme.typography.bodyMedium) } }
                             item { TracksideSectionHeader("Connections") }
-                            item { GarminSettingsCard(state.account!!) }
+                            item { GarminSettingsCard(state.account!!,actions.syncGarmin) }
                             item { SignalCard {
                                 Text("ACTIVITY SOURCE", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                                 Text("Intervals.icu",style = MaterialTheme.typography.titleLarge)
