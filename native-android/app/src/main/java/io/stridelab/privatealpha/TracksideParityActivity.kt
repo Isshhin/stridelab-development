@@ -1,8 +1,6 @@
 package io.stridelab.privatealpha
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,12 +8,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -24,77 +21,35 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.sp
-import kotlin.math.cos
-import kotlin.math.abs
 
-/** Figma approved 551:235 atmospheric glass. Real metrics only.
- * The original decorative street grid never claims to be the recorded GPS route.
- * Actual recorded GPS follows below metrics in RecordedActivityDetail.
- */
 /**
- * Approved atmospheric activity: full-width source map first, 425dp high.
- * The backdrop is a decorative Figma city grid. A red route is drawn ONLY
- * from actual recorded coordinates when the source contains GPS points.
+ * Activity hero. The street map uses real source coordinates through MapLibre.
+ * No recorded GPS means no map location or illustrative/fake route is shown.
  */
 @Composable
 internal fun TracksideParityActivityMapHero(
     detail: ActivityDetail?,
     onBack: () -> Unit,
     heightDp: Dp = 425.dp,
-    onChangeStyle: (() -> Unit)? = null
+    onChangeStyle: (() -> Unit)? = null,
+    online:Boolean = true
 ) {
-    val samples = detail?.samples ?: emptyList()
-    val points = samples.filter { it.latitude != null && it.longitude != null }
+    val route=remember(detail) { RecordedGpsRoute.from(detail?.samples.orEmpty()) }
     Box(Modifier.fillMaxWidth().height(heightDp).testTag("activity-map-hero")) {
-        Image(painterResource(R.drawable.trackside_activity_street_grid),
-            contentDescription = "Decorative street-map background, not recorded GPS",
-            modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-        if (points.size < 2) {
-            // Isolated original Figma vector, strictly an illustrative placeholder.
-            // It is NOT matched to or substituted for the athlete's GPS samples.
-            Image(
-                painterResource(R.drawable.trackside_activity_illustrative_route),
-                contentDescription = "Illustrative route graphic; not recorded GPS data",
-                modifier = Modifier.align(Alignment.TopStart)
-                    .padding(start = 81.dp, top = 93.dp)
-                    .size(width = 211.dp, height = 325.dp),
-                contentScale = ContentScale.FillBounds
-            )
+        if(route.pointCount>=2) {
+            TracksideGeographicMap(route,online,Modifier.fillMaxSize())
+        } else {
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
+                listOf(Color(0xFF142D3C),Color(0xFF091520)))))
         }
-        if (points.size >= 2) {
-            val projection = cos(Math.toRadians(points.map { it.latitude!! }.average()))
-                .coerceAtLeast(.01)
-            val minX = points.minOf { it.longitude!! * projection }
-            val maxX = points.maxOf { it.longitude!! * projection }
-            val minY = points.minOf { it.latitude!! }
-            val maxY = points.maxOf { it.latitude!! }
-            Canvas(Modifier.fillMaxSize()) {
-                val spanX = (maxX - minX).coerceAtLeast(.00001)
-                val spanY = (maxY - minY).coerceAtLeast(.00001)
-                val scale = minOf((size.width - 40f) / spanX, (size.height - 40f) / spanY)
-                fun pointOf(p: ActivitySample) = Offset(
-                    ((size.width - spanX * scale) / 2 +
-                        (p.longitude!! * projection - minX) * scale).toFloat(),
-                    ((size.height - spanY * scale) / 2 +
-                        (maxY - p.latitude!!) * scale).toFloat()
-                )
-                for ((a, b) in samples.zipWithNext()) {
-                    if (a.latitude != null && a.longitude != null &&
-                        b.latitude != null && b.longitude != null &&
-                        b.seconds - a.seconds <= 120 && abs(a.longitude - b.longitude) < 180) {
-                        drawLine(TracksidePalette.red, pointOf(a), pointOf(b), 4.dp.toPx())
-                    }
-                }
-            }
-        }
+        // Glass tint is decorative only. Streets, when present, are geographic.
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
-            listOf(Color(0xAA07111A), Color.Transparent, Color(0xCC08131D))
+            listOf(Color(0x9907111A),Color.Transparent,Color(0x4408131D))
         )))
         Row(
             Modifier.fillMaxWidth().padding(top = 12.dp, start = 16.dp, end = 16.dp),
@@ -127,11 +82,29 @@ internal fun TracksideParityActivityMapHero(
                 }
             } else Box(Modifier.size(44.dp))
         }
+        if(route.pointCount>=2 && online) {
+            Text(
+                TracksideMapTiles.ATTRIBUTION,
+                modifier=Modifier.align(Alignment.TopEnd)
+                    .padding(top=68.dp,end=16.dp)
+                    .background(Color(0xCC0A1921),RoundedCornerShape(6.dp))
+                    .padding(horizontal=7.dp,vertical=4.dp)
+                    .testTag("activity-map-attribution"),
+                fontSize=9.sp,color=Color.White
+            )
+        }
         Text(
-            if (points.size >= 2) "Recorded GPS schematic · " + points.size + " samples"
-            else "ILLUSTRATIVE DESIGN ROUTE · NOT A GPS RECORDING",
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 28.dp),
-            fontSize = 11.sp, color = TracksidePalette.text
+            when {
+                route.pointCount<2 -> "NO RECORDED GPS TRACK · NO MAP LOCATION"
+                !online -> "RECORDED GPS TRACE · OFFLINE (NO STREET TILES)"
+                else -> "RECORDED GPS ON GEOGRAPHIC STREET MAP"
+            },
+            modifier=Modifier.align(Alignment.TopStart)
+                .padding(top=101.dp,start=16.dp)
+                .background(Color(0xAA0A1921),RoundedCornerShape(6.dp))
+                .padding(horizontal=7.dp,vertical=4.dp)
+                .testTag("activity-map-state"),
+            fontSize=10.sp,color=TracksidePalette.text
         )
     }
 }
