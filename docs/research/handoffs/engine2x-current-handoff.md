@@ -1,5 +1,9 @@
 # StrideLab Engine 2.x current coordinating handoff
 
+## P2-F synthetic durable-store continuation — 2026-11-06
+
+The [synthetic durable-store boundary](../phase2/p2-f-durable-synthetic-boundary.md) describes account/view/purpose/partition-scoped event storage, synthetic authority checks, replay and restore limits. This is research-only synthetic software evidence; it is not a private-pilot custody system or device validation. Legacy unscoped stores cannot be migrated without independently supplied metadata. `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` remain unchanged.
+
 ## P2-F Foundation Unlock Sprint — 2026-11-06
 
 The [Foundation Unlock handoff](p2-f-foundation-unlock-handoff.md) records the additive F2.2 canonical exposure-ledger contract, synthetic reference implementation, adversarial review and exact audited implementation range `ac1b0e27c2b16caae32e7fe4d226b7c7860c0135..062efc2dc5215e0a12321e65e22cdb7a53d18484`.
