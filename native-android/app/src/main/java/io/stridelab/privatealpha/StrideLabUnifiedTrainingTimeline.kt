@@ -242,13 +242,14 @@ internal fun StrideLabUnifiedTrainingTimeline(
                 }
             }
         }
-        // Give the last real date exactly the available viewport height,
-        // accounting for LazyColumn's own content padding. Unlike a separate
-        // oversized spacer, this lets Today align to the top WITHOUT allowing
-        // further downward scrolling into an empty tail.
+        // A final date needs enough height to be top-aligned, but NOT so
+        // much that the user can scroll below its last real card. Subtract
+        // the list's 10dp top and 116dp bottom insets from the viewport.
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+        val lastDateMinHeight = (maxHeight - 126.dp).coerceAtLeast(0.dp)
         LazyColumn(
             state = scroll,
-            modifier = Modifier.weight(1f).fillMaxWidth()
+            modifier = Modifier.fillMaxSize()
                 .testTag("training-unified-timeline"),
             contentPadding = PaddingValues(
                 start = 18.dp, end = 18.dp, top = 10.dp, bottom = 116.dp
@@ -258,7 +259,7 @@ internal fun StrideLabUnifiedTrainingTimeline(
             itemsIndexed(days, key = { _, day -> "timeline-date-${day.date}" }) { position, day ->
                 Column(
                     modifier = if (position == days.lastIndex)
-                        Modifier.fillParentMaxHeight() else Modifier,
+                        Modifier.heightIn(min = lastDateMinHeight) else Modifier,
                     verticalArrangement = Arrangement.spacedBy(11.dp)
                 ) {
                     if (day.date != today &&
@@ -311,41 +312,45 @@ internal fun StrideLabUnifiedTrainingTimeline(
                                     }
                                 )
                             }
-                            if (day.date == today && account == null) {
-                                TimelinePromptCard(
-                                    title = "Keep your training private.",
-                                    description = "Sign in to see saved activities and training plans.",
-                                    action = "Sign in",
-                                    onAction = onSignIn
-                                )
-                            } else if (day.date == today && active == null &&
-                                !state.initializing
-                            ) {
-                                TimelinePromptCard(
-                                    title = if (pendingReview) "Your plan needs a review."
-                                        else "Your training starts here.",
-                                    description = if (pendingReview)
-                                        "Continue reviewing your saved training plan."
-                                    else "Create a schedule built around your goals, disciplines, and availability.",
-                                    action = if (pendingReview) "Review saved plan"
-                                        else "Create training plan",
-                                    onAction = {
-                                        if (pendingReview) showTools = true else onBuild()
-                                    }
-                                )
-                            } else if (day.date == today && day.activities.isEmpty() &&
-                                day.workouts.isEmpty() && !state.initializing
-                            ) {
-                                Text(
-                                    "No sessions scheduled for this date.",
-                                    modifier = Modifier.padding(vertical = 10.dp),
-                                    color = TimelineStyle.secondary, fontSize = 12.sp
-                                )
-                            }
                         }
+                    }
+                    // The prompt is an independent full-width timeline card.
+                    // It deliberately sits OUTSIDE the 48dp date rail + card
+                    // row, aligned with the screen's 18dp horizontal margins.
+                    if (day.date == today && account == null) {
+                        TimelinePromptCard(
+                            title = "Keep your training private.",
+                            description = "Sign in to see saved activities and training plans.",
+                            action = "Sign in",
+                            onAction = onSignIn
+                        )
+                    } else if (day.date == today && active == null &&
+                        !state.initializing
+                    ) {
+                        TimelinePromptCard(
+                            title = if (pendingReview) "Your plan needs a review."
+                                else "Your training starts here.",
+                            description = if (pendingReview)
+                                "Continue reviewing your saved training plan."
+                            else "Create a schedule built around your goals, disciplines, and availability.",
+                            action = if (pendingReview) "Review saved plan"
+                                else "Create training plan",
+                            onAction = {
+                                if (pendingReview) showTools = true else onBuild()
+                            }
+                        )
+                    } else if (day.date == today && day.activities.isEmpty() &&
+                        day.workouts.isEmpty() && !state.initializing
+                    ) {
+                        Text(
+                            "No sessions scheduled for this date.",
+                            modifier = Modifier.padding(vertical = 10.dp),
+                            color = TimelineStyle.secondary, fontSize = 12.sp
+                        )
                     }
                 }
             }
+        }
         }
     }
 }
