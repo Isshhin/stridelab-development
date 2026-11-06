@@ -330,6 +330,7 @@ internal fun StrideLabTodayScreen(
                 date = date,
                 accent = animatedTone.value,
                 selectionFractionState = notchPosition,
+                signedOut = state.account == null,
                 visibleActivities = safeActivities,
                 rawHistory = safeHistory,
                 plans = safePlans,
@@ -471,6 +472,7 @@ private fun TodayWeekCalendar(
     date: LocalDate,
     accent: Color,
     selectionFractionState: State<Float>,
+    signedOut: Boolean,
     visibleActivities: List<ActivityRecord>,
     rawHistory: List<ActivityRecord>,
     plans: List<PlanSnapshot>,
@@ -537,24 +539,31 @@ private fun TodayWeekCalendar(
         AnimatedContent(
             targetState = monday,
             transitionSpec = {
-                if (reduceMotion) {
-                    EnterTransition.None togetherWith ExitTransition.None
-                } else {
-                    val forward = targetState.isAfter(initialState)
-                    slideInHorizontally(
-                        animationSpec = spring(
-                            dampingRatio = .88f,
-                            stiffness = TracksideLiquidMotion.STIFFNESS
-                        )
-                    ) { width ->
-                        if (forward) width else -width
-                    } togetherWith slideOutHorizontally(
-                        animationSpec = spring(
-                            dampingRatio = .88f,
-                            stiffness = TracksideLiquidMotion.STIFFNESS
-                        )
-                    ) { width ->
-                        if (forward) -width else width
+                when {
+                    reduceMotion ->
+                        EnterTransition.None togetherWith ExitTransition.None
+                    signedOut ->
+                        // The anonymous week has no workout markers to
+                        // track between weeks. A composited alpha transition
+                        // avoids simultaneously sliding two full calendar rows.
+                        fadeIn(tween(170)) togetherWith fadeOut(tween(170))
+                    else -> {
+                        val forward = targetState.isAfter(initialState)
+                        slideInHorizontally(
+                            animationSpec = spring(
+                                dampingRatio = .88f,
+                                stiffness = TracksideLiquidMotion.STIFFNESS
+                            )
+                        ) { width ->
+                            if (forward) width else -width
+                        } togetherWith slideOutHorizontally(
+                            animationSpec = spring(
+                                dampingRatio = .88f,
+                                stiffness = TracksideLiquidMotion.STIFFNESS
+                            )
+                        ) { width ->
+                            if (forward) -width else width
+                        }
                     }
                 }
             },
