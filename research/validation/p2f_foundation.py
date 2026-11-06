@@ -104,7 +104,7 @@ class FoundationLedger:
 
         for raw in deepcopy(events):
             try:
-                require(set(raw) == {"id", "account_id", "kind", "recorded_at",
+                require(isinstance(raw, dict) and set(raw) == {"id", "account_id", "kind", "recorded_at",
                                      "effective_at", "available_at", "data"},
                         "invalid event envelope")
                 event_id, account, kind = ident(raw["id"]), ident(raw["account_id"]), ident(raw["kind"])

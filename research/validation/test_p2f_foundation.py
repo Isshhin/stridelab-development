@@ -37,6 +37,10 @@ def planned(account="A"):
 
 
 class FoundationReplayTests(unittest.TestCase):
+    def test_malformed_envelope_fails_closed(self):
+        with self.assertRaises(Quarantine):
+            FoundationLedger().append([None])
+
     def test_garmin_and_fit_aliases_count_one_bout_only_with_adjudication(self):
         ledger = FoundationLedger()
         rows = planned() + [
