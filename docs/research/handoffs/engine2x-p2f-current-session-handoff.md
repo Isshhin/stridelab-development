@@ -1,5 +1,86 @@
 # Engine 2.x P2-F current session handoff
 
+## Independent synthetic durability clearance — 2026-11-07
+
+Independent Work review has returned:
+
+`PASS_FOR_SYNTHETIC_DURABILITY`
+
+Scope of that pass:
+
+- synthetic F2.2 durable journal;
+- SQLite durability boundary;
+- shared process-local `SyntheticAuthority`;
+- projector 3 duplicate-membership correction;
+- projector 4 future-data quarantine;
+- pinned replay behavior;
+- current-validity linearization barrier;
+- thread/process contention and re-entrant mutation behavior.
+
+Reviewed implementation:
+
+`e716f338ac52fe727e2a7a3e7d9f1495875170bd`
+
+Live branch head at independent review:
+
+`6255cef86aef3d7899da9bfcf49095fb39a266f7`
+
+The reviewer independently reproduced the old race on `9f23075...` and verified that the new SQLite writer reservation plus shared authority guard closes the tested final-window race. The protected consistency check is accepted as the synthetic linearization point. Returned projections can become stale after that point, so callers must use `assert_current` before later reuse.
+
+Independent verification:
+
+- durable store: **54 passed**
+- existing F2.2: **16 passed**
+- P2 suite: **148 passed**
+- full research suite: **312 run — 311 passed, 1 Windows symlink skip**
+- new synthetic correctness defects found: **none**
+
+Exact-head CI:
+
+`42257993818`
+
+Status at last verified check: **QUEUED**. Implementation-head run `42257251591` was cancelled, not passed.
+
+Current status:
+
+- P2-F synthetic feasibility: **PASS**
+- P2-F synthetic durability: **PASS_FOR_SYNTHETIC_DURABILITY**
+- private-pilot readiness: **NOT READY**
+- Gate 2: `P2_F_GATE_2_NOT_READY`
+- P2-B: `P2_B_PROTOCOL_READY_DATA_NOT_READY`
+- human/provider data admission: **NO**
+
+Important boundary:
+
+The current authority is still an in-memory, process-local test double and the synthetic store/backups are plaintext. This synthetic pass does **not** authorize real athlete/provider data.
+
+### Exact next phase
+
+Move from synthetic durability into **private-pilot custody and authority preparation**.
+
+The next Work task should define and independently review the minimum private-pilot requirements before Codex implements them. That review should cover:
+
+- authenticated principal/account authority;
+- persistent/nonrollback grant and withdrawal state;
+- encrypted local custody;
+- key management/separation;
+- suppression before read/decrypt/exposure;
+- backup/restore semantics;
+- deletion and descendant-copy handling;
+- restore after withdrawal;
+- audit evidence;
+- lawful admission boundary;
+- one pinned device/firmware/export family;
+- independent real-device reconciliation requirements.
+
+Do not ingest human/provider data during this design stage.
+
+After Work freezes a bounded private-pilot contract, use Codex for implementation, then return it to Work for adversarial review before any private data is admitted.
+
+### Graphify note
+
+During the clearance review, Graphify's available index was older than the durable-store implementation, so the reviewer correctly verified the relevant live GitHub files/tests directly. Continue to use Graphify first when current enough, but fall back to targeted live-file verification when its index lags the branch.
+
 ## Current live state — Codex race fix awaiting independent review — 2026-11-07
 
 Latest implementation head:
