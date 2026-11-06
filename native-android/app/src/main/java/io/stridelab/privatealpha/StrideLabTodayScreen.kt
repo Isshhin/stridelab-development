@@ -741,7 +741,7 @@ private fun TodayMultiRecordedSummary(
             )
         )
         Column(
-            Modifier.fillMaxWidth().padding(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(
                 start = 18.dp, end = 16.dp, top = 25.dp, bottom = 16.dp
             ),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -936,7 +936,7 @@ private fun TodayMixedDayCard(
             modifier = Modifier.matchParentSize().alpha(.28f)
         )
         Column(
-            Modifier.fillMaxWidth().padding(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(
                 start = 18.dp, end = 16.dp, top = 26.dp, bottom = 16.dp
             ),
             verticalArrangement = Arrangement.spacedBy(9.dp)
@@ -1203,7 +1203,7 @@ private fun TodayRecordedTraining(
             )
         )
         Column(
-            Modifier.fillMaxWidth().padding(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(
                 start = 19.dp, end = 16.dp, top = 28.dp, bottom = 17.dp
             ),
             verticalArrangement = Arrangement.spacedBy(9.dp)
@@ -1639,7 +1639,7 @@ private fun TodayMultiPlannedCard(
             modifier = Modifier.matchParentSize().alpha(.36f)
         )
         Column(
-            Modifier.fillMaxWidth().padding(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(
                 start = 19.dp, end = 17.dp, top = 23.dp, bottom = 16.dp
             ),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -1909,7 +1909,7 @@ private fun TodayWaveWorkout(
         val buttonInk = if (limeButton) TodayLook.black else TodayLook.text
 
         Column(
-            Modifier.fillMaxWidth().padding(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(
                 start = 19.dp, end = 16.dp, top = 23.dp, bottom = 15.dp
             ),
             verticalArrangement = Arrangement.spacedBy(5.dp)
