@@ -114,6 +114,38 @@ internal fun TracksideAuthScreen(
                 style = Stroke(1.5.dp.toPx())
             )
         }
+        if (page == TracksideAuthPage.Reset) {
+            // Quiet landscape silhouette from the approved reset-password design.
+            // Purely decorative and static; no animation or image requests.
+            Canvas(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(240.dp)) {
+                val w = size.width
+                val h = size.height
+                val distant = Path().apply {
+                    moveTo(0f, h * .76f)
+                    lineTo(w * .18f, h * .63f)
+                    lineTo(w * .29f, h * .70f)
+                    lineTo(w * .47f, h * .34f)
+                    lineTo(w * .56f, h * .54f)
+                    lineTo(w * .71f, h * .29f)
+                    lineTo(w, h * .65f)
+                    lineTo(w, h)
+                    lineTo(0f, h)
+                    close()
+                }
+                drawPath(distant, Color(0xFF16201D))
+                val foreground = Path().apply {
+                    moveTo(0f, h * .89f)
+                    lineTo(w * .31f, h * .75f)
+                    lineTo(w * .50f, h * .85f)
+                    lineTo(w * .77f, h * .48f)
+                    lineTo(w, h * .68f)
+                    lineTo(w, h)
+                    lineTo(0f, h)
+                    close()
+                }
+                drawPath(foreground, Color(0xFF101715))
+            }
+        }
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState())
                 .padding(start = 22.dp, end = 22.dp, top = 18.dp, bottom = 32.dp)
@@ -187,7 +219,10 @@ internal fun TracksideAuthScreen(
                             )
                         } else {
                             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                                TextButton(onClick = onResetPage, enabled = !busy) {
+                                TextButton(
+                                    onClick = onResetPage, enabled = !busy,
+                                    colors = ButtonDefaults.textButtonColors(contentColor = authLime)
+                                ) {
                                     Text("Forgot password?", color = authLime, fontSize = 13.sp)
                                 }
                             }
@@ -254,7 +289,7 @@ internal fun TracksideAuthScreen(
 
 @Composable private fun AuthLink(label: String, onClick: () -> Unit) {
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        TextButton(onClick = onClick) {
+        TextButton(onClick = onClick, colors = ButtonDefaults.textButtonColors(contentColor = authLime)) {
             Text(label, color = authLime, fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
         }
