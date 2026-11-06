@@ -51,7 +51,6 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -579,19 +578,19 @@ private fun TodayWeekCalendar(
                 val restingFraction = (date.dayOfWeek.value - .5f) / 7f
                 Box(
                     Modifier.align(Alignment.TopStart)
-                        // Placement-only read avoids recomposing and remeasuring
-                        // the entire calendar on every spring animation frame.
-                        .offset {
-                            val indicatorX =
-                                (maxWidth * selectionFractionState.value - diameter / 2)
-                                    .coerceIn(0.dp, (maxWidth - diameter).coerceAtLeast(0.dp))
-                            IntOffset(indicatorX.roundToPx(), 24.dp.roundToPx())
-                        }
                         .size(diameter)
                         .graphicsLayer {
+                            // The highlight now moves entirely in the graphics
+                            // layer. No per-frame Compose placement pass.
+                            val fraction = selectionFractionState.value
+                            translationX = (maxWidth.toPx() * fraction -
+                                diameter.toPx() / 2f).coerceIn(
+                                0f, (maxWidth - diameter).coerceAtLeast(0.dp).toPx()
+                            )
+                            translationY = 24.dp.toPx()
                             val pressure = if (reduceMotion) 0f else
                                 TracksideLiquidMotion.pressure(
-                                    selectionFractionState.value, restingFraction, 1f / 7f
+                                    fraction, restingFraction, 1f / 7f
                                 )
                             scaleX = TracksideLiquidMotion.stretch(pressure, .22f)
                             scaleY = TracksideLiquidMotion.squash(pressure, .10f)
