@@ -114,14 +114,14 @@ class TracksideTodayTest {
         compose.onNodeWithTag("today-hero").assertDoesNotExist()
 
         compose.onNodeWithTag("nav-settings").performClick()
-        compose.onNodeWithText("Keep your training close.").assertExists()
+        compose.onNodeWithText("Not signed in").assertExists()
         compose.onNodeWithTag("today-hero").assertDoesNotExist()
         compose.onNodeWithTag("training-unified-timeline").assertDoesNotExist()
 
         compose.onNodeWithTag("nav-home").performClick()
         compose.onNodeWithTag("today-hero").assertExists()
         compose.onNodeWithTag("today-day-0").assertIsSelected()
-        compose.onNodeWithText("Keep your training close.").assertDoesNotExist()
+        compose.onNodeWithText("Not signed in").assertDoesNotExist()
     }
 
     @Test fun diagnosticTabsUseNavigationWhenSignedOut() = checkDiagnosticTabs(null)
@@ -148,7 +148,7 @@ class TracksideTodayTest {
         compose.onNodeWithTag("training-unified-timeline").assertDoesNotExist()
         compose.onNodeWithTag("nav-settings").performClick().assertIsSelected()
         compose.onNodeWithTag("tab-diagnostic-More").assertExists()
-        compose.onNodeWithText("Keep your training close.").assertDoesNotExist()
+        compose.onNodeWithText("Not signed in").assertDoesNotExist()
         compose.onNodeWithTag("nav-home").performClick().assertIsSelected()
         compose.onNodeWithTag("tab-diagnostic-Today").assertExists()
     }
