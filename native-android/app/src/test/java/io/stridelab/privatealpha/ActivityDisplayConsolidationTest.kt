@@ -74,6 +74,28 @@ class ActivityDisplayConsolidationTest {
         assertEquals(supported.map{it.id}.toSet(),actual.map{it.id}.toSet())
     }
 
+    @Test fun sameGarminRunUnderLegacyAndImportedIdUsesSourceOwnedCanonical() {
+        val canonical=row(GarminHistoryImport.recordId("uuid-456"),"garmin")
+        val legacy=row("backend-old-id","garmin",duration=3808.0,distance=9564.0)
+        val groups=ActivityDisplayConsolidation.groups(listOf(legacy,canonical))
+        assertEquals(1,groups.size)
+        assertEquals(canonical.id,groups.single().primary.id)
+        assertEquals(listOf(legacy.id),groups.single().additionalSources.map { it.id })
+        assertEquals(2,listOf(legacy,canonical).size) // Cache remains unchanged.
+    }
+
+    @Test fun differentActualRunsAndIndependentProvidersAreNotCollapsed() {
+        val source=row("garmin-a","garmin")
+        val later=row("garmin-b","garmin",at=start.plusSeconds(2))
+        val different=row("garmin-c","garmin",duration=3950.0)
+        val separateFit=row("fit-a","fit")
+        val visible=ActivityDisplayConsolidation.visible(
+            listOf(source,later,different,separateFit))
+        assertEquals(4,visible.size)
+        assertEquals(setOf(source.id,later.id,different.id,separateFit.id),
+            visible.map { it.id }.toSet())
+    }
+
     @Test fun repeatedSourceIdsAreDisplayedOnceWithoutMutatingHistory() {
         val run=row("garmin-123","garmin")
         assertEquals(1,ActivityDisplayConsolidation.visible(listOf(run,run)).size)
