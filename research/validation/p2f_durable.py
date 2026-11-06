@@ -4,6 +4,7 @@ Only synthetic normalized events are supported. Authority is supplied separately
 and must never be restored from this database. No human data may be stored here.
 """
 import json
+import os
 from contextlib import closing
 import sqlite3
 from dataclasses import dataclass
@@ -204,16 +205,16 @@ class DurableStore:
                 if row['kind'] == 'link':
                     links.add(row['id'])
 
-    def decision_view(self, account, cutoff, watermark=None, projector_version='2', *, actor_view, purpose_grant_id, partition_id):
+    def decision_view(self, account, cutoff, watermark=None, projector_version='3', *, actor_view, purpose_grant_id, partition_id):
         return self._view(account, cutoff, watermark, projector_version, False, (actor_view, purpose_grant_id, partition_id))
 
-    def current_view(self, account, cutoff, watermark=None, projector_version='2', as_of_now=None, *, actor_view, purpose_grant_id, partition_id):
+    def current_view(self, account, cutoff, watermark=None, projector_version='3', as_of_now=None, *, actor_view, purpose_grant_id, partition_id):
         now = instant(as_of_now) if as_of_now else datetime.now(timezone.utc)
         return self._view(account, cutoff, watermark, projector_version, now, (actor_view, purpose_grant_id, partition_id))
 
     def _view(self, account, cutoff, watermark, projector_version, current, scope):
         self._check(account, *scope)
-        require(projector_version in ('1', '2'), 'unknown projector')
+        require(projector_version in ('1', '2', '3'), 'unknown projector')
         stop = instant(cutoff)
         require(not current or stop <= current, 'cutoff after current time')
         require(watermark is None or type(watermark) is int and watermark >= 0, 'invalid watermark')
@@ -225,6 +226,30 @@ class DurableStore:
             all_rows = self._rows(db, account, scope=scope)
             db.execute('COMMIT')
         full_rows = all_rows
+        if projector_version == '3':
+            visible = [event for batch, _, event in full_rows
+                       if (current or watermark is None or batch <= watermark)
+                       and instant(event['available_at']) <= (current or stop)]
+            times = [instant(event['available_at']) for event in visible]
+            require(len(times) == len(set(times)), 'ambiguous availability tie')
+            require(not any('supersedes_event_id' in event for event in visible),
+                    'unsupported supersession')
+            by_id = {event['id']: event for _, _, event in full_rows}
+            sources = {event['data']['source_id']: event for _, _, event in full_rows
+                       if event['kind'] in ('source', 'source_correction')}
+            for event in visible:
+                if event['kind'] == 'link_revocation':
+                    link = by_id.get(event['data']['link_event_id'])
+                    require(link is not None and link['kind'] == 'link' and
+                            instant(link['available_at']) < instant(event['available_at']) and
+                            instant(link['effective_at']) <= instant(event['effective_at']),
+                            'invalid revocation chronology')
+                if event['kind'] == 'source_correction':
+                    prior = sources.get(event['data']['supersedes_source_id'])
+                    require(prior is not None and
+                            instant(prior['available_at']) < instant(event['available_at']) and
+                            instant(prior['effective_at']) <= instant(event['effective_at']),
+                            'invalid correction chronology')
         all_rows = [(batch, schema, normalize(schema, event)) for batch, schema, event in all_rows]
         selected = [(batch, schema, event) for batch, schema, event in all_rows
                     if (watermark is None or batch <= watermark) and instant(event['available_at']) <= stop]
@@ -240,7 +265,11 @@ class DurableStore:
                 for event in events:
                     if event['kind'] != 'link_revocation':
                         ledger.append([event])
-                projection = ledger.replay(account, cutoff).data
+                if projector_version == '3':
+                    projection = ledger._project(account, sorted(events, key=lambda row: instant(row['available_at'])))
+                    projection['schema'] = SCHEMA
+                else:
+                    projection = ledger.replay(account, cutoff).data
             except Quarantine as error:
                 raise Quarantine('pinned projection quarantined') from error
             # Current invalidations are applied to the historical event set without importing later values.
@@ -288,6 +317,16 @@ class DurableStore:
             projection['source_schema_versions'] = sorted({schema for _, schema, _ in selected})
             projection['lineage'] = {'event_ids': projection['event_ids'], 'invalidation_event_ids': sorted(e['id'] for e in invalidations if e['kind'] in ('source_correction', 'link_revocation')), 'invalidated_source_ids': sorted(corrected & set(source_activities)), 'revoked_link_ids': sorted(revoked)}
             projection['exclusion_counts'] = {'invalidated_sources': len(corrected & set(source_activities)), 'revoked_links': len(revoked)}
+        if projector_version == '3':
+            sequence = [(batch, event['id']) for batch, _, event in full_rows
+                        if (watermark is None or batch <= watermark) and instant(event['available_at']) <= stop]
+            projection['journal_event_ids'] = [event_id for _, event_id in sequence]
+            projection['journal_sequence_digest'] = digest(sequence)
+            projection['watermark'] = generation if watermark is None else watermark
+            for opportunity_id, opportunity in projection['opportunities'].items():
+                opportunity['activity_ids'] = list(dict.fromkeys(
+                    link['activity_id'] for link in projection['links'].values()
+                    if link['opportunity_id'] == opportunity_id))
         self._check(account, *scope)
         return DurableProjection(account, generation, scope, projection)
 
@@ -306,6 +345,8 @@ class DurableStore:
                 self._check(account)
                 for scope in source.execute('SELECT DISTINCT view_id, purpose, partition_id FROM events WHERE account=?', (account,)):
                     self._check(account, *scope)
+            descriptor = os.open(str(destination), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            os.close(descriptor)
             with closing(sqlite3.connect(str(destination))) as target:
                 source.backup(target)
             for account in accounts:

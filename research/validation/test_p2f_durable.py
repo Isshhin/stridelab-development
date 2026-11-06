@@ -180,6 +180,148 @@ store.append('A', [activity()], 0)
         self.assertEqual(1, mixed['activities']['a1']['measurements']['distance']['value'])
 
 
+class LinkMembershipRegressionTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.path = Path(self.tmp.name) / 'store.sqlite'
+        self.auth = SyntheticAuthority({'A'})
+        self.auth.grant('A', 'coach', 'research', 'development')
+        self.store = FixtureStore(self.path, self.auth)
+        links = [event(name, 'A', 'link', minute, activity_id='a1', opportunity_id='o1',
+                       revision_id='r1', evidence_id='review-'+name)
+                 for name, minute in (('l1', 22), ('l2', 23))]
+        self.store.append('A', planned() + [activity(), source('s1', 21, 'x', 1)] + links, 0)
+
+    def ids(self, cutoff=30, version='3', current=False):
+        view = self.store.current_view if current else self.store.decision_view
+        return view('A', ts(cutoff), projector_version=version).data
+
+    def revoke(self, name, target, minute, head):
+        self.store.append('A', [event(name, 'A', 'link_revocation', minute,
+                                      link_event_id=target, evidence_id='review')], head)
+
+    def test_duplicate_links_unique_with_pinned_historical_versions(self):
+        for version in ('1', '2'):
+            self.assertEqual(['a1', 'a1'], self.ids(version=version)['opportunities']['o1']['activity_ids'])
+        data = self.ids()
+        self.assertEqual(['a1'], data['opportunities']['o1']['activity_ids'])
+        self.assertEqual(['l1', 'l2'], sorted(data['links']))
+        self.assertEqual(['l1', 'l2'], sorted(data['activities']['a1']['link_ids']))
+
+    def test_partial_and_complete_revocation_keep_membership_consistent(self):
+        self.revoke('v1', 'l1', 25, 1)
+        partial = self.ids()
+        self.assertEqual(['a1'], partial['opportunities']['o1']['activity_ids'])
+        self.assertEqual(['l2'], sorted(partial['links']))
+        self.revoke('v2', 'l2', 26, 2)
+        complete = self.ids()
+        self.assertEqual([], complete['opportunities']['o1']['activity_ids'])
+        self.assertEqual({}, complete['links'])
+        self.assertEqual([], complete['activities']['a1']['link_ids'])
+
+    def test_historical_cutoff_and_current_revocation(self):
+        self.revoke('v1', 'l1', 25, 1)
+        self.revoke('v2', 'l2', 26, 2)
+        before = self.ids(cutoff=24)
+        self.assertEqual(['a1'], before['opportunities']['o1']['activity_ids'])
+        self.assertEqual(['l1', 'l2'], sorted(before['links']))
+        self.assertEqual([], self.ids(cutoff=24, current=True)['opportunities']['o1']['activity_ids'])
+
+    def test_correction_invalidates_both_links(self):
+        correction = event('s2', 'A', 'source_correction', 30, source_id='s2', activity_id='a1',
+                           alias=['fit','new'], digest='b'*64, measurements={'distance': measured(2, 'm')},
+                           supersedes_source_id='s1', correction_evidence_id='review')
+        self.store.append('A', [correction], 1)
+        data = self.ids(cutoff=35)
+        self.assertEqual([], data['opportunities']['o1']['activity_ids'])
+        self.assertEqual({}, data['links'])
+        self.assertEqual(['l1', 'l2'], sorted(data['lineage']['revoked_link_ids']))
+
+    def test_reopen_populated_journal_without_mutating_events(self):
+        old = self.ids(version='1')
+        first = self.ids()
+        reopened = FixtureStore(self.path, self.auth)
+        new = reopened.decision_view('A', ts(30), projector_version='3').data
+        self.assertEqual(first, new)
+        self.assertEqual(old, reopened.decision_view('A', ts(30), projector_version='1').data)
+        self.assertEqual(old['event_set_digest'], new['event_set_digest'])
+
+
+class UnsafeHistoryRegressionTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.auth = SyntheticAuthority({'A'})
+        self.auth.grant('A', 'coach', 'research', 'development')
+        self.store = DurableStore(Path(self.tmp.name) / 'store.sqlite', self.auth)
+        self.scope = dict(actor_view='coach', purpose_grant_id='research', partition_id='development')
+
+    def test_uninterpreted_supersession_is_quarantined_at_relevant_time(self):
+        first = full_event(activity())
+        second = activity(); second['id'] = 'a2'; second['data']['activity_id'] = 'a2'
+        second['recorded_at'] = second['effective_at'] = second['available_at'] = ts(30)
+        second = full_event(second); second['supersedes_event_id'] = 'a1'
+        self.store.append('A', [first, second], 0)
+        self.assertEqual(1, self.store.decision_view('A', ts(25), **self.scope).data['exposure_count'])
+        self.assertEqual(2, self.store.decision_view('A', ts(40), projector_version='2', **self.scope).data['exposure_count'])
+        with self.assertRaisesRegex(Quarantine, 'unsupported supersession'):
+            self.store.decision_view('A', ts(40), **self.scope)
+        with self.assertRaisesRegex(Quarantine, 'unsupported supersession'):
+            self.store.current_view('A', ts(25), as_of_now=ts(40), **self.scope)
+
+    def test_backup_never_overwrites_existing_database(self):
+        existing = Path(self.tmp.name) / 'existing.sqlite'
+        with closing(sqlite3.connect(existing)) as db:
+            db.execute('CREATE TABLE sentinel (value TEXT)')
+            db.execute("INSERT INTO sentinel VALUES ('keep')")
+            db.commit()
+        before = existing.read_bytes()
+        with self.assertRaises((Quarantine, FileExistsError)):
+            self.store.backup(existing)
+        self.assertEqual(before, existing.read_bytes())
+
+    def test_equal_availability_without_actor_sequence_is_quarantined(self):
+        root, delivery = planned()
+        root['id'] = 'z-root'; delivery['id'] = 'a-delivery'
+        delivery['recorded_at'] = delivery['effective_at'] = delivery['available_at'] = ts(0)
+        self.store.append('A', [full_event(root), full_event(delivery)], 0)
+        with self.assertRaises(Quarantine):
+            self.store.decision_view('A', ts(1), projector_version='2', **self.scope)
+        with self.assertRaisesRegex(Quarantine, 'ambiguous availability tie'):
+            self.store.decision_view('A', ts(1), **self.scope)
+
+    def test_same_event_set_different_journal_order_has_distinct_sequence_digest(self):
+        one = full_event(activity())
+        two = activity(); two['id'] = 'a2'; two['data']['activity_id'] = 'a2'
+        two['recorded_at'] = two['effective_at'] = two['available_at'] = ts(21); two = full_event(two)
+        other = DurableStore(Path(self.tmp.name) / 'other.sqlite', self.auth)
+        self.store.append('A', [one, two], 0)
+        other.append('A', [two, one], 0)
+        left = self.store.decision_view('A', ts(30), **self.scope).data
+        right = other.decision_view('A', ts(30), **self.scope).data
+        self.assertEqual(left['event_set_digest'], right['event_set_digest'])
+        self.assertNotEqual(left['journal_sequence_digest'], right['journal_sequence_digest'])
+        self.assertEqual(['a1', 'a2'], left['journal_event_ids'])
+        self.assertEqual(['a2', 'a1'], right['journal_event_ids'])
+
+    def test_correction_cannot_precede_its_source(self):
+        first = source('s1', 30, 'x', 1)
+        correction = event('s2', 'A', 'source_correction', 25, source_id='s2', activity_id='a1',
+                           alias=['fit', 'y'], digest='b'*64, measurements={'distance': measured(2, 'm')},
+                           supersedes_source_id='s1', correction_evidence_id='review')
+        self.store.append('A', [full_event(e) for e in [activity(), first, correction]], 0)
+        with self.assertRaisesRegex(Quarantine, 'invalid correction chronology'):
+            self.store.decision_view('A', ts(35), **self.scope)
+
+    def test_revocation_cannot_precede_its_link(self):
+        link = event('link', 'A', 'link', 30, activity_id='a1', opportunity_id='o1', revision_id='r1', evidence_id='review')
+        revocation = event('revoke', 'A', 'link_revocation', 25, link_event_id='link', evidence_id='review')
+        self.store.append('A', [full_event(e) for e in planned()+[activity(), link, revocation]], 0)
+        with self.assertRaisesRegex(Quarantine, 'invalid revocation chronology'):
+            self.store.current_view('A', ts(24), as_of_now=ts(35), **self.scope)
+
+
 def full_event(row, view='coach', grant='research', partition='development'):
     row = dict(row)
     row.update(event_id=row['id'], schema_version='F2.2-synthetic.3', origin_id='synthetic-origin',

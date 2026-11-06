@@ -1,5 +1,9 @@
 # StrideLab Engine 2.x current coordinating handoff
 
+## P2-F durability correction and audit — 2026-11-06
+
+The [synthetic durability review](../phase2/p2-f-synthetic-durability-review-2026-11-06.md) records the reproduced duplicate-link defect, projector 3 correction, versioned replay and remaining custody limitations. Projectors 1 and 2 retain historical behavior and can duplicate activity membership. Projector 3 fails closed on unsupported supersession and ambiguous timing. This implementation-session review is not an independent signed clearance. `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` remain unchanged.
+
 ## P2-F synthetic durable-store continuation — 2026-11-06
 
 The [synthetic durable-store boundary](../phase2/p2-f-durable-synthetic-boundary.md) describes account/view/purpose/partition-scoped event storage, synthetic authority checks, replay and restore limits. This is research-only synthetic software evidence; it is not a private-pilot custody system or device validation. Legacy unscoped stores cannot be migrated without independently supplied metadata. `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` remain unchanged.
