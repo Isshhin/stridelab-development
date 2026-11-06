@@ -108,7 +108,7 @@ class NativeMainActivity: ComponentActivity() {
 @Composable internal fun NativeStrideApp(model: TrainingViewModel = viewModel()) {
     val state by model.state.collectAsStateWithLifecycle(context=kotlinx.coroutines.Dispatchers.Main.immediate)
     val online by model.online.collectAsStateWithLifecycle(context=kotlinx.coroutines.Dispatchers.Main.immediate)
-    val actions = remember(model) { NativeActions(model::refresh, {}, {}, model::signOut, model::signIn, model::loadDetail, model::refreshWellness, model.planActions(), syncGarmin=model::syncGarmin, loadGarminGps=model::loadGarminGps) }
+    val actions = remember(model) { NativeActions(model::refresh, {}, {}, model::signOut, model::signIn, model::loadDetail, model::refreshWellness, model.planActions(), syncGarmin=model::syncGarmin, loadGarminGps=model::loadGarminGps, signUp=model::signUp, requestPasswordReset=model::requestPasswordReset) }
     NativeStrideContent(state, online, actions)
 }
 
@@ -118,7 +118,9 @@ class NativeMainActivity: ComponentActivity() {
 internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: () -> Unit,
     val syncIntervals: () -> Unit, val signOut: () -> Unit, val signIn: (String, String) -> Unit, val loadDetail: (String) -> Unit = {}, val refreshWellness: () -> Unit = {}, val planning:PlanActions = PlanActions(),
     val syncGarmin: (suspend (GarminPersonalSource) -> GarminConnectionStatus)? = null,
-    val loadGarminGps: ((String,GarminPersonalSource)->Unit)?=null)
+    val loadGarminGps: ((String,GarminPersonalSource)->Unit)?=null,
+    val signUp: (String, String, String) -> Unit = { _, _, _ -> },
+    val requestPasswordReset: (String) -> Unit = {})
 
 /** Primary destinations switch immediately; the legacy Activity history route remains available.
  * retain the existing Navigation Compose transitions.
@@ -134,7 +136,7 @@ private fun NavHostController.openTabRoot(path: String) {
     // tab is already visible. Repeated taps must not rebuild its destination
     // and interrupt the floating navigation pill's animation.
     if (currentDestination?.route == path) return
-    while(currentDestination?.route in setOf("activity/{id}", "auth", "builder/{discipline}", "workout/{planId}/{sessionId}", "practice/{key}", "manage/{planId}/{date}")) {
+    while(currentDestination?.route in setOf("activity/{id}", "auth", "auth/signup", "auth/reset", "builder/{discipline}", "workout/{planId}/{sessionId}", "practice/{key}", "manage/{planId}/{date}")) {
         if(!popBackStack()) break
     }
     navigate(path) {
@@ -173,7 +175,8 @@ private fun NavHostController.openActivity(id: String) {
     // of the scrolling screen. Detail/builder flows continue to hide it.
     val showFloatingDock = route != "missed/{planId}/{sessionId}" &&
         route != "review-move/{planId}/{sessionId}/{date}" &&
-        route != "activity/{id}" && route != "builder/{discipline}"
+        route != "activity/{id}" && route != "builder/{discipline}" &&
+        route?.startsWith("auth") != true
     CompositionLocalProvider(
         LocalProfileAction provides { nav.openTabRoot("settings") },
         LocalFloatingDockVisible provides showFloatingDock
@@ -197,7 +200,7 @@ private fun NavHostController.openActivity(id: String) {
             if(!online) Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
                 Text("Offline · Saved activities remain available", Modifier.fillMaxWidth().padding(horizontal = 20.dp,vertical = 10.dp).testTag("offline-status"),style = MaterialTheme.typography.bodyMedium)
             }
-            state.message?.let { Surface(color = MaterialTheme.colorScheme.surfaceVariant) { Text(it, Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }.padding(horizontal = 20.dp, vertical = 12.dp), style = MaterialTheme.typography.bodyMedium) } }
+            state.message?.takeIf { route?.startsWith("auth") != true }?.let { Surface(color = MaterialTheme.colorScheme.surfaceVariant) { Text(it, Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }.padding(horizontal = 20.dp, vertical = 12.dp), style = MaterialTheme.typography.bodyMedium) } }
             // Keep the signed-out primary screens composed independently of
             // NavHost so their remembered state survives tab switches.
             Box(Modifier.weight(1f)) {
@@ -483,32 +486,52 @@ private fun NavHostController.openActivity(id: String) {
                     }
                 }
                 composable("auth") {
-                    var email by rememberSaveable { mutableStateOf("") }
-                    // Never persist passwords through saved state or process recreation.
-                    var password by remember { mutableStateOf("") }
-                    val lifecycleOwner = LocalLifecycleOwner.current
-                    DisposableEffect(lifecycleOwner) {
-                        val observer = LifecycleEventObserver { _, event ->
-                            if(event == Lifecycle.Event.ON_STOP) password = ""
-                        }
-                        lifecycleOwner.lifecycle.addObserver(observer)
-                        onDispose { lifecycleOwner.lifecycle.removeObserver(observer); password = "" }
-                    }
-                    var showPassword by remember { mutableStateOf(false) }
                     val initialGeneration = rememberSaveable { state.loginGeneration }
                     LaunchedEffect(state.loginGeneration, state.busy, state.needsSignIn) {
-                        if(state.account != null && !state.busy && !state.needsSignIn && state.loginGeneration > initialGeneration) nav.popBackStack()
+                        if (state.account != null && !state.busy &&
+                            !state.needsSignIn && state.loginGeneration > initialGeneration
+                        ) nav.popBackStack()
                     }
-                    Screen("Welcome back", "SECURE SIGN-IN") {
-                        item { SignalCard { Text("YOUR HISTORY. YOUR PACE.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text("One place for the work you put in.", style = MaterialTheme.typography.headlineSmall); Text("Sign in with your existing StrideLab account. Saved activities stay on this device for offline viewing.", color = MaterialTheme.colorScheme.onSurfaceVariant) } }
-                        item { Column(verticalArrangement = Arrangement.spacedBy(18.dp)) { OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, singleLine = true, shape = RoundedCornerShape(16.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next), enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("email"))
-                        OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Password") }, singleLine = true, shape = RoundedCornerShape(16.dp), visualTransformation = if(showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-                            trailingIcon = { TextButton(onClick = { showPassword = !showPassword }) { Text(if(showPassword) "Hide" else "Show") } },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(onDone = { if(email.isNotBlank() && password.isNotEmpty() && !state.busy) { actions.signIn(email,password); password = "" } }), enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("password"))
-                        Button(onClick = { actions.signIn(email, password); password = "" }, enabled = email.isNotBlank() && password.isNotEmpty() && !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp).testTag("submit-signin")) { Text("Sign in securely") } } }
-                        item { TextButton(onClick = { nav.popBackStack() }) { Text("Back") } }
-                    }
+                    TracksideAuthScreen(
+                        page = TracksideAuthPage.SignIn,
+                        busy = state.busy,
+                        feedback = state.message,
+                        onBack = { nav.popBackStack() },
+                        onSignIn = actions.signIn,
+                        onSignUp = actions.signUp,
+                        onReset = actions.requestPasswordReset,
+                        onSignInPage = {},
+                        onSignUpPage = { nav.navigate("auth/signup") },
+                        onResetPage = { nav.navigate("auth/reset") }
+                    )
+                }
+                composable("auth/signup") {
+                    TracksideAuthScreen(
+                        page = TracksideAuthPage.SignUp,
+                        busy = state.busy,
+                        feedback = state.message,
+                        onBack = { nav.popBackStack() },
+                        onSignIn = actions.signIn,
+                        onSignUp = actions.signUp,
+                        onReset = actions.requestPasswordReset,
+                        onSignInPage = { nav.popBackStack() },
+                        onSignUpPage = {},
+                        onResetPage = { nav.navigate("auth/reset") }
+                    )
+                }
+                composable("auth/reset") {
+                    TracksideAuthScreen(
+                        page = TracksideAuthPage.Reset,
+                        busy = state.busy,
+                        feedback = state.message,
+                        onBack = { nav.popBackStack() },
+                        onSignIn = actions.signIn,
+                        onSignUp = actions.signUp,
+                        onReset = actions.requestPasswordReset,
+                        onSignInPage = { nav.popBackStack() },
+                        onSignUpPage = { nav.navigate("auth/signup") },
+                        onResetPage = {}
+                    )
                 }
             }
             if (state.account == null) {
