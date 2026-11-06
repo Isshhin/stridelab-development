@@ -222,12 +222,15 @@ internal fun StrideLabTodayScreen(
     // A completed day uses recorded styling only when the evidence is saved.
     // If a second session is still planned today, keep its actionable hero.
     val hasUnfinishedWorkout = schedule.any { it.status in setOf("planned", "in_progress") }
+    val mixedToday = date == todayDate && hasUnfinishedWorkout &&
+        (recordedOnDate.isNotEmpty() || confirmedOnDate.isNotEmpty())
     val showRecorded = isPastDate ||
         (date == todayDate && !hasUnfinishedWorkout &&
             (recordedOnDate.isNotEmpty() || confirmedOnDate.isNotEmpty()))
     val recordedKinds = recordedOnDate.map { todayRecordedKind(it.type) } +
         confirmedOnDate.map { todayHeroDiscipline(it.discipline) }
     val tone = when {
+        mixedToday -> TodayLook.lime
         showRecorded && recordedKinds.distinct().size > 1 -> TodayLook.lilac
         showRecorded && recordedOnDate.isNotEmpty() -> todayRecordedColor(recordedOnDate.first().type)
         showRecorded && confirmedOnDate.isNotEmpty() ->
@@ -277,7 +280,20 @@ internal fun StrideLabTodayScreen(
             )
         }
         item(key = "today-hero") {
-            if (showRecorded) {
+            if (mixedToday) {
+                TodayMixedDayCard(
+                    date = date,
+                    notchFraction = notchPosition,
+                    activities = recordedOnDate,
+                    logs = confirmedOnDate,
+                    pending = schedule.filter {
+                        it.status in setOf("planned", "in_progress")
+                    },
+                    plans = safePlans,
+                    onOpenActivity = onOpenActivityDetail,
+                    onOpenWorkout = onOpenWorkout
+                )
+            } else if (showRecorded) {
                 TodayRecordedTraining(
                     selectedDate = date,
                     signedOut = state.account == null,
@@ -910,6 +926,199 @@ private fun TodayMultiRecordedSummary(
                             onOpenWorkout(log.planId, log.sessionId)
                         }
                     )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Today may have genuine recorded training AND another planned workout.
+ * Surface both states without claiming that the pending workout is completed.
+ */
+@Composable
+private fun TodayMixedDayCard(
+    date: LocalDate,
+    notchFraction: Float,
+    activities: List<ActivityRecord>,
+    logs: List<ConfirmedWorkout>,
+    pending: List<PlannedSession>,
+    plans: List<PlanSnapshot>,
+    onOpenActivity: (String) -> Unit,
+    onOpenWorkout: (String, String) -> Unit
+) {
+    val recordedCount = activities.size + logs.size
+    val next = pending.firstOrNull()
+    val shape = remember(notchFraction) { todayNotchedShape(notchFraction) }
+    val runningTotals = remember(activities, logs) {
+        todayActualTotals(activities, logs, runningOnly = true)
+    }
+    var showAll by remember(date, activities, logs, pending) { mutableStateOf(false) }
+    Box(
+        Modifier.fillMaxWidth().clip(shape)
+            .background(
+                Brush.horizontalGradient(
+                    listOf(Color(0xFF151A1B), Color(0xFF202425), Color(0xFF2C3130))
+                )
+            )
+            .border(1.dp, Color(0xFF52615B), shape)
+            .testTag("today-mixed-progress")
+    ) {
+        TodayRecordedArtwork(
+            kind = "mixed", accent = TodayLook.teal,
+            modifier = Modifier.matchParentSize().alpha(.28f)
+        )
+        Column(
+            Modifier.fillMaxWidth().padding(
+                start = 18.dp, end = 16.dp, top = 26.dp, bottom = 16.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("✓", color = TodayLook.lime, fontSize = 18.sp)
+                Spacer(Modifier.width(7.dp))
+                Text("TODAY'S TRAINING", color = TodayLook.lime,
+                    fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+            Text(
+                (recordedCount + pending.size).toString() + " sessions",
+                color = TodayLook.text, fontSize = 24.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(
+                    Modifier.weight(1f)
+                        .background(Color(0xFF29332D), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                ) {
+                    Text("✓ Recorded", color = TodayLook.lime, fontSize = 10.sp)
+                    Text(
+                        if (runningTotals.distanceM != null) String.format(
+                            Locale.getDefault(), "%.1f km",
+                            runningTotals.distanceM / 1000
+                        ) else recordedCount.toString() + " done",
+                        color = TodayLook.text, fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Column(
+                    Modifier.weight(1f)
+                        .background(Color(0xFF343033), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                ) {
+                    Text("● Remaining", color = TodayLook.coral, fontSize = 10.sp)
+                    Text(
+                        next?.effectiveTitle ?: pending.size.toString() + " pending",
+                        color = TodayLook.text, fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (next != null) {
+                    Surface(
+                        onClick = {
+                            plans.firstOrNull { plan ->
+                                plan.sessions.any { it.id == next.id }
+                            }?.let { onOpenWorkout(it.id, next.id) }
+                        },
+                        shape = RoundedCornerShape(24.dp),
+                        color = TodayLook.lime,
+                        modifier = Modifier.height(42.dp)
+                    ) {
+                        Box(
+                            Modifier.padding(horizontal = 16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Open next", color = TodayLook.black,
+                                fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                Surface(
+                    onClick = { showAll = true },
+                    shape = RoundedCornerShape(24.dp),
+                    color = Color(0xFF303638),
+                    modifier = Modifier.height(42.dp).testTag("today-mixed-view-all")
+                ) {
+                    Box(
+                        Modifier.padding(horizontal = 14.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("View sessions", color = TodayLook.text,
+                            fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+    if (showAll) {
+        ModalBottomSheet(
+            onDismissRequest = { showAll = false },
+            containerColor = TodayLook.card
+        ) {
+            Column(
+                Modifier.fillMaxWidth().padding(
+                    start = 19.dp, end = 19.dp, bottom = 25.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                Text("Today's sessions", color = TodayLook.text,
+                    fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                Column(
+                    Modifier.fillMaxWidth().heightIn(max = 490.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    activities.forEach { activity ->
+                        TodayRecordedRow(
+                            title = activity.title,
+                            subtitle = listOfNotNull(
+                                activity.distanceM?.let { activity.distanceLabel },
+                                activity.durationS?.let { activity.durationLabel }
+                            ).joinToString(" · ").ifBlank { activity.sourceLabel },
+                            tint = TodayLook.lime,
+                            onClick = {
+                                showAll = false
+                                onOpenActivity(activity.id)
+                            }
+                        )
+                    }
+                    logs.forEach { log ->
+                        val original = plans.firstOrNull { it.id == log.planId }
+                            ?.sessions?.firstOrNull { it.id == log.sessionId }
+                        TodayRecordedRow(
+                            title = original?.effectiveTitle ?: "Completed workout",
+                            subtitle = "Completed" +
+                                (log.durationSeconds?.let {
+                                    " · " + ActivityRecord.duration(it)
+                                } ?: ""),
+                            tint = todayDisciplineColor(log.discipline),
+                            onClick = {
+                                showAll = false
+                                onOpenWorkout(log.planId, log.sessionId)
+                            }
+                        )
+                    }
+                    pending.forEach { session ->
+                        val plan = plans.firstOrNull { p ->
+                            p.sessions.any { it.id == session.id }
+                        }
+                        TodayRecordedRow(
+                            title = session.effectiveTitle,
+                            subtitle = todaySessionDetails(session) + " · " +
+                                session.status.replace('_', ' '),
+                            tint = todayDisciplineColor(session.discipline),
+                            onClick = {
+                                showAll = false
+                                if (plan != null) onOpenWorkout(plan.id, session.id)
+                            }
+                        )
+                    }
                 }
             }
         }
