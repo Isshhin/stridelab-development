@@ -16,6 +16,8 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -206,7 +208,6 @@ internal fun StrideLabTodayScreen(
             context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f
         ) == 0f
     }
-    val notchDuration = if (reduceMotion) 0 else 280
     val weekStart = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
     // A signed-out device must never expose another account's cached training.
     val plan = if (state.account == null) null else
@@ -269,8 +270,12 @@ internal fun StrideLabTodayScreen(
         tone, tween(if (reduceMotion) 0 else 260), label = "today-accent"
     )
     val notchPosition by animateFloatAsState(
-        (date.dayOfWeek.value - .5f) / 7f,
-        tween(notchDuration), label = "today-notch"
+        targetValue = (date.dayOfWeek.value - .5f) / 7f,
+        animationSpec = if (reduceMotion) snap() else spring(
+            dampingRatio = TracksideLiquidMotion.DAMPING,
+            stiffness = TracksideLiquidMotion.STIFFNESS
+        ),
+        label = "today-notch"
     )
     val metrics = remember(weekStart, safeActivities, safeHistory, safePlans) {
         savedWeekMetrics(date, safeActivities, safeHistory, safePlans)
@@ -510,10 +515,18 @@ private fun TodayWeekCalendar(
                     EnterTransition.None togetherWith ExitTransition.None
                 } else {
                     val forward = targetState.isAfter(initialState)
-                    slideInHorizontally(animationSpec = tween(210)) { width ->
+                    slideInHorizontally(
+                        animationSpec = spring(
+                            dampingRatio = .88f,
+                            stiffness = TracksideLiquidMotion.STIFFNESS
+                        )
+                    ) { width ->
                         if (forward) width else -width
                     } togetherWith slideOutHorizontally(
-                        animationSpec = tween(210)
+                        animationSpec = spring(
+                            dampingRatio = .88f,
+                            stiffness = TracksideLiquidMotion.STIFFNESS
+                        )
                     ) { width ->
                         if (forward) -width else width
                     }
@@ -538,10 +551,21 @@ private fun TodayWeekCalendar(
                 val diameter = 37.dp
                 val indicatorX = (maxWidth * selectionFraction - diameter / 2)
                     .coerceIn(0.dp, maxWidth - diameter)
+                val restingFraction = (date.dayOfWeek.value - .5f) / 7f
+                val liquidPressure = if (reduceMotion) 0f
+                    else TracksideLiquidMotion.pressure(
+                        selectionFraction, restingFraction, 1f / 7f
+                    )
                 Box(
                     Modifier.align(Alignment.TopStart)
                         .offset(x = indicatorX, y = 24.dp)
                         .size(diameter)
+                        .graphicsLayer {
+                            // A moving droplet stretches then becomes round
+                            // again. Layout and touch targets stay unchanged.
+                            scaleX = TracksideLiquidMotion.stretch(liquidPressure, .22f)
+                            scaleY = TracksideLiquidMotion.squash(liquidPressure, .10f)
+                        }
                         .background(accent, CircleShape)
                         .testTag("today-date-indicator")
                 )
@@ -638,9 +662,15 @@ private fun todayNotchedShape(fraction: Float) = GenericShape { size, _ ->
     val rightRadius = minOf(baseRadius, (w - center) * .35f)
     // A small, shallow concave scoop, not the previous deep U-shaped cutout.
     // Keep the scoop centered under the selected weekday, including edge days.
-    val half = minOf(w * .065f, center - leftRadius - 2f, w - rightRadius - center - 2f)
-        .coerceAtLeast(w * .012f)
-    val depth = minOf(h * .035f, w * .024f)
+    // Stretch the concave scoop gently between date centers, then let it
+    // settle to its approved original shape once the spring comes to rest.
+    val wake = TracksideLiquidMotion.notchWake(fraction)
+    val maxHalf = minOf(
+        center - leftRadius - 2f,
+        w - rightRadius - center - 2f
+    ).coerceAtLeast(w * .012f)
+    val half = minOf(w * .065f * (1f + wake * .20f), maxHalf)
+    val depth = minOf(h * .035f * (1f + wake * .30f), w * .034f)
     moveTo(leftRadius, 0f)
     lineTo(center - half, 0f)
     cubicTo(center - half * .42f, 0f, center - half * .55f, depth, center, depth)
