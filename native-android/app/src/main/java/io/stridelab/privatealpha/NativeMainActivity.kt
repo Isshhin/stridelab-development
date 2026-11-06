@@ -322,7 +322,7 @@ private fun NavHostController.openActivity(id: String) {
                         )
                     }
                 }
-                composable("training") { TrainingScreen(state,actions.planning,{nav.navigate("builder/all")},{p,s->nav.openWorkout(p,s)},{nav.navigate("auth")},{p,d->nav.navigate("manage/${android.net.Uri.encode(p)}/$d")}) }
+                composable("training") { StrideLabTrainingHome(state,actions.planning,{nav.navigate("builder/all")},{p,s->nav.openWorkout(p,s)},{nav.navigate("auth")},{p,d->nav.navigate("manage/${android.net.Uri.encode(p)}/$d")}) }
                 composable("manage/{planId}/{date}") { back ->
                     val planId = back.arguments?.getString("planId") ?: ""
                     val plan = state.plans.firstOrNull { it.id == planId }
