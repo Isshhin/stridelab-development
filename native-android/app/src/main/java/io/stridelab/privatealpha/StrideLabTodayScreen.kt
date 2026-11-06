@@ -1121,10 +1121,6 @@ private fun TodayRecordedTraining(
     }
     val firstActivity = activities.firstOrNull()
     val firstLog = logged.firstOrNull()
-    val firstLogSession = firstLog?.let { entry ->
-        plans.firstOrNull { it.id == entry.planId }
-            ?.sessions?.firstOrNull { it.id == entry.sessionId }
-    }
     // All classification comes from persisted activity types or confirmed
     // plan logs; artwork is generic to that discipline, not a route/sensor map.
     val kinds = activities.map { todayRecordedKind(it.type) } +
@@ -1155,37 +1151,28 @@ private fun TodayRecordedTraining(
         signedOut -> "TRAINING HISTORY"
         count == 0 && loading -> "LOADING HISTORY"
         count == 0 -> "NO SAVED ACTIVITY"
-        count > 1 -> "RECORDED SESSIONS"
-        firstActivity != null -> "RECORDED ACTIVITY"
-        else -> "COMPLETED WORKOUT"
+        else -> "RECORDED " + todayKindLabel(kind).uppercase(Locale.ROOT)
     }
+    // Keep titles in Activity Detail. Every Today card shows the same
+    // summary hierarchy whether the date contains one or multiple runs.
     val title = when {
         signedOut -> "Sign in"
         count == 0 && loading -> "Checking records"
         count == 0 -> "Nothing saved"
-        count > 1 -> "$count recorded sessions"
-        firstActivity != null -> firstActivity.title
-        firstLogSession != null -> firstLogSession.effectiveTitle
-        else -> "Completed workout"
+        kind == "running" -> "1 run"
+        else -> "1 session"
     }
     val summary = when {
         signedOut -> "Your activity is private."
         count == 0 && loading -> "Loading saved history"
         count == 0 && !online -> "Offline · saved records only"
         count == 0 -> "No saved activity for this date."
-        count > 1 -> "Your completed sessions on this date."
-        firstActivity != null -> listOfNotNull(
-            firstActivity.distanceM?.let { firstActivity.distanceLabel },
-            firstActivity.durationS?.let { firstActivity.durationLabel }
-        ).joinToString("  ·  ").ifBlank { "Metrics not recorded" }
-        firstLog != null -> listOfNotNull(
-            firstLog.distanceM?.let {
-                String.format(Locale.getDefault(), "%.2f km", it / 1000)
-            },
-            firstLog.durationSeconds?.let { ActivityRecord.duration(it) }
-        ).joinToString("  ·  ").ifBlank { "Confirmed workout log" }
         else -> ""
     }
+    val distanceM = (firstActivity?.distanceM ?: firstLog?.distanceM)
+        ?.takeIf { it.isFinite() && it >= 0.0 }
+    val durationS = (firstActivity?.durationS ?: firstLog?.durationSeconds)
+        ?.takeIf { it.isFinite() && it >= 0.0 }
     val pace = if (count == 1 && firstActivity?.supportsPace == true) {
         when {
             firstActivity.recordedPace != null -> "Recorded pace · " + firstActivity.paceLabel
@@ -1234,50 +1221,48 @@ private fun TodayRecordedTraining(
             Text(
                 title, color = TodayLook.text,
                 fontWeight = FontWeight.ExtraBold, fontSize = 24.sp,
-                lineHeight = 29.sp, maxLines = 2,
+                lineHeight = 29.sp, maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth(if (count == 1 && kind != "empty") .76f else 1f)
+                modifier = Modifier.fillMaxWidth(if (count == 1) .76f else 1f)
             )
-            Text(
-                summary, color = TodayLook.text.copy(alpha = .86f), fontSize = 12.sp,
-                lineHeight = 17.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth(if (count == 1 && kind != "empty") .73f else 1f)
-            )
+            if (count == 1) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(20.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (kind == "running" || kind == "walking") {
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text("Distance", color = TodayLook.muted, fontSize = 10.sp)
+                            Text(
+                                distanceM?.let {
+                                    String.format(Locale.getDefault(), "%.2f km", it / 1000)
+                                } ?: "—",
+                                color = TodayLook.text, fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold, maxLines = 1
+                            )
+                        }
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("Duration", color = TodayLook.muted, fontSize = 10.sp)
+                        Text(
+                            durationS?.let { ActivityRecord.duration(it) } ?: "—",
+                            color = TodayLook.text, fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold, maxLines = 1
+                        )
+                    }
+                }
+            } else {
+                Text(
+                    summary, color = TodayLook.text.copy(alpha = .86f), fontSize = 12.sp,
+                    lineHeight = 17.sp, maxLines = 2, overflow = TextOverflow.Ellipsis
+                )
+            }
             if (pace != null) {
                 Text(
                     pace, color = cardAccent.copy(alpha = .92f),
                     fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.fillMaxWidth(.78f)
                 )
-            }
-            if (count > 1) {
-                Spacer(Modifier.height(1.dp))
-                activities.forEach { item ->
-                    TodayRecordedRow(
-                        title = item.title,
-                        subtitle = listOfNotNull(
-                            item.distanceM?.let { item.distanceLabel },
-                            item.durationS?.let { item.durationLabel }
-                        ).joinToString(" · ").ifBlank { item.sourceLabel },
-                        tint = todayRecordedColor(item.type),
-                        onClick = { onOpenActivity(item.id) }
-                    )
-                }
-                logged.forEach { entry ->
-                    val session = plans.firstOrNull { it.id == entry.planId }
-                        ?.sessions?.firstOrNull { it.id == entry.sessionId }
-                    TodayRecordedRow(
-                        title = session?.effectiveTitle ?: "Completed workout",
-                        subtitle = listOfNotNull(
-                            entry.distanceM?.let {
-                                String.format(Locale.getDefault(), "%.2f km", it / 1000)
-                            },
-                            entry.durationSeconds?.let { ActivityRecord.duration(it) }
-                        ).joinToString(" · ").ifBlank { "Confirmed workout log" },
-                        tint = todayDisciplineColor(entry.discipline),
-                        onClick = { onOpenWorkout(entry.planId, entry.sessionId) }
-                    )
-                }
             }
             if (signedOut || count == 1) {
                 Spacer(Modifier.height(4.dp))
