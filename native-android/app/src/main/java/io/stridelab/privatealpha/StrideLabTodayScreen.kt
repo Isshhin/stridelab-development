@@ -867,10 +867,14 @@ private fun TodayCompactRecordedCard(
                     .background(accent),
                 contentAlignment = Alignment.Center
             ) {
-                TodayDisciplineGlyph(
-                    kind = discipline,
-                    modifier = Modifier.size(29.dp)
-                )
+                if (discipline == "running") {
+                    TodayRecordedRunningGlyph(modifier = Modifier.size(29.dp))
+                } else {
+                    TodayDisciplineGlyph(
+                        kind = discipline,
+                        modifier = Modifier.size(29.dp)
+                    )
+                }
             }
             Column(
                 modifier = Modifier.weight(1f),
@@ -2269,16 +2273,13 @@ private fun todaySessionDetails(session: PlannedSession): String {
     return parts.joinToString("  ·  ")
 }
 
-/** Tiny discipline-specific vector mark, not a stock athlete image. */
+/** Crisp, small running-shoe mark used only on compact recorded cards. */
 @Composable
-private fun TodayDisciplineGlyph(kind: String, modifier: Modifier = Modifier) {
+private fun TodayRecordedRunningGlyph(modifier: Modifier = Modifier) {
     Canvas(modifier) {
         val w = size.width
         val h = size.height
         val ink = Color(0xFF1A2615)
-        val stroke = 1.9.dp.toPx()
-        when (todayHeroDiscipline(kind)) {
-            "running" -> {
                 // Compact running-shoe silhouette: clearer at 29dp than the
                 // previous thin stick figure. Decorative, not real equipment.
                 val shoe = Path().apply {
@@ -2313,6 +2314,30 @@ private fun TodayDisciplineGlyph(kind: String, modifier: Modifier = Modifier) {
                     Offset(w * .83f, h * .83f),
                     strokeWidth = 1.3.dp.toPx(), cap = StrokeCap.Round
                 )
+    }
+}
+
+/** Tiny discipline-specific vector mark, not a stock athlete image. */
+@Composable
+private fun TodayDisciplineGlyph(kind: String, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val ink = Color(0xFF1A2615)
+        val stroke = 1.9.dp.toPx()
+        when (todayHeroDiscipline(kind)) {
+            "running" -> {
+                drawCircle(ink, radius = w * .105f, center = Offset(w * .63f, h * .16f))
+                drawLine(ink, Offset(w * .56f, h * .30f), Offset(w * .42f, h * .58f),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
+                drawLine(ink, Offset(w * .42f, h * .58f), Offset(w * .76f, h * .72f),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
+                drawLine(ink, Offset(w * .42f, h * .58f), Offset(w * .18f, h * .82f),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
+                drawLine(ink, Offset(w * .53f, h * .37f), Offset(w * .78f, h * .42f),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
+                drawLine(ink, Offset(w * .45f, h * .39f), Offset(w * .22f, h * .49f),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
             }
             "strength" -> {
                 drawLine(ink, Offset(w * .13f, h * .50f), Offset(w * .87f, h * .50f),
