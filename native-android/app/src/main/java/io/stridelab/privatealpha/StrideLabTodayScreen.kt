@@ -124,7 +124,11 @@ internal fun StrideLabTodayScreen(
     var selectedDay by rememberSaveable { mutableLongStateOf(LocalDate.now().toEpochDay()) }
     val date = LocalDate.ofEpochDay(selectedDay)
     val weekStart = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-    val plan = state.plans.firstOrNull { it.status == "approved" }
+    // A signed-out device must never expose another account's cached training.
+    val plan = if (state.account == null) null else
+        state.plans.firstOrNull { it.status == "approved" }
+    val safeActivities = if (state.account == null) emptyList() else visibleActivities
+    val safePlans = if (state.account == null) emptyList() else state.plans
     val schedule = plan?.sessions?.filter { it.date == date && it.status != "unassigned" }
         ?.sortedBy { it.id } ?: emptyList()
     val future = plan?.sessions?.filter {
@@ -141,8 +145,8 @@ internal fun StrideLabTodayScreen(
     val notchPosition by animateFloatAsState(
         (date.dayOfWeek.value - .5f) / 7f, tween(280), label = "today-notch"
     )
-    val metrics = remember(weekStart, visibleActivities, state.plans) {
-        savedWeekMetrics(date, visibleActivities, state.plans)
+    val metrics = remember(weekStart, safeActivities, safePlans) {
+        savedWeekMetrics(date, safeActivities, safePlans)
     }
     var showInsights by rememberSaveable { mutableStateOf(false) }
     val now = LocalDate.now()
@@ -184,9 +188,14 @@ internal fun StrideLabTodayScreen(
             TodayNextSession(
                 next = future,
                 plan = plan,
+                signedOut = state.account == null,
                 completed = completed,
                 total = schedule.size,
-                onOpen = { if (plan != null && future != null) onOpenWorkout(plan.id, future.id) else onOpenTraining() }
+                onOpen = {
+                    if (state.account == null) onSignIn()
+                    else if (plan != null && future != null) onOpenWorkout(plan.id, future.id)
+                    else onOpenTraining()
+                }
             )
         }
         item(key = "today-activity") {
@@ -273,7 +282,20 @@ private fun TodayHeader(onOpenMore: () -> Unit) {
                     .testTag("today-profile")
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text("♙", color = TodayLook.text, fontSize = 24.sp)
+                    Canvas(Modifier.size(21.dp)) {
+                        drawCircle(
+                            TodayLook.text, radius = size.width * .16f,
+                            center = Offset(size.width * .5f, size.height * .28f),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.8.dp.toPx())
+                        )
+                        drawArc(
+                            TodayLook.text, startAngle = 195f, sweepAngle = 150f,
+                            useCenter = false,
+                            topLeft = Offset(size.width * .14f, size.height * .49f),
+                            size = androidx.compose.ui.geometry.Size(size.width * .72f, size.height * .53f),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.8.dp.toPx())
+                        )
+                    }
                 }
             }
         }
@@ -631,6 +653,7 @@ private fun TodayDecorativeArt(accent: Color, kind: String, modifier: Modifier) 
 private fun TodayNextSession(
     next: PlannedSession?,
     plan: PlanSnapshot?,
+    signedOut: Boolean,
     completed: Int,
     total: Int,
     onOpen: () -> Unit
@@ -642,7 +665,8 @@ private fun TodayNextSession(
             Column(Modifier.weight(1f)) {
                 Text("Next session", fontSize = 12.sp, color = TodayLook.muted)
                 Text(
-                    next?.effectiveTitle ?: if (plan != null) "No upcoming sessions" else "Build your plan",
+                    next?.effectiveTitle ?: if (signedOut) "Your schedule awaits"
+                    else if (plan != null) "No upcoming sessions" else "Build your plan",
                     fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TodayLook.text,
                     maxLines = 2, overflow = TextOverflow.Ellipsis
                 )
@@ -657,20 +681,24 @@ private fun TodayNextSession(
             )
         } else {
             Text(
-                if (plan == null) "Create an approved schedule to get started."
+                if (signedOut) "Sign in to see your training history."
+                else if (plan == null) "Create an approved schedule to get started."
                 else "Check your training schedule for future workouts.",
                 color = TodayLook.muted, fontSize = 12.sp
             )
         }
         if (total > 0) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                LinearProgressIndicator(
-                    progress = { completed.toFloat() / total.toFloat() },
-                    modifier = Modifier.weight(1f).height(6.dp)
-                        .clip(RoundedCornerShape(3.dp)),
-                    color = TodayLook.coral, trackColor = Color(0xFF34373D),
-                    drawStopIndicator = {}
-                )
+                Box(
+                    Modifier.weight(1f).height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(Color(0xFF34373D))
+                ) {
+                    Box(
+                        Modifier.fillMaxWidth(completed.toFloat() / total.toFloat())
+                            .fillMaxHeight().background(TodayLook.coral)
+                    )
+                }
                 Spacer(Modifier.width(12.dp))
                 Text(completed.toString() + " of " + total + " today",
                     color = TodayLook.muted, fontSize = 11.sp)
