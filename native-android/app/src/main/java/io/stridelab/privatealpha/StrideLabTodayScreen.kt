@@ -601,10 +601,36 @@ private fun TodayRecordedTraining(
         plans.firstOrNull { it.id == entry.planId }
             ?.sessions?.firstOrNull { it.id == entry.sessionId }
     }
+    // All classification comes from persisted activity types or confirmed
+    // plan logs; artwork is generic to that discipline, not a route/sensor map.
+    val kinds = activities.map { todayRecordedKind(it.type) } +
+        logged.map { todayHeroDiscipline(it.discipline) }
+    val kind = when {
+        count == 0 -> "empty"
+        kinds.distinct().size > 1 -> "mixed"
+        else -> kinds.firstOrNull() ?: "other"
+    }
+    val cardAccent = when (kind) {
+        "running" -> TodayLook.lime
+        "strength" -> TodayLook.coral
+        "calisthenics" -> TodayLook.lilac
+        "conditioning" -> TodayLook.azure
+        "mixed" -> TodayLook.lilac
+        else -> accent
+    }
+    val background = when (kind) {
+        "running" -> listOf(Color(0xFF101915), Color(0xFF1A281A), Color(0xFF354A1C))
+        "strength" -> listOf(Color(0xFF191315), Color(0xFF302020), Color(0xFF612C2B))
+        "calisthenics" -> listOf(Color(0xFF181421), Color(0xFF2B2039), Color(0xFF4A3064))
+        "conditioning" -> listOf(Color(0xFF111A23), Color(0xFF1A3040), Color(0xFF28475A))
+        "mixed" -> listOf(Color(0xFF14151A), Color(0xFF232232), Color(0xFF343247))
+        else -> listOf(Color(0xFF131719), Color(0xFF192528), Color(0xFF2B3839))
+    }
     val header = when {
         count == 0 -> "NO ACTIVITY RECORDED"
-        count == 1 -> "RECORDED ACTIVITY"
-        else -> "YOUR TRAINING HISTORY"
+        count > 1 -> "RECORDED SESSIONS"
+        firstActivity != null -> "RECORDED ACTIVITY"
+        else -> "COMPLETED WORKOUT"
     }
     val title = when {
         count == 0 -> "Nothing recorded"
@@ -614,8 +640,8 @@ private fun TodayRecordedTraining(
         else -> "Completed workout"
     }
     val summary = when {
-        count == 0 -> "No saved activity or confirmed workout log for this date."
-        count > 1 -> "Your completed sessions for the selected day."
+        count == 0 -> "No saved activity or confirmed workout log for this day."
+        count > 1 -> "Your completed sessions on this date."
         firstActivity != null -> listOfNotNull(
             firstActivity.distanceM?.let { firstActivity.distanceLabel },
             firstActivity.durationS?.let { firstActivity.durationLabel }
@@ -625,42 +651,62 @@ private fun TodayRecordedTraining(
                 String.format(Locale.getDefault(), "%.2f km", it / 1000)
             },
             firstLog.durationSeconds?.let { ActivityRecord.duration(it) }
-        ).joinToString("  ·  ").ifBlank { "Completed workout log" }
+        ).joinToString("  ·  ").ifBlank { "Confirmed workout log" }
         else -> ""
     }
+    val pace = if (count == 1 && firstActivity?.supportsPace == true) {
+        when {
+            firstActivity.recordedPace != null -> "Recorded pace · " + firstActivity.paceLabel
+            firstActivity.garminMovingPaceSPerKm != null ->
+                "Moving pace · " + firstActivity.detailPaceLabel
+            else -> null
+        }
+    } else null
     Box(
-        Modifier.fillMaxWidth()
+        Modifier.fillMaxWidth().heightIn(min = if (count == 1) 211.dp else 173.dp)
             .clip(shape)
-            .background(
-                Brush.linearGradient(
-                    listOf(Color(0xFF121719), Color(0xFF192325), accent.copy(alpha = .32f))
-                )
-            )
-            .border(1.dp, accent.copy(alpha = .55f), shape)
+            .background(Brush.horizontalGradient(background))
+            .border(1.dp, cardAccent.copy(alpha = .64f), shape)
             .testTag("today-recorded-hero")
     ) {
+        TodayRecordedArtwork(kind = kind, accent = cardAccent, modifier = Modifier.matchParentSize())
         Column(
-            Modifier.fillMaxWidth()
-                .padding(start = 19.dp, end = 17.dp, top = 32.dp, bottom = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            Modifier.fillMaxWidth().padding(
+                start = 19.dp, end = 16.dp, top = 28.dp, bottom = 17.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("✓", color = accent, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                Text("✓", color = cardAccent, fontWeight = FontWeight.ExtraBold, fontSize = 19.sp)
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    header, color = accent,
+                    header, color = cardAccent,
                     fontWeight = FontWeight.Bold, fontSize = 12.sp,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis
                 )
             }
             Text(
                 title, color = TodayLook.text,
-                fontWeight = FontWeight.ExtraBold, fontSize = 25.sp,
-                lineHeight = 30.sp, maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                fontWeight = FontWeight.ExtraBold, fontSize = 24.sp,
+                lineHeight = 29.sp, maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(if (count == 1 && kind != "empty") .76f else 1f)
             )
-            Text(summary, color = TodayLook.muted, fontSize = 12.sp, lineHeight = 17.sp)
+            Text(
+                summary, color = TodayLook.text.copy(alpha = .86f), fontSize = 12.sp,
+                lineHeight = 17.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(if (count == 1 && kind != "empty") .73f else 1f)
+            )
+            if (pace != null) {
+                Text(
+                    pace, color = cardAccent.copy(alpha = .92f),
+                    fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(.78f)
+                )
+            }
             if (count > 1) {
+                Spacer(Modifier.height(1.dp))
                 activities.forEach { item ->
                     TodayRecordedRow(
                         title = item.title,
@@ -682,13 +728,14 @@ private fun TodayRecordedTraining(
                                 String.format(Locale.getDefault(), "%.2f km", it / 1000)
                             },
                             entry.durationSeconds?.let { ActivityRecord.duration(it) }
-                        ).joinToString(" · ").ifBlank { "Workout log" },
+                        ).joinToString(" · ").ifBlank { "Confirmed workout log" },
                         tint = todayDisciplineColor(entry.discipline),
                         onClick = { onOpenWorkout(entry.planId, entry.sessionId) }
                     )
                 }
             }
             if (count == 1 || (count > 1 && activities.isNotEmpty())) {
+                Spacer(Modifier.height(4.dp))
                 Surface(
                     onClick = {
                         when {
@@ -697,20 +744,22 @@ private fun TodayRecordedTraining(
                             firstLog != null -> onOpenWorkout(firstLog.planId, firstLog.sessionId)
                         }
                     },
-                    shape = RoundedCornerShape(25.dp),
-                    color = accent,
-                    modifier = Modifier.height(44.dp).testTag("today-recorded-action")
+                    shape = RoundedCornerShape(26.dp),
+                    color = TodayLook.lime,
+                    modifier = Modifier.height(42.dp).testTag("today-recorded-action")
                 ) {
                     Row(
-                        Modifier.padding(horizontal = 17.dp),
+                        Modifier.padding(horizontal = 19.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("›", color = TodayLook.black, fontSize = 20.sp)
+                        Text("›", color = TodayLook.black, fontSize = 21.sp)
                         Text(
-                            if (count > 1) "View activity history"
-                            else if (firstActivity != null) "View activity"
-                            else "View workout log",
+                            when {
+                                count > 1 -> "View activity history"
+                                firstActivity != null -> "View activity"
+                                else -> "View workout"
+                            },
                             color = TodayLook.black,
                             fontSize = 13.sp, fontWeight = FontWeight.Bold
                         )
@@ -718,7 +767,7 @@ private fun TodayRecordedTraining(
                 }
             } else if (count == 0) {
                 Text(
-                    "Your recorded runs and completed workout logs will appear here.",
+                    "Saved runs and completed workout logs will appear here.",
                     color = TodayLook.muted, fontSize = 11.sp, lineHeight = 16.sp
                 )
             }
