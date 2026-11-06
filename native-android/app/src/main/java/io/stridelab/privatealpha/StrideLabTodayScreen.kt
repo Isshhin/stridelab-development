@@ -1,6 +1,14 @@
 package io.stridelab.privatealpha
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -499,10 +507,19 @@ private fun todayNotchedShape(fraction: Float) = GenericShape { size, _ ->
     close()
 }
 
+
+private data class TodayHeroSnapshot(
+    val date: LocalDate,
+    val scheduled: List<PlannedSession>,
+    val planAvailable: Boolean,
+    val signedOut: Boolean
+)
+
 @Composable
 private fun TodayWaveWorkout(
     accent: Color,
     notchFraction: Float,
+    reduceMotion: Boolean,
     date: LocalDate,
     scheduled: List<PlannedSession>,
     planAvailable: Boolean,
@@ -514,38 +531,11 @@ private fun TodayWaveWorkout(
     val shape = remember(notchFraction) { todayNotchedShape(notchFraction) }
     val multi = scheduled.size > 1
     val primary = scheduled.firstOrNull { it.status != "completed" } ?: scheduled.firstOrNull()
-    val title = when {
-        signedOut -> "Train with StrideLab"
-        !planAvailable -> "Your next chapter"
-        scheduled.isEmpty() -> "Recovery day"
-        multi -> scheduled.size.toString() + " sessions"
-        else -> primary?.effectiveTitle ?: "Workout"
-    }
-    val intro = when {
-        signedOut -> "Sign in to see your own training schedule."
-        !planAvailable -> "Build a plan that works around your week."
-        scheduled.isEmpty() -> "No workout scheduled for this day."
-        multi -> scheduled.count { it.status == "completed" }.toString() +
-            " completed · " + (scheduled.size - scheduled.count { it.status == "completed" }) +
-            " remaining"
-        else -> todaySessionDetails(primary!!)
-    }
-    val onPrimary = when {
-        signedOut -> onSignIn
-        !planAvailable || scheduled.isEmpty() -> onPlan
-        primary != null -> ({ onOpen(primary) })
-        else -> onPlan
-    }
-    val button = when {
-        signedOut -> "Sign in"
-        !planAvailable -> "Create training plan"
-        scheduled.isEmpty() -> "View training"
-        multi -> if (scheduled.all { it.status == "completed" }) "View workouts" else "Open next workout"
-        primary?.status == "completed" -> "View workout"
-        else -> "Start workout"
-    }
+    val content = TodayHeroSnapshot(date, scheduled, planAvailable, signedOut)
     Box(
-        Modifier.fillMaxWidth().heightIn(min = if (multi) 284.dp else 228.dp)
+        Modifier.fillMaxWidth()
+            .animateContentSize(animationSpec = tween(if (reduceMotion) 0 else 240))
+            .heightIn(min = if (multi) 284.dp else 228.dp)
             .clip(shape)
             .background(
                 Brush.linearGradient(
@@ -555,16 +545,79 @@ private fun TodayWaveWorkout(
             .border(1.dp, Color(0x55000000), shape)
             .testTag("today-hero")
     ) {
-        TodayDecorativeArt(
-            accent = accent,
-            kind = when {
+        Crossfade(
+            targetState = when {
                 signedOut || !planAvailable -> "general"
                 scheduled.isEmpty() -> "recovery"
                 multi -> "multi"
                 else -> primary?.discipline ?: "general"
             },
-            modifier = Modifier.matchParentSize()
-        )
+            animationSpec = tween(if (reduceMotion) 0 else 240),
+            modifier = Modifier.matchParentSize(),
+            label = "today-workout-art"
+        ) { artKind ->
+            TodayDecorativeArt(
+                accent = accent,
+                kind = artKind,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        AnimatedContent(
+            targetState = content,
+            modifier = Modifier.fillMaxWidth(),
+            transitionSpec = {
+                (fadeIn(tween(if (reduceMotion) 0 else 210)) +
+                    slideInVertically(
+                        animationSpec = tween(if (reduceMotion) 0 else 210),
+                        initialOffsetY = { it / 13 }
+                    )) togetherWith (
+                    fadeOut(tween(if (reduceMotion) 0 else 150)) +
+                    slideOutVertically(
+                        animationSpec = tween(if (reduceMotion) 0 else 150),
+                        targetOffsetY = { -it / 13 }
+                    )
+                )
+            },
+            label = "today-workout-details"
+        ) { displayed ->
+            val date = displayed.date
+            val scheduled = displayed.scheduled
+            val planAvailable = displayed.planAvailable
+            val signedOut = displayed.signedOut
+            val multi = scheduled.size > 1
+            val primary = scheduled.firstOrNull { it.status != "completed" }
+                ?: scheduled.firstOrNull()
+        val title = when {
+            signedOut -> "Train with StrideLab"
+            !planAvailable -> "Your next chapter"
+            scheduled.isEmpty() -> "Recovery day"
+            multi -> scheduled.size.toString() + " sessions"
+            else -> primary?.effectiveTitle ?: "Workout"
+        }
+        val intro = when {
+            signedOut -> "Sign in to see your own training schedule."
+            !planAvailable -> "Build a plan that works around your week."
+            scheduled.isEmpty() -> "No workout scheduled for this day."
+            multi -> scheduled.count { it.status == "completed" }.toString() +
+                " completed · " + (scheduled.size - scheduled.count { it.status == "completed" }) +
+                " remaining"
+            else -> todaySessionDetails(primary!!)
+        }
+        val onPrimary = when {
+            signedOut -> onSignIn
+            !planAvailable || scheduled.isEmpty() -> onPlan
+            primary != null -> ({ onOpen(primary) })
+            else -> onPlan
+        }
+        val button = when {
+            signedOut -> "Sign in"
+            !planAvailable -> "Create training plan"
+            scheduled.isEmpty() -> "View training"
+            multi -> if (scheduled.all { it.status == "completed" }) "View workouts" else "Open next workout"
+            primary?.status == "completed" -> "View workout"
+            else -> "Start workout"
+        }
+
         Column(
             Modifier.fillMaxWidth().padding(start = 20.dp, end = 17.dp, top = 33.dp, bottom = 21.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -653,6 +706,8 @@ private fun TodayWaveWorkout(
                 }
             }
         }
+        }
+
     }
 }
 
