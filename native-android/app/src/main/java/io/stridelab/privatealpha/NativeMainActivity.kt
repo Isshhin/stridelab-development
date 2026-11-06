@@ -136,6 +136,10 @@ private val mainTabRoutes = setOf("home", "training", "activities", "settings")
 
 /** Save each tab's root state, never its transient detail/auth destination. */
 private fun NavHostController.openTabRoot(path: String) {
+    // Do not dispatch another navigation transaction when the selected
+    // tab is already visible. Repeated taps must not rebuild its destination
+    // and interrupt the floating navigation pill's animation.
+    if (currentDestination?.route == path) return
     while(currentDestination?.route in setOf("activity/{id}", "auth", "builder/{discipline}", "workout/{planId}/{sessionId}", "practice/{key}", "manage/{planId}/{date}")) {
         if(!popBackStack()) break
     }
