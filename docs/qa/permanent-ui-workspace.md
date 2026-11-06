@@ -12,7 +12,7 @@ Owner decision, 2026-11-06: **one existing UI worktree, one Android Studio proje
 
 ## One-time migration — REUSE, do not create a new checkout
 
-Close Android Studio for the old Today worktree, then run the PowerShell block below. The move preserves its existing ignored files and IDE data. It **does not delete** the original checkout or any stash.
+Close Android Studio for the old Today worktree, then run the PowerShell block below. The move preserves its existing ignored files and IDE data. Attach the permanent workspace to the tracking branch, not detached HEAD. It **does not delete** the original checkout or any stash.
 
 ```powershell
 $repo = "C:\Users\marcs\StudioProjects\stridelab-development"
@@ -33,8 +33,12 @@ if ($LASTEXITCODE -ne 0) { throw "Fetch failed." }
 if ((git -C $ui status --porcelain --untracked-files=no)) {
     throw "Tracked modifications exist in UI worktree; preserve/review them before switching."
 }
-git -C $ui switch --detach origin/ui/trackside-dev
-if ($LASTEXITCODE -ne 0) { throw "Cannot switch safely; existing files left intact." }
+if (git -C $ui branch --list ui/trackside-dev) {
+    git -C $ui switch ui/trackside-dev
+} else {
+    git -C $ui switch -c ui/trackside-dev --track origin/ui/trackside-dev
+}
+if ($LASTEXITCODE -ne 0) { throw "Cannot attach UI branch safely; existing files left intact." }
 git -C $ui rev-parse --short HEAD
 ```
 
@@ -56,7 +60,7 @@ git -C $ui fetch origin ui/trackside-dev
 if ((git -C $ui status --porcelain --untracked-files=no)) {
     throw "Tracked local edits present; preserve them before switching."
 }
-git -C $ui switch --detach origin/ui/trackside-dev
+git -C $ui pull --ff-only origin ui/trackside-dev
 ```
 
 After the update, use Android Studio **Sync** and **Run** in the existing project window. No need to configure Gradle again or reinstall Java.
