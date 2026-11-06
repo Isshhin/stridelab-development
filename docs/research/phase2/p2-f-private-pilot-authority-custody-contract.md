@@ -1,5 +1,12 @@
 # P2-F private-pilot custody and authority contract
 
+## Synthetic-only design-review decision — 2026-11-07
+
+The [synthetic authority design review](p2-f-synthetic-authority-design-review-2026-11-07.md) reviewed authoritative head `97dd48cd35e2088f43f50fe4e5332f9ec6a826e2`, Graphify index `ee3f69553ad932631a24db2a065722a140c07837` and the user-reported non-destructive workstation evidence. Verdict **for synthetic harness implementation only**: `PRIVATE_PILOT_CONTRACT_READY_FOR_IMPLEMENTATION`. This does not approve human/provider data, real TPM provisioning, actual custody, real-pilot readiness, Gate 2 or P2-B. Earlier `PRIVATE_PILOT_CONTRACT_BLOCKED` statements remain accurate for the real pilot and are historical for the synthetic-harness implementation decision.
+
+The mandatory synthetic model explicitly separates a fake monotonic anchor from the unproven non-equivocating issuer/commitment guarantee, denies on mismatch or detected fork, and never treats counter equality as proof of a hidden fork's absence. It closes publication immediately upon a verified withdrawal receipt, fences in-flight work before acknowledgement, and reports already emitted output as escaped. It models the independently current inventory, fail-closed recovery and crash boundaries, injected time, and fake key/crypto interfaces. The review's acceptance matrix and exact next Codex task control this synthetic scope. No real security or hardware guarantee is inferred from a fake. Independent professional security review and actual authority, encryption, source and custody evidence remain required before real-pilot intake.
+
+
 ## Workstation qualification update — 2026-11-07
 
 User-reported non-destructive checks: TPM 2.0 present, ready, enabled, activated and owned; AMD firmware `3.95.2.5`; Secure Boot `True`; TBS context create and close succeeded. Raw `TPM2_GetCapability` via TBS returned TBS result `0x00000000` and TPM response code `0x00000000`. Returned command capabilities include `TPM2_NV_DefineSpace` (`0x12A`) and `TPM2_NV_Increment` (`0x134`). The preceding WMI command-block query was inconclusive. This report was not independently repeated here; no NV state was provisioned or mutated.
