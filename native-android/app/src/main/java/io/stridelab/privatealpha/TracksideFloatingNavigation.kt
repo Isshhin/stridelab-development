@@ -65,13 +65,15 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
     // Keep the original rounded dock pill and the sliding lime indicator.
     // Only the area OUTSIDE this capsule is transparent, with no tinted
     // footer, surrounding slab, or full-width bottom-bar background.
-    val dockShape = RoundedCornerShape(32.dp)
+    // Slightly larger dock aligned with the cards. The capsule itself remains
+    // the ONLY dark nav surface; there is no footer or backdrop behind it.
+    val dockShape = RoundedCornerShape(36.dp)
     Box(
-        modifier = Modifier.fillMaxWidth().height(60.dp)
+        modifier = Modifier.fillMaxWidth().height(68.dp)
             .clip(dockShape)
-            .background(Color(0xFF111111))
-            .border(1.dp, Color(0xFF44494A), dockShape)
-            .padding(horizontal = 5.dp, vertical = 5.dp)
+            .background(Color(0xFF17191A))
+            .border(1.dp, Color(0xFF464B4C), dockShape)
+            .padding(horizontal = 6.dp, vertical = 6.dp)
     ) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val cellWidth = maxWidth / destinations.size
@@ -84,7 +86,7 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
                 Box(
                     modifier = Modifier.offset(x = pillOffset)
                         .width(cellWidth).fillMaxHeight()
-                        .clip(RoundedCornerShape(27.dp))
+                        .clip(RoundedCornerShape(30.dp))
                         .background(lime)
                         .testTag("nav-selected-indicator")
                 )
@@ -94,7 +96,7 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
                     val isSelected = selectedIndex == index
                     Column(
                         modifier = Modifier.weight(1f).fillMaxHeight()
-                            .clip(RoundedCornerShape(27.dp))
+                            .clip(RoundedCornerShape(30.dp))
                             .clickable { onTab(path) }
                             .testTag("nav-" + path)
                             .semantics {
@@ -109,13 +111,13 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
                             painter = painterResource(drawable),
                             contentDescription = null,
                             tint = if (isSelected) Color(0xFF10120D) else Color(0xFFC0C4C6),
-                            modifier = Modifier.size(19.dp)
+                            modifier = Modifier.size(21.dp)
                         )
-                        Spacer(Modifier.height(2.dp))
+                        Spacer(Modifier.height(3.dp))
                         Text(
                             label,
-                            fontSize = 10.sp,
-                            lineHeight = 12.sp,
+                            fontSize = 11.sp,
+                            lineHeight = 13.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                             color = if (isSelected) Color(0xFF10120D) else Color(0xFFC0C4C6),
                             maxLines = 1,
