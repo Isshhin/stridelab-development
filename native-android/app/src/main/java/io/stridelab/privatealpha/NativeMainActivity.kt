@@ -9,24 +9,17 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.Canvas
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -39,19 +32,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.VisualTransformation
-import kotlin.math.roundToInt
 import androidx.compose.material3.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -74,6 +60,9 @@ class NativeMainActivity: ComponentActivity() {
         super.onCreate(savedInstanceState)
         // Remove the platform navigation-bar tint beneath the floating dock.
         // The gesture handle remains system-controlled and accessible.
+        // Android 14 and below still use this setter for the dock background;
+        // Android 15+ manages edge-to-edge system bar surfaces instead.
+        @Suppress("DEPRECATION")
         window.navigationBarColor = android.graphics.Color.BLACK
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced = false
@@ -468,7 +457,7 @@ private fun NavHostController.openActivity(id: String) {
                     val context = LocalContext.current
                     var confirmSignOut by remember { mutableStateOf(false) }
                     Screen("Settings", "ACCOUNT & DATA") {
-                        item { SignalCard { Text("YOUR STRIDELAB", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text(if(state.account == null) "Keep your training close." else "Connected to your history.", style = MaterialTheme.typography.titleLarge); Text("Private preview · ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+                        item { SignalCard { Text("YOUR STRIDELAB", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text("Connected to your history.", style = MaterialTheme.typography.titleLarge); Text("Private preview · ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
                         item { SyncStatus(state) }
                         item {
                             OutlinedButton(
@@ -476,13 +465,11 @@ private fun NavHostController.openActivity(id: String) {
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                             ) { Text("Workout library") }
                         }
-                        if(state.account != null) {
-                            item { TracksideSectionHeader("Private account") }
-                            item { SignalCard { Text("ACCOUNT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text(state.account!!, style = MaterialTheme.typography.bodyMedium) } }
+                        item { TracksideSectionHeader("Private account") }
+                            item { SignalCard { Text("ACCOUNT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text(state.account, style = MaterialTheme.typography.bodyMedium) } }
                             item { TracksideSectionHeader("Connections") }
-                            item { GarminSettingsCard(state.account!!,actions.syncGarmin) }
+                            item { GarminSettingsCard(state.account,actions.syncGarmin) }
                             item { OutlinedButton(onClick = { confirmSignOut = true }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Sign out on this device") } }
-                        } else item { Button(onClick = { nav.navigate("auth") }, modifier = Modifier.fillMaxWidth()) { Text("Sign in") } }
                         item { TracksideSectionHeader("Device & data") }
                         item { SignalCard {
                             Text("LEGACY DATA & BACKUPS", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
@@ -797,11 +784,3 @@ internal val LocalFloatingDockVisible=staticCompositionLocalOf { false }
 }
 private fun timestamp(value: Long): String = DateTimeFormatter.ofPattern("d MMM, HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(value))
 
-
-
-@Composable private fun LibraryGrid(modifier:Modifier) {
-    val color=MaterialTheme.colorScheme.onSurface
-    Canvas(modifier) { val gap=size.width*.16f;val cell=(size.width-gap)/2
-        for(x in 0..1)for(y in 0..1) drawRoundRect(color,Offset(x*(cell+gap),y*(cell+gap)),androidx.compose.ui.geometry.Size(cell,cell),androidx.compose.ui.geometry.CornerRadius(size.width*.08f),style=androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx()))
-    }
-}
