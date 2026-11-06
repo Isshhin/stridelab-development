@@ -1,5 +1,15 @@
 # StrideLab Engine 2.x current coordinating handoff
 
+## Current continuation — race fix implemented, independent clearance pending — 2026-11-07
+
+Latest implementation head: `e716f338ac52fe727e2a7a3e7d9f1495875170bd`.
+
+Codex reports the previously reproduced current-validity concurrent-writer race as fixed with a bounded synthetic consistency barrier. Local validation is green: 54 durable, 16 F2.2, 148 P2, and 311 full-suite passes with one Windows symlink skip and no expected failures. Exact-head CI run `42257251591` was still queued at the last check.
+
+Synthetic durability is **not yet independently cleared**. The exact next action is independent Work re-review of `e716f338...`, preferably using Graphify first to narrow repository call paths/tests and then verifying only the exact live implementation surface. Private-pilot readiness, Gate 2, P2-B and human/provider-data admission remain blocked.
+
+See the canonical session handoff below for the full history and continuation instructions.
+
 ## Synthetic current-validity barrier continuation — 2026-11-07
 
 The earlier current-validity final-check race is addressed in the continuation: a SQLite writer reservation and the guarded synthetic authority jointly protect the final validation point; contention or reentrant changes fail closed without retry. The prior expected-failure regression is now a normal test, with additional thread/process and authority mutation cases. See the [synthetic durable-store boundary](../phase2/p2-f-durable-synthetic-boundary.md) for exact semantics and limitations. Earlier blocker descriptions below are historical. Independent Work review remains required; do not claim a final synthetic-durability pass. This is not private-pilot infrastructure. `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` remain unchanged.
