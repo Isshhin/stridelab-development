@@ -740,6 +740,7 @@ private fun todayKindLabel(kind: String): String = when (kind) {
  * Multiple saved activities: one compact neutral summary, not a tall list.
  * The individual source records and native logs appear only on View Sessions.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TodayMultiRecordedSummary(
     date: LocalDate,
@@ -947,6 +948,7 @@ private fun TodayMultiRecordedSummary(
  * Today may have genuine recorded training AND another planned workout.
  * Surface both states without claiming that the pending workout is completed.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TodayMixedDayCard(
     date: LocalDate,
@@ -1666,6 +1668,7 @@ private fun todayHeroContentKey(snapshot: TodayHeroSnapshot): String = when {
  * Multiple planned sessions stay compact. The first two are quick previews;
  * the full persisted plan appears in a scrollable on-demand sheet.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TodayMultiPlannedCard(
     date: LocalDate,
