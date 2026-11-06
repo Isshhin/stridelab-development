@@ -169,7 +169,9 @@ internal fun StrideLabUnifiedTrainingTimeline(
     }
     val todayIndex = days.indexOfFirst { it.date == today }.coerceAtLeast(0)
     val scroll = rememberLazyListState(initialFirstVisibleItemIndex = todayIndex)
-    var initialAnchorSet by rememberSaveable(account, today, active?.id) {
+    // Re-center when the Training tab is entered again. Keep the position
+    // while this screen remains open so scrolling into history still works.
+    var initialAnchorSet by remember(account, today, active?.id) {
         mutableStateOf(false)
     }
     LaunchedEffect(account, today, state.initializing, days, initialAnchorSet) {
@@ -240,6 +242,12 @@ internal fun StrideLabUnifiedTrainingTimeline(
                 }
             }
         }
+        // When Today is the last dated entry, LazyColumn would otherwise
+        // clamp scrollToItem(todayIndex): there is not enough content AFTER
+        // Today to place it at the top. A blank scroll tail gives Today
+        // room to align with the top, leaving the lower area naturally black.
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+        val timelineViewportHeight = maxHeight
         LazyColumn(
             state = scroll,
             modifier = Modifier.fillMaxSize().testTag("training-unified-timeline"),
@@ -250,7 +258,9 @@ internal fun StrideLabUnifiedTrainingTimeline(
         ) {
             itemsIndexed(days, key = { _, day -> "timeline-date-${day.date}" }) { position, day ->
                 Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
-                    if (unifiedTimelineMonthHeading(days, position)) {
+                    if (day.date != today &&
+                        unifiedTimelineMonthHeading(days, position)
+                    ) {
                         Text(
                             day.date.format(month),
                             color = TimelineStyle.ink,
@@ -333,6 +343,12 @@ internal fun StrideLabUnifiedTrainingTimeline(
                     }
                 }
             }
+            // No fake upcoming workout or footer card: just enough empty
+            // canvas to let the current date be the first visible entry.
+            item(key = "training-timeline-bottom-space") {
+                Spacer(Modifier.height(timelineViewportHeight))
+            }
+        }
         }
     }
 }
