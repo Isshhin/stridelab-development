@@ -562,6 +562,192 @@ private fun todayNotchedShape(fraction: Float) = GenericShape { size, _ ->
 }
 
 
+/**
+ * The calendar's past dates show actual saved recordings and confirmed workout
+ * logs, never a historical "Today's Workout" prescription or decorative GPS map.
+ * Native logs are already filtered to avoid linked-activity double counting.
+ */
+@Composable
+private fun TodayRecordedTraining(
+    date: LocalDate,
+    accent: Color,
+    notchFraction: Float,
+    activities: List<ActivityRecord>,
+    logged: List<ConfirmedWorkout>,
+    plans: List<PlanSnapshot>,
+    onOpenActivity: (String) -> Unit,
+    onOpenWorkout: (String, String) -> Unit,
+    onViewAll: () -> Unit
+) {
+    val shape = remember(notchFraction) { todayNotchedShape(notchFraction) }
+    val count = activities.size + logged.size
+    val firstActivity = activities.firstOrNull()
+    val firstLog = logged.firstOrNull()
+    val firstLogSession = firstLog?.let { entry ->
+        plans.firstOrNull { it.id == entry.planId }
+            ?.sessions?.firstOrNull { it.id == entry.sessionId }
+    }
+    val header = when {
+        count == 0 -> "NO ACTIVITY RECORDED"
+        count == 1 -> "RECORDED ACTIVITY"
+        else -> "YOUR TRAINING HISTORY"
+    }
+    val title = when {
+        count == 0 -> "Nothing recorded"
+        count > 1 -> "$count recorded sessions"
+        firstActivity != null -> firstActivity.title
+        firstLogSession != null -> firstLogSession.effectiveTitle
+        else -> "Completed workout"
+    }
+    val summary = when {
+        count == 0 -> "No saved activity or confirmed workout log for this date."
+        count > 1 -> "Your completed sessions for the selected day."
+        firstActivity != null -> listOfNotNull(
+            firstActivity.distanceM?.let { firstActivity.distanceLabel },
+            firstActivity.durationS?.let { firstActivity.durationLabel }
+        ).joinToString("  ·  ").ifBlank { "Metrics not recorded" }
+        firstLog != null -> listOfNotNull(
+            firstLog.distanceM?.let {
+                String.format(Locale.getDefault(), "%.2f km", it / 1000)
+            },
+            firstLog.durationSeconds?.let(ActivityRecord::duration)
+        ).joinToString("  ·  ").ifBlank { "Completed workout log" }
+        else -> ""
+    }
+    Box(
+        Modifier.fillMaxWidth()
+            .clip(shape)
+            .background(
+                Brush.linearGradient(
+                    listOf(Color(0xFF121719), Color(0xFF192325), accent.copy(alpha = .32f))
+                )
+            )
+            .border(1.dp, accent.copy(alpha = .55f), shape)
+            .testTag("today-recorded-hero")
+    ) {
+        Column(
+            Modifier.fillMaxWidth()
+                .padding(start = 19.dp, end = 17.dp, top = 32.dp, bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("✓", color = accent, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    header, color = accent,
+                    fontWeight = FontWeight.Bold, fontSize = 12.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    date.format(DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())),
+                    color = TodayLook.muted,
+                    fontSize = 11.sp
+                )
+            }
+            Text(
+                title, color = TodayLook.text,
+                fontWeight = FontWeight.ExtraBold, fontSize = 25.sp,
+                lineHeight = 30.sp, maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(summary, color = TodayLook.muted, fontSize = 12.sp, lineHeight = 17.sp)
+            if (count > 1) {
+                activities.forEach { item ->
+                    TodayRecordedRow(
+                        title = item.title,
+                        subtitle = listOfNotNull(
+                            item.distanceM?.let { item.distanceLabel },
+                            item.durationS?.let { item.durationLabel }
+                        ).joinToString(" · ").ifBlank { item.sourceLabel },
+                        tint = todayRecordedColor(item.type),
+                        onClick = { onOpenActivity(item.id) }
+                    )
+                }
+                logged.forEach { entry ->
+                    val session = plans.firstOrNull { it.id == entry.planId }
+                        ?.sessions?.firstOrNull { it.id == entry.sessionId }
+                    TodayRecordedRow(
+                        title = session?.effectiveTitle ?: "Completed workout",
+                        subtitle = listOfNotNull(
+                            entry.distanceM?.let {
+                                String.format(Locale.getDefault(), "%.2f km", it / 1000)
+                            },
+                            entry.durationSeconds?.let(ActivityRecord::duration)
+                        ).joinToString(" · ").ifBlank { "Workout log" },
+                        tint = todayDisciplineColor(entry.discipline),
+                        onClick = { onOpenWorkout(entry.planId, entry.sessionId) }
+                    )
+                }
+            }
+            if (count > 0) {
+                Surface(
+                    onClick = {
+                        when {
+                            count > 1 -> onViewAll()
+                            firstActivity != null -> onOpenActivity(firstActivity.id)
+                            firstLog != null -> onOpenWorkout(firstLog.planId, firstLog.sessionId)
+                        }
+                    },
+                    shape = RoundedCornerShape(25.dp),
+                    color = accent,
+                    modifier = Modifier.height(44.dp).testTag("today-recorded-action")
+                ) {
+                    Row(
+                        Modifier.padding(horizontal = 17.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("›", color = TodayLook.black, fontSize = 20.sp)
+                        Text(
+                            if (count > 1) "View activity history"
+                            else if (firstActivity != null) "View activity"
+                            else "View workout log",
+                            color = TodayLook.black,
+                            fontSize = 13.sp, fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            } else {
+                Text(
+                    "Your recorded runs and completed workout logs will appear here.",
+                    color = TodayLook.muted, fontSize = 11.sp, lineHeight = 16.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TodayRecordedRow(
+    title: String,
+    subtitle: String,
+    tint: Color,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(13.dp),
+        color = Color(0xEF202529),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+    ) {
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Text("●", color = tint, fontSize = 14.sp)
+            Column(Modifier.weight(1f)) {
+                Text(title, color = TodayLook.text, fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis)
+                Text(subtitle, color = TodayLook.muted, fontSize = 11.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Text("›", color = TodayLook.text, fontSize = 19.sp)
+        }
+    }
+}
+
 private data class TodayHeroSnapshot(
     val date: LocalDate,
     val scheduled: List<PlannedSession>,
