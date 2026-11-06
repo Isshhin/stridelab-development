@@ -171,11 +171,11 @@ internal fun StrideLabTodayScreen(
     val schedule = plan?.sessions?.filter { it.date == date && it.status != "unassigned" }
         ?: emptyList()
     val featured = schedule.firstOrNull { it.status != "completed" } ?: schedule.firstOrNull()
-    val nextSameDay = if (schedule.size > 1) schedule.firstOrNull {
+    val nextSameDay = if (date == todayDate && schedule.size > 1) schedule.firstOrNull {
         it.id != featured?.id && it.status in setOf("planned", "in_progress")
     } else null
     val future = nextSameDay ?: plan?.sessions?.filter {
-        it.date > date && it.status in setOf("planned", "in_progress")
+        it.date > todayDate && it.status in setOf("planned", "in_progress")
     }?.sortedWith(compareBy<PlannedSession>({ it.date }, { it.id }))?.firstOrNull()
     val completed = schedule.count { it.status == "completed" }
     val tone = when {
@@ -610,7 +610,7 @@ private fun TodayRecordedTraining(
             firstLog.distanceM?.let {
                 String.format(Locale.getDefault(), "%.2f km", it / 1000)
             },
-            firstLog.durationSeconds?.let(ActivityRecord::duration)
+            firstLog.durationSeconds?.let { ActivityRecord.duration(it) }
         ).joinToString("  ·  ").ifBlank { "Completed workout log" }
         else -> ""
     }
@@ -672,14 +672,14 @@ private fun TodayRecordedTraining(
                             entry.distanceM?.let {
                                 String.format(Locale.getDefault(), "%.2f km", it / 1000)
                             },
-                            entry.durationSeconds?.let(ActivityRecord::duration)
+                            entry.durationSeconds?.let { ActivityRecord.duration(it) }
                         ).joinToString(" · ").ifBlank { "Workout log" },
                         tint = todayDisciplineColor(entry.discipline),
                         onClick = { onOpenWorkout(entry.planId, entry.sessionId) }
                     )
                 }
             }
-            if (count > 0) {
+            if (count == 1 || (count > 1 && activities.isNotEmpty())) {
                 Surface(
                     onClick = {
                         when {
@@ -707,7 +707,7 @@ private fun TodayRecordedTraining(
                         )
                     }
                 }
-            } else {
+            } else if (count == 0) {
                 Text(
                     "Your recorded runs and completed workout logs will appear here.",
                     color = TodayLook.muted, fontSize = 11.sp, lineHeight = 16.sp
