@@ -24,7 +24,7 @@ class NativeTabRootTest {
     private fun tab(path: String, title: String) {
         // The approved floating navigation is a fixed Scaffold sibling, not a LazyColumn item.
         // Click its real root item directly; scrolling the screen to "nav-settings"
-        // was an invalid test locator and never exercised the Settings destination.
+        // was an invalid test locator and never exercised the More destination.
         compose.onNodeWithTag("nav-$path").assertIsDisplayed().performClick()
         compose.onNode(hasTestTag("screen") and SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, title)).assertExists()
     }
@@ -43,7 +43,7 @@ class NativeTabRootTest {
         // Root navigation must not discard useful state to fix the restored-detail bug.
         compose.onNodeWithTag("activity-synthetic-tab-39").assertIsDisplayed()
         repeat(3) {
-            tab("settings", "Settings")
+            tab("settings", "More")
             tab("home", "Today")
             tab("activities", "Activities")
             compose.onNodeWithTag("activity-synthetic-tab-39").assertIsDisplayed()
