@@ -534,9 +534,9 @@ private fun NavHostController.openActivity(id: String) {
         Box(
             modifier = Modifier.align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .padding(bottom = 12.dp)
-                .fillMaxWidth(.88f)
-                .widthIn(max = 350.dp)
+                .padding(bottom = 10.dp)
+                .fillMaxWidth(.94f)
+                .widthIn(max = 410.dp)
                 .testTag("floating-navigation-overlay")
         ) {
             TracksideFloatingNavigation(route) { path -> nav.openTabRoot(path) }
