@@ -384,7 +384,7 @@ private fun todayDisciplineColor(value: String): Color = when (value.lowercase(L
 }
 
 @Composable
-private fun TodayHeader(onOpenMore: () -> Unit) {
+private fun TodayHeader(onOpenMore: () -> Unit, online: Boolean, loading: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Canvas(Modifier.size(width = 27.dp, height = 25.dp)) {
@@ -407,6 +407,17 @@ private fun TodayHeader(onOpenMore: () -> Unit) {
             Spacer(Modifier.width(8.dp))
             Text("StrideLab", color = TodayLook.text, fontSize = 21.sp,
                 fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            if (!online || loading) {
+                Text(
+                    if (!online) "Offline" else "Loading",
+                    color = if (!online) TodayLook.coral else TodayLook.muted,
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(end = 9.dp).semantics {
+                        contentDescription = if (!online) "Offline, showing saved data"
+                            else "Loading training data"
+                    }
+                )
+            }
             Surface(
                 onClick = onOpenMore, shape = CircleShape,
                 color = TodayLook.card, modifier = Modifier.size(39.dp)
@@ -456,6 +467,9 @@ private fun TodayWeekCalendar(
     date: LocalDate,
     accent: Color,
     selectionFraction: Float,
+    markers: Map<LocalDate, TodayDayMarker>,
+    today: LocalDate,
+    onToday: () -> Unit,
     onSelect: (LocalDate) -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit
@@ -506,6 +520,26 @@ private fun TodayWeekCalendar(
                 color = TodayLook.text, fontSize = 20.sp,
                 fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f)
             )
+            if (date != today) {
+                Surface(
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onToday()
+                    },
+                    shape = RoundedCornerShape(15.dp),
+                    color = Color(0xFF252B27),
+                    modifier = Modifier.height(34.dp).testTag("today-return")
+                ) {
+                    Box(
+                        Modifier.padding(horizontal = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Today", color = TodayLook.lime,
+                            fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+            }
             TodayCalendarArrow("‹", "Previous week", previousWeek)
             Spacer(Modifier.width(8.dp))
             TodayCalendarArrow("›", "Next week", nextWeek)
@@ -517,7 +551,8 @@ private fun TodayWeekCalendar(
             val indicatorX = (maxWidth * selectionFraction - diameter / 2)
                 .coerceIn(0.dp, maxWidth - diameter)
             Box(
-                Modifier.align(Alignment.BottomStart).offset(x = indicatorX)
+                // Calendar dates remain in a fixed-height row above status dots.
+                Modifier.align(Alignment.TopStart).offset(x = indicatorX, y = 24.dp)
                     .size(diameter).background(accent, CircleShape)
                     .testTag("today-date-indicator")
             )
@@ -526,6 +561,7 @@ private fun TodayWeekCalendar(
                 (0..6).forEach { idx ->
                     val day = monday.plusDays(idx.toLong())
                     val isSelected = day == date
+                    val marker = markers[day] ?: TodayDayMarker(false, false)
                     Column(
                         modifier = Modifier.weight(1f).clickable { selectDay(day) }
                             .testTag("today-day-" + idx)
@@ -534,7 +570,12 @@ private fun TodayWeekCalendar(
                                     DateTimeFormatter.ofPattern(
                                         "EEEE d MMMM", Locale.getDefault()
                                     )
-                                )
+                                ) + when {
+                                    marker.completed && marker.pending -> ", completed and planned"
+                                    marker.completed -> ", completed"
+                                    marker.pending -> ", planned"
+                                    else -> ""
+                                }
                                 selected = isSelected
                                 role = Role.Button
                             },
@@ -544,7 +585,8 @@ private fun TodayWeekCalendar(
                         Text(
                             letters[idx], fontSize = 11.sp,
                             color = if (isSelected) accent else TodayLook.muted,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            modifier = Modifier.height(17.dp)
                         )
                         Box(Modifier.size(diameter), contentAlignment = Alignment.Center) {
                             Text(
@@ -561,6 +603,20 @@ private fun TodayWeekCalendar(
                                 fontWeight = if (isSelected) FontWeight.Bold
                                 else FontWeight.Medium
                             )
+                        }
+                        Row(
+                            modifier = Modifier.height(6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(3.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (marker.completed) {
+                                Box(Modifier.size(5.dp)
+                                    .background(TodayLook.lime, CircleShape))
+                            }
+                            if (marker.pending) {
+                                Box(Modifier.size(5.dp)
+                                    .background(Color(0xFF8B9298), CircleShape))
+                            }
                         }
                     }
                 }
