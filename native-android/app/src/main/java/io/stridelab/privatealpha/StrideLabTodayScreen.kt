@@ -142,8 +142,8 @@ internal fun StrideLabTodayScreen(
     val completed = schedule.count { it.status == "completed" }
     val tone = when {
         state.account == null || plan == null -> TodayLook.lime
-        schedule.size > 1 -> TodayLook.lilac
-        schedule.isEmpty() -> TodayLook.teal
+        schedule.size > 1 -> TodayLook.coral
+        schedule.isEmpty() -> TodayLook.lilac
         else -> todayDisciplineColor(schedule.first().discipline)
     }
     val animatedTone by animateColorAsState(tone, tween(260), label = "today-accent")
@@ -472,11 +472,10 @@ private fun TodayWaveWorkout(
             .clip(shape)
             .background(
                 Brush.linearGradient(
-                    listOf(Color(0xFF0B0E0C), Color(0xFF131B13),
-                        accent.copy(alpha = .30f))
+                    listOf(accent, accent.copy(alpha = .98f), accent.copy(alpha = .81f))
                 )
             )
-            .border(1.dp, accent.copy(alpha = .70f), shape)
+            .border(1.dp, Color(0x55000000), shape)
             .testTag("today-hero")
     ) {
         TodayDecorativeArt(
@@ -497,27 +496,27 @@ private fun TodayWaveWorkout(
                 horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 Text(
                     if (scheduled.isEmpty() && planAvailable && !signedOut) "✦" else "●",
-                    color = accent, fontSize = 14.sp
+                    color = TodayLook.black, fontSize = 14.sp
                 )
                 Text(
                     if (scheduled.isEmpty() && planAvailable && !signedOut) "RECOVERY DAY"
                     else "TODAY'S WORKOUT",
-                    fontSize = 12.sp, fontWeight = FontWeight.Bold, color = accent
+                    fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TodayLook.black
                 )
                 Spacer(Modifier.weight(1f))
                 if (scheduled.isNotEmpty()) {
                     Text(
                         date.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())),
-                        style = MaterialTheme.typography.labelSmall, color = TodayLook.muted
+                        style = MaterialTheme.typography.labelSmall, color = TodayLook.black.copy(alpha = .58f)
                     )
                 }
             }
             Text(title, fontSize = if (multi) 27.sp else 29.sp,
                 lineHeight = 33.sp,
-                fontWeight = FontWeight.ExtraBold, color = TodayLook.text,
+                fontWeight = FontWeight.ExtraBold, color = TodayLook.black,
                 maxLines = 2, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(if (multi) 1f else .83f))
-            Text(intro, color = TodayLook.text.copy(alpha = .82f),
+            Text(intro, color = TodayLook.black.copy(alpha = .82f),
                 fontSize = 12.sp, lineHeight = 17.sp,
                 modifier = Modifier.fillMaxWidth(if (multi) 1f else .75f),
                 maxLines = 3, overflow = TextOverflow.Ellipsis)
@@ -554,7 +553,7 @@ private fun TodayWaveWorkout(
                     if (signedOut) "Your activities stay private."
                     else if (!planAvailable) "Personalized sessions will appear here once approved."
                     else "Make time to recover and come back stronger.",
-                    color = TodayLook.muted, fontSize = 11.sp, lineHeight = 16.sp,
+                    color = TodayLook.black.copy(alpha = .72f), fontSize = 11.sp, lineHeight = 16.sp,
                     modifier = Modifier.fillMaxWidth(.83f)
                 )
             }
@@ -562,7 +561,7 @@ private fun TodayWaveWorkout(
             Surface(
                 onClick = onPrimary,
                 shape = RoundedCornerShape(28.dp),
-                color = accent,
+                color = if (multi) Color(0xFF181B18) else TodayLook.coral,
                 modifier = Modifier.height(46.dp)
                     .testTag("today-workout-action")
             ) {
@@ -571,8 +570,8 @@ private fun TodayWaveWorkout(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("▶", color = TodayLook.black, fontSize = 12.sp)
-                    Text(button, color = TodayLook.black,
+                    Text("▶", color = TodayLook.text, fontSize = 12.sp)
+                    Text(button, color = TodayLook.text,
                         fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
@@ -600,13 +599,19 @@ private fun TodayDecorativeArt(accent: Color, kind: String, modifier: Modifier) 
         val isRun = kind == "run" || kind == "running" || kind == "general"
         val isStrength = kind == "str" || kind == "strength"
         val isRecovery = kind == "recovery"
+        val artInk = when {
+            isRun -> Color(0xFF22351B)
+            isStrength -> Color(0xFF6F3029)
+            isRecovery -> Color(0xFF4D3871)
+            else -> Color(0xFF343044)
+        }
         val base = Path().apply {
             moveTo(w * .49f, h)
             cubicTo(w * .65f, h * .66f, w * .83f, h * .50f, w, h * .58f)
             lineTo(w, h)
             close()
         }
-        drawPath(base, accent.copy(alpha = .17f))
+        drawPath(base, artInk.copy(alpha = .20f))
         if (isRun) {
             val ranges = listOf(
                 listOf(.54f to .85f, .72f to .47f, .85f to .69f, .96f to .34f, 1f to .47f),
@@ -620,22 +625,22 @@ private fun TodayDecorativeArt(accent: Color, kind: String, modifier: Modifier) 
                     lineTo(coordinates.first().first * w, h)
                     close()
                 }
-                drawPath(p, accent.copy(alpha = if (idx == 0) .55f else .20f))
+                drawPath(p, artInk.copy(alpha = if (idx == 0) .64f else .32f))
             }
         } else if (isStrength) {
             val center = Offset(w * .83f, h * .66f)
-            drawLine(accent.copy(alpha = .55f),
+            drawLine(artInk.copy(alpha = .55f),
                 Offset(w * .67f, h * .82f), Offset(w * .98f, h * .49f),
                 strokeWidth = 9.dp.toPx(), cap = StrokeCap.Round)
             listOf(
                 Offset(w * .71f, h * .78f),
                 Offset(w * .95f, h * .53f)
             ).forEach { pt ->
-                drawCircle(accent.copy(alpha = .26f), radius = 25.dp.toPx(), center = pt)
-                drawCircle(accent.copy(alpha = .50f), radius = 16.dp.toPx(), center = pt)
+                drawCircle(artInk.copy(alpha = .30f), radius = 25.dp.toPx(), center = pt)
+                drawCircle(artInk.copy(alpha = .58f), radius = 16.dp.toPx(), center = pt)
             }
         } else if (isRecovery) {
-            drawCircle(accent.copy(alpha = .30f), radius = w * .14f,
+            drawCircle(artInk.copy(alpha = .30f), radius = w * .14f,
                 center = Offset(w * .87f, h * .72f))
             val p = Path().apply {
                 moveTo(w * .57f, h)
@@ -643,11 +648,11 @@ private fun TodayDecorativeArt(accent: Color, kind: String, modifier: Modifier) 
                 lineTo(w, h)
                 close()
             }
-            drawPath(p, accent.copy(alpha = .29f))
+            drawPath(p, artInk.copy(alpha = .30f))
         } else {
             repeat(3) { idx ->
                 val radius = (idx + 1) * 37.dp.toPx()
-                drawCircle(accent.copy(alpha = .10f), radius = radius,
+                drawCircle(artInk.copy(alpha = .12f), radius = radius,
                     center = Offset(w * .90f, h * .82f))
             }
         }
