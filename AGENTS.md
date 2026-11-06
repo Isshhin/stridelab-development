@@ -2,6 +2,15 @@
 
 This is the persistent default for work in this repository. Follow the user's **current task prompt** and the applicable, up-to-date branch documentation. Do not treat old handoffs, cached graph indexes, or historical green builds as proof of the live state.
 
+## Owner-approved Today redesign (2026-11-06)
+
+- **AMOLED true black** Today screen, StrideLab branding, greeting, month/week navigation and seven-day tappable calendar.
+- Tapping a weekday changes the selected date, the **real saved workout(s)** displayed and the accent theme. The **concave notch along the workout card's top edge must track the center of the selected weekday**, including Monday and Sunday. Do not leave the notch centered.
+- Card variants: one scheduled session (discipline-specific mountain/abstract art), multiple sessions (both/all real session rows, progress and open-next action), an approved-plan day without sessions (recovery/open day), no-approved-plan, and signed-out. Never invent training targets, GPS routes, exercise counts, biometrics, calories or other saved values.
+- Keep the compact **Next session**, real saved **Activity / Your week** daily bars and **Weekly summary**, with secondary dashboards still available under Additional insights. Four floating tabs: **Today, Training, Activity, More**. Library is reachable from More.
+- The currently implemented view is `StrideLabTodayScreen.kt` connected from `NativeMainActivity.kt`; this is **implemented source pending owner Android Studio acceptance**, not an accepted device rendering.
+- This approval applies to Today only and replaces earlier Today Figma nodes; do not back-port old illustrated route cards or photos.
+
 ## Permanent UI workspace and owner-approved division of work
 
 - **Reuse one local Android Studio UI workspace for every UI task.** Do not ask the owner to open a new Git worktree for each screen or change. See `docs/qa/permanent-ui-workspace.md`. Keep the owner's main development checkout and existing stashes untouched.
@@ -33,11 +42,11 @@ This is the persistent default for work in this repository. Follow the user's **
 
 ## Product boundaries and priorities
 
-- This is an Android-first Kotlin / Jetpack Compose multi-discipline training app. Current bottom tabs are **Today, Training, Activity, Library, More**; do not introduce a Progress tab or a sixth bottom tab.
-- Near-term priorities are: (1) stabilize Garmin activity/FIT/GPS/map and other core behavior; (2) reconstruct **Today**, **Training**, and **Activity** one tab, page, and modal at a time from **user-approved** Figma nodes; (3) defer Library/More polish.
+- This is an Android-first Kotlin / Jetpack Compose multi-discipline training app. The approved floating bottom dock has **four tabs: Today, Training, Activity, More**. The Library remains accessible through More; do not re-add Library or invent Progress as a bottom tab.
+- Near-term priorities are: (1) stabilize Garmin activity/FIT/GPS/map and other core behavior; (2) implement **explicitly owner-approved** UI references one tab, page and modal at a time; (3) defer Library/More polish beyond the approved four-tab dock. The owner-approved AMOLED Today redesign of 2026-11-06 **supersedes Today Figma parity only**; other tabs still follow their own approved designs.
 - **Analysis under More is backlog only.** Do not build or add new analytics features unless separately approved.
-- Figma file: `v73TsYo6gKxUoiUock2sSE`. Treat approval as explicit, not implied by a design's presence. Current designs may still be reorganized; verify the exact approved node before implementing it.
-- UI reconstruction: keep working Garmin, MapLibre, persistence, and engine boundaries intact. Pass functionality and focused tests, check visual/interaction parity on an emulator, then **STOP for owner acceptance** before moving to the next page. Green tests alone are not visual or device acceptance.
+- Figma file: `v73TsYo6gKxUoiUock2sSE` for other approved flows, not as the Today redesign source. Treat approval as explicit; preserve the user's newer Today reference screenshots and interactive notch contract rather than reverting to old Figma.
+- UI reconstruction: keep Garmin, MapLibre, persistence and engine boundaries intact. The owner runs compilation, tests and emulator checks in Android Studio, then **STOP for owner acceptance** before moving to the next page. A source commit alone is not visual or device acceptance.
 - Preserve all existing application logic and data contracts, including training engines, databases, persistence, synchronization, backup/recovery behavior, and provider boundaries. Do not change navigation, routes, feature behavior, business rules, storage, or migrations without explicit approval.
 - Do not modify Engine 1.5 (draft PR #37), Engine 2.x research (draft PR #34), unrelated branches, or unrelated data providers as part of a UI/Garmin fix. Any change to these requires specific authorization and branch verification.
 - Garmin is the active wearable source in the native QA workflow. Do not re-enable the retired Intervals.icu UI/sync or destroy preserved historical records without explicit authorization. Keep real recorded GPS provenance; never synthesize geographic tracks.
