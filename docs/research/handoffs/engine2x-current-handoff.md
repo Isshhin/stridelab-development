@@ -1,5 +1,17 @@
 # StrideLab Engine 2.x current coordinating handoff
 
+## P2-F Foundation Unlock Sprint — 2026-11-06
+
+The [Foundation Unlock handoff](p2-f-foundation-unlock-handoff.md) records the additive F2.2 canonical exposure-ledger contract, synthetic reference implementation, adversarial review and exact audited implementation range `ac1b0e27c2b16caae32e7fe4d226b7c7860c0135..062efc2dc5215e0a12321e65e22cdb7a53d18484`.
+
+Current verdicts remain deliberately separate:
+
+- P2-F synthetic feasibility: PASS
+- Gate 2: `P2_F_GATE_2_NOT_READY`
+- P2-B: `P2_B_PROTOCOL_READY_DATA_NOT_READY`
+
+The next coding boundary is a durable research-only F2.2 store and admitted source adapter. Human admission, independent real-device reconciliation, frozen margins and separate Gate 2 review remain required before active P2-B or held-out access.
+
 ## Parallel public-data research
 
 The [P2-R handoff](p2-r-public-data-handoff.md) records 13 public RR windows and the outstanding dataset-specific experiments. S1 and Gate 2 remain separate.
