@@ -280,6 +280,8 @@ internal fun StrideLabTodayScreen(
             if (showRecorded) {
                 TodayRecordedTraining(
                     selectedDate = date,
+                    signedOut = state.account == null,
+                    online = online,
                     accent = animatedTone,
                     notchFraction = notchPosition,
                     activities = recordedOnDate,
@@ -287,7 +289,7 @@ internal fun StrideLabTodayScreen(
                     plans = safePlans,
                     onOpenActivity = onOpenActivityDetail,
                     onOpenWorkout = onOpenWorkout,
-                    onViewAll = onOpenActivity
+                    onSignIn = onSignIn
                 )
             } else {
                 TodayWaveWorkout(
@@ -363,7 +365,8 @@ private fun todayRecordedKind(type: String): String {
     val t = type.lowercase(Locale.ROOT).replace(Regex("[ _-]"), "")
     return when {
         t in setOf("run", "running", "trailrun", "trailrunning", "treadmill",
-            "virtualrun", "walk", "walking", "hiking", "hike") -> "running"
+            "virtualrun") -> "running"
+        t in setOf("walk", "walking", "hiking", "hike") -> "walking"
         "strength" in t || "weight" in t || "gym" in t -> "strength"
         "calisthenics" in t || "bodyweight" in t -> "calisthenics"
         "conditioning" in t || "circuit" in t || "hiit" in t -> "conditioning"
@@ -921,6 +924,8 @@ private fun TodayMultiRecordedSummary(
 @Composable
 private fun TodayRecordedTraining(
     selectedDate: LocalDate,
+    signedOut: Boolean,
+    online: Boolean,
     accent: Color,
     notchFraction: Float,
     activities: List<ActivityRecord>,
@@ -928,7 +933,7 @@ private fun TodayRecordedTraining(
     plans: List<PlanSnapshot>,
     onOpenActivity: (String) -> Unit,
     onOpenWorkout: (String, String) -> Unit,
-    onViewAll: () -> Unit
+    onSignIn: () -> Unit
 ) {
     val shape = remember(notchFraction) { todayNotchedShape(notchFraction) }
     val count = activities.size + logged.size
@@ -973,23 +978,28 @@ private fun TodayRecordedTraining(
         "calisthenics" -> listOf(Color(0xFF181421), Color(0xFF2B2039), Color(0xFF4A3064))
         "conditioning" -> listOf(Color(0xFF111A23), Color(0xFF1A3040), Color(0xFF28475A))
         "mixed" -> listOf(Color(0xFF14151A), Color(0xFF232232), Color(0xFF343247))
+        "empty" -> listOf(Color(0xFF121617), Color(0xFF1A2021), Color(0xFF242B2C))
         else -> listOf(Color(0xFF131719), Color(0xFF192528), Color(0xFF2B3839))
     }
     val header = when {
-        count == 0 -> "NO ACTIVITY RECORDED"
+        signedOut -> "TRAINING HISTORY"
+        count == 0 -> "NO SAVED ACTIVITY"
         count > 1 -> "RECORDED SESSIONS"
         firstActivity != null -> "RECORDED ACTIVITY"
         else -> "COMPLETED WORKOUT"
     }
     val title = when {
-        count == 0 -> "Nothing recorded"
+        signedOut -> "Sign in"
+        count == 0 -> "Nothing saved"
         count > 1 -> "$count recorded sessions"
         firstActivity != null -> firstActivity.title
         firstLogSession != null -> firstLogSession.effectiveTitle
         else -> "Completed workout"
     }
     val summary = when {
-        count == 0 -> "No saved activity or confirmed workout log for this day."
+        signedOut -> "Your activity is private."
+        count == 0 && !online -> "Offline · saved records only"
+        count == 0 -> "No saved activity for this date."
         count > 1 -> "Your completed sessions on this date."
         firstActivity != null -> listOfNotNull(
             firstActivity.distanceM?.let { firstActivity.distanceLabel },
@@ -1096,12 +1106,12 @@ private fun TodayRecordedTraining(
                     )
                 }
             }
-            if (count == 1 || (count > 1 && activities.isNotEmpty())) {
+            if (signedOut || count == 1) {
                 Spacer(Modifier.height(4.dp))
                 Surface(
                     onClick = {
                         when {
-                            count > 1 -> onViewAll()
+                            signedOut -> onSignIn()
                             firstActivity != null -> onOpenActivity(firstActivity.id)
                             firstLog != null -> onOpenWorkout(firstLog.planId, firstLog.sessionId)
                         }
@@ -1118,7 +1128,7 @@ private fun TodayRecordedTraining(
                         Text("›", color = TodayLook.black, fontSize = 21.sp)
                         Text(
                             when {
-                                count > 1 -> "View activity history"
+                                signedOut -> "Sign in"
                                 firstActivity != null -> "View activity"
                                 else -> "View workout"
                             },
@@ -1127,11 +1137,6 @@ private fun TodayRecordedTraining(
                         )
                     }
                 }
-            } else if (count == 0) {
-                Text(
-                    "Saved runs and completed workout logs will appear here.",
-                    color = TodayLook.muted, fontSize = 11.sp, lineHeight = 16.sp
-                )
             }
         }
     }
