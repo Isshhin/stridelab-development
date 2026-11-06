@@ -34,6 +34,12 @@ internal object ActivityDisplayConsolidation {
         if (!a.source.equals("garmin", ignoreCase = true) ||
             !b.source.equals("garmin", ignoreCase = true)) return false
         if (!DashboardSummary.isRun(a) || !DashboardSummary.isRun(b)) return false
+        // Two distinct provider-owned hashes represent distinct Garmin source
+        // identities. A legacy/non-hashed ID and one hashed ID can be paired.
+        val sourceOwned = Regex("garmin-[0-9a-f]{64}")
+        val aOwned = a.id.matches(sourceOwned)
+        val bOwned = b.id.matches(sourceOwned)
+        if (aOwned == bOwned) return false
         if (abs(Duration.between(a.startedAt, b.startedAt).seconds) >
             MAX_START_DIFFERENCE_SECONDS) return false
 
