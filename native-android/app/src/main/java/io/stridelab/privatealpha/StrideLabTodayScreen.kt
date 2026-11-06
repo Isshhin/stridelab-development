@@ -283,6 +283,7 @@ internal fun StrideLabTodayScreen(
             if (mixedToday) {
                 TodayMixedDayCard(
                     date = date,
+                    planId = plan?.id ?: "",
                     notchFraction = notchPosition,
                     activities = recordedOnDate,
                     logs = confirmedOnDate,
@@ -895,6 +896,11 @@ private fun TodayMultiRecordedSummary(
                 )
                 Text(title, color = TodayLook.text, fontSize = 21.sp,
                     fontWeight = FontWeight.Bold)
+                Column(
+                    Modifier.fillMaxWidth().heightIn(max = 490.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
+                ) {
                 activities.forEach { activity ->
                     TodayRecordedRow(
                         title = activity.title,
@@ -927,6 +933,7 @@ private fun TodayMultiRecordedSummary(
                         }
                     )
                 }
+                }
             }
         }
     }
@@ -939,6 +946,7 @@ private fun TodayMultiRecordedSummary(
 @Composable
 private fun TodayMixedDayCard(
     date: LocalDate,
+    planId: String,
     notchFraction: Float,
     activities: List<ActivityRecord>,
     logs: List<ConfirmedWorkout>,
@@ -1021,11 +1029,7 @@ private fun TodayMixedDayCard(
             ) {
                 if (next != null) {
                     Surface(
-                        onClick = {
-                            plans.firstOrNull { plan ->
-                                plan.sessions.any { it.id == next.id }
-                            }?.let { onOpenWorkout(it.id, next.id) }
-                        },
+                        onClick = { onOpenWorkout(planId, next.id) },
                         shape = RoundedCornerShape(24.dp),
                         color = TodayLook.lime,
                         modifier = Modifier.height(42.dp)
@@ -1105,9 +1109,6 @@ private fun TodayMixedDayCard(
                         )
                     }
                     pending.forEach { session ->
-                        val plan = plans.firstOrNull { p ->
-                            p.sessions.any { it.id == session.id }
-                        }
                         TodayRecordedRow(
                             title = session.effectiveTitle,
                             subtitle = todaySessionDetails(session) + " · " +
@@ -1115,7 +1116,7 @@ private fun TodayMixedDayCard(
                             tint = todayDisciplineColor(session.discipline),
                             onClick = {
                                 showAll = false
-                                if (plan != null) onOpenWorkout(plan.id, session.id)
+                                onOpenWorkout(planId, session.id)
                             }
                         )
                     }
@@ -1663,7 +1664,6 @@ private fun TodayMultiPlannedCard(
     accent: Color,
     notchFraction: Float,
     sessions: List<PlannedSession>,
-    reduceMotion: Boolean,
     onOpen: (PlannedSession) -> Unit
 ) {
     val shape = remember(notchFraction) { todayNotchedShape(notchFraction) }
@@ -1858,7 +1858,7 @@ private fun TodayWaveWorkout(
     if (scheduled.size > 1 && !signedOut) {
         TodayMultiPlannedCard(
             date = date, accent = accent, notchFraction = notchFraction,
-            sessions = scheduled, reduceMotion = reduceMotion, onOpen = onOpen
+            sessions = scheduled, onOpen = onOpen
         )
         return
     }
