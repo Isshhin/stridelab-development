@@ -129,10 +129,15 @@ internal fun StrideLabTodayScreen(
         state.plans.firstOrNull { it.status == "approved" }
     val safeActivities = if (state.account == null) emptyList() else visibleActivities
     val safePlans = if (state.account == null) emptyList() else state.plans
+    // Preserve persisted session order rather than sorting arbitrary IDs.
     val schedule = plan?.sessions?.filter { it.date == date && it.status != "unassigned" }
-        ?.sortedBy { it.id } ?: emptyList()
-    val future = plan?.sessions?.filter {
-        it.date > date && it.status in setOf("planned", "in_progress") && it.status != "unassigned"
+        ?: emptyList()
+    val featured = schedule.firstOrNull { it.status != "completed" } ?: schedule.firstOrNull()
+    val nextSameDay = if (schedule.size > 1) schedule.firstOrNull {
+        it.id != featured?.id && it.status in setOf("planned", "in_progress")
+    } else null
+    val future = nextSameDay ?: plan?.sessions?.filter {
+        it.date > date && it.status in setOf("planned", "in_progress")
     }?.sortedWith(compareBy<PlannedSession>({ it.date }, { it.id }))?.firstOrNull()
     val completed = schedule.count { it.status == "completed" }
     val tone = when {
