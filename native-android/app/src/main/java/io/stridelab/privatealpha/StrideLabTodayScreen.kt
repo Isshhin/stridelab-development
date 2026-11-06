@@ -90,6 +90,11 @@ private object TodayLook {
     val azure = Color(0xFF91BFFF)
 }
 
+// Consistent hero footprint across calendar dates prevents the Next Session
+// and Weekly Activity cards from jumping as the selected training day changes.
+// heightIn is intentional: large fonts and complex session lists may expand.
+private val TodayHeroMinHeight = 232.dp
+
 /** Status markers use only the signed-in athlete's persisted workouts. */
 private data class TodayDayMarker(val completed: Boolean, val pending: Boolean)
 
@@ -698,7 +703,7 @@ private fun TodayMultiRecordedSummary(
     var showDetails by remember(date, activities, logs) { mutableStateOf(false) }
     val shape = remember(notchFraction) { todayNotchedShape(notchFraction) }
     Box(
-        Modifier.fillMaxWidth().heightIn(min = 170.dp)
+        Modifier.fillMaxWidth().heightIn(min = TodayHeroMinHeight)
             .clip(shape).background(
                 Brush.horizontalGradient(
                     listOf(Color(0xFF14191A), Color(0xFF1B2223), Color(0xFF242C2C))
@@ -900,7 +905,8 @@ private fun TodayMixedDayCard(
     }
     var showAll by remember(date, activities, logs, pending) { mutableStateOf(false) }
     Box(
-        Modifier.fillMaxWidth().clip(shape)
+        Modifier.fillMaxWidth().heightIn(min = TodayHeroMinHeight)
+            .clip(shape)
             .background(
                 Brush.horizontalGradient(
                     listOf(Color(0xFF151A1B), Color(0xFF202425), Color(0xFF2C3130))
@@ -1173,7 +1179,7 @@ private fun TodayRecordedTraining(
         }
     } else null
     Box(
-        Modifier.fillMaxWidth().heightIn(min = if (count == 1) 211.dp else 173.dp)
+        Modifier.fillMaxWidth().heightIn(min = TodayHeroMinHeight)
             .clip(shape)
             .background(Brush.horizontalGradient(background))
             .border(1.dp, cardAccent.copy(alpha = .64f), shape)
@@ -1616,7 +1622,7 @@ private fun TodayMultiPlannedCard(
     val dayIsToday = date == LocalDate.now()
     var showAll by remember(date, sessions) { mutableStateOf(false) }
     Box(
-        Modifier.fillMaxWidth()
+        Modifier.fillMaxWidth().heightIn(min = TodayHeroMinHeight)
             .clip(shape)
             .background(
                 Brush.linearGradient(
@@ -1810,8 +1816,7 @@ private fun TodayWaveWorkout(
     val content = TodayHeroSnapshot(date, scheduled, planAvailable, signedOut)
     Box(
         Modifier.fillMaxWidth()
-            .animateContentSize(animationSpec = tween(if (reduceMotion) 0 else 240))
-            .heightIn(min = if (multi) 275.dp else 184.dp)
+            .heightIn(min = TodayHeroMinHeight)
             .clip(shape)
             .background(
                 Brush.linearGradient(
