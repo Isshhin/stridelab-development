@@ -880,6 +880,9 @@ private fun TodayWaveWorkout(
             primary?.status == "completed" -> "View workout"
             else -> "Start workout"
         }
+        val limeButton = !multi && (signedOut || !planAvailable ||
+            primary?.discipline?.let(::todayHeroDiscipline) == "running")
+        val buttonInk = if (limeButton) TodayLook.black else TodayLook.text
 
         Column(
             Modifier.fillMaxWidth().padding(
@@ -956,8 +959,7 @@ private fun TodayWaveWorkout(
             Surface(
                 onClick = onPrimary,
                 shape = RoundedCornerShape(28.dp),
-                color = if (multi) Color(0xFF252323) else
-                    if (accent == TodayLook.lime) Color(0xFFE9FC63) else TodayLook.coral,
+                color = if (limeButton) Color(0xFFEAFB77) else Color(0xFF28252B),
                 modifier = Modifier.height(42.dp)
                     .testTag("today-workout-action")
             ) {
@@ -966,8 +968,8 @@ private fun TodayWaveWorkout(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("▶", color = TodayLook.black, fontSize = 12.sp)
-                    Text(button, color = TodayLook.black,
+                    Text("▶", color = buttonInk, fontSize = 12.sp)
+                    Text(button, color = buttonInk,
                         fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
@@ -988,70 +990,136 @@ private fun todaySessionDetails(session: PlannedSession): String {
     return parts.joinToString("  ·  ")
 }
 
-/** Decorative geometry, not a GPS route, biometric metric or training prescription. */
+/** Decorative athletic artwork only, never a GPS route or invented athlete metric. */
 @Composable
 private fun TodayDecorativeArt(accent: Color, kind: String, modifier: Modifier) {
     Canvas(modifier) {
         val w = size.width
         val h = size.height
-        val isRun = kind == "run" || kind == "running" || kind == "general"
-        val isStrength = kind == "str" || kind == "strength"
-        val isRecovery = kind == "recovery"
-        val artInk = when {
-            isRun -> Color(0xFF22351B)
-            isStrength -> Color(0xFF6F3029)
-            isRecovery -> Color(0xFF4D3871)
-            else -> Color(0xFF343044)
-        }
-        val base = Path().apply {
-            moveTo(w * .49f, h)
-            cubicTo(w * .65f, h * .66f, w * .83f, h * .50f, w, h * .58f)
-            lineTo(w, h)
-            close()
-        }
-        drawPath(base, artInk.copy(alpha = .20f))
-        if (isRun) {
-            val ranges = listOf(
-                listOf(.54f to .85f, .72f to .47f, .85f to .69f, .96f to .34f, 1f to .47f),
-                listOf(.61f to 1f, .81f to .65f, .91f to .79f, 1f to .56f)
-            )
-            ranges.forEachIndexed { idx, coordinates ->
-                val p = Path().apply {
-                    moveTo(coordinates.first().first * w, coordinates.first().second * h)
-                    coordinates.drop(1).forEach { (x, y) -> lineTo(x * w, y * h) }
-                    lineTo(w, h)
-                    lineTo(coordinates.first().first * w, h)
-                    close()
-                }
-                drawPath(p, artInk.copy(alpha = if (idx == 0) .64f else .32f))
-            }
-        } else if (isStrength) {
-            val center = Offset(w * .83f, h * .66f)
-            drawLine(artInk.copy(alpha = .55f),
-                Offset(w * .67f, h * .82f), Offset(w * .98f, h * .49f),
-                strokeWidth = 9.dp.toPx(), cap = StrokeCap.Round)
-            listOf(
-                Offset(w * .71f, h * .78f),
-                Offset(w * .95f, h * .53f)
-            ).forEach { pt ->
-                drawCircle(artInk.copy(alpha = .30f), radius = 25.dp.toPx(), center = pt)
-                drawCircle(artInk.copy(alpha = .58f), radius = 16.dp.toPx(), center = pt)
-            }
-        } else if (isRecovery) {
-            drawCircle(artInk.copy(alpha = .30f), radius = w * .14f,
-                center = Offset(w * .87f, h * .72f))
-            val p = Path().apply {
-                moveTo(w * .57f, h)
-                quadraticTo(w * .79f, h * .54f, w, h * .84f)
+        val running = kind in setOf("run", "running", "general")
+        val strength = kind in setOf("str", "strength")
+        val recovery = kind == "recovery"
+        // Soft sunlit field keeps the foreground text legible on a pastel card.
+        drawCircle(
+            brush = Brush.radialGradient(
+                listOf(Color.White.copy(alpha = .32f), Color.White.copy(alpha = 0f)),
+                center = Offset(w * .70f, h * .26f), radius = w * .55f
+            ),
+            radius = w * .55f,
+            center = Offset(w * .70f, h * .26f)
+        )
+        if (running) {
+            // Layered evergreen ridges, confined primarily to the card's right half.
+            val distant = Path().apply {
+                moveTo(w * .43f, h)
+                lineTo(w * .58f, h * .68f)
+                lineTo(w * .68f, h * .81f)
+                lineTo(w * .89f, h * .26f)
+                lineTo(w, h * .55f)
                 lineTo(w, h)
                 close()
             }
-            drawPath(p, artInk.copy(alpha = .30f))
+            drawPath(
+                distant,
+                Brush.verticalGradient(
+                    listOf(Color(0xFF607E19).copy(alpha = .84f), Color(0xFF273E10)),
+                    startY = h * .22f, endY = h
+                )
+            )
+            val ridge = Path().apply {
+                moveTo(w * .51f, h)
+                lineTo(w * .69f, h * .54f)
+                lineTo(w * .77f, h * .75f)
+                lineTo(w * .94f, h * .43f)
+                lineTo(w, h * .54f)
+                lineTo(w, h)
+                close()
+            }
+            drawPath(ridge, Color(0xFF47651B).copy(alpha = .95f))
+            val foreground = Path().apply {
+                moveTo(w * .48f, h)
+                cubicTo(w * .64f, h * .83f, w * .70f, h * .92f, w * .79f, h * .70f)
+                cubicTo(w * .91f, h * .54f, w * .96f, h * .65f, w, h * .57f)
+                lineTo(w, h)
+                close()
+            }
+            drawPath(
+                foreground,
+                Brush.verticalGradient(
+                    listOf(Color(0xFF344D16), Color(0xFF15260F)),
+                    startY = h * .55f, endY = h
+                )
+            )
+            val softHorizon = Path().apply {
+                moveTo(w * .32f, h)
+                cubicTo(w * .51f, h * .92f, w * .58f, h * .85f, w * .76f, h * .93f)
+                cubicTo(w * .86f, h * .98f, w * .93f, h * .89f, w, h * .84f)
+                lineTo(w, h)
+                close()
+            }
+            drawPath(softHorizon, Color(0xFF172A0E).copy(alpha = .28f))
+        } else if (strength) {
+            val shadow = Path().apply {
+                moveTo(w * .53f, h)
+                cubicTo(w * .63f, h * .69f, w * .88f, h * .37f, w, h * .47f)
+                lineTo(w, h)
+                close()
+            }
+            drawPath(shadow, Color(0xFF9D443C).copy(alpha = .22f))
+            androidx.compose.ui.graphics.drawscope.rotate(
+                degrees = -35f,
+                pivot = Offset(w * .82f, h * .67f)
+            ) {
+                val dark = Color(0xFF77372F)
+                val shine = Color(0xFFB75549)
+                drawRoundRect(
+                    color = dark,
+                    topLeft = Offset(w * .58f, h * .64f),
+                    size = androidx.compose.ui.geometry.Size(w * .49f, h * .060f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(h * .023f)
+                )
+                listOf(.64f, .73f, .93f, 1.01f).forEachIndexed { index, x ->
+                    drawRoundRect(
+                        brush = Brush.horizontalGradient(listOf(dark, shine, dark)),
+                        topLeft = Offset(w * x, h * (if (index % 3 == 0) .52f else .55f)),
+                        size = androidx.compose.ui.geometry.Size(w * .065f, h * (if (index % 3 == 0) .30f else .24f)),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(h * .018f)
+                    )
+                }
+            }
+        } else if (recovery) {
+            drawCircle(
+                brush = Brush.radialGradient(
+                    listOf(Color(0xFFF4E6FF).copy(alpha = .85f),
+                        Color(0xFFD5BEF9).copy(alpha = .04f)),
+                    center = Offset(w * .84f, h * .40f), radius = w * .25f
+                ),
+                radius = w * .25f, center = Offset(w * .84f, h * .40f)
+            )
+            val rear = Path().apply {
+                moveTo(w * .35f, h)
+                cubicTo(w * .56f, h * .68f, w * .67f, h * .80f, w * .81f, h * .57f)
+                cubicTo(w * .92f, h * .45f, w * .96f, h * .54f, w, h * .47f)
+                lineTo(w, h)
+                close()
+            }
+            drawPath(rear, Color(0xFF9B80D5).copy(alpha = .38f))
+            val front = Path().apply {
+                moveTo(w * .30f, h)
+                cubicTo(w * .53f, h * .81f, w * .67f, h * .94f, w * .80f, h * .76f)
+                cubicTo(w * .91f, h * .64f, w * .98f, h * .73f, w, h * .66f)
+                lineTo(w, h)
+                close()
+            }
+            drawPath(front, Color(0xFF8165B7).copy(alpha = .34f))
         } else {
-            repeat(3) { idx ->
-                val radius = (idx + 1) * 37.dp.toPx()
-                drawCircle(artInk.copy(alpha = .12f), radius = radius,
-                    center = Offset(w * .90f, h * .82f))
+            // Mixed-discipline session: flowing tonal arcs rather than fake routes.
+            repeat(3) { index ->
+                drawCircle(
+                    color = Color(0xFF3B2B35).copy(alpha = .12f + index * .04f),
+                    radius = w * (.22f + index * .085f),
+                    center = Offset(w * .94f, h * .82f)
+                )
             }
         }
     }
