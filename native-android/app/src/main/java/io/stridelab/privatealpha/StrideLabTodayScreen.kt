@@ -2,11 +2,13 @@ package io.stridelab.privatealpha
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -24,6 +26,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -35,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.provider.Settings
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -124,6 +131,13 @@ internal fun StrideLabTodayScreen(
 ) {
     var selectedDay by rememberSaveable { mutableLongStateOf(LocalDate.now().toEpochDay()) }
     val date = LocalDate.ofEpochDay(selectedDay)
+    val context = LocalContext.current
+    val reduceMotion = remember(context) {
+        Settings.Global.getFloat(
+            context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f
+        ) == 0f
+    }
+    val notchDuration = if (reduceMotion) 0 else 280
     val weekStart = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
     // A signed-out device must never expose another account's cached training.
     val plan = if (state.account == null) null else
@@ -148,9 +162,12 @@ internal fun StrideLabTodayScreen(
         schedule.isEmpty() -> TodayLook.lilac
         else -> todayDisciplineColor(schedule.first().discipline)
     }
-    val animatedTone by animateColorAsState(tone, tween(260), label = "today-accent")
+    val animatedTone by animateColorAsState(
+        tone, tween(if (reduceMotion) 0 else 260), label = "today-accent"
+    )
     val notchPosition by animateFloatAsState(
-        (date.dayOfWeek.value - .5f) / 7f, tween(280), label = "today-notch"
+        (date.dayOfWeek.value - .5f) / 7f,
+        tween(notchDuration), label = "today-notch"
     )
     val metrics = remember(weekStart, safeActivities, safeHistory, safePlans) {
         savedWeekMetrics(date, safeActivities, safeHistory, safePlans)
@@ -171,6 +188,7 @@ internal fun StrideLabTodayScreen(
             TodayWeekCalendar(
                 date = date,
                 accent = animatedTone,
+                selectionFraction = notchPosition,
                 onSelect = { selectedDay = it.toEpochDay() },
                 onPrevious = { selectedDay = date.minusWeeks(1).toEpochDay() },
                 onNext = { selectedDay = date.plusWeeks(1).toEpochDay() }
@@ -180,6 +198,7 @@ internal fun StrideLabTodayScreen(
             TodayWaveWorkout(
                 accent = animatedTone,
                 notchFraction = notchPosition,
+                reduceMotion = reduceMotion,
                 date = date,
                 scheduled = schedule,
                 planAvailable = plan != null,
@@ -209,6 +228,7 @@ internal fun StrideLabTodayScreen(
             TodayActivityWeek(
                 metrics = metrics,
                 selectedDayIndex = date.dayOfWeek.value - 1,
+                reduceMotion = reduceMotion,
                 onOpenActivity = onOpenActivity
             )
         }
@@ -331,53 +351,106 @@ private fun TodayHeader(onOpenMore: () -> Unit) {
 private fun TodayWeekCalendar(
     date: LocalDate,
     accent: Color,
+    selectionFraction: Float,
     onSelect: (LocalDate) -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit
 ) {
     val monday = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+    val haptics = LocalHapticFeedback.current
+    val selectDay: (LocalDate) -> Unit = { day ->
+        if (day != date) {
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onSelect(day)
+        }
+    }
+    val previousWeek: () -> Unit = {
+        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        onPrevious()
+    }
+    val nextWeek: () -> Unit = {
+        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        onNext()
+    }
+
+    // Horizontal gestures switch weeks without interrupting vertical Today scrolling.
+    Column(
+        modifier = Modifier.fillMaxWidth().pointerInput(date) {
+            var dragDistance = 0f
+            detectHorizontalDragGestures(
+                onDragStart = { dragDistance = 0f },
+                onDragCancel = { dragDistance = 0f },
+                onDragEnd = {
+                    val threshold = 64.dp.toPx()
+                    when {
+                        dragDistance > threshold -> previousWeek()
+                        dragDistance < -threshold -> nextWeek()
+                    }
+                    dragDistance = 0f
+                },
+                onHorizontalDrag = { change, amount ->
+                    dragDistance += amount
+                    change.consume()
+                }
+            )
+        },
+        verticalArrangement = Arrangement.spacedBy(9.dp)
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 date.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())),
                 color = TodayLook.text, fontSize = 20.sp,
                 fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f)
             )
-            TodayCalendarArrow("‹", "Previous week", onPrevious)
+            TodayCalendarArrow("‹", "Previous week", previousWeek)
             Spacer(Modifier.width(8.dp))
-            TodayCalendarArrow("›", "Next week", onNext)
+            TodayCalendarArrow("›", "Next week", nextWeek)
         }
-        Row(
-            modifier = Modifier.fillMaxWidth().testTag("today-week-picker"),
-            verticalAlignment = Alignment.Top
-        ) {
-            val letters = listOf("M", "T", "W", "T", "F", "S", "S")
-            (0..6).forEach { idx ->
-                val day = monday.plusDays(idx.toLong())
-                val selectedDate = day == date
-                Column(
-                    modifier = Modifier.weight(1f).clickable { onSelect(day) }
-                        .testTag("today-day-" + idx)
-                        .semantics {
-                            contentDescription = day.format(DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.getDefault()))
-                            selected = selectedDate
-                            role = Role.Button
-                        },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(7.dp)
-                ) {
-                    Text(letters[idx], fontSize = 11.sp,
-                        color = if (selectedDate) accent else TodayLook.muted,
-                        fontWeight = if (selectedDate) FontWeight.Bold else FontWeight.Normal)
-                    Box(
-                        Modifier.size(37.dp).clip(CircleShape)
-                            .background(if (selectedDate) accent else Color.Transparent),
-                        contentAlignment = Alignment.Center
+        BoxWithConstraints(Modifier.fillMaxWidth().testTag("today-week-picker")) {
+            // Exactly one lime indicator slides across the seven equal calendar
+            // columns. Its x-coordinate is shared with the notch animation.
+            val diameter = 37.dp
+            val indicatorX = (maxWidth * selectionFraction - diameter / 2)
+                .coerceIn(0.dp, maxWidth - diameter)
+            Box(
+                Modifier.align(Alignment.BottomStart).offset(x = indicatorX)
+                    .size(diameter).background(accent, CircleShape)
+                    .testTag("today-date-indicator")
+            )
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+                val letters = listOf("M", "T", "W", "T", "F", "S", "S")
+                (0..6).forEach { idx ->
+                    val day = monday.plusDays(idx.toLong())
+                    val isSelected = day == date
+                    Column(
+                        modifier = Modifier.weight(1f).clickable { selectDay(day) }
+                            .testTag("today-day-" + idx)
+                            .semantics {
+                                contentDescription = day.format(
+                                    DateTimeFormatter.ofPattern(
+                                        "EEEE d MMMM", Locale.getDefault()
+                                    )
+                                )
+                                selected = isSelected
+                                role = Role.Button
+                            },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(7.dp)
                     ) {
-                        Text(day.dayOfMonth.toString(),
-                            color = if (selectedDate) TodayLook.black else TodayLook.muted,
-                            fontSize = 14.sp,
-                            fontWeight = if (selectedDate) FontWeight.Bold else FontWeight.Medium)
+                        Text(
+                            letters[idx], fontSize = 11.sp,
+                            color = if (isSelected) accent else TodayLook.muted,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        )
+                        Box(Modifier.size(diameter), contentAlignment = Alignment.Center) {
+                            Text(
+                                day.dayOfMonth.toString(),
+                                color = if (isSelected) TodayLook.black else TodayLook.muted,
+                                fontSize = 14.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold
+                                else FontWeight.Medium
+                            )
+                        }
                     }
                 }
             }
