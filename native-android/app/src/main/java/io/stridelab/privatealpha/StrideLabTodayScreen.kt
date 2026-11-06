@@ -406,13 +406,15 @@ private fun todayNotchedShape(fraction: Float) = GenericShape { size, _ ->
     val baseRadius = w * .052f
     val leftRadius = minOf(baseRadius, center * .35f)
     val rightRadius = minOf(baseRadius, (w - center) * .35f)
-    val half = minOf(w * .083f, center - leftRadius - 2f, w - rightRadius - center - 2f)
+    // A small, shallow concave scoop, not the previous deep U-shaped cutout.
+    // Keep the scoop centered under the selected weekday, including edge days.
+    val half = minOf(w * .065f, center - leftRadius - 2f, w - rightRadius - center - 2f)
         .coerceAtLeast(w * .012f)
-    val depth = minOf(h * .09f, w * .055f)
+    val depth = minOf(h * .035f, w * .024f)
     moveTo(leftRadius, 0f)
     lineTo(center - half, 0f)
-    cubicTo(center - half * .62f, 0f, center - half * .57f, depth, center, depth)
-    cubicTo(center + half * .57f, depth, center + half * .62f, 0f, center + half, 0f)
+    cubicTo(center - half * .42f, 0f, center - half * .55f, depth, center, depth)
+    cubicTo(center + half * .55f, depth, center + half * .42f, 0f, center + half, 0f)
     lineTo(w - rightRadius, 0f)
     quadraticTo(w, 0f, w, rightRadius)
     lineTo(w, h - baseRadius)
