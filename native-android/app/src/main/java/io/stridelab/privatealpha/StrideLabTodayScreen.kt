@@ -237,7 +237,10 @@ internal fun StrideLabTodayScreen(
             todayDisciplineColor(confirmedOnDate.first().discipline)
         showRecorded -> TodayLook.teal
         state.account == null || plan == null -> TodayLook.lime
-        schedule.size > 1 -> TodayLook.coral
+        schedule.size > 1 ->
+            if (schedule.map { todayHeroDiscipline(it.discipline) }.distinct().size == 1)
+                todayDisciplineColor(schedule.first().discipline)
+            else TodayLook.coral
         schedule.isEmpty() -> TodayLook.lilac
         else -> todayDisciplineColor(schedule.first().discipline)
     }
@@ -710,10 +713,10 @@ private fun todayActualTotals(
     val native = logs.filter {
         !runningOnly || todayHeroDiscipline(it.discipline) == "running"
     }
-    val distances = records.mapNotNull { it.distanceM?.takeIf(Double::isFinite) } +
-        native.mapNotNull { it.distanceM?.takeIf(Double::isFinite) }
-    val durations = records.mapNotNull { it.durationS?.takeIf(Double::isFinite) } +
-        native.mapNotNull { it.durationSeconds?.takeIf(Double::isFinite) }
+    val distances = records.mapNotNull { it.distanceM?.takeIf { value -> value.isFinite() } } +
+        native.mapNotNull { it.distanceM?.takeIf { value -> value.isFinite() } }
+    val durations = records.mapNotNull { it.durationS?.takeIf { value -> value.isFinite() } } +
+        native.mapNotNull { it.durationSeconds?.takeIf { value -> value.isFinite() } }
     val count = records.size + native.size
     return TodayActualTotals(
         distances.takeIf { it.isNotEmpty() }?.sum(),
@@ -901,7 +904,7 @@ private fun TodayMultiRecordedSummary(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(9.dp)
                 ) {
-                activities.forEach { activity ->
+                    activities.forEach { activity ->
                     TodayRecordedRow(
                         title = activity.title,
                         subtitle = listOfNotNull(
@@ -915,7 +918,7 @@ private fun TodayMultiRecordedSummary(
                         }
                     )
                 }
-                logs.forEach { log ->
+                    logs.forEach { log ->
                     val session = plans.firstOrNull { it.id == log.planId }
                         ?.sessions?.firstOrNull { it.id == log.sessionId }
                     TodayRecordedRow(
@@ -932,7 +935,7 @@ private fun TodayMultiRecordedSummary(
                             onOpenWorkout(log.planId, log.sessionId)
                         }
                     )
-                }
+                    }
                 }
             }
         }
