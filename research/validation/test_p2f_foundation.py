@@ -95,6 +95,16 @@ class FoundationReplayTests(unittest.TestCase):
         self.assertEqual(0, ledger.replay("A", ts(60)).data["exposure_count"])
         self.assertEqual(1, ledger.replay("A", ts(100)).data["exposure_count"])
 
+    def test_source_cannot_become_visible_before_canonical_activity(self):
+        ledger = FoundationLedger()
+        future_activity = event("a1", "A", "activity", 50, activity_id="a1", started_at=ts(1),
+                                ended_at=ts(10), discipline="running", intent="unknown",
+                                plan_ownership="unplanned_or_unknown_intent", completion="completed")
+        early_source = event("s1", "A", "source", 20, source_id="s1", activity_id="a1",
+                             alias=["fit", "early"], digest="1" * 64, measurements={})
+        with self.assertRaises(Quarantine):
+            ledger.append([future_activity, early_source])
+
     def test_offline_creation_cannot_postdate_trusted_availability(self):
         ledger = FoundationLedger()
         row = event("a1", "A", "activity", 40, activity_id="a1", started_at=ts(10),

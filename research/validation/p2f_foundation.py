@@ -170,11 +170,13 @@ class FoundationLedger:
                 observation(data["performed_duration"])
             if "offline_created_at" in data:
                 require(instant(data["offline_created_at"]) <= available, "invalid offline time")
-            entities["activities"][(account, activity)] = True
+            entities["activities"][(account, activity)] = available
         elif kind in {"source", "source_correction"}:
             source, activity = ident(data["source_id"]), ident(data["activity_id"])
             require(known("activities", activity) and not known("sources", source),
                     "unknown activity or duplicate source")
+            require(entities["activities"][(account, activity)] <= available,
+                    "source available before canonical activity")
             alias = data["alias"]
             require(isinstance(alias, list) and len(alias) == 2 and all(ident(x) for x in alias),
                     "invalid source alias")
