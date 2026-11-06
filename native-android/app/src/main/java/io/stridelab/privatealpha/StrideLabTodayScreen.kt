@@ -670,6 +670,19 @@ private fun TodayRecordedTraining(
             .testTag("today-recorded-hero")
     ) {
         TodayRecordedArtwork(kind = kind, accent = cardAccent, modifier = Modifier.matchParentSize())
+        // Maintain strong text contrast while keeping the equipment visible
+        // on the card's right side, including on 360dp screens.
+        Box(
+            Modifier.matchParentSize().background(
+                Brush.horizontalGradient(
+                    listOf(
+                        background.first().copy(alpha = .88f),
+                        background.first().copy(alpha = .57f),
+                        Color.Transparent
+                    )
+                )
+            )
+        )
         Column(
             Modifier.fillMaxWidth().padding(
                 start = 19.dp, end = 16.dp, top = 28.dp, bottom = 17.dp
