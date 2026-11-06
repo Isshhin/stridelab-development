@@ -2178,8 +2178,9 @@ private fun TodaySignedOutHero(
     val cardShape = remember { RoundedCornerShape(19.dp) }
     Box(
         Modifier.fillMaxWidth()
-            .height(256.dp)
-            // Keep the artwork in a stable rounded layer. Animating a clip
+            .heightIn(min = 256.dp)
+            // Keep the artwork in a stable rounded layer. A minimum height,
+            // rather than a hard cap, protects large accessibility fonts. Animating a clip
             // path over the entire card can require costly GPU work.
             .clip(cardShape)
             .background(
