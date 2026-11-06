@@ -266,7 +266,9 @@ internal fun StrideLabTodayScreen(
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(TodayLook.black)
             .testTag("screen").semantics { paneTitle = "Today" },
-        contentPadding = PaddingValues(start = 19.dp, end = 19.dp, top = 12.dp, bottom = 32.dp),
+        // The transparent dock overlays the scrolling page. Reserve room
+        // after the final item without adding a permanent dark footer.
+        contentPadding = PaddingValues(start = 19.dp, end = 19.dp, top = 12.dp, bottom = 110.dp),
         verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
         item(key = "today-calendar") {
