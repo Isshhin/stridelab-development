@@ -136,6 +136,9 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
  */
 private val mainTabRoutes = setOf("home", "training", "activities", "settings")
 
+// Temporarily set to true in Android Studio to isolate tab content from navigation.
+private const val TAB_SWITCH_DIAGNOSTIC = false
+
 /** Save each tab's root state, never its transient detail/auth destination. */
 private fun NavHostController.openTabRoot(path: String) {
     // Do not dispatch another navigation transaction when the selected
@@ -168,7 +171,7 @@ private fun NavHostController.openActivity(id: String) {
     }
 }
 
-@Composable internal fun NativeStrideContent(state: TrainingState, online: Boolean, actions: NativeActions) {
+@Composable internal fun NativeStrideContent(state: TrainingState, online: Boolean, actions: NativeActions, diagnosticTabs: Boolean = TAB_SWITCH_DIAGNOSTIC) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
@@ -236,7 +239,8 @@ private fun NavHostController.openActivity(id: String) {
                 }
             ) {
                 composable("home") {
-                    if (state.account != null) StrideLabTodayScreen(
+                    if (state.account != null && diagnosticTabs) TabDiagnosticPlaceholder("Today")
+                    else if (state.account != null) StrideLabTodayScreen(
                         state = state,
                         visibleActivities = visibleActivities,
                         online = online,
@@ -337,7 +341,10 @@ private fun NavHostController.openActivity(id: String) {
                         )
                     }
                 }
-                composable("training") { if (state.account != null) StrideLabUnifiedTrainingTimeline(state,groupedActivities,actions.planning,{nav.navigate("builder/all")},{p,s->nav.openWorkout(p,s)},{id->nav.openActivity(id)},{nav.navigate("auth")},{p,d->nav.navigate("manage/${android.net.Uri.encode(p)}/$d")}) }
+                composable("training") {
+                    if (state.account != null && diagnosticTabs) TabDiagnosticPlaceholder("Training")
+                    else if (state.account != null) StrideLabUnifiedTrainingTimeline(state,groupedActivities,actions.planning,{nav.navigate("builder/all")},{p,s->nav.openWorkout(p,s)},{id->nav.openActivity(id)},{nav.navigate("auth")},{p,d->nav.navigate("manage/${android.net.Uri.encode(p)}/$d")})
+                }
                 composable("manage/{planId}/{date}") { back ->
                     val planId = back.arguments?.getString("planId") ?: ""
                     val plan = state.plans.firstOrNull { it.id == planId }
@@ -456,7 +463,8 @@ private fun NavHostController.openActivity(id: String) {
                     )
                 }
                 composable("settings") {
-                    if (state.account != null) {
+                    if (state.account != null && diagnosticTabs) TabDiagnosticPlaceholder("More")
+                    else if (state.account != null) {
                     val context = LocalContext.current
                     var confirmSignOut by remember { mutableStateOf(false) }
                     Screen("Settings", "ACCOUNT & DATA") {
@@ -521,7 +529,7 @@ private fun NavHostController.openActivity(id: String) {
                 // flows keep their existing NavHost lifecycle and permissions.
                 // This prevents a sign-out from retaining account UI.
                 PersistentTabSurface(active = route == null || route == "home") {
-                    StrideLabTodayScreen(
+                    if (diagnosticTabs) TabDiagnosticPlaceholder("Today") else StrideLabTodayScreen(
                         state = state, visibleActivities = visibleActivities,
                         online = online,
                         onOpenTraining = { nav.openTabRoot("training") },
@@ -533,7 +541,7 @@ private fun NavHostController.openActivity(id: String) {
                     )
                 }
                 PersistentTabSurface(active = route == "training") {
-                    StrideLabUnifiedTrainingTimeline(
+                    if (diagnosticTabs) TabDiagnosticPlaceholder("Training") else StrideLabUnifiedTrainingTimeline(
                         state, groupedActivities, actions.planning,
                         { nav.navigate("builder/all") },
                         { p, session -> nav.openWorkout(p, session) },
@@ -543,7 +551,7 @@ private fun NavHostController.openActivity(id: String) {
                     )
                 }
                 PersistentTabSurface(active = route == "settings") {
-                    SignedOutSettingsRoot(
+                    if (diagnosticTabs) TabDiagnosticPlaceholder("More") else SignedOutSettingsRoot(
                         state = state,
                         onLibrary = { nav.openTabRoot("library") },
                         onSignIn = { nav.navigate("auth") }
@@ -568,6 +576,13 @@ private fun NavHostController.openActivity(id: String) {
     }
 }
 
+}
+
+@Composable
+private fun TabDiagnosticPlaceholder(label: String) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text("Tab diagnostic: $label", modifier = Modifier.testTag("tab-diagnostic-$label"))
+    }
 }
 
 

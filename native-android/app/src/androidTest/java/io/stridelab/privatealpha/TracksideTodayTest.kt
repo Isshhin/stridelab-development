@@ -124,4 +124,33 @@ class TracksideTodayTest {
         compose.onNodeWithText("Keep your training close.").assertDoesNotExist()
     }
 
+    @Test fun diagnosticTabsUseNavigationWhenSignedOut() = checkDiagnosticTabs(null)
+
+    @Test fun diagnosticTabsUseNavigationWhenSignedIn() = checkDiagnosticTabs("test-account")
+
+    private fun checkDiagnosticTabs(account: String?) {
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    NativeStrideContent(
+                        state = TrainingState(initializing = false, account = account),
+                        online = true,
+                        actions = NativeActions({}, {}, {}, {}, { _, _ -> }),
+                        diagnosticTabs = true
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("tab-diagnostic-Today").assertExists()
+        compose.onNodeWithTag("today-hero").assertDoesNotExist()
+        compose.onNodeWithTag("nav-training").performClick().assertIsSelected()
+        compose.onNodeWithTag("tab-diagnostic-Training").assertExists()
+        compose.onNodeWithTag("training-unified-timeline").assertDoesNotExist()
+        compose.onNodeWithTag("nav-settings").performClick().assertIsSelected()
+        compose.onNodeWithTag("tab-diagnostic-More").assertExists()
+        compose.onNodeWithText("Keep your training close.").assertDoesNotExist()
+        compose.onNodeWithTag("nav-home").performClick().assertIsSelected()
+        compose.onNodeWithTag("tab-diagnostic-Today").assertExists()
+    }
+
 }
