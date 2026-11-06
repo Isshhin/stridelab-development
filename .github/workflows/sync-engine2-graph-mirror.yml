@@ -1,0 +1,27 @@
+name: Sync Engine 2.x Graphify Mirror
+
+on:
+  push:
+    branches:
+      - research/runna-garmin-coaching-20261102
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync-mirror:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Engine 2.x research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Mirror current research head to Graphify repository
+        env:
+          MIRROR_TOKEN: ${{ secrets.ENGINE2_GRAPH_MIRROR_TOKEN }}
+        run: |
+          git remote add graphify-mirror "https://x-access-token:${MIRROR_TOKEN}@github.com/Isshhin/stridelab-engine2-graph.git"
+          git push --force graphify-mirror HEAD:main
