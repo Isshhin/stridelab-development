@@ -25,6 +25,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
@@ -48,6 +49,7 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
@@ -274,9 +276,22 @@ internal fun StrideLabTodayScreen(
     val metrics = remember(weekStart, safeActivities, safeHistory, safePlans) {
         savedWeekMetrics(date, safeActivities, safeHistory, safePlans)
     }
-    val now = LocalDate.now()
+    // A small vertical finger drift while selecting calendar dates can leave
+    // the LazyColumn a few pixels scrolled, visually shifting every card.
+    // Restore the same top anchor only when the calendar is already at the top.
+    // Preserve intentional scrolling further down the Today page.
+    val listState = rememberLazyListState()
+    val topTolerance = with(LocalDensity.current) { 16.dp.roundToPx() }
+    LaunchedEffect(selectedDay) {
+        if (listState.firstVisibleItemIndex == 0 &&
+            listState.firstVisibleItemScrollOffset in 1..topTolerance
+        ) {
+            listState.scrollToItem(0, 0)
+        }
+    }
 
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize().background(TodayLook.black)
             .testTag("screen").semantics { paneTitle = "Today" },
         // The transparent dock overlays the scrolling page. Reserve room
@@ -441,8 +456,10 @@ private fun TodayWeekCalendar(
         onNext()
     }
 
+    // Reserve exactly the same calendar height across all selected weekdays.
+    // The hero's top edge no longer depends on transitional measurements.
     Box(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth().height(74.dp)
             .semantics {
                 contentDescription = "Weekly training calendar"
                 customActions = listOf(
@@ -2470,19 +2487,23 @@ private fun TodayWeeklyActivity(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Column(
-                    Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    Modifier.weight(1f).heightIn(min = dividerHeight),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
                     Text(
                         metrics.totalSeconds?.let(::todayTimeLabel) ?: "—",
                         color = TodayLook.teal, fontSize = 20.sp,
                         fontWeight = FontWeight.Bold, maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         if (metrics.partialTimes) "Known active time" else "Active time",
                         color = TodayLook.muted, fontSize = 10.sp,
-                        maxLines = 2
+                        maxLines = 2,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                 }
                 Box(
