@@ -297,6 +297,22 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             } finally { mutable.value = mutable.value.copy(busy = false, task = null) }
         }
     }
+    suspend fun signUp(name: String, email: String, password: String) = operation("Creating account…") {
+        require(name.isNotBlank() && email.isNotBlank() && password.isNotEmpty())
+        gateway.signUp(name, email, password)
+        // Signup does not activate an account or persist an unverified token.
+        mutable.value = mutable.value.copy(
+            message = "Account request submitted. Verify your email if required, then sign in."
+        )
+    }
+    suspend fun requestPasswordReset(email: String) = operation("Requesting password reset…") {
+        require(email.isNotBlank())
+        gateway.requestPasswordReset(email)
+        // Avoid account enumeration: the same confirmation is shown to everyone.
+        mutable.value = mutable.value.copy(
+            message = "If this address has an account, reset instructions will be sent by email."
+        )
+    }
     suspend fun signIn(email: String, password: String) = operation("Signing in securely…") {
         require(email.isNotBlank() && password.isNotEmpty())
         val session = try {
