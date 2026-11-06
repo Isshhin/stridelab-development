@@ -428,5 +428,160 @@ class ScopedContractTests(unittest.TestCase):
         self.assertEqual(new, self.view(projector_version='2').data)
 
 
+class ReplayValidityRegressionTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.path = Path(self.tmp.name) / 'store.sqlite'
+        self.auth = SyntheticAuthority({'A', 'B'})
+        self.auth.grant('A', 'coach', 'research', 'development')
+        self.auth.grant('B', 'coach', 'research', 'development')
+        self.store = DurableStore(self.path, self.auth)
+        self.scope = dict(actor_view='coach', purpose_grant_id='research', partition_id='development')
+
+    def current(self, cutoff=25, now=40):
+        return self.store.current_view('A', ts(cutoff), as_of_now=ts(now), **self.scope).data
+
+    def test_projector_four_independent_of_mutable_reference(self):
+        from unittest.mock import patch
+        self.store.append('A', [full_event(activity())], 0)
+        before = self.store.decision_view('A', ts(30), **self.scope).data
+        before3 = self.store.decision_view('A', ts(30), projector_version='3', **self.scope).data
+        with patch('p2f_foundation.FoundationLedger._project', side_effect=AssertionError('mutable reference used')), \
+             patch('p2f_foundation.FoundationLedger.append', side_effect=AssertionError('mutable validator used')):
+            after = self.store.decision_view('A', ts(30), **self.scope).data
+            after3 = self.store.decision_view('A', ts(30), projector_version='3', **self.scope).data
+        self.assertEqual(before, after)
+        self.assertEqual(before3, after3)
+        self.assertEqual('4', after['projector_version'])
+
+    def test_validity_inputs_pin_state_and_invalidation(self):
+        rows = planned() + [activity(), event('link', 'A', 'link', 22, activity_id='a1',
+                     opportunity_id='o1', revision_id='r1', evidence_id='review')]
+        self.store.append('A', [full_event(x) for x in rows], 0)
+        first = self.current()
+        self.assertEqual(first, self.current())
+        self.assertEqual(ts(40), first['validity']['as_of'])
+        self.auth.revoke('B', 'coach', 'research', 'development')
+        changed = self.current()
+        self.assertEqual(first['event_set_digest'], changed['event_set_digest'])
+        self.assertNotEqual(first['validity']['authority'], changed['validity']['authority'])
+        self.assertNotEqual(first['validity']['validity_digest'], changed['validity']['validity_digest'])
+        rev = event('rv', 'A', 'link_revocation', 30, link_event_id='link', evidence_id='review')
+        self.store.append('A', [full_event(rev)], 1)
+        invalidated = self.current()
+        self.assertEqual(changed['event_set_digest'], invalidated['event_set_digest'])
+        self.assertNotEqual(changed['validity']['invalidation_digest'], invalidated['validity']['invalidation_digest'])
+        self.assertNotEqual(changed['validity']['validity_digest'], invalidated['validity']['validity_digest'])
+        self.assertEqual([], invalidated['opportunities']['o1']['activity_ids'])
+        self.auth.withdraw('A')
+        with self.assertRaises(Quarantine): self.current()
+        with self.assertRaises(Quarantine): self.store.assert_current(self.store.decision_view('A', ts(25), **self.scope))
+
+    def test_same_grant_set_after_revocation_has_new_epoch(self):
+        self.store.append('A', [full_event(activity())], 0)
+        before = self.current()['validity']['authority']
+        self.auth.revoke('B', 'coach', 'research', 'development')
+        self.auth.grant('B', 'coach', 'research', 'development')
+        after = self.current()['validity']['authority']
+        self.assertGreater(after['epoch'], before['epoch'])
+        self.assertNotEqual(after['digest'], before['digest'])
+
+    def test_correction_and_revocation_are_pinned_after_historical_cutoff(self):
+        link = event('link', 'A', 'link', 22, activity_id='a1', opportunity_id='o1', revision_id='r1', evidence_id='review')
+        correction = event('s2', 'A', 'source_correction', 30, source_id='s2', activity_id='a1',
+                           alias=['fit', 'y'], digest='b'*64, measurements={'distance': measured(2, 'm')},
+                           supersedes_source_id='s1', correction_evidence_id='review')
+        rev = event('rv', 'A', 'link_revocation', 31, link_event_id='link', evidence_id='review')
+        self.store.append('A', [full_event(x) for x in planned()+[activity(), source('s1',21,'x',1), link, correction, rev]], 0)
+        earlier = self.current(now=29)
+        later = self.current(now=40)
+        self.assertEqual(earlier['event_set_digest'], later['event_set_digest'])
+        self.assertEqual([], earlier['validity']['invalidation_event_ids'])
+        self.assertEqual(['s2', 'rv'], later['validity']['invalidation_event_ids'])
+        self.assertNotEqual(earlier['validity']['invalidation_digest'], later['validity']['invalidation_digest'])
+        self.assertEqual([], later['opportunities']['o1']['activity_ids'])
+        self.assertEqual(['a1'], self.store.decision_view('A', ts(25), **self.scope).data['opportunities']['o1']['activity_ids'])
+
+    def test_new_authority_instance_cannot_reuse_prior_state_identifier(self):
+        self.store.append('A', [full_event(activity())], 0)
+        before = self.current()['validity']['authority']
+        self.auth.withdraw('A')
+        with self.assertRaises(Quarantine): self.current()
+        other = SyntheticAuthority({'A', 'B'})
+        other.grant('A', 'coach', 'research', 'development')
+        other.grant('B', 'coach', 'research', 'development')
+        self.assertNotEqual(before, other.snapshot())
+
+    def test_validity_digests_are_independently_recomputable(self):
+        from p2f_foundation import digest
+        rows = planned() + [activity(), event('link', 'A', 'link', 22, activity_id='a1',
+                    opportunity_id='o1', revision_id='r1', evidence_id='review')]
+        rev = full_event(event('rv', 'A', 'link_revocation', 30, link_event_id='link', evidence_id='review'))
+        self.store.append('A', [full_event(x) for x in rows] + [rev], 0)
+        v = self.current()['validity']
+        self.assertEqual(digest([rev]), v['invalidation_digest'])
+        self.assertEqual(digest(sorted(self.auth.suppressed)), v['authority']['suppression_digest'])
+        self.assertEqual(digest({k: x for k, x in v.items() if k != 'validity_digest'}), v['validity_digest'])
+        self.assertEqual(v, DurableStore(self.path, self.auth).current_view('A', ts(25), as_of_now=ts(40), **self.scope).data['validity'])
+
+    def test_missing_or_changing_authority_fails_closed(self):
+        self.store.append('A', [full_event(activity())], 0)
+        from unittest.mock import patch
+        with patch.object(self.auth, 'snapshot', return_value=None):
+            with self.assertRaises(Quarantine): self.current()
+        with patch.object(self.auth, 'snapshot', side_effect=[{'authority_id': 'd'*32, 'epoch': 1, 'digest': 'a'*64, 'suppression_digest': 'c'*64}, {'authority_id': 'd'*32, 'epoch': 2, 'digest': 'b'*64, 'suppression_digest': 'c'*64}]):
+            with self.assertRaisesRegex(Quarantine, 'authority changed during replay'): self.current()
+
+    def test_writer_during_current_projection_fails_closed(self):
+        from unittest.mock import patch
+        self.store.append('A', [full_event(activity())], 0)
+        snapshot = self.auth.snapshot
+        calls = []
+        def changing_snapshot():
+            calls.append(1)
+            if len(calls) == 2:
+                second = activity(); second['id'] = 'a2'; second['data']['activity_id'] = 'a2'
+                second['recorded_at'] = second['effective_at'] = second['available_at'] = ts(32)
+                self.store.append('A', [full_event(second)], 1)
+            return snapshot()
+        with patch.object(self.auth, 'snapshot', side_effect=changing_snapshot):
+            with self.assertRaisesRegex(Quarantine, 'journal changed'):
+                self.current()
+
+    def test_pre_projector_three_journal_reopens_without_rewriting(self):
+        from p2f_foundation import canonical
+        link1 = event('l1', 'A', 'link', 22, activity_id='a1', opportunity_id='o1', revision_id='r1', evidence_id='r1')
+        link2 = event('l2', 'A', 'link', 23, activity_id='a1', opportunity_id='o1', revision_id='r1', evidence_id='r2')
+        rows = [full_event(e) for e in planned()+[activity(), link1, link2]]
+        # Construct the pre-projector-3 database format without invoking the current writer.
+        legacy = Path(self.tmp.name) / 'pre3.sqlite'
+        with closing(sqlite3.connect(legacy)) as db:
+            db.executescript('''CREATE TABLE events (account TEXT NOT NULL, event_id TEXT NOT NULL,
+                batch INTEGER NOT NULL, ordinal INTEGER NOT NULL, schema_version TEXT NOT NULL,
+                view_id TEXT NOT NULL, purpose TEXT NOT NULL, partition_id TEXT NOT NULL, payload TEXT NOT NULL,
+                PRIMARY KEY(account,event_id), UNIQUE(account,batch,ordinal));
+                CREATE TABLE heads (account TEXT PRIMARY KEY, generation INTEGER NOT NULL);
+                PRAGMA user_version = 2;''')
+            for ordinal, row in enumerate(rows):
+                db.execute('INSERT INTO events VALUES (?,?,?,?,?,?,?,?,?)',
+                           ('A', row['id'], 1, ordinal, row['schema_version'], row['view_id'],
+                            row['purpose_grant_id'], row['partition_id'], canonical(row)))
+            db.execute('INSERT INTO heads VALUES (?,?)', ('A', 1)); db.commit()
+            before = db.execute('SELECT account,event_id,batch,ordinal,schema_version,payload FROM events ORDER BY batch,ordinal').fetchall()
+        self.path = legacy
+        self.store = DurableStore(legacy, self.auth)
+        old1 = self.store.decision_view('A', ts(30), projector_version='1', **self.scope).data
+        old2 = self.store.decision_view('A', ts(30), projector_version='2', **self.scope).data
+        self.store = DurableStore(self.path, self.auth)
+        newer = self.store.decision_view('A', ts(30), projector_version='4', **self.scope).data
+        self.assertEqual(['a1', 'a1'], old1['opportunities']['o1']['activity_ids'])
+        self.assertEqual(['a1', 'a1'], old2['opportunities']['o1']['activity_ids'])
+        self.assertEqual(['a1'], newer['opportunities']['o1']['activity_ids'])
+        with closing(sqlite3.connect(self.path)) as db:
+            after = db.execute('SELECT account,event_id,batch,ordinal,schema_version,payload FROM events ORDER BY batch,ordinal').fetchall()
+        self.assertEqual(before, after)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -5,6 +5,8 @@ and must never be restored from this database. No human data may be stored here.
 """
 import json
 import os
+import re
+import uuid
 from contextlib import closing
 import sqlite3
 from dataclasses import dataclass
@@ -13,6 +15,7 @@ from pathlib import Path
 
 from p2f_foundation import FoundationLedger, Quarantine, SCHEMA, canonical, digest, ident, instant, require
 from p2f_projector_v1 import project_v1, Quarantine as PinnedQuarantine
+from p2f_projector_v34 import project_v34, Quarantine as V34Quarantine
 
 
 SCHEMA_V2 = 'F2.2-synthetic.2'
@@ -41,13 +44,21 @@ class SyntheticAuthority:
         self.accounts = set(accounts)
         self.suppressed = set()
         self.grants = set()
+        self.epoch = 0
+        self.authority_id = uuid.uuid4().hex
 
     def grant(self, account, view, purpose, partition):
         require(account in self.accounts and account not in self.suppressed, 'access denied')
-        self.grants.add(tuple(ident(x) for x in (account, view, purpose, partition)))
+        scope = tuple(ident(x) for x in (account, view, purpose, partition))
+        if scope not in self.grants:
+            self.grants.add(scope)
+            self.epoch += 1
 
     def revoke(self, account, view, purpose, partition):
-        self.grants.discard((account, view, purpose, partition))
+        scope = (account, view, purpose, partition)
+        if scope in self.grants:
+            self.grants.remove(scope)
+            self.epoch += 1
 
     def check(self, account, view=None, purpose=None, partition=None):
         require(account in self.accounts and account not in self.suppressed, 'access denied')
@@ -55,7 +66,16 @@ class SyntheticAuthority:
             require((account, view, purpose, partition) in self.grants, 'access denied')
 
     def withdraw(self, account):
-        self.suppressed.add(ident(account))
+        account = ident(account)
+        if account not in self.suppressed:
+            self.suppressed.add(account)
+            self.epoch += 1
+
+    def snapshot(self):
+        state = {'accounts': sorted(self.accounts), 'grants': sorted(self.grants),
+                 'suppressed': sorted(self.suppressed), 'epoch': self.epoch, 'authority_id': self.authority_id}
+        return {'authority_id': self.authority_id, 'epoch': self.epoch, 'digest': digest(state),
+                'suppression_digest': digest(sorted(self.suppressed))}
 
 
 @dataclass(frozen=True)
@@ -99,6 +119,18 @@ class DurableStore:
             self.authority.check(account, view, purpose, partition)
         except Exception as error:
             raise Quarantine('access denied') from error
+
+    def _authority_snapshot(self):
+        try:
+            snapshot = self.authority.snapshot()
+            require(isinstance(snapshot, dict) and set(snapshot) == {'authority_id', 'epoch', 'digest', 'suppression_digest'} and
+                    isinstance(snapshot['authority_id'], str) and re.fullmatch(r'[0-9a-f]{32}', snapshot['authority_id']) and
+                    type(snapshot['epoch']) is int and snapshot['epoch'] >= 0 and
+                    all(isinstance(snapshot[key], str) and re.fullmatch(r'[0-9a-f]{64}', snapshot[key])
+                        for key in ('digest', 'suppression_digest')), 'invalid authority snapshot')
+            return dict(snapshot)
+        except Exception as error:
+            raise Quarantine('authority snapshot unavailable') from error
 
     def head(self, account):
         self._check(account)
@@ -214,6 +246,7 @@ class DurableStore:
 
     def _view(self, account, cutoff, watermark, projector_version, current, scope):
         self._check(account, *scope)
+        authority = self._authority_snapshot() if current and projector_version == '4' else None
         require(projector_version in ('1', '2', '3', '4'), 'unknown projector')
         stop = instant(cutoff)
         require(not current or stop <= current, 'cutoff after current time')
@@ -225,117 +258,101 @@ class DurableStore:
             require(watermark is None or watermark <= generation, 'future watermark')
             all_rows = self._rows(db, account, scope=scope)
             db.execute('COMMIT')
-        full_rows = all_rows
         if projector_version in ('3', '4'):
-            visible = [event for batch, _, event in full_rows
-                       if (current or watermark is None or batch <= watermark)
-                       and instant(event['available_at']) <= (current or stop)]
-            times = [instant(event['available_at']) for event in visible]
-            require(len(times) == len(set(times)), 'ambiguous availability tie')
-            require(not any('supersedes_event_id' in event for event in visible),
-                    'unsupported supersession')
-            by_id = {event['id']: event for _, _, event in full_rows}
-            sources = {event['data']['source_id']: event for _, _, event in full_rows
-                       if event['kind'] in ('source', 'source_correction')}
-            for event in visible:
-                if projector_version == '4' and event['kind'] == 'activity':
-                    require(instant(event['data']['ended_at']) <= instant(event['available_at']),
-                            'activity ends after availability')
-                if event['kind'] == 'link_revocation':
-                    link = by_id.get(event['data']['link_event_id'])
-                    require(link is not None and link['kind'] == 'link' and
-                            instant(link['available_at']) < instant(event['available_at']) and
-                            instant(link['effective_at']) <= instant(event['effective_at']),
-                            'invalid revocation chronology')
-                if event['kind'] == 'source_correction':
-                    prior = sources.get(event['data']['supersedes_source_id'])
-                    require(prior is not None and
-                            instant(prior['available_at']) < instant(event['available_at']) and
-                            instant(prior['effective_at']) <= instant(event['effective_at']),
-                            'invalid correction chronology')
-        all_rows = [(batch, schema, normalize(schema, event)) for batch, schema, event in all_rows]
-        selected = [(batch, schema, event) for batch, schema, event in all_rows
-                    if (watermark is None or batch <= watermark) and instant(event['available_at']) <= stop]
-        events = [event for _, _, event in selected]
-        if projector_version == '1':
             try:
-                projection = project_v1(account, cutoff, events, selected, all_rows, current, full_rows, watermark, stop)
-            except PinnedQuarantine as error:
-                raise Quarantine('pinned projection quarantined') from error
+                projection = project_v34(account, cutoff, watermark, projector_version, current, generation, all_rows, stop)
+            except V34Quarantine as error:
+                raise Quarantine(str(error)) from error
         else:
-            ledger = FoundationLedger()
-            try:
-                for event in events:
-                    if event['kind'] != 'link_revocation':
-                        ledger.append([event])
-                if projector_version in ('3', '4'):
-                    projection = ledger._project(account, sorted(events, key=lambda row: instant(row['available_at'])))
-                    projection['schema'] = SCHEMA
-                else:
-                    projection = ledger.replay(account, cutoff).data
-            except Quarantine as error:
-                raise Quarantine('pinned projection quarantined') from error
-            # Current invalidations are applied to the historical event set without importing later values.
-            invalidations = [event for _, _, event in (all_rows if current else selected)
-                             if not current or instant(event['available_at']) <= current]
-            revoked = {e['data']['link_event_id'] for e in invalidations if e['kind'] == 'link_revocation'}
-            corrected = {e['data']['supersedes_source_id'] for e in invalidations if e['kind'] == 'source_correction'}
-            source_activities = {e['data']['source_id']: e['data']['activity_id'] for e in events if e['kind'] in ('source', 'source_correction')}
-            affected = {source_activities[s] for s in corrected if s in source_activities}
-            revoked.update(key for key, link in projection['links'].items() if link['activity_id'] in affected)
-            for link_id in revoked:
-                link = projection['links'].pop(link_id, None)
-                if link:
-                    activity = projection['activities'][link['activity_id']]
-                    opportunity = projection['opportunities'][link['opportunity_id']]
-                    if link_id in activity['link_ids']:
-                        activity['link_ids'].remove(link_id)
-                    if (link['activity_id'] in opportunity['activity_ids'] and not any(
-                            other['activity_id'] == link['activity_id'] and other['opportunity_id'] == link['opportunity_id']
-                            for other in projection['links'].values())):
-                        opportunity['activity_ids'].remove(link['activity_id'])
-            if affected:
-                # Reproject historical rows without superseded sources so conflicting fields recalculate.
-                kept = [e for e in events if not (e['kind'] in ('source', 'source_correction') and e['data']['source_id'] in corrected)]
-                source_rows = {e['data']['source_id']: e for e in kept if e['kind'] in ('source', 'source_correction')}
-                for aid in affected:
-                    activity = projection['activities'][aid]
-                    removed = sorted(set(activity['source_ids']) & corrected)
-                    activity['source_ids'] = [s for s in activity['source_ids'] if s not in corrected]
-                    activity['invalidated_source_ids'] = sorted(set(activity['invalidated_source_ids']) | set(removed))
-                    metrics = {}
-                    for sid in activity['source_ids']:
-                        for name, value in source_rows[sid]['data']['measurements'].items():
-                            metrics.setdefault(name, []).append((sid, value))
-                    activity['measurements'] = {}
-                    for name, values in metrics.items():
-                        first = values[0][1]
-                        value = dict(first) if all(v == first for _, v in values) else {'status': 'conflict', 'value': None, 'unit': first['unit'], 'method': None}
-                        activity['measurements'][name] = {**value, 'source_ids': [sid for sid, _ in values]}
-            projection['event_ids'] = [e['id'] for e in sorted(events, key=lambda e: (instant(e['available_at']), e['id']))]
-            full_events = [event for batch, _, event in full_rows
-                           if (watermark is None or batch <= watermark) and instant(event['available_at']) <= stop]
-            projection['event_set_digest'] = digest(sorted(full_events, key=lambda e: (instant(e['available_at']), e['event_id'])))
-            projection['projector_version'] = projector_version
-            projection['source_schema_versions'] = sorted({schema for _, schema, _ in selected})
-            projection['lineage'] = {'event_ids': projection['event_ids'], 'invalidation_event_ids': sorted(e['id'] for e in invalidations if e['kind'] in ('source_correction', 'link_revocation')), 'invalidated_source_ids': sorted(corrected & set(source_activities)), 'revoked_link_ids': sorted(revoked)}
-            projection['exclusion_counts'] = {'invalidated_sources': len(corrected & set(source_activities)), 'revoked_links': len(revoked)}
-        if projector_version in ('3', '4'):
-            sequence = [(batch, event['id']) for batch, _, event in full_rows
+            full_rows = all_rows
+            all_rows = [(batch, schema, normalize(schema, event)) for batch, schema, event in all_rows]
+            selected = [(batch, schema, event) for batch, schema, event in all_rows
                         if (watermark is None or batch <= watermark) and instant(event['available_at']) <= stop]
-            projection['journal_event_ids'] = [event_id for _, event_id in sequence]
-            projection['journal_sequence_digest'] = digest(sequence)
-            projection['watermark'] = generation if watermark is None else watermark
-            for opportunity_id, opportunity in projection['opportunities'].items():
-                opportunity['activity_ids'] = list(dict.fromkeys(
-                    link['activity_id'] for link in projection['links'].values()
-                    if link['opportunity_id'] == opportunity_id))
+            events = [event for _, _, event in selected]
+            if projector_version == '1':
+                try:
+                    projection = project_v1(account, cutoff, events, selected, all_rows, current, full_rows, watermark, stop)
+                except PinnedQuarantine as error:
+                    raise Quarantine('pinned projection quarantined') from error
+            else:
+                ledger = FoundationLedger()
+                try:
+                    for event in events:
+                        if event['kind'] != 'link_revocation':
+                            ledger.append([event])
+                    projection = ledger.replay(account, cutoff).data
+                except Quarantine as error:
+                    raise Quarantine('pinned projection quarantined') from error
+                # Current invalidations are applied to the historical event set without importing later values.
+                invalidations = [event for _, _, event in (all_rows if current else selected)
+                                 if not current or instant(event['available_at']) <= current]
+                revoked = {e['data']['link_event_id'] for e in invalidations if e['kind'] == 'link_revocation'}
+                corrected = {e['data']['supersedes_source_id'] for e in invalidations if e['kind'] == 'source_correction'}
+                source_activities = {e['data']['source_id']: e['data']['activity_id'] for e in events if e['kind'] in ('source', 'source_correction')}
+                affected = {source_activities[s] for s in corrected if s in source_activities}
+                revoked.update(key for key, link in projection['links'].items() if link['activity_id'] in affected)
+                for link_id in revoked:
+                    link = projection['links'].pop(link_id, None)
+                    if link:
+                        activity = projection['activities'][link['activity_id']]
+                        opportunity = projection['opportunities'][link['opportunity_id']]
+                        if link_id in activity['link_ids']:
+                            activity['link_ids'].remove(link_id)
+                        if (link['activity_id'] in opportunity['activity_ids'] and not any(
+                                other['activity_id'] == link['activity_id'] and other['opportunity_id'] == link['opportunity_id']
+                                for other in projection['links'].values())):
+                            opportunity['activity_ids'].remove(link['activity_id'])
+                if affected:
+                    # Reproject historical rows without superseded sources so conflicting fields recalculate.
+                    kept = [e for e in events if not (e['kind'] in ('source', 'source_correction') and e['data']['source_id'] in corrected)]
+                    source_rows = {e['data']['source_id']: e for e in kept if e['kind'] in ('source', 'source_correction')}
+                    for aid in affected:
+                        activity = projection['activities'][aid]
+                        removed = sorted(set(activity['source_ids']) & corrected)
+                        activity['source_ids'] = [s for s in activity['source_ids'] if s not in corrected]
+                        activity['invalidated_source_ids'] = sorted(set(activity['invalidated_source_ids']) | set(removed))
+                        metrics = {}
+                        for sid in activity['source_ids']:
+                            for name, value in source_rows[sid]['data']['measurements'].items():
+                                metrics.setdefault(name, []).append((sid, value))
+                        activity['measurements'] = {}
+                        for name, values in metrics.items():
+                            first = values[0][1]
+                            value = dict(first) if all(v == first for _, v in values) else {'status': 'conflict', 'value': None, 'unit': first['unit'], 'method': None}
+                            activity['measurements'][name] = {**value, 'source_ids': [sid for sid, _ in values]}
+                projection['event_ids'] = [e['id'] for e in sorted(events, key=lambda e: (instant(e['available_at']), e['id']))]
+                full_events = [event for batch, _, event in full_rows
+                               if (watermark is None or batch <= watermark) and instant(event['available_at']) <= stop]
+                projection['event_set_digest'] = digest(sorted(full_events, key=lambda e: (instant(e['available_at']), e['event_id'])))
+                projection['projector_version'] = projector_version
+                projection['source_schema_versions'] = sorted({schema for _, schema, _ in selected})
+                projection['lineage'] = {'event_ids': projection['event_ids'], 'invalidation_event_ids': sorted(e['id'] for e in invalidations if e['kind'] in ('source_correction', 'link_revocation')), 'invalidated_source_ids': sorted(corrected & set(source_activities)), 'revoked_link_ids': sorted(revoked)}
+                projection['exclusion_counts'] = {'invalidated_sources': len(corrected & set(source_activities)), 'revoked_links': len(revoked)}
         self._check(account, *scope)
+        if current and projector_version == '4':
+            require(authority == self._authority_snapshot(), 'authority changed during replay')
+            require(self.head(account) == generation, 'journal changed during replay')
+            invalidations = [event for _, _, event in all_rows
+                             if event['kind'] in ('source_correction', 'link_revocation')
+                             and instant(event['available_at']) <= current]
+            validity = {'as_of': current.isoformat(), 'authority': authority,
+                        'invalidation_digest': digest(sorted(invalidations, key=lambda e: (instant(e['available_at']), e['event_id']))),
+                        'invalidation_event_ids': [e['event_id'] for e in sorted(invalidations, key=lambda e: (instant(e['available_at']), e['event_id']))],
+                        'invalidation_schema_versions': sorted({e['schema_version'] for e in invalidations}),
+                        'projector_version': projector_version, 'source_schema_versions': projection['source_schema_versions'],
+                        'event_set_digest': projection['event_set_digest'], 'exclusions': projection['exclusions'],
+                        'exclusion_counts': projection.get('exclusion_counts', {}), 'scope': list(scope),
+                        'historical_cutoff': stop.isoformat(), 'watermark': generation if watermark is None else watermark,
+                        'journal_head': generation, 'journal_sequence_digest': projection['journal_sequence_digest']}
+            validity['validity_digest'] = digest(validity)
+            projection['validity'] = validity
         return DurableProjection(account, generation, scope, projection)
 
     def assert_current(self, projection):
         self._check(projection.account_id, *projection.scope)
         require(self.head(projection.account_id) == projection.generation, 'projection invalidated')
+        if 'validity' in projection.data:
+            require(self._authority_snapshot() == projection.data['validity']['authority'], 'authority changed')
         self._check(projection.account_id, *projection.scope)
         return projection
 

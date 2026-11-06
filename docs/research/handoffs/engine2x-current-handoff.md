@@ -1,5 +1,9 @@
 # StrideLab Engine 2.x current coordinating handoff
 
+## P2-F pinned replay and validity continuation — 2026-11-07
+
+The [synthetic durable-store boundary](../phase2/p2-f-durable-synthetic-boundary.md) records the separately pinned projector 3/4 replay path and projector 4 validity metadata for authority epoch, suppression and invalidation digests, as-of time, schema, event set and exclusions. This remains synthetic-only and needs independent adversarial review. The synthetic in-memory authority is not a durable nonrollback custody service; private-pilot intake is not authorized. `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` remain unchanged.
+
 ## P2-F durability correction and audit — 2026-11-06
 
 The [synthetic durability review](../phase2/p2-f-synthetic-durability-review-2026-11-06.md) records the reproduced duplicate-link defect, projector 3 correction, versioned replay and remaining custody limitations. Projectors 1 and 2 retain historical behavior and can duplicate activity membership. Projector 3 fails closed on unsupported supersession and ambiguous timing. This implementation-session review is not an independent signed clearance. `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` remain unchanged.
