@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -154,7 +155,7 @@ internal fun StrideLabUnifiedTrainingTimeline(
         )
     }
     val todayIndex = days.indexOfFirst { it.date == today }.coerceAtLeast(0)
-    val scroll = rememberLazyListState()
+    val scroll = rememberLazyListState(initialFirstVisibleItemIndex = todayIndex)
     var initialAnchorSet by rememberSaveable(account, today, active?.id) {
         mutableStateOf(false)
     }
@@ -234,11 +235,11 @@ internal fun StrideLabUnifiedTrainingTimeline(
             ),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            items(days, key = { "timeline-date-${it.date}" }) { day ->
-                val position = days.indexOf(day)
+            itemsIndexed(days, key = { _, day -> "timeline-date-${day.date}" }) { position, day ->
                 Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
-                    if (position == 0 || YearMonth.from(days[position - 1].date) !=
-                        YearMonth.from(day.date)
+                    if ((day.activities.isNotEmpty() || day.workouts.isNotEmpty()) &&
+                        (position == 0 || YearMonth.from(days[position - 1].date) !=
+                            YearMonth.from(day.date))
                     ) {
                         Text(
                             day.date.format(month),
