@@ -257,6 +257,16 @@ class UnsafeHistoryRegressionTests(unittest.TestCase):
         self.store = DurableStore(Path(self.tmp.name) / 'store.sqlite', self.auth)
         self.scope = dict(actor_view='coach', purpose_grant_id='research', partition_id='development')
 
+    def test_future_activity_end_is_quarantined_by_new_projector(self):
+        row = activity()
+        row['data']['ended_at'] = ts(50)
+        self.store.append('A', [full_event(row)], 0)
+        self.assertEqual(ts(50), self.store.decision_view('A', ts(25), projector_version='3', **self.scope).data['activities']['a1']['ended_at'])
+        with self.assertRaisesRegex(Quarantine, 'activity ends after availability'):
+            self.store.decision_view('A', ts(25), projector_version='4', **self.scope)
+        with self.assertRaisesRegex(Quarantine, 'activity ends after availability'):
+            self.store.current_view('A', ts(25), as_of_now=ts(60), projector_version='4', **self.scope)
+
     def test_uninterpreted_supersession_is_quarantined_at_relevant_time(self):
         first = full_event(activity())
         second = activity(); second['id'] = 'a2'; second['data']['activity_id'] = 'a2'

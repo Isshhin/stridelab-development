@@ -21,3 +21,7 @@ Projector 3 exposes the selected watermark, journal event order and a journal-se
 Backup now creates a previously nonexistent destination exclusively and refuses an existing path. A failed or interrupted backup may leave a partial new destination; do not treat it as a valid restore until independently checked. The plaintext synthetic copy and its authority remain unsuitable for private records. A successful test of the synthetic reopen and external suppression barrier is not a private custody drill.
 
 The standalone in-memory `p2f_foundation.FoundationLedger` remains a historical reference and still appends one activity ID per link. Only durable projector 3 supplies the corrected membership behavior.
+
+## Independent follow-up: activity chronology
+
+Projector 3 can expose an activity end after its stated availability. Projector 4 is the default and quarantines a visible activity whose end is later than its availability; earlier projector results remain unchanged. This is a narrow synthetic guard, not verification of provider timestamps or all observation types. Projectors 3 and 4 still depend on mutable reference code and are not independently pinned. Their version labels alone do not guarantee future replay stability; synthetic durability remains blocked pending a separately pinned replay boundary and reproducible current-validity inputs.

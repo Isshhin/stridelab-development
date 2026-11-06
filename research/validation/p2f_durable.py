@@ -205,16 +205,16 @@ class DurableStore:
                 if row['kind'] == 'link':
                     links.add(row['id'])
 
-    def decision_view(self, account, cutoff, watermark=None, projector_version='3', *, actor_view, purpose_grant_id, partition_id):
+    def decision_view(self, account, cutoff, watermark=None, projector_version='4', *, actor_view, purpose_grant_id, partition_id):
         return self._view(account, cutoff, watermark, projector_version, False, (actor_view, purpose_grant_id, partition_id))
 
-    def current_view(self, account, cutoff, watermark=None, projector_version='3', as_of_now=None, *, actor_view, purpose_grant_id, partition_id):
+    def current_view(self, account, cutoff, watermark=None, projector_version='4', as_of_now=None, *, actor_view, purpose_grant_id, partition_id):
         now = instant(as_of_now) if as_of_now else datetime.now(timezone.utc)
         return self._view(account, cutoff, watermark, projector_version, now, (actor_view, purpose_grant_id, partition_id))
 
     def _view(self, account, cutoff, watermark, projector_version, current, scope):
         self._check(account, *scope)
-        require(projector_version in ('1', '2', '3'), 'unknown projector')
+        require(projector_version in ('1', '2', '3', '4'), 'unknown projector')
         stop = instant(cutoff)
         require(not current or stop <= current, 'cutoff after current time')
         require(watermark is None or type(watermark) is int and watermark >= 0, 'invalid watermark')
@@ -226,7 +226,7 @@ class DurableStore:
             all_rows = self._rows(db, account, scope=scope)
             db.execute('COMMIT')
         full_rows = all_rows
-        if projector_version == '3':
+        if projector_version in ('3', '4'):
             visible = [event for batch, _, event in full_rows
                        if (current or watermark is None or batch <= watermark)
                        and instant(event['available_at']) <= (current or stop)]
@@ -238,6 +238,9 @@ class DurableStore:
             sources = {event['data']['source_id']: event for _, _, event in full_rows
                        if event['kind'] in ('source', 'source_correction')}
             for event in visible:
+                if projector_version == '4' and event['kind'] == 'activity':
+                    require(instant(event['data']['ended_at']) <= instant(event['available_at']),
+                            'activity ends after availability')
                 if event['kind'] == 'link_revocation':
                     link = by_id.get(event['data']['link_event_id'])
                     require(link is not None and link['kind'] == 'link' and
@@ -265,7 +268,7 @@ class DurableStore:
                 for event in events:
                     if event['kind'] != 'link_revocation':
                         ledger.append([event])
-                if projector_version == '3':
+                if projector_version in ('3', '4'):
                     projection = ledger._project(account, sorted(events, key=lambda row: instant(row['available_at'])))
                     projection['schema'] = SCHEMA
                 else:
@@ -317,7 +320,7 @@ class DurableStore:
             projection['source_schema_versions'] = sorted({schema for _, schema, _ in selected})
             projection['lineage'] = {'event_ids': projection['event_ids'], 'invalidation_event_ids': sorted(e['id'] for e in invalidations if e['kind'] in ('source_correction', 'link_revocation')), 'invalidated_source_ids': sorted(corrected & set(source_activities)), 'revoked_link_ids': sorted(revoked)}
             projection['exclusion_counts'] = {'invalidated_sources': len(corrected & set(source_activities)), 'revoked_links': len(revoked)}
-        if projector_version == '3':
+        if projector_version in ('3', '4'):
             sequence = [(batch, event['id']) for batch, _, event in full_rows
                         if (watermark is None or batch <= watermark) and instant(event['available_at']) <= stop]
             projection['journal_event_ids'] = [event_id for _, event_id in sequence]
