@@ -775,6 +775,247 @@ private fun TodayRecordedTraining(
     }
 }
 
+/**
+ * Visual language for completed activities: dark, results-led and distinctive.
+ * These are decorative vector illustrations, NOT athlete equipment photos,
+ * imported routes, recorded form, or evidence of a particular shoe brand.
+ */
+@Composable
+private fun TodayRecordedArtwork(
+    kind: String,
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier) {
+        if (kind == "empty") return@Canvas
+        val w = size.width
+        val h = size.height
+        val glowCenter = Offset(w * .88f, h * .60f)
+        drawCircle(
+            brush = Brush.radialGradient(
+                listOf(accent.copy(alpha = .23f), Color.Transparent),
+                center = glowCenter,
+                radius = w * .52f
+            ),
+            radius = w * .52f,
+            center = glowCenter
+        )
+        val backdrop = Path().apply {
+            moveTo(w * .39f, h)
+            cubicTo(w * .51f, h * .80f, w * .73f, h * .87f, w, h * .56f)
+            lineTo(w, h)
+            close()
+        }
+        val floorTint = when (kind) {
+            "running" -> Color(0xFF608525)
+            "strength" -> Color(0xFF9C443F)
+            "calisthenics" -> Color(0xFF8761B7)
+            "conditioning" -> Color(0xFF416A89)
+            else -> Color(0xFF716889)
+        }
+        drawPath(
+            backdrop,
+            Brush.verticalGradient(
+                listOf(floorTint.copy(alpha = .08f), floorTint.copy(alpha = .41f)),
+                startY = h * .48f, endY = h
+            )
+        )
+        when (kind) {
+            "running" -> {
+                // Side-profile trail shoe: toe lower-left, heel upper-right.
+                // Two-layer sole separates it clearly from decorative hills.
+                val outerSole = Path().apply {
+                    moveTo(w * .54f, h * .76f)
+                    cubicTo(w * .64f, h * .79f, w * .74f, h * .80f, w * .85f, h * .75f)
+                    cubicTo(w * .93f, h * .72f, w * .97f, h * .68f, w * .99f, h * .70f)
+                    lineTo(w * .995f, h * .77f)
+                    cubicTo(w * .90f, h * .87f, w * .69f, h * .92f, w * .57f, h * .87f)
+                    cubicTo(w * .53f, h * .85f, w * .52f, h * .81f, w * .54f, h * .76f)
+                    close()
+                }
+                drawPath(outerSole, Color(0xFF1C3113))
+                val midSole = Path().apply {
+                    moveTo(w * .54f, h * .75f)
+                    cubicTo(w * .67f, h * .80f, w * .79f, h * .79f, w * .94f, h * .68f)
+                    lineTo(w * .995f, h * .70f)
+                    cubicTo(w * .93f, h * .82f, w * .72f, h * .88f, w * .57f, h * .83f)
+                    close()
+                }
+                drawPath(
+                    midSole,
+                    Brush.verticalGradient(
+                        listOf(Color(0xFFDEF59A), Color(0xFF83AD39), Color(0xFF344F1E)),
+                        startY = h * .68f, endY = h * .89f
+                    )
+                )
+                val upper = Path().apply {
+                    moveTo(w * .55f, h * .74f)
+                    cubicTo(w * .58f, h * .67f, w * .66f, h * .61f, w * .70f, h * .58f)
+                    lineTo(w * .76f, h * .42f)
+                    cubicTo(w * .79f, h * .36f, w * .83f, h * .38f, w * .86f, h * .45f)
+                    cubicTo(w * .90f, h * .50f, w * .96f, h * .52f, w * .99f, h * .64f)
+                    lineTo(w * .98f, h * .70f)
+                    cubicTo(w * .89f, h * .76f, w * .72f, h * .83f, w * .59f, h * .79f)
+                    close()
+                }
+                drawPath(
+                    upper,
+                    Brush.linearGradient(
+                        listOf(Color(0xFFBEEA62), Color(0xFF779C35), Color(0xFF2B4A1B)),
+                        start = Offset(w * .66f, h * .58f),
+                        end = Offset(w, h * .79f)
+                    )
+                )
+                val heelPanel = Path().apply {
+                    moveTo(w * .80f, h * .43f)
+                    cubicTo(w * .84f, h * .41f, w * .89f, h * .50f, w * .91f, h * .56f)
+                    lineTo(w * .86f, h * .66f)
+                    lineTo(w * .78f, h * .63f)
+                    close()
+                }
+                drawPath(heelPanel, Color(0xFF33531F).copy(alpha = .87f))
+                val toe = Path().apply {
+                    moveTo(w * .57f, h * .73f)
+                    cubicTo(w * .61f, h * .70f, w * .67f, h * .69f, w * .71f, h * .72f)
+                    cubicTo(w * .68f, h * .78f, w * .60f, h * .80f, w * .56f, h * .77f)
+                    close()
+                }
+                drawPath(toe, Color(0xFF456A25).copy(alpha = .87f))
+                val sideStripe = Path().apply {
+                    moveTo(w * .70f, h * .70f)
+                    cubicTo(w * .79f, h * .69f, w * .85f, h * .60f, w * .90f, h * .57f)
+                    cubicTo(w * .83f, h * .68f, w * .75f, h * .77f, w * .66f, h * .75f)
+                    close()
+                }
+                drawPath(sideStripe, Color(0xFFDCF883).copy(alpha = .80f))
+                // Tongue and four diagonal lace segments, all illustration only.
+                drawLine(
+                    Color(0xFF1E3917), Offset(w * .73f, h * .58f),
+                    Offset(w * .83f, h * .63f), strokeWidth = 2.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+                listOf(
+                    .63f to .75f, .66f to .78f, .69f to .81f, .72f to .84f
+                ).forEachIndexed { index, (left, right) ->
+                    val y = h * (.65f - index * .023f)
+                    drawLine(
+                        Color(0xFFE4FAA6), Offset(w * left, y),
+                        Offset(w * right, y + h * .034f),
+                        strokeWidth = 1.65.dp.toPx(), cap = StrokeCap.Round
+                    )
+                }
+                val soleHighlight = Path().apply {
+                    moveTo(w * .56f, h * .82f)
+                    cubicTo(w * .68f, h * .86f, w * .88f, h * .82f, w * .98f, h * .74f)
+                }
+                drawPath(
+                    soleHighlight, Color(0xFFD9FC85),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = 1.9.dp.toPx(), cap = StrokeCap.Round
+                    )
+                )
+            }
+            "strength" -> {
+                // Coral metallic dumbbell, matching the planned-card motif
+                // but lit against a darker completed-workout backdrop.
+                rotate(degrees = -26f, pivot = Offset(w * .83f, h * .65f)) {
+                    val dark = Color(0xFF522322)
+                    val face = Color(0xFFD56B60)
+                    drawRoundRect(
+                        color = Color(0xFFB9574D),
+                        topLeft = Offset(w * .58f, h * .63f),
+                        size = androidx.compose.ui.geometry.Size(w * .45f, h * .073f),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(h * .03f)
+                    )
+                    listOf(.66f, .73f, .91f, .99f).forEachIndexed { index, x ->
+                        val height = if (index == 0 || index == 3) .24f else .35f
+                        drawRoundRect(
+                            brush = Brush.horizontalGradient(
+                                listOf(dark, face, Color(0xFF812F2B))
+                            ),
+                            topLeft = Offset(w * x, h * (.67f - height * .50f)),
+                            size = androidx.compose.ui.geometry.Size(w * .065f, h * height),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(h * .024f)
+                        )
+                    }
+                    drawLine(
+                        Color(0xFFF1A79A).copy(alpha = .78f),
+                        Offset(w * .73f, h * .61f), Offset(w * .91f, h * .61f),
+                        strokeWidth = 1.5.dp.toPx()
+                    )
+                }
+            }
+            "calisthenics" -> {
+                // Calisthenics bar frame, softly luminous on dark violet.
+                val dark = Color(0xFF352244)
+                val light = Color(0xFFCC9DFC)
+                listOf(.73f, .96f).forEach { x ->
+                    drawLine(
+                        color = dark, start = Offset(w * x, h * .40f),
+                        end = Offset(w * x, h * .98f),
+                        strokeWidth = 12.dp.toPx(), cap = StrokeCap.Round
+                    )
+                    drawLine(
+                        color = light, start = Offset(w * x, h * .39f),
+                        end = Offset(w * x, h * .98f),
+                        strokeWidth = 4.dp.toPx(), cap = StrokeCap.Round
+                    )
+                    drawCircle(light, radius = 5.dp.toPx(), center = Offset(w * x, h * .39f))
+                }
+                drawLine(
+                    color = dark, start = Offset(w * .71f, h * .39f),
+                    end = Offset(w * .985f, h * .39f),
+                    strokeWidth = 12.dp.toPx(), cap = StrokeCap.Round
+                )
+                drawLine(
+                    color = Color(0xFFE2B9FF),
+                    start = Offset(w * .71f, h * .39f),
+                    end = Offset(w * .985f, h * .39f),
+                    strokeWidth = 4.5.dp.toPx(), cap = StrokeCap.Round
+                )
+            }
+            "conditioning" -> {
+                val line = Path().apply {
+                    moveTo(w * .60f, h * .73f)
+                    lineTo(w * .69f, h * .73f)
+                    lineTo(w * .74f, h * .55f)
+                    lineTo(w * .79f, h * .84f)
+                    lineTo(w * .86f, h * .60f)
+                    lineTo(w * .90f, h * .73f)
+                    lineTo(w, h * .73f)
+                }
+                drawPath(
+                    line, Color(0xFFA6DAFF),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = 4.dp.toPx(), cap = StrokeCap.Round
+                    )
+                )
+            }
+            else -> {
+                listOf(Color(0xFFCEA8FF), Color(0xFF9ECFD1), Color(0xFFFF9E8A))
+                    .forEachIndexed { index, ringColor ->
+                        drawCircle(
+                            color = ringColor.copy(alpha = .22f),
+                            radius = w * (.15f + index * .08f),
+                            center = Offset(w * .90f, h * .75f),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(
+                                width = 4.dp.toPx()
+                            )
+                        )
+                    }
+            }
+        }
+        // Gentle foreground sweep anchors the illustration to the card edge.
+        val sweep = Path().apply {
+            moveTo(w * .48f, h)
+            cubicTo(w * .68f, h * .86f, w * .78f, h * .94f, w, h * .76f)
+            lineTo(w, h)
+            close()
+        }
+        drawPath(sweep, floorTint.copy(alpha = .12f))
+    }
+}
+
 @Composable
 private fun TodayRecordedRow(
     title: String,
