@@ -140,6 +140,8 @@ internal fun StrideLabTodayScreen(
 ) {
     var selectedDay by rememberSaveable { mutableLongStateOf(LocalDate.now().toEpochDay()) }
     val date = LocalDate.ofEpochDay(selectedDay)
+    val todayDate = LocalDate.now()
+    val isPastDate = date.isBefore(todayDate)
     val context = LocalContext.current
     val reduceMotion = remember(context) {
         Settings.Global.getFloat(
@@ -154,6 +156,17 @@ internal fun StrideLabTodayScreen(
     val safeActivities = if (state.account == null) emptyList() else visibleActivities
     val safeHistory = if (state.account == null) emptyList() else state.activities
     val safePlans = if (state.account == null) emptyList() else state.plans
+    val recordedOnDate = remember(date, safeActivities) {
+        if (!isPastDate) emptyList() else safeActivities.filter {
+            !it.startedAt.isAfter(Instant.now()) &&
+                it.startedAt.atZone(ZoneId.systemDefault()).toLocalDate() == date
+        }.sortedByDescending { it.startedAt }
+    }
+    val confirmedOnDate = remember(date, safePlans, safeHistory) {
+        if (!isPastDate) emptyList() else
+            DashboardSummary.confirmedWorkouts(safePlans, safeHistory, Instant.now())
+                .filter { it.date == date }
+    }
     // Preserve persisted session order rather than sorting arbitrary IDs.
     val schedule = plan?.sessions?.filter { it.date == date && it.status != "unassigned" }
         ?: emptyList()
@@ -166,6 +179,11 @@ internal fun StrideLabTodayScreen(
     }?.sortedWith(compareBy<PlannedSession>({ it.date }, { it.id }))?.firstOrNull()
     val completed = schedule.count { it.status == "completed" }
     val tone = when {
+        isPastDate && recordedOnDate.size + confirmedOnDate.size > 1 -> TodayLook.lilac
+        isPastDate && recordedOnDate.isNotEmpty() -> todayRecordedColor(recordedOnDate.first().type)
+        isPastDate && confirmedOnDate.isNotEmpty() ->
+            todayDisciplineColor(confirmedOnDate.first().discipline)
+        isPastDate -> TodayLook.teal
         state.account == null || plan == null -> TodayLook.lime
         schedule.size > 1 -> TodayLook.coral
         schedule.isEmpty() -> TodayLook.lilac
@@ -204,20 +222,34 @@ internal fun StrideLabTodayScreen(
             )
         }
         item(key = "today-hero") {
-            TodayWaveWorkout(
-                accent = animatedTone,
-                notchFraction = notchPosition,
-                reduceMotion = reduceMotion,
-                date = date,
-                scheduled = schedule,
-                planAvailable = plan != null,
-                signedOut = state.account == null,
-                onOpen = { session ->
-                    if (plan != null) onOpenWorkout(plan.id, session.id) else onOpenTraining()
-                },
-                onPlan = onOpenTraining,
-                onSignIn = onSignIn
-            )
+            if (isPastDate) {
+                TodayRecordedTraining(
+                    date = date,
+                    accent = animatedTone,
+                    notchFraction = notchPosition,
+                    activities = recordedOnDate,
+                    logged = confirmedOnDate,
+                    plans = safePlans,
+                    onOpenActivity = onOpenActivityDetail,
+                    onOpenWorkout = onOpenWorkout,
+                    onViewAll = onOpenActivity
+                )
+            } else {
+                TodayWaveWorkout(
+                    accent = animatedTone,
+                    notchFraction = notchPosition,
+                    reduceMotion = reduceMotion,
+                    date = date,
+                    scheduled = schedule,
+                    planAvailable = plan != null,
+                    signedOut = state.account == null,
+                    onOpen = { session ->
+                        if (plan != null) onOpenWorkout(plan.id, session.id) else onOpenTraining()
+                    },
+                    onPlan = onOpenTraining,
+                    onSignIn = onSignIn
+                )
+            }
         }
         item(key = "today-next") {
             TodayNextSession(
@@ -277,6 +309,20 @@ internal fun StrideLabTodayScreen(
                 )
             }
         }
+    }
+}
+
+private fun todayRecordedColor(type: String): Color {
+    val t = type.lowercase(Locale.ROOT)
+    return when {
+        t.replace(Regex("[ _-]"), "") in setOf(
+            "run", "running", "trailrun", "trailrunning", "treadmill",
+            "virtualrun", "walk", "walking", "hiking", "hike"
+        ) -> TodayLook.lime
+        "strength" in t || "weight" in t -> TodayLook.coral
+        "calisthenics" in t || "bodyweight" in t -> TodayLook.lilac
+        "conditioning" in t || "circuit" in t -> TodayLook.azure
+        else -> TodayLook.teal
     }
 }
 
@@ -621,10 +667,11 @@ private fun TodayWaveWorkout(
             val multi = scheduled.size > 1
             val primary = scheduled.firstOrNull { it.status != "completed" }
                 ?: scheduled.firstOrNull()
+            val isToday = date == LocalDate.now()
         val title = when {
             signedOut -> "Train with StrideLab"
             !planAvailable -> "Your next chapter"
-            scheduled.isEmpty() -> "Recovery day"
+            scheduled.isEmpty() -> if (isToday) "Recovery day" else "Open day"
             multi -> scheduled.size.toString() + " sessions"
             else -> primary?.effectiveTitle ?: "Workout"
         }
@@ -647,6 +694,7 @@ private fun TodayWaveWorkout(
             signedOut -> "Sign in"
             !planAvailable -> "Create training plan"
             scheduled.isEmpty() -> "View training"
+            !isToday -> "View workout"
             multi -> if (scheduled.all { it.status == "completed" }) "View workouts" else "Open next workout"
             primary?.status == "completed" -> "View workout"
             else -> "Start workout"
@@ -663,8 +711,14 @@ private fun TodayWaveWorkout(
                     color = TodayLook.black, fontSize = 14.sp
                 )
                 Text(
-                    if (scheduled.isEmpty() && planAvailable && !signedOut) "RECOVERY DAY"
-                    else "TODAY'S WORKOUT",
+                    when {
+                        signedOut -> "YOUR TRAINING"
+                        !planAvailable -> "GET STARTED"
+                        scheduled.isEmpty() && isToday -> "RECOVERY DAY"
+                        scheduled.isEmpty() -> "NO WORKOUT SCHEDULED"
+                        isToday -> "TODAY'S WORKOUT"
+                        else -> "UPCOMING WORKOUT"
+                    },
                     fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TodayLook.black
                 )
                 Spacer(Modifier.weight(1f))
@@ -716,7 +770,8 @@ private fun TodayWaveWorkout(
                 Text(
                     if (signedOut) "Your activities stay private."
                     else if (!planAvailable) "Personalized sessions will appear here once approved."
-                    else "Make time to recover and come back stronger.",
+                    else if (isToday) "Make time to recover and come back stronger."
+                    else "See your training calendar for another scheduled day.",
                     color = TodayLook.black.copy(alpha = .72f), fontSize = 11.sp, lineHeight = 16.sp,
                     modifier = Modifier.fillMaxWidth(.83f)
                 )
