@@ -22,7 +22,7 @@ class NativeNavigationTest {
             compose.onAllNodesWithTag("nav-settings").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithTag("nav-settings").performClick()
-        // Trackside Settings is intentionally longer than the legacy screen;
+        // The compact More screen keeps account controls within its lazy list;
         // account actions are lazy-list items below the provider sections.
         compose.onNodeWithTag("screen").performScrollToNode(
             hasText("Sign out on this device") or hasText("Sign in")
@@ -49,7 +49,7 @@ class NativeNavigationTest {
         compose.onNodeWithTag("screen-title").assertTextEquals("Activities")
         capture("activities")
         compose.onNodeWithTag("nav-settings").performClick()
-        compose.onNodeWithTag("screen-title").assertTextEquals("Settings")
+        compose.onNodeWithTag("screen-title").assertTextEquals("More")
         capture("settings")
     }
     @Test fun passwordIsNotRestoredAfterRecreation() {
