@@ -8,6 +8,9 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertDoesNotExist
+import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -87,6 +90,36 @@ class TracksideTodayTest {
         )
         compose.onNodeWithTag("today-workout-action").performClick()
         compose.runOnIdle { assertEquals(1, signInCount) }
+    }
+
+    @Test fun signedOutTabsKeepTodaySelectionWithoutExposingInactiveScreens() {
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    NativeStrideContent(
+                        state = TrainingState(initializing = false, account = null),
+                        online = true,
+                        actions = NativeActions({}, {}, {}, {}, { _, _ -> })
+                    )
+                }
+            }
+        }
+        // Today is composed once; switching to Training and More must not
+        // dispose its selected date or leave its controls clickable.
+        compose.onNodeWithTag("today-day-0").performClick()
+        compose.onNodeWithTag("today-day-0").assertIsSelected()
+
+        compose.onNodeWithTag("nav-training").performClick()
+        compose.onNodeWithTag("training-unified-timeline").assertExists()
+        compose.onNodeWithTag("today-hero").assertDoesNotExist()
+
+        compose.onNodeWithTag("nav-settings").performClick()
+        compose.onNodeWithText("Keep your training close.").assertExists()
+        compose.onNodeWithTag("today-hero").assertDoesNotExist()
+
+        compose.onNodeWithTag("nav-home").performClick()
+        compose.onNodeWithTag("today-hero").assertExists()
+        compose.onNodeWithTag("today-day-0").assertIsSelected()
     }
 
 }
