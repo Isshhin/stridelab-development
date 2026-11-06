@@ -40,7 +40,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -2176,30 +2175,19 @@ private fun TodaySignedOutHero(
     onSignIn: () -> Unit
 ) {
     val accent = TodayLook.lime
+    val cardShape = remember { RoundedCornerShape(19.dp) }
     Box(
         Modifier.fillMaxWidth()
             .height(256.dp)
-            .graphicsLayer {
-                shape = todayNotchedShape(notchPosition.value)
-                clip = true
-            }
+            // Keep the artwork in a stable rounded layer. Animating a clip
+            // path over the entire card can require costly GPU work.
+            .clip(cardShape)
             .background(
                 Brush.linearGradient(
                     listOf(accent, accent.copy(alpha = .98f), accent.copy(alpha = .81f))
                 )
             )
-            .drawWithContent {
-                drawContent()
-                // Match the original thin outline to the moving concave edge,
-                // without rebuilding the card layout.
-                val outline = todayNotchedShape(notchPosition.value)
-                    .createOutline(size, layoutDirection, this)
-                drawOutline(
-                    outline,
-                    color = Color(0x55000000),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx())
-                )
-            }
+            .border(1.dp, Color(0x55000000), cardShape)
             .testTag("today-hero")
     ) {
         TodayDecorativeArt(
@@ -2263,6 +2251,33 @@ private fun TodaySignedOutHero(
                     )
                 }
             }
+        }
+        // Recreate only the tiny animated scoop at the card's top edge.
+        // Reads the spring in Draw, leaving the 256dp artwork and text static.
+        Canvas(
+            Modifier.align(Alignment.TopStart).fillMaxWidth().height(16.dp)
+        ) {
+            val w = size.width
+            val h = 256.dp.toPx()
+            val fraction = notchPosition.value.coerceIn(.06f, .94f)
+            val center = w * fraction
+            val radius = w * .052f
+            val leftRadius = minOf(radius, center * .35f)
+            val rightRadius = minOf(radius, (w - center) * .35f)
+            val wake = TracksideLiquidMotion.notchWake(fraction)
+            val maxHalf = minOf(
+                center - leftRadius - 2f,
+                w - rightRadius - center - 2f
+            ).coerceAtLeast(w * .012f)
+            val half = minOf(w * .065f * (1f + wake * .20f), maxHalf)
+            val depth = minOf(h * .035f * (1f + wake * .30f), w * .034f)
+            val scoop = Path().apply {
+                moveTo(center - half, 0f)
+                cubicTo(center - half * .42f, 0f, center - half * .55f, depth, center, depth)
+                cubicTo(center + half * .55f, depth, center + half * .42f, 0f, center + half, 0f)
+                close()
+            }
+            drawPath(scoop, TodayLook.black)
         }
     }
 }
