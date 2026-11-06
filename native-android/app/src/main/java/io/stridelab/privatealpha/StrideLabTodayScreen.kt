@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -248,9 +249,11 @@ internal fun StrideLabTodayScreen(
     val hasUnfinishedWorkout = schedule.any { it.status in setOf("planned", "in_progress") }
     val mixedToday = date == todayDate && hasUnfinishedWorkout &&
         (recordedOnDate.isNotEmpty() || confirmedOnDate.isNotEmpty())
-    val showRecorded = isPastDate ||
+    // Historical/recorded styles belong only to authenticated data. A
+    // signed-out athlete must see the same sign-in hero on every date.
+    val showRecorded = state.account != null && (isPastDate ||
         (date == todayDate && !hasUnfinishedWorkout &&
-            (recordedOnDate.isNotEmpty() || confirmedOnDate.isNotEmpty()))
+            (recordedOnDate.isNotEmpty() || confirmedOnDate.isNotEmpty())))
     val recordedKinds = recordedOnDate.map { todayRecordedKind(it.type) } +
         confirmedOnDate.map { todayHeroDiscipline(it.discipline) }
     val tone = when {
@@ -339,7 +342,11 @@ internal fun StrideLabTodayScreen(
             )
         }
         item(key = "today-hero") {
-            if (mixedToday) {
+            if (state.account == null) {
+                // Stable, draw-only animated notch. Do not recompose a
+                // complex hero card for every spring animation frame.
+                TodaySignedOutHero(notchPosition, onSignIn)
+            } else if (mixedToday) {
                 TodayMixedDayCard(
                     date = date,
                     planId = plan?.id ?: "",
@@ -638,12 +645,11 @@ private fun TodayWeekCalendar(
                             ) {
                                 Text(
                                     day.dayOfMonth.toString(),
-                                    color = lerp(
-                                        TodayLook.muted, TodayLook.black,
-                                        (1f - kotlin.math.abs(
-                                            selectionFractionState.value - (idx + .5f) / 7f
-                                        ) * 7f).coerceIn(0f, 1f)
-                                    ),
+                                    // The sliding circle animates independently.
+                                    // Recolor this label only on selection changes,
+                                    // not on every frame of the notch spring.
+                                    color = if (isSelected) TodayLook.black
+                                        else TodayLook.muted,
                                     fontSize = 14.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold
                                         else FontWeight.Medium
@@ -2153,6 +2159,108 @@ private fun TodayMultiPlannedCard(
                             }
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The signed-out hero has no date-specific content. Keep one stable layout
+ * for every weekday (past/present/future) and animate only its notch in the
+ * graphics/draw phases; the artwork and text never recompose per frame.
+ */
+@Composable
+private fun TodaySignedOutHero(
+    notchPosition: State<Float>,
+    onSignIn: () -> Unit
+) {
+    val accent = TodayLook.lime
+    Box(
+        Modifier.fillMaxWidth()
+            .height(256.dp)
+            .graphicsLayer {
+                shape = todayNotchedShape(notchPosition.value)
+                clip = true
+            }
+            .background(
+                Brush.linearGradient(
+                    listOf(accent, accent.copy(alpha = .98f), accent.copy(alpha = .81f))
+                )
+            )
+            .drawWithContent {
+                drawContent()
+                // Match the original thin outline to the moving concave edge,
+                // without rebuilding the card layout.
+                val outline = todayNotchedShape(notchPosition.value)
+                    .createOutline(size, layoutDirection, this)
+                drawOutline(
+                    outline,
+                    color = Color(0x55000000),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx())
+                )
+            }
+            .testTag("today-hero")
+    ) {
+        TodayDecorativeArt(
+            accent = accent,
+            kind = "general",
+            modifier = Modifier.matchParentSize()
+        )
+        Column(
+            Modifier.fillMaxWidth().padding(
+                start = 19.dp, end = 16.dp, top = 23.dp, bottom = 15.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                TodayDisciplineGlyph(kind = "recovery", modifier = Modifier.size(17.dp))
+                Text(
+                    "YOUR TRAINING", fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold, color = TodayLook.black,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis
+                )
+            }
+            Text(
+                "Train with StrideLab",
+                fontSize = 29.sp, lineHeight = 33.sp,
+                fontWeight = FontWeight.ExtraBold, color = TodayLook.black,
+                maxLines = 2, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(.83f)
+            )
+            Text(
+                "Sign in to see your own training schedule.",
+                color = TodayLook.black.copy(alpha = .82f),
+                fontSize = 12.sp, lineHeight = 17.sp,
+                modifier = Modifier.fillMaxWidth(.75f),
+                maxLines = 3, overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                "Your activities stay private.",
+                color = TodayLook.black.copy(alpha = .72f),
+                fontSize = 11.sp, lineHeight = 16.sp,
+                modifier = Modifier.fillMaxWidth(.83f)
+            )
+            Spacer(Modifier.height(6.dp))
+            Surface(
+                onClick = onSignIn,
+                shape = RoundedCornerShape(28.dp),
+                color = Color(0xFFEAFB77),
+                modifier = Modifier.height(42.dp).testTag("today-workout-action")
+            ) {
+                Row(
+                    Modifier.padding(horizontal = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("▶", color = TodayLook.black, fontSize = 12.sp)
+                    Text(
+                        "Sign in", color = TodayLook.black,
+                        fontSize = 13.sp, fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
