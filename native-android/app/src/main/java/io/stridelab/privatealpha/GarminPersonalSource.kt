@@ -98,6 +98,57 @@ internal class GarminPersonalSource(
         return WearablePage(accountId,records,(start+records.size).takeIf { records.size==limit }?.toString())
     }
 
+    /**
+     * Legacy backend Garmin summaries may predate local external_id storage.
+     * Read Garmin's authorized account history and recover identity only from
+     * a unique, tightly matching source event. Never guess an activity ID from
+     * its title or overwrite the original cached activity summary.
+     */
+    fun resolveLegacySource(accountId:String,summary:ActivityRecord):WearableActivityInput {
+        require(accountId==this.accountId)
+        require(summary.source=="garmin")
+        val duration=summary.durationS?.takeIf { it.isFinite() && it>0 }
+            ?: throw GarminProtocolException(
+                "This older Garmin record has no source ID or duration. Sync Garmin and open the imported activity.")
+        val distance=summary.distanceM?.takeIf { it.isFinite() && it>0 }
+            ?: throw GarminProtocolException(
+                "This older Garmin record has no source ID or distance. Sync Garmin and open the imported activity.")
+        val type=summary.type.lowercase(java.util.Locale.ROOT)
+            .replace(Regex("[ _-]"),"")
+        val running=type in setOf("run","running","trailrun","trailrunning",
+            "virtualrun","treadmill")
+        var cursor:String?=null
+        var found:WearableActivityInput?=null
+        repeat(20) {
+            val page=activities(accountId,cursor,100)
+            page.records.forEach { candidate ->
+                val candidateType=candidate.activityType.lowercase(java.util.Locale.ROOT)
+                    .replace(Regex("[ _-]"),"")
+                val sameType=if(running)candidateType in setOf(
+                    "run","running","trailrun","trailrunning","virtualrun","treadmill"
+                ) else candidateType==type
+                val sourceDuration=candidate.durationSeconds
+                val sourceDistance=candidate.distanceMeters
+                val sameEvent=sameType &&
+                    candidate.startedAt==summary.startedAt &&
+                    candidate.title?.trim()?.equals(summary.title.trim(),ignoreCase=true)==true &&
+                    sourceDuration!=null && kotlin.math.abs(sourceDuration-duration)<=2.0 &&
+                    sourceDistance!=null && kotlin.math.abs(sourceDistance-distance)<=10.0
+                if(sameEvent) {
+                    if(found!=null && found!!.externalId!=candidate.externalId)
+                        throw GarminProtocolException(
+                            "Several Garmin sources match this older activity. No GPS was imported.")
+                    found=candidate
+                }
+            }
+            cursor=page.nextCursor
+            if(cursor==null)return found ?: throw GarminProtocolException(
+                "The older Garmin source ID is missing. Sync Garmin and open the newer imported activity.")
+        }
+        return found ?: throw GarminProtocolException(
+            "The older Garmin source ID was not found in recent Garmin history. Sync Garmin to refresh it.")
+    }
+
     /** A single owner's explicit activity detail fetch, never background bulk ingestion. */
     fun downloadFitForSource(accountId:String,externalId:String,numericHint:Long?=null):ByteArray {
         require(accountId==this.accountId)
