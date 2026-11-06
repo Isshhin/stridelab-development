@@ -2,7 +2,8 @@ package io.stridelab.privatealpha
 
 import android.provider.Settings
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,7 +17,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -77,15 +80,30 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
     ) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val cellWidth = maxWidth / destinations.size
+            val targetOffset = if (selectedIndex < 0) 0.dp
+                else cellWidth * selectedIndex
             val pillOffset by animateDpAsState(
-                targetValue = if (selectedIndex < 0) 0.dp else cellWidth * selectedIndex,
-                animationSpec = tween(if (animationsDisabled) 0 else 260),
+                targetValue = targetOffset,
+                animationSpec = if (animationsDisabled) snap() else spring(
+                    dampingRatio = TracksideLiquidMotion.DAMPING,
+                    stiffness = TracksideLiquidMotion.STIFFNESS
+                ),
                 label = "floating-nav-pill"
             )
+            val liquidPressure = if (animationsDisabled) 0f
+                else TracksideLiquidMotion.pressure(
+                    pillOffset.value, targetOffset.value, cellWidth.value
+                )
             if (selectedIndex >= 0) {
                 Box(
                     modifier = Modifier.offset(x = pillOffset)
                         .width(cellWidth).fillMaxHeight()
+                        .graphicsLayer {
+                            // The lime droplet stretches along its travel
+                            // axis and relaxes without animating the dock.
+                            scaleX = TracksideLiquidMotion.stretch(liquidPressure, .16f)
+                            scaleY = TracksideLiquidMotion.squash(liquidPressure, .07f)
+                        }
                         .clip(RoundedCornerShape(30.dp))
                         .background(lime)
                         .testTag("nav-selected-indicator")
@@ -94,6 +112,17 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 destinations.forEachIndexed { index, (path, label, drawable) ->
                     val isSelected = selectedIndex == index
+                    // Text and icon ink follow the moving pill rather than
+                    // flashing to the new tab before the pill arrives.
+                    val proximity = if (selectedIndex < 0) 0f
+                        else (1f - kotlin.math.abs(
+                            pillOffset.value / cellWidth.value - index
+                        )).coerceIn(0f, 1f)
+                    val ink = lerp(
+                        Color(0xFFC0C4C6),
+                        Color(0xFF10120D),
+                        proximity
+                    )
                     Column(
                         modifier = Modifier.weight(1f).fillMaxHeight()
                             .clip(RoundedCornerShape(30.dp))
@@ -110,7 +139,7 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
                         Icon(
                             painter = painterResource(drawable),
                             contentDescription = null,
-                            tint = if (isSelected) Color(0xFF10120D) else Color(0xFFC0C4C6),
+                            tint = ink,
                             modifier = Modifier.size(21.dp)
                         )
                         Spacer(Modifier.height(3.dp))
@@ -119,7 +148,7 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
                             fontSize = 11.sp,
                             lineHeight = 13.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            color = if (isSelected) Color(0xFF10120D) else Color(0xFFC0C4C6),
+                            color = ink,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
