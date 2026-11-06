@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -1066,7 +1067,7 @@ private fun TodayDecorativeArt(accent: Color, kind: String, modifier: Modifier) 
                 close()
             }
             drawPath(shadow, Color(0xFF9D443C).copy(alpha = .22f))
-            androidx.compose.ui.graphics.drawscope.rotate(
+            rotate(
                 degrees = -35f,
                 pivot = Offset(w * .82f, h * .67f)
             ) {
@@ -1134,50 +1135,100 @@ private fun TodayNextSession(
     total: Int,
     onOpen: () -> Unit
 ) {
-    TodayDarkCard(onClick = onOpen, tag = "today-next-session") {
-        Row(verticalAlignment = Alignment.Top) {
-            Text("◷", fontSize = 24.sp, color = TodayLook.coral,
-                modifier = Modifier.padding(end = 11.dp))
-            Column(Modifier.weight(1f)) {
-                Text("Next session", fontSize = 12.sp, color = TodayLook.muted)
-                Text(
-                    next?.effectiveTitle ?: if (signedOut) "Your schedule awaits"
-                    else if (plan != null) "No upcoming sessions" else "Build your plan",
-                    fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TodayLook.text,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis
+    Surface(
+        onClick = onOpen,
+        shape = RoundedCornerShape(19.dp),
+        color = TodayLook.card,
+        border = androidx.compose.foundation.BorderStroke(1.dp, TodayLook.outline),
+        modifier = Modifier.fillMaxWidth().testTag("today-next-session")
+    ) {
+        Box(Modifier.fillMaxWidth()) {
+            Canvas(Modifier.matchParentSize()) {
+                val w = size.width
+                val h = size.height
+                val accent = Path().apply {
+                    moveTo(w * .70f, 0f)
+                    lineTo(w, 0f)
+                    lineTo(w, h * .94f)
+                    cubicTo(w * .87f, h * .45f, w * .78f, h * .39f, w * .70f, 0f)
+                    close()
+                }
+                drawPath(
+                    accent,
+                    Brush.linearGradient(
+                        listOf(Color(0xFF9C3433).copy(alpha = .37f),
+                            Color(0xFF692729).copy(alpha = .09f)),
+                        start = Offset(w * .74f, 0f),
+                        end = Offset(w, h)
+                    )
                 )
             }
-            Text("›", fontSize = 25.sp, color = TodayLook.muted)
-        }
-        if (next != null) {
-            Text(
-                next.date.format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.getDefault())) +
-                    "  ·  " + todaySessionDetails(next),
-                color = TodayLook.muted, fontSize = 12.sp, maxLines = 2
-            )
-        } else {
-            Text(
-                if (signedOut) "Sign in to see your training history."
-                else if (plan == null) "Create an approved schedule to get started."
-                else "Check your training schedule for future workouts.",
-                color = TodayLook.muted, fontSize = 12.sp
-            )
-        }
-        if (total > 0) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier.weight(1f).height(6.dp)
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(Color(0xFF34373D))
-                ) {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 11.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
-                        Modifier.fillMaxWidth(completed.toFloat() / total.toFloat())
-                            .fillMaxHeight().background(TodayLook.coral)
+                        Modifier.size(31.dp)
+                            .background(Color(0xFF3A2426), RoundedCornerShape(10.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("▣", color = TodayLook.coral, fontSize = 18.sp)
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Next Session", fontSize = 11.sp, color = TodayLook.muted)
+                        Text(
+                            next?.effectiveTitle ?: if (signedOut) "Your schedule awaits"
+                            else if (plan != null) "No upcoming sessions" else "Build your plan",
+                            fontSize = 17.sp, lineHeight = 21.sp,
+                            fontWeight = FontWeight.Bold, color = TodayLook.text,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Box(
+                        Modifier.size(27.dp)
+                            .background(Color(0xFF343035), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("›", color = TodayLook.text, fontSize = 22.sp)
+                    }
+                }
+                if (next != null) {
+                    Text(
+                        next.date.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())) +
+                            "  ·  " + todaySessionDetails(next),
+                        color = TodayLook.muted, fontSize = 11.sp,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis
+                    )
+                } else {
+                    Text(
+                        if (signedOut) "Sign in to see your training history."
+                        else if (plan == null) "Create an approved schedule to get started."
+                        else "Check your training schedule for future workouts.",
+                        color = TodayLook.muted, fontSize = 11.sp
                     )
                 }
-                Spacer(Modifier.width(12.dp))
-                Text(completed.toString() + " of " + total + " today",
-                    color = TodayLook.muted, fontSize = 11.sp)
+                if (total > 0) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier.weight(1f).height(5.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0xFF3B3D42))
+                        ) {
+                            Box(
+                                Modifier.fillMaxWidth(completed.toFloat() / total.toFloat())
+                                    .fillMaxHeight()
+                                    .background(TodayLook.coral, RoundedCornerShape(4.dp))
+                            )
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            "$completed of $total today",
+                            color = TodayLook.muted, fontSize = 10.sp
+                        )
+                    }
+                }
             }
         }
     }
@@ -1196,9 +1247,15 @@ private fun TodayActivityWeek(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(9.dp)
         ) {
-            Text("▥", fontSize = 25.sp, color = TodayLook.lime)
+            Box(
+                Modifier.size(31.dp)
+                    .background(Color(0xFF272F24), RoundedCornerShape(10.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("▥", fontSize = 19.sp, color = TodayLook.lime)
+            }
             Column(Modifier.weight(.8f)) {
-                Text("Activity", fontSize = 19.sp, fontWeight = FontWeight.Bold,
+                Text("Activity", fontSize = 16.sp, fontWeight = FontWeight.Bold,
                     color = TodayLook.text)
                 Text("Your week", fontSize = 12.sp, color = TodayLook.muted)
             }
@@ -1256,9 +1313,15 @@ private fun TodaySummaryWeek(
 ) {
     TodayDarkCard(onClick = onOpenActivity, tag = "today-week-summary") {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("✧", color = TodayLook.lime, fontSize = 20.sp)
+            Box(
+                Modifier.size(28.dp)
+                    .background(Color(0xFF2E3224), RoundedCornerShape(10.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("✧", color = TodayLook.lime, fontSize = 17.sp)
+            }
             Spacer(Modifier.width(9.dp))
-            Text("Weekly summary", fontSize = 17.sp, fontWeight = FontWeight.Bold,
+            Text("Weekly summary", fontSize = 16.sp, fontWeight = FontWeight.Bold,
                 color = TodayLook.text, modifier = Modifier.weight(1f))
             Text(
                 start.format(DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())) +
@@ -1285,8 +1348,6 @@ private fun TodaySummaryWeek(
                 tint = TodayLook.coral, modifier = Modifier.weight(1f)
             )
         }
-        Text("From saved records only", color = TodayLook.muted,
-            style = MaterialTheme.typography.labelSmall)
     }
 }
 
@@ -1302,7 +1363,7 @@ private fun TodayStat(
     label: String, value: String, tint: Color, modifier: Modifier = Modifier
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(value, color = tint, fontWeight = FontWeight.Bold, fontSize = 17.sp,
+        Text(value, color = tint, fontWeight = FontWeight.Bold, fontSize = 16.sp,
             maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(label, color = TodayLook.muted, fontSize = 10.sp,
             maxLines = 2, lineHeight = 13.sp)
@@ -1366,12 +1427,12 @@ private fun TodayDarkCard(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().testTag(tag),
         color = TodayLook.card,
-        shape = RoundedCornerShape(21.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, TodayLook.outline)
+        shape = RoundedCornerShape(18.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2B2E33))
     ) {
         Column(
-            Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(11.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
             content = content
         )
     }
