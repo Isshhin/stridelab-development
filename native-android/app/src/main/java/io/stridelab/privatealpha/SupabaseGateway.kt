@@ -10,6 +10,9 @@ import javax.net.ssl.HttpsURLConnection
 internal class ServiceFailure(val status: Int, message: String, val requiresSignIn: Boolean = status == 401): IOException(message)
 internal interface TrainingGateway {
     fun signIn(email: String, password: String): NativeSession
+    // Default methods preserve existing offline/mock gateways.
+    fun signUp(name: String, email: String, password: String) { throw IOException("Account creation unavailable") }
+    fun requestPasswordReset(email: String) { throw IOException("Password recovery unavailable") }
     fun refresh(session: NativeSession): NativeSession
     fun verify(session: NativeSession)
     fun activities(session: NativeSession, before: ActivityRecord?): JSONArray
@@ -34,6 +37,8 @@ internal object ServiceErrors {
             status == 401 -> "Your session needs to be renewed. Cached activities are retained."
             status == 403 -> "This account does not have permission for this request. Cached data is retained."
             status == 409 -> "The requested service is unavailable. Saved records are retained."
+            path.startsWith("/auth/v1/signup") && status == 400 -> "Account creation was not accepted. Check your details and password requirements."
+            path.startsWith("/auth/v1/recover") && status == 400 -> "Password reset could not be requested. Try again later."
             status == 400 && path.startsWith("/auth/") -> "Sign-in was not accepted. Check your email and password."
             else -> "The service could not complete the request (HTTP $status). Cached data is retained."
         }
@@ -88,6 +93,20 @@ internal class SupabaseGateway(private val transport: BackendTransport = HttpsBa
         return NativeSession(account,j.getString("access_token"),j.getString("refresh_token"),expires)
     }
     override fun signIn(email: String, password: String) = parseSession(request("/auth/v1/token?grant_type=password",body = JSONObject().put("email",email.trim()).put("password",password)))
+    override fun signUp(name: String, email: String, password: String) {
+        // The server controls whether email verification is required.
+        // Never adopt signup tokens without the repository's normal verified
+        // session/vault flow; the user signs in explicitly after registration.
+        request("/auth/v1/signup", body = JSONObject()
+            .put("email", email.trim())
+            .put("password", password)
+            .put("data", JSONObject().put("display_name", name.trim())))
+    }
+    override fun requestPasswordReset(email: String) {
+        // No redirect override: use the Supabase project's configured Site URL.
+        // The mobile app does not yet implement a recovery deep-link handler.
+        request("/auth/v1/recover", body = JSONObject().put("email", email.trim()))
+    }
     override fun refresh(session: NativeSession) = parseSession(request("/auth/v1/token?grant_type=refresh_token",body = JSONObject().put("refresh_token",session.refreshToken)),session.account)
     override fun verify(session: NativeSession) { require(JSONObject(request("/auth/v1/user",session.accessToken)).getString("id") == session.account) { "Session owner does not match" } }
     override fun activities(session: NativeSession, before: ActivityRecord?): JSONArray {
