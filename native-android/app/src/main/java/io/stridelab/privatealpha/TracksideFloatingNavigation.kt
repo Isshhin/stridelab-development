@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -65,18 +66,24 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
     val lime = Color(0xFFD8FB70)
 
     Box(
-        modifier = Modifier.fillMaxWidth().height(69.dp)
-            .clip(RoundedCornerShape(36.dp))
+        modifier = Modifier.fillMaxWidth().height(60.dp)
+            .shadow(
+                elevation = 12.dp,
+                shape = RoundedCornerShape(32.dp),
+                ambientColor = Color(0x99000000),
+                spotColor = Color(0x99000000)
+            )
+            .clip(RoundedCornerShape(32.dp))
             .background(
                 Brush.horizontalGradient(
-                    listOf(Color(0xFF222528), Color(0xFF151719), Color(0xFF111315))
+                    listOf(Color(0xFF171A1B), Color(0xFF101213), Color(0xFF151719))
                 )
             )
             .border(
-                BorderStroke(1.dp, Color(0xFF45484B)),
-                RoundedCornerShape(36.dp)
+                BorderStroke(1.dp, Color(0xFF434A4A)),
+                RoundedCornerShape(32.dp)
             )
-            .padding(horizontal = 6.dp, vertical = 6.dp)
+            .padding(horizontal = 5.dp, vertical = 5.dp)
     ) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val cellWidth = maxWidth / destinations.size
@@ -89,7 +96,7 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
                 Box(
                     modifier = Modifier.offset(x = pillOffset)
                         .width(cellWidth).fillMaxHeight()
-                        .clip(RoundedCornerShape(30.dp))
+                        .clip(RoundedCornerShape(27.dp))
                         .background(lime)
                         .testTag("nav-selected-indicator")
                 )
@@ -99,7 +106,7 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
                     val isSelected = selectedIndex == index
                     Column(
                         modifier = Modifier.weight(1f).fillMaxHeight()
-                            .clip(RoundedCornerShape(30.dp))
+                            .clip(RoundedCornerShape(27.dp))
                             .clickable { onTab(path) }
                             .testTag("nav-" + path)
                             .semantics {
@@ -114,9 +121,9 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
                             painter = painterResource(drawable),
                             contentDescription = null,
                             tint = if (isSelected) Color(0xFF10120D) else Color(0xFFC0C4C6),
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(19.dp)
                         )
-                        Spacer(Modifier.height(3.dp))
+                        Spacer(Modifier.height(2.dp))
                         Text(
                             label,
                             fontSize = 10.sp,
