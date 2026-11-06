@@ -853,6 +853,7 @@ private fun TodayNextSession(
 private fun TodayActivityWeek(
     metrics: TodayWeekMetrics,
     selectedDayIndex: Int,
+    reduceMotion: Boolean,
     onOpenActivity: () -> Unit
 ) {
     TodayDarkCard(onClick = onOpenActivity, tag = "today-activity-week") {
@@ -880,11 +881,25 @@ private fun TodayActivityWeek(
                         metrics.counts[idx] > 0 -> 7f
                         else -> 3f
                     }
+                    val barHeight by animateDpAsState(
+                        targetValue = height.dp,
+                        animationSpec = tween(if (reduceMotion) 0 else 220),
+                        label = "today-activity-height-$idx"
+                    )
+                    val barColor by animateColorAsState(
+                        targetValue = if (idx == selectedDayIndex) TodayLook.lime
+                            else Color(0xFF7B8088),
+                        animationSpec = tween(if (reduceMotion) 0 else 200),
+                        label = "today-activity-color-$idx"
+                    )
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Box(Modifier.width(8.dp).height(33.dp),
                             contentAlignment = Alignment.BottomCenter) {
-                            Box(Modifier.width(8.dp).height(height.dp).clip(RoundedCornerShape(3.dp))
-                                .background(if (idx == selectedDayIndex) TodayLook.lime else Color(0xFF7B8088)))
+                            Box(
+                                Modifier.width(8.dp).height(barHeight)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(barColor)
+                            )
                         }
                         Text(days[idx], color = TodayLook.muted, fontSize = 9.sp)
                     }
