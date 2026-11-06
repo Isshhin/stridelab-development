@@ -242,22 +242,25 @@ internal fun StrideLabUnifiedTrainingTimeline(
                 }
             }
         }
-        // When Today is the last dated entry, LazyColumn would otherwise
-        // clamp scrollToItem(todayIndex): there is not enough content AFTER
-        // Today to place it at the top. A blank scroll tail gives Today
-        // room to align with the top, leaving the lower area naturally black.
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-        val timelineViewportHeight = maxHeight
+        // Give the last real date exactly the available viewport height,
+        // accounting for LazyColumn's own content padding. Unlike a separate
+        // oversized spacer, this lets Today align to the top WITHOUT allowing
+        // further downward scrolling into an empty tail.
         LazyColumn(
             state = scroll,
-            modifier = Modifier.fillMaxSize().testTag("training-unified-timeline"),
+            modifier = Modifier.weight(1f).fillMaxWidth()
+                .testTag("training-unified-timeline"),
             contentPadding = PaddingValues(
                 start = 18.dp, end = 18.dp, top = 10.dp, bottom = 116.dp
             ),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             itemsIndexed(days, key = { _, day -> "timeline-date-${day.date}" }) { position, day ->
-                Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                Column(
+                    modifier = if (position == days.lastIndex)
+                        Modifier.fillParentMaxHeight() else Modifier,
+                    verticalArrangement = Arrangement.spacedBy(11.dp)
+                ) {
                     if (day.date != today &&
                         unifiedTimelineMonthHeading(days, position)
                     ) {
@@ -343,12 +346,6 @@ internal fun StrideLabUnifiedTrainingTimeline(
                     }
                 }
             }
-            // No fake upcoming workout or footer card: just enough empty
-            // canvas to let the current date be the first visible entry.
-            item(key = "training-timeline-bottom-space") {
-                Spacer(Modifier.height(timelineViewportHeight))
-            }
-        }
         }
     }
 }
