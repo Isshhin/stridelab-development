@@ -114,7 +114,7 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
                     val isSelected = selectedIndex == index
                     // Text and icon ink follow the moving pill rather than
                     // flashing to the new tab before the pill arrives.
-                    val proximity = if (selectedIndex < 0) 0f
+                    val proximity = if (selectedIndex < 0 || cellWidth.value <= 0f) 0f
                         else (1f - kotlin.math.abs(
                             pillOffset.value / cellWidth.value - index
                         )).coerceIn(0f, 1f)
@@ -147,7 +147,7 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
                             label,
                             fontSize = 11.sp,
                             lineHeight = 13.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            fontWeight = if (proximity >= .55f) FontWeight.Bold else FontWeight.Medium,
                             color = ink,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
