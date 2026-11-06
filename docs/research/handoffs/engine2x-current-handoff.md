@@ -1,5 +1,19 @@
 # StrideLab Engine 2.x current coordinating handoff
 
+## Graphify branch-indexing workflow — 2026-11-07
+
+Hosted Graphify currently indexes the repository default branch, not the unmerged Engine 2.x research branch. Its available graph was observed at commit `49824dc1c0e4c4825398f76ac5f5ea71bd145ba5`, which does not contain the later P2-F durable-store implementation.
+
+Use this workflow going forward:
+
+- First check Graphify freshness / indexed commit.
+- If the hosted graph contains the target implementation, use hosted Graphify first for call paths, impact analysis and linked tests.
+- If the task targets newer unmerged research-branch code, Codex should use a local Graphify index from the checked-out branch (refresh with `graphify update .`; optionally install the repository hook once).
+- Work should not trust a stale hosted graph for feature-branch implementation review; use Graphify PR review/current-head context where available, then targeted live GitHub verification.
+- Never force broad repository rereads when a fresh graph or targeted live verification is sufficient.
+
+This is a workflow correction, not an Engine 2.x code change. No production or research behavior changed.
+
 ## Current continuation — P2-F synthetic durability cleared — 2026-11-07
 
 Independent review returned:
