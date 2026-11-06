@@ -1,5 +1,10 @@
 # StrideLab Engine 2.x current coordinating handoff
 
+## Synthetic current-validity barrier continuation — 2026-11-07
+
+The earlier current-validity final-check race is addressed in the continuation: a SQLite writer reservation and the guarded synthetic authority jointly protect the final validation point; contention or reentrant changes fail closed without retry. The prior expected-failure regression is now a normal test, with additional thread/process and authority mutation cases. See the [synthetic durable-store boundary](../phase2/p2-f-durable-synthetic-boundary.md) for exact semantics and limitations. Earlier blocker descriptions below are historical. Independent Work review remains required; do not claim a final synthetic-durability pass. This is not private-pilot infrastructure. `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` remain unchanged.
+
+
 ## Canonical current P2-F session handoff — 2026-11-07
 
 For the latest session-level state, blocker history, verified milestone SHAs, test counts, user workflow preferences, and exact continuation instructions, read:

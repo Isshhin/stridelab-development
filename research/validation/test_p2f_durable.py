@@ -572,7 +572,6 @@ class ReplayValidityRegressionTests(unittest.TestCase):
             with self.assertRaisesRegex(Quarantine, 'authority changed during replay'):
                 self.current()
 
-    @unittest.expectedFailure
     def test_writer_during_final_authority_check_fails_closed(self):
         from unittest.mock import patch
         self.store.append('A', [full_event(activity())], 0)
@@ -588,6 +587,232 @@ class ReplayValidityRegressionTests(unittest.TestCase):
         with patch.object(self.auth, 'snapshot', side_effect=changed):
             with self.assertRaisesRegex(Quarantine, 'journal changed'):
                 self.current()
+
+    def test_both_states_change_at_final_head_check_fails_closed(self):
+        from unittest.mock import patch
+        self.store.append('A', [full_event(activity())], 0)
+        head = self.store.head
+        def changed(account):
+            self.auth.revoke('B', 'coach', 'research', 'development')
+            row = activity(); row['id'] = 'a2'; row['data']['activity_id'] = 'a2'
+            row['recorded_at'] = row['effective_at'] = row['available_at'] = ts(32)
+            self.store.append('A', [full_event(row)], 1)
+            return head(account)
+        with patch.object(self.store, 'head', side_effect=changed):
+            with self.assertRaisesRegex(Quarantine, 'journal changed'):
+                self.current()
+
+    def test_reentrant_authority_mutation_during_final_snapshot_fails_closed(self):
+        from unittest.mock import patch
+        self.store.append('A', [full_event(activity())], 0)
+        snapshot = self.auth.snapshot; calls = []
+        def changed():
+            calls.append(1)
+            prior = snapshot()
+            if len(calls) == 3:
+                self.auth.revoke('B', 'coach', 'research', 'development')
+            return prior
+        with patch.object(self.auth, 'snapshot', side_effect=changed):
+            with self.assertRaisesRegex(Quarantine, 'authority changed'):
+                self.current()
+        self.assertEqual(3, len(calls))
+
+    def test_historical_projectors_current_view_also_uses_barrier(self):
+        from unittest.mock import patch
+        self.store.append('A', [full_event(activity())], 0)
+        snapshot = self.auth.snapshot
+        for version in ('1', '2', '3'):
+            calls = []
+            def changed():
+                calls.append(1)
+                if len(calls) == 3:
+                    row = activity(); row['id'] = 'a2'; row['data']['activity_id'] = 'a2'
+                    row['recorded_at'] = row['effective_at'] = row['available_at'] = ts(32)
+                    self.store.append('A', [full_event(row)], 1)
+                return snapshot()
+            with self.subTest(version=version), patch.object(self.auth, 'snapshot', side_effect=changed):
+                with self.assertRaisesRegex(Quarantine, 'journal changed'):
+                    self.store.current_view('A', ts(25), as_of_now=ts(40), projector_version=version, **self.scope)
+            self.assertEqual(1, self.store.head('A'))
+
+    def test_assert_current_rejects_writer_during_authority_check(self):
+        from unittest.mock import patch
+        self.store.append('A', [full_event(activity())], 0)
+        projection = self.store.current_view('A', ts(25), as_of_now=ts(40), **self.scope)
+        snapshot = self.auth.snapshot
+        def changed():
+            row = activity(); row['id'] = 'a2'; row['data']['activity_id'] = 'a2'
+            row['recorded_at'] = row['effective_at'] = row['available_at'] = ts(32)
+            self.store.append('A', [full_event(row)], 1)
+            return snapshot()
+        with patch.object(self.auth, 'snapshot', side_effect=changed):
+            with self.assertRaisesRegex(Quarantine, 'journal changed'):
+                self.store.assert_current(projection)
+
+    def test_simultaneous_writer_is_serialized_and_no_deadlock(self):
+        from unittest.mock import patch
+        self.store.append('A', [full_event(activity())], 0)
+        entered = threading.Event(); finished = threading.Event(); results = []
+        def writer():
+            entered.set()
+            row = activity(); row['id'] = 'a2'; row['data']['activity_id'] = 'a2'
+            row['recorded_at'] = row['effective_at'] = row['available_at'] = ts(32)
+            try: results.append(self.store.append('A', [full_event(row)], 1))
+            except Exception as error: results.append(error)
+            finally: finished.set()
+        snapshot = self.auth.snapshot; calls = []; threads = []
+        def concurrent():
+            calls.append(1)
+            if len(calls) == 3:
+                thread = threading.Thread(target=writer); threads.append(thread); thread.start()
+                self.assertTrue(entered.wait(2))
+                self.assertFalse(finished.wait(0.1), 'writer passed final barrier')
+            return snapshot()
+        with patch.object(self.auth, 'snapshot', side_effect=concurrent):
+            view = self.current()
+        threads[0].join(3)
+        self.assertFalse(threads[0].is_alive(), 'writer deadlocked')
+        self.assertEqual([2], results)
+        self.assertEqual(1, view['validity']['journal_head'])
+        self.assertEqual(2, self.store.head('A'))
+        self.assertEqual(2, self.current()['validity']['journal_head'])
+
+    def test_busy_authority_guard_fails_closed_without_waiting(self):
+        from unittest.mock import patch
+        self.store.append('A', [full_event(activity())], 0)
+        class BusyGuard:
+            def acquire(self, blocking=True): return False
+            def __enter__(self): raise AssertionError('blocking guard acquisition')
+            def __exit__(self, *args): pass
+        with patch.object(self.auth, 'guard', return_value=BusyGuard()):
+            with self.assertRaisesRegex(Quarantine, 'authority busy during replay'):
+                self.current()
+        self.assertEqual(1, self.current()['validity']['journal_head'])
+
+    def test_real_contended_authority_guard_fails_without_deadlock(self):
+        from unittest.mock import patch
+        self.store.append('A', [full_event(activity())], 0)
+        guard = self.auth.guard(); held = threading.Event(); release = threading.Event(); threads = []
+        def hold_guard():
+            with guard:
+                held.set(); release.wait(3)
+        def acquire_guard():
+            thread = threading.Thread(target=hold_guard); threads.append(thread); thread.start()
+            self.assertTrue(held.wait(2))
+            return guard
+        try:
+            with patch.object(self.auth, 'guard', side_effect=acquire_guard):
+                with self.assertRaisesRegex(Quarantine, 'authority busy during replay'):
+                    self.current()
+        finally:
+            release.set()
+            for thread in threads: thread.join(3)
+        self.assertFalse(threads[0].is_alive(), 'authority holder deadlocked')
+        self.assertEqual(1, self.current()['validity']['journal_head'])
+
+    def test_reserved_writer_fails_closed_without_retry(self):
+        self.store.append('A', [full_event(activity())], 0)
+        with closing(sqlite3.connect(self.path, isolation_level=None)) as db:
+            db.execute('BEGIN IMMEDIATE')
+            try:
+                with self.assertRaisesRegex(Quarantine, 'journal busy during replay'):
+                    self.current()
+            finally:
+                db.execute('ROLLBACK')
+        self.assertEqual(1, self.current()['validity']['journal_head'])
+
+    def test_authority_mutation_waits_until_projection_linearizes(self):
+        from unittest.mock import patch
+        self.store.append('A', [full_event(activity())], 0)
+        started = threading.Event(); done = threading.Event(); threads = []
+        def withdraw():
+            started.set(); self.auth.withdraw('A'); done.set()
+        snapshot = self.auth.snapshot; calls = []
+        def concurrent():
+            calls.append(1)
+            if len(calls) == 3:
+                t = threading.Thread(target=withdraw); threads.append(t); t.start()
+                self.assertTrue(started.wait(2))
+                self.assertFalse(done.wait(0.1))
+            return snapshot()
+        with patch.object(self.auth, 'snapshot', side_effect=concurrent):
+            view = self.store.current_view('A', ts(25), as_of_now=ts(40), **self.scope)
+        threads[0].join(3)
+        self.assertFalse(threads[0].is_alive())
+        self.assertTrue(done.is_set())
+        with self.assertRaises(Quarantine): self.store.assert_current(view)
+
+    def test_process_writer_waits_until_projection_linearizes(self):
+        from unittest.mock import patch
+        self.store.append('A', [full_event(activity())], 0)
+        script = r"""
+import sys
+from p2f_durable import DurableStore, SyntheticAuthority
+from test_p2f_durable import full_event, activity
+from test_p2f_foundation import ts
+store = DurableStore(sys.argv[1], SyntheticAuthority({'A'}))
+store.authority.grant('A','coach','research','development')
+row=activity(); row['id']='a2'; row['data']['activity_id']='a2'
+row['recorded_at']=row['effective_at']=row['available_at']=ts(32)
+print('ready', flush=True)
+sys.stdin.readline()
+print('attempting', flush=True)
+store.append('A',[full_event(row)],1)
+"""
+        process = subprocess.Popen([sys.executable, '-c', script, str(self.path)],
+                                   cwd=Path(__file__).parent, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, text=True)
+        self.assertEqual('ready', process.stdout.readline().strip())
+        calls = []; snapshot = self.auth.snapshot
+        def concurrent():
+            calls.append(1)
+            if len(calls) == 3:
+                process.stdin.write('go\n'); process.stdin.flush()
+                self.assertEqual('attempting', process.stdout.readline().strip())
+                with self.assertRaises(subprocess.TimeoutExpired):
+                    process.wait(timeout=0.15)
+            return snapshot()
+        try:
+            with patch.object(self.auth, 'snapshot', side_effect=concurrent):
+                view = self.current()
+            out, err = process.communicate(timeout=5)
+            self.assertEqual(0, process.returncode, err)
+            self.assertEqual(1, view['validity']['journal_head'])
+            self.assertEqual(2, self.store.head('A'))
+        finally:
+            if process.poll() is None:
+                process.kill(); process.communicate()
+
+    def test_repeated_reentrant_writes_fail_closed_without_retry(self):
+        from unittest.mock import patch
+        self.store.append('A', [full_event(activity())], 0)
+        snapshot = self.auth.snapshot
+        for attempt in range(3):
+            calls = []
+            def attempted():
+                calls.append(1)
+                if len(calls) == 3:
+                    row = activity(); row['id'] = 'extra'; row['data']['activity_id'] = 'extra'
+                    row['recorded_at'] = row['effective_at'] = row['available_at'] = ts(32)
+                    self.store.append('A', [full_event(row)], 1)
+                return snapshot()
+            with self.subTest(attempt=attempt), patch.object(self.auth, 'snapshot', side_effect=attempted):
+                with self.assertRaisesRegex(Quarantine, 'journal changed'):
+                    self.current()
+            self.assertEqual(3, len(calls))
+            self.assertEqual(1, self.store.head('A'))
+
+    def test_stable_reopen_and_decision_replay(self):
+        from unittest.mock import patch
+        self.store.append('A', [full_event(activity())], 0)
+        before = self.current()
+        reopened = DurableStore(self.path, self.auth)
+        again = reopened.current_view('A', ts(25), as_of_now=ts(40), **self.scope).data
+        self.assertEqual(before, again)
+        with patch.object(self.auth, 'snapshot', side_effect=AssertionError('historical replay used barrier')):
+            historical = reopened.decision_view('A', ts(25), **self.scope).data
+        self.assertEqual(before['event_set_digest'], historical['event_set_digest'])
+        self.assertEqual(before['validity']['journal_head'], reopened.head('A'))
 
     def test_pre_projector_three_journal_reopens_without_rewriting(self):
         from p2f_foundation import canonical

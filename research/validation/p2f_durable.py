@@ -8,8 +8,9 @@ import hashlib
 import os
 import re
 import uuid
-from contextlib import closing
+from contextlib import closing, contextmanager
 import sqlite3
+import threading
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -67,43 +68,63 @@ def normalize(schema, event):
 
 
 class SyntheticAuthority:
-    """Non-durable test double; production authority is deliberately out of scope."""
+    """Non-durable, process-local test authority with a shared mutation guard."""
     def __init__(self, accounts):
-        self.accounts = set(accounts)
-        self.suppressed = set()
-        self.grants = set()
-        self.epoch = 0
-        self.authority_id = uuid.uuid4().hex
+        self._lock = threading.RLock()
+        self._accounts = set(accounts)
+        self._suppressed = set()
+        self._grants = set()
+        self._epoch = 0
+        self._authority_id = uuid.uuid4().hex
+
+    @property
+    def suppressed(self):
+        with self._lock:
+            return frozenset(self._suppressed)
+
+    def guard(self):
+        return self._lock
 
     def grant(self, account, view, purpose, partition):
-        require(account in self.accounts and account not in self.suppressed, 'access denied')
-        scope = tuple(ident(x) for x in (account, view, purpose, partition))
-        if scope not in self.grants:
-            self.grants.add(scope)
-            self.epoch += 1
+        require(not getattr(_final_barrier, 'active', False), 'authority changed during replay')
+        with self._lock:
+            require(account in self._accounts and account not in self._suppressed, 'access denied')
+            scope = tuple(ident(x) for x in (account, view, purpose, partition))
+            if scope not in self._grants:
+                self._grants.add(scope)
+                self._epoch += 1
 
     def revoke(self, account, view, purpose, partition):
-        scope = (account, view, purpose, partition)
-        if scope in self.grants:
-            self.grants.remove(scope)
-            self.epoch += 1
+        require(not getattr(_final_barrier, 'active', False), 'authority changed during replay')
+        with self._lock:
+            scope = (account, view, purpose, partition)
+            if scope in self._grants:
+                self._grants.remove(scope)
+                self._epoch += 1
 
     def check(self, account, view=None, purpose=None, partition=None):
-        require(account in self.accounts and account not in self.suppressed, 'access denied')
-        if view is not None:
-            require((account, view, purpose, partition) in self.grants, 'access denied')
+        with self._lock:
+            require(account in self._accounts and account not in self._suppressed, 'access denied')
+            if view is not None:
+                require((account, view, purpose, partition) in self._grants, 'access denied')
 
     def withdraw(self, account):
-        account = ident(account)
-        if account not in self.suppressed:
-            self.suppressed.add(account)
-            self.epoch += 1
+        require(not getattr(_final_barrier, 'active', False), 'authority changed during replay')
+        with self._lock:
+            account = ident(account)
+            if account not in self._suppressed:
+                self._suppressed.add(account)
+                self._epoch += 1
 
     def snapshot(self):
-        state = {'accounts': sorted(self.accounts), 'grants': sorted(self.grants),
-                 'suppressed': sorted(self.suppressed), 'epoch': self.epoch, 'authority_id': self.authority_id}
-        return {'authority_id': self.authority_id, 'epoch': self.epoch, 'digest': digest(state),
-                'suppression_digest': digest(sorted(self.suppressed))}
+        with self._lock:
+            state = {'accounts': sorted(self._accounts), 'grants': sorted(self._grants),
+                     'suppressed': sorted(self._suppressed), 'epoch': self._epoch, 'authority_id': self._authority_id}
+            return {'authority_id': self._authority_id, 'epoch': self._epoch, 'digest': digest(state),
+                    'suppression_digest': digest(sorted(self._suppressed))}
+
+
+_final_barrier = threading.local()
 
 
 @dataclass(frozen=True)
@@ -112,6 +133,7 @@ class DurableProjection:
     generation: int
     scope: tuple
     data: dict
+    authority_snapshot: dict | None = None
 
 
 class DurableStore:
@@ -157,8 +179,38 @@ class DurableStore:
                     all(isinstance(snapshot[key], str) and re.fullmatch(r'[0-9a-f]{64}', snapshot[key])
                         for key in ('digest', 'suppression_digest')), 'invalid authority snapshot')
             return dict(snapshot)
+        except Quarantine:
+            raise
         except Exception as error:
             raise Quarantine('authority snapshot unavailable') from error
+
+    @contextmanager
+    def _validity_barrier(self):
+        require(not getattr(_final_barrier, 'active', False), 'nested validity barrier')
+        with closing(self._connect()) as barrier:
+            barrier.execute('PRAGMA busy_timeout=0')
+            try:
+                barrier.execute('BEGIN IMMEDIATE')
+            except sqlite3.OperationalError as error:
+                raise Quarantine('journal busy during replay') from error
+            try:
+                require(type(self.authority) is SyntheticAuthority, 'authority guard unavailable')
+                guard = self.authority.guard()
+                require(guard.acquire(blocking=False), 'authority busy during replay')
+                try:
+                    _final_barrier.active = True
+                    try:
+                        yield barrier
+                    finally:
+                        try:
+                            barrier.execute('ROLLBACK')
+                        finally:
+                            _final_barrier.active = False
+                finally:
+                    guard.release()
+            finally:
+                if barrier.in_transaction:
+                    barrier.execute('ROLLBACK')
 
     def head(self, account):
         self._check(account)
@@ -188,6 +240,7 @@ class DurableStore:
         return result
 
     def append(self, account, events, expected_head, *, schema_version=SCHEMA_V3, fail_before_commit=False):
+        require(not getattr(_final_barrier, 'active', False), 'journal changed during replay')
         self._check(account)
         require(schema_version in (SCHEMA_V2, SCHEMA_V3), 'unsupported source schema')
         require(type(expected_head) is int and expected_head >= 0 and isinstance(events, (list, tuple)), 'invalid append')
@@ -274,7 +327,7 @@ class DurableStore:
 
     def _view(self, account, cutoff, watermark, projector_version, current, scope):
         self._check(account, *scope)
-        authority = self._authority_snapshot() if current and projector_version == '4' else None
+        authority = self._authority_snapshot() if current else None
         require(projector_version in ('1', '2', '3', '4'), 'unknown projector')
         stop = instant(cutoff)
         require(not current or stop <= current, 'cutoff after current time')
@@ -357,10 +410,10 @@ class DurableStore:
                 projection['lineage'] = {'event_ids': projection['event_ids'], 'invalidation_event_ids': sorted(e['id'] for e in invalidations if e['kind'] in ('source_correction', 'link_revocation')), 'invalidated_source_ids': sorted(corrected & set(source_activities)), 'revoked_link_ids': sorted(revoked)}
                 projection['exclusion_counts'] = {'invalidated_sources': len(corrected & set(source_activities)), 'revoked_links': len(revoked)}
         self._check(account, *scope)
-        if current and projector_version == '4':
+        if current:
             require(authority == self._authority_snapshot(), 'authority changed during replay')
             require(self.head(account) == generation, 'journal changed during replay')
-            require(authority == self._authority_snapshot(), 'authority changed during replay')
+        if current and projector_version == '4':
             invalidations = [event for _, _, event in all_rows
                              if event['kind'] in ('source_correction', 'link_revocation')
                              and instant(event['available_at']) <= current]
@@ -375,13 +428,26 @@ class DurableStore:
                         'journal_head': generation, 'journal_sequence_digest': projection['journal_sequence_digest']}
             validity['validity_digest'] = digest(validity)
             projection['validity'] = validity
+        if current:
+            with self._validity_barrier() as barrier:
+                head = barrier.execute('SELECT generation FROM heads WHERE account=?', (account,)).fetchone()
+                require((head[0] if head else 0) == generation, 'journal changed during replay')
+                self._check(account, *scope)
+                require(authority == self._authority_snapshot(), 'authority changed during replay')
+                return DurableProjection(account, generation, scope, projection, authority)
         return DurableProjection(account, generation, scope, projection)
 
     def assert_current(self, projection):
+        if projection.authority_snapshot is not None:
+            with self._validity_barrier() as barrier:
+                self._check(projection.account_id, *projection.scope)
+                head = barrier.execute('SELECT generation FROM heads WHERE account=?', (projection.account_id,)).fetchone()
+                require((head[0] if head else 0) == projection.generation, 'projection invalidated')
+                require(self._authority_snapshot() == projection.authority_snapshot, 'authority changed')
+                self._check(projection.account_id, *projection.scope)
+                return projection
         self._check(projection.account_id, *projection.scope)
         require(self.head(projection.account_id) == projection.generation, 'projection invalidated')
-        if 'validity' in projection.data:
-            require(self._authority_snapshot() == projection.data['validity']['authority'], 'authority changed')
         self._check(projection.account_id, *projection.scope)
         return projection
 
