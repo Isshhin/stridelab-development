@@ -170,7 +170,10 @@ private fun NavHostController.openActivity(id: String) {
     val showFloatingDock = route != "missed/{planId}/{sessionId}" &&
         route != "review-move/{planId}/{sessionId}/{date}" &&
         route != "activity/{id}" && route != "builder/{discipline}"
-    CompositionLocalProvider(LocalProfileAction provides { nav.openTabRoot("settings") }) {
+    CompositionLocalProvider(
+        LocalProfileAction provides { nav.openTabRoot("settings") },
+        LocalFloatingDockVisible provides showFloatingDock
+    ) {
     Box(Modifier.fillMaxSize()) {
     Scaffold(
         modifier = Modifier.fillMaxSize()
@@ -184,9 +187,10 @@ private fun NavHostController.openActivity(id: String) {
             NavHost(
                 navController = nav,
                 startDestination = "home",
-                // Keep the final card reachable above the floating overlay.
-                modifier = Modifier.weight(1f)
-                    .padding(bottom = if (showFloatingDock) 82.dp else 0.dp),
+                // Content is laid out behind the dock, not pushed upward into
+                // a blank bottom stripe. Scrollable roots reserve their own
+                // ending padding so their final actions remain reachable.
+                modifier = Modifier.weight(1f),
                 // Navigation Compose's default 700 ms fade made the bottom tabs
                 // feel like a flash. The lime dock pill is the only tab motion.
                 enterTransition = {
@@ -534,6 +538,7 @@ private fun NavHostController.openActivity(id: String) {
 }
 
 internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
+internal val LocalFloatingDockVisible=staticCompositionLocalOf { false }
 
 @Composable internal fun Screen(title: String, eyebrow: String, compactTitle: Boolean = false,
     dense: Boolean = false, edgeToEdge: Boolean = false, titleBadge: String? = null,
@@ -546,7 +551,15 @@ internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
         val horizontal = if (edgeToEdge) 0.dp else if (dense) 18.dp else 22.dp
         val top = if (edgeToEdge) 0.dp else if (dense) 12.dp else 24.dp
         val gap = if (edgeToEdge) 0.dp else if (dense) 12.dp else 18.dp
-        LazyColumn(Modifier.widthIn(max = 760.dp).fillMaxSize().testTag("screen").semantics { paneTitle = title }, contentPadding = PaddingValues(start = horizontal, end = horizontal, top = top, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(gap)) {
+        LazyColumn(
+            Modifier.widthIn(max = 760.dp).fillMaxSize().testTag("screen")
+                .semantics { paneTitle = title },
+            contentPadding = PaddingValues(
+                start = horizontal, end = horizontal, top = top,
+                bottom = if (LocalFloatingDockVisible.current) 110.dp else 32.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(gap)
+        ) {
             if (!edgeToEdge) item {
                 TracksideScreenHeader(
                     title, eyebrow, compactTitle, LocalProfileAction.current,
