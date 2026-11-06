@@ -169,6 +169,55 @@ class GarminPersonalSourceTest {
                 .downloadFitForSource("owner","uuid-source",789L))
     }
 
+    @Test fun legacySummaryWithoutExternalIdRecoversOnlyExactOwnerGarminMatch() {
+        val store=Store()
+        store.save(GarminCredentialRecord("owner","key","token",now.plusSeconds(7200)))
+        val api=Api()
+        api.records=listOf(
+            GarminActivity("source-111","Wrong Run","running",now.minusSeconds(3600),
+                1800.0,5000.0,null,null,numericActivityId=111L),
+            GarminActivity("source-222","Batis Running","running",now,
+                1800.0,5000.0,null,null,numericActivityId=222L)
+        )
+        val legacy=ActivityRecord("old-garmin-row","Batis Running","running","garmin",
+            now,5000.0,1800.0,null,null,null,null)
+        val source=GarminPersonalSource("owner",store,api){now}
+        val identified=source.resolveLegacySource("owner",legacy)
+        assertEquals("source-222",identified.externalId)
+        assertEquals(222L,identified.numericActivityId)
+        assertFails<IllegalArgumentException> {
+            source.resolveLegacySource("another-owner",legacy)
+        }
+    }
+
+    @Test fun legacyRecoveryRefusesAmbiguousAndUnverifiableGarminRecords() {
+        val store=Store()
+        store.save(GarminCredentialRecord("owner","key","token",now.plusSeconds(7200)))
+        val api=Api()
+        val legacy=ActivityRecord("old-garmin-row","Batis Running","running","garmin",
+            now,5000.0,1800.0,null,null,null,null)
+        api.records=listOf(
+            GarminActivity("source-a","Batis Running","running",now,
+                1800.0,5000.0,null,null,numericActivityId=111L),
+            GarminActivity("source-b","Batis Running","running",now,
+                1800.0,5000.0,null,null,numericActivityId=222L)
+        )
+        val source=GarminPersonalSource("owner",store,api){now}
+        assertFails<GarminProtocolException> {
+            source.resolveLegacySource("owner",legacy)
+        }
+        assertFails<GarminProtocolException> {
+            source.resolveLegacySource("owner",legacy.copy(distanceM=null))
+        }
+        api.records=listOf(
+            GarminActivity("wrong-time","Batis Running","running",now.minusSeconds(1),
+                1800.0,5000.0,null,null,numericActivityId=333L)
+        )
+        assertFails<GarminProtocolException> {
+            source.resolveLegacySource("owner",legacy)
+        }
+    }
+
     @Test fun dataFailureIsNeverMisclassifiedAsAuthenticationExpiry() {
         val data=GarminConnectionStatus.fromError(
             GarminProtocolException("Garmin activity has an invalid timestamp"))
