@@ -1,5 +1,13 @@
 # Engine 2.x P2-F current session handoff
 
+## Private-pilot concrete authority decision — 2026-11-07
+
+The [custody and authority contract](../phase2/p2-f-private-pilot-authority-custody-contract.md#9-concrete-local-first-decision-review--2026-11-07) now selects a conditional local-first candidate: a single Windows broker using an application-owned TPM 2.0 NV counter via TBS, a broker-authenticated authority ledger, user-scope DPAPI key wrapping and CNG authenticated encryption. A separately controlled NTS time-only gateway is proposed only for grant/retention deadlines; offline/clock uncertainty denies access. The exact reviewed source head was `09f5018a00ff6af36510cae9b47d025e5cbdb66f`; hosted Graphify index `8012c93d55a26ff60a85730a42aca51da561d945` was behind only docs/infrastructure, not the relevant implementation.
+
+Verdict: `PRIVATE_PILOT_CONTRACT_BLOCKED`. The actual TPM NV/TBS provisioning and access, authority issuance uniqueness, crash/recovery ordering, trusted time bootstrap, current data inventory and independent security review are unverified. The Garmin-device FIT path, firmware, parser package and independent reference remain candidates, not approved. No human/provider data or credentials were accessed; prior synthetic durability pass is unchanged. `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` remain unchanged.
+
+Next: obtain separate independent security/custody review and select the actual environment; verify TPM/NV support and failure behavior non-destructively in an authorized synthetic test environment, without clearing TPM or changing policy. Resolve authority/clock/recovery and source/reference gates. Only after independent acceptance implement the documented synthetic-only authority/custody harness. Do not admit human data or modify production/release paths.
+
 ## Private-pilot contract and review boundary — 2026-11-07
 
 [Authority and custody contract](../phase2/p2-f-private-pilot-authority-custody-contract.md): `PRIVATE_PILOT_CONTRACT_NEEDS_CORRECTION`, because this proposal has not received independent security review and the concrete independent nonrollback authority, bootstrap/recovery, revocation fence, key custody and operator environment remain unselected and unverified. Reviewed branch head `ee3f69553ad932631a24db2a065722a140c07837`; hosted graph index `8012c93d55a26ff60a85730a42aca51da561d945` differs only in handoff/mirror infrastructure, with relevant implementation unchanged.
