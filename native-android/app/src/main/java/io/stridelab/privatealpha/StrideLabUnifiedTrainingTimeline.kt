@@ -583,10 +583,13 @@ private fun TimelineRecordedCard(
                         )
                     }
                 }
-                if (gps != null) {
-                    TodayCompactGpsThumbnail(
-                        gps, modifier = Modifier.size(width = 55.dp, height = 52.dp)
-                    )
+                // Keep an identical row height and metrics width whether or
+                // not this recorded activity has a genuine cached GPS route.
+                // Empty space is intentional; never fabricate a route preview.
+                Box(Modifier.size(width = 55.dp, height = 52.dp)) {
+                    if (gps != null) {
+                        TodayCompactGpsThumbnail(gps, modifier = Modifier.fillMaxSize())
+                    }
                 }
             }
         }
