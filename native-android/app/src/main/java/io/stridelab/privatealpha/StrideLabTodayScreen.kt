@@ -157,14 +157,14 @@ internal fun StrideLabTodayScreen(
     val safeActivities = if (state.account == null) emptyList() else visibleActivities
     val safeHistory = if (state.account == null) emptyList() else state.activities
     val safePlans = if (state.account == null) emptyList() else state.plans
-    val recordedOnDate = remember(date, safeActivities) {
-        if (!isPastDate) emptyList() else safeActivities.filter {
+    val recordedOnDate = remember(date, todayDate, safeActivities) {
+        if (date.isAfter(todayDate)) emptyList() else safeActivities.filter {
             !it.startedAt.isAfter(Instant.now()) &&
                 it.startedAt.atZone(ZoneId.systemDefault()).toLocalDate() == date
         }.sortedByDescending { it.startedAt }
     }
-    val confirmedOnDate = remember(date, safePlans, safeHistory) {
-        if (!isPastDate) emptyList() else
+    val confirmedOnDate = remember(date, todayDate, safePlans, safeHistory) {
+        if (date.isAfter(todayDate)) emptyList() else
             DashboardSummary.confirmedWorkouts(safePlans, safeHistory, Instant.now())
                 .filter { it.date == date }
     }
@@ -179,12 +179,20 @@ internal fun StrideLabTodayScreen(
         it.date > todayDate && it.status in setOf("planned", "in_progress")
     }?.sortedWith(compareBy<PlannedSession>({ it.date }, { it.id }))?.firstOrNull()
     val completed = schedule.count { it.status == "completed" }
+    // A completed day uses recorded styling only when the evidence is saved.
+    // If a second session is still planned today, keep its actionable hero.
+    val hasUnfinishedWorkout = schedule.any { it.status in setOf("planned", "in_progress") }
+    val showRecorded = isPastDate ||
+        (date == todayDate && !hasUnfinishedWorkout &&
+            (recordedOnDate.isNotEmpty() || confirmedOnDate.isNotEmpty()))
+    val recordedKinds = recordedOnDate.map { todayRecordedKind(it.type) } +
+        confirmedOnDate.map { todayHeroDiscipline(it.discipline) }
     val tone = when {
-        isPastDate && recordedOnDate.size + confirmedOnDate.size > 1 -> TodayLook.lilac
-        isPastDate && recordedOnDate.isNotEmpty() -> todayRecordedColor(recordedOnDate.first().type)
-        isPastDate && confirmedOnDate.isNotEmpty() ->
+        showRecorded && recordedKinds.distinct().size > 1 -> TodayLook.lilac
+        showRecorded && recordedOnDate.isNotEmpty() -> todayRecordedColor(recordedOnDate.first().type)
+        showRecorded && confirmedOnDate.isNotEmpty() ->
             todayDisciplineColor(confirmedOnDate.first().discipline)
-        isPastDate -> TodayLook.teal
+        showRecorded -> TodayLook.teal
         state.account == null || plan == null -> TodayLook.lime
         schedule.size > 1 -> TodayLook.coral
         schedule.isEmpty() -> TodayLook.lilac
@@ -223,7 +231,7 @@ internal fun StrideLabTodayScreen(
             )
         }
         item(key = "today-hero") {
-            if (isPastDate) {
+            if (showRecorded) {
                 TodayRecordedTraining(
                     accent = animatedTone,
                     notchFraction = notchPosition,
@@ -312,18 +320,25 @@ internal fun StrideLabTodayScreen(
     }
 }
 
-private fun todayRecordedColor(type: String): Color {
-    val t = type.lowercase(Locale.ROOT)
+/** Display-only classification of the saved activity type; never infer a workout. */
+private fun todayRecordedKind(type: String): String {
+    val t = type.lowercase(Locale.ROOT).replace(Regex("[ _-]"), "")
     return when {
-        t.replace(Regex("[ _-]"), "") in setOf(
-            "run", "running", "trailrun", "trailrunning", "treadmill",
-            "virtualrun", "walk", "walking", "hiking", "hike"
-        ) -> TodayLook.lime
-        "strength" in t || "weight" in t -> TodayLook.coral
-        "calisthenics" in t || "bodyweight" in t -> TodayLook.lilac
-        "conditioning" in t || "circuit" in t -> TodayLook.azure
-        else -> TodayLook.teal
+        t in setOf("run", "running", "trailrun", "trailrunning", "treadmill",
+            "virtualrun", "walk", "walking", "hiking", "hike") -> "running"
+        "strength" in t || "weight" in t || "gym" in t -> "strength"
+        "calisthenics" in t || "bodyweight" in t -> "calisthenics"
+        "conditioning" in t || "circuit" in t || "hiit" in t -> "conditioning"
+        else -> "other"
     }
+}
+
+private fun todayRecordedColor(type: String): Color = when (todayRecordedKind(type)) {
+    "running" -> TodayLook.lime
+    "strength" -> TodayLook.coral
+    "calisthenics" -> TodayLook.lilac
+    "conditioning" -> TodayLook.azure
+    else -> TodayLook.teal
 }
 
 private fun todayDisciplineColor(value: String): Color = when (value.lowercase(Locale.ROOT)) {
