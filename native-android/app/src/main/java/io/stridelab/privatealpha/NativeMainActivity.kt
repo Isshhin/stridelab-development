@@ -70,6 +70,12 @@ import java.time.format.DateTimeFormatter
 class NativeMainActivity: ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Remove the platform navigation-bar tint beneath the floating dock.
+        // The gesture handle remains system-controlled and accessible.
+        window.navigationBarColor = android.graphics.Color.BLACK
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
         setContent { StrideTheme { NativeStrideApp() } }
     }
 }
@@ -179,9 +185,9 @@ private fun NavHostController.openActivity(id: String) {
         modifier = Modifier.fillMaxSize(),
         containerColor = Color.Transparent
     ) { padding ->
-        // No separate navy backdrop at the foot of the screen. Today stays
-        // AMOLED black right through the space behind the floating dock.
-        val pageBackground = if (route == "home") {
+        // Today and Training share a true AMOLED-black canvas, including
+        // the space behind and below the floating navigation dock.
+        val pageBackground = if (route == "home" || route == "training") {
             Brush.verticalGradient(listOf(Color.Black, Color.Black))
         } else {
             Brush.verticalGradient(
