@@ -1,0 +1,136 @@
+package io.stridelab.privatealpha
+
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class UnifiedTrainingTimelineTest {
+    private val manila = ZoneId.of("Asia/Manila")
+    private val today = LocalDate.parse("2026-11-06")
+
+    private fun activity(id: String, instant: String) = ActivityRecord(
+        id = id, title = "Actual source record", type = "run",
+        source = "garmin", startedAt = Instant.parse(instant),
+        distanceM = 5000.0, durationS = 1800.0,
+        movingTimeS = 1700.0, recordedPace = null,
+        averageHr = null, elevationM = null
+    )
+
+    private fun session(
+        id: String,
+        date: String,
+        status: String = "planned",
+        linked: String? = null,
+        performed: String? = null
+    ) = PlannedSession(
+        id = id, date = LocalDate.parse(date), discipline = "run",
+        title = "Actual planned session", minutes = 45,
+        distanceKm = 8.0, kind = "easy", status = status,
+        linkedActivityId = linked,
+        log = performed?.let {
+            WorkoutLog(at = Instant.parse("2026-11-06T10:00:00Z"),
+                performedOn = LocalDate.parse(it))
+        }
+    )
+
+    private fun plan(
+        status: String = "approved",
+        sessions: List<PlannedSession>
+    ) = PlanSnapshot(
+        id = "plan-1", owner = "athlete",
+        engineVersion = "test", policyId = "test",
+        createdAt = Instant.parse("2026-11-01T00:00:00Z"),
+        request = PlanRequest(start = today, weeks = 4),
+        sessions = sessions, explanations = emptyList(), status = status
+    )
+
+    @Test fun noPlanOrActivityStillHasCurrentDateAnchor() {
+        val days = unifiedTrainingDays(today, emptyList(), emptyList(), null, manila)
+        assertEquals(listOf(today), days.map { it.date })
+        assertTrue(days.single().activities.isEmpty())
+        assertTrue(days.single().workouts.isEmpty())
+    }
+
+    @Test fun historyIsAboveTodayAndUpcomingSessionsBelowItWithoutBlankDays() {
+        val sessions = listOf(
+            session("future", "2026-11-09"),
+            session("later", "2026-12-01")
+        )
+        val groups = listOf(DisplayActivity(activity("past", "2026-11-04T10:00:00Z")))
+        val days = unifiedTrainingDays(
+            today, groups, listOf(plan(sessions = sessions)), "plan-1", manila
+        )
+        assertEquals(
+            listOf("2026-11-04", "2026-11-06", "2026-11-09", "2026-12-01"),
+            days.map { it.date.toString() }
+        )
+    }
+
+    @Test fun deviceTimezoneDeterminesTheRecordedDate() {
+        // 18:00 UTC November 5 is 02:00 in Manila on November 6.
+        val days = unifiedTrainingDays(
+            today,
+            listOf(DisplayActivity(activity("today-run", "2026-11-05T18:00:00Z"))),
+            emptyList(), null, manila
+        )
+        assertEquals(1, days.size)
+        assertEquals("today-run", days.single().activities.single().primary.id)
+    }
+
+    @Test fun linkedSourceIdentitySuppressesDuplicateCompletedPlanCard() {
+        val primary = activity("garmin-owned", "2026-11-05T18:00:00Z")
+        val alias = activity("garmin-legacy", "2026-11-05T18:00:01Z")
+        val days = unifiedTrainingDays(
+            today,
+            listOf(DisplayActivity(primary, listOf(alias))),
+            listOf(plan(sessions = listOf(
+                session("linked", "2026-11-06", "completed", linked = alias.id),
+                session("independent", "2026-11-06", "completed")
+            ))),
+            "plan-1", manila
+        )
+        assertEquals(1, days.single().activities.size)
+        assertEquals(listOf("independent"),
+            days.single().workouts.map { it.session.id })
+    }
+
+    @Test fun actualPerformedDateWinsOverScheduledDateForLoggedSession() {
+        val days = unifiedTrainingDays(
+            today, emptyList(),
+            listOf(plan(sessions = listOf(
+                session("completed", "2026-11-03", status = "completed",
+                    performed = "2026-11-05")
+            ))),
+            "plan-1", manila
+        )
+        assertEquals(listOf("2026-11-05", "2026-11-06"),
+            days.map { it.date.toString() })
+    }
+
+    @Test fun draftDoesNotInventUpcomingWorkoutsButPreservesRealLogs() {
+        val days = unifiedTrainingDays(
+            today, emptyList(),
+            listOf(plan(status = "draft", sessions = listOf(
+                session("draft-only", "2026-11-07"),
+                session("logged", "2026-11-04", status = "completed")
+            ))),
+            null, manila
+        )
+        assertEquals(listOf("2026-11-04", "2026-11-06"),
+            days.map { it.date.toString() })
+        assertEquals("logged", days.first().workouts.single().session.id)
+    }
+
+    @Test fun twoDistinctRecordedRunsRemainSeparateOnSameDate() {
+        val groups = listOf(
+            DisplayActivity(activity("run1", "2026-11-06T06:00:00Z")),
+            DisplayActivity(activity("run2", "2026-11-06T09:00:00Z"))
+        )
+        val days = unifiedTrainingDays(today, groups, emptyList(), null, manila)
+        assertEquals(listOf("run1", "run2"),
+            days.single().activities.map { it.primary.id })
+    }
+}
