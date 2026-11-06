@@ -16,6 +16,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.geometry.Offset
@@ -28,6 +29,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.foundation.layout.*
@@ -204,13 +206,17 @@ private fun NavHostController.openActivity(id: String) {
                 Text("Offline · Saved activities remain available", Modifier.fillMaxWidth().padding(horizontal = 20.dp,vertical = 10.dp).testTag("offline-status"),style = MaterialTheme.typography.bodyMedium)
             }
             state.message?.let { Surface(color = MaterialTheme.colorScheme.surfaceVariant) { Text(it, Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }.padding(horizontal = 20.dp, vertical = 12.dp), style = MaterialTheme.typography.bodyMedium) } }
+            // Keep the signed-out primary screens composed independently of
+            // NavHost. Their text/layout is measured once rather than rebuilt
+            // during every tab switch, which the device trace showed was slow.
+            Box(Modifier.weight(1f)) {
             NavHost(
                 navController = nav,
                 startDestination = "home",
                 // Content is laid out behind the dock, not pushed upward into
                 // a blank bottom stripe. Scrollable roots reserve their own
                 // ending padding so their final actions remain reachable.
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxSize(),
                 // Navigation Compose's default 700 ms fade made the bottom tabs
                 // feel like a flash. The lime dock pill is the only tab motion.
                 enterTransition = {
@@ -231,7 +237,7 @@ private fun NavHostController.openActivity(id: String) {
                 }
             ) {
                 composable("home") {
-                    StrideLabTodayScreen(
+                    if (state.account != null) StrideLabTodayScreen(
                         state = state,
                         visibleActivities = visibleActivities,
                         online = online,
@@ -332,7 +338,7 @@ private fun NavHostController.openActivity(id: String) {
                         )
                     }
                 }
-                composable("training") { StrideLabUnifiedTrainingTimeline(state,groupedActivities,actions.planning,{nav.navigate("builder/all")},{p,s->nav.openWorkout(p,s)},{id->nav.openActivity(id)},{nav.navigate("auth")},{p,d->nav.navigate("manage/${android.net.Uri.encode(p)}/$d")}) }
+                composable("training") { if (state.account != null) StrideLabUnifiedTrainingTimeline(state,groupedActivities,actions.planning,{nav.navigate("builder/all")},{p,s->nav.openWorkout(p,s)},{id->nav.openActivity(id)},{nav.navigate("auth")},{p,d->nav.navigate("manage/${android.net.Uri.encode(p)}/$d")}) }
                 composable("manage/{planId}/{date}") { back ->
                     val planId = back.arguments?.getString("planId") ?: ""
                     val plan = state.plans.firstOrNull { it.id == planId }
@@ -451,6 +457,7 @@ private fun NavHostController.openActivity(id: String) {
                     )
                 }
                 composable("settings") {
+                    if (state.account != null) {
                     val context = LocalContext.current
                     var confirmSignOut by remember { mutableStateOf(false) }
                     Screen("Settings", "ACCOUNT & DATA") {
@@ -479,6 +486,7 @@ private fun NavHostController.openActivity(id: String) {
                         item { Text("Private testing", style = MaterialTheme.typography.titleMedium); Text("Real-account and phone acceptance are in progress. Your saved data stays on this device.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     }
                     if(confirmSignOut) AlertDialog(onDismissRequest = { confirmSignOut = false }, title = { Text("Sign out?") }, text = { Text("Removes this device’s saved session. Cached records remain private in app storage and are hidden until that account signs in again.") }, confirmButton = { TextButton(onClick = { confirmSignOut = false; actions.signOut() }) { Text("Sign out") } }, dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text("Cancel") } })
+                    }
                 }
                 composable("auth") {
                     var email by rememberSaveable { mutableStateOf("") }
@@ -509,6 +517,41 @@ private fun NavHostController.openActivity(id: String) {
                     }
                 }
             }
+            if (state.account == null) {
+                // Only the anonymous roots are retained for now. Signed-in
+                // flows keep their existing NavHost lifecycle and permissions.
+                // This prevents a sign-out from retaining account UI.
+                PersistentTabSurface(active = route == null || route == "home") {
+                    StrideLabTodayScreen(
+                        state = state, visibleActivities = visibleActivities,
+                        online = online,
+                        onOpenTraining = { nav.openTabRoot("training") },
+                        onOpenActivity = { nav.openTabRoot("training") },
+                        onOpenWorkout = { planId, sessionId -> nav.openWorkout(planId, sessionId) },
+                        onOpenActivityDetail = { id -> nav.openActivity(id) },
+                        onOpenMore = { nav.openTabRoot("settings") },
+                        onSignIn = { nav.navigate("auth") }
+                    )
+                }
+                PersistentTabSurface(active = route == "training") {
+                    StrideLabUnifiedTrainingTimeline(
+                        state, groupedActivities, actions.planning,
+                        { nav.navigate("builder/all") },
+                        { p, session -> nav.openWorkout(p, session) },
+                        { id -> nav.openActivity(id) },
+                        { nav.navigate("auth") },
+                        { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") }
+                    )
+                }
+                PersistentTabSurface(active = route == "settings") {
+                    SignedOutSettingsRoot(
+                        state = state,
+                        onLibrary = { nav.openTabRoot("library") },
+                        onSignIn = { nav.navigate("auth") }
+                    )
+                }
+            }
+            } // Persistent tab container
         }
     }
     if (showFloatingDock) {
@@ -526,6 +569,84 @@ private fun NavHostController.openActivity(id: String) {
     }
 }
 
+}
+
+
+/**
+ * Keeps an already-measured tab hierarchy alive without exposing its buttons
+ * or accessibility nodes while a different route is active. Offstage tabs are
+ * placed outside the viewport and do not appear in the semantics tree.
+ */
+@Composable
+private fun PersistentTabSurface(
+    active: Boolean,
+    content: @Composable () -> Unit
+) {
+    Box(
+        Modifier.fillMaxSize()
+            .offset(x = if (active) 0.dp else (-4000).dp)
+            .graphicsLayer { alpha = if (active) 1f else 0f }
+            .then(if (active) Modifier else Modifier.clearAndSetSemantics {})
+    ) {
+        content()
+    }
+}
+
+/** Signed-out More tab: same UI as its NavHost destination, kept alive. */
+@Composable
+private fun SignedOutSettingsRoot(
+    state: TrainingState,
+    onLibrary: () -> Unit,
+    onSignIn: () -> Unit
+) {
+    val context = LocalContext.current
+    Screen("Settings", "ACCOUNT & DATA") {
+        item {
+            SignalCard {
+                Text("YOUR STRIDELAB", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary)
+                Text("Keep your training close.", style = MaterialTheme.typography.titleLarge)
+                Text("Private preview · ${BuildConfig.VERSION_NAME}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        item { SyncStatus(state) }
+        item {
+            OutlinedButton(onClick = onLibrary, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+                Text("Workout library")
+            }
+        }
+        item {
+            Button(onClick = onSignIn, modifier = Modifier.fillMaxWidth()) {
+                Text("Sign in")
+            }
+        }
+        item { TracksideSectionHeader("Device & data") }
+        item {
+            SignalCard {
+                Text("LEGACY DATA & BACKUPS", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary)
+                Text("Your earlier training is preserved", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "Review your original records and use the existing backup and restore tools. Legacy records are not yet converted into native history.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedButton(
+                    onClick = { context.startActivity(Intent(context, MainActivity::class.java)) },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                ) { Text("Open preserved prototype") }
+            }
+        }
+        item {
+            Text("Private testing", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Real-account and phone acceptance are in progress. Your saved data stays on this device.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }
 
 internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
