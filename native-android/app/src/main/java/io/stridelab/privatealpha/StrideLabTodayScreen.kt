@@ -285,6 +285,37 @@ internal fun StrideLabTodayScreen(
     // Restore the same top anchor only when the calendar is already at the top.
     // Preserve intentional scrolling further down the Today page.
     val listState = rememberLazyListState()
+    // The floating dock overlays the page. When every signed-out card is
+    // completely visible above it, the empty dashboard must not drag or
+    // overscroll. Use measured item bounds, not a device-size assumption:
+    // compact devices and large accessibility text still get full scrolling.
+    val dockClearancePx = with(androidx.compose.ui.platform.LocalDensity.current) {
+        90.dp.roundToPx()
+    }
+    val signedOutNeedsScroll by remember(listState, dockClearancePx) {
+        derivedStateOf {
+            val layout = listState.layoutInfo
+            val last = layout.visibleItemsInfo.lastOrNull()
+            when {
+                listState.firstVisibleItemIndex > 0 ||
+                    listState.firstVisibleItemScrollOffset > 0 -> true
+                layout.totalItemsCount == 0 || last == null -> false
+                last.index < layout.totalItemsCount - 1 -> true
+                else -> last.offset + last.size >
+                    layout.viewportEndOffset + layout.afterContentPadding - dockClearancePx
+            }
+        }
+    }
+    // A sign-out can reuse the previous account's list position; start the
+    // signed-out dashboard from its date strip instead.
+    LaunchedEffect(state.account) {
+        if (state.account == null &&
+            (listState.firstVisibleItemIndex != 0 ||
+                listState.firstVisibleItemScrollOffset != 0)
+        ) {
+            listState.scrollToItem(0)
+        }
+    }
     LaunchedEffect(selectedDay) {
         // Date changes happen via the visible calendar. Re-anchor it fully,
         // including the few-pixel drift that persists after a tap or swipe.
@@ -297,16 +328,15 @@ internal fun StrideLabTodayScreen(
 
     LazyColumn(
         state = listState,
+        userScrollEnabled = state.account != null || signedOutNeedsScroll,
         modifier = Modifier.fillMaxSize().background(TodayLook.black)
             .testTag("screen").semantics { paneTitle = "Today" },
-        // Signed-out Today fits in a single viewport on common phones. The
-        // full 110dp dock clearance otherwise creates artificial overflow and
-        // makes the empty dashboard scroll even when all cards are visible.
-        // Keep the full clearance for signed-in timelines; signed-out content
-        // can still scroll naturally on smaller screens or with larger text.
+        // Do not add artificial overflow on the compact signed-out layout.
+        // Restore full dock clearance whenever scrolling is actually needed,
+        // so the last card remains reachable above the floating navigation.
         contentPadding = PaddingValues(
             start = 19.dp, end = 19.dp, top = 12.dp,
-            bottom = if (state.account == null) 12.dp else 110.dp
+            bottom = if (state.account == null && !signedOutNeedsScroll) 12.dp else 110.dp
         ),
         verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
