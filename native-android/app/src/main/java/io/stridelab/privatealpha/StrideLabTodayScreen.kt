@@ -638,11 +638,6 @@ private fun TodayRecordedTraining(
                     fontWeight = FontWeight.Bold, fontSize = 12.sp,
                     modifier = Modifier.weight(1f)
                 )
-                Text(
-                    date.format(DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())),
-                    color = TodayLook.muted,
-                    fontSize = 11.sp
-                )
             }
             Text(
                 title, color = TodayLook.text,
@@ -798,7 +793,7 @@ private fun TodayWaveWorkout(
     Box(
         Modifier.fillMaxWidth()
             .animateContentSize(animationSpec = tween(if (reduceMotion) 0 else 240))
-            .heightIn(min = if (multi) 284.dp else 228.dp)
+            .heightIn(min = if (multi) 275.dp else 184.dp)
             .clip(shape)
             .background(
                 Brush.linearGradient(
@@ -887,8 +882,10 @@ private fun TodayWaveWorkout(
         }
 
         Column(
-            Modifier.fillMaxWidth().padding(start = 20.dp, end = 17.dp, top = 33.dp, bottom = 21.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            Modifier.fillMaxWidth().padding(
+                start = 19.dp, end = 16.dp, top = 23.dp, bottom = 15.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -907,13 +904,6 @@ private fun TodayWaveWorkout(
                     },
                     fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TodayLook.black
                 )
-                Spacer(Modifier.weight(1f))
-                if (scheduled.isNotEmpty()) {
-                    Text(
-                        date.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())),
-                        style = MaterialTheme.typography.labelSmall, color = TodayLook.black.copy(alpha = .58f)
-                    )
-                }
             }
             Text(title, fontSize = if (multi) 27.sp else 29.sp,
                 lineHeight = 33.sp,
@@ -962,12 +952,13 @@ private fun TodayWaveWorkout(
                     modifier = Modifier.fillMaxWidth(.83f)
                 )
             }
-            Spacer(Modifier.height(if (multi) 2.dp else 10.dp))
+            Spacer(Modifier.height(if (multi) 3.dp else 6.dp))
             Surface(
                 onClick = onPrimary,
                 shape = RoundedCornerShape(28.dp),
-                color = if (multi) Color(0xFF181B18) else TodayLook.coral,
-                modifier = Modifier.height(46.dp)
+                color = if (multi) Color(0xFF252323) else
+                    if (accent == TodayLook.lime) Color(0xFFE9FC63) else TodayLook.coral,
+                modifier = Modifier.height(42.dp)
                     .testTag("today-workout-action")
             ) {
                 Row(
@@ -975,8 +966,8 @@ private fun TodayWaveWorkout(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("▶", color = TodayLook.text, fontSize = 12.sp)
-                    Text(button, color = TodayLook.text,
+                    Text("▶", color = TodayLook.black, fontSize = 12.sp)
+                    Text(button, color = TodayLook.black,
                         fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
