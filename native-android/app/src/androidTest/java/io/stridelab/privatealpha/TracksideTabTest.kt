@@ -1,7 +1,6 @@
 package io.stridelab.privatealpha
 
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.hasTestTag
