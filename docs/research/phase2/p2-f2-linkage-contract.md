@@ -89,3 +89,17 @@ Append corrections with actor, causal reference, replacement payload, effective 
 | Freeze state | DRAFT, no pilot rows compared here. Steward/track owner and independent reviewer must record version/hash, evidence and signatures. A critical mismatch or compromised split blocks release. No Gate 2 verdict issued. |
 
 Inputs: [Session F](../2026-11-04-engine2x-session-f-real-data-and-validation.md), [frozen G state](../2026-11-04-engine2x-session-g-state.md), [G Phase 2](../2026-11-04-engine2x-session-g-phase2.md), [independent re-review](../2026-11-04-engine2x-session-g-independent-rereview.md), [Wave 1 prompts](../2026-11-04-engine2x-phase2-wave1-prompts.md).
+
+## F2.2 additive freeze — 2026-11-06
+
+F2.1 remains the detailed logical source contract and `F2.1-pilot.2` remains the bounded private adapter. The [P2-F Foundation Unlock contract](p2-f-foundation-unlock.md) freezes F2.2 as an additive canonical projection contract. It clarifies, without changing the frozen Session G architecture:
+
+- one canonical Training Exposure Ledger across planned and external training;
+- separate `decision_time_view` and current-authority `current_validity_view`;
+- explicit completion, plan-ownership and reason-coded numeric observation types;
+- explicit source-alias adjudication and per-field conflict rather than format priority;
+- derived-view lineage and invalidation after correction, revocation or withdrawal;
+- a format-neutral minimum trace segment contract for later P2-B eligibility;
+- replay-based migration with no invented defaults.
+
+The synthetic reference is not a durable store, source-admission service, supported device claim or P2-B release. Status remains `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY`. Frozen Session G baseline: `26a8331e642c888dd73acb94755dded063baab8d`.
