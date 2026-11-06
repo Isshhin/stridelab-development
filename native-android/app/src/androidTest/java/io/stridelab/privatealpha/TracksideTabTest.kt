@@ -4,6 +4,8 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import org.junit.Rule
@@ -19,6 +21,7 @@ class TracksideTabTest {
         }
         compose.onNodeWithTag("nav-settings").performClick()
         compose.onNodeWithTag("screen-title").assertTextEquals("More")
+        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("more-row-about"))
         compose.onNodeWithTag("more-row-about").performClick()
         compose.onNodeWithTag("more-detail-title").assertTextEquals("About StrideLab")
         compose.onNodeWithTag("more-back").performClick()
