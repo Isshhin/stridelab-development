@@ -152,6 +152,46 @@ class UnifiedTrainingTimelineTest {
             days.indices.map { unifiedTimelineMonthHeading(days, it) })
     }
 
+    @Test fun recordedMetricsUseDistanceAsPrimaryAndPlaceHeartRateWithPace() {
+        val run = activity("run", "2026-11-06T06:00:00Z").copy(
+            averageHr = 148.4, recordedPace = 390.0
+        )
+        val (primary, secondary) = timelineRecordedMetrics(run)
+        assertEquals("5.00 km", primary)
+        assertEquals("30:00 · 6:30 /km · 148 bpm", secondary)
+    }
+
+    @Test fun fallbackMovingPaceUsesCompactDisplayWithoutMovingPrefix() {
+        val run = activity("run", "2026-11-06T06:00:00Z").copy(averageHr = 153.6)
+        val (_, secondary) = timelineRecordedMetrics(run)
+        assertEquals("30:00 · 5:40 /km · 154 bpm", secondary)
+    }
+
+    @Test fun durationBecomesPrimaryWhenDistanceIsMissing() {
+        val strength = activity("strength", "2026-11-06T06:00:00Z").copy(
+            type = "strength", distanceM = null, averageHr = 124.8
+        )
+        val (primary, secondary) = timelineRecordedMetrics(strength)
+        assertEquals("30:00", primary)
+        assertEquals("125 bpm", secondary)
+    }
+
+    @Test fun unavailableHeartRateIsOmittedRatherThanEstimated() {
+        val run = activity("run", "2026-11-06T06:00:00Z").copy(
+            averageHr = null, recordedPace = 360.0
+        )
+        val (_, secondary) = timelineRecordedMetrics(run)
+        assertEquals("30:00 · 6:00 /km", secondary)
+    }
+
+    @Test fun missingDistanceAndDurationShowNoInventedNumbers() {
+        val saved = activity("strength", "2026-11-06T06:00:00Z").copy(
+            type = "strength", distanceM = null, durationS = null,
+            movingTimeS = null, averageHr = null
+        )
+        assertEquals("Completed activity" to "", timelineRecordedMetrics(saved))
+    }
+
     @Test fun twoDistinctRecordedRunsRemainSeparateOnSameDate() {
         val groups = listOf(
             DisplayActivity(activity("run1", "2026-11-06T06:00:00Z")),
