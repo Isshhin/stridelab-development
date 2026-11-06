@@ -447,10 +447,19 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             if(metadata.optString("source")!="garmin" ||
                 metadata.optString("id")!=id || metadata.optString("user_id")!=account)
                 throw GarminProtocolException("Garmin source ownership could not be verified")
-            val externalId=metadata.optString("external_id")
+            val savedExternal=metadata.optString("external_id")
                 .takeIf { it.isNotBlank() }
+            val savedNumeric=metadata.optLong("garmin_activity_id",0L)
+                .takeIf { it>0L }
+            // Pre-source-ID backend Garmin rows remain saved and browseable.
+            // Recover their original Garmin identity read-only, never guess
+            // an ID from a displayed title or rewrite another source record.
+            val legacy=if(savedExternal==null && savedNumeric==null)
+                source.resolveLegacySource(account,activity) else null
+            val externalId=savedExternal ?: legacy?.externalId
+                ?: savedNumeric?.toString()
                 ?: throw GarminProtocolException("The Garmin source ID is unavailable")
-            val numeric=metadata.optLong("garmin_activity_id",0L).takeIf { it>0L }
+            val numeric=savedNumeric ?: legacy?.numericActivityId
             val archive=source.downloadFitForSource(account,externalId,numeric)
             val bytes=try { GarminFitArchive.extractSingleFit(archive) }
                 catch(e:Exception) { throw GarminProtocolException(
