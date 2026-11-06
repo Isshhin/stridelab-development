@@ -230,36 +230,7 @@ private fun NavHostController.openActivity(id: String) {
                         onOpenWorkout = { planId, sessionId -> nav.openWorkout(planId, sessionId) },
                         onOpenActivityDetail = { id -> nav.openActivity(id) },
                         onOpenMore = { nav.openTabRoot("settings") },
-                        onSignIn = { nav.navigate("auth") },
-                        expandedInsights = {
-                            SyncStatus(state)
-                            if (state.account != null) {
-                                WeeklyDashboard(visibleActivities, plans = state.plans)
-                                WellnessOverview(
-                                    state.wellness, actions.refreshWellness,
-                                    online && !state.busy && !state.needsSignIn
-                                )
-                                HistoryOverview(visibleActivities)
-                                if (visibleActivities.count { it.durationS != null } >= 2) {
-                                    RecordedDurationChart(visibleActivities)
-                                }
-                                FilledTonalButton(
-                                    onClick = actions.refresh,
-                                    enabled = !state.busy,
-                                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                                ) { Text("Refresh history") }
-                                if (state.needsSignIn) {
-                                    Button(onClick = { nav.navigate("auth") }) {
-                                        Text("Sign in again")
-                                    }
-                                }
-                            } else {
-                                Text(
-                                    "Sign in to see your saved training and wellness history.",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
+                        onSignIn = { nav.navigate("auth") }
                     )
                 }
                 composable("activities") {
