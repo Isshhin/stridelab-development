@@ -2,6 +2,13 @@
 
 This is the persistent default for work in this repository. Follow the user's **current task prompt** and the applicable, up-to-date branch documentation. Do not treat old handoffs, cached graph indexes, or historical green builds as proof of the live state.
 
+## Permanent UI workspace and owner-approved division of work
+
+- **Reuse one local Android Studio UI workspace for every UI task.** Do not ask the owner to open a new Git worktree for each screen or change. See `docs/qa/permanent-ui-workspace.md`. Keep the owner's main development checkout and existing stashes untouched.
+- **Codex is CODE-EDIT ONLY by default**: make only the exact requested source changes, with a brief source review. **Do not run Gradle, compile, assemble APKs, execute tests, run ADB, launch emulators, or produce long QA reports/documentation** unless the owner explicitly authorizes an exception for that task.
+- **The owner executes all compilation, tests, APK creation and emulator debugging in Android Studio** using the stable workspace. Regular ChatGPT prepares scoped prompts, reviews the owner's findings and records GitHub documentation.
+- These standing instructions take precedence over older build/checklist suggestions elsewhere in this file for routine UI changes. A change is not considered visually accepted until the owner verifies it on-device.
+
 ## Task startup: keep context and usage bounded
 
 1. Verify the exact repository, checkout, remote branch, current HEAD, working-tree state, and concurrent changes. Never overwrite newer work. Do not switch branches or modify unrelated worktrees without a reason. If another agent is editing the same files, coordinate or isolate the changes.
@@ -38,7 +45,7 @@ This is the persistent default for work in this repository. Follow the user's **
 ## Test and device safety
 
 - Read `docs/qa/README.md` and select checks from `docs/qa/verification-playbook.md` and `docs/qa/regression-coverage.md`. QA notes can lag current code: inspect the current branch and update evidence accurately.
-- Start with a focused reproduction/test, fix the cause, rerun focused tests, then related tests and `:app:testDebugUnitTest` at a meaningful checkpoint. Run `:app:assembleDebug` for relevant Android build verification, not as a substitute for emulator acceptance.
+- **Owner-run checks only for UI tasks:** explain which Android Studio checks are relevant, but do not execute tests or Gradle in Codex. Never substitute a compile or unit test for owner visual acceptance.
 - `assembleDebug` only builds an APK; it does **not** establish device correctness or install the app. Only run device tests/install when supported and safe. Never report mocked or compilation-only tests as live Garmin/FIT/map proof.
 - Protect the owner's installed application and SQLite data. Before any update install, verify installed package, version and signer compatibility, and use the read-only `native-android/tools/check_apk_update.py` gate. Never uninstall, clear app data, regenerate signing keys, or bypass a signer mismatch. Prefer an isolated emulator/profile when signer compatibility is uncertain.
 - Do not log, upload, print or commit bearer tokens, Personal API keys, signing secrets, account content, or personal activity data. Do not bypass provider consent or unsupported API access.
@@ -46,8 +53,8 @@ This is the persistent default for work in this repository. Follow the user's **
 
 ## Done means evidence, not optimism
 
-- Report the actual root cause and minimal diff; exact commit SHA and branch; successful and failed test commands/counts; UI/device/API evidence and blockers; remaining risks; and a short owner verification checklist.
-- Maintain the task-specific QA/handoff documents after confirmed findings. If one capability cannot be verified (e.g., an authenticated Garmin FIT download), mark it **UNVERIFIED** rather than claiming full success.
+- **For Codex UI edits**, report a concise branch/commit, changed files and blockers only; indicate that builds and device verification were not run. For owner-run QA, regular ChatGPT maintains detailed findings in GitHub after results are supplied.
+- Regular ChatGPT maintains task-specific QA/handoff documentation after owner-confirmed findings. Mark unverified capabilities **UNVERIFIED** rather than claiming success.
 - Stop at the agreed task boundary. Do not silently begin the next screen, redesign, algorithm project, or provider integration.
 
 Keep UI changes at the presentation layer unless a deeper change is explicitly authorized. Do not weaken validation, error handling, offline behavior, permissions, or accessibility to make a design fit. For UI changes, add or update relevant Compose regression tests covering the user-visible state, important interaction, and relevant accessibility semantics. Use bounds assertions only when geometry is part of the contract.
