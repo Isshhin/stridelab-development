@@ -1,5 +1,9 @@
 # StrideLab Engine 2.x current coordinating handoff
 
+## Private-pilot authority and custody proposal — 2026-11-07
+
+The [private-pilot authority and custody contract](../phase2/p2-f-private-pilot-authority-custody-contract.md) records the reviewed source head `ee3f69553ad932631a24db2a065722a140c07837`, Graphify index `8012c93d55a26ff60a85730a42aca51da561d945`, concrete trust boundaries, threat cases and implementation tests. Verdict: `PRIVATE_PILOT_CONTRACT_NEEDS_CORRECTION`: independent security review and a specific nonrollback authority/anchor and recovery design remain open. This is self-reviewed documentation, not independent signoff. The proposed next implementation is a synthetic-only authority/currentness and custody harness after those decisions and review; no human/provider intake. The direct Garmin FIT source is only a candidate, not established device or parser support. Existing pilot command is TCX-only. `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` remain unchanged.
+
 ## Hosted Graphify mirror — verified 2026-11-07
 
 A dedicated private mirror now provides a current hosted Graphify index for the unmerged Engine 2.x research branch:

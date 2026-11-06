@@ -1,5 +1,13 @@
 # Engine 2.x P2-F current session handoff
 
+## Private-pilot contract and review boundary — 2026-11-07
+
+[Authority and custody contract](../phase2/p2-f-private-pilot-authority-custody-contract.md): `PRIVATE_PILOT_CONTRACT_NEEDS_CORRECTION`, because this proposal has not received independent security review and the concrete independent nonrollback authority, bootstrap/recovery, revocation fence, key custody and operator environment remain unselected and unverified. Reviewed branch head `ee3f69553ad932631a24db2a065722a140c07837`; hosted graph index `8012c93d55a26ff60a85730a42aca51da561d945` differs only in handoff/mirror infrastructure, with relevant implementation unchanged.
+
+Decisions: default deny; current authority outside the data restore domain; no offline cached authorization; authenticated account/source/purpose/partition with pre-decryption authorization plus output-time fence; explicit crash/withdrawal/restore/deletion and descendant rules; one candidate direct Garmin device FIT original, pending separate source, firmware, parser, terms and independent-reference validation. Existing TCX command is not a FIT adapter. The contract lists the adversarial synthetic acceptance matrix and independent deployment drill. It does not authorize any real input.
+
+Next: independent security/custody review and choose/prove the actual authority anchor, currentness, recovery, clock and fence; then implement only a synthetic authority/custody harness on the research branch, with no private data or production integration. Synthetic durability remains passed within its prior scope; private pilot remains not ready; `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` remain unchanged.
+
 ## Independent synthetic durability clearance — 2026-11-07
 
 Independent Work review has returned:
