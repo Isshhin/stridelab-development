@@ -1,5 +1,57 @@
 # Engine 2.x P2-F current session handoff
 
+## Current live state — Codex race fix awaiting independent review — 2026-11-07
+
+Latest implementation head:
+
+`e716f338ac52fe727e2a7a3e7d9f1495875170bd`
+
+Starting branch head for this implementation pass:
+
+`7eca72cb48400e5e2334955b63415c9dbe386ca8`
+
+Codex reports the known current-validity concurrent-writer race as fixed. The synthetic implementation now reserves SQLite's writer slot and acquires the shared synthetic-authority guard before the final journal/authority consistency check. Contention or re-entrant mutation fails closed without retry. The former expected-failure regression is now a normal passing test.
+
+Local validation at `e716f338...`:
+
+- durable store: **54 passed**
+- existing F2.2: **16 passed**
+- P2 suite: **148 passed**
+- full research suite: **311 passed, 1 skipped**
+- expected failures: **0**
+- skipped test: Windows symlink limitation
+
+Exact-head remote CI:
+
+`42257251591`
+
+Status at last verification: **QUEUED**. Do not count it as a pass until GitHub reports success.
+
+Current verdict:
+
+- P2-F synthetic feasibility: supported for tested synthetic cases
+- synthetic durability: **PENDING INDEPENDENT WORK REVIEW**
+- private-pilot readiness: **NOT READY**
+- Gate 2: `P2_F_GATE_2_NOT_READY`
+- P2-B: `P2_B_PROTOCOL_READY_DATA_NOT_READY`
+- human/provider data: **DO NOT ADMIT**
+
+The in-memory/process-local authority guard is only a synthetic test mechanism. It is not authenticated, durable, cross-system or nonrollback authority.
+
+### Exact next action
+
+Return `e716f338...` to the same independent Work review session that reproduced the race.
+
+Work should independently reproduce the old race, attack the new linearization/consistency barrier with timing variations, check thread/process writers, simultaneous authority mutations, deadlock/livelock, fail-closed behavior, historical replay isolation, metadata/digest correctness and reopened-journal behavior, then attempt a final verdict:
+
+`PASS_FOR_SYNTHETIC_DURABILITY`
+
+Do not begin private-pilot infrastructure, human data intake, device validation, P2-B repeatability, held-out evaluation, Engine 1.5 changes or Trackside integration yet.
+
+### Repository-navigation preference
+
+When Work/Codex needs repository navigation, use **Graphify first** to narrow call paths, dependencies, change impact and relevant tests in `Isshhin/stridelab-development`. Then verify only the exact live files/functions/tests identified by Graphify before modifying or judging code. Avoid broad repository rereads unless Graphify and live code disagree.
+
 ## Synthetic current-validity barrier continuation — 2026-11-07
 
 The earlier current-validity final-check race is addressed in the continuation: a SQLite writer reservation and the guarded synthetic authority jointly protect the final validation point; contention or reentrant changes fail closed without retry. The prior expected-failure regression is now a normal test, with additional thread/process and authority mutation cases. See the [synthetic durable-store boundary](../phase2/p2-f-durable-synthetic-boundary.md) for exact semantics and limitations. The continuation started from `7eca72cb48400e5e2334955b63415c9dbe386ca8`. Its final local checks ran 54 durable-store tests, 16 F2.2 tests, 148 P2 tests, and 312 full research tests (311 passed, one Windows symlink skip); no expected failures remained. Earlier blocker descriptions below are historical. Independent Work review remains required; do not claim a final synthetic-durability pass. This is not private-pilot infrastructure. `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` remain unchanged.
