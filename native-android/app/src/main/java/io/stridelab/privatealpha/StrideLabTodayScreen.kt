@@ -301,6 +301,7 @@ internal fun StrideLabTodayScreen(
                 TodayRecordedTraining(
                     selectedDate = date,
                     signedOut = state.account == null,
+                    loading = state.initializing,
                     online = online,
                     accent = animatedTone,
                     notchFraction = notchPosition,
@@ -1138,6 +1139,7 @@ private fun TodayMixedDayCard(
 private fun TodayRecordedTraining(
     selectedDate: LocalDate,
     signedOut: Boolean,
+    loading: Boolean,
     online: Boolean,
     accent: Color,
     notchFraction: Float,
@@ -1196,6 +1198,7 @@ private fun TodayRecordedTraining(
     }
     val header = when {
         signedOut -> "TRAINING HISTORY"
+        count == 0 && loading -> "LOADING HISTORY"
         count == 0 -> "NO SAVED ACTIVITY"
         count > 1 -> "RECORDED SESSIONS"
         firstActivity != null -> "RECORDED ACTIVITY"
@@ -1203,6 +1206,7 @@ private fun TodayRecordedTraining(
     }
     val title = when {
         signedOut -> "Sign in"
+        count == 0 && loading -> "Checking records"
         count == 0 -> "Nothing saved"
         count > 1 -> "$count recorded sessions"
         firstActivity != null -> firstActivity.title
@@ -1211,6 +1215,7 @@ private fun TodayRecordedTraining(
     }
     val summary = when {
         signedOut -> "Your activity is private."
+        count == 0 && loading -> "Loading saved history"
         count == 0 && !online -> "Offline · saved records only"
         count == 0 -> "No saved activity for this date."
         count > 1 -> "Your completed sessions on this date."
