@@ -555,7 +555,7 @@ private fun TimelineRecordedCard(
                 }
                 Column(
                     modifier = Modifier.weight(1f),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                    horizontalAlignment = Alignment.Start,
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
@@ -565,7 +565,7 @@ private fun TimelineRecordedCard(
                         lineHeight = 23.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = (-0.4).sp,
-                        textAlign = TextAlign.Center,
+                        textAlign = TextAlign.Start,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -577,7 +577,7 @@ private fun TimelineRecordedCard(
                             lineHeight = 14.sp,
                             fontWeight = FontWeight.Medium,
                             letterSpacing = (-0.15).sp,
-                            textAlign = TextAlign.Center,
+                            textAlign = TextAlign.Start,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
