@@ -4,6 +4,11 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
@@ -118,6 +123,11 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
     val syncGarmin: (suspend (GarminPersonalSource) -> GarminConnectionStatus)? = null,
     val loadGarminGps: ((String,GarminPersonalSource)->Unit)?=null)
 
+/** Only the four main tab destinations should switch immediately; nested screens
+ * retain the existing Navigation Compose transitions.
+ */
+private val mainTabRoutes = setOf("home", "training", "activities", "settings")
+
 /** Save each tab's root state, never its transient detail/auth destination. */
 private fun NavHostController.openTabRoot(path: String) {
     while(currentDestination?.route in setOf("activity/{id}", "auth", "builder/{discipline}", "workout/{planId}/{sessionId}", "practice/{key}", "manage/{planId}/{date}")) {
@@ -173,7 +183,29 @@ private fun NavHostController.openActivity(id: String) {
                 Text("Offline · Saved activities remain available", Modifier.fillMaxWidth().padding(horizontal = 20.dp,vertical = 10.dp).testTag("offline-status"),style = MaterialTheme.typography.bodyMedium)
             }
             state.message?.let { Surface(color = MaterialTheme.colorScheme.surfaceVariant) { Text(it, Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }.padding(horizontal = 20.dp, vertical = 12.dp), style = MaterialTheme.typography.bodyMedium) } }
-            NavHost(navController = nav, startDestination = "home", modifier = Modifier.weight(1f)) {
+            NavHost(
+                navController = nav,
+                startDestination = "home",
+                modifier = Modifier.weight(1f),
+                // Navigation Compose's default 700 ms fade made the bottom tabs
+                // feel like a flash. The lime dock pill is the only tab motion.
+                enterTransition = {
+                    if (targetState.destination.route in mainTabRoutes) EnterTransition.None
+                    else fadeIn(animationSpec = tween(700))
+                },
+                exitTransition = {
+                    if (targetState.destination.route in mainTabRoutes) ExitTransition.None
+                    else fadeOut(animationSpec = tween(700))
+                },
+                popEnterTransition = {
+                    if (targetState.destination.route in mainTabRoutes) EnterTransition.None
+                    else fadeIn(animationSpec = tween(700))
+                },
+                popExitTransition = {
+                    if (targetState.destination.route in mainTabRoutes) ExitTransition.None
+                    else fadeOut(animationSpec = tween(700))
+                }
+            ) {
                 composable("home") {
                     StrideLabTodayScreen(
                         state = state,
