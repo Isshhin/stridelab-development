@@ -1,5 +1,23 @@
 # StrideLab Engine 2.x current coordinating handoff
 
+## Hosted Graphify mirror — verified 2026-11-07
+
+A dedicated private mirror now provides a current hosted Graphify index for the unmerged Engine 2.x research branch:
+
+- source of truth: `Isshhin/stridelab-development`
+- source branch: `research/runna-garmin-coaching-20261102`
+- Graphify mirror: `Isshhin/stridelab-engine2-graph`
+- mirror default branch: `main`
+- verified mirrored/indexed commit: `8012c93d55a26ff60a85730a42aca51da561d945`
+- hosted graph at verification: **1,102 nodes / 2,961 edges / 37 communities**
+- verified symbols/files: `SyntheticAuthority`, `research/validation/p2f_durable.py`, and `research/validation/test_p2f_durable.py`
+
+Use the mirror repository for hosted Graphify analysis of Engine 2.x. The original `stridelab-development` repository remains authoritative; never develop directly in the mirror.
+
+Before relying on Graphify in Work/Codex, compare its indexed commit with the current research-branch head. If they differ, treat the graph as stale until the mirror has synced and re-indexed.
+
+Local Graphify remains a fallback for local Codex, but hosted mirror Graphify is preferred for shared Work/cloud Codex use.
+
 ## Graphify branch-indexing workflow — 2026-11-07
 
 Hosted Graphify currently indexes the repository default branch, not the unmerged Engine 2.x research branch. Its available graph was observed at commit `49824dc1c0e4c4825398f76ac5f5ea71bd145ba5`, which does not contain the later P2-F durable-store implementation.
