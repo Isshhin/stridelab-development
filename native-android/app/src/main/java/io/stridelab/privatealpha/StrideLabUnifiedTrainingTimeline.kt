@@ -105,6 +105,19 @@ internal fun unifiedTrainingDays(
     }
 }
 
+/** Only actual dated training records introduce a month heading. */
+internal fun unifiedTimelineMonthHeading(
+    days: List<UnifiedTrainingDay>,
+    position: Int
+): Boolean {
+    val current = days.getOrNull(position) ?: return false
+    if (current.activities.isEmpty() && current.workouts.isEmpty()) return false
+    val preceding = days.take(position).lastOrNull {
+        it.activities.isNotEmpty() || it.workouts.isNotEmpty()
+    } ?: return true
+    return YearMonth.from(preceding.date) != YearMonth.from(current.date)
+}
+
 /**
  * Approved Google Calendar-style sparse timeline: history above the current
  * date, upcoming training below, and no fabricated empty weekday rows.
@@ -237,10 +250,7 @@ internal fun StrideLabUnifiedTrainingTimeline(
         ) {
             itemsIndexed(days, key = { _, day -> "timeline-date-${day.date}" }) { position, day ->
                 Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
-                    if ((day.activities.isNotEmpty() || day.workouts.isNotEmpty()) &&
-                        (position == 0 || YearMonth.from(days[position - 1].date) !=
-                            YearMonth.from(day.date))
-                    ) {
+                    if (unifiedTimelineMonthHeading(days, position)) {
                         Text(
                             day.date.format(month),
                             color = TimelineStyle.ink,
