@@ -20,6 +20,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -35,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -126,7 +129,8 @@ private data class TodayWeekMetrics(
     val totalSeconds: Double?,
     val totalDistanceMeters: Double?,
     val activityCount: Int,
-    val partialTimes: Boolean
+    val partialTimes: Boolean,
+    val disciplineCounts: List<Pair<String, Int>>
 )
 
 private fun savedWeekMetrics(
@@ -158,13 +162,19 @@ private fun savedWeekMetrics(
     val durations = weekActivities.mapNotNull { it.durationS } + confirmed.mapNotNull { it.durationSeconds }
     val distance = weekActivities.filter(DashboardSummary::isRun).mapNotNull { it.distanceM } +
         confirmed.filter { it.discipline == "run" }.mapNotNull { it.distanceM }
+    val disciplineCounts = (
+        weekActivities.map { todayRecordedKind(it.type) } +
+            confirmed.map { todayHeroDiscipline(it.discipline) }
+    ).groupingBy { it }.eachCount().toList()
+        .sortedWith(compareByDescending<Pair<String, Int>> { it.second }.thenBy { it.first })
     return TodayWeekMetrics(
         counts = counts,
         seconds = seconds,
         totalSeconds = durations.takeIf { it.isNotEmpty() }?.sum(),
         totalDistanceMeters = distance.takeIf { it.isNotEmpty() }?.sum(),
         activityCount = weekActivities.size + confirmed.size,
-        partialTimes = durations.size < weekActivities.size + confirmed.size
+        partialTimes = durations.size < weekActivities.size + confirmed.size,
+        disciplineCounts = disciplineCounts
     )
 }
 
@@ -344,18 +354,12 @@ internal fun StrideLabTodayScreen(
                 }
             )
         }
-        item(key = "today-activity") {
-            TodayActivityWeek(
+        item(key = "today-weekly-activity") {
+            TodayWeeklyActivity(
+                start = weekStart,
                 metrics = metrics,
                 selectedDayIndex = date.dayOfWeek.value - 1,
                 reduceMotion = reduceMotion,
-                onOpenActivity = onOpenActivity
-            )
-        }
-        item(key = "today-summary") {
-            TodaySummaryWeek(
-                start = weekStart,
-                metrics = metrics,
                 onOpenActivity = onOpenActivity
             )
         }
@@ -2329,119 +2333,193 @@ private fun TodayNextSession(
     }
 }
 
+/**
+ * One multi-discipline overview for the selected week.
+ * The entire card is one accessible tap target; no chevron or nested click
+ * action. Bars use recorded time only, never planned training targets.
+ */
 @Composable
-private fun TodayActivityWeek(
+private fun TodayWeeklyActivity(
+    start: LocalDate,
     metrics: TodayWeekMetrics,
     selectedDayIndex: Int,
     reduceMotion: Boolean,
     onOpenActivity: () -> Unit
 ) {
-    TodayDarkCard(onClick = onOpenActivity, tag = "today-activity-week") {
-        Row(
-            Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(9.dp)
+    val haptics = LocalHapticFeedback.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val pressedScale by animateFloatAsState(
+        targetValue = if (pressed) .985f else 1f,
+        animationSpec = tween(if (reduceMotion) 0 else 100),
+        label = "today-weekly-press"
+    )
+    val dateLabel = start.format(
+        DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
+    ) + " – " + start.plusDays(6).format(
+        DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
+    )
+
+    Surface(
+        onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onOpenActivity()
+        },
+        modifier = Modifier.fillMaxWidth()
+            .graphicsLayer {
+                scaleX = pressedScale
+                scaleY = pressedScale
+            }
+            .testTag("today-weekly-activity"),
+        interactionSource = interactionSource,
+        color = TodayLook.card,
+        shape = RoundedCornerShape(19.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, TodayLook.outline)
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 15.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(
-                Modifier.size(31.dp)
-                    .background(Color(0xFF272F24), RoundedCornerShape(10.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("▥", fontSize = 19.sp, color = TodayLook.lime)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(35.dp)
+                        .background(Color(0xFF26321F), RoundedCornerShape(11.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("▥", color = TodayLook.lime, fontSize = 21.sp)
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Weekly Activity", color = TodayLook.text, fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(dateLabel, color = TodayLook.muted, fontSize = 11.sp)
+                }
             }
-            Column(Modifier.weight(.8f)) {
-                Text("Activity", fontSize = 16.sp, fontWeight = FontWeight.Bold,
-                    color = TodayLook.text)
-                Text("Your week", fontSize = 12.sp, color = TodayLook.muted)
-            }
+
             Row(
-                Modifier.weight(1.3f), horizontalArrangement = Arrangement.SpaceEvenly,
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.Bottom
             ) {
                 val maxSeconds = metrics.seconds.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
                 val days = listOf("M", "T", "W", "T", "F", "S", "S")
                 (0..6).forEach { idx ->
-                    val height = when {
-                        metrics.seconds[idx] > 0 -> (metrics.seconds[idx] / maxSeconds * 30)
-                            .toFloat().coerceIn(5f, 30f)
-                        metrics.counts[idx] > 0 -> 7f
+                    val target = when {
+                        metrics.seconds[idx] > 0 ->
+                            (metrics.seconds[idx] / maxSeconds * 43).toFloat()
+                                .coerceIn(5f, 43f)
+                        metrics.counts[idx] > 0 -> 6f
                         else -> 3f
                     }
                     val barHeight by animateDpAsState(
-                        targetValue = height.dp,
+                        targetValue = target.dp,
                         animationSpec = tween(if (reduceMotion) 0 else 220),
-                        label = "today-activity-height-$idx"
+                        label = "today-weekly-bar-$idx"
                     )
                     val barColor by animateColorAsState(
                         targetValue = if (idx == selectedDayIndex) TodayLook.lime
-                            else Color(0xFF7B8088),
-                        animationSpec = tween(if (reduceMotion) 0 else 200),
-                        label = "today-activity-color-$idx"
+                            else Color(0xFF777F85),
+                        animationSpec = tween(if (reduceMotion) 0 else 180),
+                        label = "today-weekly-color-$idx"
                     )
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(Modifier.width(8.dp).height(33.dp),
-                            contentAlignment = Alignment.BottomCenter) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Box(
+                            Modifier.width(22.dp).height(46.dp),
+                            contentAlignment = Alignment.BottomCenter
+                        ) {
                             Box(
-                                Modifier.width(8.dp).height(barHeight)
-                                    .clip(RoundedCornerShape(3.dp))
+                                Modifier.width(12.dp).height(barHeight)
+                                    .clip(RoundedCornerShape(5.dp))
                                     .background(barColor)
                             )
                         }
-                        Text(days[idx], color = TodayLook.muted, fontSize = 9.sp)
+                        Text(
+                            days[idx], color = if (idx == selectedDayIndex)
+                                TodayLook.lime else TodayLook.muted,
+                            fontSize = 10.sp
+                        )
                     }
                 }
             }
-            Text("›", color = TodayLook.muted, fontSize = 22.sp)
-        }
-        if (metrics.partialTimes) {
-            Text("Some saved sessions have no recorded duration.",
-                style = MaterialTheme.typography.labelSmall, color = TodayLook.muted)
-        }
-    }
-}
+            Box(Modifier.fillMaxWidth().height(1.dp).background(TodayLook.outline))
 
-@Composable
-private fun TodaySummaryWeek(
-    start: LocalDate,
-    metrics: TodayWeekMetrics,
-    onOpenActivity: () -> Unit
-) {
-    TodayDarkCard(onClick = onOpenActivity, tag = "today-week-summary") {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.size(28.dp)
-                    .background(Color(0xFF2E3224), RoundedCornerShape(10.dp)),
-                contentAlignment = Alignment.Center
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text("✧", color = TodayLook.lime, fontSize = 17.sp)
+                Column(
+                    Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    Text("◷", color = TodayLook.teal, fontSize = 20.sp)
+                    Text(
+                        metrics.totalSeconds?.let(::todayTimeLabel) ?: "—",
+                        color = TodayLook.teal, fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        when {
+                            metrics.partialTimes -> "Known active time"
+                            else -> "Active time"
+                        }, color = TodayLook.muted, fontSize = 10.sp, maxLines = 2
+                    )
+                }
+                Box(
+                    Modifier.width(1.dp).height(95.dp).background(TodayLook.outline)
+                )
+                Column(
+                    Modifier.weight(1.5f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (metrics.disciplineCounts.isEmpty()) {
+                        Text(
+                            "No recorded sessions", color = TodayLook.muted,
+                            fontSize = 12.sp
+                        )
+                    } else {
+                        metrics.disciplineCounts.take(3).forEach { (discipline, count) ->
+                            val tint = todayDisciplineColor(discipline)
+                            Row(
+                                Modifier.fillMaxWidth()
+                                    .clip(RoundedCornerShape(13.dp))
+                                    .background(tint.copy(alpha = .13f))
+                                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(7.dp)
+                            ) {
+                                Box(
+                                    Modifier.size(7.dp)
+                                        .background(tint, CircleShape)
+                                )
+                                Text(
+                                    todayKindLabel(discipline),
+                                    color = TodayLook.text, fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium, maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    "$count", color = TodayLook.text, fontSize = 11.sp
+                                )
+                            }
+                        }
+                        if (metrics.disciplineCounts.size > 3) {
+                            Text(
+                                "+${metrics.disciplineCounts.size - 3} more",
+                                color = TodayLook.muted, fontSize = 10.sp
+                            )
+                        }
+                    }
+                }
             }
-            Spacer(Modifier.width(9.dp))
-            Text("Weekly summary", fontSize = 16.sp, fontWeight = FontWeight.Bold,
-                color = TodayLook.text, modifier = Modifier.weight(1f))
-            Text(
-                start.format(DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())) +
-                    " – " + start.plusDays(6).format(DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())),
-                color = TodayLook.muted, fontSize = 11.sp
-            )
-        }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-            TodayStat(
-                label = "Run distance",
-                value = metrics.totalDistanceMeters?.let {
-                    String.format(Locale.getDefault(), "%.1f km", it / 1000)
-                } ?: "—",
-                tint = TodayLook.lime, modifier = Modifier.weight(1f)
-            )
-            TodayStat(
-                label = "Active time",
-                value = metrics.totalSeconds?.let(::todayTimeLabel) ?: "—",
-                tint = TodayLook.teal, modifier = Modifier.weight(1f)
-            )
-            TodayStat(
-                label = "Activities",
-                value = metrics.activityCount.toString(),
-                tint = TodayLook.coral, modifier = Modifier.weight(1f)
-            )
         }
     }
 }
