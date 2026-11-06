@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.LocalDate
@@ -42,6 +43,7 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 
 private object TimelineStyle {
     val background = Color.Black
@@ -457,6 +459,28 @@ private fun TimelinePromptCard(
     }
 }
 
+/** Recorded-only visual labels. Missing values remain absent, not estimated. */
+internal fun timelineRecordedMetrics(activity: ActivityRecord): Pair<String, String> {
+    val hasDistance = activity.distanceM?.let { it.isFinite() && it >= 0.0 } == true
+    val hasDuration = activity.durationS?.let { it.isFinite() && it >= 0.0 } == true
+    val primary = when {
+        hasDistance -> activity.distanceLabel
+        hasDuration -> activity.durationLabel
+        else -> "Completed activity"
+    }
+    val secondary = buildList {
+        if (hasDistance && hasDuration) add(activity.durationLabel)
+        if (activity.supportsPace) {
+            if (activity.recordedPace != null) add(activity.paceLabel)
+            else if (activity.garminMovingPaceSPerKm != null) add(activity.detailPaceLabel)
+        }
+        activity.averageHr?.takeIf { it.isFinite() && it > 0 }?.let {
+            add("${it.roundToInt()} bpm")
+        }
+    }.joinToString(" · ")
+    return primary to secondary
+}
+
 @Composable
 private fun TimelineRecordedCard(
     activity: ActivityRecord,
@@ -485,19 +509,7 @@ private fun TimelineRecordedCard(
         "Calisthenics" -> R.drawable.trackside_discipline_calisthenics
         else -> R.drawable.trackside_discipline_conditioning
     }
-    val detail = buildList {
-        activity.distanceM?.takeIf { it.isFinite() && it >= 0 }?.let {
-            add(activity.distanceLabel)
-        }
-        activity.durationS?.takeIf { it.isFinite() && it >= 0 }?.let {
-            add(activity.durationLabel)
-        }
-        if (activity.supportsPace) {
-            if (activity.recordedPace != null) add(activity.paceLabel)
-            else if (activity.garminMovingPaceSPerKm != null)
-                add(activity.detailPaceLabel)
-        }
-    }.joinToString(" · ").ifEmpty { "Saved activity" }
+    val (primary, secondary) = timelineRecordedMetrics(activity)
     val gps = remember(cachedDetail) {
         cachedDetail?.let { RecordedGpsRoute.from(it.samples) }
             ?.takeIf { it.pointCount >= 2 }
@@ -506,18 +518,29 @@ private fun TimelineRecordedCard(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().heightIn(min = 74.dp)
             .testTag("timeline-recorded-${activity.id}")
-            .semantics { contentDescription = "$kind, $detail, recorded activity" },
+            .semantics {
+                contentDescription = buildString {
+                    append(kind)
+                    append(", ")
+                    append(primary)
+                    if (secondary.isNotBlank()) {
+                        append(", ")
+                        append(secondary)
+                    }
+                    append(", recorded activity")
+                }
+            },
         shape = RoundedCornerShape(16.dp),
         color = TimelineStyle.card,
         border = BorderStroke(1.dp, TimelineStyle.border)
     ) {
         Column(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 11.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Box(
                     Modifier.size(38.dp)
@@ -531,19 +554,34 @@ private fun TimelineRecordedCard(
                     )
                 }
                 Column(
-                    Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
-                        kind, color = TimelineStyle.ink,
-                        fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                        maxLines = 1
+                        primary,
+                        color = TimelineStyle.ink,
+                        fontSize = 20.sp,
+                        lineHeight = 23.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-0.4).sp,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    Text(
-                        detail, color = TimelineStyle.secondary,
-                        fontSize = 11.sp, lineHeight = 15.sp,
-                        maxLines = 2, overflow = TextOverflow.Ellipsis
-                    )
+                    if (secondary.isNotEmpty()) {
+                        Text(
+                            secondary,
+                            color = TimelineStyle.secondary,
+                            fontSize = 11.sp,
+                            lineHeight = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            letterSpacing = (-0.15).sp,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
                 if (gps != null) {
                     TodayCompactGpsThumbnail(
