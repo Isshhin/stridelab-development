@@ -174,11 +174,21 @@ private fun NavHostController.openActivity(id: String) {
         LocalProfileAction provides { nav.openTabRoot("settings") },
         LocalFloatingDockVisible provides showFloatingDock
     ) {
-    Box(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
     Scaffold(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
+        containerColor = Color.Transparent
     ) { padding ->
-        Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(TracksidePalette.backgroundTop, TracksidePalette.backgroundBottom))).padding(padding).imePadding()) {
+        // No separate navy backdrop at the foot of the screen. Today stays
+        // AMOLED black right through the space behind the floating dock.
+        val pageBackground = if (route == "home") {
+            Brush.verticalGradient(listOf(Color.Black, Color.Black))
+        } else {
+            Brush.verticalGradient(
+                listOf(TracksidePalette.backgroundTop, TracksidePalette.backgroundBottom)
+            )
+        }
+        Column(Modifier.fillMaxSize().background(pageBackground).padding(padding).imePadding()) {
             if(state.busy || state.initializing) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("loading"))
             if(!online) Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
                 Text("Offline · Saved activities remain available", Modifier.fillMaxWidth().padding(horizontal = 20.dp,vertical = 10.dp).testTag("offline-status"),style = MaterialTheme.typography.bodyMedium)
