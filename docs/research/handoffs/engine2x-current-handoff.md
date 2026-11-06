@@ -1,5 +1,13 @@
 # StrideLab Engine 2.x current coordinating handoff
 
+## Canonical current P2-F session handoff — 2026-11-07
+
+For the latest session-level state, blocker history, verified milestone SHAs, test counts, user workflow preferences, and exact continuation instructions, read:
+
+[`engine2x-p2f-current-session-handoff.md`](engine2x-p2f-current-session-handoff.md)
+
+That handoff documents engine/research state through `9f23075e5522e0d47e5f01325c2d62995863b9a4`. Verify the live branch before continuing and preserve anything newer.
+
 ## Independent synthetic replay follow-up — 2026-11-07
 
 Projectors 3/4 no longer depend on the mutable reference helpers in the durable wrapper. A synthetic concurrent writer can still change the journal during the final authority check without the returned current-validity projection noticing; an expected-failure regression demonstrates this. Synthetic durability remains blocked until that bounded race is resolved and independently verified. The in-memory authority and plaintext storage remain unsuitable for human/provider data. Gate 2 and P2-B remain not ready.
