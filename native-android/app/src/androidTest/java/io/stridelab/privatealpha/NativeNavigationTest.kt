@@ -58,12 +58,12 @@ class NativeNavigationTest {
         capture("signin")
         compose.onNodeWithTag("email").performTextInput("synthetic@example.invalid")
         compose.onNodeWithTag("password").performTextInput("never-submit-this-fixture")
-        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("submit-signin"))
+        compose.onNodeWithTag("submit-signin").performScrollTo()
         compose.onNodeWithTag("submit-signin").assertIsEnabled()
         compose.activityRule.scenario.recreate()
-        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("email"))
+        compose.onNodeWithTag("email").performScrollTo()
         compose.onNodeWithTag("email").assertTextContains("synthetic@example.invalid")
-        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("submit-signin"))
+        compose.onNodeWithTag("submit-signin").performScrollTo()
         // Recreation resumes asynchronously. Require the new credential-free composition,
         // rather than accidentally asserting against the outgoing Activity's semantics.
         compose.waitUntil(timeoutMillis = 5000) {
