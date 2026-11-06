@@ -73,6 +73,7 @@ private data class TodayWeekMetrics(
 private fun savedWeekMetrics(
     date: LocalDate,
     records: List<ActivityRecord>,
+    rawHistory: List<ActivityRecord>,
     plans: List<PlanSnapshot>
 ): TodayWeekMetrics {
     val start = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
@@ -82,7 +83,7 @@ private fun savedWeekMetrics(
     val weekActivities = records.filter {
         !it.startedAt.isAfter(now) && it.startedAt.atZone(zone).toLocalDate() in start..end
     }
-    val confirmed = DashboardSummary.confirmedWorkouts(plans, records, now)
+    val confirmed = DashboardSummary.confirmedWorkouts(plans, rawHistory, now)
         .filter { it.date in start..end }
     val counts = (0L..6L).map { index ->
         val day = start.plusDays(index)
@@ -128,6 +129,7 @@ internal fun StrideLabTodayScreen(
     val plan = if (state.account == null) null else
         state.plans.firstOrNull { it.status == "approved" }
     val safeActivities = if (state.account == null) emptyList() else visibleActivities
+    val safeHistory = if (state.account == null) emptyList() else state.activities
     val safePlans = if (state.account == null) emptyList() else state.plans
     // Preserve persisted session order rather than sorting arbitrary IDs.
     val schedule = plan?.sessions?.filter { it.date == date && it.status != "unassigned" }
@@ -150,8 +152,8 @@ internal fun StrideLabTodayScreen(
     val notchPosition by animateFloatAsState(
         (date.dayOfWeek.value - .5f) / 7f, tween(280), label = "today-notch"
     )
-    val metrics = remember(weekStart, safeActivities, safePlans) {
-        savedWeekMetrics(date, safeActivities, safePlans)
+    val metrics = remember(weekStart, safeActivities, safeHistory, safePlans) {
+        savedWeekMetrics(date, safeActivities, safeHistory, safePlans)
     }
     var showInsights by rememberSaveable { mutableStateOf(false) }
     val now = LocalDate.now()
