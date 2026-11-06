@@ -19,6 +19,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -1437,6 +1439,195 @@ private fun todayHeroContentKey(snapshot: TodayHeroSnapshot): String = when {
     else -> todayHeroDiscipline(snapshot.scheduled.first().discipline)
 }
 
+/**
+ * Multiple planned sessions stay compact. The first two are quick previews;
+ * the full persisted plan appears in a scrollable on-demand sheet.
+ */
+@Composable
+private fun TodayMultiPlannedCard(
+    date: LocalDate,
+    accent: Color,
+    notchFraction: Float,
+    sessions: List<PlannedSession>,
+    reduceMotion: Boolean,
+    onOpen: (PlannedSession) -> Unit
+) {
+    val shape = remember(notchFraction) { todayNotchedShape(notchFraction) }
+    val pending = sessions.filter { it.status in setOf("planned", "in_progress") }
+    val completed = sessions.count { it.status == "completed" }
+    val next = pending.firstOrNull()
+    val mixed = sessions.map { todayHeroDiscipline(it.discipline) }.distinct().size > 1
+    val dayIsToday = date == LocalDate.now()
+    var showAll by remember(date, sessions) { mutableStateOf(false) }
+    Box(
+        Modifier.fillMaxWidth()
+            .clip(shape)
+            .background(
+                Brush.linearGradient(
+                    listOf(accent, accent.copy(alpha = .97f), accent.copy(alpha = .79f))
+                )
+            )
+            .border(1.dp, Color(0x55000000), shape)
+            .testTag("today-planned-multiple")
+    ) {
+        TodayDecorativeArt(
+            accent = accent,
+            kind = if (mixed) "mixed" else sessions.firstOrNull()?.discipline ?: "general",
+            modifier = Modifier.matchParentSize().alpha(.36f)
+        )
+        Column(
+            Modifier.fillMaxWidth().padding(
+                start = 19.dp, end = 17.dp, top = 23.dp, bottom = 16.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TodayDisciplineGlyph(
+                    kind = if (mixed) "mixed" else sessions.first().discipline,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(7.dp))
+                Text(
+                    if (dayIsToday) "TODAY'S SESSIONS" else "UPCOMING SESSIONS",
+                    color = TodayLook.black, fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+            }
+            Text(
+                sessions.size.toString() + " workouts",
+                color = TodayLook.black, fontWeight = FontWeight.ExtraBold,
+                fontSize = 26.sp, lineHeight = 30.sp
+            )
+            Text(
+                completed.toString() + " done · " +
+                    pending.size.toString() + " remaining",
+                color = TodayLook.black.copy(alpha = .77f), fontSize = 12.sp
+            )
+            sessions.take(2).forEach { session ->
+                Surface(
+                    onClick = { onOpen(session) },
+                    shape = RoundedCornerShape(13.dp),
+                    color = Color(0xE7222526),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 43.dp)
+                        .testTag("today-session-" + session.id)
+                ) {
+                    Row(
+                        Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("●", color = todayDisciplineColor(session.discipline),
+                            fontSize = 14.sp)
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                session.effectiveTitle, color = TodayLook.text,
+                                fontWeight = FontWeight.SemiBold, fontSize = 12.sp,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                todaySessionDetails(session), color = TodayLook.muted,
+                                fontSize = 10.sp, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Text(
+                            when (session.status) {
+                                "completed" -> "✓ Done"
+                                "in_progress" -> "Active"
+                                else -> "Planned"
+                            },
+                            color = if (session.status == "completed")
+                                TodayLook.lime else TodayLook.muted,
+                            fontSize = 10.sp, maxLines = 1
+                        )
+                    }
+                }
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (next != null) {
+                    Surface(
+                        onClick = { onOpen(next) },
+                        shape = RoundedCornerShape(25.dp),
+                        color = Color(0xFF252627),
+                        modifier = Modifier.height(41.dp)
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 15.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("›", color = TodayLook.text, fontSize = 18.sp)
+                            Spacer(Modifier.width(5.dp))
+                            Text(
+                                if (dayIsToday) "Open next" else "View next",
+                                color = TodayLook.text, fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+                Surface(
+                    onClick = { showAll = true },
+                    shape = RoundedCornerShape(25.dp),
+                    color = Color(0xFF252627),
+                    modifier = Modifier.height(41.dp).testTag("today-planned-view-all")
+                ) {
+                    Row(
+                        Modifier.padding(horizontal = 15.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("View sessions", color = TodayLook.text,
+                            fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+    if (showAll) {
+        ModalBottomSheet(
+            onDismissRequest = { showAll = false },
+            containerColor = TodayLook.card
+        ) {
+            Column(
+                Modifier.fillMaxWidth().padding(
+                    start = 19.dp, end = 19.dp, bottom = 24.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    date.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())),
+                    color = TodayLook.muted, fontSize = 12.sp
+                )
+                Text(
+                    sessions.size.toString() + " planned workouts",
+                    color = TodayLook.text, fontSize = 21.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Column(
+                    Modifier.fillMaxWidth().heightIn(max = 490.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    sessions.forEach { session ->
+                        TodayRecordedRow(
+                            title = session.effectiveTitle,
+                            subtitle = todaySessionDetails(session) + " · " +
+                                session.status.replace('_', ' '),
+                            tint = todayDisciplineColor(session.discipline),
+                            onClick = {
+                                showAll = false
+                                onOpen(session)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun TodayWaveWorkout(
     accent: Color,
@@ -1450,6 +1641,13 @@ private fun TodayWaveWorkout(
     onPlan: () -> Unit,
     onSignIn: () -> Unit
 ) {
+    if (scheduled.size > 1 && !signedOut) {
+        TodayMultiPlannedCard(
+            date = date, accent = accent, notchFraction = notchFraction,
+            sessions = scheduled, reduceMotion = reduceMotion, onOpen = onOpen
+        )
+        return
+    }
     val shape = remember(notchFraction) { todayNotchedShape(notchFraction) }
     val multi = scheduled.size > 1
     val primary = scheduled.firstOrNull { it.status != "completed" } ?: scheduled.firstOrNull()
