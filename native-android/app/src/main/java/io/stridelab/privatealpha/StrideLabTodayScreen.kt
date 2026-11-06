@@ -961,7 +961,7 @@ private fun TodayCompactRecordedCard(
  * Segment gaps are never connected; this is not a street-map preview.
  */
 @Composable
-private fun TodayCompactGpsThumbnail(
+internal fun TodayCompactGpsThumbnail(
     route: RecordedGpsRoute,
     modifier: Modifier = Modifier
 ) {
@@ -2388,7 +2388,7 @@ private fun todaySessionDetails(session: PlannedSession): String {
 
 /** Crisp, small running-shoe mark used only on compact recorded cards. */
 @Composable
-private fun TodayRecordedRunningGlyph(modifier: Modifier = Modifier) {
+internal fun TodayRecordedRunningGlyph(modifier: Modifier = Modifier) {
     Canvas(modifier) {
         val w = size.width
         val h = size.height
