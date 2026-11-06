@@ -72,6 +72,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
+import kotlin.math.cos
 
 /**
  * AMOLED Today 2026. Visuals are decorative and all athlete values come from
@@ -336,6 +337,7 @@ internal fun StrideLabTodayScreen(
                     activities = recordedOnDate,
                     logs = confirmedOnDate,
                     plans = safePlans,
+                    cachedDetails = state.details,
                     notchFraction = notchPosition,
                     onOpenActivity = onOpenActivityDetail,
                     onOpenWorkout = onOpenWorkout
@@ -755,6 +757,7 @@ private fun TodayCompactRecordedCards(
     activities: List<ActivityRecord>,
     logs: List<ConfirmedWorkout>,
     plans: List<PlanSnapshot>,
+    cachedDetails: Map<String, ActivityDetail>,
     notchFraction: Float,
     onOpenActivity: (String) -> Unit,
     onOpenWorkout: (String, String) -> Unit
@@ -815,6 +818,7 @@ private fun TodayCompactRecordedCards(
                 notchFraction = notchFraction,
                 discipline = discipline,
                 accent = accent,
+                recordedDetail = activity?.let { cachedDetails[it.id] },
                 primary = primary,
                 secondary = secondary,
                 tag = if (index == 0) "today-recorded-hero"
@@ -837,6 +841,7 @@ private fun TodayCompactRecordedCard(
     notchFraction: Float,
     discipline: String,
     accent: Color,
+    recordedDetail: ActivityDetail?,
     primary: String,
     secondary: String,
     tag: String,
@@ -845,6 +850,10 @@ private fun TodayCompactRecordedCard(
     val shape = remember(first, notchFraction) {
         if (first) todayNotchedShape(notchFraction)
         else RoundedCornerShape(18.dp)
+    }
+    val route = remember(recordedDetail) {
+        recordedDetail?.let { RecordedGpsRoute.from(it.samples) }
+            ?.takeIf { it.pointCount >= 2 }
     }
     Surface(
         onClick = onClick,
@@ -906,7 +915,81 @@ private fun TodayCompactRecordedCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Text("›", color = TodayLook.muted, fontSize = 23.sp)
+            if (route != null) {
+                TodayCompactGpsThumbnail(
+                    route = route,
+                    modifier = Modifier.size(width = 66.dp, height = 64.dp)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Real recorded coordinates only: small, offline, north-up route outline.
+ * Nothing is shown without an already-saved activity detail stream.
+ * Segment gaps are never connected; this is not a street-map preview.
+ */
+@Composable
+private fun TodayCompactGpsThumbnail(
+    route: RecordedGpsRoute,
+    modifier: Modifier = Modifier
+) {
+    val all = route.allPoints
+    val segments = remember(route) {
+        if (all.maxOf { it.longitude } - all.minOf { it.longitude } > 180.0)
+            listOf(route.segments.maxByOrNull { it.size }.orEmpty())
+        else route.segments
+    }
+    val points = remember(segments) { segments.flatten() }
+    if (points.size < 2) return
+    val projection = remember(points) {
+        cos(Math.toRadians(points.map { it.latitude }.average()))
+            .coerceAtLeast(.01)
+    }
+    val minX = remember(points, projection) {
+        points.minOf { it.longitude * projection }
+    }
+    val maxX = remember(points, projection) {
+        points.maxOf { it.longitude * projection }
+    }
+    val minY = remember(points) { points.minOf { it.latitude } }
+    val maxY = remember(points) { points.maxOf { it.latitude } }
+    Canvas(
+        modifier = modifier.semantics {
+            contentDescription = "Recorded GPS route preview, north up"
+        }
+    ) {
+        val dx = (maxX - minX).coerceAtLeast(.000001)
+        val dy = (maxY - minY).coerceAtLeast(.000001)
+        val width = (size.width - 8.dp.toPx()).coerceAtLeast(1f)
+        val height = (size.height - 8.dp.toPx()).coerceAtLeast(1f)
+        val scale = minOf(width / dx, height / dy)
+        fun position(p: RecordedGpsPoint) = Offset(
+            x = ((size.width - (maxX - minX) * scale) / 2 +
+                (p.longitude * projection - minX) * scale).toFloat(),
+            y = ((size.height - (maxY - minY) * scale) / 2 +
+                (maxY - p.latitude) * scale).toFloat()
+        )
+        segments.forEach { segment ->
+            if (segment.size > 1) {
+                val path = Path().apply {
+                    moveTo(position(segment.first()).x, position(segment.first()).y)
+                    segment.drop(1).forEach { point ->
+                        val p = position(point)
+                        lineTo(p.x, p.y)
+                    }
+                }
+                drawPath(
+                    path = path,
+                    color = Color(0xFF8B9498),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = 2.dp.toPx(),
+                        cap = StrokeCap.Round,
+                        join = androidx.compose.ui.graphics.StrokeJoin.Round
+                    )
+                )
+            }
         }
     }
 }
