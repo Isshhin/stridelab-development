@@ -805,7 +805,7 @@ private fun TodayCompactRecordedCards(
                 } else if (distance != null) {
                     add(String.format(Locale.getDefault(), "%.2f km", distance / 1000))
                 }
-                pace?.let(::add)
+                pace?.let { add(it) }
             }.joinToString("  ·  ").ifBlank {
                 if (duration != null && !distancePrimary) "Recorded duration"
                 else "Saved workout"
@@ -842,10 +842,9 @@ private fun TodayCompactRecordedCard(
     tag: String,
     onClick: () -> Unit
 ) {
-    val shape = if (first) {
-        remember(notchFraction) { todayNotchedShape(notchFraction) }
-    } else {
-        RoundedCornerShape(18.dp)
+    val shape = remember(first, notchFraction) {
+        if (first) todayNotchedShape(notchFraction)
+        else RoundedCornerShape(18.dp)
     }
     Surface(
         onClick = onClick,
