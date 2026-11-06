@@ -50,6 +50,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -280,32 +281,14 @@ internal fun StrideLabTodayScreen(
     val metrics = remember(weekStart, safeActivities, safeHistory, safePlans) {
         savedWeekMetrics(date, safeActivities, safeHistory, safePlans)
     }
-    // A small vertical finger drift while selecting calendar dates can leave
-    // the LazyColumn a few pixels scrolled, visually shifting every card.
-    // Restore the same top anchor only when the calendar is already at the top.
-    // Preserve intentional scrolling further down the Today page.
+    // The signed-out dashboard is a compact static view on ordinary phones.
+    // The former measured-overflow toggle fed its own bottom padding back
+    // into the calculation, incorrectly enabling page dragging. Preserve a
+    // scrollable fallback on short screens and at accessibility font scales.
     val listState = rememberLazyListState()
-    // The floating dock overlays the page. When every signed-out card is
-    // completely visible above it, the empty dashboard must not drag or
-    // overscroll. Use measured item bounds, not a device-size assumption:
-    // compact devices and large accessibility text still get full scrolling.
-    val dockClearancePx = with(androidx.compose.ui.platform.LocalDensity.current) {
-        90.dp.roundToPx()
-    }
-    val signedOutNeedsScroll by remember(listState, dockClearancePx) {
-        derivedStateOf {
-            val layout = listState.layoutInfo
-            val last = layout.visibleItemsInfo.lastOrNull()
-            when {
-                listState.firstVisibleItemIndex > 0 ||
-                    listState.firstVisibleItemScrollOffset > 0 -> true
-                layout.totalItemsCount == 0 || last == null -> false
-                last.index < layout.totalItemsCount - 1 -> true
-                else -> last.offset + last.size >
-                    layout.viewportEndOffset + layout.afterContentPadding - dockClearancePx
-            }
-        }
-    }
+    val signedOutFitsScreen = state.account == null &&
+        LocalConfiguration.current.screenHeightDp >= 730 &&
+        androidx.compose.ui.platform.LocalDensity.current.fontScale <= 1.15f
     // A sign-out can reuse the previous account's list position; start the
     // signed-out dashboard from its date strip instead.
     LaunchedEffect(state.account) {
@@ -328,15 +311,14 @@ internal fun StrideLabTodayScreen(
 
     LazyColumn(
         state = listState,
-        userScrollEnabled = state.account != null || signedOutNeedsScroll,
+        userScrollEnabled = !signedOutFitsScreen,
         modifier = Modifier.fillMaxSize().background(TodayLook.black)
             .testTag("screen").semantics { paneTitle = "Today" },
-        // Do not add artificial overflow on the compact signed-out layout.
-        // Restore full dock clearance whenever scrolling is actually needed,
-        // so the last card remains reachable above the floating navigation.
+        // Signed-out content sits still on a normal phone. On smaller
+        // displays, restore dock clearance so the last card can scroll clear.
         contentPadding = PaddingValues(
             start = 19.dp, end = 19.dp, top = 12.dp,
-            bottom = if (state.account == null && !signedOutNeedsScroll) 12.dp else 110.dp
+            bottom = if (signedOutFitsScreen) 12.dp else 110.dp
         ),
         verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
@@ -435,7 +417,8 @@ internal fun StrideLabTodayScreen(
                 metrics = metrics,
                 selectedDayIndex = date.dayOfWeek.value - 1,
                 reduceMotion = reduceMotion,
-                onOpenActivity = onOpenActivity
+                onOpenActivity = onOpenActivity,
+                signedOut = state.account == null
             )
         }
     }
@@ -2195,9 +2178,11 @@ private fun TodayWaveWorkout(
     val multi = scheduled.size > 1
     val primary = scheduled.firstOrNull { it.status != "completed" } ?: scheduled.firstOrNull()
     val content = TodayHeroSnapshot(date, scheduled, planAvailable, signedOut)
+    // Signed-out copy has two title lines, explanatory text and a CTA.
+    // The former 232dp hero made its own inner Column scroll by a few pixels.
     Box(
         Modifier.fillMaxWidth()
-            .height(TodayHeroHeight)
+            .height(if (signedOut) 256.dp else TodayHeroHeight)
             .clip(shape)
             .background(
                 Brush.linearGradient(
@@ -2288,10 +2273,13 @@ private fun TodayWaveWorkout(
             primary?.discipline?.let(::todayHeroDiscipline) == "running")
         val buttonInk = if (limeButton) TodayLook.black else TodayLook.text
 
+        val allowHeroScroll = !signedOut ||
+            androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.15f
         Column(
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(
-                start = 19.dp, end = 16.dp, top = 23.dp, bottom = 15.dp
-            ),
+            Modifier.fillMaxWidth()
+                .then(if (allowHeroScroll) Modifier.verticalScroll(rememberScrollState())
+                    else Modifier)
+                .padding(start = 19.dp, end = 16.dp, top = 23.dp, bottom = 15.dp),
             verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically,
@@ -2684,7 +2672,7 @@ private fun TodayNextSession(
         modifier = Modifier.fillMaxWidth().testTag("today-next-session")
     ) {
         Box(Modifier.fillMaxWidth()) {
-            Canvas(Modifier.matchParentSize()) {
+            if (!signedOut) Canvas(Modifier.matchParentSize()) {
                 val w = size.width
                 val h = size.height
                 val accent = Path().apply {
@@ -2705,16 +2693,23 @@ private fun TodayNextSession(
                 )
             }
             Column(
-                Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 11.dp),
+                Modifier.fillMaxWidth().padding(
+                    horizontal = if (signedOut) 15.dp else 13.dp,
+                    vertical = if (signedOut) 11.dp else 11.dp
+                ),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
-                        Modifier.size(31.dp)
-                            .background(Color(0xFF3A2426), RoundedCornerShape(10.dp)),
+                        Modifier.size(if (signedOut) 35.dp else 31.dp)
+                            .background(
+                                if (signedOut) Color(0xFF26321F) else Color(0xFF3A2426),
+                                RoundedCornerShape(if (signedOut) 11.dp else 10.dp)
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("▣", color = TodayLook.coral, fontSize = 18.sp)
+                        Text("▣", color = if (signedOut) TodayLook.lime else TodayLook.coral,
+                            fontSize = 18.sp)
                     }
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
@@ -2729,10 +2724,14 @@ private fun TodayNextSession(
                     }
                     Box(
                         Modifier.size(27.dp)
-                            .background(Color(0xFF343035), CircleShape),
+                            .background(
+                                if (signedOut) Color(0xFF26321F) else Color(0xFF343035),
+                                CircleShape
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("›", color = TodayLook.text, fontSize = 22.sp)
+                        Text("›", color = if (signedOut) TodayLook.lime else TodayLook.text,
+                            fontSize = 22.sp)
                     }
                 }
                 if (next != null) {
@@ -2786,7 +2785,8 @@ private fun TodayWeeklyActivity(
     metrics: TodayWeekMetrics,
     selectedDayIndex: Int,
     reduceMotion: Boolean,
-    onOpenActivity: () -> Unit
+    onOpenActivity: () -> Unit,
+    signedOut: Boolean = false
 ) {
     val haptics = LocalHapticFeedback.current
     val interactionSource = remember { MutableInteractionSource() }
@@ -2819,8 +2819,10 @@ private fun TodayWeeklyActivity(
         border = androidx.compose.foundation.BorderStroke(1.dp, TodayLook.outline)
     ) {
         Column(
-            Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 15.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            Modifier.fillMaxWidth().padding(
+                horizontal = 15.dp, vertical = if (signedOut) 13.dp else 15.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(if (signedOut) 9.dp else 12.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
@@ -2851,8 +2853,8 @@ private fun TodayWeeklyActivity(
                 (0..6).forEach { idx ->
                     val target = when {
                         metrics.seconds[idx] > 0 ->
-                            (metrics.seconds[idx] / maxSeconds * 43).toFloat()
-                                .coerceIn(5f, 43f)
+                            (metrics.seconds[idx] / maxSeconds * if (signedOut) 35 else 43).toFloat()
+                                .coerceIn(5f, if (signedOut) 35f else 43f)
                         metrics.counts[idx] > 0 -> 6f
                         else -> 3f
                     }
@@ -2872,7 +2874,7 @@ private fun TodayWeeklyActivity(
                         verticalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         Box(
-                            Modifier.width(22.dp).height(46.dp),
+                            Modifier.width(22.dp).height(if (signedOut) 38.dp else 46.dp),
                             contentAlignment = Alignment.BottomCenter
                         ) {
                             Box(
