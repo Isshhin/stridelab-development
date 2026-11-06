@@ -2363,40 +2363,52 @@ private fun TodayRecordedRunningGlyph(modifier: Modifier = Modifier) {
         val w = size.width
         val h = size.height
         val ink = Color(0xFF1A2615)
-                // Compact running-shoe silhouette: clearer at 29dp than the
-                // previous thin stick figure. Decorative, not real equipment.
-                val shoe = Path().apply {
-                    moveTo(w * .11f, h * .67f)
-                    lineTo(w * .26f, h * .40f)
-                    quadraticTo(w * .31f, h * .32f, w * .38f, h * .43f)
-                    lineTo(w * .53f, h * .62f)
-                    quadraticTo(w * .60f, h * .70f, w * .68f, h * .70f)
-                    lineTo(w * .79f, h * .70f)
-                    quadraticTo(w * .89f, h * .70f, w * .92f, h * .80f)
-                    lineTo(w * .93f, h * .84f)
-                    quadraticTo(w * .85f, h * .91f, w * .71f, h * .91f)
-                    lineTo(w * .25f, h * .91f)
-                    quadraticTo(w * .11f, h * .91f, w * .08f, h * .81f)
-                    quadraticTo(w * .06f, h * .75f, w * .11f, h * .67f)
-                    close()
-                }
-                drawPath(shoe, ink)
-                val laceColor = Color(0xFFEAFABB)
-                drawLine(
-                    laceColor, Offset(w * .43f, h * .55f),
-                    Offset(w * .54f, h * .48f),
-                    strokeWidth = 1.8.dp.toPx(), cap = StrokeCap.Round
-                )
-                drawLine(
-                    laceColor, Offset(w * .51f, h * .64f),
-                    Offset(w * .63f, h * .57f),
-                    strokeWidth = 1.8.dp.toPx(), cap = StrokeCap.Round
-                )
-                drawLine(
-                    laceColor, Offset(w * .17f, h * .83f),
-                    Offset(w * .83f, h * .83f),
-                    strokeWidth = 1.3.dp.toPx(), cap = StrokeCap.Round
-                )
+        // Option C: minimal, outlined running shoe. No stick figure,
+        // fill-heavy silhouette, or bright lace details at small sizes.
+        val upper = Path().apply {
+            moveTo(w * .08f, h * .69f)
+            lineTo(w * .23f, h * .64f)
+            lineTo(w * .36f, h * .43f)
+            quadraticTo(w * .40f, h * .36f, w * .46f, h * .46f)
+            lineTo(w * .62f, h * .64f)
+            quadraticTo(w * .66f, h * .68f, w * .74f, h * .68f)
+            lineTo(w * .84f, h * .67f)
+            quadraticTo(w * .93f, h * .67f, w * .94f, h * .77f)
+            quadraticTo(w * .96f, h * .85f, w * .84f, h * .88f)
+            lineTo(w * .22f, h * .88f)
+            quadraticTo(w * .09f, h * .87f, w * .08f, h * .78f)
+            close()
+        }
+        drawPath(
+            path = upper,
+            color = ink,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(
+                width = 2.6.dp.toPx(),
+                cap = StrokeCap.Round,
+                join = androidx.compose.ui.graphics.StrokeJoin.Round
+            )
+        )
+        drawLine(
+            color = ink,
+            start = Offset(w * .20f, h * .79f),
+            end = Offset(w * .87f, h * .79f),
+            strokeWidth = 1.65.dp.toPx(),
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = ink,
+            start = Offset(w * .47f, h * .55f),
+            end = Offset(w * .56f, h * .50f),
+            strokeWidth = 1.65.dp.toPx(),
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = ink,
+            start = Offset(w * .53f, h * .61f),
+            end = Offset(w * .62f, h * .56f),
+            strokeWidth = 1.65.dp.toPx(),
+            cap = StrokeCap.Round
+        )
     }
 }
 
