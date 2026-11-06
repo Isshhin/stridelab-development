@@ -175,112 +175,46 @@ private fun NavHostController.openActivity(id: String) {
             state.message?.let { Surface(color = MaterialTheme.colorScheme.surfaceVariant) { Text(it, Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }.padding(horizontal = 20.dp, vertical = 12.dp), style = MaterialTheme.typography.bodyMedium) } }
             NavHost(navController = nav, startDestination = "home", modifier = Modifier.weight(1f)) {
                 composable("home") {
-                    // The visual Today shell is data-driven and retains the existing root navigation route.
-                    val greeting = when(java.time.LocalTime.now().hour) {
-                        in 5..11 -> "Good morning"
-                        in 12..17 -> "Good afternoon"
-                        else -> "Good evening"
-                    }
-                    Screen("Today", greeting, dense = true) {
-                        if(state.initializing) item { Text("Opening your saved training…") }
-                        else if(state.account == null) item {
-                            EmptyState("Start with your history", "Sign in to synchronize your activities. Saved history is available offline.")
-                            Button(onClick = { nav.navigate("auth") }, modifier = Modifier.fillMaxWidth()) { Text("Sign in") }
-                        } else {
-                            val plan = state.plans.firstOrNull { it.status == "approved" }
-                            val todaySessions = plan?.sessions?.filter { it.date == java.time.LocalDate.now() && it.status != "unassigned" } ?: emptyList()
-                            val activeMultiSession = todaySessions.size >= 2 &&
-                                todaySessions.any { it.status == "completed" }
-                            val next = plan?.sessions?.filter {
-                                it.date >= java.time.LocalDate.now() && it.status in setOf("planned", "in_progress")
-                            }?.sortedWith(compareBy<PlannedSession>({ it.date }, { it.id }))?.firstOrNull()
-                            if (!activeMultiSession) item(key = "today-design-label") {
+                    StrideLabTodayScreen(
+                        state = state,
+                        visibleActivities = visibleActivities,
+                        online = online,
+                        onOpenTraining = { nav.openTabRoot("training") },
+                        onOpenActivity = { nav.openTabRoot("activities") },
+                        onOpenWorkout = { planId, sessionId -> nav.openWorkout(planId, sessionId) },
+                        onOpenActivityDetail = { id -> nav.openActivity(id) },
+                        onOpenMore = { nav.openTabRoot("settings") },
+                        onSignIn = { nav.navigate("auth") },
+                        expandedInsights = {
+                            SyncStatus(state)
+                            if (state.account != null) {
+                                WeeklyDashboard(visibleActivities, plans = state.plans)
+                                WellnessOverview(
+                                    state.wellness, actions.refreshWellness,
+                                    online && !state.busy && !state.needsSignIn
+                                )
+                                HistoryOverview(visibleActivities)
+                                if (visibleActivities.count { it.durationS != null } >= 2) {
+                                    RecordedDurationChart(visibleActivities)
+                                }
+                                FilledTonalButton(
+                                    onClick = actions.refresh,
+                                    enabled = !state.busy,
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                                ) { Text("Refresh history") }
+                                if (state.needsSignIn) {
+                                    Button(onClick = { nav.navigate("auth") }) {
+                                        Text("Sign in again")
+                                    }
+                                }
+                            } else {
                                 Text(
-                                    when {
-                                        plan == null -> "RUNNING · GET STARTED"
-                                        next?.discipline == "run" -> "RUNNING · NEXT WORKOUT"
-                                        else -> "YOUR TRAINING · TODAY"
-                                    },
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = TracksidePalette.textMuted,
-                                    fontWeight = FontWeight.Bold
+                                    "Sign in to see your saved training and wellness history.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            if (next != null && plan != null && !activeMultiSession) item(key = "today-featured") {
-                                TracksideTodayHero(plan.cardPresentation(next)) { nav.openWorkout(plan.id, next.id) }
-                            }
-                            if (plan == null) item(key = "today-empty-featured") {
-                                TracksideTodayNoPlanHero { nav.openTabRoot("training") }
-                            }
-                            if (plan != null && next == null && todaySessions.isEmpty()) item(key = "today-no-upcoming") {
-                                TracksideTodayNoUpcomingHero { nav.openTabRoot("training") }
-                            }
-                            if(plan != null) {
-                                if (activeMultiSession) item(key = "today-active-status") {
-                                    TracksideParityTodayActiveStatus(plan, todaySessions)
-                                }
-                                item {
-                                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                        Text(if (activeMultiSession) "Your workouts" else "Today's plan",
-                                            style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                                        TextButton(onClick = { nav.openTabRoot("training") }) { Text(if (activeMultiSession) "View week ›" else "View all ›") }
-                                    }
-                                }
-                                val today = todaySessions.map(plan::cardPresentation)
-                                if (today.isEmpty()) item(key = "today-empty-schedule") {
-                                    TracksideTodayEmptySession(hasApprovedPlan = true) {
-                                        nav.openTabRoot("training")
-                                    }
-                                }
-                                today.forEach { session ->
-                                    item(key = "today-" + session.id) {
-                                        if (activeMultiSession)
-                                            TracksideParityWorkoutCard(session, false) {
-                                                nav.openWorkout(plan.id, session.id)
-                                            }
-                                        else TracksideTodaySession(session) {
-                                            nav.openWorkout(plan.id, session.id)
-                                        }
-                                    }
-                                }
-                            }
-                            if (plan == null) {
-                                item(key = "today-empty-plan-heading") {
-                                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                        Text("Today's plan", style = MaterialTheme.typography.titleLarge,
-                                            modifier = Modifier.weight(1f))
-                                        TextButton(onClick = { nav.openTabRoot("training") }) { Text("View all ›") }
-                                    }
-                                }
-                                item(key = "today-empty-plan-row") {
-                                    TracksideTodayEmptySession(hasApprovedPlan = false) {
-                                        nav.openTabRoot("training")
-                                    }
-                                }
-                            }
-                            item { Text("Recent activity", style = MaterialTheme.typography.titleLarge) }
-                            groupedActivities.take(2).forEach { group ->
-                                item(key = "recent-" + group.primary.id) {
-                                    TracksideTodayActivity(group.primary,
-                                        sourceLabel=group.sourceLabel) {
-                                        nav.openActivity(group.primary.id)
-                                    }
-                                }
-                            }
-                            if(state.activities.isEmpty()) item {
-                                Text("No saved activities yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            item { SyncStatus(state) }
-                            item { WeeklyDashboard(visibleActivities, plans = state.plans) }
-                            item { WellnessOverview(state.wellness, actions.refreshWellness, online && !state.busy && !state.needsSignIn) }
-                            item { HistoryOverview(visibleActivities) }
-                            if(visibleActivities.count { it.durationS != null } >= 2)
-                                item { RecordedDurationChart(visibleActivities) }
-                            item { FilledTonalButton(onClick = actions.refresh, enabled = !state.busy,
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
-                            if(state.needsSignIn) item { Button(onClick = { nav.navigate("auth") }) { Text("Sign in again") } }
                         }
-                    }
+                    )
                 }
                 composable("activities") {
                     Screen("Activities", "YOUR HISTORY") {
@@ -495,6 +429,12 @@ private fun NavHostController.openActivity(id: String) {
                     Screen("Settings", "ACCOUNT & DATA") {
                         item { SignalCard { Text("YOUR STRIDELAB", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text(if(state.account == null) "Keep your training close." else "Connected to your history.", style = MaterialTheme.typography.titleLarge); Text("Private preview · ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
                         item { SyncStatus(state) }
+                        item {
+                            OutlinedButton(
+                                onClick = { nav.openTabRoot("library") },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                            ) { Text("Workout library") }
+                        }
                         if(state.account != null) {
                             item { TracksideSectionHeader("Private account") }
                             item { SignalCard { Text("ACCOUNT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text(state.account!!, style = MaterialTheme.typography.bodyMedium) } }
