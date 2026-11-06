@@ -217,7 +217,7 @@ internal fun StrideLabTodayScreen(
         if (date.isAfter(todayDate)) emptyList() else safeActivities.filter {
             !it.startedAt.isAfter(Instant.now()) &&
                 it.startedAt.atZone(ZoneId.systemDefault()).toLocalDate() == date
-        }.sortedByDescending { it.startedAt }
+        }.sortedWith(compareBy<ActivityRecord>({ it.startedAt }, { it.id }))
     }
     val confirmedOnDate = remember(date, todayDate, safePlans, safeHistory) {
         if (date.isAfter(todayDate)) emptyList() else
@@ -381,11 +381,6 @@ internal fun StrideLabTodayScreen(
                 reduceMotion = reduceMotion,
                 onOpenActivity = onOpenActivity
             )
-        }
-        if (state.account != null && visibleActivities.isNotEmpty()) {
-            item(key = "today-recent") {
-                TodayRecentActivity(visibleActivities.take(2), onOpenActivityDetail, onOpenActivity)
-            }
         }
     }
 }
@@ -689,6 +684,52 @@ private fun todayKindLabel(kind: String): String = when (kind) {
 }
 
 /**
+ * Chronological UI order for sessions recorded on the selected day.
+ *
+ * ActivityRecords have an actual start time. Native confirmed workouts
+ * contain only the performed date; their log.at is the time the completion
+ * was saved, NOT necessarily when the athlete started the workout.
+ * Use it for relative ordering only if it falls on the performed date.
+ * Backfilled/date-only logs have unknown start order, so display them
+ * after timestamped records with a deterministic ID fallback.
+ */
+private data class TodayRecordedDisplayEntry(
+    val time: Instant?,
+    val stableKey: String,
+    val activity: ActivityRecord? = null,
+    val confirmed: ConfirmedWorkout? = null
+)
+
+private fun todayChronologicalRecordedEntries(
+    activities: List<ActivityRecord>,
+    logs: List<ConfirmedWorkout>,
+    plans: List<PlanSnapshot>
+): List<TodayRecordedDisplayEntry> {
+    val recorded = activities.map { activity ->
+        TodayRecordedDisplayEntry(
+            time = activity.startedAt,
+            stableKey = "activity:" + activity.id,
+            activity = activity
+        )
+    }
+    val zone = ZoneId.systemDefault()
+    val confirmed = logs.map { entry ->
+        val savedAt = plans.firstOrNull { it.id == entry.planId }
+            ?.sessions?.firstOrNull { it.id == entry.sessionId }?.log?.at
+        TodayRecordedDisplayEntry(
+            time = savedAt?.takeIf { it.atZone(zone).toLocalDate() == entry.date },
+            stableKey = "log:" + entry.planId + ":" + entry.sessionId,
+            confirmed = entry
+        )
+    }
+    return (recorded + confirmed).sortedWith(
+        compareBy<TodayRecordedDisplayEntry> { it.time == null }
+            .thenBy { it.time }
+            .thenBy { it.stableKey }
+    )
+}
+
+/**
  * Multiple saved activities: one compact neutral summary, not a tall list.
  * The individual source records and native logs appear only on View Sessions.
  */
@@ -858,38 +899,42 @@ private fun TodayMultiRecordedSummary(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(9.dp)
                 ) {
-                    activities.forEach { activity ->
-                    TodayRecordedRow(
-                        title = activity.title,
-                        subtitle = listOfNotNull(
-                            activity.distanceM?.let { activity.distanceLabel },
-                            activity.durationS?.let { activity.durationLabel }
-                        ).joinToString(" · ").ifBlank { activity.sourceLabel },
-                        tint = todayRecordedColor(activity.type),
-                        onClick = {
-                            showDetails = false
-                            onOpenActivity(activity.id)
+                    todayChronologicalRecordedEntries(activities, logs, plans)
+                        .forEach { entry ->
+                            val activity = entry.activity
+                            val log = entry.confirmed
+                            if (activity != null) {
+                                TodayRecordedRow(
+                                    title = activity.title,
+                                    subtitle = listOfNotNull(
+                                        activity.distanceM?.let { activity.distanceLabel },
+                                        activity.durationS?.let { activity.durationLabel }
+                                    ).joinToString(" · ").ifBlank { activity.sourceLabel },
+                                    tint = todayRecordedColor(activity.type),
+                                    onClick = {
+                                        showDetails = false
+                                        onOpenActivity(activity.id)
+                                    }
+                                )
+                            } else if (log != null) {
+                                val session = plans.firstOrNull { it.id == log.planId }
+                                    ?.sessions?.firstOrNull { it.id == log.sessionId }
+                                TodayRecordedRow(
+                                    title = session?.effectiveTitle ?: "Completed workout",
+                                    subtitle = listOfNotNull(
+                                        log.distanceM?.let {
+                                            String.format(Locale.getDefault(), "%.2f km", it / 1000)
+                                        },
+                                        log.durationSeconds?.let { ActivityRecord.duration(it) }
+                                    ).joinToString(" · ").ifBlank { "Completed log" },
+                                    tint = todayDisciplineColor(log.discipline),
+                                    onClick = {
+                                        showDetails = false
+                                        onOpenWorkout(log.planId, log.sessionId)
+                                    }
+                                )
+                            }
                         }
-                    )
-                }
-                    logs.forEach { log ->
-                    val session = plans.firstOrNull { it.id == log.planId }
-                        ?.sessions?.firstOrNull { it.id == log.sessionId }
-                    TodayRecordedRow(
-                        title = session?.effectiveTitle ?: "Completed workout",
-                        subtitle = listOfNotNull(
-                            log.distanceM?.let {
-                                String.format(Locale.getDefault(), "%.2f km", it / 1000)
-                            },
-                            log.durationSeconds?.let { ActivityRecord.duration(it) }
-                        ).joinToString(" · ").ifBlank { "Completed log" },
-                        tint = todayDisciplineColor(log.discipline),
-                        onClick = {
-                            showDetails = false
-                            onOpenWorkout(log.planId, log.sessionId)
-                        }
-                    )
-                    }
                 }
             }
         }
@@ -1037,36 +1082,40 @@ private fun TodayMixedDayCard(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    activities.forEach { activity ->
-                        TodayRecordedRow(
-                            title = activity.title,
-                            subtitle = listOfNotNull(
-                                activity.distanceM?.let { activity.distanceLabel },
-                                activity.durationS?.let { activity.durationLabel }
-                            ).joinToString(" · ").ifBlank { activity.sourceLabel },
-                            tint = TodayLook.lime,
-                            onClick = {
-                                showAll = false
-                                onOpenActivity(activity.id)
+                    todayChronologicalRecordedEntries(activities, logs, plans)
+                        .forEach { entry ->
+                            val activity = entry.activity
+                            val log = entry.confirmed
+                            if (activity != null) {
+                                TodayRecordedRow(
+                                    title = activity.title,
+                                    subtitle = listOfNotNull(
+                                        activity.distanceM?.let { activity.distanceLabel },
+                                        activity.durationS?.let { activity.durationLabel }
+                                    ).joinToString(" · ").ifBlank { activity.sourceLabel },
+                                    tint = todayRecordedColor(activity.type),
+                                    onClick = {
+                                        showAll = false
+                                        onOpenActivity(activity.id)
+                                    }
+                                )
+                            } else if (log != null) {
+                                val original = plans.firstOrNull { it.id == log.planId }
+                                    ?.sessions?.firstOrNull { it.id == log.sessionId }
+                                TodayRecordedRow(
+                                    title = original?.effectiveTitle ?: "Completed workout",
+                                    subtitle = "Completed" +
+                                        (log.durationSeconds?.let {
+                                            " · " + ActivityRecord.duration(it)
+                                        } ?: ""),
+                                    tint = todayDisciplineColor(log.discipline),
+                                    onClick = {
+                                        showAll = false
+                                        onOpenWorkout(log.planId, log.sessionId)
+                                    }
+                                )
                             }
-                        )
-                    }
-                    logs.forEach { log ->
-                        val original = plans.firstOrNull { it.id == log.planId }
-                            ?.sessions?.firstOrNull { it.id == log.sessionId }
-                        TodayRecordedRow(
-                            title = original?.effectiveTitle ?: "Completed workout",
-                            subtitle = "Completed" +
-                                (log.durationSeconds?.let {
-                                    " · " + ActivityRecord.duration(it)
-                                } ?: ""),
-                            tint = todayDisciplineColor(log.discipline),
-                            onClick = {
-                                showAll = false
-                                onOpenWorkout(log.planId, log.sessionId)
-                            }
-                        )
-                    }
+                        }
                     pending.forEach { session ->
                         TodayRecordedRow(
                             title = session.effectiveTitle,
@@ -2558,53 +2607,6 @@ private fun TodayStat(
             maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(label, color = TodayLook.muted, fontSize = 10.sp,
             maxLines = 2, lineHeight = 13.sp)
-    }
-}
-
-@Composable
-private fun TodayRecentActivity(
-    recent: List<ActivityRecord>,
-    onOpen: (String) -> Unit,
-    onOpenActivity: () -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Recent activity", color = TodayLook.text,
-                fontSize = 17.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f))
-            TextButton(onClick = onOpenActivity) {
-                Text("View all ›", color = TodayLook.muted)
-            }
-        }
-        recent.forEach { activity ->
-            Surface(
-                onClick = { onOpen(activity.id) },
-                modifier = Modifier.fillMaxWidth().testTag("activity-" + activity.id),
-                shape = RoundedCornerShape(17.dp),
-                color = TodayLook.card
-            ) {
-                Row(
-                    Modifier.padding(horizontal = 16.dp, vertical = 13.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("●", fontSize = 17.sp, color = TodayLook.lime)
-                    Spacer(Modifier.width(11.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(activity.title, color = TodayLook.text,
-                            fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(
-                            listOfNotNull(
-                                activity.distanceM?.let { activity.distanceLabel },
-                                activity.durationS?.let { activity.durationLabel }
-                            ).joinToString("  ·  ").ifBlank { "Saved activity" },
-                            color = TodayLook.muted, fontSize = 11.sp
-                        )
-                    }
-                    Text("›", color = TodayLook.muted, fontSize = 20.sp)
-                }
-            }
-        }
     }
 }
 
