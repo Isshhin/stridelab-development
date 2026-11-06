@@ -299,9 +299,15 @@ internal fun StrideLabTodayScreen(
         state = listState,
         modifier = Modifier.fillMaxSize().background(TodayLook.black)
             .testTag("screen").semantics { paneTitle = "Today" },
-        // The transparent dock overlays the scrolling page. Reserve room
-        // after the final item without adding a permanent dark footer.
-        contentPadding = PaddingValues(start = 19.dp, end = 19.dp, top = 12.dp, bottom = 110.dp),
+        // Signed-out Today fits in a single viewport on common phones. The
+        // full 110dp dock clearance otherwise creates artificial overflow and
+        // makes the empty dashboard scroll even when all cards are visible.
+        // Keep the full clearance for signed-in timelines; signed-out content
+        // can still scroll naturally on smaller screens or with larger text.
+        contentPadding = PaddingValues(
+            start = 19.dp, end = 19.dp, top = 12.dp,
+            bottom = if (state.account == null) 12.dp else 110.dp
+        ),
         verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
         item(key = "today-calendar") {
