@@ -581,7 +581,11 @@ private fun NavHostController.openActivity(id: String) {
 @Composable
 private fun TabDiagnosticPlaceholder(label: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Tab diagnostic: $label", modifier = Modifier.testTag("tab-diagnostic-$label"))
+        Text(
+            text = "Tab diagnostic: $label",
+            color = Color(0xFFE7ECED),
+            modifier = Modifier.testTag("tab-diagnostic-$label")
+        )
     }
 }
 
