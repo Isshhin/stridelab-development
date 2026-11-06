@@ -49,7 +49,6 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
@@ -92,10 +91,9 @@ private object TodayLook {
     val azure = Color(0xFF91BFFF)
 }
 
-// Consistent hero footprint across calendar dates prevents the Next Session
-// and Weekly Activity cards from jumping as the selected training day changes.
-// heightIn is intentional: large fonts and complex session lists may expand.
-private val TodayHeroMinHeight = 232.dp
+// Every Today hero uses the same exact footprint. Long session lists or
+// accessibility text scroll inside the hero rather than moving the cards below.
+private val TodayHeroHeight = 232.dp
 
 /** Status markers use only the signed-in athlete's persisted workouts. */
 private data class TodayDayMarker(val completed: Boolean, val pending: Boolean)
@@ -281,10 +279,11 @@ internal fun StrideLabTodayScreen(
     // Restore the same top anchor only when the calendar is already at the top.
     // Preserve intentional scrolling further down the Today page.
     val listState = rememberLazyListState()
-    val topTolerance = with(LocalDensity.current) { 16.dp.roundToPx() }
     LaunchedEffect(selectedDay) {
+        // Date changes happen via the visible calendar. Re-anchor it fully,
+        // including the few-pixel drift that persists after a tap or swipe.
         if (listState.firstVisibleItemIndex == 0 &&
-            listState.firstVisibleItemScrollOffset in 1..topTolerance
+            listState.firstVisibleItemScrollOffset > 0
         ) {
             listState.scrollToItem(0, 0)
         }
@@ -720,7 +719,7 @@ private fun TodayMultiRecordedSummary(
     var showDetails by remember(date, activities, logs) { mutableStateOf(false) }
     val shape = remember(notchFraction) { todayNotchedShape(notchFraction) }
     Box(
-        Modifier.fillMaxWidth().heightIn(min = TodayHeroMinHeight)
+        Modifier.fillMaxWidth().height(TodayHeroHeight)
             .clip(shape).background(
                 Brush.horizontalGradient(
                     listOf(Color(0xFF14191A), Color(0xFF1B2223), Color(0xFF242C2C))
@@ -922,7 +921,7 @@ private fun TodayMixedDayCard(
     }
     var showAll by remember(date, activities, logs, pending) { mutableStateOf(false) }
     Box(
-        Modifier.fillMaxWidth().heightIn(min = TodayHeroMinHeight)
+        Modifier.fillMaxWidth().height(TodayHeroHeight)
             .clip(shape)
             .background(
                 Brush.horizontalGradient(
@@ -1196,7 +1195,7 @@ private fun TodayRecordedTraining(
         }
     } else null
     Box(
-        Modifier.fillMaxWidth().heightIn(min = TodayHeroMinHeight)
+        Modifier.fillMaxWidth().height(TodayHeroHeight)
             .clip(shape)
             .background(Brush.horizontalGradient(background))
             .border(1.dp, cardAccent.copy(alpha = .64f), shape)
@@ -1639,7 +1638,7 @@ private fun TodayMultiPlannedCard(
     val dayIsToday = date == LocalDate.now()
     var showAll by remember(date, sessions) { mutableStateOf(false) }
     Box(
-        Modifier.fillMaxWidth().heightIn(min = TodayHeroMinHeight)
+        Modifier.fillMaxWidth().height(TodayHeroHeight)
             .clip(shape)
             .background(
                 Brush.linearGradient(
@@ -1682,7 +1681,7 @@ private fun TodayMultiPlannedCard(
                     pending.size.toString() + " remaining",
                 color = TodayLook.black.copy(alpha = .77f), fontSize = 12.sp
             )
-            sessions.take(2).forEach { session ->
+            sessions.take(1).forEach { session ->
                 Surface(
                     onClick = { onOpen(session) },
                     shape = RoundedCornerShape(13.dp),
@@ -1833,7 +1832,7 @@ private fun TodayWaveWorkout(
     val content = TodayHeroSnapshot(date, scheduled, planAvailable, signedOut)
     Box(
         Modifier.fillMaxWidth()
-            .heightIn(min = TodayHeroMinHeight)
+            .height(TodayHeroHeight)
             .clip(shape)
             .background(
                 Brush.linearGradient(
