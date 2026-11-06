@@ -27,6 +27,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -276,6 +277,7 @@ internal fun StrideLabTodayScreen(
         item(key = "today-hero") {
             if (showRecorded) {
                 TodayRecordedTraining(
+                    selectedDate = date,
                     accent = animatedTone,
                     notchFraction = notchPosition,
                     activities = recordedOnDate,
@@ -667,6 +669,248 @@ private fun todayNotchedShape(fraction: Float) = GenericShape { size, _ ->
 }
 
 
+/** Null measurements stay null, not fabricated zeroes. */
+private data class TodayActualTotals(
+    val distanceM: Double?,
+    val durationS: Double?,
+    val partialDistance: Boolean,
+    val partialDuration: Boolean
+)
+
+private fun todayActualTotals(
+    activities: List<ActivityRecord>,
+    logs: List<ConfirmedWorkout>,
+    runningOnly: Boolean = false
+): TodayActualTotals {
+    val records = activities.filter {
+        !runningOnly || todayRecordedKind(it.type) == "running"
+    }
+    val native = logs.filter {
+        !runningOnly || todayHeroDiscipline(it.discipline) == "running"
+    }
+    val distances = records.mapNotNull { it.distanceM?.takeIf(Double::isFinite) } +
+        native.mapNotNull { it.distanceM?.takeIf(Double::isFinite) }
+    val durations = records.mapNotNull { it.durationS?.takeIf(Double::isFinite) } +
+        native.mapNotNull { it.durationSeconds?.takeIf(Double::isFinite) }
+    val count = records.size + native.size
+    return TodayActualTotals(
+        distances.takeIf { it.isNotEmpty() }?.sum(),
+        durations.takeIf { it.isNotEmpty() }?.sum(),
+        distances.size < count,
+        durations.size < count
+    )
+}
+
+private fun todayKindLabel(kind: String): String = when (kind) {
+    "running" -> "Running"
+    "strength" -> "Strength"
+    "calisthenics" -> "Calisthenics"
+    "conditioning" -> "Conditioning"
+    "walking" -> "Walking"
+    else -> "Other"
+}
+
+/**
+ * Multiple saved activities: one compact neutral summary, not a tall list.
+ * The individual source records and native logs appear only on View Sessions.
+ */
+@Composable
+private fun TodayMultiRecordedSummary(
+    date: LocalDate,
+    notchFraction: Float,
+    activities: List<ActivityRecord>,
+    logs: List<ConfirmedWorkout>,
+    plans: List<PlanSnapshot>,
+    onOpenActivity: (String) -> Unit,
+    onOpenWorkout: (String, String) -> Unit
+) {
+    val count = activities.size + logs.size
+    val kinds = activities.map { todayRecordedKind(it.type) } +
+        logs.map { todayHeroDiscipline(it.discipline) }
+    val uniqueKinds = kinds.distinct()
+    val kind = uniqueKinds.singleOrNull() ?: "mixed"
+    val totals = remember(activities, logs) { todayActualTotals(activities, logs) }
+    val runningTotals = remember(activities, logs) {
+        todayActualTotals(activities, logs, runningOnly = true)
+    }
+    val title = when (kind) {
+        "running" -> count.toString() + " runs"
+        else -> count.toString() + " sessions"
+    }
+    var showDetails by remember(date, activities, logs) { mutableStateOf(false) }
+    val shape = remember(notchFraction) { todayNotchedShape(notchFraction) }
+    Box(
+        Modifier.fillMaxWidth().heightIn(min = 170.dp)
+            .clip(shape).background(
+                Brush.horizontalGradient(
+                    listOf(Color(0xFF14191A), Color(0xFF1B2223), Color(0xFF242C2C))
+                )
+            )
+            .border(1.dp, Color(0xFF526258), shape)
+            .testTag("today-recorded-summary")
+    ) {
+        TodayRecordedArtwork(
+            kind = if (kind == "mixed") "mixed" else kind,
+            accent = Color(0xFF8C9E91),
+            modifier = Modifier.matchParentSize().alpha(.22f)
+        )
+        Box(
+            Modifier.matchParentSize().background(
+                Brush.horizontalGradient(
+                    listOf(Color(0xFF14191A), Color(0xDD14191A), Color.Transparent)
+                )
+            )
+        )
+        Column(
+            Modifier.fillMaxWidth().padding(
+                start = 18.dp, end = 16.dp, top = 25.dp, bottom = 16.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("✓", color = TodayLook.lime, fontSize = 18.sp)
+                Spacer(Modifier.width(7.dp))
+                Text(
+                    if (kind == "mixed") "TRAINING COMPLETED"
+                    else "RECORDED " + todayKindLabel(kind).uppercase(Locale.ROOT),
+                    color = TodayLook.lime, fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold, maxLines = 1
+                )
+            }
+            Text(
+                title, color = TodayLook.text, fontSize = 24.sp,
+                fontWeight = FontWeight.ExtraBold, lineHeight = 28.sp
+            )
+            if (kind == "mixed") {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    uniqueKinds.take(2).forEach { discipline ->
+                        val act = activities.filter { todayRecordedKind(it.type) == discipline }
+                        val native = logs.filter {
+                            todayHeroDiscipline(it.discipline) == discipline
+                        }
+                        val group = todayActualTotals(act, native)
+                        val value = when {
+                            discipline == "running" && group.distanceM != null ->
+                                String.format(Locale.getDefault(), "%.1f km", group.distanceM / 1000)
+                            group.durationS != null -> todayTimeLabel(group.durationS)
+                            else -> (act.size + native.size).toString() + " sessions"
+                        }
+                        Column(
+                            Modifier.weight(1f).background(
+                                Color(0xFF2B3334), RoundedCornerShape(10.dp)
+                            ).padding(horizontal = 9.dp, vertical = 7.dp)
+                        ) {
+                            Text(todayKindLabel(discipline), color = TodayLook.muted,
+                                fontSize = 10.sp, maxLines = 1)
+                            Text(value, color = TodayLook.text, fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold, maxLines = 1)
+                        }
+                    }
+                    if (uniqueKinds.size > 2) {
+                        Text("+" + (uniqueKinds.size - 2).toString(),
+                            color = TodayLook.muted, fontSize = 11.sp)
+                    }
+                }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(22.dp)) {
+                    if (kind == "running" && runningTotals.distanceM != null) {
+                        Column {
+                            Text(if (runningTotals.partialDistance) "Known distance" else "Distance",
+                                color = TodayLook.muted, fontSize = 10.sp)
+                            Text(
+                                String.format(Locale.getDefault(), "%.2f km",
+                                    runningTotals.distanceM / 1000),
+                                color = TodayLook.text, fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                    if (totals.durationS != null) {
+                        Column {
+                            Text(if (totals.partialDuration) "Known time" else "Duration",
+                                color = TodayLook.muted, fontSize = 10.sp)
+                            Text(todayTimeLabel(totals.durationS), color = TodayLook.text,
+                                fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    if (totals.durationS == null &&
+                        (kind != "running" || runningTotals.distanceM == null)
+                    ) Text("Metrics unavailable", color = TodayLook.muted, fontSize = 12.sp)
+                }
+            }
+            Surface(
+                onClick = { showDetails = true },
+                shape = RoundedCornerShape(24.dp),
+                color = TodayLook.lime,
+                modifier = Modifier.height(42.dp).testTag("today-view-sessions")
+            ) {
+                Row(
+                    Modifier.padding(horizontal = 17.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("›", color = TodayLook.black, fontSize = 19.sp)
+                    Text("View sessions", color = TodayLook.black,
+                        fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+    if (showDetails) {
+        ModalBottomSheet(
+            onDismissRequest = { showDetails = false },
+            containerColor = TodayLook.card
+        ) {
+            Column(
+                Modifier.fillMaxWidth().padding(start = 19.dp, end = 19.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                Text(
+                    date.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())),
+                    color = TodayLook.muted, fontSize = 12.sp
+                )
+                Text(title, color = TodayLook.text, fontSize = 21.sp,
+                    fontWeight = FontWeight.Bold)
+                activities.forEach { activity ->
+                    TodayRecordedRow(
+                        title = activity.title,
+                        subtitle = listOfNotNull(
+                            activity.distanceM?.let { activity.distanceLabel },
+                            activity.durationS?.let { activity.durationLabel }
+                        ).joinToString(" · ").ifBlank { activity.sourceLabel },
+                        tint = todayRecordedColor(activity.type),
+                        onClick = {
+                            showDetails = false
+                            onOpenActivity(activity.id)
+                        }
+                    )
+                }
+                logs.forEach { log ->
+                    val session = plans.firstOrNull { it.id == log.planId }
+                        ?.sessions?.firstOrNull { it.id == log.sessionId }
+                    TodayRecordedRow(
+                        title = session?.effectiveTitle ?: "Completed workout",
+                        subtitle = listOfNotNull(
+                            log.distanceM?.let {
+                                String.format(Locale.getDefault(), "%.2f km", it / 1000)
+                            },
+                            log.durationSeconds?.let { ActivityRecord.duration(it) }
+                        ).joinToString(" · ").ifBlank { "Completed log" },
+                        tint = todayDisciplineColor(log.discipline),
+                        onClick = {
+                            showDetails = false
+                            onOpenWorkout(log.planId, log.sessionId)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
 /**
  * The calendar's past dates show actual saved recordings and confirmed workout
  * logs, never a historical "Today's Workout" prescription or decorative GPS map.
@@ -674,6 +918,7 @@ private fun todayNotchedShape(fraction: Float) = GenericShape { size, _ ->
  */
 @Composable
 private fun TodayRecordedTraining(
+    selectedDate: LocalDate,
     accent: Color,
     notchFraction: Float,
     activities: List<ActivityRecord>,
@@ -685,6 +930,18 @@ private fun TodayRecordedTraining(
 ) {
     val shape = remember(notchFraction) { todayNotchedShape(notchFraction) }
     val count = activities.size + logged.size
+    if (count > 1) {
+        TodayMultiRecordedSummary(
+            date = selectedDate,
+            notchFraction = notchFraction,
+            activities = activities,
+            logs = logged,
+            plans = plans,
+            onOpenActivity = onOpenActivity,
+            onOpenWorkout = onOpenWorkout
+        )
+        return
+    }
     val firstActivity = activities.firstOrNull()
     val firstLog = logged.firstOrNull()
     val firstLogSession = firstLog?.let { entry ->
