@@ -34,15 +34,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * The same four navigation destinations, now with one persistent sliding pill.
- * Library is still reachable from More, and existing destination callbacks stay intact.
+ * Three primary destinations share one persistent liquid selection pill.
+ * The Activity history route and Activity Detail remain accessible through Training.
  */
 @Composable
 internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit) {
     val destinations = listOf(
         Triple("home", "Today", R.drawable.trackside_figma_home),
         Triple("training", "Training", R.drawable.trackside_figma_calendar),
-        Triple("activities", "Activity", R.drawable.trackside_figma_activity),
         Triple("settings", "More", R.drawable.trackside_figma_more)
     )
     val selectedIndex = when {
@@ -53,8 +52,8 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
             "review-move/{planId}/{sessionId}/{date}",
             "missed/{planId}/{sessionId}"
         ) -> 1
-        route == "activities" || route == "activity/{id}" -> 2
-        route == "settings" || route == "library" || route == "practice/{key}" -> 3
+        route == "activities" || route == "activity/{id}" -> 1
+        route == "settings" || route == "library" || route == "practice/{key}" -> 2
         else -> -1
     }
     val context = LocalContext.current
