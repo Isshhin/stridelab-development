@@ -21,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -94,21 +93,23 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
                 label = "floating-nav-pill"
             )
             if (selectedIndex >= 0) {
+                val pillShape = remember { RoundedCornerShape(30.dp) }
                 Box(
                     modifier = Modifier
-                        .offset { IntOffset(pillOffset.value.roundToPx(), 0) }
                         .width(cellWidth).fillMaxHeight()
                         .graphicsLayer {
-                            // Draw-only reads avoid per-frame row and text
-                            // remeasurement while the selection pill travels.
+                            // GPU translation avoids relayout of the pill
+                            // while its spring animates across the dock.
+                            translationX = pillOffset.value.toPx()
                             val pressure = if (animationsDisabled) 0f else
                                 TracksideLiquidMotion.pressure(
                                     pillOffset.value.value, targetOffset.value, cellWidth.value
                                 )
                             scaleX = TracksideLiquidMotion.stretch(pressure, .16f)
                             scaleY = TracksideLiquidMotion.squash(pressure, .07f)
+                            shape = pillShape
+                            clip = true
                         }
-                        .clip(RoundedCornerShape(30.dp))
                         .background(lime)
                         .testTag("nav-selected-indicator")
                 )
