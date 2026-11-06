@@ -116,10 +116,12 @@ class TracksideTodayTest {
         compose.onNodeWithTag("nav-settings").performClick()
         compose.onNodeWithText("Keep your training close.").assertExists()
         compose.onNodeWithTag("today-hero").assertDoesNotExist()
+        compose.onNodeWithTag("training-unified-timeline").assertDoesNotExist()
 
         compose.onNodeWithTag("nav-home").performClick()
         compose.onNodeWithTag("today-hero").assertExists()
         compose.onNodeWithTag("today-day-0").assertIsSelected()
+        compose.onNodeWithText("Keep your training close.").assertDoesNotExist()
     }
 
 }

@@ -16,7 +16,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.geometry.Offset
@@ -207,8 +207,7 @@ private fun NavHostController.openActivity(id: String) {
             }
             state.message?.let { Surface(color = MaterialTheme.colorScheme.surfaceVariant) { Text(it, Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }.padding(horizontal = 20.dp, vertical = 12.dp), style = MaterialTheme.typography.bodyMedium) } }
             // Keep the signed-out primary screens composed independently of
-            // NavHost. Their text/layout is measured once rather than rebuilt
-            // during every tab switch, which the device trace showed was slow.
+            // NavHost so their remembered state survives tab switches.
             Box(Modifier.weight(1f)) {
             NavHost(
                 navController = nav,
@@ -573,9 +572,7 @@ private fun NavHostController.openActivity(id: String) {
 
 
 /**
- * Keeps an already-measured tab hierarchy alive without exposing its buttons
- * or accessibility nodes while a different route is active. Offstage tabs are
- * placed outside the viewport and do not appear in the semantics tree.
+ * Keeps tab state alive while inactive content is not measured or placed.
  */
 @Composable
 private fun PersistentTabSurface(
@@ -584,8 +581,14 @@ private fun PersistentTabSurface(
 ) {
     Box(
         Modifier.fillMaxSize()
-            .offset(x = if (active) 0.dp else (-4000).dp)
-            .graphicsLayer { alpha = if (active) 1f else 0f }
+            .layout { measurable, constraints ->
+                if (active) {
+                    val placeable = measurable.measure(constraints)
+                    layout(placeable.width, placeable.height) { placeable.placeRelative(0, 0) }
+                } else {
+                    layout(constraints.minWidth, constraints.minHeight) {}
+                }
+            }
             .then(if (active) Modifier else Modifier.clearAndSetSemantics {})
     ) {
         content()
