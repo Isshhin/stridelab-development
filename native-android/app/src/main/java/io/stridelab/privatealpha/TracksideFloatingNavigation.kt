@@ -3,9 +3,7 @@ package io.stridelab.privatealpha
 import android.provider.Settings
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,8 +15,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -65,24 +61,10 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
     }
     val lime = Color(0xFFD8FB70)
 
+    // Transparent dock: only the selected lime pill is painted. The
+    // unselected destinations float freely over the screen beneath.
     Box(
         modifier = Modifier.fillMaxWidth().height(60.dp)
-            .shadow(
-                elevation = 12.dp,
-                shape = RoundedCornerShape(32.dp),
-                ambientColor = Color(0x99000000),
-                spotColor = Color(0x99000000)
-            )
-            .clip(RoundedCornerShape(32.dp))
-            .background(
-                Brush.horizontalGradient(
-                    listOf(Color(0xFF171A1B), Color(0xFF101213), Color(0xFF151719))
-                )
-            )
-            .border(
-                BorderStroke(1.dp, Color(0xFF434A4A)),
-                RoundedCornerShape(32.dp)
-            )
             .padding(horizontal = 5.dp, vertical = 5.dp)
     ) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
