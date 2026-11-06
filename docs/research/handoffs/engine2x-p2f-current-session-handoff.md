@@ -1,0 +1,284 @@
+# Engine 2.x P2-F current session handoff
+
+Date: 2026-11-07 (Asia/Manila)
+
+Repository: `Isshhin/stridelab-development`  
+Branch: `research/runna-garmin-coaching-20261102`  
+PR: #34 — keep **open, draft, and unmerged**  
+Frozen Session G architecture baseline: `26a8331e642c888dd73acb94755dded063baab8d`
+
+This handoff documents the Engine 2.x state through reviewed engine/research head:
+
+`9f23075e5522e0d47e5f01325c2d62995863b9a4`
+
+Documentation-only commits newer than that head do not change the engine/research verdict below.
+
+## How to continue
+
+Before any new work:
+
+1. Verify the live remote branch head and preserve anything newer than the head above.
+2. Confirm PR #34 remains open, draft, and unmerged.
+3. Inspect the latest exact-head research workflow.
+4. Read this handoff plus `engine2x-current-handoff.md`.
+5. Continue from the current blocker unless a newer commit has already resolved it.
+
+User workflow preference:
+- **Work** = independent/adversarial review, research contracts, gate decisions.
+- **Codex** = bounded implementation and regression tests.
+- Default economical model choice: **GPT-6.1 Terra, Medium**.
+- After Codex implements an important fix, return it to Work for independent adversarial review.
+- When reporting a Work/Codex result to the user, explain it in layman terms and clearly classify it as **GOOD**, **BAD**, or **MIXED**.
+
+## Engine 2.x roadmap position
+
+Engine 2.x is currently near the end of the **P2-F synthetic data-foundation stage**.
+
+Roadmap order:
+
+1. Phase 1 research / architecture — mostly complete and frozen.
+2. P2-F trustworthy training history / provenance / replay — **current stage**.
+3. Private custody + authenticated/nonrollback authority.
+4. Real-device development pilot and independent reconciliation.
+5. P2-F Gate 2.
+6. P2-B aerobic-efficiency measurement repeatability.
+7. P2-A athlete-state estimation.
+8. P2-C progression / deload / re-entry.
+9. P2-D adaptive prescription.
+10. P2-E cross-discipline coordination.
+11. Executable Engine 2.x candidate.
+12. Shadow comparison against Engine 1.5.
+13. Prospective athlete validation.
+14. Production Engine 2.x candidate, then Trackside integration / dogfood.
+
+Do not skip directly to later phases while P2-F gates remain blocked.
+
+## Why P2-F matters
+
+P2-F exists so Engine 2.x can reliably reconstruct:
+
+- what was planned;
+- what actually happened;
+- where each record came from;
+- whether records duplicate one another;
+- when information became available;
+- whether it was later corrected or withdrawn;
+- which account owns it;
+- what the engine legitimately knew at a historical decision time;
+- whether that historical decision can be reproduced later.
+
+This is the evidence foundation for later sport-science interpretation and adaptive coaching. A more sophisticated coaching algorithm is not trustworthy if the history underneath it is wrong.
+
+## Important milestones from this session
+
+### Foundation unlock
+
+`080581e19aab79b385cacebc1499a6688c11e3d8`
+
+P2-F F2.2 foundation/handoff. Established the canonical Training Exposure Ledger, provenance, account ownership, decision-time/current-validity replay, missing-vs-zero semantics, alias/conflict handling, correction/withdrawal invalidation, and minimum trace contract.
+
+### First durable synthetic F2.2 store
+
+`92e2ed968fa0418bb6738d402e31fd4465a069b6`
+
+Added the research-only durable journal and durable-store tests.
+
+### Projector 3 — duplicate membership correction
+
+`25937a1370c43603c663b8ec32bcbaca9e005fd9`
+
+Independent review found that two distinct link events joining the same activity and opportunity could expose duplicate activity membership such as `['a1', 'a1']`. Overall exposure count stayed one, but downstream consumers could still double count.
+
+Projector 3 corrected membership while preserving both link identities. Projectors 1 and 2 intentionally retain historical behavior.
+
+### Projector 4 — future activity-end protection
+
+`44b01f030204877201a7f6c7478dd239d6d5a045`
+
+Independent review found that an activity available at minute 20 could expose an end time at minute 50 to a decision view at minute 25.
+
+Projector 4 quarantines that future-data case. Earlier projector behavior remains historically available.
+
+### Pinned replay + current-validity metadata hardening
+
+`5aaeadb8fc305392da404bf4e485be6e7c246b69`
+
+Projectors 3 and 4 were moved to separately pinned replay logic instead of depending directly on mutable `FoundationLedger._project`.
+
+Projector 4 current-validity results were expanded to record:
+- explicit as-of time;
+- authority instance and epoch;
+- authority digest;
+- suppression digest;
+- invalidation digest and IDs;
+- projector and schema versions;
+- event/journal digests;
+- watermark;
+- exclusions/reasons.
+
+A pre-projector-3 journal was reopened and replayed without rewriting its events.
+
+### Latest independent review
+
+`9f23075e5522e0d47e5f01325c2d62995863b9a4`
+
+Work independently verified much of the pinned replay behavior, found and corrected another mutable-reference validation-helper dependency, and reproduced a new current-validity concurrency race.
+
+This is the **current unresolved synthetic blocker**.
+
+## Confirmed defects and disposition
+
+1. **Duplicate activity membership across multiple links**
+   - Found by independent Work review.
+   - Fixed in projector 3.
+   - Historical projectors 1/2 retain old behavior.
+
+2. **Future activity-end leakage**
+   - Found by independent Work review.
+   - Fixed/quarantined in projector 4.
+
+3. **Mutable replay dependencies**
+   - Main mutable projector dependency isolated/pinned.
+   - Additional mutable validation-helper dependency found by independent review and corrected.
+   - Pinned replay is substantially stronger but remains subject to the current concurrency blocker below.
+
+4. **Concurrent current-validity journal race**
+   - **CURRENT UNRESOLVED BLOCKER.**
+   - Reproduced by independent Work review.
+   - Documented with an expected-failure regression.
+
+## Current blocker in layman terms
+
+Current-validity replay can race with another journal writer.
+
+Example:
+
+1. Engine starts calculating current state from journal generation 100.
+2. It validates authority/withdrawal state.
+3. Another writer commits journal generation 101 during the final validation window.
+4. The engine can still return the result calculated from generation 100 as “current”.
+
+The result is coherent for generation 100, but it is no longer truly current.
+
+The required correction is a consistency barrier that proves the journal state and relevant authority state did not change during the final validation window. If either changes, replay must fail closed or retry according to the frozen contract.
+
+## Current verification at reviewed head `9f23075e...`
+
+- Durable-store tests: **42 run — 41 passed, 1 expected failure**
+- Existing F2.2 tests: **16 passed**
+- P2 validation suite: **136 run — 135 passed, 1 expected failure**
+- Full research suite: **300 run — 298 passed, 1 skipped, 1 expected failure**
+- Expected failure: the known concurrent current-validity race.
+- Skipped test: Windows symlink limitation.
+
+Exact-head workflow recorded during the review:
+
+`42253476323`
+
+It was **queued** at the last verified check. Do not claim it passed unless a later check confirms success.
+
+## Current status labels
+
+- P2-F synthetic feasibility: **supported for tested synthetic cases**
+- Synthetic durability: **BLOCKED**
+- Current synthetic blocker: **concurrent current-validity journal race**
+- Private-pilot readiness: **NOT READY**
+- Gate 2: `P2_F_GATE_2_NOT_READY`
+- P2-B: `P2_B_PROTOCOL_READY_DATA_NOT_READY`
+- Human/provider data admission: **NO**
+
+## Private-pilot blockers
+
+Even after synthetic durability clears, the synthetic journal is not a human-data/private-pilot system.
+
+Still required before private use:
+- purpose-specific lawful admission;
+- authenticated principal identity;
+- persistent/nonrollback scoped authority;
+- durable withdrawal/suppression;
+- encrypted custody;
+- separately held keys / key management;
+- verified backup/restore controls;
+- deletion / descendant-copy handling;
+- independent adverse restore drill;
+- pinned device / firmware / export path;
+- independent real-device reconciliation.
+
+The current plaintext synthetic store/backups and test authority must not contain human or provider data.
+
+## Exact next action
+
+Return to **Codex**.
+
+Codex must first verify/sync to the live remote branch head and preserve everything newer than `9f23075e5522e0d47e5f01325c2d62995863b9a4`.
+
+The task is narrowly scoped:
+
+**Fix the concurrent current-validity journal race.**
+
+The existing expected-failure regression must become a normal passing regression.
+
+Conceptually the implementation needs to establish a final consistency barrier:
+
+1. establish the journal generation/snapshot;
+2. establish the authority snapshot;
+3. calculate/replay;
+4. before exposure, atomically or equivalently prove the journal generation has not changed;
+5. prove the relevant authority state has not changed;
+6. expose only if both still match;
+7. otherwise fail closed or retry according to the frozen contract.
+
+Do not broaden this correction into private-pilot infrastructure.
+
+After Codex commits and pushes the fix, return the new head to the **same independent Work review session**. Work should reproduce the old race, try timing variations, check for deadlock/stale-read regressions, rerun durable/F2.2/P2/full suites, and attempt a final synthetic-durability verdict.
+
+Desired verdict:
+
+`PASS_FOR_SYNTHETIC_DURABILITY`
+
+If Work finds another concrete synthetic defect, repeat the Codex → Work loop.
+
+## Do not move to these yet
+
+Do not start:
+- human/provider data intake;
+- Garmin/provider credentials for this store;
+- real-device private pilot;
+- P2-B repeatability evaluation;
+- held-out outcome access;
+- production Engine 2.x;
+- Engine 1.5 behavior changes;
+- Trackside Engine 2.x integration.
+
+Engine 1.5 remains the dependable production/control/fallback engine.
+
+## Scientific trust boundary
+
+Current P2-F work is about **engineering trustworthiness of training history**, not yet sport-science validity.
+
+Current status:
+- training-history engineering: increasingly strong under synthetic/adversarial testing;
+- real-device measurement validity: not established;
+- athlete-state estimation: not established;
+- adaptive coaching validity: not established;
+- coaching effectiveness: not established.
+
+The purpose of P2-F is to ensure later sport-science intelligence receives trustworthy, reproducible evidence.
+
+## Competitive framing
+
+StrideLab is substantially closer to Runna/Garmin on **initial plan construction** than on **continuous adaptive coaching**.
+
+The larger remaining competitive gap is the feedback loop:
+
+training history  
+→ reliable measurements  
+→ athlete state  
+→ uncertainty  
+→ progression/recovery decision  
+→ adaptive prescription  
+→ cross-discipline coordination  
+→ observed outcome  
+→ longitudinal learning
+
+That work follows the P2-F and P2-B evidence gates.
