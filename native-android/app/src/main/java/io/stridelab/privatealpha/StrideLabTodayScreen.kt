@@ -2695,7 +2695,7 @@ private fun TodayNextSession(
             Column(
                 Modifier.fillMaxWidth().padding(
                     horizontal = if (signedOut) 15.dp else 13.dp,
-                    vertical = if (signedOut) 11.dp else 11.dp
+                    vertical = 11.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
@@ -2853,7 +2853,8 @@ private fun TodayWeeklyActivity(
                 (0..6).forEach { idx ->
                     val target = when {
                         metrics.seconds[idx] > 0 ->
-                            (metrics.seconds[idx] / maxSeconds * if (signedOut) 35 else 43).toFloat()
+                            (metrics.seconds[idx] / maxSeconds *
+                                (if (signedOut) 35 else 43)).toFloat()
                                 .coerceIn(5f, if (signedOut) 35f else 43f)
                         metrics.counts[idx] > 0 -> 6f
                         else -> 3f
