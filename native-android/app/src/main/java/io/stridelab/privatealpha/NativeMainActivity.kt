@@ -148,8 +148,12 @@ private fun NavHostController.openWorkout(planId:String,sessionId:String) {
 }
 
 private fun NavHostController.openActivity(id: String) {
-    openTabRoot("activities")
-    navigate("activity/$id")
+    // A detail belongs to the destination that opened it. Do not first
+    // navigate through Activity: Back from Today's session sheet must return
+    // to Today with its selected date and scroll state intact.
+    navigate("activity/${android.net.Uri.encode(id)}") {
+        launchSingleTop = true
+    }
 }
 
 @Composable internal fun NativeStrideContent(state: TrainingState, online: Boolean, actions: NativeActions) {
