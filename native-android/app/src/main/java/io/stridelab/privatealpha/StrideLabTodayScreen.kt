@@ -2449,6 +2449,16 @@ private fun TodayWeeklyActivity(
             }
             Box(Modifier.fillMaxWidth().height(1.dp).background(TodayLook.outline))
 
+            // One discipline needs just a compact statistics row. Additional
+            // disciplines grow the lower section naturally, not by reserving a
+            // permanently tall 95dp gap. No redundant clock icon.
+            val disciplineRows = metrics.disciplineCounts.size
+            val dividerHeight = when {
+                disciplineRows > 3 -> 132.dp
+                disciplineRows == 3 -> 112.dp
+                disciplineRows == 2 -> 77.dp
+                else -> 43.dp
+            }
             Row(
                 Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -2456,9 +2466,8 @@ private fun TodayWeeklyActivity(
             ) {
                 Column(
                     Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Text("◷", color = TodayLook.teal, fontSize = 20.sp)
                     Text(
                         metrics.totalSeconds?.let(::todayTimeLabel) ?: "—",
                         color = TodayLook.teal, fontSize = 20.sp,
@@ -2466,14 +2475,13 @@ private fun TodayWeeklyActivity(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        when {
-                            metrics.partialTimes -> "Known active time"
-                            else -> "Active time"
-                        }, color = TodayLook.muted, fontSize = 10.sp, maxLines = 2
+                        if (metrics.partialTimes) "Known active time" else "Active time",
+                        color = TodayLook.muted, fontSize = 10.sp,
+                        maxLines = 2
                     )
                 }
                 Box(
-                    Modifier.width(1.dp).height(95.dp).background(TodayLook.outline)
+                    Modifier.width(1.dp).height(dividerHeight).background(TodayLook.outline)
                 )
                 Column(
                     Modifier.weight(1.5f),
