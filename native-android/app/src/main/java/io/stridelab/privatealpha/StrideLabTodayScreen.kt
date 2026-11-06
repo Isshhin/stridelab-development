@@ -51,6 +51,7 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -267,10 +268,11 @@ internal fun StrideLabTodayScreen(
         schedule.isEmpty() -> TodayLook.lilac
         else -> todayDisciplineColor(schedule.first().discipline)
     }
-    val animatedTone by animateColorAsState(
+    // Observe frames in the individual list items rather than at screen root.
+    val animatedTone = animateColorAsState(
         tone, tween(if (reduceMotion) 0 else 260), label = "today-accent"
     )
-    val notchPosition by animateFloatAsState(
+    val notchPosition = animateFloatAsState(
         targetValue = (date.dayOfWeek.value - .5f) / 7f,
         animationSpec = if (reduceMotion) snap() else spring(
             dampingRatio = TracksideLiquidMotion.DAMPING,
@@ -325,8 +327,8 @@ internal fun StrideLabTodayScreen(
         item(key = "today-calendar") {
             TodayWeekCalendar(
                 date = date,
-                accent = animatedTone,
-                selectionFraction = notchPosition,
+                accent = animatedTone.value,
+                selectionFractionState = notchPosition,
                 visibleActivities = safeActivities,
                 rawHistory = safeHistory,
                 plans = safePlans,
@@ -341,7 +343,7 @@ internal fun StrideLabTodayScreen(
                 TodayMixedDayCard(
                     date = date,
                     planId = plan?.id ?: "",
-                    notchFraction = notchPosition,
+                    notchFraction = notchPosition.value,
                     activities = recordedOnDate,
                     logs = confirmedOnDate,
                     pending = schedule.filter {
@@ -361,7 +363,7 @@ internal fun StrideLabTodayScreen(
                     logs = confirmedOnDate,
                     plans = safePlans,
                     cachedDetails = state.details,
-                    notchFraction = notchPosition,
+                    notchFraction = notchPosition.value,
                     onOpenActivity = onOpenActivityDetail,
                     onOpenWorkout = onOpenWorkout
                 )
@@ -371,8 +373,8 @@ internal fun StrideLabTodayScreen(
                     signedOut = state.account == null,
                     loading = state.initializing,
                     online = online,
-                    accent = animatedTone,
-                    notchFraction = notchPosition,
+                    accent = animatedTone.value,
+                    notchFraction = notchPosition.value,
                     activities = recordedOnDate,
                     logged = confirmedOnDate,
                     plans = safePlans,
@@ -382,8 +384,8 @@ internal fun StrideLabTodayScreen(
                 )
             } else {
                 TodayWaveWorkout(
-                    accent = animatedTone,
-                    notchFraction = notchPosition,
+                    accent = animatedTone.value,
+                    notchFraction = notchPosition.value,
                     reduceMotion = reduceMotion,
                     date = date,
                     scheduled = schedule,
@@ -463,7 +465,7 @@ private fun todayDisciplineColor(value: String): Color = when (value.lowercase(L
 private fun TodayWeekCalendar(
     date: LocalDate,
     accent: Color,
-    selectionFraction: Float,
+    selectionFractionState: State<Float>,
     visibleActivities: List<ActivityRecord>,
     rawHistory: List<ActivityRecord>,
     plans: List<PlanSnapshot>,
@@ -568,22 +570,25 @@ private fun TodayWeekCalendar(
                     }
             ) {
                 val diameter = 37.dp
-                val indicatorX = (maxWidth * selectionFraction - diameter / 2)
-                    .coerceIn(0.dp, maxWidth - diameter)
                 val restingFraction = (date.dayOfWeek.value - .5f) / 7f
-                val liquidPressure = if (reduceMotion) 0f
-                    else TracksideLiquidMotion.pressure(
-                        selectionFraction, restingFraction, 1f / 7f
-                    )
                 Box(
                     Modifier.align(Alignment.TopStart)
-                        .offset(x = indicatorX, y = 24.dp)
+                        // Placement-only read avoids recomposing and remeasuring
+                        // the entire calendar on every spring animation frame.
+                        .offset {
+                            val indicatorX =
+                                (maxWidth * selectionFractionState.value - diameter / 2)
+                                    .coerceIn(0.dp, (maxWidth - diameter).coerceAtLeast(0.dp))
+                            IntOffset(indicatorX.roundToPx(), 24.dp.roundToPx())
+                        }
                         .size(diameter)
                         .graphicsLayer {
-                            // A moving droplet stretches then becomes round
-                            // again. Layout and touch targets stay unchanged.
-                            scaleX = TracksideLiquidMotion.stretch(liquidPressure, .22f)
-                            scaleY = TracksideLiquidMotion.squash(liquidPressure, .10f)
+                            val pressure = if (reduceMotion) 0f else
+                                TracksideLiquidMotion.pressure(
+                                    selectionFractionState.value, restingFraction, 1f / 7f
+                                )
+                            scaleX = TracksideLiquidMotion.stretch(pressure, .22f)
+                            scaleY = TracksideLiquidMotion.squash(pressure, .10f)
                         }
                         .background(accent, CircleShape)
                         .testTag("today-date-indicator")
@@ -636,7 +641,7 @@ private fun TodayWeekCalendar(
                                     color = lerp(
                                         TodayLook.muted, TodayLook.black,
                                         (1f - kotlin.math.abs(
-                                            selectionFraction - (idx + .5f) / 7f
+                                            selectionFractionState.value - (idx + .5f) / 7f
                                         ) * 7f).coerceIn(0f, 1f)
                                     ),
                                     fontSize = 14.sp,
