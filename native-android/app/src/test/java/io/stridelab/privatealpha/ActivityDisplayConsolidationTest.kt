@@ -84,6 +84,41 @@ class ActivityDisplayConsolidationTest {
         assertEquals(2,listOf(legacy,canonical).size) // Cache remains unchanged.
     }
 
+    @Test fun legacyGarminAndSourceOwnedIdArePairedAcrossSmallTimestampAndRoundingDifferences() {
+        val original=row(GarminHistoryImport.recordId("uuid-actual"),"garmin",
+            at=start,duration=3807.0,distance=9560.0)
+        val old=row("garmin-legacy-backend","garmin",
+            at=start.plusSeconds(63),duration=3809.0,distance=9568.0)
+        val result=ActivityDisplayConsolidation.groups(listOf(old,original))
+        assertEquals(1,result.size)
+        assertEquals(original.id,result.single().primary.id)
+        assertEquals(listOf(old.id),result.single().additionalSources.map { it.id })
+        val week=DashboardSummary.window(listOf(old,original),now,
+            ZoneId.of("Asia/Manila"))
+        assertEquals(1,week.sessionCount)
+        assertEquals(9560.0,week.runningDistanceM!!,0.001)
+    }
+
+    @Test fun separateModernGarminSourceIdsStayDistinctEvenWithSimilarMetrics() {
+        val first=row(GarminHistoryImport.recordId("one"),"garmin")
+        val second=row(GarminHistoryImport.recordId("two"),"garmin",
+            at=start.plusSeconds(2))
+        val visible=ActivityDisplayConsolidation.visible(listOf(first,second))
+        assertEquals(2,visible.size)
+        assertEquals(setOf(first.id,second.id),visible.map { it.id }.toSet())
+    }
+
+    @Test fun sourceReconciliationDoesNotGuessAcrossProvidersOrLargeTimeGaps() {
+        val imported=row(GarminHistoryImport.recordId("uuid-actual"),"garmin")
+        val later=row("legacy-next","garmin",at=start.plusSeconds(6*60))
+        val otherSource=row("fit-copy","fit")
+        val missingMetrics=row("legacy-missing","garmin",
+            at=start.plusSeconds(40),distance=null)
+        val visible=ActivityDisplayConsolidation.visible(
+            listOf(imported,later,otherSource,missingMetrics))
+        assertEquals(4,visible.size)
+    }
+
     @Test fun differentActualRunsAndIndependentProvidersAreNotCollapsed() {
         val source=row("garmin-a","garmin")
         val later=row("garmin-b","garmin",at=start.plusSeconds(2))
