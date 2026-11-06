@@ -4,6 +4,7 @@ import android.provider.Settings
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,10 +62,15 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
     }
     val lime = Color(0xFFD8FB70)
 
-    // Transparent dock: only the selected lime pill is painted. The
-    // unselected destinations float freely over the screen beneath.
+    // Keep the original rounded dock pill and the sliding lime indicator.
+    // Only the area OUTSIDE this capsule is transparent, with no tinted
+    // footer, surrounding slab, or full-width bottom-bar background.
+    val dockShape = RoundedCornerShape(32.dp)
     Box(
         modifier = Modifier.fillMaxWidth().height(60.dp)
+            .clip(dockShape)
+            .background(Color(0xFF111111))
+            .border(1.dp, Color(0xFF44494A), dockShape)
             .padding(horizontal = 5.dp, vertical = 5.dp)
     ) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
