@@ -22,6 +22,10 @@ Backup now creates a previously nonexistent destination exclusively and refuses 
 
 The standalone in-memory `p2f_foundation.FoundationLedger` remains a historical reference and still appends one activity ID per link. Only durable projector 3 supplies the corrected membership behavior.
 
+## Independent follow-up: replay boundary and concurrent validity
+
+The durable wrapper now owns its identity, timestamp and digest helpers rather than calling mutable reference helpers during pinned replay. Current validity also repeats the authority snapshot after checking the journal head. These checks do not form an atomic cross-system barrier: a synthetic writer can append during that final authority check and the method can return an older generation without detecting the append. The regression test records this as an expected failure. Do not treat the validity check as a complete concurrent-change guarantee. The caller must retain the authority and invalidation inputs separately; the in-memory test double cannot survive process recreation or enforce private withdrawal.
+
 ## Independent follow-up: activity chronology
 
 Projector 3 can expose an activity end after its stated availability. Projector 4 is the default and quarantines a visible activity whose end is later than its availability; earlier projector results remain unchanged. This is a narrow synthetic guard, not verification of provider timestamps or all observation types. Projectors 3 and 4 still depend on mutable reference code and are not independently pinned. Their version labels alone do not guarantee future replay stability; synthetic durability remains blocked pending a separately pinned replay boundary and reproducible current-validity inputs.

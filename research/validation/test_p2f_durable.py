@@ -455,6 +455,18 @@ class ReplayValidityRegressionTests(unittest.TestCase):
         self.assertEqual(before3, after3)
         self.assertEqual('4', after['projector_version'])
 
+    def test_pinned_replay_independent_of_reference_helpers(self):
+        from unittest.mock import patch
+        self.store.append('A', [full_event(activity())], 0)
+        for version in ('3', '4'):
+            before = self.store.decision_view('A', ts(30), projector_version=version, **self.scope).data
+            with patch('p2f_foundation.require', side_effect=Quarantine('reference changed')):
+                after = self.store.decision_view('A', ts(30), projector_version=version, **self.scope).data
+            self.assertEqual(before, after)
+        before = self.current()
+        with patch('p2f_foundation.require', side_effect=Quarantine('reference changed')):
+            self.assertEqual(before, self.current())
+
     def test_validity_inputs_pin_state_and_invalidation(self):
         rows = planned() + [activity(), event('link', 'A', 'link', 22, activity_id='a1',
                      opportunity_id='o1', revision_id='r1', evidence_id='review')]
@@ -546,6 +558,34 @@ class ReplayValidityRegressionTests(unittest.TestCase):
                 self.store.append('A', [full_event(second)], 1)
             return snapshot()
         with patch.object(self.auth, 'snapshot', side_effect=changing_snapshot):
+            with self.assertRaisesRegex(Quarantine, 'journal changed'):
+                self.current()
+
+    def test_authority_change_during_final_head_check_fails_closed(self):
+        from unittest.mock import patch
+        self.store.append('A', [full_event(activity())], 0)
+        head = self.store.head
+        def changed(account):
+            self.auth.revoke('B', 'coach', 'research', 'development')
+            return head(account)
+        with patch.object(self.store, 'head', side_effect=changed):
+            with self.assertRaisesRegex(Quarantine, 'authority changed during replay'):
+                self.current()
+
+    @unittest.expectedFailure
+    def test_writer_during_final_authority_check_fails_closed(self):
+        from unittest.mock import patch
+        self.store.append('A', [full_event(activity())], 0)
+        snapshot = self.auth.snapshot
+        calls = []
+        def changed():
+            calls.append(1)
+            if len(calls) == 3:
+                row = activity(); row['id'] = 'a2'; row['data']['activity_id'] = 'a2'
+                row['recorded_at'] = row['effective_at'] = row['available_at'] = ts(32)
+                self.store.append('A', [full_event(row)], 1)
+            return snapshot()
+        with patch.object(self.auth, 'snapshot', side_effect=changed):
             with self.assertRaisesRegex(Quarantine, 'journal changed'):
                 self.current()
 

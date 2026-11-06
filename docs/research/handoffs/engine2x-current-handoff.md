@@ -1,5 +1,9 @@
 # StrideLab Engine 2.x current coordinating handoff
 
+## Independent synthetic replay follow-up — 2026-11-07
+
+Projectors 3/4 no longer depend on the mutable reference helpers in the durable wrapper. A synthetic concurrent writer can still change the journal during the final authority check without the returned current-validity projection noticing; an expected-failure regression demonstrates this. Synthetic durability remains blocked until that bounded race is resolved and independently verified. The in-memory authority and plaintext storage remain unsuitable for human/provider data. Gate 2 and P2-B remain not ready.
+
 ## P2-F pinned replay and validity continuation — 2026-11-07
 
 The [synthetic durable-store boundary](../phase2/p2-f-durable-synthetic-boundary.md) records the separately pinned projector 3/4 replay path and projector 4 validity metadata for authority epoch, suppression and invalidation digests, as-of time, schema, event set and exclusions. This remains synthetic-only and needs independent adversarial review. The synthetic in-memory authority is not a durable nonrollback custody service; private-pilot intake is not authorized. `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` remain unchanged.

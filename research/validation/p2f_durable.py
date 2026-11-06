@@ -4,6 +4,7 @@ Only synthetic normalized events are supported. Authority is supplied separately
 and must never be restored from this database. No human data may be stored here.
 """
 import json
+import hashlib
 import os
 import re
 import uuid
@@ -13,7 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from p2f_foundation import FoundationLedger, Quarantine, SCHEMA, canonical, digest, ident, instant, require
+from p2f_foundation import FoundationLedger, Quarantine, SCHEMA
 from p2f_projector_v1 import project_v1, Quarantine as PinnedQuarantine
 from p2f_projector_v34 import project_v34, Quarantine as V34Quarantine
 
@@ -23,6 +24,33 @@ SCHEMA_V3 = 'F2.2-synthetic.3'
 ENVELOPE = {'id', 'event_id', 'account_id', 'kind', 'schema_version', 'recorded_at',
             'effective_at', 'available_at', 'origin_id', 'view_id', 'purpose_grant_id',
             'partition_id', 'lineage_class', 'data'}
+
+
+def require(condition, message='contract violation'):
+    if not condition:
+        raise Quarantine(message)
+
+
+def ident(value):
+    require(isinstance(value, str) and bool(value.strip()), 'missing identity')
+    return value
+
+
+def instant(value):
+    try:
+        parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        require(parsed.utcoffset() is not None, 'timestamp needs offset')
+        return parsed.astimezone(timezone.utc)
+    except (AttributeError, TypeError, ValueError, OverflowError) as error:
+        raise Quarantine('invalid timestamp') from error
+
+
+def canonical(value):
+    return json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False)
+
+
+def digest(value):
+    return hashlib.sha256(canonical(value).encode()).hexdigest()
 
 
 def normalize(schema, event):
@@ -332,6 +360,7 @@ class DurableStore:
         if current and projector_version == '4':
             require(authority == self._authority_snapshot(), 'authority changed during replay')
             require(self.head(account) == generation, 'journal changed during replay')
+            require(authority == self._authority_snapshot(), 'authority changed during replay')
             invalidations = [event for _, _, event in all_rows
                              if event['kind'] in ('source_correction', 'link_revocation')
                              and instant(event['available_at']) <= current]
