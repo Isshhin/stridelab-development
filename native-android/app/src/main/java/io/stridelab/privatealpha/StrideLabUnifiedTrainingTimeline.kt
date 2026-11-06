@@ -87,7 +87,7 @@ internal fun unifiedTrainingDays(
                 session.date >= today &&
                 session.status in setOf("planned", "in_progress")
             if (!completed && !upcoming) continue
-            if (completed && session.linkedActivityId in visibleSourceIds) continue
+            if (completed && session.linkedActivityId?.let { it in visibleSourceIds } == true) continue
             val date = if (completed) session.log?.performedOn ?: session.date else session.date
             workoutsByDate.getOrPut(date) { mutableListOf() }
                 .add(UnifiedTrainingWorkout(plan.id, session))
