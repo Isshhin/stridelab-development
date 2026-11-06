@@ -495,7 +495,7 @@ private fun TimelineRecordedCard(
         if (activity.supportsPace) {
             if (activity.recordedPace != null) add(activity.paceLabel)
             else if (activity.garminMovingPaceSPerKm != null)
-                add("Moving ${activity.detailPaceLabel}")
+                add(activity.detailPaceLabel)
         }
     }.joinToString(" · ").ifEmpty { "Saved activity" }
     val gps = remember(cachedDetail) {
@@ -504,7 +504,7 @@ private fun TimelineRecordedCard(
     }
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 90.dp)
+        modifier = Modifier.fillMaxWidth().heightIn(min = 74.dp)
             .testTag("timeline-recorded-${activity.id}")
             .semantics { contentDescription = "$kind, $detail, recorded activity" },
         shape = RoundedCornerShape(16.dp),
@@ -515,10 +515,6 @@ private fun TimelineRecordedCard(
             Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 11.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                "RECORDED ACTIVITY", color = TimelineStyle.lime,
-                fontSize = 9.sp, fontWeight = FontWeight.SemiBold
-            )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
