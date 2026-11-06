@@ -11,7 +11,7 @@ import kotlin.math.round
  */
 internal object TracksideLiquidMotion {
     const val DAMPING = 0.76f
-    const val STIFFNESS = Spring.StiffnessMedium
+    val STIFFNESS = Spring.StiffnessMedium
 
     /** Remaining distance, normalized to one destination cell (0..1). */
     fun pressure(current: Float, target: Float, cell: Float): Float =
