@@ -39,6 +39,12 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
     internal val state = repo.state
     internal val online = (application as StrideApplication).connectivity.online
     fun signIn(email: String, password: String) { viewModelScope.launch { repo.signIn(email, password) } }
+    fun signUp(name: String, email: String, password: String) {
+        viewModelScope.launch { repo.signUp(name, email, password) }
+    }
+    fun requestPasswordReset(email: String) {
+        viewModelScope.launch { repo.requestPasswordReset(email) }
+    }
     fun refresh() { viewModelScope.launch { repo.refresh() } }
     /** UI-triggered foreground Garmin history import; completed pages remain offline. */
     internal suspend fun syncGarmin(source:GarminPersonalSource):GarminConnectionStatus =
