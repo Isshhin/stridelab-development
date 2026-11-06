@@ -2,6 +2,10 @@ package io.stridelab.privatealpha
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -45,6 +49,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.role
@@ -254,29 +260,24 @@ internal fun StrideLabTodayScreen(
     val metrics = remember(weekStart, safeActivities, safeHistory, safePlans) {
         savedWeekMetrics(date, safeActivities, safeHistory, safePlans)
     }
-    val markers = remember(weekStart, safeActivities, safeHistory, safePlans) {
-        todayWeekMarkers(weekStart, safeActivities, safeHistory, safePlans)
-    }
     var showInsights by rememberSaveable { mutableStateOf(false) }
     val now = LocalDate.now()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(TodayLook.black)
             .testTag("screen").semantics { paneTitle = "Today" },
-        contentPadding = PaddingValues(start = 19.dp, end = 19.dp, top = 17.dp, bottom = 32.dp),
+        contentPadding = PaddingValues(start = 19.dp, end = 19.dp, top = 12.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
-        item(key = "today-header") {
-            TodayHeader(onOpenMore, online = online, loading = state.initializing)
-        }
         item(key = "today-calendar") {
             TodayWeekCalendar(
                 date = date,
                 accent = animatedTone,
                 selectionFraction = notchPosition,
-                markers = markers,
-                today = todayDate,
-                onToday = { selectedDay = todayDate.toEpochDay() },
+                visibleActivities = safeActivities,
+                rawHistory = safeHistory,
+                plans = safePlans,
+                reduceMotion = reduceMotion,
                 onSelect = { selectedDay = it.toEpochDay() },
                 onPrevious = { selectedDay = date.minusWeeks(1).toEpochDay() },
                 onNext = { selectedDay = date.plusWeeks(1).toEpochDay() }
@@ -411,93 +412,20 @@ private fun todayDisciplineColor(value: String): Color = when (value.lowercase(L
     else -> TodayLook.teal
 }
 
-@Composable
-private fun TodayHeader(onOpenMore: () -> Unit, online: Boolean, loading: Boolean) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Canvas(Modifier.size(width = 27.dp, height = 25.dp)) {
-                val w = size.width
-                val h = size.height
-                val p = Path().apply {
-                    moveTo(0f, h * .69f)
-                    lineTo(w * .25f, h * .24f)
-                    lineTo(w * .50f, h * .24f)
-                    lineTo(w * .70f, h * .67f)
-                    lineTo(w, h * .20f)
-                    lineTo(w * .74f, h * .84f)
-                    lineTo(w * .49f, h * .84f)
-                    lineTo(w * .30f, h * .48f)
-                    lineTo(w * .17f, h * .69f)
-                    close()
-                }
-                drawPath(p, TodayLook.lime)
-            }
-            Spacer(Modifier.width(8.dp))
-            Text("StrideLab", color = TodayLook.text, fontSize = 21.sp,
-                fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            if (!online || loading) {
-                Text(
-                    if (!online) "Offline" else "Loading",
-                    color = if (!online) TodayLook.coral else TodayLook.muted,
-                    fontSize = 11.sp,
-                    modifier = Modifier.padding(end = 9.dp).semantics {
-                        contentDescription = if (!online) "Offline, showing saved data"
-                            else "Loading training data"
-                    }
-                )
-            }
-            Surface(
-                onClick = onOpenMore, shape = CircleShape,
-                color = TodayLook.card, modifier = Modifier.size(39.dp)
-                    .testTag("today-profile")
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Canvas(Modifier.size(21.dp)) {
-                        drawCircle(
-                            TodayLook.text, radius = size.width * .16f,
-                            center = Offset(size.width * .5f, size.height * .28f),
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.8.dp.toPx())
-                        )
-                        drawArc(
-                            TodayLook.text, startAngle = 195f, sweepAngle = 150f,
-                            useCenter = false,
-                            topLeft = Offset(size.width * .14f, size.height * .49f),
-                            size = androidx.compose.ui.geometry.Size(size.width * .72f, size.height * .53f),
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.8.dp.toPx())
-                        )
-                    }
-                }
-            }
-        }
-        Spacer(Modifier.height(14.dp))
-        val greeting = when (java.time.LocalTime.now().hour) {
-            in 5..11 -> "Good morning"
-            in 12..17 -> "Good afternoon"
-            else -> "Good evening"
-        }
-        Text(greeting, color = TodayLook.muted, fontSize = 14.sp)
-        Text("Today", color = TodayLook.text, fontSize = 36.sp,
-            fontWeight = FontWeight.ExtraBold, lineHeight = 40.sp,
-            modifier = Modifier.semantics { heading() })
-        Canvas(Modifier.size(width = 138.dp, height = 7.dp)) {
-            val p = Path().apply {
-                moveTo(0f, size.height * .8f)
-                cubicTo(size.width * .32f, -size.height * .15f, size.width * .7f,
-                    size.height * 1.25f, size.width, size.height * .30f)
-            }
-            drawPath(p, TodayLook.lime, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx()))
-        }
-    }
-}
-
+/**
+ * Minimal week-first Today navigation. Week switching animates only the weekday
+ * strip; the card and list don't fade or slide. The selected date remains a
+ * single LocalDate so a week swipe preserves its weekday and the notch anchor.
+ */
 @Composable
 private fun TodayWeekCalendar(
     date: LocalDate,
     accent: Color,
     selectionFraction: Float,
-    markers: Map<LocalDate, TodayDayMarker>,
-    today: LocalDate,
-    onToday: () -> Unit,
+    visibleActivities: List<ActivityRecord>,
+    rawHistory: List<ActivityRecord>,
+    plans: List<PlanSnapshot>,
+    reduceMotion: Boolean,
     onSelect: (LocalDate) -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit
@@ -519,150 +447,164 @@ private fun TodayWeekCalendar(
         onNext()
     }
 
-    // Horizontal gestures switch weeks without interrupting vertical Today scrolling.
-    Column(
-        modifier = Modifier.fillMaxWidth().pointerInput(date) {
-            var dragDistance = 0f
-            detectHorizontalDragGestures(
-                onDragStart = { dragDistance = 0f },
-                onDragCancel = { dragDistance = 0f },
-                onDragEnd = {
-                    val threshold = 64.dp.toPx()
-                    when {
-                        dragDistance > threshold -> previousWeek()
-                        dragDistance < -threshold -> nextWeek()
-                    }
-                    dragDistance = 0f
-                },
-                onHorizontalDrag = { change, amount ->
-                    dragDistance += amount
-                    change.consume()
-                }
-            )
-        },
-        verticalArrangement = Arrangement.spacedBy(9.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                date.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())),
-                color = TodayLook.text, fontSize = 20.sp,
-                fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f)
-            )
-            if (date != today) {
-                Surface(
-                    onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onToday()
+    Box(
+        modifier = Modifier.fillMaxWidth()
+            .semantics {
+                contentDescription = "Weekly training calendar"
+                customActions = listOf(
+                    CustomAccessibilityAction("Previous week") {
+                        previousWeek()
+                        true
                     },
-                    shape = RoundedCornerShape(15.dp),
-                    color = Color(0xFF252B27),
-                    modifier = Modifier.height(34.dp).testTag("today-return")
-                ) {
-                    Box(
-                        Modifier.padding(horizontal = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("Today", color = TodayLook.lime,
-                            fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    CustomAccessibilityAction("Next week") {
+                        nextWeek()
+                        true
                     }
-                }
-                Spacer(Modifier.width(8.dp))
+                )
             }
-            TodayCalendarArrow("‹", "Previous week", previousWeek)
-            Spacer(Modifier.width(8.dp))
-            TodayCalendarArrow("›", "Next week", nextWeek)
-        }
-        BoxWithConstraints(Modifier.fillMaxWidth().testTag("today-week-picker")) {
-            // Exactly one lime indicator slides across the seven equal calendar
-            // columns. Its x-coordinate is shared with the notch animation.
-            val diameter = 37.dp
-            val indicatorX = (maxWidth * selectionFraction - diameter / 2)
-                .coerceIn(0.dp, maxWidth - diameter)
-            Box(
-                // Calendar dates remain in a fixed-height row above status dots.
-                Modifier.align(Alignment.TopStart).offset(x = indicatorX, y = 24.dp)
-                    .size(diameter).background(accent, CircleShape)
-                    .testTag("today-date-indicator")
-            )
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-                val letters = listOf("M", "T", "W", "T", "F", "S", "S")
-                (0..6).forEach { idx ->
-                    val day = monday.plusDays(idx.toLong())
-                    val isSelected = day == date
-                    val marker = markers[day] ?: TodayDayMarker(false, false)
-                    Column(
-                        modifier = Modifier.weight(1f).clickable { selectDay(day) }
-                            .testTag("today-day-" + idx)
-                            .semantics {
-                                contentDescription = day.format(
-                                    DateTimeFormatter.ofPattern(
-                                        "EEEE d MMMM", Locale.getDefault()
-                                    )
-                                ) + when {
-                                    marker.completed && marker.pending -> ", completed and planned"
-                                    marker.completed -> ", completed"
-                                    marker.pending -> ", planned"
-                                    else -> ""
-                                }
-                                selected = isSelected
-                                role = Role.Button
-                            },
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(7.dp)
-                    ) {
-                        Text(
-                            letters[idx], fontSize = 11.sp,
-                            color = if (isSelected) accent else TodayLook.muted,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            modifier = Modifier.height(17.dp)
-                        )
-                        Box(Modifier.size(diameter), contentAlignment = Alignment.Center) {
-                            Text(
-                                day.dayOfMonth.toString(),
-                                // Keep digits readable throughout the glide: their
-                                // ink follows the indicator, not a snapped selection.
-                                color = lerp(
-                                    TodayLook.muted, TodayLook.black,
-                                    (1f - kotlin.math.abs(
-                                        selectionFraction - (idx + .5f) / 7f
-                                    ) * 7f).coerceIn(0f, 1f)
-                                ),
-                                fontSize = 14.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold
-                                else FontWeight.Medium
-                            )
+            .pointerInput(monday) {
+                var dragDistance = 0f
+                detectHorizontalDragGestures(
+                    onDragStart = { dragDistance = 0f },
+                    onDragCancel = { dragDistance = 0f },
+                    onDragEnd = {
+                        val threshold = 56.dp.toPx()
+                        when {
+                            dragDistance >= threshold -> previousWeek()
+                            dragDistance <= -threshold -> nextWeek()
                         }
-                        Row(
-                            modifier = Modifier.height(6.dp),
-                            horizontalArrangement = Arrangement.spacedBy(3.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (marker.completed) {
-                                Box(Modifier.size(5.dp)
-                                    .background(TodayLook.lime, CircleShape))
-                            }
-                            if (marker.pending) {
-                                Box(Modifier.size(5.dp)
-                                    .background(Color(0xFF8B9298), CircleShape))
-                            }
-                        }
+                        dragDistance = 0f
+                    },
+                    onHorizontalDrag = { change, amount ->
+                        dragDistance += amount
+                        change.consume()
                     }
-                }
+                )
             }
-        }
-    }
-}
-
-@Composable
-private fun TodayCalendarArrow(symbol: String, label: String, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        shape = CircleShape,
-        color = TodayLook.card,
-        modifier = Modifier.size(34.dp).semantics { contentDescription = label }
+            .testTag("today-week-swipe")
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(symbol, color = TodayLook.text, fontSize = 22.sp)
+        AnimatedContent(
+            targetState = monday,
+            transitionSpec = {
+                if (reduceMotion) {
+                    EnterTransition.None togetherWith ExitTransition.None
+                } else {
+                    val forward = targetState.isAfter(initialState)
+                    slideInHorizontally(animationSpec = tween(210)) { width ->
+                        if (forward) width else -width
+                    } togetherWith slideOutHorizontally(
+                        animationSpec = tween(210)
+                    ) { width ->
+                        if (forward) -width else width
+                    }
+                }
+            },
+            label = "today-week-slide"
+        ) { visibleMonday ->
+            // Both outgoing and incoming weeks use their own saved markers
+            // throughout the slide; none temporarily inherit another week's dots.
+            val markers = remember(visibleMonday, visibleActivities, rawHistory, plans) {
+                todayWeekMarkers(visibleMonday, visibleActivities, rawHistory, plans)
+            }
+            BoxWithConstraints(
+                Modifier.fillMaxWidth()
+                    .testTag("today-week-picker")
+                    .semantics {
+                        contentDescription = "Week of " + visibleMonday.format(
+                            DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.getDefault())
+                        )
+                    }
+            ) {
+                val diameter = 37.dp
+                val indicatorX = (maxWidth * selectionFraction - diameter / 2)
+                    .coerceIn(0.dp, maxWidth - diameter)
+                Box(
+                    Modifier.align(Alignment.TopStart)
+                        .offset(x = indicatorX, y = 24.dp)
+                        .size(diameter)
+                        .background(accent, CircleShape)
+                        .testTag("today-date-indicator")
+                )
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    val letters = listOf("M", "T", "W", "T", "F", "S", "S")
+                    (0..6).forEach { idx ->
+                        val day = visibleMonday.plusDays(idx.toLong())
+                        val isSelected = day == date
+                        val marker = markers[day] ?: TodayDayMarker(false, false)
+                        Column(
+                            modifier = Modifier.weight(1f)
+                                .clickable { selectDay(day) }
+                                .testTag("today-day-" + idx)
+                                .semantics {
+                                    contentDescription = day.format(
+                                        DateTimeFormatter.ofPattern(
+                                            "EEEE d MMMM", Locale.getDefault()
+                                        )
+                                    ) + when {
+                                        marker.completed && marker.pending ->
+                                            ", completed and planned"
+                                        marker.completed -> ", completed"
+                                        marker.pending -> ", planned"
+                                        else -> ""
+                                    }
+                                    selected = isSelected
+                                    role = Role.Button
+                                },
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(7.dp)
+                        ) {
+                            Text(
+                                letters[idx],
+                                fontSize = 11.sp,
+                                color = if (isSelected) accent else TodayLook.muted,
+                                fontWeight = if (isSelected) FontWeight.Bold
+                                    else FontWeight.Normal,
+                                modifier = Modifier.height(17.dp)
+                            )
+                            Box(
+                                Modifier.size(diameter),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    day.dayOfMonth.toString(),
+                                    color = lerp(
+                                        TodayLook.muted, TodayLook.black,
+                                        (1f - kotlin.math.abs(
+                                            selectionFraction - (idx + .5f) / 7f
+                                        ) * 7f).coerceIn(0f, 1f)
+                                    ),
+                                    fontSize = 14.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold
+                                        else FontWeight.Medium
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.height(6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (marker.completed) {
+                                    Box(
+                                        Modifier.size(5.dp).background(
+                                            TodayLook.lime, CircleShape
+                                        )
+                                    )
+                                }
+                                if (marker.pending) {
+                                    Box(
+                                        Modifier.size(5.dp).background(
+                                            Color(0xFF8B9298), CircleShape
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
