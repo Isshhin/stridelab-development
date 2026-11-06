@@ -78,6 +78,39 @@ private object TodayLook {
     val azure = Color(0xFF91BFFF)
 }
 
+/** Status markers use only the signed-in athlete's persisted workouts. */
+private data class TodayDayMarker(val completed: Boolean, val pending: Boolean)
+
+private fun todayWeekMarkers(
+    start: LocalDate,
+    visible: List<ActivityRecord>,
+    rawHistory: List<ActivityRecord>,
+    plans: List<PlanSnapshot>
+): Map<LocalDate, TodayDayMarker> {
+    val end = start.plusDays(6)
+    val zone = ZoneId.systemDefault()
+    val now = Instant.now()
+    val recordedDays = visible.asSequence()
+        .filter { !it.startedAt.isAfter(now) }
+        .map { it.startedAt.atZone(zone).toLocalDate() }
+        .filter { it in start..end }.toSet() +
+        DashboardSummary.confirmedWorkouts(plans, rawHistory, now)
+            .map { it.date }.filter { it in start..end }
+    val scheduled = plans.filter { it.status == "approved" }
+        .flatMap { it.sessions }.filter { it.date in start..end && it.status != "unassigned" }
+    return (0L..6L).associate { offset ->
+        val day = start.plusDays(offset)
+        day to TodayDayMarker(
+            completed = day in recordedDays || scheduled.any {
+                it.date == day && it.status == "completed"
+            },
+            pending = scheduled.any {
+                it.date == day && it.status in setOf("planned", "in_progress")
+            }
+        )
+    }
+}
+
 private data class TodayWeekMetrics(
     val counts: List<Int>,
     val seconds: List<Double>,
@@ -172,13 +205,17 @@ internal fun StrideLabTodayScreen(
     val schedule = plan?.sessions?.filter { it.date == date && it.status != "unassigned" }
         ?: emptyList()
     val featured = schedule.firstOrNull { it.status != "completed" } ?: schedule.firstOrNull()
-    val nextSameDay = if (date == todayDate && schedule.size > 1) schedule.firstOrNull {
-        it.id != featured?.id && it.status in setOf("planned", "in_progress")
-    } else null
-    val future = nextSameDay ?: plan?.sessions?.filter {
+    // The Next Session card always tracks real today, not the browsed date.
+    val todaySchedule = plan?.sessions?.filter {
+        it.date == todayDate && it.status != "unassigned"
+    } ?: emptyList()
+    val nextToday = todaySchedule.firstOrNull {
+        it.status in setOf("planned", "in_progress")
+    }
+    val future = nextToday ?: plan?.sessions?.filter {
         it.date > todayDate && it.status in setOf("planned", "in_progress")
-    }?.sortedWith(compareBy<PlannedSession>({ it.date }, { it.id }))?.firstOrNull()
-    val completed = schedule.count { it.status == "completed" }
+    }?.minWithOrNull(compareBy<PlannedSession>({ it.date }, { it.id }))
+    val todayCompleted = todaySchedule.count { it.status == "completed" }
     // A completed day uses recorded styling only when the evidence is saved.
     // If a second session is still planned today, keep its actionable hero.
     val hasUnfinishedWorkout = schedule.any { it.status in setOf("planned", "in_progress") }
@@ -208,6 +245,9 @@ internal fun StrideLabTodayScreen(
     val metrics = remember(weekStart, safeActivities, safeHistory, safePlans) {
         savedWeekMetrics(date, safeActivities, safeHistory, safePlans)
     }
+    val markers = remember(weekStart, safeActivities, safeHistory, safePlans) {
+        todayWeekMarkers(weekStart, safeActivities, safeHistory, safePlans)
+    }
     var showInsights by rememberSaveable { mutableStateOf(false) }
     val now = LocalDate.now()
 
@@ -218,13 +258,16 @@ internal fun StrideLabTodayScreen(
         verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
         item(key = "today-header") {
-            TodayHeader(onOpenMore)
+            TodayHeader(onOpenMore, online = online, loading = state.initializing)
         }
         item(key = "today-calendar") {
             TodayWeekCalendar(
                 date = date,
                 accent = animatedTone,
                 selectionFraction = notchPosition,
+                markers = markers,
+                today = todayDate,
+                onToday = { selectedDay = todayDate.toEpochDay() },
                 onSelect = { selectedDay = it.toEpochDay() },
                 onPrevious = { selectedDay = date.minusWeeks(1).toEpochDay() },
                 onNext = { selectedDay = date.plusWeeks(1).toEpochDay() }
@@ -264,8 +307,8 @@ internal fun StrideLabTodayScreen(
                 next = future,
                 plan = plan,
                 signedOut = state.account == null,
-                completed = completed,
-                total = schedule.size,
+                completed = todayCompleted,
+                total = todaySchedule.size,
                 onOpen = {
                     if (state.account == null) onSignIn()
                     else if (plan != null && future != null) onOpenWorkout(plan.id, future.id)
@@ -306,15 +349,6 @@ internal fun StrideLabTodayScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     expandedInsights()
                 }
-            }
-        }
-        if (!online) {
-            item(key = "today-offline-caption") {
-                Text(
-                    "Offline · displaying your saved records",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TodayLook.muted
-                )
             }
         }
     }
