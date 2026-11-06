@@ -1,5 +1,14 @@
 # P2-F private-pilot custody and authority contract
 
+## Workstation qualification update — 2026-11-07
+
+User-reported non-destructive checks: TPM 2.0 present, ready, enabled, activated and owned; AMD firmware `3.95.2.5`; Secure Boot `True`; TBS context create and close succeeded. Raw `TPM2_GetCapability` via TBS returned TBS result `0x00000000` and TPM response code `0x00000000`. Returned command capabilities include `TPM2_NV_DefineSpace` (`0x12A`) and `TPM2_NV_Increment` (`0x134`). The preceding WMI command-block query was inconclusive. This report was not independently repeated here; no NV state was provisioned or mutated.
+
+This qualifies basic TPM/TBS communication and reported command capabilities only. It does not prove application access to those NV commands, successful provisioning, restrictive policy, persistent counter behavior, issuer uniqueness, safe recovery or resistance to rollback. Independent security/custody review, time and inventory design, and target-environment checks remain outstanding. `PRIVATE_PILOT_CONTRACT_BLOCKED`, private-pilot readiness blocked, human/provider admission NO, `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` remain unchanged.
+
+The next implementation milestone is the synthetic-only authority/custody harness specified below, **after** independent design review and acceptance. Its simulated counter and key unwrapper must never be presented as proof of hardware security. No TPM NV provisioning or human/provider intake is authorized by this update.
+
+
 Status: `PRIVATE_PILOT_CONTRACT_BLOCKED` — concrete local-first candidate selected in the decision addendum below, but critical hardware, clock, independent-review and environment assumptions are unverified. No intake or implementation clearance is authorized. Date: 2026-11-07 (Asia/Manila).
 
 Reviewed source head: `ee3f69553ad932631a24db2a065722a140c07837`; frozen Session G `26a8331e642c888dd73acb94755dded063baab8d`. Hosted Graphify index: `8012c93d55a26ff60a85730a42aca51da561d945`; its mirror main was `ee3f695...` when checked. Only the coordinator handoff and mirror-sync workflow differ between index and reviewed head; the relevant implementation is unchanged. The source branch, not the mirror, is authoritative.
