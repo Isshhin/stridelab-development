@@ -136,7 +136,7 @@ private fun NavHostController.openTabRoot(path: String) {
     // tab is already visible. Repeated taps must not rebuild its destination
     // and interrupt the floating navigation pill's animation.
     if (currentDestination?.route == path) return
-    while(currentDestination?.route in setOf("activity/{id}", "auth", "auth/signup", "auth/reset", "builder/{discipline}", "workout/{planId}/{sessionId}", "practice/{key}", "manage/{planId}/{date}")) {
+    while(currentDestination?.route in setOf("activity/{id}", "auth", "auth/signup", "auth/reset", "more/garmin", "more/data", "more/preferences", "more/about", "builder/{discipline}", "workout/{planId}/{sessionId}", "practice/{key}", "manage/{planId}/{date}")) {
         if(!popBackStack()) break
     }
     navigate(path) {
@@ -176,7 +176,7 @@ private fun NavHostController.openActivity(id: String) {
     val showFloatingDock = route != "missed/{planId}/{sessionId}" &&
         route != "review-move/{planId}/{sessionId}/{date}" &&
         route != "activity/{id}" && route != "builder/{discipline}" &&
-        route?.startsWith("auth") != true
+        route?.startsWith("auth") != true && route?.startsWith("more/") != true
     CompositionLocalProvider(
         LocalProfileAction provides { nav.openTabRoot("settings") },
         LocalFloatingDockVisible provides showFloatingDock
@@ -188,7 +188,7 @@ private fun NavHostController.openActivity(id: String) {
     ) { padding ->
         // Today and Training share a true AMOLED-black canvas, including
         // the space behind and below the floating navigation dock.
-        val pageBackground = if (route == "home" || route == "training") {
+        val pageBackground = if (route == "home" || route == "training" || route == "settings" || route?.startsWith("more/") == true) {
             Brush.verticalGradient(listOf(Color.Black, Color.Black))
         } else {
             Brush.verticalGradient(
@@ -457,33 +457,46 @@ private fun NavHostController.openActivity(id: String) {
                 composable("settings") {
                     if (state.account != null && diagnosticTabs) TabDiagnosticPlaceholder("More")
                     else if (state.account != null) {
-                    val context = LocalContext.current
-                    var confirmSignOut by remember { mutableStateOf(false) }
-                    Screen("Settings", "ACCOUNT & DATA") {
-                        item { SignalCard { Text("YOUR STRIDELAB", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text("Connected to your history.", style = MaterialTheme.typography.titleLarge); Text("Private preview · ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
-                        item { SyncStatus(state) }
-                        item {
-                            OutlinedButton(
-                                onClick = { nav.openTabRoot("library") },
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                            ) { Text("Workout library") }
+                        var confirmSignOut by remember { mutableStateOf(false) }
+                        TracksideMoreScreen(
+                            state = state,
+                            onSignIn = { nav.navigate("auth") },
+                            onLibrary = { nav.openTabRoot("library") },
+                            onGarmin = { nav.navigate("more/garmin") },
+                            onData = { nav.navigate("more/data") },
+                            onPreferences = { nav.navigate("more/preferences") },
+                            onAbout = { nav.navigate("more/about") },
+                            onSignOut = { confirmSignOut = true }
+                        )
+                        if (confirmSignOut) {
+                            AlertDialog(
+                                onDismissRequest = { confirmSignOut = false },
+                                title = { Text("Sign out?") },
+                                text = { Text("Your saved offline records will remain on this device.") },
+                                confirmButton = {
+                                    TextButton(
+                                        onClick = { confirmSignOut = false; actions.signOut() },
+                                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFD8FB70))
+                                    ) { Text("Sign out") }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { confirmSignOut = false }) { Text("Cancel") }
+                                }
+                            )
                         }
-                        item { TracksideSectionHeader("Private account") }
-                            item { SignalCard { Text("ACCOUNT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text(state.account, style = MaterialTheme.typography.bodyMedium) } }
-                            item { TracksideSectionHeader("Connections") }
-                            item { GarminSettingsCard(state.account,actions.syncGarmin) }
-                            item { OutlinedButton(onClick = { confirmSignOut = true }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Sign out on this device") } }
-                        item { TracksideSectionHeader("Device & data") }
-                        item { SignalCard {
-                            Text("LEGACY DATA & BACKUPS", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                            Text("Your earlier training is preserved", style = MaterialTheme.typography.titleLarge)
-                            Text("Review your original records and use the existing backup and restore tools. Legacy records are not yet converted into native history.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            OutlinedButton(onClick = { context.startActivity(Intent(context, MainActivity::class.java)) }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Open preserved prototype") }
-                        } }
-                        item { Text("Private testing", style = MaterialTheme.typography.titleMedium); Text("Real-account and phone acceptance are in progress. Your saved data stays on this device.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     }
-                    if(confirmSignOut) AlertDialog(onDismissRequest = { confirmSignOut = false }, title = { Text("Sign out?") }, text = { Text("Removes this device’s saved session. Cached records remain private in app storage and are hidden until that account signs in again.") }, confirmButton = { TextButton(onClick = { confirmSignOut = false; actions.signOut() }) { Text("Sign out") } }, dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text("Cancel") } })
-                    }
+                }
+                composable("more/garmin") {
+                    TracksideMoreDetailDestination(MorePage.Garmin, nav, state, actions)
+                }
+                composable("more/data") {
+                    TracksideMoreDetailDestination(MorePage.Data, nav, state, actions)
+                }
+                composable("more/preferences") {
+                    TracksideMoreDetailDestination(MorePage.Preferences, nav, state, actions)
+                }
+                composable("more/about") {
+                    TracksideMoreDetailDestination(MorePage.About, nav, state, actions)
                 }
                 composable("auth") {
                     val initialGeneration = rememberSaveable { state.loginGeneration }
@@ -561,10 +574,15 @@ private fun NavHostController.openActivity(id: String) {
                     )
                 }
                 PersistentTabSurface(active = route == "settings") {
-                    if (diagnosticTabs) TabDiagnosticPlaceholder("More") else SignedOutSettingsRoot(
+                    if (diagnosticTabs) TabDiagnosticPlaceholder("More") else TracksideMoreScreen(
                         state = state,
+                        onSignIn = { nav.navigate("auth") },
                         onLibrary = { nav.openTabRoot("library") },
-                        onSignIn = { nav.navigate("auth") }
+                        onGarmin = { nav.navigate("more/garmin") },
+                        onData = { nav.navigate("more/data") },
+                        onPreferences = { nav.navigate("more/preferences") },
+                        onAbout = { nav.navigate("more/about") },
+                        onSignOut = {}
                     )
                 }
             }
@@ -624,61 +642,31 @@ private fun PersistentTabSurface(
     }
 }
 
-/** Signed-out More tab: same UI as its NavHost destination, kept alive. */
+/** Single routing boundary for focused More subpages. */
 @Composable
-private fun SignedOutSettingsRoot(
+private fun TracksideMoreDetailDestination(
+    page: MorePage,
+    nav: NavHostController,
     state: TrainingState,
-    onLibrary: () -> Unit,
-    onSignIn: () -> Unit
+    actions: NativeActions
 ) {
     val context = LocalContext.current
-    Screen("Settings", "ACCOUNT & DATA") {
-        item {
-            SignalCard {
-                Text("YOUR STRIDELAB", style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary)
-                Text("Keep your training close.", style = MaterialTheme.typography.titleLarge)
-                Text("Private preview · ${BuildConfig.VERSION_NAME}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        item { SyncStatus(state) }
-        item {
-            OutlinedButton(onClick = onLibrary, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
-                Text("Workout library")
-            }
-        }
-        item {
-            Button(onClick = onSignIn, modifier = Modifier.fillMaxWidth()) {
-                Text("Sign in")
-            }
-        }
-        item { TracksideSectionHeader("Device & data") }
-        item {
-            SignalCard {
-                Text("LEGACY DATA & BACKUPS", style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary)
-                Text("Your earlier training is preserved", style = MaterialTheme.typography.titleLarge)
-                Text(
-                    "Review your original records and use the existing backup and restore tools. Legacy records are not yet converted into native history.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+    TracksideMoreDetailScreen(
+        page = page,
+        state = state,
+        onBack = { nav.popBackStack() },
+        onSignIn = { nav.navigate("auth") },
+        onLegacyBackups = { context.startActivity(Intent(context, MainActivity::class.java)) },
+        onSystemAppSettings = {
+            context.startActivity(
+                Intent(
+                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    android.net.Uri.parse("package:" + context.packageName)
                 )
-                OutlinedButton(
-                    onClick = { context.startActivity(Intent(context, MainActivity::class.java)) },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                ) { Text("Open preserved prototype") }
-            }
-        }
-        item {
-            Text("Private testing", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Real-account and phone acceptance are in progress. Your saved data stays on this device.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        }
-    }
+        },
+        syncGarmin = actions.syncGarmin
+    )
 }
 
 internal val LocalProfileAction=staticCompositionLocalOf<()->Unit> { {} }
