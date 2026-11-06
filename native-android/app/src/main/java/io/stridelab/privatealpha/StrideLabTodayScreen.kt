@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
@@ -453,7 +454,14 @@ private fun TodayWeekCalendar(
                         Box(Modifier.size(diameter), contentAlignment = Alignment.Center) {
                             Text(
                                 day.dayOfMonth.toString(),
-                                color = if (isSelected) TodayLook.black else TodayLook.muted,
+                                // Keep digits readable throughout the glide: their
+                                // ink follows the indicator, not a snapped selection.
+                                color = lerp(
+                                    TodayLook.muted, TodayLook.black,
+                                    (1f - kotlin.math.abs(
+                                        selectionFraction - (idx + .5f) / 7f
+                                    ) * 7f).coerceIn(0f, 1f)
+                                ),
                                 fontSize = 14.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold
                                 else FontWeight.Medium
