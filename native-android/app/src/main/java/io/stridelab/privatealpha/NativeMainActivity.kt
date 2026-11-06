@@ -123,7 +123,7 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
     val syncGarmin: (suspend (GarminPersonalSource) -> GarminConnectionStatus)? = null,
     val loadGarminGps: ((String,GarminPersonalSource)->Unit)?=null)
 
-/** Only the four main tab destinations should switch immediately; nested screens
+/** Primary destinations switch immediately; the legacy Activity history route remains available.
  * retain the existing Navigation Compose transitions.
  */
 private val mainTabRoutes = setOf("home", "training", "activities", "settings")
@@ -226,7 +226,7 @@ private fun NavHostController.openActivity(id: String) {
                         visibleActivities = visibleActivities,
                         online = online,
                         onOpenTraining = { nav.openTabRoot("training") },
-                        onOpenActivity = { nav.openTabRoot("activities") },
+                        onOpenActivity = { nav.openTabRoot("training") },
                         onOpenWorkout = { planId, sessionId -> nav.openWorkout(planId, sessionId) },
                         onOpenActivityDetail = { id -> nav.openActivity(id) },
                         onOpenMore = { nav.openTabRoot("settings") },
@@ -322,7 +322,7 @@ private fun NavHostController.openActivity(id: String) {
                         )
                     }
                 }
-                composable("training") { StrideLabTrainingHome(state,actions.planning,{nav.navigate("builder/all")},{p,s->nav.openWorkout(p,s)},{nav.navigate("auth")},{p,d->nav.navigate("manage/${android.net.Uri.encode(p)}/$d")}) }
+                composable("training") { StrideLabUnifiedTrainingTimeline(state,groupedActivities,actions.planning,{nav.navigate("builder/all")},{p,s->nav.openWorkout(p,s)},{id->nav.openActivity(id)},{nav.navigate("auth")},{p,d->nav.navigate("manage/${android.net.Uri.encode(p)}/$d")}) }
                 composable("manage/{planId}/{date}") { back ->
                     val planId = back.arguments?.getString("planId") ?: ""
                     val plan = state.plans.firstOrNull { it.id == planId }
