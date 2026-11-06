@@ -1316,8 +1316,23 @@ private fun TodayWaveWorkout(
                         isToday -> "TODAY'S WORKOUT"
                         else -> "UPCOMING WORKOUT"
                     },
-                    fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TodayLook.black
+                    fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TodayLook.black,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis
                 )
+                if (primary != null && !multi) {
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        when (primary.status) {
+                            "completed" -> "✓ Done"
+                            "in_progress" -> "● Active"
+                            else -> "Planned"
+                        },
+                        color = TodayLook.black.copy(alpha = .76f),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
             }
             Text(title, fontSize = if (multi) 27.sp else 29.sp,
                 lineHeight = 33.sp,
@@ -1350,9 +1365,18 @@ private fun TodayWaveWorkout(
                                     color = TodayLook.muted, fontSize = 11.sp,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
-                            if (session.status == "completed") {
-                                Text("✓", color = TodayLook.lime, fontSize = 16.sp)
-                            } else Text("›", color = TodayLook.text, fontSize = 19.sp)
+                            Text(
+                                when (session.status) {
+                                    "completed" -> "✓ Done"
+                                    "in_progress" -> "● Active"
+                                    else -> "Planned"
+                                },
+                                color = if (session.status == "completed")
+                                    TodayLook.lime else TodayLook.muted,
+                                fontSize = 10.sp,
+                                maxLines = 1
+                            )
+                            Text("›", color = TodayLook.text, fontSize = 19.sp)
                         }
                     }
                 }
