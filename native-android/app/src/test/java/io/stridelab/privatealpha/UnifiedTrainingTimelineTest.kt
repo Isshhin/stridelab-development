@@ -124,6 +124,34 @@ class UnifiedTrainingTimelineTest {
         assertEquals("logged", days.first().workouts.single().session.id)
     }
 
+    @Test fun completelyEmptyTodayDoesNotClaimMonthHeader() {
+        val days = unifiedTrainingDays(today, emptyList(), emptyList(), null, manila)
+        assertEquals(false, unifiedTimelineMonthHeading(days, 0))
+    }
+
+    @Test fun firstActualWorkoutAfterEmptyTodayIntroducesItsMonth() {
+        val days = unifiedTrainingDays(
+            today, emptyList(),
+            listOf(plan(sessions = listOf(session("upcoming", "2026-11-07")))),
+            "plan-1", manila
+        )
+        assertEquals(false, unifiedTimelineMonthHeading(days, 0))
+        assertEquals(true, unifiedTimelineMonthHeading(days, 1))
+    }
+
+    @Test fun monthHeadingAppearsOnlyAtFirstEventInEachMonth() {
+        val days = unifiedTrainingDays(
+            today, emptyList(),
+            listOf(plan(sessions = listOf(
+                session("first", "2026-11-07"),
+                session("second", "2026-11-09"),
+                session("dec", "2026-12-02")
+            ))), "plan-1", manila
+        )
+        assertEquals(listOf(false, true, false, true),
+            days.indices.map { unifiedTimelineMonthHeading(days, it) })
+    }
+
     @Test fun twoDistinctRecordedRunsRemainSeparateOnSameDate() {
         val groups = listOf(
             DisplayActivity(activity("run1", "2026-11-06T06:00:00Z")),
