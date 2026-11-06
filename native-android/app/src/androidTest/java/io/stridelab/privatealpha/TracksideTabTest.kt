@@ -1,6 +1,7 @@
 package io.stridelab.privatealpha
 
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -12,12 +13,16 @@ import org.junit.Test
 class TracksideTabTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
 
-    @Test fun fiveApprovedTabsKeepExistingRoutesAndMoreOpensSettings() {
-        listOf("home", "training", "activities", "library", "settings").forEach {
+    @Test fun threeTabsOpenTracksideMore() {
+        listOf("home", "training", "settings").forEach {
             compose.onNodeWithTag("nav-$it").assertExists()
         }
         compose.onNodeWithTag("nav-settings").performClick()
-        compose.onNodeWithTag("screen-title").assertTextEquals("Settings")
+        compose.onNodeWithTag("screen-title").assertTextEquals("More")
+        compose.onNodeWithTag("more-row-about").performClick()
+        compose.onNodeWithTag("more-detail-title").assertTextEquals("About StrideLab")
+        compose.onNodeWithTag("more-back").performClick()
+        compose.onNodeWithTag("screen-title").assertTextEquals("More")
         compose.onNodeWithTag("nav-home").performClick()
         compose.onNodeWithTag("nav-home").assertIsSelected()
     }
