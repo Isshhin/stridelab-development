@@ -608,6 +608,11 @@ private fun TodayWeekCalendar(
                         val day = visibleMonday.plusDays(idx.toLong())
                         val isSelected = day == date
                         val marker = markers[day] ?: TodayDayMarker(false, false)
+                        val numberInk by animateColorAsState(
+                            targetValue = if (isSelected) TodayLook.black else TodayLook.muted,
+                            animationSpec = tween(if (reduceMotion) 0 else 160),
+                            label = "today-day-ink-$idx"
+                        )
                         Column(
                             modifier = Modifier.weight(1f)
                                 .clickable { selectDay(day) }
@@ -644,11 +649,10 @@ private fun TodayWeekCalendar(
                             ) {
                                 Text(
                                     day.dayOfMonth.toString(),
-                                    // The sliding circle animates independently.
-                                    // Recolor this label only on selection changes,
-                                    // not on every frame of the notch spring.
-                                    color = if (isSelected) TodayLook.black
-                                        else TodayLook.muted,
+                                    // Only the newly selected/deselected
+                                    // text animates; the notch spring does not
+                                    // recompose the whole week of labels.
+                                    color = numberInk,
                                     fontSize = 14.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold
                                         else FontWeight.Medium
