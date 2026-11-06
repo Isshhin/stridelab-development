@@ -327,6 +327,19 @@ internal fun StrideLabTodayScreen(
                     onOpenActivity = onOpenActivityDetail,
                     onOpenWorkout = onOpenWorkout
                 )
+            } else if (showRecorded &&
+                (recordedOnDate.isNotEmpty() || confirmedOnDate.isNotEmpty())
+            ) {
+                // Compact recorded cards only. Planned/recovery and mixed-day
+                // screens keep their existing design and navigation.
+                TodayCompactRecordedCards(
+                    activities = recordedOnDate,
+                    logs = confirmedOnDate,
+                    plans = safePlans,
+                    notchFraction = notchPosition,
+                    onOpenActivity = onOpenActivityDetail,
+                    onOpenWorkout = onOpenWorkout
+                )
             } else if (showRecorded) {
                 TodayRecordedTraining(
                     selectedDate = date,
@@ -727,6 +740,172 @@ private fun todayChronologicalRecordedEntries(
             .thenBy { it.time }
             .thenBy { it.stableKey }
     )
+}
+
+/**
+ * Compact, chronological recorded-day cards inspired by the owner-approved
+ * reference. Only the first recorded card owns the curved weekday notch.
+ *
+ * No activity title, fabricated GPS track, or fixed session summary is shown.
+ * A real saved ActivityRecord opens Activity Detail; a confirmed native log
+ * opens its existing workout detail. Planned and recovery cards are untouched.
+ */
+@Composable
+private fun TodayCompactRecordedCards(
+    activities: List<ActivityRecord>,
+    logs: List<ConfirmedWorkout>,
+    plans: List<PlanSnapshot>,
+    notchFraction: Float,
+    onOpenActivity: (String) -> Unit,
+    onOpenWorkout: (String, String) -> Unit
+) {
+    val ordered = remember(activities, logs, plans) {
+        todayChronologicalRecordedEntries(activities, logs, plans)
+    }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        ordered.forEachIndexed { index, entry ->
+            val activity = entry.activity
+            val confirmed = entry.confirmed
+            val discipline = if (activity != null) {
+                todayRecordedKind(activity.type)
+            } else {
+                todayHeroDiscipline(confirmed?.discipline ?: "other")
+            }
+            val accent = if (activity != null) {
+                todayRecordedColor(activity.type)
+            } else {
+                todayDisciplineColor(confirmed?.discipline ?: "")
+            }
+            val distance = (activity?.distanceM ?: confirmed?.distanceM)
+                ?.takeIf { it.isFinite() && it >= 0.0 }
+            val duration = (activity?.durationS ?: confirmed?.durationSeconds)
+                ?.takeIf { it.isFinite() && it >= 0.0 }
+            val distancePrimary = discipline in setOf("running", "walking") && distance != null
+            val primary = when {
+                distancePrimary -> String.format(
+                    Locale.getDefault(), "%.2f km", distance!! / 1000
+                )
+                duration != null -> ActivityRecord.duration(duration)
+                else -> "Completed session"
+            }
+            val pace = activity?.takeIf { it.supportsPace }?.let { record ->
+                when {
+                    record.recordedPace != null -> record.paceLabel
+                    record.garminMovingPaceSPerKm != null ->
+                        "Moving " + record.detailPaceLabel
+                    else -> null
+                }
+            }
+            val secondary = buildList {
+                if (distancePrimary) {
+                    duration?.let { add(ActivityRecord.duration(it)) }
+                } else if (distance != null) {
+                    add(String.format(Locale.getDefault(), "%.2f km", distance / 1000))
+                }
+                pace?.let(::add)
+            }.joinToString("  ·  ").ifBlank {
+                if (duration != null && !distancePrimary) "Recorded duration"
+                else "Saved workout"
+            }
+            TodayCompactRecordedCard(
+                first = index == 0,
+                notchFraction = notchFraction,
+                discipline = discipline,
+                accent = accent,
+                primary = primary,
+                secondary = secondary,
+                tag = if (index == 0) "today-recorded-hero"
+                    else "today-recorded-session-" + entry.stableKey,
+                onClick = {
+                    if (activity != null) {
+                        onOpenActivity(activity.id)
+                    } else if (confirmed != null) {
+                        onOpenWorkout(confirmed.planId, confirmed.sessionId)
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun TodayCompactRecordedCard(
+    first: Boolean,
+    notchFraction: Float,
+    discipline: String,
+    accent: Color,
+    primary: String,
+    secondary: String,
+    tag: String,
+    onClick: () -> Unit
+) {
+    val shape = if (first) {
+        remember(notchFraction) { todayNotchedShape(notchFraction) }
+    } else {
+        RoundedCornerShape(18.dp)
+    }
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().height(110.dp).testTag(tag),
+        shape = shape,
+        color = Color(0xFF17191B),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp, Color(0xFF3C4144)
+        )
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize()
+                .padding(start = 14.dp, end = 15.dp, top = if (first) 12.dp else 10.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier.size(52.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(accent),
+                contentAlignment = Alignment.Center
+            ) {
+                TodayDisciplineGlyph(
+                    kind = discipline,
+                    modifier = Modifier.size(29.dp)
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Text(
+                    todayKindLabel(discipline),
+                    color = TodayLook.text,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    primary,
+                    color = TodayLook.text,
+                    fontSize = 21.sp,
+                    lineHeight = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    secondary,
+                    color = TodayLook.muted,
+                    fontSize = 11.sp,
+                    lineHeight = 14.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Text("›", color = TodayLook.muted, fontSize = 23.sp)
+        }
+    }
 }
 
 /**
