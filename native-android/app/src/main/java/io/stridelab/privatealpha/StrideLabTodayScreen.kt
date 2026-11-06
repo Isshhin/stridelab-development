@@ -225,7 +225,6 @@ internal fun StrideLabTodayScreen(
         item(key = "today-hero") {
             if (isPastDate) {
                 TodayRecordedTraining(
-                    date = date,
                     accent = animatedTone,
                     notchFraction = notchPosition,
                     activities = recordedOnDate,
@@ -570,7 +569,6 @@ private fun todayNotchedShape(fraction: Float) = GenericShape { size, _ ->
  */
 @Composable
 private fun TodayRecordedTraining(
-    date: LocalDate,
     accent: Color,
     notchFraction: Float,
     activities: List<ActivityRecord>,
