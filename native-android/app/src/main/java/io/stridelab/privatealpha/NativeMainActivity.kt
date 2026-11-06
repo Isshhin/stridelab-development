@@ -164,22 +164,16 @@ private fun NavHostController.openActivity(id: String) {
         ActivityDisplayConsolidation.groups(ActiveActivitySources.filter(state.activities))
     }
     val visibleActivities = remember(groupedActivities) { groupedActivities.map { it.primary } }
+    // A genuinely floating dock must not participate in Scaffold's bottomBar:
+    // the overlay is positioned above the system gesture area independently
+    // of the scrolling screen. Detail/builder flows continue to hide it.
+    val showFloatingDock = route != "missed/{planId}/{sessionId}" &&
+        route != "review-move/{planId}/{sessionId}/{date}" &&
+        route != "activity/{id}" && route != "builder/{discipline}"
     CompositionLocalProvider(LocalProfileAction provides { nav.openTabRoot("settings") }) {
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
-        bottomBar = {
-            // The approved 25D / 25E plan-decision pages do not use the five-tab dock.
-            if(route != "missed/{planId}/{sessionId}" &&
-                route != "review-move/{planId}/{sessionId}/{date}" &&
-                route != "activity/{id}" && route != "builder/{discipline}") {
-                Box(
-                    Modifier.fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                ) {
-                    TracksideFloatingNavigation(route) { path -> nav.openTabRoot(path) }
-                }
-            }
-        }
+        modifier = Modifier.fillMaxSize()
     ) { padding ->
         Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(TracksidePalette.backgroundTop, TracksidePalette.backgroundBottom))).padding(padding).imePadding()) {
             if(state.busy || state.initializing) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("loading"))
@@ -190,7 +184,9 @@ private fun NavHostController.openActivity(id: String) {
             NavHost(
                 navController = nav,
                 startDestination = "home",
-                modifier = Modifier.weight(1f),
+                // Keep the final card reachable above the floating overlay.
+                modifier = Modifier.weight(1f)
+                    .padding(bottom = if (showFloatingDock) 82.dp else 0.dp),
                 // Navigation Compose's default 700 ms fade made the bottom tabs
                 // feel like a flash. The lime dock pill is the only tab motion.
                 enterTransition = {
@@ -519,6 +515,19 @@ private fun NavHostController.openActivity(id: String) {
                 }
             }
         }
+    }
+    if (showFloatingDock) {
+        Box(
+            modifier = Modifier.align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 12.dp)
+                .fillMaxWidth(.88f)
+                .widthIn(max = 350.dp)
+                .testTag("floating-navigation-overlay")
+        ) {
+            TracksideFloatingNavigation(route) { path -> nav.openTabRoot(path) }
+        }
+    }
     }
 }
 
