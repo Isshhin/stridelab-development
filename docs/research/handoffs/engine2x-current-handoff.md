@@ -1,5 +1,38 @@
 # StrideLab Engine 2.x current coordinating handoff
 
+## Current continuation — P2-F synthetic durability cleared — 2026-11-07
+
+Independent review returned:
+
+`PASS_FOR_SYNTHETIC_DURABILITY`
+
+Reviewed implementation:
+
+`e716f338ac52fe727e2a7a3e7d9f1495875170bd`
+
+Independent review head:
+
+`6255cef86aef3d7899da9bfcf49095fb39a266f7`
+
+The previous current-validity concurrent-writer race was independently reproduced on the old implementation and not reproduced against the new SQLite writer reservation + shared process-local authority guard. The protected validation point is accepted as the synthetic linearization point. Callers must use `assert_current` before reusing a previously returned projection.
+
+Independent validation: 54 durable, 16 F2.2, 148 P2, and 312 full-suite runs (311 passed, one Windows symlink skip). No new synthetic correctness defect was found.
+
+Exact-head CI run `42257993818` was still queued at the last verified check. Do not report it as passed until GitHub confirms success.
+
+Current gates:
+
+- P2-F synthetic feasibility: PASS
+- P2-F synthetic durability: PASS
+- private-pilot readiness: NOT READY
+- Gate 2: `P2_F_GATE_2_NOT_READY`
+- P2-B: `P2_B_PROTOCOL_READY_DATA_NOT_READY`
+- human/provider data admission: NO
+
+The next phase is **private-pilot custody and authenticated authority design/review**, followed by bounded implementation and adversarial review. Do not ingest real athlete/provider data yet.
+
+See [`engine2x-p2f-current-session-handoff.md`](engine2x-p2f-current-session-handoff.md) for the full milestone history, boundaries, and exact continuation instructions.
+
 ## Current continuation — race fix implemented, independent clearance pending — 2026-11-07
 
 Latest implementation head: `e716f338ac52fe727e2a7a3e7d9f1495875170bd`.
