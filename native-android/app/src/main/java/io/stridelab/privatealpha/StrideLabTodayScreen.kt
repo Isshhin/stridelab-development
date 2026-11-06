@@ -178,8 +178,7 @@ internal fun StrideLabTodayScreen(
     onOpenWorkout: (String, String) -> Unit,
     onOpenActivityDetail: (String) -> Unit,
     onOpenMore: () -> Unit,
-    onSignIn: () -> Unit,
-    expandedInsights: @Composable () -> Unit
+    onSignIn: () -> Unit
 ) {
     var selectedDay by rememberSaveable { mutableLongStateOf(LocalDate.now().toEpochDay()) }
     val date = LocalDate.ofEpochDay(selectedDay)
@@ -260,7 +259,6 @@ internal fun StrideLabTodayScreen(
     val metrics = remember(weekStart, safeActivities, safeHistory, safePlans) {
         savedWeekMetrics(date, safeActivities, safeHistory, safePlans)
     }
-    var showInsights by rememberSaveable { mutableStateOf(false) }
     val now = LocalDate.now()
 
     LazyColumn(
@@ -364,21 +362,6 @@ internal fun StrideLabTodayScreen(
         if (state.account != null && visibleActivities.isNotEmpty()) {
             item(key = "today-recent") {
                 TodayRecentActivity(visibleActivities.take(2), onOpenActivityDetail, onOpenActivity)
-            }
-        }
-        item(key = "today-insights-toggle") {
-            TextButton(onClick = { showInsights = !showInsights }, modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    if (showInsights) "Hide additional insights  −" else "Additional insights  +",
-                    color = TodayLook.muted
-                )
-            }
-        }
-        if (showInsights) {
-            item(key = "today-existing-insights") {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    expandedInsights()
-                }
             }
         }
     }
