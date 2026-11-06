@@ -523,6 +523,29 @@ private data class TodayHeroSnapshot(
     val signedOut: Boolean
 )
 
+/**
+ * Content transitions are keyed by *workout discipline*, not date or session ID.
+ * Easy Run -> Tempo Run updates directly; Run -> Strength/Recovery fades.
+ * For multiple workouts, fade only if the discipline mix changes.
+ */
+private fun todayHeroDiscipline(discipline: String): String =
+    when (discipline.lowercase(Locale.ROOT)) {
+        "run", "running" -> "running"
+        "str", "strength" -> "strength"
+        "cal", "calisthenics", "body", "bodyweight" -> "calisthenics"
+        "cond", "conditioning" -> "conditioning"
+        else -> discipline.lowercase(Locale.ROOT)
+    }
+
+private fun todayHeroContentKey(snapshot: TodayHeroSnapshot): String = when {
+    snapshot.signedOut -> "signed-out"
+    !snapshot.planAvailable -> "no-plan"
+    snapshot.scheduled.isEmpty() -> "recovery"
+    snapshot.scheduled.size > 1 -> "multi:" +
+        snapshot.scheduled.map { todayHeroDiscipline(it.discipline) }.sorted().joinToString(",")
+    else -> todayHeroDiscipline(snapshot.scheduled.first().discipline)
+}
+
 @Composable
 private fun TodayWaveWorkout(
     accent: Color,
@@ -558,7 +581,7 @@ private fun TodayWaveWorkout(
                 signedOut || !planAvailable -> "general"
                 scheduled.isEmpty() -> "recovery"
                 multi -> "multi"
-                else -> primary?.discipline ?: "general"
+                else -> primary?.discipline?.let(::todayHeroDiscipline) ?: "general"
             },
             animationSpec = tween(if (reduceMotion) 0 else 240),
             modifier = Modifier.matchParentSize(),
@@ -572,6 +595,9 @@ private fun TodayWaveWorkout(
         }
         AnimatedContent(
             targetState = content,
+            // Different dates in the same discipline update immediately,
+            // avoiding the full-card blink on Run -> Run or empty -> empty.
+            contentKey = ::todayHeroContentKey,
             modifier = Modifier.fillMaxWidth(),
             transitionSpec = {
                 (fadeIn(tween(if (reduceMotion) 0 else 210)) +
