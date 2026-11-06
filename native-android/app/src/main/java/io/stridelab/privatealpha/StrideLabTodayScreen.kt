@@ -893,9 +893,13 @@ private fun TodayWaveWorkout(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text(
-                    if (scheduled.isEmpty() && planAvailable && !signedOut) "✦" else "●",
-                    color = TodayLook.black, fontSize = 14.sp
+                TodayDisciplineGlyph(
+                    kind = when {
+                        scheduled.isEmpty() -> "recovery"
+                        multi -> "mixed"
+                        else -> primary?.discipline ?: "running"
+                    },
+                    modifier = Modifier.size(17.dp)
                 )
                 Text(
                     when {
@@ -989,6 +993,60 @@ private fun todaySessionDetails(session: PlannedSession): String {
     }
     if (parts.isEmpty()) parts.add(session.status.replace('_', ' '))
     return parts.joinToString("  ·  ")
+}
+
+/** Tiny discipline-specific vector mark, not a stock athlete image. */
+@Composable
+private fun TodayDisciplineGlyph(kind: String, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val ink = Color(0xFF1A2615)
+        val stroke = 1.9.dp.toPx()
+        when (todayHeroDiscipline(kind)) {
+            "running" -> {
+                drawCircle(ink, radius = w * .105f, center = Offset(w * .63f, h * .16f))
+                drawLine(ink, Offset(w * .56f, h * .30f), Offset(w * .42f, h * .58f),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
+                drawLine(ink, Offset(w * .42f, h * .58f), Offset(w * .76f, h * .72f),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
+                drawLine(ink, Offset(w * .42f, h * .58f), Offset(w * .18f, h * .82f),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
+                drawLine(ink, Offset(w * .53f, h * .37f), Offset(w * .78f, h * .42f),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
+                drawLine(ink, Offset(w * .45f, h * .39f), Offset(w * .22f, h * .49f),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
+            }
+            "strength" -> {
+                drawLine(ink, Offset(w * .13f, h * .50f), Offset(w * .87f, h * .50f),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
+                listOf(.27f, .73f).forEach { x ->
+                    drawLine(ink, Offset(w * x, h * .24f), Offset(w * x, h * .76f),
+                        strokeWidth = 3.1.dp.toPx(), cap = StrokeCap.Round)
+                }
+            }
+            "calisthenics", "conditioning", "mixed" -> {
+                drawCircle(ink, radius = w * .10f, center = Offset(w * .5f, h * .2f))
+                drawLine(ink, Offset(w * .17f, h * .42f), Offset(w * .83f, h * .42f),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
+                drawLine(ink, Offset(w * .5f, h * .40f), Offset(w * .5f, h * .73f),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
+                drawLine(ink, Offset(w * .5f, h * .73f), Offset(w * .24f, h * .93f),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
+                drawLine(ink, Offset(w * .5f, h * .73f), Offset(w * .76f, h * .93f),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
+            }
+            else -> {
+                drawArc(
+                    color = ink, startAngle = 40f, sweepAngle = 260f,
+                    useCenter = false,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = stroke, cap = StrokeCap.Round
+                    )
+                )
+            }
+        }
+    }
 }
 
 /** Decorative athletic artwork only, never a GPS route or invented athlete metric. */
