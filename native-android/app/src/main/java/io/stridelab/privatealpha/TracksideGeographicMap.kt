@@ -216,9 +216,10 @@ private fun MapLibreRouteView(
                 val screen=map.projection.toScreenLocation(point)
                 val feature=map.queryRenderedFeatures(
                     screen,
-                    arrayOf("stride-split-markers-circle","stride-split-markers-label")
+                    "stride-split-markers-circle",
+                    "stride-split-markers-label"
                 ).firstOrNull() ?: return@OnMapClickListener false
-                val boundary=feature.getStringProperty("label")?.toIntOrNull()
+                val boundary=feature.properties()?.get("label")?.asString?.toIntOrNull()
                     ?: return@OnMapClickListener false
                 val splitIndex=boundary-1
                 val start=if(splitIndex == 0) {
