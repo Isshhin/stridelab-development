@@ -120,7 +120,7 @@ private fun MapLibreRouteView(
                 style.addSource(GeoJsonSource("stride-actual-gps",geoJson))
                 style.addLayer(
                     LineLayer("stride-gps-line","stride-actual-gps").withProperties(
-                        PropertyFactory.lineColor(AndroidColor.rgb(242,65,72)),
+                        PropertyFactory.lineColor(AndroidColor.rgb(216,251,112)),
                         PropertyFactory.lineWidth(4f),
                         PropertyFactory.lineOpacity(0.95f)
                     )
@@ -184,7 +184,7 @@ private fun RecordedGpsFallback(route:RecordedGpsRoute,modifier:Modifier=Modifie
         )
         route.segments.forEach { segment ->
             segment.zipWithNext().forEach { (a,b) ->
-                drawLine(Color(0xFFF24148),position(a),position(b),3.dp.toPx())
+                drawLine(Color(0xFFD8FB70),position(a),position(b),3.dp.toPx())
             }
         }
     }
