@@ -121,6 +121,7 @@ class Broker:
             for chunk in chunks:
                 with self._state:
                     need(not self.withdrawal, 'withdrawal pending')
+                    need(not self._violation, 'reentrant mutation')
                     need(self.current(scope) == head, 'authority changed')
                     self.inventory.verify(head['generation'], scope, obj, version)
                     need(self.data_versions.get(obj) == version, 'inventory restored object mismatch')

@@ -564,5 +564,78 @@ class AuthorityMatrix(unittest.TestCase):
         self.assertEqual(['same', 'same', 'same'], self.broker.escaped)
 
 
+    def test_nested_generator_cannot_publish(self):
+        def chunks():
+            try: self.read()
+            except Denied: pass
+            yield 'must-not-publish'
+        self.denied('reentrant', lambda: self.read(chunks=chunks()))
+        self.assertEqual([], self.key.output)
+        self.assertEqual([], self.broker.escaped)
+        self.assertEqual('published', self.read())
+
+    def test_nested_generator_between_chunks_preserves_first_once(self):
+        def chunks():
+            yield 'first'
+            try: self.read()
+            except Denied: pass
+            yield 'must-not-publish'
+        self.denied('reentrant', lambda: self.read(chunks=chunks()))
+        self.assertEqual(['first'], self.key.output)
+        self.assertEqual(['first'], self.broker.escaped)
+        self.broker.receive_withdrawal(self.scope)
+        self.assertEqual(['first'], self.broker.escaped)
+
+    def test_ordinary_generator_publishes_all_chunks(self):
+        self.assertEqual('published', self.read(chunks=(x for x in ('one', 'two'))))
+        self.assertEqual(['one', 'two'], self.key.output)
+
+    def test_other_thread_contention_inside_generator_does_not_poison(self):
+        denied = []
+        def chunks():
+            def competing():
+                try: self.read()
+                except Denied: denied.append(True)
+            thread = threading.Thread(target=competing)
+            thread.start()
+            thread.join(timeout=2)
+            self.assertFalse(thread.is_alive())
+            yield 'valid'
+        self.assertEqual('published', self.read(chunks=chunks()))
+        self.assertEqual([True], denied)
+        self.assertEqual(['valid'], self.key.output)
+
+    def test_generator_withdrawal_before_yield_denies_output(self):
+        def chunks():
+            self.broker.receive_withdrawal(self.scope)
+            yield 'must-not-publish'
+        self.denied('withdrawal', lambda: self.read(chunks=chunks()))
+        self.assertEqual([], self.key.output)
+        self.assertEqual([], self.broker.escaped)
+
+    def test_generator_data_change_before_yield_denies_output(self):
+        def chunks():
+            self.broker.data_versions['object'] = 0
+            yield 'must-not-publish'
+        self.denied('inventory', lambda: self.read(chunks=chunks()))
+        self.assertEqual([], self.key.output)
+
+    def test_generator_authority_change_before_yield_denies_output(self):
+        def chunks():
+            self.anchor.generation += 1
+            yield 'must-not-publish'
+        self.denied('generation', lambda: self.read(chunks=chunks()))
+        self.assertEqual([], self.key.output)
+
+    def test_generator_exception_preserves_first_exposure(self):
+        def chunks():
+            yield 'first'
+            raise RuntimeError('iterator failure')
+        with self.assertRaisesRegex(RuntimeError, 'iterator failure'):
+            self.read(chunks=chunks())
+        self.assertEqual(['first'], self.key.output)
+        self.assertEqual(['first'], self.broker.escaped)
+
+
 if __name__ == '__main__':
     unittest.main()
