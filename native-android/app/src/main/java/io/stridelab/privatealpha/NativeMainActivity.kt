@@ -317,10 +317,9 @@ private fun NavHostController.openActivity(id: String) {
                                 )
                             }
                         }
-                        if(state.account == null) item { EmptyState("Sign in to view your history", "Only records belonging to your signed-in account are displayed."); Button(onClick = { nav.navigate("auth") }) { Text("Sign in") } }
+                        if(state.account == null) item { EmptyState("Local profile unavailable", "Restart the app to initialize offline storage.") }
                         else {
-                            item { OutlinedButton(onClick = actions.refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
-                            if(visibleActivities.isEmpty()) item { EmptyState("No active activities cached", "Garmin activities will appear after syncing from Connections.") }
+                            if(visibleActivities.isEmpty()) item { EmptyState("No recorded activities yet", "Connect Garmin in More, or import a local recording. A StrideLab login is not required.") }
                             val logged=state.plans.flatMap { p -> p.sessions.filter { it.status=="completed" && (it.linkedActivityId==null || state.activities.none { a->a.id==it.linkedActivityId }) }.map { p to it } }.sortedByDescending { it.second.log?.at }
                             if(logged.isNotEmpty()) item { Text("WORKOUT LOGS · ON THIS DEVICE",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary) }
                             logged.forEach { (p,s) -> item(key="logged-${s.id}") { PlannedWorkoutCard(s) { nav.openWorkout(p.id,s.id) } } }
@@ -561,7 +560,7 @@ private fun NavHostController.openActivity(id: String) {
                 composable("auth") {
                     val initialGeneration = rememberSaveable { state.loginGeneration }
                     LaunchedEffect(state.loginGeneration, state.busy, state.needsSignIn) {
-                        if (state.account != null && !state.busy &&
+                        if (state.cloudAccount != null && !state.busy &&
                             !state.needsSignIn && state.loginGeneration > initialGeneration
                         ) nav.popBackStack()
                     }
@@ -660,6 +659,13 @@ private fun NavHostController.openActivity(id: String) {
                                     syncGarmin = actions.syncGarmin,
                                     backupGarminCloud = actions.backupGarminCloud,
                                     restoreGarminCloud = actions.restoreGarminCloud,
+                                    cloudSignedIn = state.cloudAccount != null && !state.needsSignIn,
+                                    onCloudSignIn = {
+                                        if (!garminBusy) {
+                                            garminSheetOpen = false
+                                            nav.navigate("auth")
+                                        }
+                                    },
                                     busy = garminBusy,
                                     onBusyChange = { garminBusy = it },
                                     onDismiss = { if (!garminBusy) garminSheetOpen = false }
@@ -668,8 +674,8 @@ private fun NavHostController.openActivity(id: String) {
                             if (confirmSignOut) {
                                 AlertDialog(
                                     onDismissRequest = { confirmSignOut = false },
-                                    title = { Text("Sign out?") },
-                                    text = { Text("Your saved offline records will remain on this device.") },
+                                    title = { Text("Disconnect cloud account?") },
+                                    text = { Text("Local workouts, saved plans, Garmin connection and activities stay on this device.") },
                                     confirmButton = {
                                         TextButton(
                                             onClick = { confirmSignOut = false; actions.signOut() },
