@@ -24,6 +24,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
@@ -36,6 +37,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -838,6 +840,8 @@ private fun TracksideActivitySourceChart(
     fun valueText(value: Double): String = if (pace) {
         ActivityRecord.duration(value) + "/km"
     } else String.format(Locale.getDefault(), "%.0f %s", value, unit)
+    fun axisText(value: Double): String = if (pace) ActivityRecord.duration(value)
+        else value.roundToInt().toString()
     var chartWidthPx by remember(samples, title) { mutableFloatStateOf(0f) }
     fun selectAt(x: Float) {
         if(chartWidthPx <= 0f) return
@@ -881,8 +885,24 @@ private fun TracksideActivitySourceChart(
             )
         }
         Spacer(Modifier.height(9.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(
+                Modifier.width(43.dp).height(124.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                val top = if (pace) low else high
+                val bottom = if (pace) high else low
+                listOf(top, (low + high) / 2.0, bottom).forEach { value ->
+                    Text(
+                        axisText(value), color = activityMuted, fontSize = 10.sp,
+                        maxLines = 1, textAlign = TextAlign.End,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+            Spacer(Modifier.width(5.dp))
         Canvas(
-            Modifier.fillMaxWidth().height(124.dp)
+            Modifier.weight(1f).height(124.dp)
                 .onSizeChanged { chartWidthPx = it.width.toFloat() }
                 .pointerInput(samples,title) {
                     detectTapGestures(onTap = { selectAt(it.x) })
@@ -925,8 +945,14 @@ private fun TracksideActivitySourceChart(
             } else {
                 (1f - ((sampleAverage-low) / span).toFloat()) * (size.height-8f) + 4f
             }
-            drawLine(activityMuted.copy(alpha = .45f),
-                Offset(0f,avgY),Offset(size.width,avgY),1.dp.toPx())
+            drawLine(
+                activityLime.copy(alpha = .75f),
+                Offset(0f, avgY), Offset(size.width, avgY),
+                strokeWidth = 1.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(
+                    floatArrayOf(6.dp.toPx(), 5.dp.toPx())
+                )
+            )
             segments.forEach { section ->
                 section.zipWithNext().forEach { (a,b) ->
                     val av=metric(a)
@@ -945,7 +971,9 @@ private fun TracksideActivitySourceChart(
                 drawCircle(activitySheetBlack,2.dp.toPx(),center)
             }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        }
+        Row(Modifier.fillMaxWidth().padding(start = 48.dp),
+            horizontalArrangement = Arrangement.SpaceBetween) {
             Text(ActivityRecord.duration(firstTime), color = activityMuted, fontSize = 10.sp)
             Text(ActivityRecord.duration(lastTime), color = activityMuted, fontSize = 10.sp)
         }
