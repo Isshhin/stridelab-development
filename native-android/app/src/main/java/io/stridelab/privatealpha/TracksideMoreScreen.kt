@@ -8,13 +8,20 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -22,12 +29,15 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -236,6 +246,9 @@ internal fun TracksideMoreDetailScreen(
                 }
             }
             MorePage.Preferences -> {
+                item(key = "detail-athlete-hr") {
+                    AthleteHeartRatePreferenceCard(state.account)
+                }
                 item(key = "detail-preferences") {
                     MoreGroup {
                         MoreActionRow(
@@ -254,6 +267,100 @@ internal fun TracksideMoreDetailScreen(
             MorePage.About -> {
                 item(key = "detail-about") {
                     MoreInfoCard("StrideLab", "Private Preview · " + BuildConfig.VERSION_NAME)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AthleteHeartRatePreferenceCard(account: String?) {
+    val context = LocalContext.current
+    val preferences = remember(context) { AthleteHeartRatePreferences(context) }
+    var savedMaximum by remember(account) { mutableStateOf(preferences.maximumHr(account)) }
+    var text by remember(account, savedMaximum) {
+        mutableStateOf(savedMaximum?.toString().orEmpty())
+    }
+    val parsed = text.toIntOrNull()
+    val valid = text.isBlank() || parsed in 100..240
+
+    Surface(
+        shape = RoundedCornerShape(21.dp), color = moreSurface,
+        border = BorderStroke(1.dp, moreBorder),
+        modifier = Modifier.fillMaxWidth().testTag("athlete-hr-preference")
+    ) {
+        Column(
+            Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                "Heart rate zones", color = moreWhite, fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                "Set your maximum heart rate once. Activity Detail uses it for " +
+                    "five estimated %HRmax zones; this does not change Garmin zones or coaching.",
+                color = moreMuted, fontSize = 12.sp, lineHeight = 18.sp
+            )
+            OutlinedTextField(
+                value = text,
+                onValueChange = { value ->
+                    if (value.length <= 3 && value.all(Char::isDigit)) text = value
+                },
+                modifier = Modifier.fillMaxWidth().testTag("athlete-max-hr-input"),
+                label = { Text("Maximum heart rate") },
+                placeholder = { Text("100–240 bpm") },
+                suffix = { Text("bpm") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = text.isNotBlank() && !valid,
+                supportingText = {
+                    Text(
+                        when {
+                            text.isNotBlank() && !valid -> "Enter a value from 100 to 240 bpm."
+                            account == null -> "Saved locally on this device."
+                            else -> "Saved for the signed-in athlete on this device."
+                        }
+                    )
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = moreLime,
+                    focusedLabelColor = moreLime,
+                    unfocusedBorderColor = moreBorder,
+                    focusedTextColor = moreWhite,
+                    unfocusedTextColor = moreWhite
+                )
+            )
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (savedMaximum != null) {
+                    TextButton(
+                        onClick = {
+                            preferences.setMaximumHr(account, null)
+                            savedMaximum = null
+                            text = ""
+                        },
+                        modifier = Modifier.testTag("athlete-max-hr-clear")
+                    ) {
+                        Text("Clear", color = moreMuted)
+                    }
+                }
+                Button(
+                    onClick = {
+                        preferences.setMaximumHr(account, parsed)
+                        savedMaximum = parsed
+                    },
+                    enabled = text.isNotBlank() && valid && parsed != savedMaximum,
+                    modifier = Modifier.testTag("athlete-max-hr-save"),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = moreLime,
+                        contentColor = moreBlack
+                    )
+                ) {
+                    Text("Save", fontWeight = FontWeight.SemiBold)
                 }
             }
         }
