@@ -8,10 +8,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
@@ -26,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
@@ -72,8 +69,6 @@ internal fun TracksideFigmaActivityDetailSurface(
         // viewport fraction. Otherwise the sheet has a large empty tail.
         // This also grows correctly for a two-line title or large fonts.
         val density = LocalDensity.current
-        val uriHandler = LocalUriHandler.current
-        var showMapCredits by remember(activity.id) { androidx.compose.runtime.mutableStateOf(false) }
         var previewHeightPx by remember(activity.id) { mutableIntStateOf(0) }
         var selectedActivitySeconds by remember(recorded?.activityId) {
             androidx.compose.runtime.mutableStateOf<Double?>(null)
@@ -94,14 +89,6 @@ internal fun TracksideFigmaActivityDetailSurface(
         val expanded = sheetState.currentValue == SheetValue.Expanded
         val mapOnly = sheetState.currentValue == SheetValue.Hidden &&
             sheetState.targetValue == SheetValue.Hidden
-        // FIT sample sets can be large. Cache this once for both attribution
-        // positions instead of rescanning on every drag or state change.
-        val hasRecordedGps = remember(recorded) {
-            recorded?.samples.orEmpty().count {
-                it.latitude != null && it.longitude != null
-            } >= 1
-        }
-
         // Use Material's native anchored motion instead of locally accelerating
         // it. This keeps velocity/easing continuous for taps, flicks and drags,
         // and automatically respects the system animator-duration setting.
@@ -129,16 +116,6 @@ internal fun TracksideFigmaActivityDetailSurface(
         }
         val maxHeightPx = with(density) { maxHeight.toPx() }
         val mapLipHeightPx = with(density) { 24.dp.toPx() }
-        val mapCreditMarginPx = with(density) { 30.dp.toPx() }
-        val mapCreditThresholdPx = with(density) { 110.dp.toPx() }
-        val mapCreditVisible by remember(sheetState, online, hasRecordedGps,
-            collapsedOffsetPx, mapCreditThresholdPx) {
-            derivedStateOf {
-                online && hasRecordedGps &&
-                    (runCatching { sheetState.requireOffset() }.getOrNull()
-                        ?: collapsedOffsetPx) > mapCreditThresholdPx
-            }
-        }
         val showMapLip by remember(sheetState, maxHeightPx, mapLipHeightPx) {
             derivedStateOf {
                 (runCatching { sheetState.requireOffset() }.getOrNull()
@@ -288,34 +265,6 @@ internal fun TracksideFigmaActivityDetailSurface(
             )
         }
 
-        // Single compact, clickable credit. Its Y position follows the sheet
-        // anchor in the DRAW layer (no per-frame Compose remeasurement).
-        // When fully hidden, it settles just above the narrow full-width grip.
-        // The MapLibre-native watermark/attribution is disabled only because
-        // this visible source-owned attribution remains accessible.
-        if (mapCreditVisible) {
-            Text(
-                TracksideMapTiles.ATTRIBUTION,
-                modifier = Modifier.align(Alignment.TopStart)
-                    .padding(start = 9.dp)
-                    .graphicsLayer {
-                        val offset = runCatching { sheetState.requireOffset() }
-                            .getOrDefault(collapsedOffsetPx)
-                        val edge = minOf(offset, maxHeightPx - mapLipHeightPx)
-                        translationY = (edge - mapCreditMarginPx).coerceAtLeast(0f)
-                    }
-                    .background(Color(0xC908100D), RoundedCornerShape(7.dp))
-                    .clickable { showMapCredits = true }
-                    .padding(horizontal = 7.dp, vertical = 4.dp)
-                    .testTag("activity-map-attribution")
-                    .semantics { contentDescription = "Map data credits. View attribution links." },
-                fontSize = 8.sp,
-                lineHeight = 10.sp,
-                maxLines = 1,
-                color = Color(0xFFDAE8DC)
-            )
-        }
-
         // A thin, full-width sheet lip makes the hidden anchor look like the
         // SAME sheet at the bottom, rather than a floating black bubble.
         // The map remains freely pannable everywhere outside this 24dp strip.
@@ -377,35 +326,5 @@ internal fun TracksideFigmaActivityDetailSurface(
             }
         }
 
-        // Keep detailed license links available without permanently displaying
-        // extra badges, logos or an attribution panel over the map.
-        if (showMapCredits) {
-            AlertDialog(
-                onDismissRequest = { showMapCredits = false },
-                title = { Text("Map credits") },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text(TracksideMapTiles.ATTRIBUTION)
-                        TextButton(onClick = {
-                            uriHandler.openUri("https://www.openstreetmap.org/copyright")
-                        }) { Text("OpenStreetMap copyright") }
-                        TextButton(onClick = {
-                            uriHandler.openUri("https://openmaptiles.org/")
-                        }) { Text("OpenMapTiles") }
-                        TextButton(onClick = {
-                            uriHandler.openUri("https://openfreemap.org/")
-                        }) { Text("OpenFreeMap") }
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = { showMapCredits = false }) {
-                        Text("Close")
-                    }
-                },
-                containerColor = Color(0xFF101A15),
-                titleContentColor = Color(0xFFF0F7F1),
-                textContentColor = Color(0xFFBFCFC4)
-            )
-        }
     }
 }
