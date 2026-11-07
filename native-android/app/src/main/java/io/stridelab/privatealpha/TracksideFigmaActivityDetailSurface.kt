@@ -102,6 +102,16 @@ internal fun TracksideFigmaActivityDetailSurface(
         val scaffoldState = rememberBottomSheetScaffoldState(sheetState)
         val scope = rememberCoroutineScope()
         val expanded = sheetState.currentValue == SheetValue.Expanded
+        // Do not eagerly allocate every chart, insight, and split widget for
+        // an unopened 10k-20k sample FIT file. Compose the details when the
+        // athlete first requests expansion; keep them for subsequent drags.
+        var detailsEverRequested by remember(activity.id) {
+            androidx.compose.runtime.mutableStateOf(false)
+        }
+        val detailsRequested = expanded || sheetState.targetValue == SheetValue.Expanded
+        androidx.compose.runtime.LaunchedEffect(detailsRequested) {
+            if (detailsRequested) detailsEverRequested = true
+        }
         val mapOnly = sheetState.currentValue == SheetValue.Hidden &&
             sheetState.targetValue == SheetValue.Hidden
         // FIT sample sets can be large. Cache this once for both attribution
@@ -273,31 +283,33 @@ internal fun TracksideFigmaActivityDetailSurface(
                                     if (!detailsSemanticsVisible) invisibleToUser()
                                 }
                         ) {
+                            if (detailsEverRequested || detailsRequested) {
                             TracksideActivityExpandedHeader(activity, collapseOrBack, onShare = { shareOpen = true })
-                            TracksideActivityContinuousSections(
-                                activity = activity,
-                                recorded = recorded,
-                                detailSource = detailSource,
-                                matchedSourceIds = matchedSourceIds,
-                                history = history,
-                                state = state,
-                                actions = actions,
-                                online = online,
-                                selectedTab = selectedTab,
-                                onTab = onTab,
-                                onLoadGarminGps = onLoadGarminGps,
-                                selectedSeconds = selectedActivitySeconds,
-                                onSelectSeconds = {
-                                    selectedActivitySeconds = it
-                                    selectedSplitRange = null
-                                },
-                                onSelectRange = { range ->
-                                    selectedSplitRange = range
-                                    selectedActivitySeconds = range?.let {
-                                        (it.first + it.second) / 2.0
+                                TracksideActivityContinuousSections(
+                                    activity = activity,
+                                    recorded = recorded,
+                                    detailSource = detailSource,
+                                    matchedSourceIds = matchedSourceIds,
+                                    history = history,
+                                    state = state,
+                                    actions = actions,
+                                    online = online,
+                                    selectedTab = selectedTab,
+                                    onTab = onTab,
+                                    onLoadGarminGps = onLoadGarminGps,
+                                    selectedSeconds = selectedActivitySeconds,
+                                    onSelectSeconds = {
+                                        selectedActivitySeconds = it
+                                        selectedSplitRange = null
+                                    },
+                                    onSelectRange = { range ->
+                                        selectedSplitRange = range
+                                        selectedActivitySeconds = range?.let {
+                                            (it.first + it.second) / 2.0
+                                        }
                                     }
-                                }
-                            )
+                                )
+                            }
                         }
                     }
                 }
