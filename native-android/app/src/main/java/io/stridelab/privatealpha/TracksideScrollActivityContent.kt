@@ -4,7 +4,6 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,7 +16,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -29,6 +27,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -40,7 +39,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -449,7 +447,7 @@ internal fun TracksideActivityContinuousSections(
                     }
                 if (chartAvailability.heartRate)
                     item(key = "chart-heart-rate-zones") {
-                        TracksideActivityHeartRateZones(recorded)
+                        TracksideActivityHeartRateZones(recorded, state.account)
                     }
                 if (chartAvailability.elevation)
                     item(key = "chart-elevation") {
@@ -544,6 +542,9 @@ private fun TracksideActivityOverviewBody(
     val insightPresentation = remember(activity, recorded, history) {
         ActivityIntelligence.presentation(activity, recorded, history)
     }
+    val workoutCharacter = remember(activity, recorded) {
+        ActivityIntelligence.workoutCharacter(activity, recorded)
+    }
     val missingSavedCadence = remember(recorded) {
         recorded != null && recorded.samples.isNotEmpty() &&
             recorded.samples.none { it.cadenceSpm != null }
@@ -595,7 +596,9 @@ private fun TracksideActivityOverviewBody(
         // AI coach or a recovery/fitness prediction.
         if (insightPresentation != null) {
             Spacer(Modifier.height(16.dp))
-            TracksideActivityIntelligenceCard(insightPresentation)
+            TracksideActivityIntelligenceCard(
+                insightPresentation, descriptor = workoutCharacter
+            )
         }
     }
 }
@@ -854,7 +857,8 @@ private fun SummarySourceGlyph() {
 private fun TracksideActivityIntelligenceCard(
     insight: ActivityInsightPresentation,
     heading: String = "Overall Analysis",
-    tag: String = "activity-insights"
+    tag: String = "activity-insights",
+    descriptor: String? = null
 ) {
     var expanded by remember(insight.headline) { mutableStateOf(false) }
     val shape = RoundedCornerShape(18.dp)
@@ -884,7 +888,20 @@ private fun TracksideActivityIntelligenceCard(
             Spacer(Modifier.weight(1f))
             Text("RECORDED DATA", color = activityMuted, fontSize = 9.sp)
         }
-        Spacer(Modifier.height(13.dp))
+        if (!descriptor.isNullOrBlank()) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                descriptor,
+                color = activityLime,
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.testTag(tag + "-descriptor")
+            )
+            Spacer(Modifier.height(9.dp))
+        } else {
+            Spacer(Modifier.height(13.dp))
+        }
         Text(
             insight.headline,
             color = activityText,
