@@ -227,8 +227,14 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             if (mutable.value.activities.none { it.id == id }) return@withLock false
             if (mutable.value.details.containsKey(id)) return@withLock true
             if (id !in mutable.value.cachedDetailIds) return@withLock false
-            val saved = store.get(account,"activity_detail",id)
-                ?: return@withLock false
+            val saved = store.get(account,"activity_detail",id) ?: run {
+                // SQLite is authoritative if a detail was removed by an
+                // explicit operation after the lightweight ID query.
+                mutable.value = mutable.value.copy(
+                    cachedDetailIds=mutable.value.cachedDetailIds - id
+                )
+                return@withLock false
+            }
             val parsed = try {
                 ActivityDetail.parse(JSONObject(saved.payload),account,id)
             } catch (_: Exception) {
@@ -855,6 +861,18 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     ): ActivityDetail {
         require(activity.source == "garmin")
         val id = activity.id
+        fun publishIfOpened(recorded: ActivityDetail): ActivityDetail {
+            if (upgradeCadence || id in mutable.value.details) {
+                retainHotDetail(id,recorded)
+            } else {
+                // WorkManager / due-time Garmin import only warms SQLite.
+                // Never fill RAM with unvisited FIT streams.
+                mutable.value = mutable.value.copy(
+                    cachedDetailIds=mutable.value.cachedDetailIds + id
+                )
+            }
+            return recorded
+        }
         val saved = store.get(account, "activity_detail", id)
         val previous = if (saved != null) {
             try {
@@ -866,8 +884,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         } else null
         if(previous != null && (!upgradeCadence ||
             previous.samples.any { it.cadenceSpm != null })) {
-            retainHotDetail(id,previous)
-            return previous
+            return publishIfOpened(previous)
         }
         val original = store.get(account, "activity", id)
             ?: throw GarminProtocolException("Garmin source record is unavailable")
@@ -919,8 +936,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             }
             if (merged == null) {
                 val unchanged = requireNotNull(previous)
-                retainHotDetail(id,unchanged)
-                return unchanged
+                return publishIfOpened(unchanged)
             }
             merged
         } else raw
@@ -931,8 +947,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             listOf(TrainingStore.RemoteRecord(id, storedPayload.toString(), null)),
             null, System.currentTimeMillis()
         )
-        retainHotDetail(id,checked)
-        return checked
+        return publishIfOpened(checked)
     }
 
     internal fun close() { scope.cancel(); store.close() }
