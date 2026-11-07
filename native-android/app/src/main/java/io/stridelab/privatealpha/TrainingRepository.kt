@@ -273,7 +273,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             activities=active.values.sortedWith(
                 compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id }
             ),
-            cachedDetailIds=mutable.value.cachedDetailIds.filterTo(HashSet()) {
+            cachedDetailIds=mutable.value.cachedDetailIds.filterTo(HashSet<String>()) {
                 it in currentIds
             },
             details=mutable.value.details.filterKeys { it in currentIds },
@@ -457,7 +457,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         val raw = authenticated { gateway.detail(it,id) }
         val parsed = ActivityDetail.parse(raw,account,id)
         store.applyRemotePage(account,"activity_detail",listOf(TrainingStore.RemoteRecord(id,raw.toString(),null)),null,System.currentTimeMillis())
-        mutable.value = mutable.value.copy(details = mutable.value.details + (id to parsed))
+        retainHotDetail(id,parsed)
     }
     private suspend fun operation(label: String, action: () -> Unit): Boolean = withContext(Dispatchers.IO) {
         mutex.withLock {
@@ -504,6 +504,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         }
         vault.save(session) // No account activation unless encryption succeeds.
         check(preferences.edit().putString("active", session.account).commit())
+        hotDetails.clear()
         mutable.value = TrainingState(initializing = false, account = session.account, busy = true, loginGeneration = mutable.value.loginGeneration + 1)
         loadCache(session.account)
         // Authentication is complete even if this first cache refresh fails.
@@ -557,7 +558,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             store.applyRemotePage(account, "activity", rows, marker, System.currentTimeMillis())
             received += page.length()
             mutable.value = mutable.value.copy(task = "Checking history · $received activities")
-            loadCache(account) // Each complete page is already durable, including partial failure.
+            publishActivityPage(account,rows,marker) // SQLite page committed first.
             if(completed) break
             require(last != null && last != before)
             before = last
@@ -617,7 +618,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 }
                 store.applyRemotePage(account,"activity",rows,null,System.currentTimeMillis())
                 imported+=rows.size
-                loadCache(account) // Durable, offline-accessible after each completed page.
+                publishActivityPage(account,rows) // Durable, offline-accessible after each page.
                 pages++
                 val next=page.nextCursor
                 if(next!=null && (next==cursor || next.toIntOrNull()==null))
@@ -630,7 +631,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             val pending = mutable.value.activities.filter { activity ->
                 activity.source == "garmin" && DashboardSummary.isRun(activity) &&
                     activity.id.startsWith("garmin-") &&
-                    !mutable.value.details.containsKey(activity.id)
+                    activity.id !in mutable.value.cachedDetailIds
             }
             var completedDetails = 0
             var failedDetails = 0
@@ -671,7 +672,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 }
             }
             val remaining = pending.count {
-                !mutable.value.details.containsKey(it.id)
+                it.id !in mutable.value.cachedDetailIds
             }
             if (pageLimit == 100) garminSyncPreferences.acknowledgeManualGarminSync(account)
             GarminConnectionStatus(
@@ -865,8 +866,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         } else null
         if(previous != null && (!upgradeCadence ||
             previous.samples.any { it.cadenceSpm != null })) {
-            mutable.value = mutable.value.copy(
-                details = mutable.value.details + (id to previous))
+            retainHotDetail(id,previous)
             return previous
         }
         val original = store.get(account, "activity", id)
@@ -919,8 +919,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             }
             if (merged == null) {
                 val unchanged = requireNotNull(previous)
-                mutable.value = mutable.value.copy(
-                    details = mutable.value.details + (id to unchanged))
+                retainHotDetail(id,unchanged)
                 return unchanged
             }
             merged
@@ -932,7 +931,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             listOf(TrainingStore.RemoteRecord(id, storedPayload.toString(), null)),
             null, System.currentTimeMillis()
         )
-        mutable.value = mutable.value.copy(details = mutable.value.details + (id to checked))
+        retainHotDetail(id,checked)
         return checked
     }
 
@@ -944,6 +943,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         // End local access before waiting for an unavailable network to revoke the server session.
         vault.clear(account)
         check(preferences.edit().remove("active").commit())
+        hotDetails.clear()
         mutable.value = TrainingState(initializing = false,busy = true,task = "Finishing sign-out…")
         val revoked = saved != null && runCatching { gateway.signOut(saved); true }.getOrDefault(false)
         mutable.value = mutable.value.copy(message = if(revoked) null else "Signed out on this device. Server session revocation was unavailable; saved files were retained.")
