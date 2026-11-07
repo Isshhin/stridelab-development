@@ -1,3 +1,5 @@
+> **2026-11-07 v3 custody update — current:** The additive [v3 design study](../phase2/p2-f-custody-authority-correction-protocol-v3-2026-11-07.md) and [preflight v2](../phase2/p2-f-custody-authority-readonly-preflight-plan-v2-2026-11-07.md) are incomplete. `P2F_CUSTODY_AUTHORITY_V3_CORRECTIONS_INCOMPLETE`; `REPLACEMENT_ANCHOR_NOT_YET_JUSTIFIED`; `WITHDRAWAL_COMPLETENESS_MODEL_INCOMPLETE`; `WINDOWS_DURABILITY_CONTRACT_INCOMPLETE`; `READONLY_PREFLIGHT_PLAN_INCOMPLETE`. TPM witness remains abandoned. All authority and outputs CLOSED; no preflight, target access, private data or integrated qualification authorized. Next: resolve independent anchor continuity, actual output/withdrawal ordering, durability/canonicalization and preflight caller/side effects, then a new independent design/security review. Historical sections below may describe superseded next steps and are preserved as history.
+
 # StrideLab Engine 2.x current coordinating handoff
 
 ## Custody/authority correction protocol v1 — 2026-11-07
