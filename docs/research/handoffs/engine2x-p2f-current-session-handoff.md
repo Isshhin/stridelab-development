@@ -1,3 +1,17 @@
+# Current independent v7 historical-key-role review — 2026-11-07
+
+This entry supersedes ALL historical status/next-action entries below. Exact reviewed head: `4f3805f84ba9fb5828eb94d513be643fc37cf9c9`; branch `research/runna-garmin-coaching-20261102`; PR #34 remains **OPEN, DRAFT, UNMERGED**.
+
+**Current v7 verdict: `P2F_CUSTODY_AUTHORITY_V7_DESIGN_ACCEPTABLE_FOR_PREFLIGHT_AUTHORIZATION_REVIEW`.** See the NEW [historical key-role independent review](../phase2/p2-f-custody-authority-v7-historical-key-role-independent-review-2026-11-07.md). This separately scoped review closes prior F1a/F1b at their exact original proof hashes. Permanent raw-key roles reconstruct from pinned genesis and every finalized policy/epoch; retirement, replacement and revoke preserve history. Cross-role reuse rejects generically; unchanged current same-role policy retention accepts; retired same-role resurrection and operational epoch-key reuse reject.
+
+Fresh independent evidence: **126 policy matrix rejections, 68 epoch matrix rejections, 10 individual same-role retention acceptances**, an all-role retention bridge, both fresh epoch starts, full replay registry comparison, rejection no-mutation and three late-signature no-mutation controls PASS. Independently extracted **2,868 signatures** verified. Catalogue: **365 objects, 34 accepted finality scenarios, all 14 event types, 53 rejections, 1 replay, 8 schedules**; all 363 baseline objects/86 scenarios/eight schedules preserved. Deterministic regeneration PASS; focused eight tests PASS; full local Python3.12 suite **444 run, 443 passed, one existing Windows symlink skip**. Reviewed-head CI runs 42380552446 and 42380556064 SUCCESS; independently read job log confirms all 444 pass without skips. Publication-head CI is recorded separately after push, never inferred from reviewed-head success.
+
+Top-level verdicts: `HISTORICAL_KEY_ROLE_MODEL_ACCEPTABLE`; `CANONICAL_TEST_VECTORS_ACCEPTABLE`; `AUTHORITY_VALIDATION_MODEL_ACCEPTABLE`; `READONLY_PREFLIGHT_BINARY_PACKET_ACCEPTABLE`; `READONLY_PREFLIGHT_READY_FOR_SEPARATE_AUTHORIZATION_REVIEW`. No regression found in the previously accepted written v7 areas. Collector source, workflow, frozen packet and normative protocol unchanged; prior accepted static binary evidence carries forward only for artifact13573973275, 3072 bytes, SHA256 `96cd9069205a891c383f23d085e1c10c0f678f4d132b9c25cb7185902af3f8dc`.
+
+**Collector NEVER EXECUTED.** No target access/qualification, TPM/TBS, operational key provisioning, deployment or participant/provider/private data. Production pins/custody, operational independence, actual durability/rollback, gateway enforcement and target/runtime/capture evidence remain unestablished. Private admission NO; `P2_F_GATE_2_NOT_READY`; `P2_B_PROTOCOL_READY_DATA_NOT_READY`. Engine 1.5, Trackside, APK/release, frozen Session G, P2-B and unrelated research unchanged. No merge, ready transition or manual self-hosted workflow dispatch.
+
+**Exact next permitted task:** a NEW, separately scoped preflight authorization review of the existing frozen read-only packet, proposed target/capture boundaries and outstanding prerequisites. This review does not perform that task or authorize collector execution, target access, TPM/TBS, keys or private data.
+
 # Current bounded v7 historical-role correction — 2026-11-07
 
 This entry supersedes ALL historical status/next-action entries below. Starting head: `8645e2fd4a8ed264a2184df72711355c2d50a1df`; branch `research/runna-garmin-coaching-20261102`; PR #34 remains **OPEN, DRAFT, UNMERGED**.
