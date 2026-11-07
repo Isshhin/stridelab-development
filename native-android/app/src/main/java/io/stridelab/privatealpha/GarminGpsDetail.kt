@@ -44,6 +44,11 @@ internal object GarminGpsDetail {
                 .put("pace_sec_per_km",optional(p.speedMps?.takeIf{it>0}?.let{1000.0/it}))
                 .put("heart_rate",optional(p.heartRate))
                 .put("altitude_m",optional(p.altitudeM))
+                // Garmin FIT record cadence is strides/minute for running.
+                // The Activity Detail chart uses total steps/minute (spm).
+                // No conversion is applied when reading already-normalized
+                // cadence_spm from other saved source formats.
+                .put("cadence_spm", optional(p.cadenceRpm?.let { it * 2.0 }))
                 .put("latitude",optional(p.latitude))
                 .put("longitude",optional(p.longitude)))
         }
