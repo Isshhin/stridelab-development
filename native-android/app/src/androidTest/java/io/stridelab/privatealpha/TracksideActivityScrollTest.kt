@@ -438,6 +438,15 @@ class TracksideActivityScrollTest {
         assertTrue(layer("highway_path").getInt("minzoom") >= 12)
         assertTrue(layer("highway_name_other").getInt("minzoom") >= 12)
         assertTrue(layer("landuse_pitch").getInt("minzoom") >= 11)
+        assertTrue(layer("building").getInt("minzoom") >= 13)
+
+        // Runner-focused overlays remain selective rather than restoring the
+        // generic commercial POI clutter from the provider style.
+        assertTrue(layer("stridelab-trail-unpaved").getInt("minzoom") >= 12)
+        assertTrue(layer("stridelab-footway").getInt("minzoom") >= 13)
+        assertTrue(layer("stridelab-cycleway").getInt("minzoom") >= 13)
+        assertTrue(layer("stridelab-steps").getInt("minzoom") >= 14)
+        assertTrue(layer("stridelab-runner-poi").getInt("minzoom") >= 15)
     }
 
     @Test fun activityWithoutSourceStreamsDoesNotInventSplitsOrCharts() {
