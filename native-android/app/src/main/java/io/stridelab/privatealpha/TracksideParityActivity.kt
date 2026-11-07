@@ -40,7 +40,8 @@ internal fun TracksideParityActivityMapHero(
     online:Boolean = true,
     gpsSourceLabel:String? = null,
     selectedSeconds:Double? = null,
-    selectedRange:Pair<Double,Double>? = null
+    selectedRange:Pair<Double,Double>? = null,
+    onSelectRange:(Pair<Double,Double>) -> Unit = {}
 ) {
     val route=remember(detail) {
         RecordedGpsRoute.from(
@@ -54,7 +55,8 @@ internal fun TracksideParityActivityMapHero(
                 route, online, Modifier.fillMaxSize(),
                 selectedSeconds = selectedSeconds,
                 laps = detail?.laps.orEmpty(),
-                selectedRange = selectedRange
+                selectedRange = selectedRange,
+                onSelectRange = onSelectRange
             )
         } else {
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
