@@ -171,8 +171,17 @@ private fun MapLibreRouteView(
         )
             .apply { onCreate(null) }
     }
-    val geoJson=remember(route) { route.toGeoJson() }
-    val isolatedJson=remember(route) { route.isolatedGeoJson() }
+    val geoJson=remember(route) { route.displayGeoJson() }
+    val isolatedJson=remember(route) {
+        val points=route.displayIsolatedPoints
+        org.json.JSONObject().put("type","Feature").put("properties",org.json.JSONObject())
+            .put("geometry",org.json.JSONObject().put("type","MultiPoint").put(
+                "coordinates",org.json.JSONArray().also { arr ->
+                    points.forEach { point ->
+                        arr.put(org.json.JSONArray().put(point.longitude).put(point.latitude))
+                    }
+                })).toString()
+    }
     val startPointJson=remember(route) { route.startPointGeoJson() }
     val finishPointJson=remember(route) { route.finishPointGeoJson() }
     val directionJson=remember(route) { route.directionMarkersGeoJson() }
@@ -181,7 +190,6 @@ private fun MapLibreRouteView(
         activityAnalysisRoute(samples,route.pauseIntervals,mapMode)
     }
     val selectedRangeJson=remember(route,selectedRange) { route.rangeGeoJson(selectedRange) }
-    val gapJson=remember(route) { route.gapsGeoJson() }
     val selectionJson=remember(route,selectedSeconds) {
         route.selectedPointGeoJson(selectedSeconds)
     }
@@ -264,7 +272,7 @@ private fun MapLibreRouteView(
     LaunchedEffect(
         mapView, geoJson, isolatedJson,
         startPointJson, finishPointJson, directionJson, splitMarkersJson,
-        analysisRoute.geoJson, mapMode, gapJson
+        analysisRoute.geoJson, mapMode
     ) {
         mapView.getMapAsync { map ->
             liveMap = map
@@ -275,22 +283,10 @@ private fun MapLibreRouteView(
             map.setStyle(Style.Builder().fromUri(TracksideMapTiles.STYLE_URL)) { style ->
                 // A lone FIT fix has no line geometry; it is still rendered
                 // below as a recorded dot instead of an empty line source.
-                if(route.segments.any { it.size >= 2 }) {
+                if(route.displaySegments.any { it.size >= 2 }) {
                     style.addSource(GeoJsonSource("stride-actual-gps",geoJson))
                 }
-                if(route.unknownGaps.isNotEmpty()) {
-                    // Gray dashed = unknown tracking interval, not measured motion.
-                    style.addSource(GeoJsonSource("stride-gps-gaps",gapJson))
-                    style.addLayer(
-                        LineLayer("stride-gps-gap-indicator","stride-gps-gaps").withProperties(
-                            PropertyFactory.lineColor(AndroidColor.rgb(165,180,174)),
-                            PropertyFactory.lineWidth(1.5f),
-                            PropertyFactory.lineOpacity(0.65f),
-                            PropertyFactory.lineDasharray(arrayOf(2f,3f))
-                        )
-                    )
-                }
-                if(route.segments.any { it.size >= 2 }) {
+                if(route.displaySegments.any { it.size >= 2 }) {
                     val routeWidth = Expression.interpolate(
                         Expression.linear(), Expression.zoom(),
                         Expression.stop(10f, 3.2f),
@@ -428,7 +424,7 @@ private fun MapLibreRouteView(
                 splitLabels.setMinZoom(14f)
                 style.addLayer(splitLabels)
 
-                if(route.isolatedPoints.isNotEmpty()) {
+                if(route.displayIsolatedPoints.isNotEmpty()) {
                     // A lone recorded fix remains visible without inventing a line.
                     style.addSource(GeoJsonSource("stride-gps-isolated",isolatedJson))
                     style.addLayer(
@@ -569,16 +565,14 @@ private fun RecordedGpsFallback(
             ((size.width-spanX*scale)/2+(p.longitude*projection-minX)*scale).toFloat(),
             ((size.height-spanY*scale)/2+(maxY-p.latitude)*scale).toFloat()
         )
-        route.unknownGaps.forEach { (a,b) ->
-            drawLine(Color(0xFFA5B4AE).copy(alpha = .7f), position(a), position(b),
-                1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f,7f)))
-        }
-        route.segments.forEach { segment ->
+        // Outline styling joins recorded endpoints visually. It never
+        // changes the source gap/pause evidence or recorded distance.
+        route.displaySegments.forEach { segment ->
             segment.zipWithNext().forEach { (a,b) ->
                 drawLine(Color(0xFFD8FB70),position(a),position(b),3.dp.toPx())
             }
         }
-        route.isolatedPoints.forEach { point ->
+        route.displayIsolatedPoints.forEach { point ->
             drawCircle(Color(0xFFD8FB70),radius=4.dp.toPx(),center=position(point))
         }
         route.allPoints.firstOrNull()?.let { point ->
