@@ -441,7 +441,7 @@ class TracksideActivityScrollTest {
         ).assertExists()
     }
 
-    @Test fun activityMapLegendExplainsRecordedPauseEvidence() {
+    @Test fun mapKeepsRecordedPauseFixesWithoutSpecialDotLegend() {
         val detail=ActivityDetail(
             "synthetic-map-legend",
             samples=listOf(
@@ -469,9 +469,9 @@ class TracksideActivityScrollTest {
         compose.onNodeWithTag("activity-map-legend").assertExists()
         compose.onNodeWithTag("activity-map-gps-continuity").assertExists()
         compose.onNodeWithText("Continuous GPS").assertExists()
-        compose.onNodeWithText("Recorded route").assertExists()
-        compose.onNodeWithText("Timer pause").assertExists()
-        compose.onNodeWithText("GPS recorded while paused").assertExists()
+        compose.onNodeWithText("Recorded route").assertDoesNotExist()
+        compose.onNodeWithText("Timer pause").assertDoesNotExist()
+        compose.onNodeWithText("GPS recorded while paused").assertDoesNotExist()
     }
 
     @Test fun fullScreenMapShowsOnlyRecordedAnalysisModes() {
