@@ -1063,14 +1063,16 @@ private fun TracksideActivitySplitRow(
 }
 
 /**
- * A functional HR zone visualization without invented athlete settings.
- * Users supply a known maximum HR locally. No activity peak substitutes
- * for their maximum and no settings/persistence/API contract is changed.
+ * Heart-rate zones use the athlete-level maximum HR saved in Preferences.
+ * A workout peak is never substituted for the athlete setting.
  */
 @Composable
-private fun TracksideActivityHeartRateZones(recorded: ActivityDetail) {
-    var maximumText by rememberSaveable(recorded.activityId) { mutableStateOf("") }
-    val maximumHr = maximumText.toIntOrNull()
+private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, account: String?) {
+    val context = LocalContext.current
+    val preferences = remember(context) { AthleteHeartRatePreferences(context) }
+    val maximumHr = remember(recorded.activityId, account) {
+        preferences.maximumHr(account)
+    }
     val zones = remember(recorded, maximumHr) {
         maximumHr?.let { HeartRateZoneAnalysis.distribute(recorded.samples, it) }
     }
@@ -1097,49 +1099,32 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail) {
                         fontSize = 14.sp, fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        "Estimated from a known maximum HR",
+                        if (maximumHr != null)
+                            "Estimated from your saved maximum heart rate"
+                        else
+                            "Set maximum HR once in More > App preferences",
                         color = activityMuted, fontSize = 10.sp,
                         lineHeight = 15.sp
                     )
                 }
-                Spacer(Modifier.width(8.dp))
-                OutlinedTextField(
-                    value = maximumText,
-                    onValueChange = { text ->
-                        if (text.length <= 3 && text.all { it.isDigit() }) {
-                            maximumText = text
-                        }
-                    },
-                    modifier = Modifier.width(104.dp)
-                        .testTag("activity-hr-zone-max-input"),
-                    label = { Text("Max HR", fontSize = 11.sp) },
-                    placeholder = { Text("bpm", fontSize = 11.sp) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    textStyle = androidx.compose.ui.text.TextStyle(
-                        color = activityText, fontSize = 15.sp
-                    ),
-                    isError = maximumText.isNotBlank() &&
-                        (maximumHr == null || maximumHr !in 100..240),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = activityLime,
-                        focusedLabelColor = activityLime,
-                        unfocusedBorderColor = activityBorder
+                if (maximumHr != null) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        maximumHr.toString() + " bpm max",
+                        color = activityLime, fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.testTag("activity-hr-zone-saved-max")
                     )
-                )
+                }
             }
             Spacer(Modifier.height(11.dp))
             if (zones == null) {
                 Text(
-                    when {
-                        maximumText.isBlank() ->
-                            "Enter your known maximum heart rate to show five estimated zones. " +
-                                "A workout's highest HR is not used as your maximum."
-                        maximumHr == null || maximumHr !in 100..240 ->
-                            "Enter a maximum heart rate between 100 and 240 bpm."
-                        else ->
-                            "Not enough consecutive recorded HR samples to estimate time in zones."
-                    },
+                    if (maximumHr == null)
+                        "Heart-rate zones are hidden until a maximum heart rate is saved. " +
+                            "The highest HR from this workout is never used as your maximum."
+                    else
+                        "Not enough consecutive recorded HR samples to estimate time in zones.",
                     color = activityMuted, fontSize = 12.sp, lineHeight = 17.sp,
                     modifier = Modifier.testTag("activity-hr-zone-help")
                 )
