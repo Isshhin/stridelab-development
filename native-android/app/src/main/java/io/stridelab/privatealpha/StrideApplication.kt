@@ -21,12 +21,11 @@ class StrideApplication: Application() {
     internal val repository by lazy { TrainingRepository(this) }
     override fun onCreate() {
         super.onCreate()
-        val request = PeriodicWorkRequestBuilder<HistoryRefreshWorker>(1, TimeUnit.HOURS)
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()).build()
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "native-history-refresh-v1", ExistingPeriodicWorkPolicy.KEEP, request)
-        // Separate from backend refresh; 6-hour periodic Garmin/backup checks
-        // are only active for signed-in accounts with matching user settings.
+        // Local training never depends on StrideLab backend authentication.
+        // Retire the old backend-history scheduler; Garmin handles its own
+        // optional account-free sync, cloud backup remains opt-in.
+        WorkManager.getInstance(this).cancelUniqueWork("native-history-refresh-v1")
+        // Garmin sync is available to the device-local profile without login.
         val garminWork = PeriodicWorkRequestBuilder<GarminAutoSyncWorker>(
             6, TimeUnit.HOURS
         ).setConstraints(
@@ -41,7 +40,7 @@ class HistoryRefreshWorker(context: Context, params: WorkerParameters): Coroutin
         val repo = (applicationContext as StrideApplication).repository
         // Do not use background work as a provider-ingestion scheduler; the backend already owns it.
         val ready = repo.state.first { !it.initializing }
-        if(ready.account == null || ready.needsSignIn) return Result.success()
+        if(ready.cloudAccount == null || ready.needsSignIn) return Result.success()
         return if(repo.refresh()) Result.success() else if(repo.state.value.needsSignIn) Result.failure() else Result.retry()
     }
 }
@@ -50,7 +49,7 @@ class GarminAutoSyncWorker(context: Context, params: WorkerParameters): Coroutin
     override suspend fun doWork(): Result {
         val repo = (applicationContext as StrideApplication).repository
         val ready = repo.state.first { !it.initializing }
-        if (ready.account == null || ready.needsSignIn) return Result.success()
+        if (ready.account == null) return Result.success()
         // On failure the local cache stays unchanged and the next scheduled
         // check retries. Never enter an aggressive request loop.
         repo.automaticGarminAndBackup(foreground = false)
