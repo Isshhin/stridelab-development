@@ -108,20 +108,20 @@ internal fun TracksideParityActivityMapHero(
                     if (route.unknownGaps.isEmpty()) Color(0x445A6B62)
                     else Color(0x667A8781)
                 ),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.align(Alignment.BottomStart)
-                    .padding(start = 12.dp, bottom = 36.dp)
+                shape = RoundedCornerShape(11.dp),
+                modifier = Modifier.align(Alignment.TopStart)
+                    .padding(start = 12.dp, top = 68.dp)
                     .testTag("activity-map-legend")
             ) {
                 Column(
-                    Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     Text(
                         route.gpsContinuityLabel,
                         color = if (route.unknownGaps.isEmpty())
                             Color(0xFFD8FB70) else Color(0xFFC5D0CB),
-                        fontSize = 9.5.sp,
+                        fontSize = 9.sp,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.testTag("activity-map-gps-continuity")
                     )
@@ -168,7 +168,7 @@ private fun MapLegendRow(color: Color, label: String, dot: Boolean = false) {
                 RoundedCornerShape(if (dot) 4.dp else 2.dp)
             )
         )
-        Text(label, color = Color(0xFFCED8D3), fontSize = 8.5.sp)
+        Text(label, color = Color(0xFFCED8D3), fontSize = 8.sp, lineHeight = 10.sp)
     }
 }
 
