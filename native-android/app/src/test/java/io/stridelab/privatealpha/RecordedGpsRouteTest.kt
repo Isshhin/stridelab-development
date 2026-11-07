@@ -34,13 +34,37 @@ class RecordedGpsRouteTest {
             sample(2,300.0,14.62,121.02), // source gap >2min
             sample(3,310.0,14.63,121.03),
             sample(4,315.0,null,null), // missing fix
-            sample(5,330.0,14.64,121.04) // isolated, not drawn
+            sample(5,330.0,14.64,121.04) // isolated fix retained as dot
         ))
-        assertEquals(2,route.segments.size)
-        assertEquals(4,route.pointCount)
+        assertEquals(3,route.segments.size)
+        assertEquals(5,route.pointCount)
+        assertEquals(1,route.isolatedPoints.size)
         assertEquals(2,
             JSONObject(route.toGeoJson()).getJSONArray("features").getJSONObject(0)
                 .getJSONObject("geometry").getJSONArray("coordinates").length())
+        val isolated=JSONObject(route.isolatedGeoJson())
+            .getJSONObject("geometry").getJSONArray("coordinates")
+        assertEquals(1, isolated.length())
+        assertEquals(121.04, isolated.getJSONArray(0).getDouble(0), 1e-8)
+        val gaps=JSONObject(route.gapsGeoJson()).getJSONArray("features")
+            .getJSONObject(0).getJSONObject("geometry").getJSONArray("coordinates")
+        assertEquals(2,gaps.length())
+    }
+
+    @Test fun loneRecordedFixIsPreservedWithoutInventingRouteLine() {
+        val route=RecordedGpsRoute.from(listOf(
+            sample(0,0.0,null,null),
+            sample(1,30.0,14.63,121.01),
+            sample(2,40.0,null,null)
+        ))
+        assertEquals(1,route.pointCount)
+        assertEquals(1,route.isolatedPoints.size)
+        val lines=JSONObject(route.toGeoJson()).getJSONArray("features")
+            .getJSONObject(0).getJSONObject("geometry").getJSONArray("coordinates")
+        assertEquals(0,lines.length())
+        val dots=JSONObject(route.isolatedGeoJson())
+            .getJSONObject("geometry").getJSONArray("coordinates")
+        assertEquals(1,dots.length())
     }
 
     @Test fun datelineCrossingAndUnusablePointsAreNotInvented() {
