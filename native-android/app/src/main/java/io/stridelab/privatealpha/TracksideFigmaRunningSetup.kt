@@ -309,7 +309,7 @@ internal fun TracksideFigmaRunningSetup(
                             onClick={onAssignDay(day)},
                             modifier=Modifier.size(46.dp)
                                 .testTag("builder-run-editor-day-"+day),
-                            color=if(active) Color(0xFFDBF351) else Color(0xFF303030),
+                            color=if(active) PlanBuilderPalette.selected else PlanBuilderPalette.surface,
                             shape=RoundedCornerShape(9.dp),
                             border=BorderStroke(1.dp,
                                 if(active)Color(0xFFDBF351) else weekOutline)
@@ -338,7 +338,8 @@ internal fun TracksideFigmaRunningSetup(
                                 else Color(0xFF383838),
                             shape=RoundedCornerShape(9.dp)
                         ) { Box(contentAlignment=Alignment.Center) {
-                            Text(q.toString(),fontSize=13.sp,color=weekWhite)
+                            Text(q.toString(),fontSize=13.sp,
+                                color=if(q==request.qualityCount)PlanBuilderPalette.accentOn else weekWhite)
                         }}
                     }
                 }
