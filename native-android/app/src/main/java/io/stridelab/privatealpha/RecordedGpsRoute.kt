@@ -42,10 +42,29 @@ internal data class RecordedGpsRoute(
     val displayIsolatedPoints:List<RecordedGpsPoint> get()=
         displaySegments.filter { it.size == 1 }.flatten()
 
-    /** Continuous visual stroke through existing GPS fixes only. */
+    /**
+     * Only map/thumbnail rendering is decimated, never the recorded points.
+     * A bounded number of actual source fixes prevents large FIT recordings
+     * from overwhelming MapLibre's GeoJSON/native graphics allocations.
+     * Start/end fixes and every antimeridian segment boundary are retained.
+     */
+    val renderSegments:List<List<RecordedGpsPoint>> by lazy {
+        displaySegments.map { points ->
+            val maximum = MAX_RENDER_POINTS_PER_SEGMENT
+            if (points.size <= maximum) points
+            else {
+                val scale = (points.lastIndex).toDouble() / (maximum - 1)
+                (0 until maximum).map { i ->
+                    points[kotlin.math.round(i * scale).toInt().coerceIn(0, points.lastIndex)]
+                }
+            }
+        }
+    }
+
+    /** Continuous visual stroke through selected real GPS fixes only. */
     fun displayGeoJson():String {
         val lines=JSONArray()
-        displaySegments.filter { it.size >= 2 }.forEach { segment ->
+        renderSegments.filter { it.size >= 2 }.forEach { segment ->
             val line=JSONArray()
             segment.forEach { point ->
                 line.put(JSONArray().put(point.longitude).put(point.latitude))
@@ -293,6 +312,9 @@ internal data class RecordedGpsRoute(
     }
 
     companion object {
+        /** Rendering budget only: raw ActivityDetail remains full resolution. */
+        internal const val MAX_RENDER_POINTS_PER_SEGMENT = 2_000
+
         fun from(
             samples:List<ActivitySample>,
             pauseIntervals:List<ActivityPauseInterval> = emptyList()
