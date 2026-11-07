@@ -3,6 +3,9 @@ package io.stridelab.privatealpha
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
 
 /** Only recorded GPS samples; no inferred locations or gap interpolation. */
 internal data class RecordedGpsPoint(
@@ -47,6 +50,13 @@ internal data class RecordedGpsRoute(
 
     /** Backward-compatible union for tests/legacy callers. */
     val gaps:List<Pair<RecordedGpsPoint,RecordedGpsPoint>> get()=segmentGaps
+
+    val gpsContinuityLabel:String get()=when {
+        pointCount == 0 -> "No recorded GPS"
+        unknownGaps.isEmpty() -> "Continuous GPS"
+        unknownGaps.size == 1 -> "1 GPS gap"
+        else -> unknownGaps.size.toString() + " GPS gaps"
+    }
 
     private fun crossesPause(start:Double,end:Double):Boolean =
         pauseIntervals.any { pause ->
@@ -108,6 +118,80 @@ internal data class RecordedGpsRoute(
 
     fun startPointGeoJson():String = endpointGeoJson(allPoints.firstOrNull())
     fun finishPointGeoJson():String = endpointGeoJson(allPoints.lastOrNull())
+
+
+    /** Sparse real route points with recorded-direction bearings for close zoom. */
+    fun directionMarkersGeoJson():String {
+        val features=JSONArray()
+        fun bearing(a:RecordedGpsPoint,b:RecordedGpsPoint):Double {
+            val lat1=Math.toRadians(a.latitude)
+            val lat2=Math.toRadians(b.latitude)
+            val dLon=Math.toRadians(b.longitude-a.longitude)
+            val y=sin(dLon)*cos(lat2)
+            val x=cos(lat1)*sin(lat2)-sin(lat1)*cos(lat2)*cos(dLon)
+            return (Math.toDegrees(atan2(y,x))+360.0)%360.0
+        }
+        segments.filter { it.size >= 3 }.forEach { segment ->
+            val targetMarkers=(segment.size/80).coerceIn(1,4)
+            val step=((segment.size-1)/(targetMarkers+1)).coerceAtLeast(1)
+            var i=step
+            while(i < segment.lastIndex && features.length() < 16) {
+                val point=segment[i]
+                val next=segment[(i+1).coerceAtMost(segment.lastIndex)]
+                features.put(
+                    JSONObject().put("type","Feature")
+                        .put("properties",JSONObject().put("bearing",bearing(point,next)))
+                        .put("geometry",JSONObject()
+                            .put("type","Point")
+                            .put("coordinates",JSONArray().put(point.longitude).put(point.latitude)))
+                )
+                i+=step
+            }
+        }
+        return JSONObject().put("type","FeatureCollection")
+            .put("features",features).toString()
+    }
+
+    /**
+     * Source-lap markers use the next lap's recorded start timestamp as the
+     * prior split boundary. No distance point or coordinate is interpolated.
+     */
+    fun splitMarkersGeoJson(laps:List<ActivityLap>):String {
+        val features=JSONArray()
+        laps.drop(1).forEachIndexed { offset,lap ->
+            val at=lap.startSeconds ?: return@forEachIndexed
+            val point=selectedPoint(at) ?: return@forEachIndexed
+            features.put(
+                JSONObject().put("type","Feature")
+                    .put("properties",JSONObject().put("label",(offset+1).toString()))
+                    .put("geometry",JSONObject()
+                        .put("type","Point")
+                        .put("coordinates",JSONArray().put(point.longitude).put(point.latitude)))
+            )
+        }
+        return JSONObject().put("type","FeatureCollection")
+            .put("features",features).toString()
+    }
+
+    /** Highlight only real recorded route points within a selected split range. */
+    fun rangeGeoJson(range:Pair<Double,Double>?):String {
+        val lines=JSONArray()
+        if(range != null) {
+            segments.forEach { segment ->
+                val selected=segment.filter {
+                    it.elapsedSeconds >= range.first && it.elapsedSeconds <= range.second
+                }
+                if(selected.size >= 2) {
+                    val line=JSONArray()
+                    selected.forEach { point ->
+                        line.put(JSONArray().put(point.longitude).put(point.latitude))
+                    }
+                    lines.put(line)
+                }
+            }
+        }
+        return multiLineFeature(lines)
+    }
 
     private fun gapGeoJson(gaps:List<Pair<RecordedGpsPoint,RecordedGpsPoint>>):String {
         val lines=JSONArray()
