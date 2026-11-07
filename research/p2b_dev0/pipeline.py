@@ -29,12 +29,9 @@ def _qc(samples,duration):
     if not samples or samples[0]["t"]>0 or samples[-1]["t"]<duration:return False,("WINDOW_COVERAGE",)
     if max((b["t"]-a["t"] for a,b in zip(samples,samples[1:])),default=0)>5:return False,("UNRECOVERABLE_GAP",)
     hr=[s["hr"] for s in samples if s.get("hr") is not None]; speed=[s["speed"] for s in samples if s.get("speed") is not None]
-    if len(hr)/len(samples)<.95:return False,("HR_COVERAGE",)
-    if len(speed)/len(samples)<.95:return False,("SPEED_COVERAGE",)
     if any(not 30<=x<=240 for x in hr):return False,("HR_PHYSIOLOGICAL_BOUNDS",)
     if any(x<0 or x>12 for x in speed):return False,("UNPHYSICAL_SPEED",)
     if any(s.get("pause",False) for s in samples):return False,("LONG_PAUSE",)
-    if any(s.get("lat") is None or s.get("lon") is None for s in samples):return False,("MISSING_GPS",)
     return True,()
 def _weighted(samples,key):
     total=value=0.0
@@ -50,8 +47,8 @@ def _segment(a,c):
     supported=bool(s and sum(x.get("hr") is not None for x in s)/len(s)>=.95 and sum(x.get("speed") is not None for x in s)/len(s)>=.95 and all(x.get("lat") is not None and x.get("lon") is not None for x in s))
     ok,reasons=_qc(s,c.window_s)
     if not ok:return {"identity":k,"source_dataset":a.source_dataset,"athlete_id":a.athlete_id,"activity_id":a.activity_id,"fixed_window_available":fixed,"supported_measurement":supported,"qc_status":"REJECT","exclusion_reasons":reasons}
-    gps=tuple((round(x["lat"],5),round(x["lon"],5)) for x in s)
-    return {"identity":k,"source_dataset":a.source_dataset,"athlete_id":a.athlete_id,"activity_id":a.activity_id,"start_time":a.date,"segment_start":c.start_s,"segment_end":c.start_s+c.window_s,"duration_s":c.window_s,"fixed_window_available":fixed,"supported_measurement":supported,"mean_hr_bpm":round(_weighted(s,"hr"),6),"mean_speed_mps":round(_weighted(s,"speed"),6),"valid_hr_fraction":round(sum(x.get("hr") is not None for x in s)/len(s),6),"valid_speed_fraction":round(sum(x.get("speed") is not None for x in s)/len(s),6),"max_sample_gap_s":max((b["t"]-d["t"] for d,b in zip(s,s[1:])),default=0),"route_features":_features(gps),"route_direction":a.route_direction,"temperature_c":a.temperature_c,"relative_humidity_pct":a.relative_humidity_pct,"speed_method":"TIME_WEIGHTED_DEVICE_SPEED","qc_status":"PASS","exclusion_reasons":()}
+    gps=tuple((round(x["lat"],5),round(x["lon"],5)) for x in s if x.get("lat") is not None and x.get("lon") is not None)
+    return {"identity":k,"source_dataset":a.source_dataset,"athlete_id":a.athlete_id,"activity_id":a.activity_id,"start_time":a.date,"segment_start":c.start_s,"segment_end":c.start_s+c.window_s,"duration_s":c.window_s,"fixed_window_available":fixed,"supported_measurement":supported,"mean_hr_bpm":round(_weighted(s,"hr"),6),"mean_speed_mps":round(_weighted(s,"speed"),6),"valid_hr_fraction":round(sum(x.get("hr") is not None for x in s)/len(s),6),"valid_speed_fraction":round(sum(x.get("speed") is not None for x in s)/len(s),6),"max_sample_gap_s":max((b["t"]-d["t"] for d,b in zip(s,s[1:])),default=0),"route_features":_features(gps) if supported else None,"route_direction":a.route_direction,"temperature_c":a.temperature_c,"relative_humidity_pct":a.relative_humidity_pct,"speed_method":"TIME_WEIGHTED_DEVICE_SPEED","qc_status":"PASS","exclusion_reasons":()}
 def _route_compatible(a,b,tolerance):
     if a["route_direction"]!=b["route_direction"]:return False
     t=ROUTE_TOLERANCES[tolerance]; fa,fb=a["route_features"],b["route_features"]
@@ -103,8 +100,8 @@ def run(activities):
     p=analyses["primary"];states={}
     for athlete in sorted({a.athlete_id for a in unique.values()}):
         segs=[x for x in p["segments"].values() if x["athlete_id"]==athlete];rows=[x for x in segs if x["qc_status"]=="PASS"];supported=[x for x in rows if x["supported_measurement"]];candidates=[x for x in p["chronological_candidate_pairs"] if x["athlete_id"]==athlete];ps=[x for x in p["pairs"] if x["athlete_id"]==athlete];rejected=[x for x in segs if x["qc_status"]=="REJECT"];groups=_groups(supported,"STRICT");route_rows=sum(len(g) for g in groups.values() if len(g)>=2);stats=_stats(ps)
-        state=AthleteState.ESTIMABLE if len(ps)>=3 else AthleteState.UNSUPPORTED_MEASUREMENT if any("MISSING_GPS" in x.get("exclusion_reasons",()) for x in segs) else AthleteState.INSUFFICIENT_TRACE_QUALITY if segs and not rows else AthleteState.INSUFFICIENT_ROUTE_OVERLAP if route_rows==0 else AthleteState.INSUFFICIENT_HR_MATCHES if candidates and not ps else AthleteState.INSUFFICIENT_REPEATS
-        states[athlete]={"state":state.value,"raw_input_count":sum(a.athlete_id==athlete for a in activities),"canonical_candidate_count":len(segs),"duplicate_count":0,"final_pair_count":len(ps),"fixed_window_count":sum(x.get("fixed_window_available",False) for x in segs),"qc_pass_count":len(rows),"supported_measurement_count":len(supported),"route_compatible_count":route_rows,"chronological_candidate_pair_count":len(candidates),"hr_compatible_pair_count":len(ps),**stats}
+        state=AthleteState.ESTIMABLE if len(ps)>=3 else AthleteState.INSUFFICIENT_TRACE_QUALITY if rejected else AthleteState.UNSUPPORTED_MEASUREMENT if any(x["qc_status"]=="PASS" and not x["supported_measurement"] for x in segs) else AthleteState.INSUFFICIENT_ROUTE_OVERLAP if route_rows==0 else AthleteState.INSUFFICIENT_HR_MATCHES if candidates and not ps else AthleteState.INSUFFICIENT_REPEATS
+        states[athlete]={"state":state.value,"raw_input_count":sum(a.athlete_id==athlete for a in activities),"canonical_candidate_count":len(segs),"duplicate_count":sum(1 for a in activities if a.athlete_id==athlete)-len(segs),"final_pair_count":len(ps),"fixed_window_count":sum(x.get("fixed_window_available",False) for x in segs),"qc_pass_count":len(rows),"supported_measurement_count":len(supported),"route_compatible_count":route_rows,"chronological_candidate_pair_count":len(candidates),"hr_compatible_pair_count":len(ps),**stats}
     return {"schema":"p2b-dev0-v2","raw_input_count":len(activities),"canonical_candidate_count":len(unique),"duplicate_count":duplicates,"fixed_window_count":p["fixed_window_count"],"qc_pass_count":p["qc_pass_count"],"supported_measurement_count":p["supported_measurement_count"],"route_compatible_count":p["route_compatible_count"],"chronological_candidate_pair_count":p["chronological_candidate_pair_count"],"hr_compatible_pair_count":p["hr_compatible_pair_count"],"final_pair_count":p["final_pair_count"],"segments":p["segments"],"pairs":p["pairs"],"athletes":states,"analysis":analyses,"route_tolerances":ROUTE_TOLERANCES}
 def report(activities):return json.dumps(run(activities),sort_keys=True,separators=(",",":"),default=str)
 def speed_blinded(activities):return tuple(Activity(a.athlete_id,a.activity_id,a.date,tuple(dict(s,speed=9.0-s.get("speed",0)) for s in a.samples),a.source_dataset,a.route_direction,a.temperature_c,a.relative_humidity_pct) for a in activities)

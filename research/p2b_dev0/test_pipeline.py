@@ -42,6 +42,11 @@ class Dev0Tests(unittest.TestCase):
         self.assertEqual(result["canonical_candidate_count"], len(activities) + 1)
         self.assertIn("other", result["athletes"])
         self.assertEqual(result["athletes"]["healthy"]["raw_input_count"], 8)
+        self.assertEqual(result["athletes"]["healthy"]["duplicate_count"], 1)
+        self.assertEqual(result["athletes"]["healthy"]["canonical_candidate_count"], 7)
+        duplicate_only = run(activities + [duplicate])
+        self.assertEqual(duplicate_only["athletes"]["healthy"]["final_pair_count"], run(activities)["athletes"]["healthy"]["final_pair_count"])
+        self.assertEqual(result["athletes"]["other"]["duplicate_count"], 0)
         with self.assertRaises(ValueError):
             run(activities + [type(duplicate)(duplicate.athlete_id, duplicate.activity_id, duplicate.date, tuple(dict(s, speed=4) for s in duplicate.samples))])
 
@@ -66,7 +71,9 @@ class Dev0Tests(unittest.TestCase):
 
     def test_adversarial_trace_matrix_and_direction(self):
         fixture = build_synthetic_fixture()
-        self.assertIn("HR_COVERAGE", run(fixture)["segments"]["synthetic-dev0|trace_bad|trace_bad-00"]["exclusion_reasons"])
+        trace_result = run(fixture)
+        self.assertEqual(trace_result["segments"]["synthetic-dev0|trace_bad|trace_bad-00"]["qc_status"], "PASS")
+        self.assertFalse(trace_result["segments"]["synthetic-dev0|trace_bad|trace_bad-00"]["supported_measurement"])
         self.assertIn("UNRECOVERABLE_GAP", run(fixture)["segments"]["synthetic-dev0|trace_bad|trace_bad-01"]["exclusion_reasons"])
         self.assertIn("UNPHYSICAL_SPEED", run(fixture)["segments"]["synthetic-dev0|trace_bad|trace_bad-02"]["exclusion_reasons"])
         base = fixture[0]
@@ -74,6 +81,39 @@ class Dev0Tests(unittest.TestCase):
         self.assertIn("NON_MONOTONIC_TIMESTAMP", run((reversed_samples,))["segments"]["synthetic-dev0|reverse|reverse-00"]["exclusion_reasons"])
         turned = type(base)("reverse", "reverse-01", "2026-01-02T00:00:00+00:00", base.samples, route_direction="BACK")
         self.assertFalse(_route_compatible(_segment(base, AnalysisConfig()), _segment(turned, AnalysisConfig()), "STRICT"))
+
+    def test_trace_qc_is_separate_from_measurement_support(self):
+        base = build_synthetic_fixture()[0]
+        cases = {
+            "gps": ("unsupported", "unsupported-00"),
+            "hr": ("hr_support", "hr_support-00"),
+        }
+        for bad, (athlete, activity_id) in cases.items():
+            activity = next(a for a in build_synthetic_fixture() if a.activity_id == f"{athlete}-00") if bad == "gps" else type(base)(athlete, activity_id, base.date, tuple(dict(s, hr=None) if 820 <= s["t"] < 920 else s for s in base.samples))
+            result = run((activity,))
+            segment = next(iter(result["segments"].values()))
+            self.assertTrue(segment["fixed_window_available"])
+            self.assertEqual(segment["qc_status"], "PASS")
+            self.assertFalse(segment["supported_measurement"])
+            self.assertEqual(result["athletes"][athlete]["state"], AthleteState.UNSUPPORTED_MEASUREMENT.value)
+            self.assertEqual(result["route_compatible_count"], 0)
+
+        speed = type(base)("speed_support", "speed_support-00", base.date, tuple(dict(s, speed=None) if 820 <= s["t"] < 920 else s for s in base.samples))
+        segment = next(iter(run((speed,))["segments"].values()))
+        self.assertEqual(segment["qc_status"], "PASS")
+        self.assertFalse(segment["supported_measurement"])
+
+    def test_structural_trace_failures(self):
+        base = build_synthetic_fixture()[0]
+        cases = {
+            "reverse": tuple(reversed(base.samples)),
+            "gap": tuple(s for s in base.samples if s["t"] < 820 or s["t"] > 850),
+            "pause": tuple(dict(s, pause=820 <= s["t"] < 850) for s in base.samples),
+            "bounds": tuple(dict(s, hr=250) if s["t"] == 1220 else s for s in base.samples),
+        }
+        for name, samples in cases.items():
+            segment = next(iter(run((type(base)(name, f"{name}-00", base.date, samples),))["segments"].values()))
+            self.assertEqual(segment["qc_status"], "REJECT")
 
     def test_same_route_jitter_and_interior_shape_are_tolerance_sensitive(self):
         base = build_synthetic_fixture()[0]
