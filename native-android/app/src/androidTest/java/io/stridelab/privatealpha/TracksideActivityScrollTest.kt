@@ -474,6 +474,42 @@ class TracksideActivityScrollTest {
         compose.onNodeWithText("GPS recorded while paused").assertExists()
     }
 
+    @Test fun fullScreenMapShowsOnlyRecordedAnalysisModes() {
+        val detail=ActivityDetail(
+            "synthetic-fullscreen-analysis",
+            samples=listOf(
+                ActivitySample(0,0.0,390.0,130.0,10.0,14.600,121.000,170.0),
+                ActivitySample(1,30.0,380.0,140.0,14.0,14.601,121.001,174.0),
+                ActivitySample(2,60.0,370.0,150.0,18.0,14.602,121.002,178.0)
+            ),
+            laps=emptyList(),
+            fetchedAt=0L
+        )
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideParityActivityMapHero(
+                        detail=detail,
+                        onBack={},
+                        online=false,
+                        fullScreen=true,
+                        mapMode=TracksideActivityMapMode.PACE
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("activity-map-fullscreen").assertExists()
+        compose.onNodeWithTag("activity-map-mode-selector").assertExists()
+        compose.onNodeWithTag("activity-map-mode-route").assertExists()
+        compose.onNodeWithTag("activity-map-mode-pace").assertExists()
+        compose.onNodeWithTag("activity-map-mode-elevation").assertExists()
+        compose.onNodeWithTag("activity-map-mode-heart_rate").assertExists()
+        compose.onNodeWithTag("activity-map-analysis-legend").assertExists()
+        compose.onNodeWithText("Recorded pace").assertExists()
+        compose.onNodeWithText("Faster").assertExists()
+        compose.onNodeWithText("Slower").assertExists()
+    }
+
     @Test fun activityMapUsesDedicatedStrideLabOpenFreeMapStyle() {
         org.junit.Assert.assertEquals(
             "asset://stridelab_activity_dark.json",
