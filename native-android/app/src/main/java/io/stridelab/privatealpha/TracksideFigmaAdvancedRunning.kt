@@ -38,11 +38,12 @@ internal fun TracksideFigmaAdvancedRunning(
     onBack: () -> Unit,
     onContinue: () -> Unit
 ) {
-    val crimson = Color(0xFFD43B55)
-    val panel = Color(0xFF192D39)
-    val inactive = Color(0xFF192833)
-    val border = Color(0xFF3B5565)
+    val crimson = Color(0xFFDBF351)
+    val panel = Color(0xFF303030)
+    val inactive = Color(0xFF242424)
+    val border = Color(0xFFDBF351)
     TracksideFigmaBuilderFrame(
+        progressStep = 2,
         toolbarTitle = "Generate Training Plan",
         eyebrow = if (guided) "RUNNING / ADVANCED PREFERENCES"
                   else "RUNNING / TRAIN YOUR WAY",
@@ -90,7 +91,7 @@ internal fun TracksideFigmaAdvancedRunning(
                     valueRange = 0f..120f,
                     colors = SliderDefaults.colors(
                         thumbColor = crimson, activeTrackColor = crimson,
-                        inactiveTrackColor = Color(0xFF465D6D)
+                        inactiveTrackColor = Color(0xFFDBF351)
                     )
                 )
                 Row(
@@ -122,10 +123,10 @@ internal fun TracksideFigmaAdvancedRunning(
                         onClick = { onToggleQuality(type) },
                         modifier = Modifier.weight(1f).height(46.dp)
                             .testTag("builder-advanced-quality-" + type),
-                        color = if (chosen) Color(0xFF542733) else inactive,
+                        color = if (chosen) Color(0xFF1D240B) else inactive,
                         shape = RoundedCornerShape(10.dp),
                         border = BorderStroke(
-                            1.dp, if (chosen) Color(0xFFA76073) else border
+                            1.dp, if (chosen) Color(0xFFDBF351) else border
                         )
                     ) {
                         Row(
@@ -135,8 +136,8 @@ internal fun TracksideFigmaAdvancedRunning(
                         ) {
                             Box(
                                 Modifier.size(7.dp).background(
-                                    if (chosen) Color(0xFFE88FA1)
-                                    else Color(0xFF728996),
+                                    if (chosen) Color(0xFFDBF351)
+                                    else Color(0xFFDBF351),
                                     RoundedCornerShape(5.dp)
                                 )
                             )
@@ -163,10 +164,10 @@ internal fun TracksideFigmaAdvancedRunning(
                     enabled = count <= maxQualityCount,
                     modifier = Modifier.weight(1f).height(45.dp)
                         .testTag("builder-advanced-quality-count-" + count),
-                    color = if (chosen) Color(0xFF542733) else inactive,
+                    color = if (chosen) Color(0xFF1D240B) else inactive,
                     shape = RoundedCornerShape(10.dp),
                     border = BorderStroke(
-                        1.dp, if (chosen) Color(0xFFA76073) else border
+                        1.dp, if (chosen) Color(0xFFDBF351) else border
                     )
                 ) {
                     Box(contentAlignment = Alignment.Center) {
