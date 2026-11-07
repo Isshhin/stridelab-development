@@ -24,11 +24,17 @@ internal data class AthleteHeartRateZoneSettings(
 ) {
     val ready: Boolean
         get() = when (method) {
-            HeartRateZoneMethod.MAX_BPM -> maximumHr in 100..240
-            HeartRateZoneMethod.LTHR_PERCENT -> lactateThresholdHr in 100..230
-            HeartRateZoneMethod.HRR_PERCENT ->
-                maximumHr in 100..240 && restingHr in 30..120 &&
-                    restingHr!! < maximumHr!!
+            HeartRateZoneMethod.MAX_BPM ->
+                maximumHr?.let { it in 100..240 } == true
+            HeartRateZoneMethod.LTHR_PERCENT ->
+                lactateThresholdHr?.let { it in 100..230 } == true
+            HeartRateZoneMethod.HRR_PERCENT -> {
+                val max = maximumHr
+                val resting = restingHr
+                max != null && max in 100..240 &&
+                    resting != null && resting in 30..120 &&
+                    resting < max
+            }
         }
 }
 
