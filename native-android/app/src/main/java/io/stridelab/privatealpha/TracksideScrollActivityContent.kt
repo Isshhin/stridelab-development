@@ -105,10 +105,6 @@ internal fun TracksidePrimaryActivityMetrics(activity: ActivityRecord) {
         add(ActivityMetricItem("DISTANCE", activity.distanceM?.let {
             String.format(Locale.getDefault(), "%.2f", it / 1000.0)
         } ?: "—", if (activity.distanceM != null) "km" else "", ActivityMetricGlyph.Route))
-        // Existing moving-time measurement is intentionally unchanged.
-        add(ActivityMetricItem("DURATION",
-            activity.movingTimeS?.let { ActivityRecord.duration(it) } ?: "—",
-            "", ActivityMetricGlyph.Timer))
         add(ActivityMetricItem("AVG PACE",
             if (activity.supportsPace && activity.detailPaceLabel != "Not recorded")
                 activity.detailPaceLabel.removeSuffix(" /km").trim() else "—",
@@ -118,24 +114,25 @@ internal fun TracksidePrimaryActivityMetrics(activity: ActivityRecord) {
             recordedHr.roundToInt().toString(), "bpm", ActivityMetricGlyph.Heart))
     }
     BoxWithConstraints(Modifier.fillMaxWidth().testTag("activity-primary-metrics")) {
-        // Keep four metrics on one row at normal phone width; never clip
-        // duration or HR when the user has increased the system font scale.
-        val stacked = metrics.size == 4 &&
-            (maxWidth < 305.dp || LocalDensity.current.fontScale > 1.2f)
+        // Three centered metrics at normal phone widths. Only the compact
+        // preview layout changes: the recorded duration remains in Overview.
+        // On narrow devices or with large text, preserve readable values by
+        // giving each metric its own full-width row rather than truncating.
+        val stacked = maxWidth < 280.dp || LocalDensity.current.fontScale > 1.35f
         if (stacked) {
             Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                metrics.chunked(2).forEachIndexed { index, pair ->
+                metrics.forEachIndexed { index, item ->
                     if (index > 0) {
                         HorizontalDivider(
                             color = activityBorder.copy(alpha = .55f),
                             thickness = 1.dp
                         )
                     }
-                    CenteredActivityMetricSections(pair, compact = false)
+                    CenteredActivityMetricSections(listOf(item), compact = false)
                 }
             }
         } else {
-            CenteredActivityMetricSections(metrics, compact = metrics.size == 4)
+            CenteredActivityMetricSections(metrics, compact = false)
         }
     }
 }
@@ -167,7 +164,7 @@ private fun CenteredActivityMetricSections(
     }
 }
 
-private enum class ActivityMetricGlyph { Route, Timer, Shoe, Heart }
+private enum class ActivityMetricGlyph { Route, Shoe, Heart }
 
 @Composable
 private fun PrimaryActivityMetric(
@@ -197,16 +194,6 @@ private fun PrimaryActivityMetric(
                         lineTo(w * .78f, h * .36f)
                     }
                     drawPath(p, activityLime, style = Stroke(sw, cap = StrokeCap.Round))
-                }
-                ActivityMetricGlyph.Timer -> {
-                    drawCircle(activityLime, radius = w * .33f,
-                        center = Offset(w * .5f, h * .57f), style = Stroke(sw))
-                    drawLine(activityLime, Offset(w * .5f, h * .09f),
-                        Offset(w * .5f, h * .24f), sw, StrokeCap.Round)
-                    drawLine(activityLime, Offset(w * .36f, h * .08f),
-                        Offset(w * .64f, h * .08f), sw, StrokeCap.Round)
-                    drawLine(activityLime, Offset(w * .5f, h * .57f),
-                        Offset(w * .5f, h * .39f), sw, StrokeCap.Round)
                 }
                 ActivityMetricGlyph.Shoe -> {
                     val p = Path().apply {
