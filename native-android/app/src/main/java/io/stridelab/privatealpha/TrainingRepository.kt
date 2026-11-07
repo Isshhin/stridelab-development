@@ -887,7 +887,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     internal suspend fun syncGarmin(
         source: GarminPersonalSource,
         pageLimit: Int = 100,
-        detailLimit: Int = 24
+        detailLimit: Int = 24,
+        manualRetry: Boolean = false
     ): GarminConnectionStatus = withContext(Dispatchers.IO) {
         require(pageLimit in 1..100 && detailLimit in 0..24)
         mutex.withLock {
@@ -901,6 +902,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             var failedDetails = 0
             var interruption: String? = null
             var fitAttempts = 0
+            var recoverableFitFailures = false
             val attemptedFitIds = HashSet<String>()
 
             // Fetch full recordings as soon as their summary page is saved.
@@ -914,10 +916,12 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                             activity.id.startsWith("garmin-") &&
                             activity.id !in mutable.value.cachedDetailIds &&
                             activity.id !in attemptedFitIds &&
-                            garminSyncPreferences.readyForDetail(account, activity.id)
+                            (manualRetry || garminSyncPreferences.readyForDetail(account, activity.id))
                     }
                     .sortedWith(
-                        compareByDescending<ActivityRecord> { it.startedAt }
+                        compareBy<ActivityRecord> {
+                            if (garminSyncPreferences.readyForDetail(account, it.id)) 0 else 1
+                        }.thenByDescending { it.startedAt }
                             .thenByDescending { it.id }
                     )
                     .take(detailLimit - fitAttempts)
@@ -952,6 +956,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                         // The next healthy, newer recording must not be starved.
                         garminSyncPreferences.noteDetailFailure(account, activity.id)
                         failedDetails++
+                        recoverableFitFailures = true
                     }
                 }
             }
@@ -1008,7 +1013,9 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 state = "connected",
                 lastSuccessfulSync = java.time.Instant.now(),
                 importedCount = imported,
-                error = interruption,
+                error = interruption ?: if (recoverableFitFailures)
+                    "Some Garmin recordings could not be verified or stored. Open a missing activity and tap Load Garmin recording to retry."
+                    else null,
                 detailsImported = completedDetails,
                 detailsRemaining = remaining,
                 failedDetails = failedDetails
