@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -182,6 +183,7 @@ private fun MapLibreRouteView(
     var liveMap by remember(mapView) {
         mutableStateOf<MapLibreMap?>(null)
     }
+    val currentOnSelectRange by rememberUpdatedState(onSelectRange)
 
     DisposableEffect(mapView,lifecycleOwner) {
         val observer=LifecycleEventObserver { _,event ->
@@ -205,7 +207,7 @@ private fun MapLibreRouteView(
         }
     }
 
-    DisposableEffect(liveMap,laps,onSelectRange) {
+    DisposableEffect(liveMap,laps) {
         val map=liveMap
         if(map == null) {
             onDispose {}
@@ -228,7 +230,7 @@ private fun MapLibreRouteView(
                 val end=laps.getOrNull(splitIndex+1)?.startSeconds
                     ?: return@OnMapClickListener false
                 if(end <= start) return@OnMapClickListener false
-                onSelectRange(start to end)
+                currentOnSelectRange(start to end)
                 true
             }
             map.addOnMapClickListener(listener)
