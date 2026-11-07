@@ -394,7 +394,9 @@ private fun NavHostController.openActivity(id: String) {
                         // offline SQLite detail already exists for this account.
                         if (!automaticDetailAttempted && detailSource != null &&
                             detailSource.supportsPace &&
-                            state.account != null && online && !state.busy && !state.needsSignIn &&
+                            state.account != null && online && !state.busy &&
+                            (detailSource.source == "garmin" ||
+                                (state.cloudAccount != null && !state.needsSignIn)) &&
                             !state.details.containsKey(detailSource.id) &&
                             detailSource.id !in state.cachedDetailIds) {
                             if(detailSource.source!="garmin") {
