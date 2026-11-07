@@ -78,6 +78,9 @@ internal fun TracksideFigmaActivityDetailSurface(
         var selectedActivitySeconds by remember(recorded?.activityId) {
             androidx.compose.runtime.mutableStateOf<Double?>(null)
         }
+        var selectedSplitRange by remember(recorded?.activityId) {
+            androidx.compose.runtime.mutableStateOf<Pair<Double,Double>?>(null)
+        }
         val peekHeight = if (previewHeightPx > 0) {
             with(density) { previewHeightPx.toDp() } + 37.dp
         } else 220.dp // Only used before the preview's first measurement.
@@ -270,7 +273,16 @@ internal fun TracksideFigmaActivityDetailSurface(
                                 onTab = onTab,
                                 onLoadGarminGps = onLoadGarminGps,
                                 selectedSeconds = selectedActivitySeconds,
-                                onSelectSeconds = { selectedActivitySeconds = it }
+                                onSelectSeconds = {
+                                    selectedActivitySeconds = it
+                                    selectedSplitRange = null
+                                },
+                                onSelectRange = { range ->
+                                    selectedSplitRange = range
+                                    if (range != null) {
+                                        selectedActivitySeconds = (range.first + range.second) / 2.0
+                                    }
+                                }
                             )
                         }
                     }
@@ -284,7 +296,8 @@ internal fun TracksideFigmaActivityDetailSurface(
                 heightDp = maxHeight,
                 onChangeStyle = onToggleMatte,
                 online = online,
-                selectedSeconds = selectedActivitySeconds
+                selectedSeconds = selectedActivitySeconds,
+                selectedRange = selectedSplitRange
             )
         }
 
