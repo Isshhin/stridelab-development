@@ -1,5 +1,9 @@
 # StrideLab Engine 2.x current coordinating handoff
 
+## Synthetic publication-fence correction — 2026-11-07
+
+`SYNTHETIC_AUTHORITY_CUSTODY_PUBLICATION_FENCE_CORRECTED` at implementation `00257401e66ec2be8dbd1b0fc8168cd2e4c21d31`, starting from `9dbb37e01740812ced317ee08de9436a92b1874d`. The [implementation record](../phase2/p2-f-synthetic-authority-harness-2026-11-07.md#publication-fence-correction--2026-11-07) records the iterator defect, locked pre-append check, eight regressions, counts and limits. Final pushed head is the documentation commit containing this entry (resolve with Git); new exact-head CI was not yet available at documentation time. Local tests: focused 71, original review 6, correction review 8, durable 54 and P2 219 passed; full research 383 run, 382 passed and one Windows symlink skip. Previous CI `42317715858` was cancelled. Independent adversarial re-review remains required; this is not authority/custody clearance. Prior `PASS_FOR_SYNTHETIC_DURABILITY` is unchanged; private pilot blocked, human/provider data admission NO, `P2_F_GATE_2_NOT_READY`, `P2_B_PROTOCOL_READY_DATA_NOT_READY`. Next: refresh hosted Graphify and independently re-review the correction.
+
 ## Synthetic custody correction re-review — 2026-11-07
 
 Verdict: `SYNTHETIC_AUTHORITY_CUSTODY_NEEDS_CORRECTION`. The [re-review](../phase2/p2-f-synthetic-authority-correction-rereview-2026-11-07.md) independently checked correction `618a3c66f9e589245503618134e640c4234d5e3d` at live head `c5cb61d9577e40898556f0a1b1d8e30092a8f358` with hosted Graphify at that exact indexed head. All six original reproductions now pass, but a new P1 synthetic publication-fence case fails: a chunk generator catches a nested-read denial and yields a chunk; `Broker.read` emits it before rechecking its violation flag. The review-only script captures this and seven other passing schedules; no implementation correction was made.
