@@ -553,23 +553,7 @@ private fun TracksideActivityOverviewBody(
             ActivityPlanLink(state, activity, actions.planning, matchedSourceIds)
             Spacer(Modifier.height(15.dp))
         }
-        ActivitySectionHeading("Summary")
-        Spacer(Modifier.height(8.dp))
-        ActivityInfoLine("Distance", activity.distanceM?.let { activity.distanceLabel })
-        ActivityInfoLine("Duration", activity.movingTimeS?.let { ActivityRecord.duration(it) })
-        ActivityInfoLine("Average pace",
-            if (activity.supportsPace && activity.detailPaceLabel != "Not recorded")
-                activity.detailPaceLabel else null)
-        ActivityInfoLine("Elapsed time", activity.durationS?.let { ActivityRecord.duration(it) })
-        ActivityInfoLine("Average heart rate",
-            activity.averageHr?.let { it.roundToInt().toString() + " bpm" })
-        ActivityInfoLine("Elevation gain",
-            activity.elevationM?.let { it.roundToInt().toString() + " m" })
-        ActivityInfoLine("Maximum heart rate",
-            activity.maximumHr?.let { it.roundToInt().toString() + " bpm" })
-        Spacer(Modifier.height(12.dp))
-        Text("Recorded by " + activity.sourceLabel,
-            color = activityMuted, fontSize = 11.sp)
+        TracksideActivitySummary(activity)
         if (activity.source == "garmin" && detailSource.id == activity.id &&
             (recorded == null || missingSavedCadence)) {
             Spacer(Modifier.height(12.dp))
@@ -619,6 +603,251 @@ private fun TracksideActivityOverviewBody(
  * Short verified highlight after the activity stats; "See analysis" expands
  * in the same sheet rather than nesting another draggable bottom sheet.
  */
+private data class ActivitySummaryMetric(
+    val label: String,
+    val value: String,
+    val glyph: ActivitySummaryGlyph
+)
+
+private enum class ActivitySummaryGlyph {
+    Distance, Duration, Pace, Elapsed, Heart, Elevation, MaximumHeartRate
+}
+
+@Composable
+private fun TracksideActivitySummary(activity: ActivityRecord) {
+    val displayName = activityDisplayName(activity.title)
+    val subtitle = if (DashboardSummary.isRun(activity) &&
+        displayName.isNotBlank() &&
+        !displayName.equals("Recorded Run", ignoreCase = true) &&
+        !displayName.equals("Untitled activity", ignoreCase = true)
+    ) {
+        "Key stats from your run at $displayName."
+    } else {
+        "Key stats from this activity."
+    }
+    val metrics = buildList {
+        activity.distanceM?.let {
+            add(ActivitySummaryMetric("Distance", activity.distanceLabel, ActivitySummaryGlyph.Distance))
+        }
+        activity.movingTimeS?.let {
+            add(ActivitySummaryMetric("Duration", ActivityRecord.duration(it), ActivitySummaryGlyph.Duration))
+        }
+        if (activity.supportsPace && activity.detailPaceLabel != "Not recorded") {
+            add(ActivitySummaryMetric("Average pace", activity.detailPaceLabel, ActivitySummaryGlyph.Pace))
+        }
+        activity.durationS?.let {
+            add(ActivitySummaryMetric("Elapsed time", ActivityRecord.duration(it), ActivitySummaryGlyph.Elapsed))
+        }
+        activity.averageHr?.let {
+            add(ActivitySummaryMetric(
+                "Average heart rate", it.roundToInt().toString() + " bpm", ActivitySummaryGlyph.Heart
+            ))
+        }
+        activity.elevationM?.let {
+            add(ActivitySummaryMetric(
+                "Elevation gain", it.roundToInt().toString() + " m", ActivitySummaryGlyph.Elevation
+            ))
+        }
+        activity.maximumHr?.let {
+            add(ActivitySummaryMetric(
+                "Maximum heart rate", it.roundToInt().toString() + " bpm",
+                ActivitySummaryGlyph.MaximumHeartRate
+            ))
+        }
+    }
+
+    Column(
+        Modifier.fillMaxWidth().testTag("activity-summary-redesign"),
+        verticalArrangement = Arrangement.spacedBy(0.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 13.dp)
+        ) {
+            Box(
+                Modifier.width(3.dp).height(40.dp)
+                    .background(activityLime, RoundedCornerShape(3.dp))
+            )
+            Spacer(Modifier.width(10.dp))
+            Column {
+                Text(
+                    "Summary", color = activityText, fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.semantics { heading() }
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    subtitle, color = activityMuted, fontSize = 11.sp,
+                    lineHeight = 15.sp
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        metrics.chunked(2).forEachIndexed { index, pair ->
+            if (index > 0) {
+                HorizontalDivider(
+                    color = activityBorder.copy(alpha = .48f),
+                    thickness = .7.dp
+                )
+            }
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 58.dp)
+                    .padding(vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SummaryMetricCell(pair[0], Modifier.weight(1f))
+                if (pair.size > 1) {
+                    Box(
+                        Modifier.width(1.dp).height(42.dp)
+                            .background(activityBorder.copy(alpha = .62f))
+                    )
+                    SummaryMetricCell(pair[1], Modifier.weight(1f))
+                } else {
+                    Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(
+            Modifier.fillMaxWidth()
+                .background(Color(0xFF151D18), RoundedCornerShape(10.dp))
+                .testTag("activity-summary-source")
+                .padding(horizontal = 13.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SummarySourceGlyph()
+            Spacer(Modifier.width(10.dp))
+            Text(
+                "Recorded by " + activity.sourceLabel,
+                color = Color(0xFFCBD5CE), fontSize = 11.sp,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SummaryMetricCell(metric: ActivitySummaryMetric, modifier: Modifier = Modifier) {
+    Row(
+        modifier.padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        SummaryMetricGlyph(metric.glyph)
+        Spacer(Modifier.width(9.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                metric.label, color = activityMuted, fontSize = 10.sp,
+                lineHeight = 13.sp, maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                metric.value, color = activityText, fontSize = 15.sp,
+                lineHeight = 19.sp, fontWeight = FontWeight.Bold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun SummaryMetricGlyph(glyph: ActivitySummaryGlyph) {
+    Canvas(Modifier.size(21.dp)) {
+        val w = size.width
+        val h = size.height
+        val sw = 1.8.dp.toPx()
+        when (glyph) {
+            ActivitySummaryGlyph.Distance -> {
+                drawCircle(activityLime, w * .17f, Offset(w * .5f, h * .42f), style = Stroke(sw))
+                val pin = Path().apply {
+                    moveTo(w * .5f, h * .94f)
+                    cubicTo(w * .28f, h * .67f, w * .18f, h * .52f, w * .18f, h * .38f)
+                    cubicTo(w * .18f, h * .18f, w * .32f, h * .08f, w * .5f, h * .08f)
+                    cubicTo(w * .68f, h * .08f, w * .82f, h * .18f, w * .82f, h * .38f)
+                    cubicTo(w * .82f, h * .52f, w * .72f, h * .67f, w * .5f, h * .94f)
+                }
+                drawPath(pin, activityLime, style = Stroke(sw, cap = StrokeCap.Round))
+            }
+            ActivitySummaryGlyph.Duration -> {
+                drawCircle(activityLime, w * .36f, Offset(w * .5f, h * .57f), style = Stroke(sw))
+                drawLine(activityLime, Offset(w * .5f, h * .05f), Offset(w * .5f, h * .20f), sw, StrokeCap.Round)
+                drawLine(activityLime, Offset(w * .35f, h * .05f), Offset(w * .65f, h * .05f), sw, StrokeCap.Round)
+                drawLine(activityLime, Offset(w * .5f, h * .57f), Offset(w * .5f, h * .35f), sw, StrokeCap.Round)
+            }
+            ActivitySummaryGlyph.Pace -> {
+                drawArc(activityLime, 190f, 160f, false,
+                    topLeft = Offset(w * .10f, h * .12f),
+                    size = androidx.compose.ui.geometry.Size(w * .80f, h * .80f),
+                    style = Stroke(sw, cap = StrokeCap.Round))
+                drawLine(activityLime, Offset(w * .5f, h * .56f), Offset(w * .77f, h * .35f), sw, StrokeCap.Round)
+            }
+            ActivitySummaryGlyph.Elapsed -> {
+                drawCircle(activityLime, w * .36f, Offset(w * .5f, h * .53f), style = Stroke(sw))
+                drawLine(activityLime, Offset(w * .5f, h * .53f), Offset(w * .5f, h * .27f), sw, StrokeCap.Round)
+                drawLine(activityLime, Offset(w * .5f, h * .53f), Offset(w * .68f, h * .62f), sw, StrokeCap.Round)
+            }
+            ActivitySummaryGlyph.Heart -> {
+                val p = Path().apply {
+                    moveTo(w * .5f, h * .88f)
+                    cubicTo(w * .26f, h * .72f, w * .10f, h * .50f, w * .16f, h * .30f)
+                    cubicTo(w * .23f, h * .10f, w * .43f, h * .14f, w * .5f, h * .31f)
+                    cubicTo(w * .57f, h * .14f, w * .77f, h * .10f, w * .84f, h * .30f)
+                    cubicTo(w * .90f, h * .50f, w * .74f, h * .72f, w * .5f, h * .88f)
+                }
+                drawPath(p, activityLime, style = Stroke(sw, cap = StrokeCap.Round))
+            }
+            ActivitySummaryGlyph.Elevation -> {
+                val p = Path().apply {
+                    moveTo(w * .08f, h * .82f)
+                    lineTo(w * .36f, h * .42f)
+                    lineTo(w * .52f, h * .61f)
+                    lineTo(w * .69f, h * .31f)
+                    lineTo(w * .94f, h * .82f)
+                    close()
+                }
+                drawPath(p, activityLime, style = Stroke(sw, cap = StrokeCap.Round))
+            }
+            ActivitySummaryGlyph.MaximumHeartRate -> {
+                val p = Path().apply {
+                    moveTo(w * .05f, h * .55f)
+                    lineTo(w * .25f, h * .55f)
+                    lineTo(w * .35f, h * .32f)
+                    lineTo(w * .46f, h * .76f)
+                    lineTo(w * .58f, h * .43f)
+                    lineTo(w * .68f, h * .55f)
+                    lineTo(w * .95f, h * .55f)
+                }
+                drawPath(p, activityLime, style = Stroke(sw, cap = StrokeCap.Round))
+                drawCircle(activityLime, w * .43f, Offset(w * .5f, h * .53f), style = Stroke(sw))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummarySourceGlyph() {
+    Canvas(Modifier.size(19.dp)) {
+        val sw = 1.6.dp.toPx()
+        drawRoundRect(
+            activityMuted,
+            topLeft = Offset(size.width * .28f, size.height * .18f),
+            size = androidx.compose.ui.geometry.Size(size.width * .44f, size.height * .64f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(
+                size.width * .16f, size.width * .16f
+            ),
+            style = Stroke(sw)
+        )
+        drawLine(
+            activityMuted, Offset(size.width * .40f, size.height * .06f),
+            Offset(size.width * .60f, size.height * .06f), sw, StrokeCap.Round
+        )
+        drawLine(
+            activityMuted, Offset(size.width * .40f, size.height * .94f),
+            Offset(size.width * .60f, size.height * .94f), sw, StrokeCap.Round
+        )
+    }
+}
+
 @Composable
 private fun TracksideActivityIntelligenceCard(
     insight: ActivityInsightPresentation,
@@ -721,20 +950,6 @@ private fun TracksideActivityIntelligenceCard(
                 fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         }
     }
-}
-
-@Composable private fun ActivityInfoLine(label: String, value: String?) {
-    if (value.isNullOrBlank()) return
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 47.dp)
-            .padding(vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(label, color = activityMuted, fontSize = 13.sp, modifier = Modifier.weight(1f))
-        Text(value, color = activityText, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-    }
-    HorizontalDivider(color = activityBorder.copy(alpha = .55f), thickness = .6.dp)
 }
 
 @Composable
