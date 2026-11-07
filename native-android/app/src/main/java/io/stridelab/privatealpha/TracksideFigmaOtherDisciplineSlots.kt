@@ -43,11 +43,11 @@ internal fun TracksideFigmaOtherDisciplineSlots(
     val slots=WeeklyPlacement.days(request,discipline)
     val manual=discipline in request.weeklySlots
     val current=selectedSlot.coerceIn(0,n-1)
-    val textMuted=Color(0xFFB6C4CC)
-    val border=Color(0xFF527385)
+    val textMuted=Color(0xFFC5C5C5)
+    val border=Color(0xFFDBF351)
     Surface(
         modifier=Modifier.fillMaxWidth().testTag("builder-other-discipline-editor"),
-        color=Color(0xFF172D39),
+        color=Color(0xFF303030),
         shape=RoundedCornerShape(14.dp),
         border=BorderStroke(1.dp,border)
     ) {
@@ -67,11 +67,11 @@ internal fun TracksideFigmaOtherDisciplineSlots(
                         },
                         modifier=Modifier.weight(1f).height(41.dp)
                             .testTag("builder-discipline-day-tab-"+name),
-                        color=if(name==discipline)Color(0xFF315E72)
-                            else Color(0xFF1F3A48),
+                        color=if(name==discipline)Color(0xFFDBF351)
+                            else Color(0xFF303030),
                         shape=RoundedCornerShape(9.dp),
                         border=BorderStroke(1.dp,
-                            if(name==discipline)Color(0xFFA5C8DC) else border)
+                            if(name==discipline)Color(0xFFDBF351) else border)
                     ) {
                         Box(contentAlignment=Alignment.Center) {
                             Text(when(name) {
@@ -98,7 +98,7 @@ internal fun TracksideFigmaOtherDisciplineSlots(
                         enabled=n+delta in 1..max,
                         modifier=Modifier.padding(start=5.dp).size(34.dp)
                             .testTag("builder-other-count-"+(if(delta<0)"minus" else "plus")),
-                        color=Color(0xFF244457),
+                        color=Color(0xFF383838),
                         shape=RoundedCornerShape(8.dp),
                         border=BorderStroke(1.dp,border)
                     ) {
@@ -118,10 +118,10 @@ internal fun TracksideFigmaOtherDisciplineSlots(
                         modifier=Modifier.widthIn(min=99.dp).heightIn(min=49.dp)
                             .testTag("builder-other-session-"+i),
                         shape=RoundedCornerShape(9.dp),
-                        color=if(activeSlot)Color(0xFF315E76)
-                            else Color(0xFF203847),
+                        color=if(activeSlot)Color(0xFFDBF351)
+                            else Color(0xFF303030),
                         border=BorderStroke(if(activeSlot)2.dp else 1.dp,
-                            if(activeSlot)Color(0xFFABCFDA) else border)
+                            if(activeSlot)Color(0xFFDBF351) else border)
                     ) {
                         Column(Modifier.padding(horizontal=8.dp,vertical=6.dp),
                             verticalArrangement=Arrangement.spacedBy(3.dp)) {
@@ -153,9 +153,9 @@ internal fun TracksideFigmaOtherDisciplineSlots(
                             onClick={onAssignDay(discipline,current,day)},
                             modifier=Modifier.fillMaxWidth().height(44.dp)
                                 .testTag("builder-other-day-"+day),
-                            color=if(picked)Color(0xFF357795)
-                                else if(occupied>=0)Color(0xFF265A70)
-                                else Color(0xFF1E3949),
+                            color=if(picked)Color(0xFFDBF351)
+                                else if(occupied>=0)Color(0xFFDBF351)
+                                else Color(0xFF303030),
                             shape=RoundedCornerShape(8.dp),
                             border=BorderStroke(if(picked)2.dp else 1.dp,
                                 if(picked)Color.White else border)
@@ -173,7 +173,7 @@ internal fun TracksideFigmaOtherDisciplineSlots(
                 else slots.count { it in 1..7 }.toString()+" of "+n+
                     " sessions assigned. Tapping an occupied day swaps two sessions.",
                 color=if(manual && slots.all { it in 1..7 })
-                    Color(0xFF92D8BD) else textMuted,
+                    Color(0xFFDBF351) else textMuted,
                 fontSize=11.sp,lineHeight=15.sp,
                 modifier=Modifier.testTag("builder-other-assignment-progress")
             )
@@ -181,12 +181,12 @@ internal fun TracksideFigmaOtherDisciplineSlots(
                 horizontalArrangement=Arrangement.spacedBy(16.dp)) {
                 TextButton(onClick={onClearSlot(discipline,current)},
                     enabled=manual) {
-                    Text("Clear day",fontSize=11.sp,color=Color(0xFFFFA6B6))
+                    Text("Clear day",fontSize=11.sp,color=Color(0xFFFF9DA7))
                 }
                 TextButton(onClick={onAuto(discipline)},
                     enabled=manual) {
                     Text("Coach places these sessions",
-                        fontSize=11.sp,color=Color(0xFFABD3E4))
+                        fontSize=11.sp,color=Color(0xFFDBF351))
                 }
             }
             Text("Same-day combinations and recovery spacing must pass the selected coaching policy. Unsupported exercise splits are not promised.",
