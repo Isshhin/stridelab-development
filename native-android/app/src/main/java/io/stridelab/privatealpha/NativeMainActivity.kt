@@ -233,10 +233,6 @@ private fun NavHostController.openActivity(id: String) {
         }
         Box(Modifier.fillMaxSize().background(pageBackground).padding(padding).imePadding()) {
             Column(Modifier.fillMaxSize()) {
-            if(!online) Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
-                Text("Offline · Saved activities remain available", Modifier.fillMaxWidth().padding(horizontal = 20.dp,vertical = 10.dp).testTag("offline-status"),style = MaterialTheme.typography.bodyMedium)
-            }
-            state.message?.takeIf { route?.startsWith("auth") != true }?.let { Surface(color = MaterialTheme.colorScheme.surfaceVariant) { Text(it, Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }.padding(horizontal = 20.dp, vertical = 12.dp), style = MaterialTheme.typography.bodyMedium) } }
             // Keep the signed-out primary screens composed independently of
             // NavHost so their remembered state survives tab switches.
             Box(Modifier.weight(1f)) {
