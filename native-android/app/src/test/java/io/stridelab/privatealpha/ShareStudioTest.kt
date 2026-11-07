@@ -64,4 +64,37 @@ class ShareStudioTest {
         assertEquals(1080 to 1350,ShareRatio.PORTRAIT.dimensions)
         assertEquals(1080 to 1080,ShareRatio.SQUARE.dimensions)
     }
+
+    @Test fun missingCoordinatesOrNonadjacentSamplesCannotExposeAnalyticalModes() {
+        val samples=listOf(sample(0,0.0),sample(1,10.0).copy(latitude=null),sample(2,20.0))
+        val render=ShareRenderableActivity.from(activity,detail(samples))
+        assertFalse(ShareRouteMode.PACE in render.availableModes)
+        assertFalse(ShareRouteMode.ELEVATION in render.availableModes)
+    }
+
+    @Test fun hrRouteRequiresRecordedPairsAndDoesNotCreateSummaryHr() {
+        val render=ShareRenderableActivity.from(activity,detail(listOf(sample(0,0.0,120.0),sample(1,10.0,130.0))))
+        assertTrue(ShareRouteMode.HR in render.availableModes)
+        assertFalse(ShareMetric.HR in render.metrics)
+    }
+
+    @Test fun everyTemplateVariantHasValidDefaultsWithoutChangingRatio() {
+        ShareTemplate.entries.forEach { template -> template.variants.forEach { variant ->
+            val state=ShareStudioState(ratio=ShareRatio.PORTRAIT).selectTemplate(template).selectVariant(variant)
+            assertEquals(template,state.template)
+            assertEquals(variant,state.variant)
+            assertEquals(ShareRatio.PORTRAIT,state.ratio)
+            assertTrue(state.metrics.isNotEmpty())
+        } }
+    }
+
+    @Test(expected=IllegalArgumentException::class)
+    fun invalidTemplateVariantIsRejected() {
+        ShareStudioState().selectVariant(ShareVariant.POSTER)
+    }
+
+    @Test(expected=IllegalArgumentException::class)
+    fun futurePresetVersionDoesNotSilentlyEraseStoredDesigns() {
+        SharePresetCodec.decode("{\"version\":2,\"presets\":[]}")
+    }
 }

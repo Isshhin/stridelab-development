@@ -37,6 +37,7 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
+import java.io.File
 
 private enum class ShareSection(val label:String) {
     TEMPLATES("Templates"), VARIANT("Variant"), RATIO("Ratio"), ROUTE("Route"), METRICS("Metrics"),
@@ -65,7 +66,7 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
     var naming by rememberSaveable { mutableStateOf(false) }
     var name by rememberSaveable { mutableStateOf("") }
     var deleting by remember { mutableStateOf<SharePreset?>(null) }
-    var pendingDocument by remember { mutableStateOf<Bitmap?>(null) }
+    var pendingDocumentName by rememberSaveable { mutableStateOf<String?>(null) }
     val renderable by produceState<ShareRenderableActivity?>(null,activity,detail) {
         value=withContext(Dispatchers.Default) { ShareRenderableActivity.from(activity,detail) }
     }
@@ -123,14 +124,21 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
         }
     }
     val documentLauncher=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri ->
-        val bitmap=pendingDocument
-        pendingDocument=null
-        if(uri==null) { busy=false }
-        else if(bitmap==null) { busy=false; message="Preview was lost. Save the image again." }
-        else scope.launch {
+        val file=pendingDocumentName?.takeIf { it.matches(Regex("StrideLab-[a-fA-F0-9-]+\\.png")) }
+            ?.let { File(File(context.cacheDir,"share-studio"),it) }
+        pendingDocumentName=null
+        if(uri==null) { file?.delete(); busy=false }
+        else {
+            busy=true
+            scope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    try { ShareImageExport.writePng(bitmap,checkNotNull(context.contentResolver.openOutputStream(uri))) }
+                    try {
+                        check(file!=null && file.isFile) { "Pending image unavailable" }
+                        file.inputStream().use { input ->
+                            checkNotNull(context.contentResolver.openOutputStream(uri)).use { output -> input.copyTo(output) }
+                        }
+                    }
                     catch(error:Exception) {
                         runCatching { android.provider.DocumentsContract.deleteDocument(context.contentResolver,uri) }
                         throw error
@@ -140,10 +148,13 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
             } catch(error:Exception) {
                 if(error is CancellationException) throw error
                 message="Could not save image. Check storage and try again."
-            } finally { busy=false }
+            } finally { file?.delete(); busy=false }
+            }
         }
     }
 
+    MaterialTheme(colorScheme=MaterialTheme.colorScheme.copy(primary=Color(ShareCardPalette.LIME),onPrimary=Color.Black,
+        secondaryContainer=Color(0xFF26381C),onSecondaryContainer=Color(ShareCardPalette.WHITE))) {
     Surface(color=Color.Black,contentColor=Color(ShareCardPalette.WHITE),modifier=Modifier.fillMaxSize().testTag("share-studio").semantics { paneTitle="Share Studio" }) {
         Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
             Row(Modifier.fillMaxWidth().padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically) {
@@ -228,7 +239,7 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                                             configure(preset.state); activePreset=preset.id
                                         }
                                         presets.firstOrNull { it.id==activePreset }?.let { selected ->
-                                            TextButton(onClick={ deleting=selected },enabled=!busy) { Text("Delete selected preset") }
+                                            TextButton(onClick={ message=null; deleting=selected },enabled=!busy) { Text("Delete selected preset") }
                                         }
                                     }
                                 }
@@ -237,21 +248,30 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                     }
                 }
                 item {
-                    OutlinedButton(onClick={ name=presets.firstOrNull { it.id==activePreset }?.name.orEmpty(); naming=true },
+                    OutlinedButton(onClick={ message=null; name=presets.firstOrNull { it.id==activePreset }?.name.orEmpty(); naming=true },
                         enabled=presetsReady && !busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("share-save-preset")) { Text("Save Preset") }
                 }
-                message?.let { text -> item {
-                    Text(text,color=Color(ShareCardPalette.LIME),modifier=Modifier.semantics { liveRegion=LiveRegionMode.Polite }.testTag("share-message"))
-                } }
+            }
+            message?.let { text ->
+                Text(text,color=Color(ShareCardPalette.LIME),modifier=Modifier.padding(horizontal=16.dp)
+                    .semantics { liveRegion=LiveRegionMode.Polite }.testTag("share-message"))
             }
             FlowRow(Modifier.fillMaxWidth().padding(16.dp),horizontalArrangement=Arrangement.spacedBy(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(enabled=exportReady,onClick={
                     val image=card ?: return@OutlinedButton
                     busy=true; message=null
                     if(Build.VERSION.SDK_INT<Build.VERSION_CODES.Q) {
-                        pendingDocument=image
-                        try { documentLauncher.launch(ShareImageExport.fileName()) }
-                        catch(error:Exception) { busy=false; pendingDocument=null; message="Could not open image storage." }
+                        scope.launch {
+                            try {
+                                val file=withContext(Dispatchers.IO) { ShareImageExport.cachePng(context,image) }
+                                pendingDocumentName=file.name
+                                documentLauncher.launch(file.name)
+                            } catch(error:Exception) {
+                                if(error is CancellationException) throw error
+                                pendingDocumentName?.let { File(File(context.cacheDir,"share-studio"),it).delete() }
+                                busy=false; pendingDocumentName=null; message="Could not open image storage."
+                            }
+                        }
                     } else scope.launch {
                         try { withContext(Dispatchers.IO) { ShareImageExport.saveToGallery(context,image) }; message="Saved to Pictures / StrideLab" }
                         catch(error:Exception) { if(error is CancellationException) throw error; message="Could not save image. Check storage and try again." }
@@ -277,7 +297,7 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
     }
     if(naming) AlertDialog(onDismissRequest={ if(!busy) naming=false },title={ Text("Save Preset") },
         text={ OutlinedTextField(value=name,onValueChange={ if(it.length<=60) name=it },label={ Text("Preset name") },
-            supportingText={ Text("${name.length}/60") },singleLine=true,modifier=Modifier.testTag("share-preset-name")) },
+            supportingText={ Text(message ?: "${name.length}/60") },singleLine=true,modifier=Modifier.testTag("share-preset-name")) },
         confirmButton={
             Column {
                 TextButton(enabled=name.isNotBlank() && !busy && presets.size<100,onClick={
@@ -291,10 +311,11 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
             }
         },dismissButton={ TextButton(enabled=!busy,onClick={ naming=false }) { Text("Cancel") } })
     deleting?.let { selected -> AlertDialog(onDismissRequest={ if(!busy) deleting=null },
-        title={ Text("Delete preset?") },text={ Text(selected.name) },
+        title={ Text("Delete preset?") },text={ Column { Text(selected.name); message?.let { Text(it) } } },
         confirmButton={ TextButton(enabled=!busy,onClick={
             savePresets(presets.filterNot { it.id==selected.id }) { deleting=null; activePreset=null; message="Preset deleted" }
         }) { Text("Delete") } },dismissButton={ TextButton(enabled=!busy,onClick={ deleting=null }) { Text("Cancel") } }) }
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)

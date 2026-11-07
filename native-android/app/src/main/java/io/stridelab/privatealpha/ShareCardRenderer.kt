@@ -68,7 +68,8 @@ internal object ShareCardRenderer {
 
         if(state.routeMode!=ShareRouteMode.HIDDEN && g.route.height()>0) {
             canvas.save()
-            canvas.clipPath(Path().apply { addRoundRect(g.route,28f,28f,Path.Direction.CW) })
+            // Keep the snapshot's native logo and attribution fully visible at its edges.
+            canvas.clipRect(g.route)
             if(map!=null) canvas.drawBitmap(map,null,g.route,paint.apply { color=Color.WHITE; alpha=255 })
             else drawCoordinateRoute(canvas,g.route,activity,state)
             canvas.restore()
@@ -83,7 +84,6 @@ internal object ShareCardRenderer {
                 if(featured || (state.variant==ShareVariant.PERFORMANCE && i==0)) ShareCardPalette.LIME else ShareCardPalette.WHITE,true,456f)
             text(metric.label.uppercase(java.util.Locale.getDefault()),x,y+110f,23f,ShareCardPalette.MUTED,maxWidth=456f)
         }
-        // A title-only source still produces an honest, nonempty card.
         val brandSize=when(state.branding) { ShareBranding.MINIMAL->22f; ShareBranding.SUBTLE->27f; ShareBranding.STANDARD->34f }
         text("STRIDELAB",56f,bitmap.height-40f,brandSize,ShareCardPalette.MUTED,true)
         if(state.branding==ShareBranding.STANDARD) text("EVERY STRIDE COUNTS",540f,bitmap.height-40f,22f,ShareCardPalette.MUTED,maxWidth=484f)
