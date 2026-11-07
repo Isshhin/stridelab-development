@@ -10,6 +10,37 @@ import org.junit.Test
 class TracksideGarminModalTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
 
+    @Test fun cloudBackupStartsDisabledAndRequiresExplicitConfirmation() {
+        val owner = "synthetic-garmin-cloud-consent"
+        compose.runOnUiThread {
+            GarminSyncPreferences(compose.activity).setCloudBackup(owner, false)
+            compose.activity.setContent {
+                StrideTheme {
+                    GarminSettingsCard(
+                        accountId = owner,
+                        backupGarminCloud = { 0 },
+                        restoreGarminCloud = { 0 }
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("garmin-cloud-backup-now").assertDoesNotExist()
+        compose.onNodeWithTag("garmin-cloud-toggle").performClick()
+        compose.onNodeWithText("Enable Garmin cloud backup?").assertExists()
+        compose.onNodeWithText("Cancel").performClick()
+        compose.onNodeWithTag("garmin-cloud-backup-now").assertDoesNotExist()
+        compose.onNodeWithTag("garmin-cloud-toggle").performClick()
+        compose.onNodeWithText("Enable backup").performClick()
+        compose.onNodeWithTag("garmin-cloud-backup-now").assertExists()
+        compose.onNodeWithTag("garmin-cloud-restore").assertExists()
+        compose.runOnIdle {
+            org.junit.Assert.assertTrue(
+                GarminSyncPreferences(compose.activity).cloudBackup(owner)
+            )
+            GarminSyncPreferences(compose.activity).setCloudBackup(owner, false)
+        }
+    }
+
     @Test fun garminOpensAboveMoreAndClosesWithoutCreatingAnotherPage() {
         val state = TrainingState(initializing = false,
             account = "synthetic-modal-account")
