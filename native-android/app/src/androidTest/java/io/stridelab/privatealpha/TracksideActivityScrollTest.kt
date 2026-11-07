@@ -226,6 +226,25 @@ class TracksideActivityScrollTest {
         assertTrue(TracksideMapTiles.ATTRIBUTION.contains("OpenFreeMap"))
     }
 
+    @Test fun twilightMapKeepsStreetsLegibleAndDistinctFromGround() {
+        // The actual tiles remain geographic and the existing lime route is
+        // unmodified. Keep contrast between the base map and street network
+        // so maps don't regress to an almost-black, unreadable background.
+        val ground = TracksideReadableMapPalette.canvas
+        val roads = TracksideReadableMapPalette.roads
+        val labels = TracksideReadableMapPalette.roadLabels
+        val parks = TracksideReadableMapPalette.grass
+        val water = TracksideReadableMapPalette.water
+        val red = android.graphics.Color::red
+        val green = android.graphics.Color::green
+        val blue = android.graphics.Color::blue
+        assertTrue(red(ground) >= 40)
+        assertTrue(red(roads) - red(ground) >= 60)
+        assertTrue(blue(labels) - blue(roads) >= 65)
+        assertTrue(green(parks) > green(ground))
+        assertTrue(blue(water) > blue(ground))
+    }
+
     @Test fun activityWithoutSourceStreamsDoesNotInventSplitsOrCharts() {
         val activity = ActivityRecord(
             "synthetic-scroll-no-streams", "Evening Run", "run", "manual",
