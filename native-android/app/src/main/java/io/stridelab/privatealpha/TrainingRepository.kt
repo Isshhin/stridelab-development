@@ -849,6 +849,64 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             var pages=0
             var imported=0
             val seen=HashSet<String>()
+            var completedDetails = 0
+            var failedDetails = 0
+            var interruption: String? = null
+            var fitAttempts = 0
+            val attemptedFitIds = HashSet<String>()
+
+            // Fetch full recordings as soon as their summary page is saved.
+            // The newest eligible activities win each bounded FIT budget;
+            // older missing recordings are picked up on subsequent syncs.
+            fun importPendingFit() {
+                if (fitAttempts >= detailLimit || interruption != null) return
+                val pending = mutable.value.activities.asSequence()
+                    .filter { activity ->
+                        activity.source == "garmin" && DashboardSummary.isRun(activity) &&
+                            activity.id.startsWith("garmin-") &&
+                            activity.id !in mutable.value.cachedDetailIds &&
+                            activity.id !in attemptedFitIds &&
+                            garminSyncPreferences.readyForDetail(account, activity.id)
+                    }
+                    .sortedWith(
+                        compareByDescending<ActivityRecord> { it.startedAt }
+                            .thenByDescending { it.id }
+                    )
+                    .take(detailLimit - fitAttempts)
+                    .toList()
+                for (activity in pending) {
+                    attemptedFitIds.add(activity.id)
+                    fitAttempts++
+                    try {
+                        cacheGarminRecording(account, activity, source)
+                        garminSyncPreferences.clearDetailFailure(account, activity.id)
+                        completedDetails++
+                    } catch (error: GarminAuthenticationException) {
+                        failedDetails++
+                        interruption = GarminConnectionStatus.fromError(error).error
+                        break
+                    } catch (error: GarminRateLimitException) {
+                        failedDetails++
+                        interruption = GarminConnectionStatus.fromError(error).error
+                        break
+                    } catch (error: GarminNetworkException) {
+                        failedDetails++
+                        interruption = GarminConnectionStatus.fromError(error).error
+                        break
+                    } catch (error: GarminServiceException) {
+                        failedDetails++
+                        interruption = GarminConnectionStatus.fromError(error).error
+                        break
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (error: Exception) {
+                        // Back off for one day on invalid FIT/source failures.
+                        // The next healthy, newer recording must not be starved.
+                        garminSyncPreferences.noteDetailFailure(account, activity.id)
+                        failedDetails++
+                    }
+                }
+            }
             do {
                 if(pages>=pageLimit) {
                     if (pageLimit == 100) throw GarminProtocolException(
@@ -881,60 +939,21 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 store.applyRemotePage(account,"activity",rows,null,System.currentTimeMillis())
                 imported+=rows.size
                 publishActivityPage(account,rows) // Durable, offline-accessible after each page.
+                // Save the latest complete FIT files BEFORE paging through older history.
+                importPendingFit()
                 pages++
+                if (interruption != null) break
                 val next=page.nextCursor
                 if(next!=null && (next==cursor || next.toIntOrNull()==null))
                     throw GarminProtocolException("Garmin pagination did not advance safely")
                 cursor=next
             } while(cursor!=null)
-            // An explicit sync also caches a bounded number of genuine FIT
-            // recordings for Garmin runs. The next tap resumes from missing
-            // details; no previously saved source summary is modified.
-            val pending = mutable.value.activities.filter { activity ->
+            // Failed recordings remain missing until explicitly re-requested or
+            // their one-day backoff expires; manual/on-demand load bypasses it.
+            val remaining = mutable.value.activities.count { activity ->
                 activity.source == "garmin" && DashboardSummary.isRun(activity) &&
                     activity.id.startsWith("garmin-") &&
                     activity.id !in mutable.value.cachedDetailIds
-            }
-            var completedDetails = 0
-            var failedDetails = 0
-            var interruption: String? = null
-            // Deprioritize source-specific FIT failures. Otherwise the same
-            // invalid early records can permanently starve later runs.
-            val orderedPending = pending.sortedBy {
-                if (garminSyncPreferences.readyForDetail(account, it.id)) 0 else 1
-            }
-            for (activity in orderedPending.take(detailLimit)) {
-                try {
-                    cacheGarminRecording(account, activity, source)
-                    garminSyncPreferences.clearDetailFailure(account, activity.id)
-                    completedDetails++
-                } catch (error: GarminAuthenticationException) {
-                    failedDetails++
-                    interruption = GarminConnectionStatus.fromError(error).error
-                    break
-                } catch (error: GarminRateLimitException) {
-                    failedDetails++
-                    interruption = GarminConnectionStatus.fromError(error).error
-                    break
-                } catch (error: GarminNetworkException) {
-                    failedDetails++
-                    interruption = GarminConnectionStatus.fromError(error).error
-                    break
-                } catch (error: GarminServiceException) {
-                    failedDetails++
-                    interruption = GarminConnectionStatus.fromError(error).error
-                    break
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (error: Exception) {
-                    // Malformed FIT, missing numeric IDs, and source mismatches
-                    // are held behind healthy records for the next day.
-                    garminSyncPreferences.noteDetailFailure(account, activity.id)
-                    failedDetails++
-                }
-            }
-            val remaining = pending.count {
-                it.id !in mutable.value.cachedDetailIds
             }
             if (pageLimit == 100) garminSyncPreferences.acknowledgeManualGarminSync(account)
             GarminConnectionStatus(
