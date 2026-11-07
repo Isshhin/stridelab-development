@@ -62,6 +62,19 @@ class TracksideActivityScrollTest {
         compose.onNodeWithTag("activity-primary-metrics").assertIsDisplayed()
         compose.onNodeWithText("DURATION").assertExists()
         compose.onNodeWithText("AVG HR").assertExists()
+        listOf("distance", "duration", "avg-pace", "avg-hr").forEach { metric ->
+            compose.onNodeWithTag("activity-metric-" + metric).assertExists()
+        }
+        // The four metrics occupy equally sized, centered sections.
+        val metricPositions = listOf("distance", "duration", "avg-pace", "avg-hr")
+            .map { name ->
+                val bounds = compose.onNodeWithTag("activity-metric-" + name)
+                    .getUnclippedBoundsInRoot()
+                (bounds.left + bounds.right) / 2f
+            }
+        val spacing = metricPositions.zipWithNext().map { (a, b) -> b - a }
+        assertTrue("Metric columns are not evenly distributed",
+            spacing.all { kotlin.math.abs((it - spacing.first()).value) < 2.5f })
         // Regression: the collapsed summary must finish near the bottom
         // edge, not leave a large unused sheet area below its metrics.
         val rootBounds = compose.onRoot().getUnclippedBoundsInRoot()
@@ -132,6 +145,16 @@ class TracksideActivityScrollTest {
         }
         compose.onNodeWithTag("activity-tab-charts").assertIsSelected()
         compose.onNodeWithTag("activity-continuous-scroll").assertExists()
+        // Heart-rate zones require a user-supplied max HR; the highest
+        // heart rate measured during the workout is not used as a default.
+        compose.onNodeWithTag("activity-continuous-scroll")
+            .performScrollToNode(hasTestTag("activity-chart-heart-rate-zones"))
+        compose.onNodeWithTag("activity-chart-heart-rate-zones").assertExists()
+        compose.onNodeWithTag("activity-chart-insights-heart-rate-zones").assertDoesNotExist()
+        compose.onNodeWithTag("activity-hr-zone-max-input").performTextInput("197")
+        compose.onNodeWithTag("activity-hr-zone-1").assertExists()
+        compose.onNodeWithTag("activity-hr-zone-5").assertExists()
+        compose.onNodeWithTag("activity-chart-insights-heart-rate-zones").assertExists()
         // Cadence is a REAL recorded stream, not a calculated placeholder.
         compose.onNodeWithTag("activity-continuous-scroll")
             .performScrollToNode(hasTestTag("activity-chart-cadence"))
