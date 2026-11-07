@@ -75,6 +75,9 @@ internal fun TracksideFigmaActivityDetailSurface(
         val uriHandler = LocalUriHandler.current
         var showMapCredits by remember(activity.id) { androidx.compose.runtime.mutableStateOf(false) }
         var previewHeightPx by remember(activity.id) { mutableIntStateOf(0) }
+        var selectedActivitySeconds by remember(recorded?.activityId) {
+            mutableStateOf<Double?>(null)
+        }
         val peekHeight = if (previewHeightPx > 0) {
             with(density) { previewHeightPx.toDp() } + 37.dp
         } else 220.dp // Only used before the preview's first measurement.
@@ -265,7 +268,9 @@ internal fun TracksideFigmaActivityDetailSurface(
                                 online = online,
                                 selectedTab = selectedTab,
                                 onTab = onTab,
-                                onLoadGarminGps = onLoadGarminGps
+                                onLoadGarminGps = onLoadGarminGps,
+                                selectedSeconds = selectedActivitySeconds,
+                                onSelectSeconds = { selectedActivitySeconds = it }
                             )
                         }
                     }
@@ -278,7 +283,8 @@ internal fun TracksideFigmaActivityDetailSurface(
                 onBack = collapseOrBack,
                 heightDp = maxHeight,
                 onChangeStyle = onToggleMatte,
-                online = online
+                online = online,
+                selectedSeconds = selectedActivitySeconds
             )
         }
 
