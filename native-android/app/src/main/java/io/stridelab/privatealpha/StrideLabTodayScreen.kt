@@ -944,7 +944,7 @@ private fun TodayCompactRecordedCard(
         else RoundedCornerShape(18.dp)
     }
     val route = remember(recordedDetail) {
-        recordedDetail?.let { RecordedGpsRoute.from(it.samples) }
+        recordedDetail?.let { RecordedGpsRoute.from(it.samples,it.pauseIntervals) }
             ?.takeIf { it.pointCount >= 2 }
     }
     Surface(
