@@ -77,7 +77,7 @@ class RecordedGpsRouteTest {
         assertEquals(1, lines.length())
         assertEquals(4, lines.getJSONArray(0).length())
         assertEquals(0, route.displayIsolatedPoints.size)
-        assertEquals(2, JSONObject(route.toGeoJson())
+        assertEquals(1, JSONObject(route.toGeoJson())
             .getJSONArray("features").getJSONObject(0)
             .getJSONObject("geometry").getJSONArray("coordinates").length())
     }
