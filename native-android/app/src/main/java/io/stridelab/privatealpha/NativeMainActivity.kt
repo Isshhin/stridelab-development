@@ -2,6 +2,9 @@ package io.stridelab.privatealpha
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.SystemClock
+import android.content.pm.ApplicationInfo
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.EnterTransition
@@ -104,9 +107,24 @@ class NativeMainActivity: ComponentActivity() {
 }
 
 @Composable internal fun NativeStrideApp(model: TrainingViewModel = viewModel()) {
+    val startedAt = remember { SystemClock.elapsedRealtime() }
+    var firstCachedFrameReported by remember { mutableStateOf(false) }
     val state by model.state.collectAsStateWithLifecycle(context=kotlinx.coroutines.Dispatchers.Main.immediate)
     val online by model.online.collectAsStateWithLifecycle(context=kotlinx.coroutines.Dispatchers.Main.immediate)
+    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(state.initializing) {
+        if (!state.initializing && !firstCachedFrameReported) {
+            // Wait for the next Compose frame; this is a first cached-frame
+            // diagnostic, not a claim of complete Activity Detail rendering.
+            withFrameNanos { }
+            firstCachedFrameReported = true
+            if (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+                Log.d("StrideLabStartup",
+                    "first_cached_frame_ms=${SystemClock.elapsedRealtime() - startedAt}")
+            }
+        }
+    }
     DisposableEffect(model, lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) model.onAppResumed()
@@ -116,6 +134,7 @@ class NativeMainActivity: ComponentActivity() {
     }
     val actions = remember(model) { NativeActions(model::refresh, {}, {}, model::signOut, model::signIn, model::loadDetail, model::refreshWellness, model.planActions(), syncGarmin=model::syncGarmin, loadGarminGps=model::loadGarminGps,
         backupGarminCloud=model::backupGarminCloud, restoreGarminCloud=model::restoreGarminCloud,
+        loadCachedDetail=model::loadCachedDetail,
         signUp=model::signUp, requestPasswordReset=model::requestPasswordReset) }
     NativeStrideContent(state, online, actions)
 }
@@ -130,7 +149,8 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
     val signUp: (String, String, String) -> Unit = { _, _, _ -> },
     val requestPasswordReset: (String) -> Unit = {},
     val backupGarminCloud: (suspend () -> Int)? = null,
-    val restoreGarminCloud: (suspend () -> Int)? = null)
+    val restoreGarminCloud: (suspend () -> Int)? = null,
+    val loadCachedDetail: (String) -> Unit = {})
 
 /** Primary destinations switch immediately; the legacy Activity history route remains available.
  * retain the existing Navigation Compose transitions.
@@ -302,16 +322,30 @@ private fun NavHostController.openActivity(id: String) {
                         else null
                     }
                     var automaticDetailAttempted by rememberSaveable(detailSource?.id) { mutableStateOf(false) }
+                    var localDetailAttempted by rememberSaveable(detailSource?.id) { mutableStateOf(false) }
                     var activityTab by rememberSaveable(activity?.id) { mutableIntStateOf(0) }
                     var matteStyle by rememberSaveable(activity?.id) { mutableStateOf(false) }
-                    LaunchedEffect(detailSource?.id, online, state.busy, state.needsSignIn) {
-                        // Load real supplementary Intervals.icu streams when
-                        // Garmin is the canonical summary. Never use the Garmin
-                        // local summary ID as a remote stream endpoint.
+                    // The SQLite detail ID index is populated during startup
+                    // without parsing stored FIT streams. Open the chosen
+                    // activity from disk before considering any network request.
+                    LaunchedEffect(detailSource?.id, state.account, state.cachedDetailIds) {
+                        val id = detailSource?.id
+                        if (!localDetailAttempted && id != null &&
+                            state.account != null &&
+                            id in state.cachedDetailIds && id !in state.details) {
+                            localDetailAttempted = true
+                            actions.loadCachedDetail(id)
+                        }
+                    }
+                    LaunchedEffect(detailSource?.id, online, state.busy,
+                        state.needsSignIn, state.cachedDetailIds) {
+                        // Avoid a redundant Garmin / remote download when an
+                        // offline SQLite detail already exists for this account.
                         if (!automaticDetailAttempted && detailSource != null &&
                             detailSource.supportsPace &&
                             state.account != null && online && !state.busy && !state.needsSignIn &&
-                            !state.details.containsKey(detailSource.id)) {
+                            !state.details.containsKey(detailSource.id) &&
+                            detailSource.id !in state.cachedDetailIds) {
                             if(detailSource.source!="garmin") {
                                 automaticDetailAttempted=true
                                 actions.loadDetail(detailSource.id)
