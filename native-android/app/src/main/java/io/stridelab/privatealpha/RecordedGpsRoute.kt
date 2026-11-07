@@ -276,7 +276,7 @@ internal data class RecordedGpsRoute(
             // same solid line, with the normal GPS continuity guards.
             fun unrecordedPauseBetween(start:Double,end:Double):Boolean =
                 pauseIntervals.any { pause ->
-                    start < pause.startSeconds && end > pause.endSeconds
+                    start <= pause.startSeconds && end >= pause.endSeconds
                 }
             for(sample in samples) {
                 val lat=sample.latitude
