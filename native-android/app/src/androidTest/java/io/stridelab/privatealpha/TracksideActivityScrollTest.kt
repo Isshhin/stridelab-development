@@ -140,6 +140,16 @@ class TracksideActivityScrollTest {
         compose.onNodeWithTag("activity-chart-y-axis-cadence").assertExists()
         compose.onNodeWithTag("activity-chart-insights-cadence").assertExists()
         compose.onNodeWithText("Cadence Analysis").assertExists()
+        // The branded analysis must be below (not inside) the plotted chart
+        // container. Expanding it cannot change the chart's surface bounds.
+        val chartBounds = compose.onNodeWithTag("activity-chart-cadence")
+            .getUnclippedBoundsInRoot()
+        val analysisBounds = compose.onNodeWithTag("activity-chart-insights-cadence")
+            .getUnclippedBoundsInRoot()
+        assertTrue(
+            "Cadence Analysis is still inside the chart surface",
+            analysisBounds.top >= chartBounds.bottom
+        )
         compose.onNodeWithTag("stream-Cadence").performTouchInput { swipeRight() }
         compose.onNodeWithTag("activity-chart-cursor-cadence").assertExists()
         compose.onNodeWithTag("activity-map-hero").assertExists()
