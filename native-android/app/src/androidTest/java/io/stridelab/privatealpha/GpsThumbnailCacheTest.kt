@@ -40,6 +40,21 @@ class GpsThumbnailCacheTest {
         assertNull(cache.read(account, "activity"))
         cache.write(account, "empty", RecordedGpsRoute(emptyList()))
         assertTrue(cache.hasNoRoute(account, "empty"))
+        // Two valid source fixes separated by an unrecorded timer pause are
+        // still displayed as one uninterrupted thumbnail route line.
+        val acrossPause = RecordedGpsRoute(
+            listOf(
+                listOf(RecordedGpsPoint(14.600,121.000,10.0)),
+                listOf(RecordedGpsPoint(14.601,121.001,150.0))
+            ),
+            listOf(ActivityPauseInterval(20.0,140.0))
+        )
+        assertEquals(2, acrossPause.segments.size)
+        assertEquals(1, acrossPause.displaySegments.size)
+        assertTrue(cache.render(acrossPause).isNotEmpty())
+        cache.write(account, "continuous", acrossPause)
+        assertNotNull(cache.read(account, "continuous"))
+        cache.remove(account, "continuous")
         assertNull(cache.read(account, "empty"))
     }
 }
