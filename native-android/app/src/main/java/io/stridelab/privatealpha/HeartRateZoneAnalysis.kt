@@ -82,6 +82,9 @@ internal object HeartRateZoneAnalysis {
 
     fun presentation(distribution: HeartRateZoneDistribution): ActivityInsightPresentation {
         val dominant = distribution.buckets.maxByOrNull { it.seconds }!!
+        val tied = distribution.buckets.count {
+            kotlin.math.abs(it.seconds - dominant.seconds) < 0.001
+        } > 1
         val dominantPct = (dominant.fraction * 100).roundToInt()
         val evidence = distribution.buckets.map { bucket ->
             "Zone ${bucket.zone}: ${ActivityRecord.duration(bucket.seconds)} " +
@@ -98,8 +101,13 @@ internal object HeartRateZoneAnalysis {
                 "or a specific workout benefit."
         )
         return ActivityInsightPresentation(
-            headline = "Most classified time in Zone ${dominant.zone}",
-            summary = String.format(
+            headline = if (tied) "Time was spread across multiple heart-rate zones"
+                else "Most classified time in Zone ${dominant.zone}",
+            summary = if (tied)
+                "Multiple zones share the largest portion of " +
+                    "${ActivityRecord.duration(distribution.classifiedSeconds)} classified " +
+                    "recording time. The zones use the maximum HR you entered, not Garmin settings."
+            else String.format(
                 Locale.getDefault(),
                 "About %d%% of %s classified recording time was in Zone %d. " +
                     "These estimates use the maximum heart rate you entered, " +
