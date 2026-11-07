@@ -19,6 +19,17 @@ internal data class RecordedGpsRoute(
     val allPoints:List<RecordedGpsPoint> get()=segments.flatten()
     val isolatedPoints:List<RecordedGpsPoint> get()=segments.filter { it.size == 1 }.flatten()
 
+    private fun isPaused(seconds: Double): Boolean =
+        pauseIntervals.any { seconds >= it.startSeconds && seconds <= it.endSeconds }
+
+    /** Real coordinate fixes whose FIT timestamps fall inside a timer pause. */
+    val pausedPoints:List<RecordedGpsPoint> get()=allPoints.filter { isPaused(it.elapsedSeconds) }
+
+    /** Lone fixes excluding points already represented as paused-source evidence. */
+    val activeIsolatedPoints:List<RecordedGpsPoint> get()=
+        isolatedPoints.filterNot { isPaused(it.elapsedSeconds) }
+
+
     private val segmentGaps:List<Pair<RecordedGpsPoint,RecordedGpsPoint>> get()=
         segments.zipWithNext().mapNotNull { (a,b) ->
             val start=a.lastOrNull() ?: return@mapNotNull null
@@ -58,7 +69,7 @@ internal data class RecordedGpsRoute(
     /** Actual lone coordinate fixes, retained even if there was no drawn line. */
     fun isolatedGeoJson():String {
         val coords=JSONArray()
-        isolatedPoints.forEach { point ->
+        activeIsolatedPoints.forEach { point ->
             coords.put(JSONArray().put(point.longitude).put(point.latitude))
         }
         return JSONObject()
@@ -67,6 +78,36 @@ internal data class RecordedGpsRoute(
             .put("geometry",JSONObject().put("type","MultiPoint").put("coordinates",coords))
             .toString()
     }
+
+    /** Actual GPS fixes recorded while the source timer was paused. */
+    fun pausedPointsGeoJson():String {
+        val coords=JSONArray()
+        pausedPoints.forEach { point ->
+            coords.put(JSONArray().put(point.longitude).put(point.latitude))
+        }
+        return JSONObject()
+            .put("type","Feature")
+            .put("properties",JSONObject())
+            .put("geometry",JSONObject().put("type","MultiPoint").put("coordinates",coords))
+            .toString()
+    }
+
+    private fun endpointGeoJson(point: RecordedGpsPoint?): String =
+        if (point == null) {
+            JSONObject().put("type","FeatureCollection")
+                .put("features",JSONArray()).toString()
+        } else {
+            JSONObject()
+                .put("type","Feature")
+                .put("properties",JSONObject())
+                .put("geometry",JSONObject()
+                    .put("type","Point")
+                    .put("coordinates",JSONArray().put(point.longitude).put(point.latitude)))
+                .toString()
+        }
+
+    fun startPointGeoJson():String = endpointGeoJson(allPoints.firstOrNull())
+    fun finishPointGeoJson():String = endpointGeoJson(allPoints.lastOrNull())
 
     private fun gapGeoJson(gaps:List<Pair<RecordedGpsPoint,RecordedGpsPoint>>):String {
         val lines=JSONArray()
