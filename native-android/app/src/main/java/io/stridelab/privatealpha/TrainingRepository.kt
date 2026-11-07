@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -458,9 +459,15 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             var completedDetails = 0
             var failedDetails = 0
             var interruption: String? = null
-            for (activity in pending.take(detailLimit)) {
+            // Deprioritize source-specific FIT failures. Otherwise the same
+            // invalid early records can permanently starve later runs.
+            val orderedPending = pending.sortedBy {
+                if (garminSyncPreferences.readyForDetail(account, it.id)) 0 else 1
+            }
+            for (activity in orderedPending.take(detailLimit)) {
                 try {
                     cacheGarminRecording(account, activity, source)
+                    garminSyncPreferences.clearDetailFailure(account, activity.id)
                     completedDetails++
                 } catch (error: GarminAuthenticationException) {
                     failedDetails++
@@ -474,9 +481,16 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                     failedDetails++
                     interruption = GarminConnectionStatus.fromError(error).error
                     break
+                } catch (error: GarminServiceException) {
+                    failedDetails++
+                    interruption = GarminConnectionStatus.fromError(error).error
+                    break
+                } catch (error: CancellationException) {
+                    throw error
                 } catch (error: Exception) {
                     // Malformed FIT, missing numeric IDs, and source mismatches
-                    // are skipped without overwriting any saved source data.
+                    // are held behind healthy records for the next day.
+                    garminSyncPreferences.noteDetailFailure(account, activity.id)
                     failedDetails++
                 }
             }
@@ -518,6 +532,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                     try {
                         val result = syncGarmin(source, pageLimit = 2, detailLimit = 3)
                         if (result.error != null) success = false
+                    } catch (error: CancellationException) {
+                        throw error
                     } catch (_: Exception) {
                         // The original offline cache stays intact. An app-resume
                         // check never overwrites foreground error messages.
@@ -529,6 +545,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 garminSyncPreferences.claim(account, "cloud", interval)) {
                 try {
                     backupGarminCloud(maxRecords = 6)
+                } catch (error: CancellationException) {
+                    throw error
                 } catch (_: Exception) {
                     success = false
                 }
