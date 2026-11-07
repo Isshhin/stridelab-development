@@ -70,6 +70,9 @@ internal fun TracksideActivityInitialPreview(activity: ActivityRecord) {
         Text(activity.dateLabel, color = activityMuted, fontSize = 12.sp)
         Spacer(Modifier.height(26.dp))
         TracksidePrimaryActivityMetrics(activity)
+        // This is the bottom of the collapsed sheet, not a large empty
+        // scrolling region. The sheet peek is sized to the measured preview.
+        Spacer(Modifier.height(18.dp).testTag("activity-preview-bottom"))
     }
 }
 
