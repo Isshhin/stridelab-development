@@ -32,3 +32,10 @@ One compromised/reset/rolled-back validator consumes the one-Byzantine budget; m
 ## Decision
 
 `READONLY_PREFLIGHT_PACKET_SOURCE_FROZEN_BINARY_IDENTITY_BLOCKED`
+
+
+## v7 static-build attempt — 2026-11-07
+
+Repaired workflow commit: `2e1f4fcb35c9f4e479ff4045e8b5d18fafdb845e7`. Manual run `42368016764` accepted the workflow and created the `build` job on explicit `windows-2025`, but GitHub did not start it because recent account payments failed or the spending limit must be increased. No runner/compiler/linker/SDK, source or binary hash, binary size, PE imports, signature/provenance, or artifact evidence exists. The collector executable was never executed. Canonical vector self-check remains previously passing; hosted static identity is unavailable.
+
+Decision: `P2F_CUSTODY_AUTHORITY_V7_CORRECTIONS_INCOMPLETE`.
