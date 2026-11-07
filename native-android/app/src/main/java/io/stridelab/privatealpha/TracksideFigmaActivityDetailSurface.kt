@@ -1,17 +1,12 @@
 package io.stridelab.privatealpha
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.FiniteAnimationSpec
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetScaffoldState
@@ -25,6 +20,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
@@ -35,6 +31,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.withContext
 
 /**
  * Approved Trackside activity interaction:
@@ -88,14 +86,17 @@ internal fun TracksideFigmaActivityDetailSurface(
         val scope = rememberCoroutineScope()
         val expanded = sheetState.currentValue == SheetValue.Expanded
 
-        // Material 3 normally uses a longer default spatial transition for
-        // docked sheets. Scope a faster 220 ms easing to this sheet only,
-        // leaving the app's Today/date-picker motion unchanged.
-        val parentMotion = MaterialTheme.motionScheme
-        val activitySheetMotion = remember(parentMotion) {
-            object : MotionScheme by parentMotion {
-                override fun <T> defaultSpatialSpec(): FiniteAnimationSpec<T> =
-                    tween(durationMillis = 220, easing = FastOutSlowInEasing)
+        // Speed up programmatic sheet settling without relying on internal
+        // Material 3 motion APIs. Preserve Android's animator accessibility
+        // setting by scaling (rather than replacing) the inherited value.
+        suspend fun settleQuickly(target: SheetValue) {
+            val inherited = currentCoroutineContext()[MotionDurationScale]?.scaleFactor ?: 1f
+            val accelerated = object : MotionDurationScale {
+                override val scaleFactor: Float = inherited * 0.72f
+            }
+            withContext(accelerated) {
+                if (target == SheetValue.Expanded) sheetState.expand()
+                else sheetState.partialExpand()
             }
         }
 
@@ -126,14 +127,13 @@ internal fun TracksideFigmaActivityDetailSurface(
         }
         val collapseOrBack: () -> Unit = {
             if (expanded || sheetState.targetValue == SheetValue.Expanded) {
-                scope.launch { sheetState.partialExpand() }
+                scope.launch { settleQuickly(SheetValue.PartiallyExpanded) }
             } else onBack()
         }
         BackHandler(enabled = expanded) {
-            scope.launch { sheetState.partialExpand() }
+            scope.launch { settleQuickly(SheetValue.PartiallyExpanded) }
         }
 
-        MaterialTheme(motionScheme = activitySheetMotion) {
         BottomSheetScaffold(
             scaffoldState = scaffoldState,
             sheetPeekHeight = effectivePeekHeight,
@@ -147,10 +147,10 @@ internal fun TracksideFigmaActivityDetailSurface(
                         .semantics {
                             stateDescription = if (expanded) "Expanded" else "Collapsed"
                             if (expanded) collapse {
-                                scope.launch { sheetState.partialExpand() }
+                                scope.launch { settleQuickly(SheetValue.PartiallyExpanded) }
                                 true
                             } else expand {
-                                scope.launch { sheetState.expand() }
+                                scope.launch { settleQuickly(SheetValue.Expanded) }
                                 true
                             }
                         }
@@ -159,8 +159,8 @@ internal fun TracksideFigmaActivityDetailSurface(
                         Modifier.fillMaxWidth().height(37.dp)
                             .clickable {
                                 scope.launch {
-                                    if (expanded) sheetState.partialExpand()
-                                    else sheetState.expand()
+                                    if (expanded) settleQuickly(SheetValue.PartiallyExpanded)
+                                    else settleQuickly(SheetValue.Expanded)
                                 }
                             }.testTag("activity-sheet-handle")
                             .semantics {
@@ -239,6 +239,5 @@ internal fun TracksideFigmaActivityDetailSurface(
                 online = online
             )
         }
-        } // Fast motion is scoped to Activity Detail only.
     }
 }
