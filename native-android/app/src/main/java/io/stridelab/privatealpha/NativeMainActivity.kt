@@ -228,8 +228,19 @@ private fun NavHostController.openActivity(id: String) {
             }
         }
     }
+    val contextForActivityMetrics = LocalContext.current
     val groupedActivities = remember(state.activities) {
-        ActivityDisplayConsolidation.groups(ActiveActivitySources.filter(state.activities))
+        val started = SystemClock.elapsedRealtime()
+        val groups = ActivityDisplayConsolidation.groups(
+            ActiveActivitySources.filter(state.activities)
+        )
+        if ((contextForActivityMetrics.applicationInfo.flags and
+                ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            Log.d("StrideLabStartup",
+                "activity_display_groups_ms=${SystemClock.elapsedRealtime() - started} " +
+                    "count=${state.activities.size}")
+        }
+        groups
     }
     val visibleActivities = remember(groupedActivities) { groupedActivities.map { it.primary } }
     // A genuinely floating dock must not participate in Scaffold's bottomBar:
