@@ -1251,6 +1251,29 @@ private fun TracksideActivitySourceChart(
         )
     }
     val (low, high, sampleAverage) = stats
+    val displayScale = remember(validSamples, title) {
+        ActivityChartDisplayScale.from(title, validSamples.map { it.second })
+            ?: ActivityChartDisplayScale(low, high, low, high)
+    }
+    val displayLow = displayScale.displayLow
+    val displayHigh = displayScale.displayHigh
+    val displaySegments = remember(segments, displayScale, title) {
+        buildList {
+            segments.forEach { section ->
+                var current = mutableListOf<ActivitySample>()
+                fun flush() {
+                    if (current.isNotEmpty()) add(current.toList())
+                    current = mutableListOf()
+                }
+                section.forEach { sample ->
+                    val value = metric(sample)
+                    if (value == null || displayScale.isOutside(value)) flush()
+                    else current.add(sample)
+                }
+                flush()
+            }
+        }
+    }
     val chartInsight = remember(validSamples, title) {
         ActivityDetailSectionAnalysis.chart(title, validSamples)
     }
@@ -1258,6 +1281,11 @@ private fun TracksideActivitySourceChart(
     val lastTime = samples.last().seconds
     if (lastTime <= firstTime) return
     val renderedPoints = remember(segments) { segments.flatten() }
+    val displayedOutliers = remember(renderedPoints, displayScale, title) {
+        renderedPoints.filter { sample ->
+            metric(sample)?.let(displayScale::isOutside) == true
+        }
+    }
     val selectedPoint = remember(selectedSeconds, renderedPoints, title) {
         selectedSeconds?.let { at ->
             renderedPoints.minByOrNull { abs(it.seconds - at) }
@@ -1306,6 +1334,18 @@ private fun TracksideActivitySourceChart(
             color = activityMuted, fontSize = 10.sp, maxLines = 2,
             modifier = Modifier.testTag("activity-chart-summary-" + title.lowercase().replace(" ", "-"))
         )
+        if (displayScale.trimmed) {
+            Spacer(Modifier.height(3.dp))
+            Text(
+                "Scale focuses on typical recorded values; extreme points remain inspectable.",
+                color = activityMuted.copy(alpha = .82f),
+                fontSize = 9.sp, lineHeight = 12.sp,
+                modifier = Modifier.testTag(
+                    "activity-chart-trim-note-" +
+                        title.lowercase(Locale.ROOT).replace(" ", "-")
+                )
+            )
+        }
         if (selectedSeconds != null) {
             Spacer(Modifier.height(4.dp))
             Text(
@@ -1322,9 +1362,9 @@ private fun TracksideActivitySourceChart(
                     .testTag("activity-chart-y-axis-" + title.lowercase(Locale.ROOT).replace(" ", "-")),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                val top = if (pace) low else high
-                val bottom = if (pace) high else low
-                listOf(top, (low + high) / 2.0, bottom).forEach { value ->
+                val top = if (pace) displayLow else displayHigh
+                val bottom = if (pace) displayHigh else displayLow
+                listOf(top, (displayLow + displayHigh) / 2.0, bottom).forEach { value ->
                     Text(
                         axisText(value), color = activityMuted, fontSize = 10.sp,
                         maxLines = 1, textAlign = TextAlign.End,
@@ -1358,11 +1398,12 @@ private fun TracksideActivitySourceChart(
                         ". Drag to inspect values."
                 }
         ) {
-            val span = (high - low).coerceAtLeast(1.0)
+            val span = (displayHigh - displayLow).coerceAtLeast(1.0)
             val timeSpan = lastTime - firstTime
             fun position(sample: ActivitySample, value: Double): Offset {
                 val x = ((sample.seconds - firstTime) / timeSpan * size.width).toFloat()
-                val norm = ((value - low) / span).toFloat().coerceIn(0f, 1f)
+                val displayed = value.coerceIn(displayLow, displayHigh)
+                val norm = ((displayed - displayLow) / span).toFloat().coerceIn(0f, 1f)
                 val y = if (pace) norm * (size.height - 8f) + 4f
                     else (1f - norm) * (size.height - 8f) + 4f
                 return Offset(x, y)
@@ -1372,10 +1413,12 @@ private fun TracksideActivitySourceChart(
                 drawLine(activityMuted.copy(alpha = .18f),
                     Offset(0f, y), Offset(size.width, y), 1f)
             }
+            val displayAverage = sampleAverage.coerceIn(displayLow, displayHigh)
             val avgY = if(pace) {
-                ((sampleAverage-low) / span).toFloat() * (size.height-8f) + 4f
+                ((displayAverage - displayLow) / span).toFloat() * (size.height-8f) + 4f
             } else {
-                (1f - ((sampleAverage-low) / span).toFloat()) * (size.height-8f) + 4f
+                (1f - ((displayAverage - displayLow) / span).toFloat()) *
+                    (size.height-8f) + 4f
             }
             drawLine(
                 activityLime.copy(alpha = .75f),
@@ -1385,7 +1428,7 @@ private fun TracksideActivitySourceChart(
                     floatArrayOf(6.dp.toPx(), 5.dp.toPx())
                 )
             )
-            segments.forEach { section ->
+            displaySegments.forEach { section ->
                 section.zipWithNext().forEach { (a,b) ->
                     val av=metric(a)
                     val bv=metric(b)
@@ -1393,6 +1436,16 @@ private fun TracksideActivitySourceChart(
                         drawLine(lineColor,position(a,av),position(b,bv),
                             strokeWidth=2.dp.toPx(),cap=StrokeCap.Round)
                     }
+                }
+            }
+            displayedOutliers.forEach { sample ->
+                val value = metric(sample)
+                if (value != null) {
+                    drawCircle(
+                        lineColor.copy(alpha = .36f),
+                        2.2.dp.toPx(),
+                        position(sample, value)
+                    )
                 }
             }
             if(selectedPoint != null && selectedValue != null) {
