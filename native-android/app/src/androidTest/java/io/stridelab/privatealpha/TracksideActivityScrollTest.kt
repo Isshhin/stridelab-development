@@ -41,6 +41,8 @@ class TracksideActivityScrollTest {
             activities = listOf(activity)
         )
         val tab = mutableIntStateOf(0)
+        AthleteHeartRatePreferences(compose.activity)
+            .setMaximumHr(state.account, 197)
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
@@ -125,6 +127,8 @@ class TracksideActivityScrollTest {
             .performScrollToNode(hasTestTag("activity-insights"))
         compose.onNodeWithTag("activity-insights-headline").assertExists()
         compose.onNodeWithTag("activity-insights-summary").assertExists()
+        compose.onNodeWithTag("activity-insights-descriptor").assertExists()
+        compose.onNodeWithText("Steady pacing", substring = true).assertExists()
         compose.onNodeWithText("Overall Analysis").assertExists()
         compose.onNodeWithTag("activity-insights-detail-0").assertDoesNotExist()
         compose.onNodeWithTag("activity-continuous-scroll")
@@ -147,6 +151,8 @@ class TracksideActivityScrollTest {
             .performScrollToNode(hasTestTag("activity-splits-insights"))
         compose.onNodeWithTag("activity-splits-insights").assertExists()
         compose.onNodeWithText("Splits Analysis").assertExists()
+        compose.onNodeWithContentDescription("fastest split", substring = true).assertExists()
+        compose.onNodeWithContentDescription("slowest split", substring = true).assertExists()
         compose.onNodeWithTag("activity-tab-charts").performClick()
         compose.waitUntil(timeoutMillis = 5000) {
             compose.onAllNodesWithTag("activity-section-charts")
@@ -154,13 +160,13 @@ class TracksideActivityScrollTest {
         }
         compose.onNodeWithTag("activity-tab-charts").assertIsSelected()
         compose.onNodeWithTag("activity-continuous-scroll").assertExists()
-        // Heart-rate zones require a user-supplied max HR; the highest
-        // heart rate measured during the workout is not used as a default.
+        // HR zones use the athlete-level value saved in App preferences.
         compose.onNodeWithTag("activity-continuous-scroll")
             .performScrollToNode(hasTestTag("activity-chart-heart-rate-zones"))
         compose.onNodeWithTag("activity-chart-heart-rate-zones").assertExists()
-        compose.onNodeWithTag("activity-chart-insights-heart-rate-zones").assertDoesNotExist()
-        compose.onNodeWithTag("activity-hr-zone-max-input").performTextInput("197")
+        compose.onNodeWithTag("activity-hr-zone-max-input").assertDoesNotExist()
+        compose.onNodeWithTag("activity-hr-zone-saved-max").assertExists()
+        compose.onNodeWithText("197 bpm max").assertExists()
         compose.onNodeWithTag("activity-hr-zone-1").assertExists()
         compose.onNodeWithTag("activity-hr-zone-5").assertExists()
         compose.onNodeWithTag("activity-chart-insights-heart-rate-zones").assertExists()
