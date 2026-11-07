@@ -95,7 +95,7 @@ class TracksideActivityScrollTest {
                 handleBounds.top > rootBounds.height * 0.58f
             )
         }
-        compose.onNodeWithTag("activity-sticky-pill").assertDoesNotExist()
+        compose.onNodeWithTag("activity-sticky-pill").assertExists().assertIsNotDisplayed()
         compose.onNodeWithTag("activity-sheet-handle").performClick()
         compose.waitUntil(timeoutMillis = 5000) {
             compose.onAllNodesWithTag("activity-sticky-pill").fetchSemanticsNodes().isNotEmpty()
@@ -115,6 +115,12 @@ class TracksideActivityScrollTest {
         // original scrolling details sheet.
         compose.onNodeWithTag("activity-continuous-scroll")
             .performScrollToNode(hasTestTag("activity-insights"))
+        compose.onNodeWithTag("activity-continuous-scroll")
+            .performScrollToNode(hasTestTag("activity-summary-redesign"))
+        compose.onNodeWithTag("activity-summary-redesign").assertExists()
+        compose.onNodeWithTag("activity-summary-source").assertExists()
+        compose.onNodeWithText("Summary").assertExists()
+        compose.onNodeWithText("Key stats from your run at Santa Mesa.").assertExists()
         compose.onNodeWithTag("activity-insights-headline").assertExists()
         compose.onNodeWithTag("activity-insights-summary").assertExists()
         compose.onNodeWithText("Overall Analysis").assertExists()
@@ -196,9 +202,8 @@ class TracksideActivityScrollTest {
         )
         compose.onNodeWithTag("activity-map-hero").assertExists()
         compose.onNodeWithTag("activity-expanded-back").performClick()
-        compose.waitUntil(timeoutMillis = 5000) {
-            compose.onAllNodesWithTag("activity-sticky-pill").fetchSemanticsNodes().isEmpty()
-        }
+        compose.waitForIdle()
+        compose.onNodeWithTag("activity-sticky-pill").assertExists().assertIsNotDisplayed()
         compose.onNodeWithTag("activity-parity-overview").assertExists()
     }
 
@@ -257,7 +262,7 @@ class TracksideActivityScrollTest {
             mapOnlyRoot.bottom - sheetLip.bottom < 2.dp
         )
         compose.onNodeWithTag("activity-map-attribution").assertDoesNotExist()
-        compose.onNodeWithTag("activity-sticky-pill").assertDoesNotExist()
+        compose.onNodeWithTag("activity-sticky-pill").assertExists().assertIsNotDisplayed()
 
         // Touching the small bottom grip restores the approved summary.
         compose.onNodeWithTag("activity-map-only-handle").performClick()
@@ -276,14 +281,12 @@ class TracksideActivityScrollTest {
         }
         compose.onNodeWithTag("activity-tab-overview").assertIsSelected()
         compose.onNodeWithTag("activity-expanded-back").performClick()
-        compose.waitUntil(timeoutMillis = 5000) {
-            compose.onAllNodesWithTag("activity-sticky-pill")
-                .fetchSemanticsNodes().isEmpty()
-        }
+        compose.waitForIdle()
+        compose.onNodeWithTag("activity-sticky-pill").assertExists().assertIsNotDisplayed()
         compose.onNodeWithTag("activity-parity-overview").assertIsDisplayed()
     }
 
-    @Test fun compactLinkRunDoesNotShowLegacyExplainerWhenNoPlanExists() {
+    @Test fun linkRunIsHiddenWithoutRunningPlanAndShownForMixedPlanWithRun() {
         val activity = ActivityRecord(
             "synthetic-link-activity", "Recorded Run", "run", "manual",
             Instant.parse("2026-11-06T10:38:00Z"), 5000.0, 1800.0,
@@ -299,10 +302,40 @@ class TracksideActivityScrollTest {
                 }
             }
         }
+        compose.onNodeWithTag("activity-link-run-action").assertDoesNotExist()
+
+        val mixedPlan = PlanSnapshot(
+            id = "synthetic-mixed-plan",
+            owner = "synthetic-owner",
+            engineVersion = ENGINE1_VERSION,
+            policyId = ENGINE1_POLICY,
+            createdAt = Instant.EPOCH,
+            request = PlanRequest(),
+            sessions = listOf(
+                PlannedSession(
+                    "run-1", java.time.LocalDate.now(), "run",
+                    "Easy run", 40, 5.0, "easy"
+                ),
+                PlannedSession(
+                    "str-1", java.time.LocalDate.now(), "str",
+                    "Strength", 40, null, "strength"
+                )
+            ),
+            explanations = emptyList(),
+            status = "approved"
+        )
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    ActivityPlanLink(
+                        TrainingState(initializing = false, plans = listOf(mixedPlan)),
+                        activity, PlanActions()
+                    )
+                }
+            }
+        }
         compose.onNodeWithTag("activity-link-run-action").assertExists()
         compose.onNodeWithText("Link run").assertExists()
-        compose.onNodeWithText("PLANNED & RECORDED").assertDoesNotExist()
-        compose.onNodeWithText("Link to planned run").assertDoesNotExist()
     }
 
     @Test fun activityMapUsesPublishedDarkVectorStyle() {
@@ -370,7 +403,7 @@ class TracksideActivityScrollTest {
                 }
             }
         }
-        compose.onNodeWithTag("activity-sticky-pill").assertDoesNotExist()
+        compose.onNodeWithTag("activity-sticky-pill").assertExists().assertIsNotDisplayed()
         compose.onNodeWithTag("activity-sheet-handle").performClick()
         compose.waitUntil(timeoutMillis = 5000) {
             compose.onAllNodesWithTag("activity-sticky-pill").fetchSemanticsNodes().isNotEmpty()
