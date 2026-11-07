@@ -625,7 +625,7 @@ private fun TracksideActivityOverviewBody(
             Spacer(Modifier.height(8.dp))
             OutlinedButton(
                 onClick = { onLoadGarminGps?.invoke() },
-                enabled = online && !state.busy && !state.needsSignIn && onLoadGarminGps != null,
+                enabled = online && !state.busy && onLoadGarminGps != null,
                 modifier = Modifier.fillMaxWidth().testTag("garmin-load-gps")
             ) {
                 Text(when {
