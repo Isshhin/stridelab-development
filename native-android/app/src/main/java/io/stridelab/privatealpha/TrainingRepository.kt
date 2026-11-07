@@ -566,6 +566,9 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                             if (runCatching { JSONObject(summary.payload).optString("source") }
                                     .getOrNull() != "garmin") continue
                         }
+                        // Large FIT streams stay local; they must not block
+                        // backup of other activities or be falsely marked uploaded.
+                        if (!GarminCloudBackupGateway.fitsUpload(payload)) continue
                         if (garminSyncPreferences.needsCloudUpload(account, kind, id, payload))
                             candidates.add(Triple(kind, id, payload))
                     }
