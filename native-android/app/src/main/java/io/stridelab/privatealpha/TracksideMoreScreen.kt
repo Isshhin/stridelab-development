@@ -66,7 +66,7 @@ internal fun TracksideMoreScreen(
     onAbout: () -> Unit,
     onSignOut: () -> Unit
 ) {
-    val signedIn = state.account != null
+    val signedIn = state.cloudAccount != null && !state.needsSignIn
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(moreBlack)
             .testTag("screen").semantics { paneTitle = "More" },
@@ -114,7 +114,7 @@ internal fun TracksideMoreScreen(
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text("Your StrideLab", color = moreWhite, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                         Text(
-                            if (signedIn) "Signed in" else "Not signed in",
+                            if (signedIn) "Cloud backup connected" else "Local training · no sign-in needed",
                             color = moreMuted, fontSize = 12.sp
                         )
                     }
@@ -124,7 +124,7 @@ internal fun TracksideMoreScreen(
                             color = moreLime, modifier = Modifier.testTag("more-sign-in")
                         ) {
                             Text(
-                                "Sign in", color = moreBlack, fontWeight = FontWeight.SemiBold,
+                                "Cloud sign in", color = moreBlack, fontWeight = FontWeight.SemiBold,
                                 fontSize = 12.sp,
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp)
                             )
@@ -146,7 +146,7 @@ internal fun TracksideMoreScreen(
             MoreGroup {
                 MoreActionRow(
                     "Garmin Connect", MoreSymbol.Watch, "garmin",
-                    onClick = if (signedIn) onGarmin else onSignIn
+                    onClick = onGarmin
                 )
             }
         }
@@ -166,7 +166,7 @@ internal fun TracksideMoreScreen(
                     TextButton(
                         onClick = onSignOut, modifier = Modifier.testTag("more-sign-out"),
                         colors = ButtonDefaults.textButtonColors(contentColor = moreMuted)
-                    ) { Text("Sign out on this device", fontSize = 13.sp) }
+                    ) { Text("Disconnect cloud account", fontSize = 13.sp) }
                 }
             }
         }
@@ -224,10 +224,14 @@ internal fun TracksideMoreDetailScreen(
             MorePage.Garmin -> item(key = "detail-garmin") {
                 val account = state.account
                 if (account == null) {
-                    MoreGroup { MoreActionRow("Sign in to connect Garmin", MoreSymbol.Person, "connect-sign-in", onSignIn) }
+                    MoreGroup { MoreActionRow("Create local profile", MoreSymbol.Person, "connect-sign-in", onBack) }
                 } else {
                     // Preserve existing secure credential, sync and disconnect behaviour.
-                    GarminSettingsCard(account, syncGarmin)
+                    GarminSettingsCard(
+                        account, syncGarmin,
+                        cloudSignedIn = state.cloudAccount != null && !state.needsSignIn,
+                        onCloudSignIn = onSignIn
+                    )
                 }
             }
             MorePage.Data -> {
