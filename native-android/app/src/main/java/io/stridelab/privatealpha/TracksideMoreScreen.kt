@@ -305,7 +305,7 @@ private fun AthleteHeartRatePreferenceCard(account: String?) {
             OutlinedTextField(
                 value = text,
                 onValueChange = { value ->
-                    if (value.length <= 3 && value.all(Char::isDigit)) text = value
+                    if (value.length <= 3 && value.all { it.isDigit() }) text = value
                 },
                 modifier = Modifier.fillMaxWidth().testTag("athlete-max-hr-input"),
                 label = { Text("Maximum heart rate") },
