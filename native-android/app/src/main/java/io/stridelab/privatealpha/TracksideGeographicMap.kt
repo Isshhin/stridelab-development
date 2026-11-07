@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -29,6 +30,7 @@ import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
+import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.BackgroundLayer
 import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.LineLayer
@@ -205,7 +207,7 @@ internal fun TracksideGeographicMap(
 ) {
     var styleReady by remember(route,online) { mutableStateOf(false) }
     Box(modifier.background(Color(0xFF25354C)).testTag("activity-geographic-map")) {
-        if(online && route.pointCount>=2) {
+        if(online && route.pointCount > 0) {
             MapLibreRouteView(route,Modifier.fillMaxSize()) { styleReady=true }
         }
         if(!online || !styleReady) {
@@ -237,6 +239,8 @@ private fun MapLibreRouteView(
             .apply { onCreate(null) }
     }
     val geoJson=remember(route) { route.toGeoJson() }
+    val isolatedJson=remember(route) { route.isolatedGeoJson() }
+    val gapJson=remember(route) { route.gapsGeoJson() }
 
     DisposableEffect(mapView,lifecycleOwner) {
         val observer=LifecycleEventObserver { _,event ->
@@ -264,7 +268,7 @@ private fun MapLibreRouteView(
         factory={mapView},
         modifier=modifier.testTag("activity-maplibre-view")
     )
-    LaunchedEffect(mapView,geoJson) {
+    LaunchedEffect(mapView,geoJson,isolatedJson,gapJson) {
         mapView.getMapAsync { map ->
             map.uiSettings.setTiltGesturesEnabled(false)
             map.uiSettings.setRotateGesturesEnabled(false)
@@ -275,6 +279,18 @@ private fun MapLibreRouteView(
                 // before presenting the real GPS line and fitting the camera.
                 TracksideReadableMapPalette.apply(style)
                 style.addSource(GeoJsonSource("stride-actual-gps",geoJson))
+                if(route.gaps.isNotEmpty()) {
+                    // Dashed = unknown tracking interval, not measured motion.
+                    style.addSource(GeoJsonSource("stride-gps-gaps",gapJson))
+                    style.addLayer(
+                        LineLayer("stride-gps-gap-indicator","stride-gps-gaps").withProperties(
+                            PropertyFactory.lineColor(AndroidColor.rgb(165,180,174)),
+                            PropertyFactory.lineWidth(1.5f),
+                            PropertyFactory.lineOpacity(0.65f),
+                            PropertyFactory.lineDasharray(arrayOf(2f,3f))
+                        )
+                    )
+                }
                 style.addLayer(
                     LineLayer("stride-gps-line","stride-actual-gps").withProperties(
                         PropertyFactory.lineColor(AndroidColor.rgb(216,251,112)),
@@ -282,6 +298,18 @@ private fun MapLibreRouteView(
                         PropertyFactory.lineOpacity(0.95f)
                     )
                 )
+                if(route.isolatedPoints.isNotEmpty()) {
+                    // Single saved fixes remain visible as isolated points.
+                    style.addSource(GeoJsonSource("stride-gps-isolated",isolatedJson))
+                    style.addLayer(
+                        CircleLayer("stride-gps-isolated-fixes","stride-gps-isolated").withProperties(
+                            PropertyFactory.circleColor(AndroidColor.rgb(216,251,112)),
+                            PropertyFactory.circleRadius(4f),
+                            PropertyFactory.circleStrokeColor(AndroidColor.rgb(25,47,39)),
+                            PropertyFactory.circleStrokeWidth(1.5f)
+                        )
+                    )
+                }
                 val gps=route.cameraPoints()
                 if(gps.isNotEmpty()) {
                     fun fitCamera() {
@@ -323,7 +351,7 @@ private fun MapLibreRouteView(
 @Composable
 private fun RecordedGpsFallback(route:RecordedGpsRoute,modifier:Modifier=Modifier) {
     val points=route.allPoints
-    if(points.size<2)return
+    if(points.isEmpty())return
     val projection=cos(Math.toRadians(points.map{it.latitude}.average()))
         .coerceAtLeast(0.01)
     val minX=points.minOf { it.longitude*projection }
@@ -339,10 +367,17 @@ private fun RecordedGpsFallback(route:RecordedGpsRoute,modifier:Modifier=Modifie
             ((size.width-spanX*scale)/2+(p.longitude*projection-minX)*scale).toFloat(),
             ((size.height-spanY*scale)/2+(maxY-p.latitude)*scale).toFloat()
         )
+        route.gaps.forEach { (a,b) ->
+            drawLine(Color(0xFFA5B4AE).copy(alpha = .7f), position(a), position(b),
+                1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f,7f)))
+        }
         route.segments.forEach { segment ->
             segment.zipWithNext().forEach { (a,b) ->
                 drawLine(Color(0xFFD8FB70),position(a),position(b),3.dp.toPx())
             }
+        }
+        route.isolatedPoints.forEach { point ->
+            drawCircle(Color(0xFFD8FB70),radius=4.dp.toPx(),center=position(point))
         }
     }
 }
