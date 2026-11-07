@@ -1,4 +1,4 @@
-"""Independent review-only schedules; one known publication failure remains."""
+"""Historical publication-review schedules retained as synthetic regressions."""
 import sys
 import threading
 import unittest

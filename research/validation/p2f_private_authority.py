@@ -187,6 +187,7 @@ class AuditLog:
 
 class Ledger:
     def __init__(self, anchor, issuer, *, coordinator=None):
+        need(type(anchor) is Anchor and type(issuer) is Issuer, 'unsupported synthetic authority')
         self._coordinator = coordinator or anchor.coordinator
         need(anchor.coordinator is self.coordinator and issuer.coordinator in (None, self.coordinator), 'mixed coordinator')
         issuer._coordinator = self.coordinator
@@ -216,7 +217,7 @@ class Ledger:
 
     def set_anchor(self, anchor):
         def perform():
-            need(anchor is None or anchor.coordinator is self.coordinator, 'mixed coordinator')
+            need(anchor is None or (type(anchor) is Anchor and anchor.coordinator is self.coordinator), 'mixed coordinator')
             self._anchor = anchor
         self.coordinator.mutate(perform)
 
@@ -234,7 +235,7 @@ class Ledger:
 
     def set_issuer(self, issuer):
         def perform():
-            need(issuer.coordinator is self.coordinator, 'mixed coordinator')
+            need(type(issuer) is Issuer and issuer.coordinator is self.coordinator, 'mixed coordinator')
             self._issuer = issuer
         self.coordinator.mutate(perform)
 

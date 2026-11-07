@@ -14,7 +14,7 @@ class FakeKey:
         self._owner = None
 
     @property
-    def output(self): return list(self._output)
+    def output(self): return deepcopy(self._output)
 
     @property
     def events(self): return list(self._events)
@@ -29,7 +29,7 @@ class FakeKey:
             self._fault = value
         self._coordinator.mutate(perform)
 
-    def step(self, name):
+    def _step(self, name):
         list.append(self._events, name)
         need(self.fault != name, name + ' failure')
 
@@ -78,7 +78,7 @@ class Broker:
         need(type(ledger) is Ledger and type(inventory) is Inventory, 'unsupported synthetic state')
         self._ledger, self._inventory, self._key = ledger, inventory, key
         self._closed = True
-        self.busy = False
+        self._busy = False
         self._withdrawal = False
         self._enrolled = False
         self._escaped = []
@@ -115,10 +115,13 @@ class Broker:
     def key(self): return self._key
 
     @property
-    def escaped(self): return list(self._escaped)
+    def escaped(self): return deepcopy(self._escaped)
 
     @property
     def closed(self): return self._closed
+
+    @property
+    def busy(self): return self._busy
 
     @property
     def withdrawal(self): return self._withdrawal
@@ -187,11 +190,12 @@ class Broker:
         if not self._gate.acquire(blocking=False):
             if self._read_owner == threading.get_ident(): self._change('_violation', True)
             raise Denied('contention')
-        self._read_owner = threading.get_ident()
-        self.busy = True
-        self._change('_violation', False)
-        start_output = len(self.key.output)
+        start_output = None
         try:
+            self._read_owner = threading.get_ident()
+            self._busy = True
+            self._change('_violation', False)
+            start_output = len(self.key.output)
             with self._state:
                 token = self.coordinator.epoch
                 head = deepcopy(self.current(scope))
@@ -208,7 +212,7 @@ class Broker:
                     self.inventory.verify(head['generation'], scope, obj, version)
                     need(self.data_versions.get(obj) == version, 'inventory restored object mismatch')
                     need(self.coordinator.epoch == token, 'state epoch changed')
-                    FakeKey.step(self._key, phase)
+                    FakeKey._step(self._key, phase)
                     if phase == 'audit':
                         AuditLog.append(self._audit, {'kind': 'read_allowed', 'generation': head['generation']})
                         need(self.coordinator.epoch == token + 1, 'state epoch changed')
@@ -217,6 +221,7 @@ class Broker:
                 need(not self._violation, 'reentrant mutation')
                 need(not self.withdrawal, 'withdrawal pending')
             for chunk in chunks:
+                candidate = owned(chunk)
                 with self._state:
                     need(not self.withdrawal, 'withdrawal pending')
                     need(not self._violation, 'reentrant mutation')
@@ -229,14 +234,14 @@ class Broker:
                     state, sink = self._coordinator, self._key._output
                     need(type(sink) is list, 'unsupported synthetic output')
                     need(state._epoch == token, 'state epoch changed')
-                    list.append(sink, chunk)
+                    list.append(sink, candidate)
                 if hook: hook('published_chunk')
                 need(not self._violation, 'reentrant mutation')
                 need(not self.withdrawal, 'withdrawal pending')
             return 'published'
         except BaseException as error:
             with self._state:
-                escaped = self.key.output[start_output:]
+                escaped = self.key.output[start_output:] if start_output is not None else []
                 if escaped:
                     self._record_escaped(start_output)
                     self.audit.append({'kind': 'partial_exposure', 'count': len(escaped)})
@@ -244,7 +249,7 @@ class Broker:
                     self.audit.append({'kind': 'denied', 'reason': str(error)})
             raise
         finally:
-            self.busy = False
+            self._busy = False
             self._read_owner = None
             self._gate.release()
 
@@ -294,7 +299,7 @@ class Broker:
             self.current(scope)
         need(intent in ('revoke','delete'), 'intent denied')
         self.ledger.anchor.verify(expected)
-        self.busy = True
+        self._busy = True
         try:
             if fault == 'before_intent': raise Denied('crash before intent')
             self.ledger.set_intent((scope, expected, intent, operation))
@@ -319,7 +324,7 @@ class Broker:
             self._change('_closed', True)
             raise
         finally:
-            self.busy = False
+            self._busy = False
 
     def checkpoint(self):
         if not self._gate.acquire(blocking=False):

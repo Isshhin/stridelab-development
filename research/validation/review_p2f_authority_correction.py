@@ -1,4 +1,4 @@
-"""Review-only controlled schedules; one known violation remains."""
+"""Historical correction-review schedules retained as synthetic regressions."""
 import unittest, threading
 from unittest.mock import patch
 import test_p2f_private_authority as fixtures

@@ -1,4 +1,4 @@
-"""Review-only schedules: known fail-closed withdrawal cases are expected to fail."""
+"""Historical withdrawal-review schedules retained as synthetic regressions."""
 import sys
 import threading
 import unittest

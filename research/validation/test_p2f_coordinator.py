@@ -71,6 +71,18 @@ class CoordinatorTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'mixed coordinator'):
             Ledger(Anchor('a', coordinator=one), Issuer(coordinator=two))
 
+    def test_custom_authority_facades_cannot_bypass_ownership(self):
+        state = StateCoordinator()
+        class CustomAnchor(Anchor): pass
+        class CustomIssuer(Issuer): pass
+        anchor, issuer = Anchor('a', coordinator=state), Issuer(coordinator=state)
+        ledger = Ledger(anchor, issuer)
+        with self.assertRaises(ValueError): ledger.set_anchor(CustomAnchor('a', coordinator=state))
+        with self.assertRaises(ValueError): ledger.set_issuer(CustomIssuer(coordinator=state))
+        with self.assertRaises(ValueError): Ledger(CustomAnchor('a', coordinator=state), issuer)
+        self.assertIs(anchor, ledger.anchor)
+        self.assertIs(issuer, ledger.issuer)
+
     def test_failure_and_noop_attempts_invalidate(self):
         state = StateCoordinator()
         issuer = Issuer(coordinator=state)

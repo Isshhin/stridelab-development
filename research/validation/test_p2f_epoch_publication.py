@@ -2,6 +2,7 @@
 import sys
 import threading
 import unittest
+from unittest.mock import patch
 from p2f_private_authority import Anchor, Denied, Inventory, Issuer, Ledger, StateCoordinator
 from p2f_private_custody import Broker, FakeKey
 import test_p2f_private_authority as fixtures
@@ -108,6 +109,22 @@ class EpochPublicationTests(unittest.TestCase):
         self.assertEqual(['published'], self.x.key.output)
         with self.assertRaises(AttributeError): self.x.broker.key = object()
 
+    def test_fake_key_effect_is_not_a_public_mutation_path(self):
+        with self.assertRaises(AttributeError): self.x.key.step('release')
+        self.assertEqual([], self.x.key.events)
+
+    def test_nested_output_and_exposure_do_not_leak_mutable_aliases(self):
+        payload = {'parts': ['original']}
+        self.x.read(chunks=(payload,))
+        payload['parts'].append('input mutation')
+        output = self.x.key.output
+        output[0]['parts'].append('output mutation')
+        self.x.broker.receive_withdrawal(self.x.scope)
+        escaped = self.x.broker.escaped
+        escaped[0]['parts'].append('exposure mutation')
+        self.assertEqual([{'parts': ['original']}], self.x.key.output)
+        self.assertEqual([{'parts': ['original']}], self.x.broker.escaped)
+
     def test_key_fault_is_coordinated(self):
         before = self.x.broker.coordinator.epoch
         self.x.key.set_fault('release')
@@ -119,6 +136,25 @@ class EpochPublicationTests(unittest.TestCase):
         for name in ('closed', 'withdrawal', 'enrolled', 'scope', 'anchor_identity', 'restored_head'):
             with self.subTest(name=name), self.assertRaises(AttributeError):
                 setattr(self.x.broker, name, None)
+
+    def test_busy_flag_cannot_bypass_nested_transition_invalidation(self):
+        x = self.x
+        def hook(phase):
+            if phase == 'decrypt':
+                with self.assertRaises(AttributeError): x.broker.busy = False
+                try: x.broker.transition(x.scope, 0, 'revoke', 'nested')
+                except Denied: pass
+        with self.assertRaises(Denied): x.read(hook=hook)
+        self.assertEqual([], x.key.output)
+
+    def test_interrupt_during_read_initialization_releases_gate_and_owner(self):
+        x = self.x
+        with patch.object(x.broker.coordinator, 'mutate', side_effect=KeyboardInterrupt):
+            with self.assertRaises(KeyboardInterrupt): x.read()
+        self.assertFalse(x.broker.busy)
+        self.assertIsNone(x.broker._read_owner)
+        self.assertFalse(x.broker._gate.locked())
+        self.assertEqual('published', x.read())
 
     def test_current_rejects_mutation_during_scope_comparison(self):
         x, invoked = self.x, []

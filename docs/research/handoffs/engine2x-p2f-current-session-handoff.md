@@ -1,5 +1,9 @@
 # Engine 2.x P2-F current session handoff
 
+## Coordinated state Batch 3 audit — 2026-11-07
+
+`COORDINATED_STATE_BATCH3_CORRECTED_CANDIDATE`: the local audit found five material correctness gaps, now locally corrected with regressions. All 34 review schedules and the documented Python 3.12 suites passed; see the [Batch 3 audit](../phase2/p2-f-coordinated-state-batch3-2026-11-07.md). Batch 3 remains pending independent acceptance. Next: refresh hosted Graphify for this candidate and obtain independent Work review. Private-pilot, Gate 2 and P2-B statuses remain blocked.
+
 ## Coordinated state Batch 2 — 2026-11-07
 
 `COORDINATED_STATE_BATCH2_PUBLICATION_COMPLETE` at implementation `1d1fc967d8e40bf20beba2493f632493b50c9c49`, starting from `c0cd31d022fd044de6b5d36cd0627b1396ce6d0f`. The [Batch 2 record](../phase2/p2-f-coordinated-state-batch2-2026-11-07.md) details admission ownership, epoch/audit accounting, the final check-to-append interval and synthetic limits. State-ordering review 3/3 and prior review schedules 31/31 pass; coordinator 15, authority 81, publication 23, durable 54 and P2 267 pass. Full research: 431 run, 430 passed and one Windows symlink skip. Final pushed head is the documentation commit containing this entry; exact-head CI was unavailable at documentation time. Next: separately perform Batch 3 review-fixture migration/cleanup and independent re-review. No authority/custody pass or private-pilot readiness is claimed; prior journal durability pass, human/provider admission NO, `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` remain unchanged.

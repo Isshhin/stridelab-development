@@ -1,4 +1,4 @@
-"""Review-only tests; expected to fail until recorded findings are corrected."""
+"""Historical adversarial schedules retained as synthetic regressions."""
 import unittest
 from unittest.mock import patch
 import test_p2f_private_authority as fixtures

@@ -1,4 +1,4 @@
-"""Review-only synthetic state-ordering reproductions; failures identify defects."""
+"""Historical synthetic state-ordering reproductions retained as regressions."""
 import sys
 import unittest
 
@@ -23,10 +23,8 @@ class Review(unittest.TestCase):
                         x.anchor.advance(0)
                 return super().__hash__()
 
-        try:
+        with self.assertRaises(Denied):
             x.broker.read(x.scope, Obj('object'), 1)
-        except Denied:
-            pass
         self.assertEqual(1, x.anchor.generation)
         self.assertEqual([], x.key.output, 'output appended after anchor advanced')
 
@@ -42,10 +40,8 @@ class Review(unittest.TestCase):
                         x.inventory.set_object('object', (x.scope, 0, 'active'))
                 return super().__hash__()
 
-        try:
+        with self.assertRaises(Denied):
             x.broker.read(x.scope, Obj('object'), 1)
-        except Denied:
-            pass
         self.assertEqual(0, x.inventory.objects['object'][1])
         self.assertEqual([], x.key.output, 'output appended after inventory changed')
 
