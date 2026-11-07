@@ -6,6 +6,8 @@
 
 # StrideLab Engine 2.x current coordinating handoff
 
+> **2026-11-07 v7 correction — current:** v7 additive records freeze the authority-validation separation, candidate locks, state/epoch rules, one-shot output model and a source-only preflight packet. The canonical vector set is incomplete (policy-bridge/withdrawal vectors still required) and the preflight binary identity is blocked because no authorized non-target build environment was established. Overall status: `P2F_CUSTODY_AUTHORITY_V7_CORRECTIONS_INCOMPLETE`. No preflight execution, target access, TPM/TBS, keys, private data, implementation, Gate 2 PASS or P2-B activation. Starting head `f87395120afb383fec503716a5b13896feb4181f`; PR #34 remains open, draft and unmerged. Next permitted task: complete the missing vectors and independently review v7; do not execute the collector.
+
 ## Custody/authority correction protocol v1 — 2026-11-07
 
 The [conditional correction protocol](../phase2/p2-f-custody-authority-correction-protocol-2026-11-07.md) specifies target roles, counter plus write-once commitment witness, inventory/tombstones, fail-closed recovery, key custody and trusted time. It is ready for a **new independent design/security review**, not qualification: TPM slot semantics, sole-writer policy, actual target and time gateway are unverified; unsupported assumptions require redesign. Integrated target qualification has NOT run; private pilot NOT READY, human/provider admission NO, `P2_F_GATE_2_NOT_READY`, `P2_B_PROTOCOL_READY_DATA_NOT_READY`.
