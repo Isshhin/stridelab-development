@@ -468,7 +468,7 @@ private fun TracksideActivityOverviewBody(
         if (activity.source == "garmin" && detailSource.id == activity.id && recorded == null) {
             Spacer(Modifier.height(12.dp))
             Text(
-                "The original Garmin recording has not been cached.",
+                "Garmin recording is not yet cached for offline analysis.",
                 color = activityMuted, fontSize = 11.sp
             )
             Spacer(Modifier.height(8.dp))
@@ -476,7 +476,7 @@ private fun TracksideActivityOverviewBody(
                 onClick = { onLoadGarminGps?.invoke() },
                 enabled = online && !state.busy && !state.needsSignIn && onLoadGarminGps != null,
                 modifier = Modifier.fillMaxWidth().testTag("garmin-load-gps")
-            ) { Text(if (state.busy) "Loading GPS…" else "Load Garmin GPS") }
+            ) { Text(if (state.busy) "Loading recording…" else "Load Garmin recording") }
         } else if (detailSource.source != "garmin" && online && !state.busy && !state.needsSignIn) {
             Spacer(Modifier.height(12.dp))
             OutlinedButton(
