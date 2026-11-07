@@ -70,6 +70,32 @@ class ActivityIntelligenceTest {
         ))
     }
 
+    @Test fun workoutCharacterUsesOnlyRecordedPatterns() {
+        val recorded = ActivityDetail(
+            run.id,
+            samples = (0 until 40).map { i ->
+                ActivitySample(
+                    i, i * 30.0, 390.0,
+                    135.0 + i * .3, null, null, null,
+                    176.0 + (i % 2)
+                )
+            },
+            laps = listOf(
+                ActivityLap(0, 1000.0, 390.0, 390.0, 140.0),
+                ActivityLap(1, 1000.0, 388.0, 388.0, 143.0),
+                ActivityLap(2, 1000.0, 374.0, 374.0, 148.0),
+                ActivityLap(3, 1000.0, 370.0, 370.0, 151.0)
+            ),
+            fetchedAt = 0L
+        )
+        val character = ActivityIntelligence.workoutCharacter(run, recorded)!!
+        assertTrue(character.contains("Steady pacing"))
+        assertTrue(character.contains("Faster finish"))
+        assertTrue(character.contains("Stable cadence"))
+        assertFalse(character.contains("aerobic", ignoreCase = true))
+        assertNull(ActivityIntelligence.workoutCharacter(run.copy(type = "strength"), recorded))
+    }
+
     @Test fun insufficientHistoryAndMissingCadenceDoNotProduceInventedInsights() {
         val recorded=ActivityDetail(run.id,listOf(
             ActivitySample(0,0.0,400.0,null,null,null,null),
