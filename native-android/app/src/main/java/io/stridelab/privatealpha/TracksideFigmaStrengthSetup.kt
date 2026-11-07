@@ -90,7 +90,7 @@ internal fun TracksideFigmaStrengthSetup(
                     modifier=Modifier.weight(1f).heightIn(min=40.dp)
                         .testTag(if(custom)"builder-strength-customize"
                             else "builder-strength-auto"),
-                    color=if(selected)Color(0xFFDBF351) else Color(0xFF242424),
+                    color=if(selected)PlanBuilderPalette.selected else PlanBuilderPalette.surface,
                     shape=RoundedCornerShape(9.dp),
                     border=BorderStroke(1.dp,
                         if(selected)Color(0xFFDBF351) else Color(0xFF383838))
@@ -254,7 +254,7 @@ internal fun TracksideFigmaStrengthSetup(
                         onClick={onSelectedSlot(i)},
                         modifier=Modifier.weight(1f).height(44.dp)
                             .testTag("builder-strength-session-"+i),
-                        color=if(i==selectedSlot)Color(0xFFDBF351) else Color(0xFF303030),
+                        color=if(i==selectedSlot)PlanBuilderPalette.selected else PlanBuilderPalette.surface,
                         shape=RoundedCornerShape(8.dp),
                         border=BorderStroke(1.dp,if(i==selectedSlot)
                             Color(0xFFDBF351) else Color(0xFFDBF351))
@@ -390,7 +390,7 @@ private fun TracksideFigmaStrengthEquipment(
                         onClick={onChoice(id,!active)},
                         modifier=Modifier.weight(1f).height(99.dp)
                             .testTag("builder-strength-equipment-"+id),
-                        color=if(active)Color(0xFFDBF351) else Color(0xFF303030),
+                        color=if(active)PlanBuilderPalette.selected else PlanBuilderPalette.surface,
                         shape=RoundedCornerShape(13.dp),
                         border=BorderStroke(1.dp,if(active)strengthAccent
                             else Color(0xFFDBF351))
