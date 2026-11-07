@@ -29,9 +29,13 @@ import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
+import org.maplibre.android.style.layers.BackgroundLayer
+import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.PropertyFactory
+import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.android.maps.Style
 import kotlin.math.cos
 
 /**
@@ -43,8 +47,82 @@ import kotlin.math.cos
  * https://openfreemap.org/
  */
 internal object TracksideMapTiles {
+    // OpenFreeMap's real vector tile style supplies geographic geometry and
+    // road widths/zoom behavior. We recolor its existing layers locally for
+    // a readable, slate-blue twilight map instead of masking it with a tint.
     const val STYLE_URL = "https://tiles.openfreemap.org/styles/dark"
     const val ATTRIBUTION = "© OpenStreetMap contributors · © OpenMapTiles · OpenFreeMap"
+}
+
+/**
+ * StrideLab twilight map. Inspired by readable athletic navigation maps and
+ * Google Maps' differentiated land/water/road contrast, without copying either.
+ *
+ * Colors are applied ONCE when the hosted style loads. MapLibre retains the
+ * original source filters, zoom-based road widths, text placement and sprites.
+ * Missing or renamed provider layers are ignored safely rather than causing
+ * Activity Detail to fail.
+ */
+internal object TracksideReadableMapPalette {
+    val canvas = AndroidColor.rgb(44, 58, 73)           // slate-blue ground
+    val residential = AndroidColor.rgb(50, 67, 81)
+    val buildings = AndroidColor.rgb(55, 72, 85)
+    val sand = AndroidColor.rgb(76, 81, 78)
+    val grass = AndroidColor.rgb(55, 89, 72)            // visible, muted parks
+    val wood = AndroidColor.rgb(47, 77, 64)
+    val water = AndroidColor.rgb(38, 76, 101)
+    val waterways = AndroidColor.rgb(62, 105, 130)
+    val roads = AndroidColor.rgb(119, 140, 157)         // brighter, legible roads
+    val paths = AndroidColor.rgb(100, 120, 135)
+    val rail = AndroidColor.rgb(86, 110, 127)
+    val roadLabels = AndroidColor.rgb(221, 231, 239)
+    val placeLabels = AndroidColor.rgb(242, 245, 248)
+    val labelHalo = AndroidColor.rgb(43, 57, 70)
+
+    fun apply(style: Style) {
+        fun background(id: String, color: Int) {
+            (style.getLayer(id) as? BackgroundLayer)?.setProperties(
+                PropertyFactory.backgroundColor(color))
+        }
+        fun fill(id: String, color: Int) {
+            (style.getLayer(id) as? FillLayer)?.setProperties(
+                PropertyFactory.fillColor(color))
+        }
+        fun line(id: String, color: Int) {
+            (style.getLayer(id) as? LineLayer)?.setProperties(
+                PropertyFactory.lineColor(color))
+        }
+        fun text(id: String, color: Int) {
+            (style.getLayer(id) as? SymbolLayer)?.setProperties(
+                PropertyFactory.textColor(color),
+                PropertyFactory.textHaloColor(labelHalo))
+        }
+
+        background("Background", canvas)
+        fill("Residential", residential)
+        fill("Building", buildings)
+        fill("Sand", sand)
+        fill("Grass", grass)
+        fill("Wood", wood)
+        fill("Water", water)
+        fill("Bridge", residential)
+        fill("Pier", residential)
+        line("River", waterways)
+        line("River intermittent", waterways)
+        line("Road network", roads)
+        line("Path", paths)
+        line("Railway", rail)
+        line("Transit", rail)
+        line("Transit tunnel", rail)
+
+        text("Road labels", roadLabels)
+        text("Place labels", placeLabels)
+        text("City labels", placeLabels)
+        text("Country labels", placeLabels)
+        text("Continent labels", placeLabels)
+        text("Station labels", roadLabels)
+        text("Airport labels", roadLabels)
+    }
 }
 
 /**
@@ -59,7 +137,7 @@ internal fun TracksideGeographicMap(
     modifier:Modifier=Modifier
 ) {
     var styleReady by remember(route,online) { mutableStateOf(false) }
-    Box(modifier.background(Color(0xFF07100D)).testTag("activity-geographic-map")) {
+    Box(modifier.background(Color(0xFF2C3A49)).testTag("activity-geographic-map")) {
         if(online && route.pointCount>=2) {
             MapLibreRouteView(route,Modifier.fillMaxSize()) { styleReady=true }
         }
@@ -126,6 +204,9 @@ private fun MapLibreRouteView(
             map.uiSettings.setAttributionEnabled(false)
             map.uiSettings.setLogoEnabled(false)
             map.setStyle(TracksideMapTiles.STYLE_URL) { style ->
+                // Provider style layers exist at this point. Recolor the map
+                // before presenting the real GPS line and fitting the camera.
+                TracksideReadableMapPalette.apply(style)
                 style.addSource(GeoJsonSource("stride-actual-gps",geoJson))
                 style.addLayer(
                     LineLayer("stride-gps-line","stride-actual-gps").withProperties(
