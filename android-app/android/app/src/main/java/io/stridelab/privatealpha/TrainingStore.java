@@ -151,7 +151,7 @@ public final class TrainingStore extends SQLiteOpenHelper {
     }
     /** Acknowledge only a replayable operation. Later offline edits remain visible and queued. */
     public boolean acknowledge(String account,String operationId,String serverPayload,String serverVersion,long now) {
-        RecordPolicy.identifier(account);RecordPolicy.identifier(operationId);RecordPolicy.payload(serverPayload);RecordPolicy.version(serverVersion,true);
+        RecordPolicy.identifier(account);RecordPolicy.identifier(operationId);RecordPolicy.version(serverVersion,true);
         SQLiteDatabase db=getWritableDatabase();db.beginTransaction();
         try {
             String kind,id;
@@ -160,6 +160,8 @@ public final class TrainingStore extends SQLiteOpenHelper {
                 if(!"pending".equals(c.getString(2))||!c.isNull(3))throw new IllegalStateException("Only an unblocked head operation can be acknowledged");
                 kind=c.getString(0);id=c.getString(1);
             }
+            // Use the kind-specific storage policy for full FIT details too.
+            RecordPolicy.record(account,kind,id,serverPayload);
             ContentValues next=new ContentValues();next.putNull("parent_operation_id");next.put("base_version",serverVersion);
             db.update("outbox",next,"account=? AND parent_operation_id=?",new String[]{account,operationId});
             db.delete("outbox","account=? AND operation_id=?",new String[]{account,operationId});
