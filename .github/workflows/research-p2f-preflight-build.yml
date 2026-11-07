@@ -1,0 +1,33 @@
+name: research-p2f-preflight-build
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Exact research branch or commit to build
+        required: true
+        default: research/runna-garmin-coaching-20261102
+jobs:
+  build:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: ${{ inputs.ref }}}
+      - uses: ilammy/msvc-dev-cmd@v1
+        with: {arch: x64}
+      - name: Build and inspect only
+        shell: pwsh
+        run: |
+          cl /nologo /O1 /GS- /TC /c docs/research/phase2/preflight/stridelab_p2f_preflight.c /Fo:preflight.obj
+          link /nologo /SUBSYSTEM:CONSOLE /ENTRY:mainCRTStartup /NODEFAULTLIB /DYNAMICBASE /NXCOMPAT /MACHINE:X64 preflight.obj kernel32.lib /OUT:stridelab_p2f_preflight.exe
+          cl /Bv
+          link /dump /imports stridelab_p2f_preflight.exe
+          link /dump /headers stridelab_p2f_preflight.exe
+          Get-FileHash docs/research/phase2/preflight/stridelab_p2f_preflight.c -Algorithm SHA256
+          Get-FileHash stridelab_p2f_preflight.exe -Algorithm SHA256
+          (Get-Item stridelab_p2f_preflight.exe).Length
+      - uses: actions/upload-artifact@v4
+        with:
+          name: p2f-preflight-static-artifact
+          path: |
+            stridelab_p2f_preflight.exe
+            docs/research/phase2/preflight/stridelab_p2f_preflight.c
