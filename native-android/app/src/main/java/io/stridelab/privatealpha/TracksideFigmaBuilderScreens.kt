@@ -27,6 +27,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
@@ -125,6 +128,14 @@ internal fun TracksideFigmaBuilderFrame(
     }
 }
 
+/**
+ * Owner-approved Disciplines page (2026-11-07).
+ * This is deliberately independent of the shared builder frame: only this
+ * page uses StrideLab lime, centered copy, and selection cards without
+ * checkboxes, divider lines, or a progress footer.
+ *
+ * Selection/deselection and Continue remain wired to the original PlanRequest.
+ */
 @Composable
 internal fun TracksideFigmaDisciplineScreen(
     request: PlanRequest,
@@ -132,95 +143,173 @@ internal fun TracksideFigmaDisciplineScreen(
     onBack: () -> Unit,
     onContinue: () -> Unit
 ) {
+    val lime = Color(0xFFD8FB70)
+    val pageMuted = Color(0xFFB6BABC)
+    val selectedSurface = Color(0xFF171C0C)
+    val regularSurface = Color(0xFF101112)
+    val regularBorder = Color(0xFF33373A)
     val entries = listOf(
         Triple("run", "Running", "Endurance, speed & racing"),
         Triple("str", "Strength", "Muscle, power and resilience"),
         Triple("cal", "Calisthenics", "Bodyweight strength and skills"),
         Triple("cond", "Conditioning", "Fitness and work capacity")
     )
-    TracksideFigmaBuilderFrame(
-        eyebrow = "BUILD YOUR PLAN",
-        headline = "Choose your\ndisciplines",
-        description = "Choose the disciplines you want to train.",
-        onBack = onBack,
-        onContinue = onContinue,
-        continueEnabled = request.runDays + request.strengthDays +
-            request.calDays + request.conditioningDays > 0,
-        footer = {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 17.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                repeat(4) { index ->
-                    Box(Modifier.padding(end = 6.dp).size(37.dp, 5.dp)
-                        .background(
-                            when(index) {
-                                0 -> Color(0xFFC6314A)
-                                1 -> Color(0xFF488BD0)
-                                else -> Color(0xFF334550)
-                            },
-                            RoundedCornerShape(5.dp)
-                        ))
-                }
-                Spacer(Modifier.weight(1f))
-                val chosen = listOf(request.runDays, request.strengthDays,
-                    request.calDays, request.conditioningDays).count { it > 0 }
-                Text("$chosen of 4", fontSize = 11.sp, color = muted)
-            }
-        }
+    val hasSelection = request.runDays + request.strengthDays +
+        request.calDays + request.conditioningDays > 0
+
+    Column(
+        Modifier.fillMaxSize().background(Color.Black)
+            .testTag("figma-builder-frame")
+            .testTag("builder-disciplines-screen")
     ) {
-        // Figma 551:580 has a larger description-to-card gap than other
-        // builder stages. Keep this adjustment local to discipline selection.
-        Spacer(Modifier.height(23.dp))
-        entries.forEachIndexed { i, (discipline, name, desc) ->
-            val selected = when(discipline) {
-                "run" -> request.runDays > 0
-                "str" -> request.strengthDays > 0
-                "cal" -> request.calDays > 0
-                else -> request.conditioningDays > 0
-            }
-            val accent = when(discipline) {
-                "run" -> Color(0xFFF18B7E)
-                "str" -> Color(0xFF78AFFF)
-                "cal" -> Color(0xFFB394F0)
-                else -> Color(0xFFE5C478)
-            }
-            val selectedBg = if (discipline == "run") darkWine
-                else if (discipline == "str") Color(0xFF203E60)
-                else Color(0xFF332742)
-            Surface(
-                modifier = Modifier.fillMaxWidth().height(87.dp)
-                    .testTag("discipline-$discipline"),
-                onClick = { onToggle(discipline) },
-                shape = RoundedCornerShape(13.dp),
-                color = if(selected) selectedBg else slate,
-                border = BorderStroke(1.dp, if(selected) accent else outline)
+        Row(
+            Modifier.fillMaxWidth().height(70.dp)
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(
+                onClick = onBack,
+                modifier = Modifier.size(48.dp).testTag("builder-figma-back"),
+                contentPadding = PaddingValues(0.dp)
             ) {
-                Row(Modifier.padding(horizontal = 15.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(13.dp)) {
-                    Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
-                        Icon(
-                            painterResource(when(discipline) {
-                                "run" -> R.drawable.trackside_discipline_running
-                                "str" -> R.drawable.trackside_discipline_strength
-                                "cal" -> R.drawable.trackside_discipline_calisthenics
-                                else -> R.drawable.trackside_discipline_conditioning
-                            }),
-                            tint = Color.Unspecified, contentDescription = null,
-                            modifier = Modifier.size(24.dp)
-                                .testTag("discipline-icon-"+discipline)
-                        )
-                    }
-                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text(name, color = white, fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold)
-                        Text(desc, color = muted, fontSize = 12.sp)
+                Text("‹", color = Color.White, fontSize = 30.sp, lineHeight = 34.sp)
+            }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "Generate Training Plan",
+                fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                color = Color.White
+            )
+        }
+
+        Column(
+            Modifier.fillMaxWidth().weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(Modifier.height(30.dp))
+            Text(
+                "BUILD YOUR PLAN", fontSize = 11.sp,
+                fontWeight = FontWeight.Bold, color = lime,
+                modifier = Modifier.testTag("builder-disciplines-eyebrow")
+            )
+            Spacer(Modifier.height(14.dp))
+            Text(
+                "Choose your\ndisciplines",
+                fontSize = 30.sp, lineHeight = 35.sp,
+                fontWeight = FontWeight.Bold, color = Color.White,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().testTag("builder-disciplines-heading")
+            )
+            Spacer(Modifier.height(14.dp))
+            Text(
+                "Select the disciplines you want to include in your training plan.",
+                fontSize = 13.sp, lineHeight = 18.sp, color = pageMuted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(34.dp))
+
+            entries.forEachIndexed { index, (discipline, name, description) ->
+                val selected = when (discipline) {
+                    "run" -> request.runDays > 0
+                    "str" -> request.strengthDays > 0
+                    "cal" -> request.calDays > 0
+                    else -> request.conditioningDays > 0
+                }
+                Surface(
+                    onClick = { onToggle(discipline) },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 76.dp)
+                        .testTag("discipline-$discipline")
+                        .semantics {
+                            this.selected = selected
+                            stateDescription = if (selected) "Selected" else "Not selected"
+                        },
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (selected) selectedSurface else regularSurface,
+                    border = BorderStroke(
+                        if (selected) 1.5.dp else 1.dp,
+                        if (selected) lime else regularBorder
+                    )
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(
+                            horizontal = 14.dp, vertical = 12.dp
+                        ),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(15.dp)
+                    ) {
+                        Box(
+                            Modifier.size(47.dp).background(
+                                if (selected) Color(0xFF2A3510)
+                                else Color(0xFF1D1F21),
+                                RoundedCornerShape(12.dp)
+                            ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(when (discipline) {
+                                    "run" -> R.drawable.trackside_discipline_running
+                                    "str" -> R.drawable.trackside_discipline_strength
+                                    "cal" -> R.drawable.trackside_discipline_calisthenics
+                                    else -> R.drawable.trackside_discipline_conditioning
+                                }),
+                                contentDescription = null,
+                                tint = if (selected) lime else Color.White,
+                                modifier = Modifier.size(24.dp)
+                                    .testTag("discipline-icon-$discipline")
+                            )
+                        }
+                        Column(
+                            Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Text(
+                                name, color = Color.White, fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                description, color = pageMuted,
+                                fontSize = 12.sp, lineHeight = 16.sp
+                            )
+                        }
                     }
                 }
+                if (index != entries.lastIndex) Spacer(Modifier.height(12.dp))
             }
-            if (i < entries.lastIndex) Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(24.dp))
         }
+
+        Button(
+            onClick = onContinue,
+            enabled = hasSelection,
+            modifier = Modifier.fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .height(55.dp)
+                .testTag("builder-figma-continue"),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = lime,
+                contentColor = Color.Black,
+                disabledContainerColor = Color(0xFF343A25),
+                disabledContentColor = Color(0xFF9FA78E)
+            ),
+            contentPadding = PaddingValues(horizontal = 18.dp)
+        ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    "Continue", fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+                Text(
+                    "→", fontSize = 26.sp, lineHeight = 30.sp,
+                    modifier = Modifier.align(Alignment.CenterEnd)
+                )
+            }
+        }
+        Spacer(Modifier.height(15.dp))
     }
 }
 
