@@ -1,5 +1,9 @@
 # StrideLab Engine 2.x current coordinating handoff
 
+## Private-pilot qualification started — 2026-11-07
+
+The [qualification register](../phase2/p2-f-private-pilot-qualification-register-2026-11-07.md) separates the completed synthetic milestone from remaining independent authority/custody review, environment, time, key, restore, admission and source/reference evidence. All real-pilot items remain open. Private pilot NOT READY; human/provider admission NO; `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` unchanged.
+
 ## Independent coordinated-state review — 2026-11-07
 
 `PASS_FOR_SYNTHETIC_AUTHORITY_CUSTODY` for the cooperative in-process model at `d545f7616708dfb46e9a3af9bd8b66c6eec37644`; Batch 3 is accepted for synthetic scope. The [independent review](../phase2/p2-f-coordinated-state-independent-review-2026-11-07.md) records ownership, publication, aliases, cleanup and local Python 3.12 verification. Exact-head CI was pending at last check. Prior synthetic journal durability pass unchanged; private pilot NOT READY, human/provider admission NO, `P2_F_GATE_2_NOT_READY`, `P2_B_PROTOCOL_READY_DATA_NOT_READY`.

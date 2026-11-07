@@ -1,5 +1,9 @@
 # Engine 2.x P2-F current session handoff
 
+## Private-pilot qualification started — 2026-11-07
+
+The [qualification register](../phase2/p2-f-private-pilot-qualification-register-2026-11-07.md) records open evidence and dependencies following the synthetic pass. Private pilot NOT READY; human/provider admission NO; `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` unchanged.
+
 ## Independent coordinated-state review — 2026-11-07
 
 `PASS_FOR_SYNTHETIC_AUTHORITY_CUSTODY` for the cooperative in-process model at `d545f7616708dfb46e9a3af9bd8b66c6eec37644`; Batch 3 accepted for synthetic scope. See the [independent review](../phase2/p2-f-coordinated-state-independent-review-2026-11-07.md). Exact-head CI was pending at last check; private pilot NOT READY, human/provider admission NO, `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` unchanged.
