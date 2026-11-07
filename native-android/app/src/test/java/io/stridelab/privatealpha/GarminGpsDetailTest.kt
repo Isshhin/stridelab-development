@@ -39,6 +39,28 @@ class GarminGpsDetailTest {
         try { GarminGpsDetail.payload("owner",summary,fit(offset=9000.0),123L);fail("Distance mismatch") }
         catch(_:IllegalArgumentException) {}
     }
+    @Test fun indoorFitWithoutGpsPreservesMeasuredStreamsAndLaps() {
+        val indoor = fit().copy(
+            points = fit().points.map { it.copy(latitude = null, longitude = null) }
+        )
+        val raw = GarminGpsDetail.payload("owner", summary, indoor, 24680L)
+        val parsed = ActivityDetail.parse(raw, "owner", summary.id)
+        assertEquals(3, parsed.samples.size)
+        assertEquals(0, RecordedGpsRoute.from(parsed.samples).pointCount)
+        assertEquals(145.0, parsed.samples[0].hr!!, 0.01)
+        assertEquals(24680L, parsed.fetchedAt)
+    }
+
+    @Test fun fitWithoutAnySamplesOrLapsIsRejected() {
+        try {
+            GarminGpsDetail.payload(
+                "owner", summary, fit().copy(points = emptyList(), laps = emptyList()),
+                123L
+            )
+            fail("Empty recording was accepted")
+        } catch (_: IllegalArgumentException) {}
+    }
+
     @Test fun pausedFitUsesTimerDurationForGarminSummaryValidation() {
         val pausedSummary=summary.copy(durationS=5841.134765625,movingTimeS=5831.903961181641)
         val raw=GarminGpsDetail.payload("owner",pausedSummary,
