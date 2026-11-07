@@ -540,9 +540,11 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     }
     private fun fetchActivities() {
         val account = mutable.value.account ?: throw IllegalStateException("Sign in first")
+        val started = SystemClock.elapsedRealtime()
         var before: ActivityRecord? = null
         var received = 0
         val seen = HashSet<String>()
+        try {
         while(true) {
             val page = authenticated { gateway.activities(it, before) }
             require(page.length() <= 200)
@@ -572,6 +574,9 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         // Shared by manual refresh, sign-in, provider sync and background work.
         // Success updates the cache timestamp in place; banners are for actionable problems.
         mutable.value = mutable.value.copy(needsSignIn = false)
+        } finally {
+            traceCache("history_refresh_total",started,received)
+        }
     }
     suspend fun refresh() = operation("Refreshing history…") { fetchActivities() }
     /**
@@ -705,7 +710,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             if (ready.needsSignIn) return@withContext true
             var success = true
             val interval = if (foreground) 30L * 60_000 else 6L * 60 * 60_000
-            if (garminSyncPreferences.automatic(account)) {
+            if (garminSyncPreferences.automatic(account) &&
+                garminSyncPreferences.due(account, "garmin", interval)) {
                 val source = GarminPersonalSource(
                     account, GarminCredentialVault(appContext), GarminPersonalClient())
                 val connected = runCatching { source.status().state == "connected" }
@@ -714,6 +720,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 // disconnected; a newly linked account should remain eligible.
                 if (connected &&
                     garminSyncPreferences.claim(account, "garmin", interval)) {
+                    val syncStarted = SystemClock.elapsedRealtime()
                     try {
                         val result = syncGarmin(source, pageLimit = 2, detailLimit = 3)
                         if (result.error != null) success = false
@@ -723,6 +730,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                         // The original offline cache stays intact. An app-resume
                         // check never overwrites foreground error messages.
                         success = false
+                    } finally {
+                        traceCache("automatic_garmin_sync",syncStarted,0)
                     }
                 }
             }
