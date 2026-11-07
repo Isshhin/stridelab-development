@@ -278,7 +278,11 @@ private fun MapLibreRouteView(
                 // Provider style layers exist at this point. Recolor the map
                 // before presenting the real GPS line and fitting the camera.
                 TracksideReadableMapPalette.apply(style)
-                style.addSource(GeoJsonSource("stride-actual-gps",geoJson))
+                // A lone FIT fix has no line geometry; it is still rendered
+                // below as a recorded dot instead of an empty line source.
+                if(route.segments.any { it.size >= 2 }) {
+                    style.addSource(GeoJsonSource("stride-actual-gps",geoJson))
+                }
                 if(route.gaps.isNotEmpty()) {
                     // Dashed = unknown tracking interval, not measured motion.
                     style.addSource(GeoJsonSource("stride-gps-gaps",gapJson))
@@ -291,13 +295,15 @@ private fun MapLibreRouteView(
                         )
                     )
                 }
-                style.addLayer(
-                    LineLayer("stride-gps-line","stride-actual-gps").withProperties(
-                        PropertyFactory.lineColor(AndroidColor.rgb(216,251,112)),
-                        PropertyFactory.lineWidth(4f),
-                        PropertyFactory.lineOpacity(0.95f)
+                if(route.segments.any { it.size >= 2 }) {
+                    style.addLayer(
+                        LineLayer("stride-gps-line","stride-actual-gps").withProperties(
+                            PropertyFactory.lineColor(AndroidColor.rgb(216,251,112)),
+                            PropertyFactory.lineWidth(4f),
+                            PropertyFactory.lineOpacity(0.95f)
+                        )
                     )
-                )
+                }
                 if(route.isolatedPoints.isNotEmpty()) {
                     // Single saved fixes remain visible as isolated points.
                     style.addSource(GeoJsonSource("stride-gps-isolated",isolatedJson))
