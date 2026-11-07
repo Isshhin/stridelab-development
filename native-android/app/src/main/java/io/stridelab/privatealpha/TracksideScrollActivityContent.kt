@@ -858,12 +858,15 @@ private fun TracksideActivitySourceChart(
         "Cadence" -> Color(0xFFC2A8FF)
         else -> activityLime
     }
-    Column(
-        Modifier.fillMaxWidth().padding(vertical = 6.dp)
-            .background(activitySurface, RoundedCornerShape(14.dp))
-            .padding(horizontal = 12.dp, vertical = 11.dp)
-            .testTag("activity-chart-" + title.lowercase().replace(" ", "-"))
-    ) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        // The chart and its branded analysis are sibling surfaces. Expanding
+        // the analysis must not enlarge the plot card or change its gestures.
+        Column(
+            Modifier.fillMaxWidth()
+                .background(activitySurface, RoundedCornerShape(14.dp))
+                .padding(horizontal = 12.dp, vertical = 11.dp)
+                .testTag("activity-chart-" + title.lowercase().replace(" ", "-"))
+        ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(title, color = activityText, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             Text(unit, color = activityMuted, fontSize = 11.sp)
@@ -978,8 +981,9 @@ private fun TracksideActivitySourceChart(
             Text(ActivityRecord.duration(firstTime), color = activityMuted, fontSize = 10.sp)
             Text(ActivityRecord.duration(lastTime), color = activityMuted, fontSize = 10.sp)
         }
+        }
         if (chartInsight != null) {
-            Spacer(Modifier.height(13.dp))
+            Spacer(Modifier.height(10.dp))
             TracksideActivityIntelligenceCard(
                 chartInsight, "$title Analysis",
                 "activity-chart-insights-" + title.lowercase(Locale.ROOT).replace(" ", "-")
