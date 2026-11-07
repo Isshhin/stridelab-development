@@ -38,12 +38,21 @@ internal fun TracksideParityActivityMapHero(
     heightDp: Dp = 425.dp,
     onChangeStyle: (() -> Unit)? = null,
     online:Boolean = true,
-    gpsSourceLabel:String? = null
+    gpsSourceLabel:String? = null,
+    selectedSeconds:Double? = null
 ) {
-    val route=remember(detail) { RecordedGpsRoute.from(detail?.samples.orEmpty()) }
+    val route=remember(detail) {
+        RecordedGpsRoute.from(
+            detail?.samples.orEmpty(),
+            detail?.pauseIntervals.orEmpty()
+        )
+    }
     Box(Modifier.fillMaxWidth().height(heightDp).testTag("activity-map-hero")) {
         if(route.pointCount > 0) {
-            TracksideGeographicMap(route,online,Modifier.fillMaxSize())
+            TracksideGeographicMap(
+                route, online, Modifier.fillMaxSize(),
+                selectedSeconds = selectedSeconds
+            )
         } else {
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
                 listOf(Color(0xFF131C17),Color(0xFF080D0C)))))
@@ -83,6 +92,23 @@ internal fun TracksideParityActivityMapHero(
                     }
                 }
             } else Box(Modifier.size(44.dp))
+        }
+        if (route.pauseGaps.isNotEmpty()) {
+            Surface(
+                color = Color(0xDD080E0C),
+                border = BorderStroke(1.dp, Color(0x66FFBE7A)),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.align(Alignment.BottomStart)
+                    .padding(start = 12.dp, bottom = 14.dp)
+                    .testTag("activity-map-pause-legend")
+            ) {
+                Text(
+                    (if (route.pauseGaps.size == 1) "1 recorded pause"
+                        else "${route.pauseGaps.size} recorded pauses") + " · amber gap",
+                    color = Color(0xFFFFBE7A), fontSize = 10.sp,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
+                )
+            }
         }
         if (route.pointCount == 0) {
             Text(
