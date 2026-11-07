@@ -22,6 +22,11 @@ internal interface TrainingGateway {
 }
 internal fun interface BackendTransport {
     fun execute(path: String, token: String?, body: JSONObject?): String
+    // PostgREST's ignore-duplicates preference is required for immutable,
+    // idempotent backups. A mock must implement it explicitly.
+    fun executeWithPreference(path: String, token: String?, body: JSONObject?,
+                              preference: String): String =
+        throw IOException("Backup transport does not support conflict-safe insert")
 }
 
 /** Whitelisted messages only: never echo server bodies, credentials or JWTs. */
@@ -48,7 +53,15 @@ internal object ServiceErrors {
 
 /** Fixed HTTPS origin, bounded bodies, no redirects, disk cache or secret-bearing diagnostics. */
 internal class HttpsBackendTransport: BackendTransport {
-    override fun execute(path: String, token: String?, body: JSONObject?): String {
+    override fun execute(path: String, token: String?, body: JSONObject?): String =
+        executeInternal(path, token, body, null)
+    override fun executeWithPreference(path: String, token: String?, body: JSONObject?,
+                                       preference: String): String {
+        require(preference == "resolution=ignore-duplicates,return=minimal")
+        return executeInternal(path, token, body, preference)
+    }
+    private fun executeInternal(path: String, token: String?, body: JSONObject?,
+                                preference: String?): String {
         require(path.startsWith("/") && !path.startsWith("//"))
         val connection = URI(BackendConfig.URL + path).toURL().openConnection() as HttpsURLConnection
         try {
@@ -57,6 +70,7 @@ internal class HttpsBackendTransport: BackendTransport {
             connection.setRequestProperty("apikey", BackendConfig.PUBLISHABLE_KEY)
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty("Cache-Control", "no-store")
+            if(preference != null) connection.setRequestProperty("Prefer", preference)
             if(token != null) connection.setRequestProperty("Authorization", "Bearer $token")
             if(body != null) {
                 connection.requestMethod = "POST"; connection.doOutput = true
