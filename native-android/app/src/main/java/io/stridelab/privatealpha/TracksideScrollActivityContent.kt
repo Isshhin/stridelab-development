@@ -549,7 +549,9 @@ private fun TracksideActivityOverviewBody(
             recorded.samples.none { it.cadenceSpm != null }
     }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(0.dp)) {
-        if (DashboardSummary.isRun(activity)) {
+        if (DashboardSummary.isRun(activity) &&
+            hasRunningPlanForActivityLink(state.plans)
+        ) {
             ActivityPlanLink(state, activity, actions.planning, matchedSourceIds)
             Spacer(Modifier.height(15.dp))
         }
