@@ -327,15 +327,15 @@ internal fun TracksideActivityContinuousSections(
                 ?: cumulative.takeIf { allowCumulativeFallback && duration != null }
             if (duration != null) cumulative += duration
             val nextSourceStart = laps.getOrNull(index + 1)?.startSeconds
-                ?.takeIf { it.isFinite() && start != null && it > start }
-            val end = nextSourceStart
-                ?: recordingEnd?.takeIf {
-                    index == laps.lastIndex && start != null && it > start
+                ?.takeIf { next ->
+                    start != null && next.isFinite() && next > start
                 }
-                ?: (start?.plus(duration ?: 0.0))?.takeIf {
-                    duration != null && it > start
-                }
-            if (start != null && end != null) start to end else null
+            val recordingEndForLap = recordingEnd?.takeIf { end ->
+                index == laps.lastIndex && start != null && end > start
+            }
+            val durationEnd = if (start != null && duration != null) start + duration else null
+            val end = nextSourceStart ?: recordingEndForLap ?: durationEnd
+            if (start != null && end != null && end > start) start to end else null
         }
     }
     val splitInsight = remember(laps, activity.supportsPace) {
