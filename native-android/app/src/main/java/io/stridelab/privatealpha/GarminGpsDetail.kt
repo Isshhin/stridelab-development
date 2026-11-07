@@ -65,12 +65,34 @@ internal object GarminGpsDetail {
                     }))
                 .put("avg_hr",optional(lap.averageHr)))
         }
+        val pauseIntervals = JSONArray()
+        fit.timerPauses.forEach { pause ->
+            val startS = Duration.between(fit.startedAt, pause.startedAt).toMillis() / 1000.0
+            val endS = Duration.between(fit.startedAt, pause.endedAt).toMillis() / 1000.0
+            if (startS >= 0.0 && endS > startS) {
+                pauseIntervals.put(
+                    JSONObject()
+                        .put("start_s", startS)
+                        .put("end_s", endS)
+                )
+            }
+        }
+        val sourceZones = fit.sourceHeartRateZones?.let { zones ->
+            JSONObject()
+                .put("maximum_hr", zones.maximumHr ?: JSONObject.NULL)
+                .put("threshold_hr", zones.thresholdHr ?: JSONObject.NULL)
+                .put("resting_hr", zones.restingHr ?: JSONObject.NULL)
+                .put("calculation_type", zones.calculationType ?: JSONObject.NULL)
+                .put("high_bpms", JSONArray(zones.highBpms))
+        }
         val raw=JSONObject()
             .put("user_id",account)
             .put("activity_id",summary.id)
             .put("fetched_at",fetchedAt)
             .put("samples",samples)
             .put("laps",laps)
+            .put("pause_intervals", pauseIntervals)
+        if (sourceZones != null) raw.put("source_hr_zones", sourceZones)
         val validated=ActivityDetail.parse(raw,account,summary.id)
         // An indoor/treadmill FIT often has no GPS but can still contain
         // genuine laps, pace, heart-rate and cadence streams. Never discard
