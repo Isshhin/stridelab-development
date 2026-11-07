@@ -19,6 +19,9 @@ The [qualification register](../phase2/p2-f-private-pilot-qualification-register
 ## Independent coordinated-state review — 2026-11-07
 
 `PASS_FOR_SYNTHETIC_AUTHORITY_CUSTODY` for the cooperative in-process model at `d545f7616708dfb46e9a3af9bd8b66c6eec37644`; Batch 3 accepted for synthetic scope. See the [independent review](../phase2/p2-f-coordinated-state-independent-review-2026-11-07.md). Exact-head CI was pending at last check; private pilot NOT READY, human/provider admission NO, `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` unchanged.
+## P2-F custody/authority v5 design — 2026-11-07
+
+`P2F_CUSTODY_AUTHORITY_V5_READY_FOR_INDEPENDENT_REVIEW`: see the additive [v5 design](../phase2/p2-f-custody-authority-correction-protocol-v5-2026-11-07.md) and [preflight v4 plan](../phase2/p2-f-custody-authority-readonly-preflight-plan-v4-2026-11-07.md). The design is documentation-only and leaves the coordinator, log, witnesses and gateway unimplemented. It requires fresh 3-of-4 continuity proof after restart/restore/reinstall, treats local Windows persistence as cache-only, disallows authority-sensitive offline operation, and conservatively classifies ambiguous output release as `ESCAPED_UNKNOWN`. Independent review, target evidence, TPM/TBS, key qualification, participant/provider admission, Gate 2 and P2-B remain blocked. Baseline is `a4ca8d37fb10d8ed5c063b77d0267d976ff9c250`. PR #34 remains open, draft and unmerged.
 
 ## Coordinated state Batch 3 audit — 2026-11-07
 

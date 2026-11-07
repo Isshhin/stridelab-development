@@ -19,6 +19,9 @@ The [qualification register](../phase2/p2-f-private-pilot-qualification-register
 ## Independent coordinated-state review — 2026-11-07
 
 `PASS_FOR_SYNTHETIC_AUTHORITY_CUSTODY` for the cooperative in-process model at `d545f7616708dfb46e9a3af9bd8b66c6eec37644`; Batch 3 is accepted for synthetic scope. The [independent review](../phase2/p2-f-coordinated-state-independent-review-2026-11-07.md) records ownership, publication, aliases, cleanup and local Python 3.12 verification. Exact-head CI was pending at last check. Prior synthetic journal durability pass unchanged; private pilot NOT READY, human/provider admission NO, `P2_F_GATE_2_NOT_READY`, `P2_B_PROTOCOL_READY_DATA_NOT_READY`.
+## P2-F custody/authority v5 design — 2026-11-07
+
+`P2F_CUSTODY_AUTHORITY_V5_READY_FOR_INDEPENDENT_REVIEW`: the additive [v5 proposal](../phase2/p2-f-custody-authority-correction-protocol-v5-2026-11-07.md) separates etcd ordering, append-only authority history and independent witness continuity. It freezes a 4-witness/3-of-4 quorum under an at-most-one-malicious-witness assumption, fresh restart challenges, conservative `ESCAPE_COMMITTED` output accounting, restrictive withdrawal ordering and deterministic CBOR profile. The [read-only preflight v4 plan](../phase2/p2-f-custody-authority-readonly-preflight-plan-v4-2026-11-07.md) remains exactly two unexecuted information calls. This is documentation ready for independent review only: no implementation, target access, TPM/TBS operation, key provisioning, data admission, Gate 2 PASS or P2-B activation is claimed. Baseline is `a4ca8d37fb10d8ed5c063b77d0267d976ff9c250`. PR #34 remains open, draft and unmerged. Exact-head CI for the resulting commit must be checked after push.
 
 ## Coordinated state Batch 3 audit — 2026-11-07
 
