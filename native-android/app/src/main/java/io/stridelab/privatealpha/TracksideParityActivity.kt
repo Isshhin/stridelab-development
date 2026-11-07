@@ -46,11 +46,11 @@ internal fun TracksideParityActivityMapHero(
             TracksideGeographicMap(route,online,Modifier.fillMaxSize())
         } else {
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
-                listOf(Color(0xFF142D3C),Color(0xFF091520)))))
+                listOf(Color(0xFF131C17),Color(0xFF080D0C)))))
         }
         // Glass tint is decorative only. Streets, when present, are geographic.
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
-            listOf(Color(0x9907111A),Color.Transparent,Color(0x4408131D))
+            listOf(Color(0x66070B09),Color.Transparent,Color(0x33070B09))
         )))
         Row(
             Modifier.fillMaxWidth().padding(top = 12.dp, start = 16.dp, end = 16.dp),
@@ -58,14 +58,11 @@ internal fun TracksideParityActivityMapHero(
         ) {
             Surface(
                 onClick = onBack, shape = RoundedCornerShape(25.dp),
-                color = Color(0x8813222C), border = BorderStroke(1.dp, Color(0x99768C9B)),
+                color = Color(0xDD080E0C), border = BorderStroke(1.dp, Color(0x5546574F)),
                 modifier = Modifier.size(44.dp).testTag("activity-map-back")
             ) { Box(contentAlignment = Alignment.Center) {
                 Text("‹", fontSize = 25.sp, color = TracksidePalette.text)
             } }
-            Spacer(Modifier.weight(1f))
-            Text("RECORDED ACTIVITY", fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                color = TracksidePalette.text)
             Spacer(Modifier.weight(1f))
             if (onChangeStyle != null) {
                 Surface(
@@ -74,8 +71,8 @@ internal fun TracksideParityActivityMapHero(
                         .testTag("activity-change-glass-variant")
                         .semantics { contentDescription = "Switch approved Activity appearance" },
                     shape = RoundedCornerShape(25.dp),
-                    color = Color(0x8813222C),
-                    border = BorderStroke(1.dp, Color(0x99768C9B))
+                    color = Color(0xDD080E0C),
+                    border = BorderStroke(1.dp, Color(0x5546574F))
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text("•••", fontSize = 15.sp, color = TracksidePalette.text)
@@ -83,30 +80,16 @@ internal fun TracksideParityActivityMapHero(
                 }
             } else Box(Modifier.size(44.dp))
         }
-        if(route.pointCount>=2 && online) {
+        if (route.pointCount < 2) {
             Text(
-                TracksideMapTiles.ATTRIBUTION,
-                modifier=Modifier.align(Alignment.TopEnd)
-                    .padding(top=68.dp,end=16.dp)
-                    .background(Color(0xCC0A1921),RoundedCornerShape(6.dp))
-                    .padding(horizontal=7.dp,vertical=4.dp)
-                    .testTag("activity-map-attribution"),
-                fontSize=9.sp,color=Color.White
+                "No recorded GPS track",
+                modifier = Modifier.align(Alignment.Center)
+                    .background(Color(0xCC080D0C), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 14.dp, vertical = 9.dp),
+                color = Color(0xFFB4C1BA),
+                fontSize = 12.sp
             )
         }
-        Text(
-            when {
-                route.pointCount<2 -> "NO RECORDED GPS TRACK · NO MAP LOCATION"
-                !online -> "RECORDED GPS TRACE · OFFLINE (NO STREET TILES)"
-                else -> "RECORDED GPS FROM " + (gpsSourceLabel ?: "SOURCE")
-            },
-            modifier=Modifier.align(Alignment.TopStart)
-                .padding(top=101.dp,start=16.dp)
-                .background(Color(0xAA0A1921),RoundedCornerShape(6.dp))
-                .padding(horizontal=7.dp,vertical=4.dp)
-                .testTag("activity-map-state"),
-            fontSize=10.sp,color=TracksidePalette.text
-        )
     }
 }
 
