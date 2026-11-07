@@ -49,6 +49,7 @@ class RecordedGpsRouteTest {
         val gaps=JSONObject(route.gapsGeoJson()).getJSONArray("features")
             .getJSONObject(0).getJSONObject("geometry").getJSONArray("coordinates")
         assertEquals(2,gaps.length())
+        assertEquals("2 GPS gaps",route.gpsContinuityLabel)
     }
 
     @Test fun explicitTimerPauseIsSeparateFromUnknownGpsGap() {
@@ -95,6 +96,44 @@ class RecordedGpsRouteTest {
             .getJSONObject("geometry").getJSONArray("coordinates")
         assertEquals(121.000,start.getDouble(0),1e-8)
         assertEquals(121.004,finish.getDouble(0),1e-8)
+    }
+
+    @Test fun presentationMarkersAndSplitHighlightUseRecordedCoordinatesOnly() {
+        val route=RecordedGpsRoute.from(listOf(
+            sample(0,0.0,14.6000,121.0000),
+            sample(1,30.0,14.6005,121.0005),
+            sample(2,60.0,14.6010,121.0010),
+            sample(3,90.0,14.6015,121.0015),
+            sample(4,120.0,14.6020,121.0020),
+            sample(5,150.0,14.6025,121.0025)
+        ))
+        assertEquals("Continuous GPS",route.gpsContinuityLabel)
+
+        val directions=JSONObject(route.directionMarkersGeoJson())
+            .getJSONArray("features")
+        assertTrue(directions.length() >= 1)
+        val direction=directions.getJSONObject(0)
+        assertTrue(direction.getJSONObject("properties").getDouble("bearing").isFinite())
+
+        val laps=listOf(
+            ActivityLap(0,1000.0,60.0,360.0,140.0,startSeconds=0.0),
+            ActivityLap(1,1000.0,60.0,355.0,145.0,startSeconds=60.0),
+            ActivityLap(2,1000.0,60.0,350.0,150.0,startSeconds=120.0)
+        )
+        val markers=JSONObject(route.splitMarkersGeoJson(laps))
+            .getJSONArray("features")
+        assertEquals(2,markers.length())
+        assertEquals("1",markers.getJSONObject(0).getJSONObject("properties").getString("label"))
+        assertEquals("2",markers.getJSONObject(1).getJSONObject("properties").getString("label"))
+
+        val selected=JSONObject(route.rangeGeoJson(60.0 to 120.0))
+            .getJSONArray("features").getJSONObject(0)
+            .getJSONObject("geometry").getJSONArray("coordinates")
+        assertEquals(1,selected.length())
+        val line=selected.getJSONArray(0)
+        assertEquals(3,line.length())
+        assertEquals(121.0010,line.getJSONArray(0).getDouble(0),1e-8)
+        assertEquals(121.0020,line.getJSONArray(2).getDouble(0),1e-8)
     }
 
     @Test fun selectedTimeUsesNearestRealGpsFixOnly() {
