@@ -6,6 +6,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -16,6 +18,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Path
@@ -36,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import java.util.Locale
 import kotlin.math.roundToInt
+import kotlin.math.abs
 
 private val activityLime = Color(0xFFD8FB70)
 private val activitySheetBlack = Color(0xFF080D0C)
@@ -45,9 +50,9 @@ private val activityBorder = Color(0xFF303E37)
 private val activitySurface = Color(0xFF111A16)
 
 private data class SourceChartAvailability(
-    val pace: Boolean, val heartRate: Boolean, val elevation: Boolean
+    val pace: Boolean, val heartRate: Boolean, val elevation: Boolean, val cadence: Boolean
 ) {
-    val any: Boolean get() = pace || heartRate || elevation
+    val any: Boolean get() = pace || heartRate || elevation || cadence
 }
 
 /** Approved initial peek: unboxed three metrics, no tabs, tags or dummy data. */
@@ -240,14 +245,17 @@ internal fun TracksideActivityContinuousSections(
         var pace = 0
         var hr = 0
         var altitude = 0
+        var cadence = 0
         for (sample in samples) {
             if (activity.supportsPace && sample.pace?.isFinite() == true) pace++
             if (sample.hr?.isFinite() == true) hr++
             if (sample.altitude?.isFinite() == true) altitude++
-            if (pace >= 2 && hr >= 2 && altitude >= 2) break
+            if (sample.cadenceSpm?.isFinite() == true) cadence++
+            if (pace >= 2 && hr >= 2 && altitude >= 2 && cadence >= 2) break
         }
-        SourceChartAvailability(pace >= 2, hr >= 2, altitude >= 2)
+        SourceChartAvailability(pace >= 2, hr >= 2, altitude >= 2, cadence >= 2)
     }
+    var selectedChartSeconds by remember(recorded) { mutableStateOf<Double?>(null) }
     val splitStartIndex = 1
     val chartsStartIndex = 2 + laps.size
     val listState = rememberLazyListState()
@@ -351,19 +359,33 @@ internal fun TracksideActivityContinuousSections(
                 if (chartAvailability.pace)
                     item(key = "chart-pace") {
                         TracksideActivitySourceChart(
-                            "Pace", "/km", recorded.samples, { it.pace }, pace = true
+                            "Pace", "/km", recorded.samples, { it.pace }, pace = true,
+                            selectedSeconds = selectedChartSeconds,
+                            onSelectSeconds = { selectedChartSeconds = it }
                         )
                     }
                 if (chartAvailability.heartRate)
                     item(key = "chart-heart-rate") {
                         TracksideActivitySourceChart(
-                            "Heart rate", "bpm", recorded.samples, { it.hr }
+                            "Heart rate", "bpm", recorded.samples, { it.hr },
+                            selectedSeconds = selectedChartSeconds,
+                            onSelectSeconds = { selectedChartSeconds = it }
                         )
                     }
                 if (chartAvailability.elevation)
                     item(key = "chart-elevation") {
                         TracksideActivitySourceChart(
-                            "Elevation", "m", recorded.samples, { it.altitude }
+                            "Elevation", "m", recorded.samples, { it.altitude },
+                            selectedSeconds = selectedChartSeconds,
+                            onSelectSeconds = { selectedChartSeconds = it }
+                        )
+                    }
+                if (chartAvailability.cadence)
+                    item(key = "chart-cadence") {
+                        TracksideActivitySourceChart(
+                            "Cadence", "spm", recorded.samples, { it.cadenceSpm },
+                            selectedSeconds = selectedChartSeconds,
+                            onSelectSeconds = { selectedChartSeconds = it }
                         )
                     }
             }
@@ -583,69 +605,130 @@ private fun TracksideActivitySourceChart(
     unit: String,
     samples: List<ActivitySample>,
     metric: (ActivitySample) -> Double?,
-    pace: Boolean = false
+    pace: Boolean = false,
+    selectedSeconds: Double? = null,
+    onSelectSeconds: (Double) -> Unit = {}
 ) {
-    // Limit drawing cost for long FIT recordings; missing samples and gaps
-    // remain breaks, never interpolated measurements.
-    // Build real contiguous segments before downsampling. Never draw a
-    // connecting line across missing values or gaps in the source recording.
+    // Segment by missing source values and timestamp gaps before drawing.
+    // A line never bridges a pause or interpolates an unrecorded measurement.
     val segments = remember(samples, title) {
         val result = mutableListOf<List<ActivitySample>>()
-        var segment = mutableListOf<ActivitySample>()
+        var current = mutableListOf<ActivitySample>()
         var previous: ActivitySample? = null
-        fun finish() {
-            if (segment.isNotEmpty()) result.add(segment)
-            segment = mutableListOf()
+        fun flush() {
+            if(current.isNotEmpty()) result.add(current)
+            current = mutableListOf()
             previous = null
         }
         samples.forEach { sample ->
             val value = metric(sample)
             if (value == null || !value.isFinite() ||
                 (previous != null && sample.seconds - previous!!.seconds > 120.0)
-            ) {
-                finish()
-            }
-            if (value != null && value.isFinite()) {
-                segment.add(sample)
+            ) flush()
+            if(value != null && value.isFinite()) {
+                current.add(sample)
                 previous = sample
             }
         }
-        finish()
+        flush()
+        // Bound rendering and drag lookup to ~450 points, but compute summary
+        // values from ALL actual samples rather than the downsampled display.
         val step = (samples.size / 450).coerceAtLeast(1)
-        result.map { contiguous ->
-            contiguous.filterIndexed { i, _ -> i % step == 0 || i == contiguous.lastIndex }
+        result.map { section ->
+            section.filterIndexed { i, _ -> i % step == 0 || i == section.lastIndex }
         }
     }
-    val values = remember(segments, title) { segments.flatten().mapNotNull(metric) }
-    if (values.size < 2) return
-    val low = values.minOrNull() ?: return
-    val high = values.maxOrNull() ?: return
+    val validSamples = remember(samples, title) {
+        samples.mapNotNull { sample ->
+            metric(sample)?.takeIf { it.isFinite() }?.let { sample to it }
+        }
+    }
+    if (validSamples.size < 2 || samples.isEmpty()) return
+    val low = validSamples.minOf { it.second }
+    val high = validSamples.maxOf { it.second }
+    val sampleAverage = validSamples.sumOf { it.second } / validSamples.size
     val firstTime = samples.first().seconds
     val lastTime = samples.last().seconds
     if (lastTime <= firstTime) return
+    val renderedPoints = remember(segments) { segments.flatten() }
+    val selectedPoint = remember(selectedSeconds, renderedPoints, title) {
+        selectedSeconds?.let { at ->
+            renderedPoints.minByOrNull { abs(it.seconds - at) }
+                ?.takeIf { abs(it.seconds - at) <= 60.0 }
+        }
+    }
+    val selectedValue = selectedPoint?.let(metric)
+    fun valueText(value: Double): String = if (pace) {
+        ActivityRecord.duration(value) + "/km"
+    } else String.format(Locale.getDefault(), "%.0f %s", value, unit)
+    var chartWidthPx by remember(samples, title) { mutableFloatStateOf(0f) }
+    fun selectAt(x: Float) {
+        if(chartWidthPx <= 0f) return
+        val fraction = (x / chartWidthPx).coerceIn(0f, 1f)
+        val target = firstTime + (lastTime - firstTime) * fraction
+        // Select a REAL recorded sample, never a timestamp invented between
+        // points. Other charts can report missing data at this same time.
+        val nearest = renderedPoints.minByOrNull { abs(it.seconds - target) }
+        if(nearest != null) onSelectSeconds(nearest.seconds)
+    }
+    val lineColor = when(title) {
+        "Heart rate" -> Color(0xFFFF8C87)
+        "Elevation" -> Color(0xFF9EC8D7)
+        "Cadence" -> Color(0xFFC2A8FF)
+        else -> activityLime
+    }
     Column(
-        Modifier.fillMaxWidth().padding(vertical = 5.dp)
-            .background(activitySurface, RoundedCornerShape(17.dp))
-            .padding(horizontal = 13.dp, vertical = 14.dp)
+        Modifier.fillMaxWidth().padding(vertical = 6.dp)
+            .background(activitySurface, RoundedCornerShape(14.dp))
+            .padding(horizontal = 12.dp, vertical = 11.dp)
             .testTag("activity-chart-" + title.lowercase().replace(" ", "-"))
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(title, color = activityText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text(title, color = activityText, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             Text(unit, color = activityMuted, fontSize = 11.sp)
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Sample avg: " + valueText(sampleAverage) +
+                "    Range: " + valueText(low) + "–" + valueText(high),
+            color = activityMuted, fontSize = 10.sp, maxLines = 2,
+            modifier = Modifier.testTag("activity-chart-summary-" + title.lowercase().replace(" ", "-"))
+        )
+        if (selectedSeconds != null) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                ActivityRecord.duration(selectedSeconds) + " · " +
+                    (selectedValue?.let { valueText(it) } ?: "No measurement at this point"),
+                color = lineColor, fontSize = 11.sp,
+                modifier = Modifier.testTag("activity-chart-cursor-" + title.lowercase().replace(" ", "-"))
+            )
         }
         Spacer(Modifier.height(9.dp))
         Canvas(
-            Modifier.fillMaxWidth().height(112.dp)
+            Modifier.fillMaxWidth().height(124.dp)
+                .onSizeChanged { chartWidthPx = it.width.toFloat() }
+                .pointerInput(samples,title) {
+                    detectTapGestures(onTap = { selectAt(it.x) })
+                }
+                .pointerInput(samples,title) {
+                    detectDragGestures(
+                        onDragStart = { selectAt(it.x) },
+                        onDrag = { change, _ ->
+                            selectAt(change.position.x)
+                            change.consume()
+                        }
+                    )
+                }
                 .testTag("stream-" + title)
-                .semantics { contentDescription = title + " source chart, recorded values only" }
+                .semantics {
+                    contentDescription = title + " recorded chart, " +
+                        validSamples.size + " measured points. " +
+                        "Average " + valueText(sampleAverage) +
+                        ". Drag to inspect values."
+                }
         ) {
             val span = (high - low).coerceAtLeast(1.0)
             val timeSpan = lastTime - firstTime
-            for (step in 1..3) {
-                val y = size.height * step / 4f
-                drawLine(activityMuted.copy(alpha = .14f),
-                    Offset(0f, y), Offset(size.width, y), 1f)
-            }
             fun position(sample: ActivitySample, value: Double): Offset {
                 val x = ((sample.seconds - firstTime) / timeSpan * size.width).toFloat()
                 val norm = ((value - low) / span).toFloat().coerceIn(0f, 1f)
@@ -653,22 +736,38 @@ private fun TracksideActivitySourceChart(
                     else (1f - norm) * (size.height - 8f) + 4f
                 return Offset(x, y)
             }
-            segments.forEach { segment ->
-                segment.zipWithNext().forEach { (a, b) ->
-                    val first = metric(a)
-                    val second = metric(b)
-                    if (first != null && second != null) {
-                        drawLine(
-                            if (title == "Elevation") activityMuted else activityLime,
-                            position(a, first), position(b, second),
-                            strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round
-                        )
+            for (step in 1..3) {
+                val y = size.height * step / 4f
+                drawLine(activityMuted.copy(alpha = .18f),
+                    Offset(0f, y), Offset(size.width, y), 1f)
+            }
+            val avgY = if(pace) {
+                ((sampleAverage-low) / span).toFloat() * (size.height-8f) + 4f
+            } else {
+                (1f - ((sampleAverage-low) / span).toFloat()) * (size.height-8f) + 4f
+            }
+            drawLine(activityMuted.copy(alpha = .45f),
+                Offset(0f,avgY),Offset(size.width,avgY),1.dp.toPx())
+            segments.forEach { section ->
+                section.zipWithNext().forEach { (a,b) ->
+                    val av=metric(a)
+                    val bv=metric(b)
+                    if(av != null && bv != null) {
+                        drawLine(lineColor,position(a,av),position(b,bv),
+                            strokeWidth=2.dp.toPx(),cap=StrokeCap.Round)
                     }
                 }
             }
+            if(selectedPoint != null && selectedValue != null) {
+                val center=position(selectedPoint,selectedValue)
+                drawLine(activityText.copy(alpha = .5f),
+                    Offset(center.x,0f),Offset(center.x,size.height),1.dp.toPx())
+                drawCircle(lineColor,5.dp.toPx(),center)
+                drawCircle(activitySheetBlack,2.dp.toPx(),center)
+            }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("0", color = activityMuted, fontSize = 10.sp)
+            Text(ActivityRecord.duration(firstTime), color = activityMuted, fontSize = 10.sp)
             Text(ActivityRecord.duration(lastTime), color = activityMuted, fontSize = 10.sp)
         }
     }
