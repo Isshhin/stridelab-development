@@ -70,6 +70,33 @@ class RecordedGpsRouteTest {
         assertEquals(1,pauseJson.length())
     }
 
+    @Test fun pausedGpsFixesRemainRecordedButAreSeparatedFromActiveRouteDots() {
+        val route=RecordedGpsRoute.from(
+            listOf(
+                sample(0,0.0,14.600,121.000),
+                sample(1,10.0,14.601,121.001),
+                sample(2,20.0,14.602,121.002),
+                sample(3,25.0,14.603,121.003),
+                sample(4,40.0,14.604,121.004)
+            ),
+            listOf(ActivityPauseInterval(15.0,30.0))
+        )
+        assertEquals(listOf(20.0,25.0),route.pausedPoints.map { it.elapsedSeconds })
+        assertTrue(route.activeIsolatedPoints.none {
+            it.elapsedSeconds in 15.0..30.0
+        })
+        val paused=JSONObject(route.pausedPointsGeoJson())
+            .getJSONObject("geometry").getJSONArray("coordinates")
+        assertEquals(2,paused.length())
+
+        val start=JSONObject(route.startPointGeoJson())
+            .getJSONObject("geometry").getJSONArray("coordinates")
+        val finish=JSONObject(route.finishPointGeoJson())
+            .getJSONObject("geometry").getJSONArray("coordinates")
+        assertEquals(121.000,start.getDouble(0),1e-8)
+        assertEquals(121.004,finish.getDouble(0),1e-8)
+    }
+
     @Test fun selectedTimeUsesNearestRealGpsFixOnly() {
         val route=RecordedGpsRoute.from(listOf(
             sample(0,0.0,14.60,121.00),
