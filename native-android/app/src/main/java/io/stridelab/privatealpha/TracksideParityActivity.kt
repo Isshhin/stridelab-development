@@ -110,7 +110,7 @@ internal fun TracksideParityActivityMapHero(
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.align(Alignment.BottomStart)
-                    .padding(start = 12.dp, bottom = 14.dp)
+                    .padding(start = 12.dp, bottom = 36.dp)
                     .testTag("activity-map-legend")
             ) {
                 Column(
