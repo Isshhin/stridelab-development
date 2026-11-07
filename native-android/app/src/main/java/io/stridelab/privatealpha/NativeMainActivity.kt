@@ -463,8 +463,9 @@ private fun NavHostController.openActivity(id: String) {
                     )
                 }
                 composable("settings") { /* Retained tab surface. */ }
+                // Old restored route: return to More rather than opening a page.
                 composable("more/garmin") {
-                    TracksideMoreDetailDestination(MorePage.Garmin, nav, state, actions)
+                    LaunchedEffect(Unit) { nav.openTabRoot("settings") }
                 }
                 composable("more/data") {
                     TracksideMoreDetailDestination(MorePage.Data, nav, state, actions)
@@ -557,16 +558,27 @@ private fun NavHostController.openActivity(id: String) {
                     PersistentTabSurface(active = visibleRoot == "settings") {
                         if (diagnosticTabs) TabDiagnosticPlaceholder("More") else {
                             var confirmSignOut by remember { mutableStateOf(false) }
+                            var garminSheetOpen by remember { mutableStateOf(false) }
+                            var garminBusy by remember { mutableStateOf(false) }
                             TracksideMoreScreen(
                                 state = state,
                                 onSignIn = { nav.navigate("auth") },
                                 onLibrary = { nav.openTabRoot("library") },
-                                onGarmin = { nav.navigate("more/garmin") },
+                                onGarmin = { garminSheetOpen = true },
                                 onData = { nav.navigate("more/data") },
                                 onPreferences = { nav.navigate("more/preferences") },
                                 onAbout = { nav.navigate("more/about") },
                                 onSignOut = { confirmSignOut = true }
                             )
+                            if (garminSheetOpen) {
+                                TracksideGarminConnectionSheet(
+                                    accountId = state.account!!,
+                                    syncGarmin = actions.syncGarmin,
+                                    busy = garminBusy,
+                                    onBusyChange = { garminBusy = it },
+                                    onDismiss = { if (!garminBusy) garminSheetOpen = false }
+                                )
+                            }
                             if (confirmSignOut) {
                                 AlertDialog(
                                     onDismissRequest = { confirmSignOut = false },
@@ -617,7 +629,7 @@ private fun NavHostController.openActivity(id: String) {
                         state = state,
                         onSignIn = { nav.navigate("auth") },
                         onLibrary = { nav.openTabRoot("library") },
-                        onGarmin = { nav.navigate("more/garmin") },
+                        onGarmin = { nav.navigate("auth") },
                         onData = { nav.navigate("more/data") },
                         onPreferences = { nav.navigate("more/preferences") },
                         onAbout = { nav.navigate("more/about") },
