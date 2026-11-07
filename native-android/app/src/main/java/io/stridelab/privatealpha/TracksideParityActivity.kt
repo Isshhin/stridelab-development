@@ -50,7 +50,7 @@ internal fun TracksideParityActivityMapHero(
         }
         // Glass tint is decorative only. Streets, when present, are geographic.
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
-            listOf(Color(0x66070B09),Color.Transparent,Color(0x33070B09))
+            listOf(Color(0x28070B09),Color.Transparent,Color(0x14070B09))
         )))
         Row(
             Modifier.fillMaxWidth().padding(top = 12.dp, start = 16.dp, end = 16.dp),
