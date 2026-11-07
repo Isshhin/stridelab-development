@@ -76,7 +76,7 @@ internal fun TracksideFigmaActivityDetailSurface(
         var showMapCredits by remember(activity.id) { androidx.compose.runtime.mutableStateOf(false) }
         var previewHeightPx by remember(activity.id) { mutableIntStateOf(0) }
         var selectedActivitySeconds by remember(recorded?.activityId) {
-            mutableStateOf<Double?>(null)
+            androidx.compose.runtime.mutableStateOf<Double?>(null)
         }
         val peekHeight = if (previewHeightPx > 0) {
             with(density) { previewHeightPx.toDp() } + 37.dp
