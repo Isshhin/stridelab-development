@@ -549,7 +549,10 @@ private fun TracksideActivitySectionPill(selected: Int, onSelect: (Int) -> Unit)
         title, color = activityText, fontSize = 18.sp,
         fontWeight = FontWeight.SemiBold,
         textAlign = TextAlign.Center,
-        modifier = Modifier.fillMaxWidth().padding(top = 13.dp).semantics { heading() }
+        modifier = Modifier.fillMaxWidth().padding(top = 13.dp)
+            .testTag("activity-section-heading-" +
+                title.lowercase(Locale.ROOT).replace(" ", "-"))
+            .semantics { heading() }
     )
 }
 
@@ -696,13 +699,15 @@ private fun TracksideActivitySummary(activity: ActivityRecord) {
                 "Summary", color = activityText, fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().semantics { heading() }
+                modifier = Modifier.fillMaxWidth()
+                    .testTag("activity-summary-heading")
+                    .semantics { heading() }
             )
             Spacer(Modifier.height(2.dp))
             Text(
                 subtitle, color = activityMuted, fontSize = 11.sp,
                 lineHeight = 15.sp, textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().testTag("activity-summary-subtitle")
             )
         }
         Spacer(Modifier.height(12.dp))
