@@ -78,7 +78,7 @@ internal fun TracksideGeographicMap(
     selectedSeconds:Double?=null,
     laps:List<ActivityLap> = emptyList(),
     selectedRange:Pair<Double,Double>? = null,
-    onSelectRange:(Pair<Double,Double>) -> Unit = {}
+    onSelectRange:(Pair<Double,Double>?) -> Unit = {}
 ) {
     var styleReady by remember(route,online) { mutableStateOf(false) }
     var recenterRequest by remember(route) { mutableIntStateOf(0) }
@@ -139,7 +139,7 @@ private fun MapLibreRouteView(
     laps:List<ActivityLap> = emptyList(),
     selectedRange:Pair<Double,Double>? = null,
     recenterRequest:Int = 0,
-    onSelectRange:(Pair<Double,Double>) -> Unit = {},
+    onSelectRange:(Pair<Double,Double>?) -> Unit = {},
     onStyleReady:()->Unit
 ) {
     val context=LocalContext.current
@@ -184,6 +184,7 @@ private fun MapLibreRouteView(
         mutableStateOf<MapLibreMap?>(null)
     }
     val currentOnSelectRange by rememberUpdatedState(onSelectRange)
+    val currentSelectedRange by rememberUpdatedState(selectedRange)
 
     DisposableEffect(mapView,lifecycleOwner) {
         val observer=LifecycleEventObserver { _,event ->
@@ -231,7 +232,10 @@ private fun MapLibreRouteView(
                 val end=laps.getOrNull(splitIndex+1)?.startSeconds
                     ?: return@OnMapClickListener false
                 if(end <= start) return@OnMapClickListener false
-                currentOnSelectRange(start to end)
+                val range=start to end
+                currentOnSelectRange(
+                    if (currentSelectedRange == range) null else range
+                )
                 true
             }
             map.addOnMapClickListener(listener)
