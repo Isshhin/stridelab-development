@@ -1,6 +1,5 @@
 package io.stridelab.privatealpha
 
-import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -35,9 +34,9 @@ internal object ActivityDetailSectionAnalysis {
             evidence.add(
                 "First versus last ${halfSize} full-kilometer splits: " +
                     "${ActivityRecord.duration(first)}/km versus ${ActivityRecord.duration(last)}/km. " +
-                    if (differenceSeconds < 3.0) "Average paces were close."
+                    (if (differenceSeconds < 3.0) "Average paces were close."
                     else if (last < first) "Later splits were faster on average."
-                    else "Later splits were slower on average."
+                    else "Later splits were slower on average.")
             )
         } else {
             evidence.add("Split distances may differ; no negative-split conclusion is inferred.")
