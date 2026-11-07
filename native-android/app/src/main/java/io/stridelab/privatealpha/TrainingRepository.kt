@@ -667,26 +667,31 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             val activity = mutable.value.activities.firstOrNull {
                 it.id == id && it.source == "garmin"
             } ?: throw GarminProtocolException("Garmin source is not saved for this account")
-            cacheGarminRecording(account, activity, source)
+            cacheGarminRecording(account, activity, source, upgradeCadence = true)
         }
 
-    /** Used by both explicit sync and on-demand loading under the repository lock. */
+    /** Sync keeps the original cache. Explicit on-demand load may only upgrade
+     * verified cadence, never replace existing GPS/pace/HR/lap measurements. */
     private fun cacheGarminRecording(
-        account: String, activity: ActivityRecord, source: GarminPersonalSource
+        account: String, activity: ActivityRecord, source: GarminPersonalSource,
+        upgradeCadence: Boolean = false
     ): ActivityDetail {
         require(activity.source == "garmin")
         val id = activity.id
         val saved = store.get(account, "activity_detail", id)
-        if (saved != null) {
-            val existing = try {
+        val previous = if (saved != null) {
+            try {
                 ActivityDetail.parse(JSONObject(saved.payload), account, id)
             } catch (_: Exception) {
                 throw GarminProtocolException(
                     "Previously saved Garmin recording needs review; the original was retained")
             }
+        } else null
+        if(previous != null && (!upgradeCadence ||
+            previous.samples.any { it.cadenceSpm != null })) {
             mutable.value = mutable.value.copy(
-                details = mutable.value.details + (id to existing))
-            return existing
+                details = mutable.value.details + (id to previous))
+            return previous
         }
         val original = store.get(account, "activity", id)
             ?: throw GarminProtocolException("Garmin source record is unavailable")
@@ -726,13 +731,33 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         } catch (_: Exception) {
             throw GarminProtocolException("Garmin recording samples failed validation")
         }
+        val storedPayload = if (saved != null) {
+            // Only cadence may be added to an existing cache. If the FIT
+            // sample identity or timestamps differ, keep the original intact.
+            val oldRaw = JSONObject(saved.payload)
+            val merged = try {
+                GarminGpsDetail.mergeRecordedCadence(oldRaw, raw, account, id)
+            } catch (_: Exception) {
+                throw GarminProtocolException(
+                    "Garmin FIT samples changed; saved GPS and measurements were retained")
+            }
+            if (merged == null) {
+                val unchanged = requireNotNull(previous)
+                mutable.value = mutable.value.copy(
+                    details = mutable.value.details + (id to unchanged))
+                return unchanged
+            }
+            merged
+        } else raw
+        val checked = if (saved != null)
+            ActivityDetail.parse(storedPayload, account, id) else parsed
         store.applyRemotePage(
             account, "activity_detail",
-            listOf(TrainingStore.RemoteRecord(id, raw.toString(), null)),
+            listOf(TrainingStore.RemoteRecord(id, storedPayload.toString(), null)),
             null, System.currentTimeMillis()
         )
-        mutable.value = mutable.value.copy(details = mutable.value.details + (id to parsed))
-        return parsed
+        mutable.value = mutable.value.copy(details = mutable.value.details + (id to checked))
+        return checked
     }
 
     internal fun close() { scope.cancel(); store.close() }
