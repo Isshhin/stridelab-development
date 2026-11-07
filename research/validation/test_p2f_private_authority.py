@@ -124,11 +124,10 @@ class AuthorityMatrix(unittest.TestCase):
 
     def test_failed_key_audit_time_and_mutation(self):
         for fault in ('authorize','release','decrypt','publish','audit'):
-            self.key.fault = fault
+            self.key.set_fault(fault)
             self.denied(fault, self.read)
             self.assertNotIn('published', self.key.output)
-            self.key.output.clear()
-        self.key.fault = None
+        self.key.set_fault(None)
         for clock in ('missing','stale','rollback','uncertain'):
             self.denied('time', lambda: self.read(time_required=True, trusted_time=clock))
         self.denied('reentrant', lambda: self.read(hook=lambda phase: self.broker.transition(self.scope,0,'revoke','nested')))
@@ -184,7 +183,7 @@ class AuthorityMatrix(unittest.TestCase):
         self.denied('scope', self.read)
 
     def test_failed_audit_cannot_acknowledge_revoke(self):
-        self.key.fault = 'audit'
+        self.key.set_fault('audit')
         self.denied('audit', lambda: self.broker.transition(self.scope, 0, 'revoke', 'op'))
         self.assertNotIn('op', self.ledger.operations)
         self.assertTrue(self.broker.closed)
@@ -307,13 +306,13 @@ class AuthorityMatrix(unittest.TestCase):
         self.denied('scope', self.read)
 
     def test_audit_failure_cannot_be_bypassed_by_restart_reconcile(self):
-        self.key.fault = 'audit'
+        self.key.set_fault('audit')
         self.denied('audit', lambda: self.broker.transition(self.scope,0,'revoke','op'))
         self.broker.restart()
         self.denied('audit', lambda: self.broker.reconcile(channel_clear=True))
         self.assertTrue(self.broker.closed)
         self.assertNotIn('op', self.ledger.operations)
-        self.key.fault = None
+        self.key.set_fault(None)
         self.broker.reconcile(channel_clear=True)
         self.assertEqual('acknowledged', self.broker.transition(self.scope,0,'revoke','op'))
 
@@ -473,14 +472,14 @@ class AuthorityMatrix(unittest.TestCase):
     def test_changed_inventory_between_authorize_and_release_denies(self):
         def change(phase):
             if phase == 'authorize': self.inventory.set_object('object', (self.scope,1,'withdrawn'))
-        self.denied('inventory', lambda: self.read(hook=change))
+        self.denied('epoch', lambda: self.read(hook=change))
         self.assertNotIn('release', self.key.events)
         self.assertEqual([], self.key.output)
 
     def test_changed_anchor_between_authorize_and_release_denies(self):
         def change(phase):
             if phase == 'authorize': self.anchor.set_generation(self.anchor.generation + 1)
-        self.denied('generation', lambda: self.read(hook=change))
+        self.denied('epoch', lambda: self.read(hook=change))
         self.assertNotIn('release', self.key.events)
         self.assertEqual([], self.key.output)
 
@@ -497,7 +496,7 @@ class AuthorityMatrix(unittest.TestCase):
                 self.setUp()
                 def rollback(phase):
                     if phase == changed_after: self.broker.data_versions['object'] = 0
-                self.denied('inventory', lambda: self.read(hook=rollback, chunks=('one', 'two')))
+                self.denied('epoch', lambda: self.read(hook=rollback, chunks=('one', 'two')))
                 if changed_after == 'authorize': self.assertNotIn('release', self.key.events)
                 self.assertEqual(['one'] if changed_after == 'published_chunk' else [], self.key.output)
 
@@ -618,14 +617,14 @@ class AuthorityMatrix(unittest.TestCase):
         def chunks():
             self.broker.data_versions['object'] = 0
             yield 'must-not-publish'
-        self.denied('inventory', lambda: self.read(chunks=chunks()))
+        self.denied('epoch', lambda: self.read(chunks=chunks()))
         self.assertEqual([], self.key.output)
 
     def test_generator_authority_change_before_yield_denies_output(self):
         def chunks():
             self.anchor.set_generation(self.anchor.generation + 1)
             yield 'must-not-publish'
-        self.denied('generation', lambda: self.read(chunks=chunks()))
+        self.denied('epoch', lambda: self.read(chunks=chunks()))
         self.assertEqual([], self.key.output)
 
     def test_generator_exception_preserves_first_exposure(self):

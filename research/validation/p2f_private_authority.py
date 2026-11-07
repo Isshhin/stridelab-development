@@ -30,6 +30,8 @@ class StateCoordinator:
     def __init__(self):
         self._lock = threading.RLock()
         self._epoch = 0
+        self._withdrawn = []
+        self._brokers = []
 
     @property
     def lock(self): return self._lock
@@ -43,6 +45,17 @@ class StateCoordinator:
         with self.lock:
             self._epoch += 1
             return action()
+
+    def _receive_withdrawal(self, scope):
+        def perform():
+            item = owned(scope)
+            if item not in self._withdrawn:
+                self._withdrawn.append(item)
+        self.mutate(perform)
+
+    def withdrawn(self, scope):
+        with self.lock:
+            return owned(scope) in self._withdrawn
 
 
 class Anchor:
