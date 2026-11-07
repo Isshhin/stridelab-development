@@ -23,7 +23,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
@@ -36,8 +35,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.withContext
 
 /**
  * Approved Trackside activity interaction:
@@ -102,20 +99,14 @@ internal fun TracksideFigmaActivityDetailSurface(
             } >= 1
         }
 
-        // Speed up programmatic sheet settling without relying on internal
-        // Material 3 motion APIs. Preserve Android's animator accessibility
-        // setting by scaling (rather than replacing) the inherited value.
-        suspend fun settleQuickly(target: SheetValue) {
-            val inherited = currentCoroutineContext()[MotionDurationScale]?.scaleFactor ?: 1f
-            val accelerated = object : MotionDurationScale {
-                override val scaleFactor: Float = inherited * 0.72f
-            }
-            withContext(accelerated) {
-                when (target) {
-                    SheetValue.Expanded -> sheetState.expand()
-                    SheetValue.PartiallyExpanded -> sheetState.partialExpand()
-                    SheetValue.Hidden -> sheetState.hide()
-                }
+        // Use Material's native anchored motion instead of locally accelerating
+        // it. This keeps velocity/easing continuous for taps, flicks and drags,
+        // and automatically respects the system animator-duration setting.
+        suspend fun settleSheet(target: SheetValue) {
+            when (target) {
+                SheetValue.Expanded -> sheetState.expand()
+                SheetValue.PartiallyExpanded -> sheetState.partialExpand()
+                SheetValue.Hidden -> sheetState.hide()
             }
         }
 
@@ -156,20 +147,13 @@ internal fun TracksideFigmaActivityDetailSurface(
             val t = ((sheetFraction() - 0.35f) / 0.45f).coerceIn(0f, 1f)
             return t * t * (3f - 2f * t)
         }
-        val prepareDetails by remember(sheetState, collapsedOffsetPx, expandedOffsetPx) {
-            derivedStateOf {
-                sheetFraction() > 0.27f ||
-                    sheetState.currentValue == SheetValue.Expanded ||
-                    sheetState.targetValue == SheetValue.Expanded
-            }
-        }
         val collapseOrBack: () -> Unit = {
             if (expanded || sheetState.targetValue == SheetValue.Expanded) {
-                scope.launch { settleQuickly(SheetValue.PartiallyExpanded) }
+                scope.launch { settleSheet(SheetValue.PartiallyExpanded) }
             } else onBack()
         }
         BackHandler(enabled = expanded) {
-            scope.launch { settleQuickly(SheetValue.PartiallyExpanded) }
+            scope.launch { settleSheet(SheetValue.PartiallyExpanded) }
         }
 
         BottomSheetScaffold(
@@ -190,13 +174,13 @@ internal fun TracksideFigmaActivityDetailSurface(
                             }
                             if (expanded) {
                                 collapse {
-                                    scope.launch { settleQuickly(SheetValue.PartiallyExpanded) }
+                                    scope.launch { settleSheet(SheetValue.PartiallyExpanded) }
                                     true
                                 }
                             } else {
                                 expand {
                                     scope.launch {
-                                        settleQuickly(
+                                        settleSheet(
                                             if (mapOnly) SheetValue.PartiallyExpanded
                                             else SheetValue.Expanded
                                         )
@@ -206,7 +190,7 @@ internal fun TracksideFigmaActivityDetailSurface(
                             }
                             if (!expanded && !mapOnly) {
                                 dismiss {
-                                    scope.launch { settleQuickly(SheetValue.Hidden) }
+                                    scope.launch { settleSheet(SheetValue.Hidden) }
                                     true
                                 }
                             }
@@ -220,8 +204,8 @@ internal fun TracksideFigmaActivityDetailSurface(
                                     // transition rather than starting the same
                                     // animation again while currentValue lags.
                                     if (expanded || sheetState.targetValue == SheetValue.Expanded)
-                                        settleQuickly(SheetValue.PartiallyExpanded)
-                                    else settleQuickly(SheetValue.Expanded)
+                                        settleSheet(SheetValue.PartiallyExpanded)
+                                    else settleSheet(SheetValue.Expanded)
                                 }
                             }.testTag("activity-sheet-handle")
                             .semantics {
@@ -249,28 +233,35 @@ internal fun TracksideFigmaActivityDetailSurface(
                         ) {
                             TracksideActivityInitialPreview(activity)
                         }
-                        if (prepareDetails) {
-                            // Compose the section list shortly before it fades
-                            // in. No page replacement or jump when settling.
-                            Column(
-                                Modifier.fillMaxSize()
-                                    .graphicsLayer { alpha = detailsAlpha() }
-                            ) {
-                                TracksideActivityExpandedHeader(activity, collapseOrBack)
-                                TracksideActivityContinuousSections(
-                                    activity = activity,
-                                    recorded = recorded,
-                                    detailSource = detailSource,
-                                    matchedSourceIds = matchedSourceIds,
-                                    history = history,
-                                    state = state,
-                                    actions = actions,
-                                    online = online,
-                                    selectedTab = selectedTab,
-                                    onTab = onTab,
-                                    onLoadGarminGps = onLoadGarminGps
-                                )
-                            }
+                        // Keep details precomposed while the compact summary is
+                        // visible. Previously this subtree was inserted midway
+                        // through a drag, which could cause a perceptible hitch.
+                        // While fully transparent it is translated below the
+                        // sheet so it cannot steal compact-summary gestures.
+                        Column(
+                            Modifier.fillMaxSize()
+                                .graphicsLayer {
+                                    val details = detailsAlpha()
+                                    alpha = details
+                                    translationY = if (details <= .001f) {
+                                        with(density) { sheetHeight.toPx() }
+                                    } else 0f
+                                }
+                        ) {
+                            TracksideActivityExpandedHeader(activity, collapseOrBack)
+                            TracksideActivityContinuousSections(
+                                activity = activity,
+                                recorded = recorded,
+                                detailSource = detailSource,
+                                matchedSourceIds = matchedSourceIds,
+                                history = history,
+                                state = state,
+                                actions = actions,
+                                online = online,
+                                selectedTab = selectedTab,
+                                onTab = onTab,
+                                onLoadGarminGps = onLoadGarminGps
+                            )
                         }
                     }
                 }
@@ -319,7 +310,7 @@ internal fun TracksideFigmaActivityDetailSurface(
         // The map remains freely pannable everywhere outside this 24dp strip.
         if (showMapLip) {
             val openSummary: () -> Unit = {
-                scope.launch { settleQuickly(SheetValue.PartiallyExpanded) }
+                scope.launch { settleSheet(SheetValue.PartiallyExpanded) }
             }
             Box(
                 modifier = Modifier.align(Alignment.BottomCenter)
