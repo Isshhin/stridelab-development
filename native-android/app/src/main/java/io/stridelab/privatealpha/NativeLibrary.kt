@@ -133,7 +133,7 @@ internal fun readCuratedLibrary(context: Context): List<LibraryEntry> {
             items(logged,key={it.second.id}) { (p,session) -> PlannedWorkoutCard(session,state.workoutDrafts.containsKey(p.id to session.id)) { onOpen(p.id,session.id) } }
         } else {
         if(view=="Saved") item {
-            Text(if(state.account==null) "Sign in to keep a private offline library." else "Favorites and collections are stored on this device for your account.",style=MaterialTheme.typography.bodySmall)
+            Text(if(state.account==null) "Preparing your private offline library." else "Favorites and collections are stored on this device for your account.",style=MaterialTheme.typography.bodySmall)
             ShelfFilter("Collection",listOf("All saved","Favorites")+state.shelf.collections.keys.sorted(),collectionFilter) { collectionFilter=it }
         }
         item { OutlinedTextField(query,{query=it},label={Text("Search exercises")},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(18.dp),singleLine=true,keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(imeAction=androidx.compose.ui.text.input.ImeAction.Search),keyboardActions=androidx.compose.foundation.text.KeyboardActions(onSearch={focus.clearFocus();keyboard?.hide()})) }
@@ -206,7 +206,7 @@ internal fun readCuratedLibrary(context: Context): List<LibraryEntry> {
                     OutlinedTextField(collectionName,{collectionName=it.take(40)},label={Text("Collection name")},modifier=Modifier.fillMaxWidth(),singleLine=true)
                     OutlinedButton(onClick={actions.shelf(entry.id,collectionName,false)},enabled=collectionName.isNotBlank()&&!state.busy,modifier=Modifier.fillMaxWidth()) { Text("Add to collection") }
                     state.shelf.collections.filterValues { entry.id in it }.keys.forEach { name -> TextButton(onClick={actions.shelf(entry.id,name,true)}) { Text("Remove from $name") } }
-                } else Text("Sign in to save favorites and collections for your account.",style=MaterialTheme.typography.bodySmall)
+                } else Text("Your local profile is still initializing.",style=MaterialTheme.typography.bodySmall)
                 TextButton(onClick={focus.clearFocus();keyboard?.hide();selected=null},modifier=Modifier.fillMaxWidth()) { Text("Close") }
             }
         }
