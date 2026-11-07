@@ -102,8 +102,14 @@ class TracksideActivityScrollTest {
         compose.onNodeWithTag("activity-insights-headline").assertExists()
         compose.onNodeWithTag("activity-insights-summary").assertExists()
         compose.onNodeWithTag("activity-insights-detail-0").assertDoesNotExist()
+        compose.onNodeWithTag("activity-continuous-scroll")
+            .performScrollToNode(hasTestTag("activity-insights-toggle"))
         compose.onNodeWithTag("activity-insights-toggle").performClick()
         compose.onNodeWithTag("activity-insights-detail-0").assertExists()
+        // Expanding makes the card taller; scroll to the relocated button
+        // before tapping again rather than relying on a stale screen offset.
+        compose.onNodeWithTag("activity-continuous-scroll")
+            .performScrollToNode(hasTestTag("activity-insights-toggle"))
         compose.onNodeWithTag("activity-insights-toggle").performClick()
         compose.onNodeWithTag("activity-insights-detail-0").assertDoesNotExist()
 
