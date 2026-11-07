@@ -235,9 +235,9 @@ class TracksideActivityScrollTest {
         val labels = TracksideReadableMapPalette.roadLabels
         val parks = TracksideReadableMapPalette.grass
         val water = TracksideReadableMapPalette.water
-        val red = android.graphics.Color::red
-        val green = android.graphics.Color::green
-        val blue = android.graphics.Color::blue
+        fun red(color: Int) = android.graphics.Color.red(color)
+        fun green(color: Int) = android.graphics.Color.green(color)
+        fun blue(color: Int) = android.graphics.Color.blue(color)
         assertTrue(red(ground) >= 40)
         assertTrue(red(roads) - red(ground) >= 60)
         assertTrue(blue(labels) - blue(roads) >= 65)
