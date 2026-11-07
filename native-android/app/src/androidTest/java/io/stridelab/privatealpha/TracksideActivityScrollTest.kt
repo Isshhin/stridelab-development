@@ -176,6 +176,24 @@ class TracksideActivityScrollTest {
         )
         compose.onNodeWithTag("stream-Cadence").performTouchInput { swipeRight() }
         compose.onNodeWithTag("activity-chart-cursor-cadence").assertExists()
+        // Cadence Analysis is the final real content item in this fixture.
+        // Once it reaches the bottom, additional upward swipes must not
+        // reveal the former viewport-sized blank tail.
+        compose.onNodeWithTag("activity-continuous-scroll")
+            .performScrollToNode(hasTestTag("activity-chart-insights-cadence"))
+        repeat(3) {
+            compose.onNodeWithTag("activity-continuous-scroll")
+                .performTouchInput { swipeUp() }
+        }
+        compose.waitForIdle()
+        val scrollBottom = compose.onNodeWithTag("activity-continuous-scroll")
+            .getUnclippedBoundsInRoot().bottom
+        val finalAnalysisBottom = compose.onNodeWithTag("activity-chart-insights-cadence")
+            .getUnclippedBoundsInRoot().bottom
+        assertTrue(
+            "Blank scrolling continues past the final recorded analysis",
+            scrollBottom - finalAnalysisBottom <= 60.dp
+        )
         compose.onNodeWithTag("activity-map-hero").assertExists()
         compose.onNodeWithTag("activity-expanded-back").performClick()
         compose.waitUntil(timeoutMillis = 5000) {
