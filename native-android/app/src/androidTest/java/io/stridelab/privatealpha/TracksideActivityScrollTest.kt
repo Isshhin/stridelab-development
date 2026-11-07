@@ -389,44 +389,55 @@ class TracksideActivityScrollTest {
         compose.onNodeWithText("Link run").assertExists()
     }
 
-    @Test fun activityMapUsesOpenFreeMapDarkBase() {
+    @Test fun activityMapUsesDedicatedStrideLabOpenFreeMapStyle() {
         org.junit.Assert.assertEquals(
-            "https://tiles.openfreemap.org/styles/dark",
+            "asset://stridelab_activity_dark.json",
             TracksideMapTiles.STYLE_URL
         )
         assertTrue(TracksideMapTiles.ATTRIBUTION.contains("OpenStreetMap"))
         assertTrue(TracksideMapTiles.ATTRIBUTION.contains("OpenFreeMap"))
-    }
 
-    @Test fun darkActivityMapKeepsGreensRoadsWaterAndLabelsDistinct() {
-        val ids = TracksideReadableMapPalette.recoloredLayerIds
-        for (id in listOf(
-            "background", "water", "landuse_park", "landcover_wood",
-            "highway_minor", "highway_major_inner",
-            "highway_motorway_inner", "highway_name_other",
-            "place_suburb", "building"
-        )) assertTrue("Missing dark-style layer ID: " + id, id in ids)
+        val styleText = compose.activity.assets.open("stridelab_activity_dark.json")
+            .bufferedReader().use { it.readText() }
+        val root = org.json.JSONObject(styleText)
+        org.junit.Assert.assertEquals("StrideLab Activity Dark", root.getString("name"))
+        org.junit.Assert.assertEquals(
+            "https://tiles.openfreemap.org/planet",
+            root.getJSONObject("sources").getJSONObject("openmaptiles").getString("url")
+        )
 
-        val ground = TracksideReadableMapPalette.canvas
-        val minor = TracksideReadableMapPalette.minorRoads
-        val major = TracksideReadableMapPalette.majorRoads
-        val labels = TracksideReadableMapPalette.roadLabels
-        val parks = TracksideReadableMapPalette.grass
-        val woods = TracksideReadableMapPalette.wood
-        val water = TracksideReadableMapPalette.water
-        fun red(color: Int) = android.graphics.Color.red(color)
-        fun green(color: Int) = android.graphics.Color.green(color)
-        fun blue(color: Int) = android.graphics.Color.blue(color)
+        val layers = root.getJSONArray("layers")
+        fun layer(id: String): org.json.JSONObject {
+            for (index in 0 until layers.length()) {
+                val item = layers.getJSONObject(index)
+                if (item.getString("id") == id) return item
+            }
+            throw AssertionError("Missing style layer: " + id)
+        }
 
-        // Reference target: slate-charcoal ground, visible greens/blues,
-        // brighter roads and readable light labels.
-        assertTrue(red(ground) in 40..70)
-        assertTrue(green(parks) > red(parks))
-        assertTrue(green(woods) > red(woods))
-        assertTrue(blue(water) > red(water))
-        assertTrue(red(minor) > red(ground))
-        assertTrue(red(major) > red(minor))
-        assertTrue(red(labels) > 180)
+        org.junit.Assert.assertEquals(
+            "#2D343A", layer("background").getJSONObject("paint")
+                .getString("background-color")
+        )
+        org.junit.Assert.assertEquals(
+            "#48694E", layer("landuse_park").getJSONObject("paint")
+                .getString("fill-color")
+        )
+        org.junit.Assert.assertEquals(
+            "#24442F", layer("landcover_wood").getJSONObject("paint")
+                .getString("fill-color")
+        )
+        org.junit.Assert.assertEquals(
+            "#3F6048", layer("landcover_grass").getJSONObject("paint")
+                .getString("fill-color")
+        )
+        org.junit.Assert.assertEquals(
+            "#2D485E", layer("water").getJSONObject("paint")
+                .getString("fill-color")
+        )
+        assertTrue(layer("highway_path").getInt("minzoom") >= 12)
+        assertTrue(layer("highway_name_other").getInt("minzoom") >= 12)
+        assertTrue(layer("landuse_pitch").getInt("minzoom") >= 11)
     }
 
     @Test fun activityWithoutSourceStreamsDoesNotInventSplitsOrCharts() {
