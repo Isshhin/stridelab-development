@@ -78,6 +78,10 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
             repo.automaticGarminAndBackup(foreground = true)
         }
     }
+    /** Prevent older-history paging from competing with an open GPS map. */
+    fun setActivityDetailVisible(visible: Boolean) =
+        repo.setActivityDetailVisible(visible)
+
     /** Disk-only, account-scoped; no refresh or provider request. */
     fun loadCachedDetail(id: String) {
         viewModelScope.launch { repo.loadCachedDetail(id) }
