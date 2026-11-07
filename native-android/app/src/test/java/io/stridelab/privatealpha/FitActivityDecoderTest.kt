@@ -5,9 +5,42 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class FitActivityDecoderTest {
-    private fun fixture(sessions: Int = 1, missing: Boolean = false): ByteArray {
+    private fun fixture(
+        sessions: Int = 1,
+        missing: Boolean = false,
+        withTimerPause: Boolean = false,
+        withZones: Boolean = false
+    ): ByteArray {
         val encoder = BufferEncoder(Fit.ProtocolVersion.V2_0)
         encoder.write(FileIdMesg().apply { type = com.garmin.fit.File.ACTIVITY })
+        if(withTimerPause) {
+            encoder.write(EventMesg().apply {
+                timestamp=DateTime(1_000_000_000L); event=Event.TIMER; eventType=EventType.START
+            })
+            encoder.write(EventMesg().apply {
+                timestamp=DateTime(1_000_000_100L); event=Event.TIMER; eventType=EventType.STOP
+            })
+            encoder.write(EventMesg().apply {
+                timestamp=DateTime(1_000_000_120L); event=Event.TIMER; eventType=EventType.START
+            })
+        }
+        if(withZones) {
+            encoder.write(UserProfileMesg().apply {
+                restingHeartRate=52
+                defaultMaxRunningHeartRate=197
+            })
+            encoder.write(ZonesTargetMesg().apply {
+                maxHeartRate=197
+                thresholdHeartRate=170
+            })
+            listOf(118,137,157,177,197).forEachIndexed { index,bpm ->
+                encoder.write(HrZoneMesg().apply {
+                    messageIndex=index
+                    highBpm=bpm.toShort()
+                    name="Zone ${index+1}"
+                })
+            }
+        }
         encoder.write(RecordMesg().apply {
             timestamp = DateTime(1_000_000_000L)
             if(!missing) { positionLat=536870912; positionLong=1073741824; heartRate=150; distance=1234.5f; speed=3.5f; altitude=42f; cadence=80; power=200 }
@@ -30,6 +63,26 @@ class FitActivityDecoderTest {
         assertEquals(200.0,p.powerW!!,0.01);assertEquals(1,a.laps.size)
         assertTrue(a.evidence().any { it.contains("not moving time") })
     }
+    @Test fun timerStopAndStartBecomeExplicitPauseInterval() {
+        val a=FitActivityDecoder.decode(fixture(withTimerPause=true),"owner")
+        assertEquals(1,a.timerPauses.size)
+        assertEquals(20L,
+            java.time.Duration.between(
+                a.timerPauses.single().startedAt,
+                a.timerPauses.single().endedAt
+            ).seconds
+        )
+    }
+
+    @Test fun zonesTargetAndHrZoneMetadataArePreservedFromFit() {
+        val a=FitActivityDecoder.decode(fixture(withZones=true),"owner")
+        val zones=requireNotNull(a.sourceHeartRateZones)
+        assertEquals(197,zones.maximumHr)
+        assertEquals(170,zones.thresholdHr)
+        assertEquals(52,zones.restingHr)
+        assertEquals(listOf(118,137,157,177,197),zones.highBpms)
+    }
+
     @Test fun absentMetricsRemainAbsent() {
         val a=FitActivityDecoder.decode(fixture(missing=true),"owner")
         assertNull(a.averageHr);assertNull(a.points.single().latitude);assertNull(a.points.single().heartRate)
