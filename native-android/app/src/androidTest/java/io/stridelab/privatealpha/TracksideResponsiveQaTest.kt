@@ -154,9 +154,14 @@ class TracksideResponsiveQaTest {
             assertTrue("Discipline card too tall: "+discipline,
                 (bounds.bottom-bounds.top).value <= 90f)
         }
-        compose.onNodeWithText("2 of 4").assertExists()
+        compose.onNodeWithTag("builder-disciplines-eyebrow").assertExists()
+        compose.onNodeWithTag("builder-disciplines-heading").assertExists()
+        compose.onNodeWithText("2 of 4").assertDoesNotExist()
+        compose.onNodeWithTag("discipline-run").assertIsSelected()
+        compose.onNodeWithTag("discipline-str").assertIsSelected()
+        compose.onNodeWithTag("discipline-cal").assertIsNotSelected()
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
-        screenshot("builder-disciplines-figma-reference")
+        screenshot("builder-disciplines-lime-centered-20261107")
         // At 360dp and enlarged fonts the fourth card is initially below the
         // fold. Verify that users can scroll it fully into the body viewport.
         compose.onNodeWithTag("discipline-cond").performScrollTo()
@@ -169,6 +174,50 @@ class TracksideResponsiveQaTest {
             assertTrue("Discipline cards deviate from approved vertical rhythm",
                 running.top.value in 300f..336f)
         }
+    }
+
+    @Test fun disciplineSelectionCanToggleWithoutVisualCheckboxes() {
+        val request=mutableStateOf(
+            PlanRequest(
+                runDays=3, strengthDays=0, calDays=0, conditioningDays=0,
+                days=setOf(1,2,3,4,5,7)
+            )
+        )
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideFigmaDisciplineScreen(
+                        request=request.value,
+                        onToggle={ discipline ->
+                            request.value=when(discipline) {
+                                "run" -> request.value.copy(
+                                    runDays=if(request.value.runDays>0) 0 else 3
+                                )
+                                "str" -> request.value.copy(
+                                    strengthDays=if(request.value.strengthDays>0) 0 else 2
+                                )
+                                "cal" -> request.value.copy(
+                                    calDays=if(request.value.calDays>0) 0 else 2
+                                )
+                                else -> request.value.copy(
+                                    conditioningDays=if(request.value.conditioningDays>0) 0 else 1
+                                )
+                            }
+                        },
+                        onBack={},onContinue={}
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("discipline-run").assertIsSelected()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        compose.onNodeWithTag("discipline-run").performClick()
+        compose.onNodeWithTag("discipline-run").assertIsNotSelected()
+        compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
+        compose.onNodeWithTag("discipline-str").performClick()
+        compose.onNodeWithTag("discipline-str").assertIsSelected()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        compose.onNodeWithText("1 of 4").assertDoesNotExist()
     }
 
     @Test fun runningGoalSelectionMatchesApprovedFigmaAtCurrentViewport() {
