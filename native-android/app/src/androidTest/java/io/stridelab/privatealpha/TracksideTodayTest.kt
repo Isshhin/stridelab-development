@@ -92,6 +92,43 @@ class TracksideTodayTest {
         compose.runOnIdle { assertEquals(1, signInCount) }
     }
 
+    @Test fun signedInEmptyPastDayUsesCompactStatusInsteadOfTallHero() {
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    StrideLabTodayScreen(
+                        state = TrainingState(initializing = false, account = "synthetic-empty-day"),
+                        visibleActivities = emptyList(),
+                        online = false,
+                        onOpenTraining = {},
+                        onOpenActivity = {},
+                        onOpenWorkout = { _, _ -> },
+                        onOpenActivityDetail = {},
+                        onOpenMore = {},
+                        onSignIn = {}
+                    )
+                }
+            }
+        }
+        // Today's no-approved-plan state retains its existing onboarding CTA.
+        compose.onNodeWithTag("today-compact-empty-day").assertDoesNotExist()
+        // Browsing a previous week with no saved records or scheduled session
+        // must not consume the 232dp full-card footprint.
+        compose.onNodeWithTag("today-week-swipe").performTouchInput { swipeRight() }
+        compose.waitForIdle()
+        compose.onNodeWithTag("today-compact-empty-day").assertExists()
+        compose.onNodeWithTag("today-recorded-hero").assertDoesNotExist()
+        org.junit.Assert.assertTrue(
+            "Empty-day status is still oversized",
+            compose.onNodeWithTag("today-compact-empty-day")
+                .getUnclippedBoundsInRoot().height.value < 110f
+        )
+        // Return to the current date; no historical empty state should persist.
+        compose.onNodeWithTag("today-week-swipe").performTouchInput { swipeLeft() }
+        compose.waitForIdle()
+        compose.onNodeWithTag("today-compact-empty-day").assertDoesNotExist()
+    }
+
     @Test fun signedOutTabsKeepTodaySelectionWithoutExposingInactiveScreens() {
         compose.runOnUiThread {
             compose.activity.setContent {
