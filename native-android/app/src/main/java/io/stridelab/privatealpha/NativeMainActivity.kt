@@ -119,7 +119,7 @@ class NativeMainActivity: ComponentActivity() {
             // diagnostic, not a claim of complete Activity Detail rendering.
             withFrameNanos { }
             firstCachedFrameReported = true
-            if (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            if ((context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
                 Log.d("StrideLabStartup",
                     "first_cached_frame_ms=${SystemClock.elapsedRealtime() - startedAt}")
             }
@@ -322,7 +322,7 @@ private fun NavHostController.openActivity(id: String) {
                         else null
                     }
                     var automaticDetailAttempted by rememberSaveable(detailSource?.id) { mutableStateOf(false) }
-                    var localDetailAttempted by rememberSaveable(detailSource?.id) { mutableStateOf(false) }
+                    var localDetailAttempted by remember(detailSource?.id, state.account) { mutableStateOf(false) }
                     var activityTab by rememberSaveable(activity?.id) { mutableIntStateOf(0) }
                     var matteStyle by rememberSaveable(activity?.id) { mutableStateOf(false) }
                     // The SQLite detail ID index is populated during startup
