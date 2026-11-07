@@ -12,6 +12,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
@@ -69,7 +70,17 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
     }
     fun refresh() { viewModelScope.launch { repo.refresh() } }
     fun onAppResumed() {
-        viewModelScope.launch { repo.automaticGarminAndBackup(foreground = true) }
+        viewModelScope.launch {
+            // Allow restored local content to draw before any due network or
+            // large FIT import work. WorkManager's durable schedule is intact.
+            repo.state.first { !it.initializing }
+            delay(2_000L)
+            repo.automaticGarminAndBackup(foreground = true)
+        }
+    }
+    /** Disk-only, account-scoped; no refresh or provider request. */
+    fun loadCachedDetail(id: String) {
+        viewModelScope.launch { repo.loadCachedDetail(id) }
     }
     internal suspend fun backupGarminCloud(): Int = repo.backupGarminCloud()
     internal suspend fun restoreGarminCloud(): Int = repo.restoreGarminCloud()
