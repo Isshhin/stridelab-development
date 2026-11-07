@@ -412,7 +412,7 @@ private fun MapLibreRouteView(
                             GeoJsonSource("stride-analysis-route",analysisRoute.geoJson)
                         )
                         val low=analysisRoute.minimum
-                        val high=analysisRoute.maximum
+                        val high=analysisRoute.maximum.coerceAtLeast(low + 0.001)
                         val mid=(low+high)/2.0
                         val lineColors=when(mapMode) {
                             TracksideActivityMapMode.PACE -> arrayOf(
@@ -445,9 +445,9 @@ private fun MapLibreRouteView(
                                         Expression.interpolate(
                                             Expression.linear(),
                                             Expression.get("value"),
-                                            Expression.stop(low,lineColors[0]),
-                                            Expression.stop(mid,lineColors[1]),
-                                            Expression.stop(high,lineColors[2])
+                                            Expression.stop(low,Expression.color(lineColors[0])),
+                                            Expression.stop(mid,Expression.color(lineColors[1])),
+                                            Expression.stop(high,Expression.color(lineColors[2]))
                                         )
                                     ),
                                     PropertyFactory.lineWidth(routeWidth),
