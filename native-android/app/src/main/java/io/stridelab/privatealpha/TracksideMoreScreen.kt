@@ -114,7 +114,7 @@ internal fun TracksideMoreScreen(
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text("Your StrideLab", color = moreWhite, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                         Text(
-                            if (signedIn) "Cloud backup connected" else "Local training · no sign-in needed",
+                            if (signedIn) "Cloud account connected" else "Local training · no sign-in needed",
                             color = moreMuted, fontSize = 12.sp
                         )
                     }
