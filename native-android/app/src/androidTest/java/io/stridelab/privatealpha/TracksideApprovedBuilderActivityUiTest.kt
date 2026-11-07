@@ -32,10 +32,13 @@ class TracksideApprovedBuilderActivityUiTest {
             }
         }
         compose.onNodeWithTag("figma-builder-frame").assertExists()
+        compose.onNodeWithTag("builder-stage-progress").assertExists()
+        compose.onNodeWithText("1/7").assertExists()
         compose.onNodeWithText("Choose your", substring=true).assertExists()
         compose.onNodeWithTag("discipline-run").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-option-race").assertExists()
+        compose.onNodeWithText("2/7").assertExists()
         compose.onNodeWithText("Your running goal", substring=true).assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-distance-10K").performClick()
@@ -46,10 +49,13 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-running-day-2").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-start-date").assertExists()
+        compose.onNodeWithText("4/7").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("available-day-6").assertExists()
+        compose.onNodeWithText("5/7").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithText("Your training blueprint").assertExists()
+        compose.onNodeWithText("6/7").assertExists()
         compose.onNodeWithText("Chosen weekdays are requests",
             substring=true).assertExists()
         compose.onNodeWithTag("builder-figma-continue").assertExists()
