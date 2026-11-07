@@ -548,7 +548,8 @@ private fun TracksideActivitySectionPill(selected: Int, onSelect: (Int) -> Unit)
     Text(
         title, color = activityText, fontSize = 18.sp,
         fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(top = 13.dp).semantics { heading() }
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth().padding(top = 13.dp).semantics { heading() }
     )
 }
 
@@ -640,7 +641,7 @@ private data class ActivitySummaryMetric(
 )
 
 private enum class ActivitySummaryGlyph {
-    Distance, Duration, Pace, Elapsed, Heart, Elevation, MaximumHeartRate
+    Distance, Duration, Pace, Heart, Elevation, MaximumHeartRate
 }
 
 @Composable
@@ -665,9 +666,6 @@ private fun TracksideActivitySummary(activity: ActivityRecord) {
         if (activity.supportsPace && activity.detailPaceLabel != "Not recorded") {
             add(ActivitySummaryMetric("Average pace", activity.detailPaceLabel, ActivitySummaryGlyph.Pace))
         }
-        activity.durationS?.let {
-            add(ActivitySummaryMetric("Elapsed time", ActivityRecord.duration(it), ActivitySummaryGlyph.Elapsed))
-        }
         activity.averageHr?.let {
             add(ActivitySummaryMetric(
                 "Average heart rate", it.roundToInt().toString() + " bpm", ActivitySummaryGlyph.Heart
@@ -690,27 +688,22 @@ private fun TracksideActivitySummary(activity: ActivityRecord) {
         Modifier.fillMaxWidth().testTag("activity-summary-redesign"),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(top = 13.dp)
+        Column(
+            Modifier.fillMaxWidth().padding(top = 13.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(
-                Modifier.width(3.dp).height(40.dp)
-                    .background(activityLime, RoundedCornerShape(3.dp))
+            Text(
+                "Summary", color = activityText, fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().semantics { heading() }
             )
-            Spacer(Modifier.width(10.dp))
-            Column {
-                Text(
-                    "Summary", color = activityText, fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.semantics { heading() }
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    subtitle, color = activityMuted, fontSize = 11.sp,
-                    lineHeight = 15.sp
-                )
-            }
+            Spacer(Modifier.height(2.dp))
+            Text(
+                subtitle, color = activityMuted, fontSize = 11.sp,
+                lineHeight = 15.sp, textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
         Spacer(Modifier.height(12.dp))
         metrics.chunked(2).forEachIndexed { index, pair ->
@@ -811,11 +804,6 @@ private fun SummaryMetricGlyph(glyph: ActivitySummaryGlyph) {
                     style = Stroke(sw, cap = StrokeCap.Round))
                 drawLine(activityLime, Offset(w * .5f, h * .56f), Offset(w * .77f, h * .35f), sw, StrokeCap.Round)
             }
-            ActivitySummaryGlyph.Elapsed -> {
-                drawCircle(activityLime, w * .36f, Offset(w * .5f, h * .53f), style = Stroke(sw))
-                drawLine(activityLime, Offset(w * .5f, h * .53f), Offset(w * .5f, h * .27f), sw, StrokeCap.Round)
-                drawLine(activityLime, Offset(w * .5f, h * .53f), Offset(w * .68f, h * .62f), sw, StrokeCap.Round)
-            }
             ActivitySummaryGlyph.Heart -> {
                 val p = Path().apply {
                     moveTo(w * .5f, h * .88f)
@@ -895,24 +883,12 @@ private fun TracksideActivityIntelligenceCard(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                Modifier.size(26.dp)
-                    .background(activityLime, RoundedCornerShape(8.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("S", color = activitySheetBlack,
-                    fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
-            }
-            Spacer(Modifier.width(9.dp))
-            Text(heading, color = activityText,
-                fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-            Spacer(Modifier.weight(1f))
-            Text("RECORDED DATA", color = activityMuted, fontSize = 9.sp)
-        }
+        Text(
+            heading,
+            color = activityText,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 12.sp
+        )
         if (!descriptor.isNullOrBlank()) {
             Spacer(Modifier.height(10.dp))
             Text(
