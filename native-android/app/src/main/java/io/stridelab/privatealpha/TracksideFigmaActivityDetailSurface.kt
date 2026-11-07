@@ -89,6 +89,13 @@ internal fun TracksideFigmaActivityDetailSurface(
         val expanded = sheetState.currentValue == SheetValue.Expanded
         val mapOnly = sheetState.currentValue == SheetValue.Hidden &&
             sheetState.targetValue == SheetValue.Hidden
+        // FIT sample sets can be large. Cache this once for both attribution
+        // positions instead of rescanning on every drag or state change.
+        val hasRecordedGps = remember(recorded) {
+            recorded?.samples.orEmpty().count {
+                it.latitude != null && it.longitude != null
+            } >= 2
+        }
 
         // Speed up programmatic sheet settling without relying on internal
         // Material 3 motion APIs. Preserve Android's animator accessibility
@@ -203,8 +210,7 @@ internal fun TracksideFigmaActivityDetailSurface(
                                 .size(width = 44.dp, height = 5.dp)
                                 .background(Color(0xFF899790), RoundedCornerShape(4.dp))
                         )
-                        val route = recorded?.samples.orEmpty()
-                        if (online && route.count { it.latitude != null && it.longitude != null } >= 2) {
+                        if (online && hasRecordedGps) {
                             // Attribution is anchored to the moving sheet, rather
                             // than floating over independently pannable map tiles.
                             Text(
@@ -276,12 +282,7 @@ internal fun TracksideFigmaActivityDetailSurface(
         if (mapOnly) {
             // When the sheet is fully hidden, map attribution must remain
             // visible. Otherwise it would disappear offscreen with the sheet.
-            val hasSourceRoute = remember(recorded) {
-                recorded?.samples.orEmpty().count {
-                    it.latitude != null && it.longitude != null
-                } >= 2
-            }
-            if (online && hasSourceRoute) {
+            if (online && hasRecordedGps) {
                 Text(
                     TracksideMapTiles.ATTRIBUTION,
                     modifier = Modifier.align(Alignment.BottomStart)
