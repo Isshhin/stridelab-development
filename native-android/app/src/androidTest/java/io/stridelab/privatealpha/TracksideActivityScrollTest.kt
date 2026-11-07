@@ -60,13 +60,14 @@ class TracksideActivityScrollTest {
         compose.onNodeWithTag("activity-map-hero").assertExists()
         compose.onNodeWithTag("activity-parity-overview").assertExists()
         compose.onNodeWithTag("activity-primary-metrics").assertIsDisplayed()
-        compose.onNodeWithText("DURATION").assertExists()
+        compose.onNodeWithText("DURATION").assertDoesNotExist()
+        compose.onNodeWithTag("activity-metric-duration").assertDoesNotExist()
         compose.onNodeWithText("AVG HR").assertExists()
-        listOf("distance", "duration", "avg-pace", "avg-hr").forEach { metric ->
+        listOf("distance", "avg-pace", "avg-hr").forEach { metric ->
             compose.onNodeWithTag("activity-metric-" + metric).assertExists()
         }
-        // The four metrics occupy equally sized, centered sections.
-        val metricPositions = listOf("distance", "duration", "avg-pace", "avg-hr")
+        // The three remaining metrics occupy equally sized, centered sections.
+        val metricPositions = listOf("distance", "avg-pace", "avg-hr")
             .map { name ->
                 val bounds = compose.onNodeWithTag("activity-metric-" + name)
                     .getUnclippedBoundsInRoot()
