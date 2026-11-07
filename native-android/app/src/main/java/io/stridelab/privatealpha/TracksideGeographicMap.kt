@@ -108,6 +108,9 @@ private fun MapLibreRouteView(
     }
     val geoJson=remember(route) { route.toGeoJson() }
     val isolatedJson=remember(route) { route.isolatedGeoJson() }
+    val pausedPointsJson=remember(route) { route.pausedPointsGeoJson() }
+    val startPointJson=remember(route) { route.startPointGeoJson() }
+    val finishPointJson=remember(route) { route.finishPointGeoJson() }
     val gapJson=remember(route) { route.gapsGeoJson() }
     val pauseGapJson=remember(route) { route.pauseGapsGeoJson() }
     val selectionJson=remember(route,selectedSeconds) {
@@ -143,7 +146,10 @@ private fun MapLibreRouteView(
         factory={mapView},
         modifier=modifier.testTag("activity-maplibre-view")
     )
-    LaunchedEffect(mapView,geoJson,isolatedJson,gapJson,pauseGapJson) {
+    LaunchedEffect(
+        mapView, geoJson, isolatedJson, pausedPointsJson,
+        startPointJson, finishPointJson, gapJson, pauseGapJson
+    ) {
         mapView.getMapAsync { map ->
             map.uiSettings.setTiltGesturesEnabled(false)
             map.uiSettings.setRotateGesturesEnabled(false)
@@ -209,8 +215,8 @@ private fun MapLibreRouteView(
                         )
                     )
                 }
-                if(route.isolatedPoints.isNotEmpty()) {
-                    // Single saved fixes remain visible as isolated points.
+                if(route.activeIsolatedPoints.isNotEmpty()) {
+                    // Single active fixes remain visible without implying a line.
                     style.addSource(GeoJsonSource("stride-gps-isolated",isolatedJson))
                     style.addLayer(
                         CircleLayer("stride-gps-isolated-fixes","stride-gps-isolated").withProperties(
@@ -221,6 +227,42 @@ private fun MapLibreRouteView(
                         )
                     )
                 }
+                if(route.pausedPoints.isNotEmpty()) {
+                    // These are real FIT GPS fixes recorded while TIMER was
+                    // stopped. Amber distinguishes them from active-route GPS.
+                    style.addSource(GeoJsonSource("stride-paused-gps-fixes",pausedPointsJson))
+                    style.addLayer(
+                        CircleLayer("stride-paused-gps-fixes-layer","stride-paused-gps-fixes")
+                            .withProperties(
+                                PropertyFactory.circleColor(AndroidColor.rgb(255,190,122)),
+                                PropertyFactory.circleRadius(3.2f),
+                                PropertyFactory.circleOpacity(0.92f),
+                                PropertyFactory.circleStrokeColor(AndroidColor.rgb(45,52,58)),
+                                PropertyFactory.circleStrokeWidth(1.2f)
+                            )
+                    )
+                }
+
+                // Minimal start/finish markers use only recorded endpoint fixes.
+                style.addSource(GeoJsonSource("stride-start-point",startPointJson))
+                style.addLayer(
+                    CircleLayer("stride-start-point-layer","stride-start-point").withProperties(
+                        PropertyFactory.circleColor(AndroidColor.rgb(45,52,58)),
+                        PropertyFactory.circleRadius(5.2f),
+                        PropertyFactory.circleStrokeColor(AndroidColor.rgb(216,251,112)),
+                        PropertyFactory.circleStrokeWidth(2.2f)
+                    )
+                )
+                style.addSource(GeoJsonSource("stride-finish-point",finishPointJson))
+                style.addLayer(
+                    CircleLayer("stride-finish-point-layer","stride-finish-point").withProperties(
+                        PropertyFactory.circleColor(AndroidColor.rgb(216,251,112)),
+                        PropertyFactory.circleRadius(5.2f),
+                        PropertyFactory.circleStrokeColor(AndroidColor.rgb(45,52,58)),
+                        PropertyFactory.circleStrokeWidth(2.2f)
+                    )
+                )
+
                 val selectedSource=GeoJsonSource("stride-selected-point",selectionJson)
                 style.addSource(selectedSource)
                 selectedPointSource=selectedSource
@@ -311,8 +353,30 @@ private fun RecordedGpsFallback(
                 drawLine(Color(0xFFD8FB70),position(a),position(b),3.dp.toPx())
             }
         }
-        route.isolatedPoints.forEach { point ->
+        route.activeIsolatedPoints.forEach { point ->
             drawCircle(Color(0xFFD8FB70),radius=4.dp.toPx(),center=position(point))
+        }
+        route.pausedPoints.forEach { point ->
+            drawCircle(
+                Color(0xFFFFBE7A).copy(alpha=.92f),
+                radius=3.2.dp.toPx(),center=position(point)
+            )
+        }
+        route.allPoints.firstOrNull()?.let { point ->
+            val center=position(point)
+            drawCircle(Color(0xFF2D343A),radius=5.dp.toPx(),center=center)
+            drawCircle(
+                Color(0xFFD8FB70),radius=5.dp.toPx(),center=center,
+                style=androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx())
+            )
+        }
+        route.allPoints.lastOrNull()?.let { point ->
+            val center=position(point)
+            drawCircle(Color(0xFFD8FB70),radius=5.dp.toPx(),center=center)
+            drawCircle(
+                Color(0xFF2D343A),radius=5.dp.toPx(),center=center,
+                style=androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx())
+            )
         }
         route.selectedPoint(selectedSeconds)?.let { point ->
             val center=position(point)
