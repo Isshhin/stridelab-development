@@ -20,6 +20,15 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
+/** Re-owner validated snapshots only at the explicit cloud boundary. */
+internal fun remapCloudSnapshotOwner(payload: String, expected: String, destination: String): String {
+    RecordPolicy.identifier(expected)
+    RecordPolicy.identifier(destination)
+    val raw = JSONObject(payload)
+    require(raw.getString("user_id") == expected) { "Snapshot owner mismatch" }
+    return raw.put("user_id", destination).toString()
+}
+
 internal data class TrainingState(
     val initializing: Boolean = true,
     val account: String? = null,
@@ -1103,11 +1112,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                     // Resolve a verified, renewable StrideLab session for each
                     // request. No Garmin credential ever leaves this device.
                     authenticated { session ->
-                        val raw = JSONObject(payload)
-                        require(raw.getString("user_id") == account) {
-                            "Local recording owner mismatch"
-                        }
-                        val cloudPayload = raw.put("user_id", session.account).toString()
+                        val cloudPayload = remapCloudSnapshotOwner(payload, account, session.account)
                         garminCloud.upload(session, kind, id, cloudPayload)
                     }
                     garminSyncPreferences.acknowledgeCloudUpload(account, kind, id, payload)
@@ -1146,8 +1151,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                             store.get(account, "activity", row.recordId) == null) continue
                         // Cloud owner is verified at the gateway; local owner
                         // is set only when persisting into this device profile.
-                        val localPayload = JSONObject(row.payload)
-                            .put("user_id", account).toString()
+                        val cloud = requireNotNull(mutable.value.cloudAccount)
+                        val localPayload = remapCloudSnapshotOwner(row.payload, cloud, account)
                         if (kind == "activity") {
                             ActivityRecord.parse(localPayload, account)
                         } else {
