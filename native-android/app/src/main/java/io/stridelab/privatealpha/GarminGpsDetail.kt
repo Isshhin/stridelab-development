@@ -67,8 +67,11 @@ internal object GarminGpsDetail {
             .put("samples",samples)
             .put("laps",laps)
         val validated=ActivityDetail.parse(raw,account,summary.id)
-        require(RecordedGpsRoute.from(validated.samples).pointCount>=2) {
-            "Garmin FIT contains no continuous recorded outdoor GPS track"
+        // An indoor/treadmill FIT often has no GPS but can still contain
+        // genuine laps, pace, heart-rate and cadence streams. Never discard
+        // those measurements just because the route is absent.
+        require(validated.samples.size >= 2 || validated.laps.isNotEmpty()) {
+            "Garmin FIT contains no recorded samples or laps to import"
         }
         return raw
     }
