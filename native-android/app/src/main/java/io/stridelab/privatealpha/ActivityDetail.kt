@@ -4,7 +4,22 @@ import org.json.JSONObject
 
 internal data class ActivitySample(val index: Int, val seconds: Double, val pace: Double?, val hr: Double?, val altitude: Double?, val latitude: Double?, val longitude: Double?, val cadenceSpm: Double? = null)
 internal data class ActivityLap(val index: Int, val distance: Double?, val seconds: Double?, val pace: Double?, val hr: Double?)
-internal data class ActivityDetail(val activityId: String, val samples: List<ActivitySample>, val laps: List<ActivityLap>, val fetchedAt: Long) {
+internal data class ActivityPauseInterval(val startSeconds: Double, val endSeconds: Double)
+internal data class ActivitySourceHeartRateZones(
+    val maximumHr: Int?,
+    val thresholdHr: Int?,
+    val restingHr: Int?,
+    val calculationType: String?,
+    val highBpms: List<Int>
+)
+internal data class ActivityDetail(
+    val activityId: String,
+    val samples: List<ActivitySample>,
+    val laps: List<ActivityLap>,
+    val fetchedAt: Long,
+    val pauseIntervals: List<ActivityPauseInterval> = emptyList(),
+    val sourceHeartRateZones: ActivitySourceHeartRateZones? = null
+) {
     companion object {
         fun parse(raw: JSONObject, account: String, id: String): ActivityDetail {
             require(raw.getString("user_id") == account && raw.getString("activity_id") == id)
@@ -34,7 +49,47 @@ internal data class ActivityDetail(val activityId: String, val samples: List<Act
                 ActivityLap(row.getInt("lap_index").also { require(it>=0) },metric(row,"distance_m"),metric(row,"duration_s"),metric(row,"avg_pace_sec_per_km",.001),metric(row,"avg_hr",.001))
             }
             require(splits.zipWithNext().all { (a,b) -> b.index > a.index })
-            return ActivityDetail(id,points,splits,raw.getLong("fetched_at"))
+            val pauses = raw.optJSONArray("pause_intervals")?.let { array ->
+                (0 until array.length()).map { i ->
+                    val row = array.getJSONObject(i)
+                    val start = row.getDouble("start_s")
+                    val end = row.getDouble("end_s")
+                    require(start.isFinite() && end.isFinite() && start >= 0.0 && end > start) {
+                        "Invalid pause interval"
+                    }
+                    ActivityPauseInterval(start, end)
+                }
+            }.orEmpty()
+            require(pauses.zipWithNext().all { (a,b) ->
+                b.startSeconds >= a.endSeconds
+            }) { "Overlapping pause intervals" }
+
+            val sourceZones = raw.optJSONObject("source_hr_zones")?.let { zones ->
+                fun optionalBpm(key: String, range: IntRange): Int? =
+                    if (zones.isNull(key)) null
+                    else zones.getInt(key).also { require(it in range) }
+                val highs = zones.optJSONArray("high_bpms")?.let { array ->
+                    (0 until array.length()).map { i ->
+                        array.getInt(i).also { require(it in 30..255) }
+                    }
+                }.orEmpty()
+                require(highs.zipWithNext().all { (a,b) -> b >= a }) {
+                    "Heart-rate zone boundaries must be ordered"
+                }
+                ActivitySourceHeartRateZones(
+                    maximumHr = optionalBpm("maximum_hr", 100..240),
+                    thresholdHr = optionalBpm("threshold_hr", 100..230),
+                    restingHr = optionalBpm("resting_hr", 30..120),
+                    calculationType = zones.optString("calculation_type")
+                        .takeIf { it.isNotBlank() },
+                    highBpms = highs
+                )
+            }
+            return ActivityDetail(
+                id, points, splits, raw.getLong("fetched_at"),
+                pauseIntervals = pauses,
+                sourceHeartRateZones = sourceZones
+            )
         }
     }
 }
