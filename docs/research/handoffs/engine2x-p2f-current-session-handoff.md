@@ -1,5 +1,9 @@
 # Engine 2.x P2-F current session handoff
 
+## Custody/authority target-qualification design review — 2026-11-07
+
+`PRIVATE_PILOT_CUSTODY_AUTHORITY_DESIGN_NEEDS_CORRECTION`: see the [review and target evidence plan](../phase2/p2-f-custody-authority-design-qualification-review-2026-11-07.md). Correct target boundary, sole issuance, receipt/recovery, inventory, key and trusted-time design, then obtain separately staffed independent review before integrated invented-data target qualification. Synthetic passes unchanged; private pilot NOT READY; human/provider admission NO; `P2_F_GATE_2_NOT_READY`, `P2_B_PROTOCOL_READY_DATA_NOT_READY`.
+
 ## Private-pilot qualification started — 2026-11-07
 
 The [qualification register](../phase2/p2-f-private-pilot-qualification-register-2026-11-07.md) records open evidence and dependencies following the synthetic pass. Private pilot NOT READY; human/provider admission NO; `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` unchanged.

@@ -1,5 +1,9 @@
 # StrideLab Engine 2.x current coordinating handoff
 
+## Custody/authority target-qualification design review — 2026-11-07
+
+`PRIVATE_PILOT_CUSTODY_AUTHORITY_DESIGN_NEEDS_CORRECTION`: the [review](../phase2/p2-f-custody-authority-design-qualification-review-2026-11-07.md) identifies unresolved target boundary, sole issuance, receipt/recovery, independently current inventory, key and trusted-time design. This is not separately staffed independent security signoff. Correct and independently review the design before integrated invented-data target qualification; no hardware provisioning or participant/provider data. Synthetic passes unchanged; private pilot NOT READY; `P2_F_GATE_2_NOT_READY`, `P2_B_PROTOCOL_READY_DATA_NOT_READY`.
+
 ## Private-pilot qualification started — 2026-11-07
 
 The [qualification register](../phase2/p2-f-private-pilot-qualification-register-2026-11-07.md) separates the completed synthetic milestone from remaining independent authority/custody review, environment, time, key, restore, admission and source/reference evidence. All real-pilot items remain open. Private pilot NOT READY; human/provider admission NO; `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` unchanged.
