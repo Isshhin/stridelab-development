@@ -68,8 +68,8 @@ internal object TracksideReadableMapPalette {
     val residential = AndroidColor.rgb(50, 58, 63)    // #323A3F
     val buildings = AndroidColor.rgb(57, 65, 70)      // #394146
     val buildingEdges = AndroidColor.rgb(70, 78, 83)
-    val grass = AndroidColor.rgb(64, 91, 68)           // #405B44 visible park green
-    val wood = AndroidColor.rgb(49, 76, 57)            // #314C39 deeper vegetation
+    val grass = AndroidColor.rgb(72, 105, 78)          // #48694E lighter park green
+    val wood = AndroidColor.rgb(36, 68, 47)            // #24442F deeper forest/woodland green
     val water = AndroidColor.rgb(45, 72, 94)           // #2D485E Strava-like blue
     val waterways = AndroidColor.rgb(71, 106, 128)
     val minorRoads = AndroidColor.rgb(92, 101, 106)
