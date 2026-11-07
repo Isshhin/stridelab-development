@@ -16,7 +16,7 @@ import java.time.ZoneId
 import org.json.JSONObject
 
 @Composable internal fun PlanBuilder(state:TrainingState,actions:PlanActions,discipline:String="all",onDone:()->Unit,onSignIn:()->Unit,onPreview:(String,String)->Unit) {
-    if(state.account==null) { Screen("Create a plan","TRAINING") { item { SignalCard { Text("A watch is optional.",style=MaterialTheme.typography.headlineSmall);Text("Sign in once to keep plans and logs private to your account. You can then build, approve and manage plans offline.");SignalButton("Sign in",onSignIn) } } };return }
+    if(state.account==null) { Screen("Create a plan","TRAINING") { item { SignalCard { Text("A watch is optional.",style=MaterialTheme.typography.headlineSmall);Text("Your offline training profile is still initializing. No sign-in is required.");SignalButton("Back",onDone) } } };return }
     val baseline=remember { state.plans.firstOrNull { Engine1Engines.canManage(it) && it.policyId != SessionTemplate.POLICY_ID }?.let(TracksideCoaching::setupFor) ?: PlanRequest(policyChoice="coordinated",weeklyKm=historyWeeklyKm(state.activities,plans=state.plans) ?: 0.0,longestKm=state.activities.filter { DashboardSummary.isRun(it) }.mapNotNull { it.distanceM }.maxOrNull()?.div(1000) ?: 0.0) }
     val initial=remember {
         when(discipline) {
