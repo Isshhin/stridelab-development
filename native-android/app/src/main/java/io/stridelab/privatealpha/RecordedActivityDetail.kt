@@ -47,7 +47,16 @@ import kotlin.math.cos
                     val spanX=(maxX-minX).coerceAtLeast(.00001); val spanY=(maxY-minY).coerceAtLeast(.00001)
                     val scale=minOf((size.width-24)/spanX,(size.height-24)/spanY)
                     fun point(p: ActivitySample) = Offset(((size.width-spanX*scale)/2+(p.longitude!!*projection-minX)*scale).toFloat(),((size.height-spanY*scale)/2+(maxY-p.latitude!!)*scale).toFloat())
-                    for((a,b) in detail.samples.zipWithNext()) if(a.latitude!=null && a.longitude!=null && b.latitude!=null && b.longitude!=null && b.seconds-a.seconds<=120 && abs(a.longitude-b.longitude)<180) drawLine(color,point(a),point(b),3.dp.toPx())
+                    fun crossesPause(from:Double,to:Double)=detail.pauseIntervals.any {
+                        from < it.endSeconds && to > it.startSeconds
+                    }
+                    for((a,b) in detail.samples.zipWithNext()) if(
+                        a.latitude!=null && a.longitude!=null &&
+                        b.latitude!=null && b.longitude!=null &&
+                        b.seconds-a.seconds<=120 &&
+                        !crossesPause(a.seconds,b.seconds) &&
+                        abs(a.longitude-b.longitude)<180
+                    ) drawLine(color,point(a),point(b),3.dp.toPx())
                 }
             }
             if(supportsPace) SampleGraph("Pace", "sec/km",detail.samples,selected,{selectedIndex=it}) { it.pace }
