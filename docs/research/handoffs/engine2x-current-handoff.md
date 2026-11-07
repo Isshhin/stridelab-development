@@ -1,5 +1,9 @@
 # StrideLab Engine 2.x current coordinating handoff
 
+## Synthetic state-ordering review — 2026-11-07
+
+`SYNTHETIC_AUTHORITY_CUSTODY_NEEDS_CORRECTION` at reviewed head `e21d0b2e0afe4677253bff5de2865f4b95b69760`. The [review record](../phase2/p2-f-synthetic-state-ordering-review-2026-11-07.md) documents two controlled callbacks that change previously validated anchor or inventory state while output still appends. Review-only reproductions: two failures and one pass; existing 31 schedules and Python 3.12 focused, durable, P2 and full research suites pass with the documented Windows skip. No broker implementation changed. Exact-head CI was last observed queued; current state is unverified. Private pilot remains blocked, human/provider admission NO, `P2_F_GATE_2_NOT_READY`, `P2_B_PROTOCOL_READY_DATA_NOT_READY`.
+
 ## Synthetic final withdrawal fence — 2026-11-07
 
 `SYNTHETIC_AUTHORITY_CUSTODY_FINAL_WITHDRAWAL_FENCE_IMPLEMENTED` at `ddb7973fa60902a106c6b36c0ece0b314227db9b`, starting from `22b42eb5e941a3e132b05498312aecedd57f0b55`. The [implementation record](../phase2/p2-f-synthetic-authority-harness-2026-11-07.md#final-withdrawal-fence--2026-11-07) details the post-validation withdrawal recheck and six added regressions. Final pushed head is the documentation commit containing this entry (resolve with Git); exact-head CI was unavailable at documentation time. Local results: focused 81; independent schedules 6/8/11/6; durable 54; P2 229; all passed. Full research: 393 run, 392 passed, one Windows symlink skip. Prior CI 42335896033 was cancelled. Next: independent adversarial re-review; no authority/custody pass is claimed. Prior journal `PASS_FOR_SYNTHETIC_DURABILITY` unchanged; private pilot blocked, human/provider admission NO, `P2_F_GATE_2_NOT_READY`, `P2_B_PROTOCOL_READY_DATA_NOT_READY`.

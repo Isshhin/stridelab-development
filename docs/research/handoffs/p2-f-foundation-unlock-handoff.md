@@ -1,5 +1,9 @@
 # P2-F Foundation Unlock handoff
 
+## Synthetic state-ordering review — 2026-11-07
+
+`SYNTHETIC_AUTHORITY_CUSTODY_NEEDS_CORRECTION` at reviewed head `e21d0b2e0afe4677253bff5de2865f4b95b69760`. See the [review record](../phase2/p2-f-synthetic-state-ordering-review-2026-11-07.md) for two reproducible stale anchor/inventory publication cases, verification and scope. No broker implementation changed. Private pilot remains blocked; human/provider admission NO; `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` remain unchanged.
+
 Date: 2026-11-06 (Asia/Manila)  
 Repository: `Isshhin/stridelab-development`  
 Research branch / PR: `research/runna-garmin-coaching-20261102`, PR #34; keep open, draft and unmerged.  
