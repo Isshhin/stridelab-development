@@ -32,10 +32,10 @@ import java.time.DayOfWeek
  * Explicitly represented weekdays and Engine 1 equipment are persisted.
  * Split/muscle emphasis controls disclose that Engine 1 does not enforce them.
  */
-private val strengthInk=Color(0xFFF5F7F8)
-private val strengthSubtle=Color(0xFFACBBC6)
-private val strengthAccent=Color(0xFF82B6EA)
-private val strengthEdge=Color(0xFF547C99)
+private val strengthInk=Color(0xFFFFFFFF)
+private val strengthSubtle=Color(0xFFC5C5C5)
+private val strengthAccent=Color(0xFFDBF351)
+private val strengthEdge=Color(0xFFDBF351)
 
 @Composable
 internal fun TracksideFigmaStrengthSetup(
@@ -66,6 +66,7 @@ internal fun TracksideFigmaStrengthSetup(
         return
     }
     TracksideFigmaBuilderFrame(
+        progressStep = 3,
         toolbarTitle="Strength Setup",
         eyebrow="STRENGTH / SETUP",
         headline="Your strength plan",
@@ -77,7 +78,7 @@ internal fun TracksideFigmaStrengthSetup(
         Row(
             Modifier.fillMaxWidth()
                 .heightIn(min=48.dp)
-                .background(Color(0xFF12202A),RoundedCornerShape(12.dp))
+                .background(Color(0xFF242424),RoundedCornerShape(12.dp))
                 .padding(4.dp),
             horizontalArrangement=Arrangement.spacedBy(6.dp),
             verticalAlignment=Alignment.CenterVertically
@@ -89,10 +90,10 @@ internal fun TracksideFigmaStrengthSetup(
                     modifier=Modifier.weight(1f).heightIn(min=40.dp)
                         .testTag(if(custom)"builder-strength-customize"
                             else "builder-strength-auto"),
-                    color=if(selected)Color(0xFF274864) else Color(0xFF16232D),
+                    color=if(selected)Color(0xFFDBF351) else Color(0xFF242424),
                     shape=RoundedCornerShape(9.dp),
                     border=BorderStroke(1.dp,
-                        if(selected)Color(0xFF78A9D8) else Color(0xFF344854))
+                        if(selected)Color(0xFFDBF351) else Color(0xFF383838))
                 ) {
                     Box(
                         Modifier.fillMaxWidth().padding(horizontal=5.dp,vertical=11.dp),
@@ -138,7 +139,7 @@ internal fun TracksideFigmaStrengthSetup(
 
         Surface(
             modifier=Modifier.fillMaxWidth().testTag("builder-strength-weekly"),
-            color=Color(0xFF172D3D),
+            color=Color(0xFF303030),
             shape=RoundedCornerShape(15.dp),
             border=BorderStroke(1.dp,strengthEdge)
         ) {
@@ -159,9 +160,9 @@ internal fun TracksideFigmaStrengthSetup(
                             modifier=Modifier.padding(start=8.dp).size(44.dp)
                                 .testTag(if(delta<0)"builder-strength-minus"
                                     else "builder-strength-plus"),
-                            color=Color(0xFF273A47),
+                            color=Color(0xFF303030),
                             shape=RoundedCornerShape(10.dp),
-                            border=BorderStroke(1.dp,Color(0xFF536778))
+                            border=BorderStroke(1.dp,Color(0xFFDBF351))
                         ) {
                             Box(contentAlignment=Alignment.Center) {
                                 Text(if(delta<0)"−" else "+",color=strengthInk,fontSize=22.sp)
@@ -170,7 +171,7 @@ internal fun TracksideFigmaStrengthSetup(
                     }
                 }
                 Spacer(Modifier.height(12.dp))
-                Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF314652)))
+                Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF383838)))
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)) {
                     (1..7).forEach { day ->
@@ -198,16 +199,16 @@ internal fun TracksideFigmaStrengthSetup(
                             modifier=Modifier.weight(1f).height(49.dp)
                                 .testTag("builder-strength-weekday-"+day),
                             color=when {
-                                day !in request.days && slot<0 -> Color(0xFF151A21)
-                                slot>=0 -> Color(0xFF1D3F61)
-                                else -> Color(0xFF0E161D)
+                                day !in request.days && slot<0 -> Color(0xFF242424)
+                                slot>=0 -> Color(0xFF383838)
+                                else -> Color(0xFF171717)
                             },
                             shape=RoundedCornerShape(9.dp),
                             border=BorderStroke(if(selected)2.dp else 1.dp,
                                 when {
-                                    selected -> Color(0xFFEFF3F6)
-                                    slot>=0 -> Color(0xFF609BD0)
-                                    else -> Color(0xFF3A4650)
+                                    selected -> Color(0xFFFFFFFF)
+                                    slot>=0 -> Color(0xFFDBF351)
+                                    else -> Color(0xFF383838)
                                 })
                         ) {
                             Box(contentAlignment=Alignment.Center) {
@@ -216,7 +217,7 @@ internal fun TracksideFigmaStrengthSetup(
                                     1 -> "LB"
                                     else -> (slot+1).toString()
                                 } else if(day !in request.days)"−" else ""
-                                Text(label,color=if(slot>=0)Color(0xFFD2EAFF)
+                                Text(label,color=if(slot>=0)Color(0xFFDBF351)
                                     else strengthSubtle,
                                     fontSize=11.sp,fontWeight=FontWeight.Bold)
                             }
@@ -253,10 +254,10 @@ internal fun TracksideFigmaStrengthSetup(
                         onClick={onSelectedSlot(i)},
                         modifier=Modifier.weight(1f).height(44.dp)
                             .testTag("builder-strength-session-"+i),
-                        color=if(i==selectedSlot)Color(0xFF315E76) else Color(0xFF1E3949),
+                        color=if(i==selectedSlot)Color(0xFFDBF351) else Color(0xFF303030),
                         shape=RoundedCornerShape(8.dp),
                         border=BorderStroke(1.dp,if(i==selectedSlot)
-                            Color(0xFFBCD7E8) else Color(0xFF4D6B7C))
+                            Color(0xFFDBF351) else Color(0xFFDBF351))
                     ) {
                         Box(contentAlignment=Alignment.Center) {
                             Text((i+1).toString(),color=strengthInk,fontSize=13.sp)
@@ -267,16 +268,16 @@ internal fun TracksideFigmaStrengthSetup(
             Spacer(Modifier.height(7.dp))
             TextButton(onClick={ onClear(selectedSlot.coerceIn(0,count-1)) },
                 enabled=manual) {
-                Text("Clear selected session day",color=Color(0xFFFFA6B6))
+                Text("Clear selected session day",color=Color(0xFFFF9DA7))
             }
         }
         Spacer(Modifier.height(8.dp))
         Surface(
             modifier=Modifier.fillMaxWidth().height(76.dp)
                 .testTag("builder-strength-split"),
-            color=Color(0xFF182C3A),
+            color=Color(0xFF303030),
             shape=RoundedCornerShape(15.dp),
-            border=BorderStroke(1.dp,Color(0xFF435F76))
+            border=BorderStroke(1.dp,Color(0xFFDBF351))
         ) {
             Column(Modifier.padding(horizontal=12.dp,vertical=9.dp)) {
                 StrengthSectionLabel("TRAINING SPLIT")
@@ -287,12 +288,12 @@ internal fun TracksideFigmaStrengthSetup(
                             onClick={ advisory="The current coaching engine does not accept or enforce a chosen strength split. The generated draft shows the actual prescribed exercises." },
                             modifier=Modifier.weight(if(index==0)1.3f else 1f)
                                 .height(42.dp).testTag("builder-strength-split-"+index),
-                            color=if(index==0)Color(0xFF274662)
-                                else Color(0xFF20303A),
+                            color=if(index==0)Color(0xFFDBF351)
+                                else Color(0xFF303030),
                             shape=RoundedCornerShape(8.dp),
                             border=BorderStroke(1.dp,
-                                if(index==0)Color(0xFF80B6EE)
-                                else Color(0xFF435662))
+                                if(index==0)Color(0xFFDBF351)
+                                else Color(0xFFDBF351))
                         ) {
                             Box(contentAlignment=Alignment.Center) {
                                 Text(label,color=if(index==0)strengthInk
@@ -325,9 +326,9 @@ private fun StrengthPreferenceRow(
     Surface(
         onClick=onClick,
         modifier=Modifier.fillMaxWidth().heightIn(min=59.dp).testTag(tag),
-        color=Color(0xFF183040),
+        color=Color(0xFF303030),
         shape=RoundedCornerShape(13.dp),
-        border=BorderStroke(1.dp,Color(0xFF4E6B7B))
+        border=BorderStroke(1.dp,Color(0xFFDBF351))
     ) {
         // Intrinsic height grows when Android font scaling requires it.
         // 3dp vertical padding retains Figma's 59dp preference-row baseline.
@@ -335,14 +336,14 @@ private fun StrengthPreferenceRow(
             verticalAlignment=Alignment.CenterVertically,
             horizontalArrangement=Arrangement.spacedBy(12.dp)) {
             Box(
-                Modifier.size(37.dp).background(Color(0xFF284B64),
+                Modifier.size(37.dp).background(Color(0xFFDBF351),
                     RoundedCornerShape(10.dp)),
                 contentAlignment=Alignment.Center
             ) {
                 Icon(
                     painter=painterResource(iconRes),
                     contentDescription=null,
-                    tint=Color.Unspecified,
+                    tint = PlanBuilderPalette.accent,
                     modifier=Modifier.size(23.dp)
                 )
             }
@@ -353,7 +354,7 @@ private fun StrengthPreferenceRow(
                 Text(subtitle,color=strengthSubtle,fontSize=10.8f.sp,
                     maxLines=1)
             }
-            Text("›",color=Color(0xFFAACBDE),fontSize=23.sp)
+            Text("›",color=Color(0xFFDBF351),fontSize=23.sp)
         }
     }
 }
@@ -371,6 +372,7 @@ private fun TracksideFigmaStrengthEquipment(
         "anchor" to "Band anchors","support" to "Stable supports"
     )
     TracksideFigmaBuilderFrame(
+        progressStep = 3,
         toolbarTitle="Equipment",eyebrow="STRENGTH / EQUIPMENT",
         headline="What equipment\ndo you have?",
         description="Choose the equipment available for your workouts.",
@@ -388,10 +390,10 @@ private fun TracksideFigmaStrengthEquipment(
                         onClick={onChoice(id,!active)},
                         modifier=Modifier.weight(1f).height(99.dp)
                             .testTag("builder-strength-equipment-"+id),
-                        color=if(active)Color(0xFF254B64) else Color(0xFF172D3D),
+                        color=if(active)Color(0xFFDBF351) else Color(0xFF303030),
                         shape=RoundedCornerShape(13.dp),
                         border=BorderStroke(1.dp,if(active)strengthAccent
-                            else Color(0xFF456678))
+                            else Color(0xFFDBF351))
                     ) {
                         Column(Modifier.padding(13.dp)) {
                             Text(if(active)"✓" else "◦",color=strengthAccent,
