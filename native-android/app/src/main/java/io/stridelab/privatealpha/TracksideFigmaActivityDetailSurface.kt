@@ -159,7 +159,11 @@ internal fun TracksideFigmaActivityDetailSurface(
                         Modifier.fillMaxWidth().height(37.dp)
                             .clickable {
                                 scope.launch {
-                                    if (expanded) settleQuickly(SheetValue.PartiallyExpanded)
+                                    // A second tap reverses an in-flight
+                                    // transition rather than starting the same
+                                    // animation again while currentValue lags.
+                                    if (expanded || sheetState.targetValue == SheetValue.Expanded)
+                                        settleQuickly(SheetValue.PartiallyExpanded)
                                     else settleQuickly(SheetValue.Expanded)
                                 }
                             }.testTag("activity-sheet-handle")
