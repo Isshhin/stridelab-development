@@ -1,6 +1,9 @@
 package io.stridelab.privatealpha
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
+import android.os.SystemClock
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -30,7 +33,9 @@ internal data class TrainingState(
     val workoutDrafts:Map<Pair<String,String>,WorkoutEntryDraft> = emptyMap(),
     val wellness: List<WellnessRecord> = emptyList(),
     val details: Map<String,ActivityDetail> = emptyMap(),
-    val task: String? = null
+    val task: String? = null,
+    /** SQLite detail identifiers, not their potentially enormous FIT sample payloads. */
+    val cachedDetailIds: Set<String> = emptySet()
 )
 
 /** All network/database/encryption work is serialized off the main thread, including workers. */
@@ -46,12 +51,34 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     private val mutable = MutableStateFlow(TrainingState())
     val state = mutable.asStateFlow()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val hotDetails = ArrayDeque<String>()
+    private val hotDetailLimit = 4
+
+    /** Debug-only aggregate timings; never log account IDs, activity IDs or payloads. */
+    private fun traceCache(stage: String, startedAt: Long, count: Int) {
+        if (appContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            Log.d("StrideLabStartup",
+                "$stage ms=${SystemClock.elapsedRealtime() - startedAt} count=$count")
+        }
+    }
+
+    private fun retainHotDetail(id: String, detail: ActivityDetail) {
+        hotDetails.remove(id)
+        hotDetails.addLast(id)
+        while (hotDetails.size > hotDetailLimit) hotDetails.removeFirst()
+        val retained = hotDetails.toSet()
+        mutable.value = mutable.value.copy(
+            details = (mutable.value.details + (id to detail)).filterKeys { it in retained },
+            cachedDetailIds = mutable.value.cachedDetailIds + id
+        )
+    }
+
     init { scope.launch { mutex.withLock {
         val account = preferences.getString("active", null)
         try {
             mutable.value = TrainingState(initializing = true, account = account)
             if (account != null) {
-                loadCache(account)
+                loadCache(account, publishEssentials = true)
                 // Retired Intervals.icu connection settings remain untouched on
                 // disk but can no longer trigger a provider connection.
                 if(vault.read(account) == null) mutable.value = mutable.value.copy(needsSignIn = true, message = "Sign in again to synchronize. Your saved activities remain available.")
@@ -62,50 +89,199 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         }
     } } }
 
-    private fun loadCache(account: String) {
+    /**
+     * Cache-first loading. Publish locally saved activity summaries and plans
+     * before decoding secondary collections. Large FIT streams stay in SQLite
+     * until an Activity Detail destination requests one specific record.
+     */
+    private fun loadCache(account: String, publishEssentials: Boolean = false) {
+        val started = SystemClock.elapsedRealtime()
         val records = mutableListOf<ActivityRecord>()
         var rejected = 0
-        // No fixed history cap. Stream cursor rows without materializing raw JSON twice.
-        store.readableDatabase.query("records", arrayOf("payload"), "account=? AND kind=?", arrayOf(account, "activity"), null, null, null).use { c ->
-            while(c.moveToNext()) {
+        store.readableDatabase.query(
+            "records", arrayOf("payload"), "account=? AND kind=?",
+            arrayOf(account,"activity"),null,null,null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
                 try {
-                    val record=ActivityRecord.parse(c.getString(0),account)
-                    if(ActiveActivitySources.accepts(record.source))records+=record
-                    // Preserve retired source rows in the original SQLite cache.
-                } catch (_: Exception) { rejected++ } // Retain invalid raw records; never invent replacement metrics.
+                    val record = ActivityRecord.parse(cursor.getString(0),account)
+                    if (ActiveActivitySources.accepts(record.source)) records += record
+                } catch (_: Exception) {
+                    rejected++
+                } // Original unsupported rows stay untouched in SQLite.
             }
         }
-        val allowedIds=records.mapTo(HashSet<String>()) { it.id }
-        val details = mutable.value.details.filterKeys { it in allowedIds }.toMutableMap()
-        store.readableDatabase.query("records",arrayOf("record_id","payload"),"account=? AND kind=?",arrayOf(account,"activity_detail"),null,null,null).use { c ->
-            while(c.moveToNext()) {
-                val id=c.getString(0)
-                if(id in allowedIds && !details.containsKey(id))
-                    runCatching { details[id]=ActivityDetail.parse(JSONObject(c.getString(1)),account,id) }
+        traceCache("activity_summaries", started, records.size)
+        val allowedIds = records.mapTo(HashSet<String>()) { it.id }
+        val cachedDetailIds = HashSet<String>()
+        // Read IDs ONLY: don't materialize, parse or copy recorded FIT streams.
+        store.readableDatabase.query(
+            "records", arrayOf("record_id"), "account=? AND kind=?",
+            arrayOf(account,"activity_detail"),null,null,null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                val id = cursor.getString(0)
+                if (id in allowedIds) cachedDetailIds += id
             }
         }
-        val wellness=mutableListOf<WellnessRecord>()
-        store.readableDatabase.query("records",arrayOf("payload"),"account=? AND kind=?",arrayOf(account,"wellness"),null,null,null).use { c ->
-            while(c.moveToNext()) runCatching {
-                WellnessRecord.parse(JSONObject(c.getString(0)),account)?.let {
-                    if(ActiveActivitySources.accepts(it.source))wellness.add(it)
+        val preservedDetails = mutable.value.details.filterKeys {
+            it in allowedIds && it in cachedDetailIds
+        }
+        val plans = mutableListOf<PlanSnapshot>()
+        var unsupportedPlans = 0
+        store.readableDatabase.query(
+            "records", arrayOf("payload"), "account=? AND kind=?",
+            arrayOf(account,"plan"),null,null,null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                runCatching { PlanSnapshot.decode(JSONObject(cursor.getString(0)),account) }
+                    .onSuccess { plans += it }
+                    .onFailure { unsupportedPlans++ }
+            }
+        }
+        val marker = store.cursor(account,"activity")
+        val last = marker?.let {
+            runCatching { JSONObject(it).getLong("completedAt") }.getOrNull()
+        }
+        val activities = records.sortedWith(
+            compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id }
+        )
+        val sortedPlans = plans.sortedByDescending { it.createdAt }
+        val warning = when {
+            unsupportedPlans > 0 ->
+                "$unsupportedPlans saved plans require a supported contract and were retained for review."
+            rejected > 0 ->
+                "$rejected saved activities contain unsupported data and were retained for review."
+            else -> mutable.value.message
+        }
+        if (publishEssentials) {
+            // The Today/Training/Activity roots can render before less urgent
+            // wellness, exercise templates and local workout drafts are decoded.
+            mutable.value = mutable.value.copy(
+                activities=activities, plans=sortedPlans, details=preservedDetails,
+                cachedDetailIds=cachedDetailIds, lastSync=last,
+                initializing=false, message=warning
+            )
+            traceCache("first_cached_content",started,activities.size)
+        }
+
+        val wellness = mutableListOf<WellnessRecord>()
+        store.readableDatabase.query(
+            "records",arrayOf("payload"),"account=? AND kind=?",
+            arrayOf(account,"wellness"),null,null,null
+        ).use { cursor ->
+            while (cursor.moveToNext()) runCatching {
+                WellnessRecord.parse(JSONObject(cursor.getString(0)),account)?.let {
+                    if (ActiveActivitySources.accepts(it.source)) wellness += it
                 }
             }
         }
-        val plans=mutableListOf<PlanSnapshot>();var unsupportedPlans=0
-        store.readableDatabase.query("records",arrayOf("payload"),"account=? AND kind=?",arrayOf(account,"plan"),null,null,null).use { c ->
-            while(c.moveToNext()) runCatching { PlanSnapshot.decode(JSONObject(c.getString(0)),account) }.onSuccess { plans.add(it) }.onFailure { unsupportedPlans++ }
+        val shelf = store.readableDatabase.query(
+            "records",arrayOf("payload"),
+            "account=? AND kind=? AND record_id=?",
+            arrayOf(account,"exercise","library-shelf-v1"),null,null,null
+        ).use { cursor ->
+            if (cursor.moveToFirst()) LibraryShelf.decode(
+                JSONObject(cursor.getString(0)),account
+            ) else LibraryShelf()
         }
-        val shelf=store.readableDatabase.query("records",arrayOf("payload"),"account=? AND kind=? AND record_id=?",arrayOf(account,"exercise","library-shelf-v1"),null,null,null).use { c -> if(c.moveToFirst())LibraryShelf.decode(JSONObject(c.getString(0)),account) else LibraryShelf() }
-        val templates=mutableListOf<SessionTemplate>()
-        store.readableDatabase.query("records",arrayOf("payload"),"account=? AND kind=? AND record_id LIKE ?",arrayOf(account,"exercise","session-template-%"),null,null,null).use { c -> while(c.moveToNext())runCatching { SessionTemplate.decode(JSONObject(c.getString(0)),account) }.onSuccess { templates.add(it) } }
-        val drafts=mutableMapOf<Pair<String,String>,WorkoutEntryDraft>()
-        store.readableDatabase.query("records",arrayOf("record_id","payload"),"account=? AND kind=? AND record_id LIKE ?",arrayOf(account,"workout","entry-draft-%"),null,null,null).use { c -> while(c.moveToNext())runCatching { WorkoutEntryDraft.decode(JSONObject(c.getString(1)),account).also { require(it.recordId==c.getString(0)) } }.onSuccess { if(validDraft(it,plans))drafts[it.key]=it } }
-        val cursor = store.cursor(account, "activity")
-        val last = cursor?.let { runCatching { JSONObject(it).getLong("completedAt") }.getOrNull() }
-        mutable.value = mutable.value.copy(activities = records.sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id }), lastSync = last, details = details, wellness = wellness, shelf=shelf, templates=templates, workoutDrafts=drafts, plans = plans.sortedByDescending { it.createdAt },
-            message = if(unsupportedPlans>0) "$unsupportedPlans saved plans require a supported contract and were retained for review." else if(rejected > 0) "$rejected saved activities contain unsupported data and were retained for review." else mutable.value.message)
+        val templates = mutableListOf<SessionTemplate>()
+        store.readableDatabase.query(
+            "records",arrayOf("payload"),
+            "account=? AND kind=? AND record_id LIKE ?",
+            arrayOf(account,"exercise","session-template-%"),null,null,null
+        ).use { cursor ->
+            while (cursor.moveToNext()) runCatching {
+                SessionTemplate.decode(JSONObject(cursor.getString(0)),account)
+            }.onSuccess { templates += it }
+        }
+        val drafts = mutableMapOf<Pair<String,String>,WorkoutEntryDraft>()
+        store.readableDatabase.query(
+            "records",arrayOf("record_id","payload"),
+            "account=? AND kind=? AND record_id LIKE ?",
+            arrayOf(account,"workout","entry-draft-%"),null,null,null
+        ).use { cursor ->
+            while (cursor.moveToNext()) runCatching {
+                WorkoutEntryDraft.decode(JSONObject(cursor.getString(1)),account).also {
+                    require(it.recordId == cursor.getString(0))
+                }
+            }.onSuccess { if (validDraft(it,plans)) drafts[it.key] = it }
+        }
+        mutable.value = mutable.value.copy(
+            activities=activities, lastSync=last,
+            details=preservedDetails, cachedDetailIds=cachedDetailIds,
+            wellness=wellness, shelf=shelf, templates=templates,
+            workoutDrafts=drafts, plans=sortedPlans, message=warning
+        )
+        traceCache("all_cache_metadata",started,activities.size)
     }
+
+    /**
+     * Open only the requested cached detail; never call a provider on the
+     * cached-data path. The original SQLite payload is preserved on error.
+     */
+    internal suspend fun loadCachedDetail(id: String): Boolean =
+        withContext(Dispatchers.IO) { mutex.withLock {
+            val started = SystemClock.elapsedRealtime()
+            val account = mutable.value.account ?: return@withLock false
+            if (mutable.value.activities.none { it.id == id }) return@withLock false
+            if (mutable.value.details.containsKey(id)) return@withLock true
+            if (id !in mutable.value.cachedDetailIds) return@withLock false
+            val saved = store.get(account,"activity_detail",id)
+                ?: return@withLock false
+            val parsed = try {
+                ActivityDetail.parse(JSONObject(saved.payload),account,id)
+            } catch (_: Exception) {
+                mutable.value = mutable.value.copy(
+                    message="The saved activity details could not be opened. The original local record was retained."
+                )
+                return@withLock false
+            }
+            retainHotDetail(id,parsed)
+            traceCache("on_demand_activity_detail",started,parsed.samples.size)
+            true
+        } }
+
+    /**
+     * Reconcile only affected activity summaries after a durable remote page.
+     * Read back the SQLite winner so pending local edits/conflicts are never
+     * overwritten by the display cache. No detail streams or plans are parsed.
+     */
+    private fun publishActivityPage(
+        account: String,
+        rows: List<TrainingStore.RemoteRecord>,
+        completedMarker: String? = null
+    ) {
+        val start = SystemClock.elapsedRealtime()
+        val active = mutable.value.activities.associateBy { it.id }.toMutableMap()
+        rows.forEach { row ->
+            val stored = store.get(account,"activity",row.id)
+            val parsed = stored?.let {
+                runCatching { ActivityRecord.parse(it.payload,account) }.getOrNull()
+            }
+            if (parsed != null && ActiveActivitySources.accepts(parsed.source)) {
+                active[row.id] = parsed
+            } else {
+                active.remove(row.id)
+            }
+        }
+        val currentIds = active.keys
+        val completed = completedMarker?.let {
+            runCatching { JSONObject(it).getLong("completedAt") }.getOrNull()
+        }
+        mutable.value = mutable.value.copy(
+            activities=active.values.sortedWith(
+                compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id }
+            ),
+            cachedDetailIds=mutable.value.cachedDetailIds.filterTo(HashSet()) {
+                it in currentIds
+            },
+            details=mutable.value.details.filterKeys { it in currentIds },
+            lastSync=completed ?: mutable.value.lastSync
+        )
+        traceCache("incremental_activity_sync",start,rows.size)
+    }
+
     suspend fun restorePlans(raw:String)=operation("Restoring reviewed plan backup…") {
         val account=mutable.value.account ?: throw PlanConstraint("Sign in to the backup's original account before restoring.")
         val additions=PlanBackup.additions(PlanBackup.read(raw,account),mutable.value.plans)
