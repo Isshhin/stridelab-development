@@ -947,6 +947,13 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                         break
                     } catch (error: GarminServiceException) {
                         failedDetails++
+                        if (error.status == 404 || error.status == 410) {
+                            // A missing or retired FIT is one bad activity,
+                            // not evidence that all other Garmin runs failed.
+                            garminSyncPreferences.noteDetailFailure(account, activity.id)
+                            recoverableFitFailures = true
+                            continue
+                        }
                         interruption = GarminConnectionStatus.fromError(error).error
                         break
                     } catch (error: CancellationException) {
