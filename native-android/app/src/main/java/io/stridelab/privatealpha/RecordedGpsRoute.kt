@@ -11,19 +11,35 @@ internal data class RecordedGpsPoint(
     val elapsedSeconds:Double
 )
 
-internal data class RecordedGpsRoute(val segments:List<List<RecordedGpsPoint>>) {
+internal data class RecordedGpsRoute(
+    val segments:List<List<RecordedGpsPoint>>,
+    val pauseIntervals:List<ActivityPauseInterval> = emptyList()
+) {
     val pointCount:Int get()=segments.sumOf { it.size }
     val allPoints:List<RecordedGpsPoint> get()=segments.flatten()
     val isolatedPoints:List<RecordedGpsPoint> get()=segments.filter { it.size == 1 }.flatten()
 
-    /** Missing GPS intervals are shown as a DASHED indication of unknown path,
-     * never as part of the measured lime route. Dateline crossings are omitted.
-     */
-    val gaps:List<Pair<RecordedGpsPoint,RecordedGpsPoint>> get()=
+    private val segmentGaps:List<Pair<RecordedGpsPoint,RecordedGpsPoint>> get()=
         segments.zipWithNext().mapNotNull { (a,b) ->
             val start=a.lastOrNull() ?: return@mapNotNull null
             val end=b.firstOrNull() ?: return@mapNotNull null
             if (abs(start.longitude-end.longitude)>=180.0) null else start to end
+        }
+
+    /** Known timer pauses from FIT stop/start events. No path is inferred. */
+    val pauseGaps:List<Pair<RecordedGpsPoint,RecordedGpsPoint>> get()=
+        segmentGaps.filter { (start,end) -> crossesPause(start.elapsedSeconds,end.elapsedSeconds) }
+
+    /** Missing/long GPS gaps not explicitly explained by a timer pause. */
+    val unknownGaps:List<Pair<RecordedGpsPoint,RecordedGpsPoint>> get()=
+        segmentGaps.filterNot { (start,end) -> crossesPause(start.elapsedSeconds,end.elapsedSeconds) }
+
+    /** Backward-compatible union for tests/legacy callers. */
+    val gaps:List<Pair<RecordedGpsPoint,RecordedGpsPoint>> get()=segmentGaps
+
+    private fun crossesPause(start:Double,end:Double):Boolean =
+        pauseIntervals.any { pause ->
+            start < pause.endSeconds && end > pause.startSeconds
         }
 
     private fun multiLineFeature(lines:JSONArray):String {
@@ -52,8 +68,7 @@ internal data class RecordedGpsRoute(val segments:List<List<RecordedGpsPoint>>) 
             .toString()
     }
 
-    /** Straight dashed visual connector means unknown tracking, NOT distance. */
-    fun gapsGeoJson():String {
+    private fun gapGeoJson(gaps:List<Pair<RecordedGpsPoint,RecordedGpsPoint>>):String {
         val lines=JSONArray()
         gaps.forEach { (a,b) ->
             lines.put(JSONArray()
@@ -63,9 +78,16 @@ internal data class RecordedGpsRoute(val segments:List<List<RecordedGpsPoint>>) 
         return multiLineFeature(lines)
     }
 
+    /** Straight dashed visual connector means unknown tracking, NOT distance. */
+    fun gapsGeoJson():String = gapGeoJson(unknownGaps)
+
+    /** Amber dashed connector marks a real FIT timer pause/resume interval. */
+    fun pauseGapsGeoJson():String = gapGeoJson(pauseGaps)
+
     /**
      * A separate LineString is used for each continuous section. Avoid
-     * drawing invented paths across missing fixes, long gaps and the dateline.
+     * drawing invented paths across missing fixes, timer pauses, long gaps,
+     * and the dateline.
      */
     fun toGeoJson():String {
         val lines=JSONArray()
@@ -79,6 +101,29 @@ internal data class RecordedGpsRoute(val segments:List<List<RecordedGpsPoint>>) 
         return multiLineFeature(lines)
     }
 
+    fun selectedPoint(seconds:Double?):RecordedGpsPoint? {
+        if(seconds == null || !seconds.isFinite())return null
+        return allPoints.minByOrNull { abs(it.elapsedSeconds-seconds) }
+            ?.takeIf { abs(it.elapsedSeconds-seconds) <= 90.0 }
+    }
+
+    fun selectedPointGeoJson(seconds:Double?):String {
+        val point=selectedPoint(seconds)
+        return if(point==null) {
+            JSONObject().put("type","FeatureCollection")
+                .put("features",JSONArray()).toString()
+        } else {
+            JSONObject()
+                .put("type","Feature")
+                .put("properties",JSONObject())
+                .put("geometry",JSONObject()
+                    .put("type","Point")
+                    .put("coordinates",JSONArray()
+                        .put(point.longitude).put(point.latitude)))
+                .toString()
+        }
+    }
+
     /** An antimeridian-spanning route is framed to its longest contiguous section. */
     fun cameraPoints():List<RecordedGpsPoint> {
         val points=allPoints
@@ -89,13 +134,20 @@ internal data class RecordedGpsRoute(val segments:List<List<RecordedGpsPoint>>) 
     }
 
     companion object {
-        fun from(samples:List<ActivitySample>):RecordedGpsRoute {
+        fun from(
+            samples:List<ActivitySample>,
+            pauseIntervals:List<ActivityPauseInterval> = emptyList()
+        ):RecordedGpsRoute {
             val output=ArrayList<List<RecordedGpsPoint>>()
             var current=ArrayList<RecordedGpsPoint>()
             fun flush() {
                 if(current.isNotEmpty())output.add(current.toList())
                 current=ArrayList()
             }
+            fun crossesPause(start:Double,end:Double):Boolean =
+                pauseIntervals.any { pause ->
+                    start < pause.endSeconds && end > pause.startSeconds
+                }
             for(sample in samples) {
                 val lat=sample.latitude
                 val lon=sample.longitude
@@ -110,11 +162,12 @@ internal data class RecordedGpsRoute(val segments:List<List<RecordedGpsPoint>>) 
                 val last=current.lastOrNull()
                 if(last!=null && (point.elapsedSeconds-last.elapsedSeconds>120.0 ||
                     point.elapsedSeconds<last.elapsedSeconds ||
+                    crossesPause(last.elapsedSeconds,point.elapsedSeconds) ||
                     abs(point.longitude-last.longitude)>=180.0))flush()
                 current.add(point)
             }
             flush()
-            return RecordedGpsRoute(output)
+            return RecordedGpsRoute(output,pauseIntervals)
         }
     }
 }
