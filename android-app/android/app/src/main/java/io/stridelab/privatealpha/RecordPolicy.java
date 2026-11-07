@@ -23,8 +23,12 @@ public final class RecordPolicy {
     public static void kind(String value) {
         if (!KINDS.contains(value)) throw new IllegalArgumentException("Unsupported record kind");
     }
-    public static void payload(String value) {
-        if (value == null || value.getBytes(StandardCharsets.UTF_8).length > MAX_PAYLOAD_BYTES)
+    /** Small records (plans, workout logs, summaries) retain their existing bound. */
+    public static void payload(String value) { checkedJsonObject(value, true); }
+
+    private static void checkedJsonObject(String value, boolean smallRecord) {
+        if (value == null || (smallRecord &&
+                value.getBytes(StandardCharsets.UTF_8).length > MAX_PAYLOAD_BYTES))
             throw new IllegalArgumentException("Record payload is missing or too large");
         try {
             JSONTokener tokens = new JSONTokener(value);
@@ -39,6 +43,10 @@ public final class RecordPolicy {
             throw new IllegalArgumentException("A server version is required for safe synchronization");
     }
     public static void record(String account,String kind,String id,String payload) {
-        identifier(account);kind(kind);identifier(id);payload(payload);
+        identifier(account);kind(kind);identifier(id);
+        // Complete Garmin FIT streams expand beyond 2 MB when serialized
+        // as JSON. SQLite TEXT supports them; never truncate/reject a valid
+        // activity_detail solely for its serialized byte count.
+        checkedJsonObject(payload, !"activity_detail".equals(kind));
     }
 }
