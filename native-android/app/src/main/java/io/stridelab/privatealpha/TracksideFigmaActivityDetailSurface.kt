@@ -12,10 +12,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
@@ -55,7 +61,17 @@ internal fun TracksideFigmaActivityDetailSurface(
             .testTag("screen")
             .semantics { paneTitle = activity.title }
     ) {
-        val sheetTop = if (maxHeight < 720.dp) 355.dp else 425.dp
+        // Collapsed peek tracks the ACTUAL summary height, not a fixed
+        // viewport fraction. Otherwise the sheet has a large empty tail.
+        // This also grows correctly for a two-line title or large fonts.
+        val density = LocalDensity.current
+        var previewHeightPx by remember(activity.id) { mutableIntStateOf(0) }
+        val peekHeight = if (previewHeightPx > 0) {
+            with(density) { previewHeightPx.toDp() } + 37.dp
+        } else 220.dp // Only used before the preview's first measurement.
+        val effectivePeekHeight = peekHeight.coerceAtMost(
+            (maxHeight - 80.dp).coerceAtLeast(120.dp)
+        )
         val sheetHeight = (maxHeight - 24.dp).coerceAtLeast(400.dp).coerceAtMost(maxHeight)
         val sheetState = rememberStandardBottomSheetState(
             initialValue = SheetValue.PartiallyExpanded,
@@ -77,7 +93,7 @@ internal fun TracksideFigmaActivityDetailSurface(
 
         BottomSheetScaffold(
             scaffoldState = scaffoldState,
-            sheetPeekHeight = maxHeight - sheetTop,
+            sheetPeekHeight = effectivePeekHeight,
             sheetShape = RoundedCornerShape(topStart = 25.dp, topEnd = 25.dp),
             sheetContainerColor = if (matte) Color(0xFF0A110F) else Color(0xFF080D0C),
             sheetDragHandle = null,
@@ -132,7 +148,15 @@ internal fun TracksideFigmaActivityDetailSurface(
                     }
                     if (!expanded) {
                         // No pill and no body below the approved initial preview.
-                        TracksideActivityInitialPreview(activity)
+                        Box(
+                            Modifier.fillMaxWidth().wrapContentHeight()
+                                .onSizeChanged { size ->
+                                    if (previewHeightPx != size.height)
+                                        previewHeightPx = size.height
+                                }
+                        ) {
+                            TracksideActivityInitialPreview(activity)
+                        }
                     } else {
                         TracksideActivityExpandedHeader(activity, collapseOrBack)
                         TracksideActivityContinuousSections(
