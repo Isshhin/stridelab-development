@@ -195,8 +195,8 @@ private fun NavHostController.openActivity(id: String) {
                 listOf(TracksidePalette.backgroundTop, TracksidePalette.backgroundBottom)
             )
         }
-        Column(Modifier.fillMaxSize().background(pageBackground).padding(padding).imePadding()) {
-            if(state.busy || state.initializing) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("loading"))
+        Box(Modifier.fillMaxSize().background(pageBackground).padding(padding).imePadding()) {
+            Column(Modifier.fillMaxSize()) {
             if(!online) Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
                 Text("Offline · Saved activities remain available", Modifier.fillMaxWidth().padding(horizontal = 20.dp,vertical = 10.dp).testTag("offline-status"),style = MaterialTheme.typography.bodyMedium)
             }
@@ -587,6 +587,17 @@ private fun NavHostController.openActivity(id: String) {
                 }
             }
             } // Persistent tab container
+            }
+            // Keep network/refresh animation outside the navigation Column.
+            // Showing or hiding progress must not remeasure the map or tabs.
+            if (state.busy || state.initializing) {
+                LinearProgressIndicator(
+                    modifier = Modifier.align(Alignment.TopCenter)
+                        .fillMaxWidth().height(3.dp).testTag("loading"),
+                    color = Color(0xFFD8FB70),
+                    trackColor = Color(0xFF1A2A20)
+                )
+            }
         }
     }
     if (showFloatingDock) {
