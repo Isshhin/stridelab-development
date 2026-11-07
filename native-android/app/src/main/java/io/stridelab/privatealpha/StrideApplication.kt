@@ -22,7 +22,17 @@ class StrideApplication: Application() {
         super.onCreate()
         val request = PeriodicWorkRequestBuilder<HistoryRefreshWorker>(1, TimeUnit.HOURS)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()).build()
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork("native-history-refresh-v1", ExistingPeriodicWorkPolicy.KEEP, request)
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "native-history-refresh-v1", ExistingPeriodicWorkPolicy.KEEP, request)
+        // Separate from backend refresh; 6-hour periodic Garmin/backup checks
+        // are only active for signed-in accounts with matching user settings.
+        val garminWork = PeriodicWorkRequestBuilder<GarminAutoSyncWorker>(
+            6, TimeUnit.HOURS
+        ).setConstraints(
+            Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+        ).build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "garmin-auto-sync-v1", ExistingPeriodicWorkPolicy.KEEP, garminWork)
     }
 }
 class HistoryRefreshWorker(context: Context, params: WorkerParameters): CoroutineWorker(context, params) {
@@ -32,6 +42,18 @@ class HistoryRefreshWorker(context: Context, params: WorkerParameters): Coroutin
         val ready = repo.state.first { !it.initializing }
         if(ready.account == null || ready.needsSignIn) return Result.success()
         return if(repo.refresh()) Result.success() else if(repo.state.value.needsSignIn) Result.failure() else Result.retry()
+    }
+}
+/** Account-scoped, bounded sync. No background UI, credentials or foreground service. */
+class GarminAutoSyncWorker(context: Context, params: WorkerParameters): CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result {
+        val repo = (applicationContext as StrideApplication).repository
+        val ready = repo.state.first { !it.initializing }
+        if (ready.account == null || ready.needsSignIn) return Result.success()
+        // On failure the local cache stays unchanged and the next scheduled
+        // check retries. Never enter an aggressive request loop.
+        repo.automaticGarminAndBackup(foreground = false)
+        return Result.success()
     }
 }
 class TrainingViewModel(application: Application): AndroidViewModel(application) {
@@ -46,6 +68,11 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
         viewModelScope.launch { repo.requestPasswordReset(email) }
     }
     fun refresh() { viewModelScope.launch { repo.refresh() } }
+    fun onAppResumed() {
+        viewModelScope.launch { repo.automaticGarminAndBackup(foreground = true) }
+    }
+    internal suspend fun backupGarminCloud(): Int = repo.backupGarminCloud()
+    internal suspend fun restoreGarminCloud(): Int = repo.restoreGarminCloud()
     /** UI-triggered foreground Garmin history import; completed pages remain offline. */
     internal suspend fun syncGarmin(source:GarminPersonalSource):GarminConnectionStatus =
         repo.syncGarmin(source)
