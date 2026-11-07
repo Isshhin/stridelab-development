@@ -291,69 +291,88 @@ internal fun TracksideFigmaAvailabilityScreen(
         progressStep = 5,
         eyebrow = "PLAN / AVAILABILITY",
         toolbarTitle = "Availability",
-        headline="Make room to train",
-        description="Your available days apply across all selected sports.",
+        headline="Your weekly availability",
+        description="Tell us which days you can train.",
         onBack=onBack,onContinue=onContinue,
         continueEnabled=capacityFits
     ) {
-        Surface(Modifier.fillMaxWidth().height(224.dp),
-            shape=RoundedCornerShape(14.dp),color=Color.Transparent,
-            border=BorderStroke(1.dp,Color(0xFFDBF351))) {
-            Column(Modifier.fillMaxSize().background(daysBrush).padding(13.dp)) {
-                TracksideFigmaFormLabel("YOUR TRAINING DAYS")
-                Spacer(Modifier.height(23.dp))
-                Row(verticalAlignment=Alignment.Bottom) {
-                    Text(chosen.toString(),fontSize=39.sp,color=Color.White,
-                        fontWeight=FontWeight.Bold)
-                    Spacer(Modifier.width(18.dp))
-                    Text("/ 7 DAYS",fontSize=11.sp,color=Color(0xFFC5C5C5),
-                        modifier=Modifier.padding(bottom=9.dp))
-                }
-                Spacer(Modifier.height(25.dp))
-                Row(
-                    Modifier.fillMaxWidth().height(51.dp),
-                    horizontalArrangement=Arrangement.spacedBy(4.dp)
-                ) {
-                    listOf("MON","TUE","WED","THU","FRI","SAT","SUN").forEachIndexed {
-                        index,label ->
-                        val day=index+1
-                        val selected=day in request.days
-                        Surface(
-                            onClick={
-                                if(selected && day in pinned) pendingRemovalDay=day
-                                else onDay(day)
+
+        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            listOf("Mon","Tue","Wed","Thu","Fri","Sat","Sun")
+                .forEachIndexed { index, label ->
+                    val day = index + 1
+                    val available = day in request.days
+                    val preferred = available && request.runDays > 0 && day == request.longDay
+                    val fixedSessions = byDay[day]?.size ?: 0
+                    Surface(
+                        onClick = {
+                            if (available && day in pinned) pendingRemovalDay = day
+                            else onDay(day)
+                        },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 46.dp)
+                            .testTag("available-day-$day")
+                            .semantics {
+                                stateDescription = when {
+                                    available && fixedSessions > 0 ->
+                                        "Available, $fixedSessions placed workouts. Tap to change."
+                                    available -> "Available. Tap to make unavailable."
+                                    else -> "Unavailable. Tap to make available."
+                                }
                             },
-                            modifier=Modifier.weight(1f)
-                                .fillMaxHeight().testTag("available-day-$day")
-                                .semantics {
-                                    stateDescription = when {
-                                        selected && day in pinned ->
-                                            "Available, ${byDay[day]?.size ?: 1} placed workouts. Tap to change."
-                                        selected -> "Available. Tap to make unavailable."
-                                        else -> "Unavailable. Tap to make available."
-                                    }
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (preferred) PlanBuilderPalette.selected
+                            else PlanBuilderPalette.surface,
+                        border = BorderStroke(1.dp,
+                            if (preferred) PlanBuilderPalette.accent
+                            else PlanBuilderPalette.border)
+                    ) {
+                        Row(Modifier.fillMaxWidth()
+                            .padding(horizontal = 11.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                            Text(label, color = PlanBuilderPalette.text,
+                                fontWeight = FontWeight.SemiBold, fontSize = 11.sp,
+                                modifier = Modifier.width(35.dp))
+                            Text("●", fontSize = 11.sp,
+                                color = when {
+                                    preferred -> PlanBuilderPalette.text
+                                    available -> PlanBuilderPalette.accent
+                                    else -> PlanBuilderPalette.disabled
+                                })
+                            Text(
+                                when {
+                                    preferred -> "Preferred · long run"
+                                    available && fixedSessions > 0 ->
+                                        "Available · $fixedSessions fixed"
+                                    available -> "Available"
+                                    else -> "Rest / unavailable"
                                 },
-                            color=if(selected)Color(0xFF303030) else Color(0xFF242424),
-                            shape=RoundedCornerShape(9.dp),
-                            border=BorderStroke(1.dp,
-                                if(selected)Color(0xFFC5C5C5) else Color(0xFFDBF351))
-                        ) {
-                            Column(horizontalAlignment=Alignment.CenterHorizontally,
-                                verticalArrangement=Arrangement.Center) {
-                                Text(label,fontSize=9.sp,color=if(selected) Color.White
-                                    else Color(0xFFDBF351),maxLines=1)
-                                if(!selected) Text("–",fontSize=12.sp,color=Color(0xFFDBF351))
-                                else if(day in pinned) Text("•",fontSize=12.sp,color=Color(0xFFDBF351))
-                            }
+                                fontSize = 11.sp,
+                                color = PlanBuilderPalette.text,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text("Change", fontSize = 10.sp,
+                                color = PlanBuilderPalette.secondary)
                         }
                     }
                 }
+            Row(Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("● Available", fontSize = 9.sp,
+                    color = PlanBuilderPalette.accent)
+                Spacer(Modifier.width(12.dp))
+                Text("● Preferred", fontSize = 9.sp,
+                    color = PlanBuilderPalette.text)
+                Spacer(Modifier.width(12.dp))
+                Text("● Rest", fontSize = 9.sp,
+                    color = PlanBuilderPalette.disabled)
             }
         }
         Spacer(Modifier.height(23.dp))
         Surface(Modifier.fillMaxWidth().heightIn(min=125.dp),
             shape=RoundedCornerShape(14.dp),color=Color.Transparent,
-            border=BorderStroke(1.dp,Color(0xFFDBF351))) {
+            border=BorderStroke(1.dp,PlanBuilderPalette.border)) {
             Column(Modifier.fillMaxWidth().background(capacityBrush).padding(13.dp)) {
                 TracksideFigmaFormLabel("AUTOMATIC CAPACITY CHECK")
                 Spacer(Modifier.height(17.dp))
@@ -436,7 +455,7 @@ internal fun TracksideFigmaAvailabilityScreen(
         Spacer(Modifier.height(18.dp))
         Surface(Modifier.fillMaxWidth().heightIn(min=131.dp),
             shape=RoundedCornerShape(14.dp),color=Color.Transparent,
-            border=BorderStroke(1.dp,Color(0xFFDBF351))) {
+            border=BorderStroke(1.dp,PlanBuilderPalette.border)) {
             Column(Modifier.fillMaxWidth().background(coachingBrush).padding(13.dp)) {
                 TracksideFigmaFormLabel("NEXT: COACHING CHECKS")
                 Spacer(Modifier.height(23.dp))
