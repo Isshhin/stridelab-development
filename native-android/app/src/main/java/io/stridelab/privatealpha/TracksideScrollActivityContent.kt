@@ -289,7 +289,7 @@ internal fun TracksideActivityContinuousSections(
             modifier = Modifier.fillMaxSize().testTag("activity-continuous-scroll"),
             state = listState,
             contentPadding = PaddingValues(start = 18.dp, end = 18.dp, bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             item(key = "section-overview") {
                 Column(Modifier.fillMaxWidth().testTag("activity-section-overview")) {
@@ -312,20 +312,18 @@ internal fun TracksideActivityContinuousSections(
                         )
                     } else {
                         Row(
-                            Modifier.fillMaxWidth().padding(vertical = 9.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            Modifier.fillMaxWidth().padding(top = 5.dp, bottom = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text(
-                                "LAP", color = activityMuted, fontSize = 10.sp,
-                                modifier = Modifier.width(33.dp)
-                            )
-                            Text(
-                                "PACE", color = activityMuted, fontSize = 10.sp,
-                                modifier = Modifier.weight(1f)
-                            )
-                            if (hasSplitHr) Text(
-                                "HR", color = activityMuted, fontSize = 10.sp
-                            )
+                            Text("LAP", color = activityMuted, fontSize = 10.sp,
+                                modifier = Modifier.width(26.dp))
+                            Text("KM", color = activityMuted, fontSize = 10.sp,
+                                modifier = Modifier.width(40.dp))
+                            Text("PACE", color = activityMuted, fontSize = 10.sp,
+                                modifier = Modifier.weight(1f))
+                            if (hasSplitHr) Text("HR", color = activityMuted, fontSize = 10.sp,
+                                modifier = Modifier.width(33.dp))
                         }
                     }
                 }
@@ -531,39 +529,50 @@ private fun TracksideActivitySplitRow(
         (.35f + .65f * ((slowest - recordedPace) / (slowest - fastest).coerceAtLeast(1.0)).toFloat())
             .coerceIn(.35f, 1f)
     } else 0f
+
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 38.dp)
-            .testTag("activity-split-" + index),
+        Modifier.fillMaxWidth().heightIn(min = 30.dp)
+            .testTag("activity-split-" + index)
+            .semantics {
+                contentDescription = "Lap " + (index + 1) +
+                    ", distance " + (lap.distance?.let {
+                        String.format(Locale.getDefault(), "%.2f km", it / 1000.0)
+                    } ?: "not recorded") +
+                    ", pace " + (recordedPace?.let { ActivityRecord.duration(it) + " per km" }
+                        ?: "not recorded") +
+                    (if (hasHr) ", heart rate " +
+                        (lap.hr?.roundToInt()?.toString()?.plus(" bpm") ?: "not recorded") else "")
+            },
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Text((index + 1).toString(), color = activityText, fontSize = 12.sp,
-            modifier = Modifier.width(33.dp))
-        Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    recordedPace?.let { ActivityRecord.duration(it) }
-                        ?: lap.seconds?.let { ActivityRecord.duration(it) } ?: "—",
-                    color = activityText, fontSize = 12.sp,
-                    modifier = Modifier.width(52.dp)
-                )
+        Text((index + 1).toString(), color = activityMuted, fontSize = 11.sp,
+            modifier = Modifier.width(26.dp), maxLines = 1)
+        Text(
+            lap.distance?.let { String.format(Locale.getDefault(), "%.2f", it / 1000.0) } ?: "—",
+            color = activityMuted, fontSize = 11.sp,
+            modifier = Modifier.width(40.dp), maxLines = 1
+        )
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            Text(
+                recordedPace?.let { ActivityRecord.duration(it) } ?: "—",
+                color = activityText, fontSize = 12.sp,
+                modifier = Modifier.width(49.dp), maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Box(Modifier.weight(1f).height(4.dp)
+                .background(Color(0xFF2A3530), RoundedCornerShape(3.dp))) {
                 if (recordedPace != null) {
-                    Box(Modifier.fillMaxWidth().height(7.dp)
-                        .background(Color(0xFF2A3530), RoundedCornerShape(5.dp))) {
-                        Box(Modifier.fillMaxWidth(fraction).fillMaxHeight()
-                            .background(activityLime, RoundedCornerShape(5.dp)))
-                    }
-                } else {
-                    Text("Pace not recorded", color = activityMuted, fontSize = 10.sp)
+                    Box(Modifier.fillMaxWidth(fraction).fillMaxHeight()
+                        .background(activityLime, RoundedCornerShape(3.dp)))
                 }
             }
         }
         if (hasHr) {
-            Text(
-                lap.hr?.roundToInt()?.toString() ?: "—",
-                color = activityMuted, fontSize = 11.sp
-            )
+            Text(lap.hr?.roundToInt()?.toString() ?: "—",
+                color = activityMuted, fontSize = 11.sp,
+                modifier = Modifier.width(33.dp), maxLines = 1)
         }
     }
 }
