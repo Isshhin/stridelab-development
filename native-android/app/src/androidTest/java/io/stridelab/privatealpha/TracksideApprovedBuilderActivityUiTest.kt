@@ -36,7 +36,7 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("discipline-run").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-option-race").assertExists()
-        compose.onNodeWithText("running goal?", substring=true).assertExists()
+        compose.onNodeWithText("Your running goal", substring=true).assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-distance-10K").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
@@ -49,7 +49,7 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("available-day-6").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
-        compose.onNodeWithText("Your training week").assertExists()
+        compose.onNodeWithText("Your training blueprint").assertExists()
         compose.onNodeWithText("Chosen weekdays are requests",
             substring=true).assertExists()
         compose.onNodeWithTag("builder-figma-continue").assertExists()
