@@ -25,6 +25,8 @@ private val garminMuted = Color(0xFFADB8B0)
 internal fun GarminSettingsCard(
     accountId: String,
     syncGarmin: (suspend (GarminPersonalSource) -> GarminConnectionStatus)? = null,
+    backupGarminCloud: (suspend () -> Int)? = null,
+    restoreGarminCloud: (suspend () -> Int)? = null,
     onBusyChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -37,6 +39,15 @@ internal fun GarminSettingsCard(
     var apiKey by remember(accountId) { mutableStateOf("") }
     var busy by remember(accountId) { mutableStateOf(false) }
     var confirmDisconnect by remember(accountId) { mutableStateOf(false) }
+    val syncPreferences = remember(accountId) { GarminSyncPreferences(context) }
+    var automaticEnabled by remember(accountId) {
+        mutableStateOf(syncPreferences.automatic(accountId))
+    }
+    var cloudEnabled by remember(accountId) {
+        mutableStateOf(syncPreferences.cloudBackup(accountId))
+    }
+    var confirmEnableCloud by remember(accountId) { mutableStateOf(false) }
+    var cloudMessage by remember(accountId) { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     fun operation(action: suspend () -> GarminConnectionStatus) {
         if (busy) return
@@ -50,6 +61,24 @@ internal fun GarminSettingsCard(
                 connected = withContext(Dispatchers.IO) {
                     runCatching { source.status().state == "connected" }.getOrDefault(false)
                 }
+                busy = false
+                onBusyChange(false)
+            }
+        }
+    }
+    fun cloudOperation(action: suspend () -> Int, verb: String) {
+        if (busy || !cloudEnabled) return
+        busy = true
+        onBusyChange(true)
+        cloudMessage = null
+        scope.launch {
+            try {
+                val count = withContext(Dispatchers.IO) { action() }
+                cloudMessage = count.toString() + " records " + verb +
+                    ". Local and existing cloud records were preserved."
+            } catch (_: Exception) {
+                cloudMessage = "Cloud operation could not finish. Local records were retained."
+            } finally {
                 busy = false
                 onBusyChange(false)
             }
@@ -130,9 +159,106 @@ internal fun GarminSettingsCard(
                 }
             }
         }
+        HorizontalDivider(color = Color(0xFF27372E))
+        Row(
+            Modifier.fillMaxWidth().testTag("garmin-automatic-setting"),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Automatic sync", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text("On app resume and periodically in the background",
+                    color = garminMuted, fontSize = 11.sp, lineHeight = 16.sp)
+            }
+            Switch(
+                checked = automaticEnabled,
+                onCheckedChange = {
+                    syncPreferences.setAutomatic(accountId, it)
+                    automaticEnabled = it
+                },
+                enabled = !busy && connected,
+                modifier = Modifier.testTag("garmin-automatic-toggle"),
+                colors = SwitchDefaults.colors(
+                    checkedTrackColor = garminLime,
+                    checkedThumbColor = Color(0xFF0C140E)
+                )
+            )
+        }
+        Row(
+            Modifier.fillMaxWidth().testTag("garmin-cloud-setting"),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Cloud backup", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text("Optional · private to your StrideLab account",
+                    color = garminMuted, fontSize = 11.sp)
+            }
+            Switch(
+                checked = cloudEnabled,
+                onCheckedChange = { checked ->
+                    if (checked) confirmEnableCloud = true
+                    else {
+                        syncPreferences.setCloudBackup(accountId, false)
+                        cloudEnabled = false
+                    }
+                },
+                enabled = !busy,
+                modifier = Modifier.testTag("garmin-cloud-toggle"),
+                colors = SwitchDefaults.colors(
+                    checkedTrackColor = garminLime,
+                    checkedThumbColor = Color(0xFF0C140E)
+                )
+            )
+        }
+        if (cloudEnabled) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { backupGarminCloud?.let { cloudOperation(it, "backed up") } },
+                    enabled = !busy && backupGarminCloud != null,
+                    modifier = Modifier.weight(1f).testTag("garmin-cloud-backup-now"),
+                    border = BorderStroke(1.dp, Color(0xFF46554C))
+                ) { Text("Back up now", color = garminLime, fontSize = 12.sp) }
+                OutlinedButton(
+                    onClick = { restoreGarminCloud?.let { cloudOperation(it, "restored") } },
+                    enabled = !busy && restoreGarminCloud != null,
+                    modifier = Modifier.weight(1f).testTag("garmin-cloud-restore"),
+                    border = BorderStroke(1.dp, Color(0xFF46554C))
+                ) { Text("Restore", color = garminLime, fontSize = 12.sp) }
+            }
+        }
+        cloudMessage?.let { message ->
+            Text(message, color = garminMuted, fontSize = 12.sp,
+                modifier = Modifier.testTag("garmin-cloud-result"))
+        }
         Text("Credentials are encrypted on this device. Sync preserves existing activities and caches available run recordings for offline analysis.",
             color = garminMuted, fontSize = 12.sp, lineHeight = 18.sp)
     }
+    if (confirmEnableCloud) AlertDialog(
+        onDismissRequest = { confirmEnableCloud = false },
+        title = { Text("Enable Garmin cloud backup?") },
+        text = { Text(
+            "If enabled, verified Garmin activity summaries and recorded GPS, " +
+                "pace, heart rate and lap data will be uploaded to your " +
+                "StrideLab cloud account over HTTPS. Turning this off stops new " +
+                "uploads; it does not delete existing backups."
+        ) },
+        confirmButton = {
+            TextButton(onClick = {
+                syncPreferences.setCloudBackup(accountId, true)
+                cloudEnabled = true
+                confirmEnableCloud = false
+            }, colors = ButtonDefaults.textButtonColors(contentColor = garminLime)) {
+                Text("Enable backup")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { confirmEnableCloud = false }) { Text("Cancel") }
+        }
+    )
     if (confirmDisconnect) AlertDialog(
         onDismissRequest = { confirmDisconnect = false },
         title = { Text("Disconnect Garmin?") },
