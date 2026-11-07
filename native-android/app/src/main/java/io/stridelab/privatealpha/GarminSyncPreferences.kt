@@ -63,6 +63,17 @@ internal class GarminSyncPreferences(context: Context) {
         ) != hash(payload)
     }
 
+    fun restoreOffset(account: String, kind: String): Int {
+        require(kind == "activity" || kind == "activity_detail")
+        return store.getInt(key(account, "restore-offset-" + kind), 0).coerceAtLeast(0)
+    }
+
+    fun setRestoreOffset(account: String, kind: String, offset: Int) {
+        require(kind == "activity" || kind == "activity_detail")
+        require(offset >= 0)
+        check(store.edit().putInt(key(account, "restore-offset-" + kind), offset).commit())
+    }
+
     /** Only after a server-confirmed insert/duplicate-ignore response. */
     fun acknowledgeCloudUpload(account: String, kind: String, id: String, payload: String) {
         require(kind == "activity" || kind == "activity_detail")
