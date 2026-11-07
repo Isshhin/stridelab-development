@@ -57,6 +57,11 @@ internal object GarminGpsDetail {
             laps.put(JSONObject()
                 .put("activity_id",summary.id)
                 .put("lap_index",i)
+                .put("start_s", optional(
+                    lap.startedAt?.let {
+                        Duration.between(fit.startedAt, it).toMillis() / 1000.0
+                    }
+                ))
                 .put("distance_m",optional(lap.distanceM))
                 .put("duration_s",optional(lap.timerS ?: lap.elapsedS))
                 .put("avg_pace_sec_per_km",optional(
