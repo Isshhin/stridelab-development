@@ -197,7 +197,9 @@ internal fun StrideLabTodayScreen(
     onOpenWorkout: (String, String) -> Unit,
     onOpenActivityDetail: (String) -> Unit,
     onOpenMore: () -> Unit,
-    onSignIn: () -> Unit
+    onSignIn: () -> Unit,
+    onEnsureCachedDetail: (String) -> Unit = {},
+    isVisible: Boolean = true
 ) {
     var selectedDay by rememberSaveable { mutableLongStateOf(LocalDate.now().toEpochDay()) }
     val date = LocalDate.ofEpochDay(selectedDay)
@@ -221,6 +223,18 @@ internal fun StrideLabTodayScreen(
             !it.startedAt.isAfter(Instant.now()) &&
                 it.startedAt.atZone(ZoneId.systemDefault()).toLocalDate() == date
         }.sortedWith(compareBy<ActivityRecord>({ it.startedAt }, { it.id }))
+    }
+    // Previously Today used the entire eagerly loaded FIT detail map for the
+    // first card's real route preview. Cold startup now loads only summaries.
+    // Prefetch at most the first visible day's detail AFTER the first frame.
+    val previewDetailId = recordedOnDate.firstOrNull()?.id?.takeIf {
+        it in state.cachedDetailIds && it !in state.details
+    }
+    LaunchedEffect(previewDetailId, isVisible) {
+        if (isVisible && previewDetailId != null) {
+            withFrameNanos { }
+            onEnsureCachedDetail(previewDetailId)
+        }
     }
     val confirmedOnDate = remember(date, todayDate, safePlans, safeHistory) {
         if (date.isAfter(todayDate)) emptyList() else
