@@ -470,6 +470,10 @@ private fun TracksideActivityOverviewBody(
     val insights = remember(activity, recorded, history) {
         ActivityIntelligence.briefInsights(activity, recorded, history)
     }
+    val missingSavedCadence = remember(recorded) {
+        recorded != null && recorded.samples.isNotEmpty() &&
+            recorded.samples.none { it.cadenceSpm != null }
+    }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(0.dp)) {
         if (DashboardSummary.isRun(activity)) {
             ActivityPlanLink(state, activity, actions.planning, matchedSourceIds)
@@ -492,10 +496,14 @@ private fun TracksideActivityOverviewBody(
         Spacer(Modifier.height(12.dp))
         Text("Recorded by " + activity.sourceLabel,
             color = activityMuted, fontSize = 11.sp)
-        if (activity.source == "garmin" && detailSource.id == activity.id && recorded == null) {
+        if (activity.source == "garmin" && detailSource.id == activity.id &&
+            (recorded == null || missingSavedCadence)) {
             Spacer(Modifier.height(12.dp))
             Text(
-                "Garmin recording is not yet cached for offline analysis.",
+                if (recorded == null)
+                    "Garmin recording is not yet cached for offline analysis."
+                else
+                    "Cadence is not in this saved recording. Refresh to check if Garmin recorded it.",
                 color = activityMuted, fontSize = 11.sp
             )
             Spacer(Modifier.height(8.dp))
@@ -503,7 +511,13 @@ private fun TracksideActivityOverviewBody(
                 onClick = { onLoadGarminGps?.invoke() },
                 enabled = online && !state.busy && !state.needsSignIn && onLoadGarminGps != null,
                 modifier = Modifier.fillMaxWidth().testTag("garmin-load-gps")
-            ) { Text(if (state.busy) "Loading recording…" else "Load Garmin recording") }
+            ) {
+                Text(when {
+                    state.busy -> "Loading recording…"
+                    recorded != null -> "Refresh Garmin cadence"
+                    else -> "Load Garmin recording"
+                })
+            }
         } else if (detailSource.source != "garmin" && online && !state.busy && !state.needsSignIn) {
             Spacer(Modifier.height(12.dp))
             OutlinedButton(
