@@ -26,10 +26,10 @@ class TracksideActivityScrollTest {
         val recorded = ActivityDetail(
             activity.id,
             samples = listOf(
-                ActivitySample(0, 0.0, 405.0, 130.0, 12.0, null, null),
-                ActivitySample(1, 60.0, 390.0, 145.0, 18.0, null, null),
-                ActivitySample(2, 120.0, 381.0, 152.0, 15.0, null, null),
-                ActivitySample(3, 180.0, 395.0, 149.0, 19.0, null, null)
+                ActivitySample(0, 0.0, 405.0, 130.0, 12.0, null, null, 172.0),
+                ActivitySample(1, 60.0, 390.0, 145.0, 18.0, null, null, 177.0),
+                ActivitySample(2, 120.0, 381.0, 152.0, 15.0, null, null, 180.0),
+                ActivitySample(3, 180.0, 395.0, 149.0, 19.0, null, null, 175.0)
             ),
             laps = (0 until 8).map { i ->
                 ActivityLap(i, 1000.0, 390.0 + i, 390.0 + i, 140.0 + i)
@@ -106,6 +106,13 @@ class TracksideActivityScrollTest {
         }
         compose.onNodeWithTag("activity-tab-charts").assertIsSelected()
         compose.onNodeWithTag("activity-continuous-scroll").assertExists()
+        // Cadence is a REAL recorded stream, not a calculated placeholder.
+        compose.onNodeWithTag("activity-continuous-scroll")
+            .performScrollToNode(hasTestTag("activity-chart-cadence"))
+        compose.onNodeWithTag("activity-chart-cadence").assertIsDisplayed()
+        compose.onNodeWithTag("activity-chart-summary-cadence").assertExists()
+        compose.onNodeWithTag("stream-Cadence").performTouchInput { swipeRight() }
+        compose.onNodeWithTag("activity-chart-cursor-cadence").assertExists()
         compose.onNodeWithTag("activity-map-hero").assertExists()
         compose.onNodeWithTag("activity-expanded-back").performClick()
         compose.waitUntil(timeoutMillis = 5000) {
