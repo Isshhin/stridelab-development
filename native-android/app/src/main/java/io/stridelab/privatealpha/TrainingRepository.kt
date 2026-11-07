@@ -56,7 +56,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
 
     /** Debug-only aggregate timings; never log account IDs, activity IDs or payloads. */
     private fun traceCache(stage: String, startedAt: Long, count: Int) {
-        if (appContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+        if ((appContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
             Log.d("StrideLabStartup",
                 "$stage ms=${SystemClock.elapsedRealtime() - startedAt} count=$count")
         }
