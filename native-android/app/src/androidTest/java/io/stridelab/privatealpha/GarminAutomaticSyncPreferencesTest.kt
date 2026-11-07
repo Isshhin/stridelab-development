@@ -40,5 +40,10 @@ class GarminAutomaticSyncPreferencesTest {
         prefs.acknowledgeCloudUpload(owner, "activity", id, payload)
         assertFalse(prefs.needsCloudUpload(owner, "activity", id, payload))
         assertTrue(prefs.needsCloudUpload(owner, "activity", id, payload + " "))
+        prefs.noteDetailFailure(owner, id, now = 50000000L)
+        assertFalse(prefs.readyForDetail(owner, id, now = 50000001L))
+        assertTrue(prefs.readyForDetail(owner, id, now = 50000000L + 24L * 60 * 60_000))
+        prefs.clearDetailFailure(owner, id)
+        assertTrue(prefs.readyForDetail(owner, id, now = 50000002L))
     }
 }
