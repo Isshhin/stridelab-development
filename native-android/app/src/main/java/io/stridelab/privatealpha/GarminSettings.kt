@@ -121,7 +121,7 @@ internal fun GarminSettingsCard(
                         fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                     Text(if (status.detailsRemaining > 0)
                         status.detailsRemaining.toString() + " run recordings still pending. Sync again to continue."
-                        else "Available source recordings have been checked.",
+                        else "Source-linked runs checked. Older Garmin records may need individual loading.",
                         color = garminMuted, fontSize = 12.sp)
                     if (status.failedDetails > 0) Text(
                         status.failedDetails.toString() +
