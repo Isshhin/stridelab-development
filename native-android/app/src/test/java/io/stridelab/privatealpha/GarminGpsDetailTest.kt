@@ -75,6 +75,56 @@ class GarminGpsDetailTest {
         assertNull(ActivityDetail.parse(old,"owner",summary.id).samples.first().cadenceSpm)
     }
 
+    @Test fun fitPauseAndZoneMetadataPersistWithoutInventingRoute() {
+        val enriched=fit().copy(
+            timerPauses=listOf(
+                FitActivityDecoder.TimerPause(
+                    whenRun.plusSeconds(20),whenRun.plusSeconds(25)
+                )
+            ),
+            sourceHeartRateZones=FitActivityDecoder.SourceHeartRateZones(
+                maximumHr=197,
+                thresholdHr=170,
+                restingHr=52,
+                calculationType="CUSTOM",
+                highBpms=listOf(118,137,157,177,197)
+            )
+        )
+        val raw=GarminGpsDetail.payload("owner",summary,enriched,555L)
+        val parsed=ActivityDetail.parse(raw,"owner",summary.id)
+        assertEquals(1,parsed.pauseIntervals.size)
+        assertEquals(20.0,parsed.pauseIntervals.single().startSeconds,0.001)
+        assertEquals(25.0,parsed.pauseIntervals.single().endSeconds,0.001)
+        val source=requireNotNull(parsed.sourceHeartRateZones)
+        assertEquals(197,source.maximumHr)
+        assertEquals(170,source.thresholdHr)
+        assertEquals(52,source.restingHr)
+        assertEquals(listOf(118,137,157,177,197),source.highBpms)
+
+        val route=RecordedGpsRoute.from(parsed.samples,parsed.pauseIntervals)
+        assertEquals(1,route.pauseGaps.size)
+        assertEquals(0,route.unknownGaps.size)
+    }
+
+    @Test fun fitLapStartOffsetIsPreservedForSplitMapLinking() {
+        val enriched=fit().copy(
+            laps=listOf(
+                FitActivityDecoder.Lap(
+                    startedAt=whenRun.plusSeconds(60),
+                    elapsedS=300.0,
+                    timerS=295.0,
+                    distanceM=1000.0,
+                    averageHr=150.0
+                )
+            )
+        )
+        val parsed=ActivityDetail.parse(
+            GarminGpsDetail.payload("owner",summary,enriched,556L),
+            "owner",summary.id
+        )
+        assertEquals(60.0,parsed.laps.single().startSeconds!!,0.001)
+    }
+
     @Test fun cadenceUpgradePreservesExistingGpsPaceHeartRateAndLaps() {
         val old = GarminGpsDetail.payload("owner",summary,fit(),1000L)
         val newFit=fit().copy(points=fit().points.map { it.copy(cadenceRpm=86.0) })
