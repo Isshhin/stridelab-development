@@ -111,12 +111,12 @@ internal object HeartRateZoneAnalysis {
     fun methodSummary(settings: AthleteHeartRateZoneSettings): String =
         when (settings.method) {
             HeartRateZoneMethod.MAX_BPM ->
-                "MAX BPM · \${settings.maximumHr ?: "—"} bpm maximum"
+                "MAX BPM · ${settings.maximumHr ?: "—"} bpm maximum"
             HeartRateZoneMethod.LTHR_PERCENT ->
-                "LTHR% · \${settings.lactateThresholdHr ?: "—"} bpm threshold"
+                "LTHR% · ${settings.lactateThresholdHr ?: "—"} bpm threshold"
             HeartRateZoneMethod.HRR_PERCENT ->
-                "HRR% · \${settings.maximumHr ?: "—"} max / " +
-                    "\${settings.restingHr ?: "—"} resting"
+                "HRR% · ${settings.maximumHr ?: "—"} max / " +
+                    "${settings.restingHr ?: "—"} resting"
         }
 
     fun methodDefinition(settings: AthleteHeartRateZoneSettings): String =
@@ -141,26 +141,26 @@ internal object HeartRateZoneAnalysis {
         } > 1
         val dominantPct = (dominant.fraction * 100).roundToInt()
         val evidence = distribution.buckets.map { bucket ->
-            "Zone \${bucket.zone}: \${ActivityRecord.duration(bucket.seconds)} " +
-                "(\${(bucket.fraction * 100).roundToInt()}% of classified time)."
+            "Zone ${bucket.zone}: ${ActivityRecord.duration(bucket.seconds)} " +
+                "(${(bucket.fraction * 100).roundToInt()}% of classified time)."
         } + listOf(
-            "Method: \${methodSummary(distribution.settings)}. " +
+            "Method: ${methodSummary(distribution.settings)}. " +
                 methodDefinition(distribution.settings) +
                 " These are StrideLab estimates, not imported Garmin zone boundaries.",
-            "Only \${distribution.classifiedIntervals} intervals between recorded HR " +
+            "Only ${distribution.classifiedIntervals} intervals between recorded HR " +
                 "samples lasting 30 seconds or less were classified; " +
-                "\${distribution.excludedIntervals} missing, duplicate or longer " +
+                "${distribution.excludedIntervals} missing, duplicate or longer " +
                 "intervals were excluded. Time in zones is approximate.",
             "This distribution cannot determine training readiness, recovery " +
                 "or a specific workout benefit."
         )
         return ActivityInsightPresentation(
             headline = if (tied) "Time was spread across multiple heart-rate zones"
-                else "Most classified time in Zone \${dominant.zone}",
+                else "Most classified time in Zone ${dominant.zone}",
             summary = if (tied)
                 "Multiple zones share the largest portion of " +
-                    "\${ActivityRecord.duration(distribution.classifiedSeconds)} classified " +
-                    "recording time using \${distribution.method.displayName}."
+                    "${ActivityRecord.duration(distribution.classifiedSeconds)} classified " +
+                    "recording time using ${distribution.method.displayName}."
             else String.format(
                 Locale.getDefault(),
                 "About %d%% of %s classified recording time was in Zone %d using %s.",
