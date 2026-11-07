@@ -435,7 +435,51 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                     throw GarminProtocolException("Garmin pagination did not advance safely")
                 cursor=next
             } while(cursor!=null)
-            GarminConnectionStatus("connected",java.time.Instant.now(),imported)
+            // An explicit sync also caches a bounded number of genuine FIT
+            // recordings for Garmin runs. The next tap resumes from missing
+            // details; no previously saved source summary is modified.
+            val pending = mutable.value.activities.filter { activity ->
+                activity.source == "garmin" && DashboardSummary.isRun(activity) &&
+                    activity.id.startsWith("garmin-") &&
+                    !mutable.value.details.containsKey(activity.id)
+            }
+            var completedDetails = 0
+            var failedDetails = 0
+            var interruption: String? = null
+            for (activity in pending.take(24)) {
+                try {
+                    cacheGarminRecording(account, activity, source)
+                    completedDetails++
+                } catch (error: GarminAuthenticationException) {
+                    failedDetails++
+                    interruption = GarminConnectionStatus.fromError(error).error
+                    break
+                } catch (error: GarminRateLimitException) {
+                    failedDetails++
+                    interruption = GarminConnectionStatus.fromError(error).error
+                    break
+                } catch (error: GarminNetworkException) {
+                    failedDetails++
+                    interruption = GarminConnectionStatus.fromError(error).error
+                    break
+                } catch (error: Exception) {
+                    // Malformed FIT, missing numeric IDs, and source mismatches
+                    // are skipped without overwriting any saved source data.
+                    failedDetails++
+                }
+            }
+            val remaining = pending.count {
+                !mutable.value.details.containsKey(it.id)
+            }
+            GarminConnectionStatus(
+                state = "connected",
+                lastSuccessfulSync = java.time.Instant.now(),
+                importedCount = imported,
+                error = interruption,
+                detailsImported = completedDetails,
+                detailsRemaining = remaining,
+                failedDetails = failedDetails
+            )
         } }
 
     /**
@@ -444,55 +488,79 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
      * only after FIT checksum, source, dates, GPS and account have been checked.
      */
     internal suspend fun loadGarminGps(id:String,source:GarminPersonalSource) =
-        operation("Loading recorded Garmin GPS…") {
-            val account=mutable.value.account
-                ?: throw GarminAuthenticationException("Sign in to StrideLab before loading Garmin GPS")
-            val activity=mutable.value.activities.firstOrNull { it.id==id && it.source=="garmin" }
-                ?: throw GarminProtocolException("That Garmin activity is not saved for this account")
-            val saved=store.get(account,"activity_detail",id)
-            if(saved!=null) {
-                val existing=try { ActivityDetail.parse(JSONObject(saved.payload),account,id) }
-                    catch(_:Exception) { throw GarminProtocolException(
-                        "Previously saved GPS data needs review; the original was retained") }
-                mutable.value=mutable.value.copy(details=mutable.value.details+(id to existing))
-                return@operation
-            }
-            val original=store.get(account,"activity",id)
-                ?: throw GarminProtocolException("The Garmin source record is not saved")
-            val metadata=JSONObject(original.payload)
-            if(metadata.optString("source")!="garmin" ||
-                metadata.optString("id")!=id || metadata.optString("user_id")!=account)
-                throw GarminProtocolException("Garmin source ownership could not be verified")
-            val savedExternal=metadata.optString("external_id")
-                .takeIf { it.isNotBlank() }
-            val savedNumeric=metadata.optLong("garmin_activity_id",0L)
-                .takeIf { it>0L }
-            // Pre-source-ID backend Garmin rows remain saved and browseable.
-            // Recover their original Garmin identity read-only, never guess
-            // an ID from a displayed title or rewrite another source record.
-            val legacy=if(savedExternal==null && savedNumeric==null)
-                source.resolveLegacySource(account,activity) else null
-            val externalId=savedExternal ?: legacy?.externalId
-                ?: savedNumeric?.toString()
-                ?: throw GarminProtocolException("The Garmin source ID is unavailable")
-            val numeric=savedNumeric ?: legacy?.numericActivityId
-            val archive=source.downloadFitForSource(account,externalId,numeric)
-            val bytes=try { GarminFitArchive.extractSingleFit(archive) }
-                catch(e:Exception) { throw GarminProtocolException(
-                    "Garmin FIT download could not be safely unpacked") }
-            val fit=try { FitActivityDecoder.decode(bytes,account) }
-                catch(e:Exception) { throw GarminProtocolException(
-                    "Garmin FIT file failed validation; original history was retained") }
-            val raw=try { GarminGpsDetail.payload(
-                account,activity,fit,System.currentTimeMillis()) }
-                catch(e:Exception) { throw GarminProtocolException(
-                    e.message?.take(200) ?: "Garmin FIT did not match this activity") }
-            val parsed=ActivityDetail.parse(raw,account,id)
-            store.applyRemotePage(account,"activity_detail",
-                listOf(TrainingStore.RemoteRecord(id,raw.toString(),null)),
-                null,System.currentTimeMillis())
-            mutable.value=mutable.value.copy(details=mutable.value.details+(id to parsed))
+        operation("Loading recorded Garmin activity…") {
+            val account = mutable.value.account
+                ?: throw GarminAuthenticationException("Sign in before loading Garmin details")
+            val activity = mutable.value.activities.firstOrNull {
+                it.id == id && it.source == "garmin"
+            } ?: throw GarminProtocolException("Garmin source is not saved for this account")
+            cacheGarminRecording(account, activity, source)
         }
+
+    /** Used by both explicit sync and on-demand loading under the repository lock. */
+    private fun cacheGarminRecording(
+        account: String, activity: ActivityRecord, source: GarminPersonalSource
+    ): ActivityDetail {
+        require(activity.source == "garmin")
+        val id = activity.id
+        val saved = store.get(account, "activity_detail", id)
+        if (saved != null) {
+            val existing = try {
+                ActivityDetail.parse(JSONObject(saved.payload), account, id)
+            } catch (_: Exception) {
+                throw GarminProtocolException(
+                    "Previously saved Garmin recording needs review; the original was retained")
+            }
+            mutable.value = mutable.value.copy(
+                details = mutable.value.details + (id to existing))
+            return existing
+        }
+        val original = store.get(account, "activity", id)
+            ?: throw GarminProtocolException("Garmin source record is unavailable")
+        val metadata = JSONObject(original.payload)
+        if (metadata.optString("source") != "garmin" ||
+            metadata.optString("id") != id ||
+            metadata.optString("user_id") != account)
+            throw GarminProtocolException("Garmin source ownership could not be verified")
+        val savedExternal = metadata.optString("external_id")
+            .takeIf { it.isNotBlank() }
+        val savedNumeric = metadata.optLong("garmin_activity_id", 0L)
+            .takeIf { it > 0L }
+        val legacy = if (savedExternal == null && savedNumeric == null)
+            source.resolveLegacySource(account, activity) else null
+        val externalId = savedExternal ?: legacy?.externalId
+            ?: savedNumeric?.toString()
+            ?: throw GarminProtocolException("Garmin source identity is unavailable")
+        val numericId = savedNumeric ?: legacy?.numericActivityId
+        val archive = source.downloadFitForSource(account, externalId, numericId)
+        val bytes = try {
+            GarminFitArchive.extractSingleFit(archive)
+        } catch (_: Exception) {
+            throw GarminProtocolException("Garmin FIT archive could not be safely unpacked")
+        }
+        val fit = try {
+            FitActivityDecoder.decode(bytes, account)
+        } catch (_: Exception) {
+            throw GarminProtocolException("Garmin FIT file failed validation; existing history was retained")
+        }
+        val raw = try {
+            GarminGpsDetail.payload(account, activity, fit, System.currentTimeMillis())
+        } catch (_: Exception) {
+            throw GarminProtocolException("Garmin FIT source, timing or distance could not be verified")
+        }
+        val parsed = try {
+            ActivityDetail.parse(raw, account, id)
+        } catch (_: Exception) {
+            throw GarminProtocolException("Garmin recording samples failed validation")
+        }
+        store.applyRemotePage(
+            account, "activity_detail",
+            listOf(TrainingStore.RemoteRecord(id, raw.toString(), null)),
+            null, System.currentTimeMillis()
+        )
+        mutable.value = mutable.value.copy(details = mutable.value.details + (id to parsed))
+        return parsed
+    }
 
     internal fun close() { scope.cancel(); store.close() }
 
