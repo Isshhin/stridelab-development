@@ -1,3 +1,15 @@
+# Current independent corrected-v7 review — 2026-11-07
+
+This entry supersedes ALL historical status/next-action entries below. Reviewed starting head: `2104f1ff2ba8be79a54c1700c65f10e2152dfc72`; branch `research/runna-garmin-coaching-20261102`; PR #34 remains **OPEN, DRAFT, UNMERGED**.
+
+**Current verdict: `P2F_CUSTODY_AUTHORITY_V7_DESIGN_NEEDS_CORRECTION`.** See the NEW [independent correction review](../phase2/p2-f-custody-authority-v7-correction-independent-security-review-2026-11-07.md). The written normative model resolves the prior missing definitions, but the fixture oracle accepts forbidden all-history cross-role key reuse: an active coordinator key as new gateway root in a bridge, and a retired validator key as a gateway epoch key. F1 blocks vector conformance and the combined closure. No design or fixture was modified to make it pass.
+
+The independent frozen binary-byte blocker is now closed for the exact existing artifact: `READONLY_PREFLIGHT_BINARY_PACKET_ACCEPTABLE`; run 42373365386 / artifact 13573973275; independently observed SHA256 `96cd9069205a891c383f23d085e1c10c0f678f4d132b9c25cb7185902af3f8dc`, 3072 bytes, x64, only the six expected KERNEL32 imports. Archive/source hashes and full static call-path inspection matched recorded provenance. **Collector NEVER EXECUTED**; no rebuild or runtime/target qualification. `READONLY_PREFLIGHT_NEEDS_CORRECTION` because protocol-plus-fixture acceptance is still blocked; no execution or target-access authorization.
+
+Reviewed-head research CI 42377619429 is SUCCESS (440 tests), mirror 42377614558 failed before startup under the recorded billing/spending limit. Locally reproduced 363 objects/34 accepted finalities/51 rejections/1 replay/8 bounded schedules; four focused tests PASS; separately checked all object hashes and 51 representative signatures. These passing checks do not cover F1. Documentation publication has no inferred exact-head CI pass; no self-hosted workflow was dispatched.
+
+**Exact next permitted task:** bounded fixture-oracle correction to retain/check complete historical raw-key roles across policy bridges and epoch starts, add both signed rejection fixtures, then exact-head validation and a NEW independent conformance/security review. Do not perform that correction as part of this review. The sole normative supplement and frozen collector packet remain unchanged. No target access/qualification, TPM/TBS, operational keys, private data, deployment, Engine 1.5, Trackside, APK/release, Session G, P2-B, merge or ready transition. Private admission NO; `P2_F_GATE_2_NOT_READY`; `P2_B_PROTOCOL_READY_DATA_NOT_READY`.
+
 # Current bounded v7 correction — 2026-11-07
 
 This entry supersedes ALL historical status/next-action entries below. Starting head: `37a58e927601522200c31aa08c6b7fd21902a1d6`; branch `research/runna-garmin-coaching-20261102`; PR #34 stays **OPEN, DRAFT, UNMERGED**.
