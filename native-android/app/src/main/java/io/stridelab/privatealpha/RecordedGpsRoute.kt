@@ -22,6 +22,39 @@ internal data class RecordedGpsRoute(
     val allPoints:List<RecordedGpsPoint> get()=segments.flatten()
     val isolatedPoints:List<RecordedGpsPoint> get()=segments.filter { it.size == 1 }.flatten()
 
+    /**
+     * Map/thumbnail presentation only: join successive recorded endpoints
+     * across timer pauses and missing-fix intervals, as Strava-style route
+     * outlines do. No new coordinates or distance are generated. The original
+     * segments, pause intervals and gaps remain authoritative for analysis.
+     * Never draw a line across the anti-meridian.
+     */
+    val displaySegments:List<List<RecordedGpsPoint>> by lazy {
+        val display = mutableListOf<MutableList<RecordedGpsPoint>>()
+        for (point in allPoints) {
+            val prior = display.lastOrNull()?.lastOrNull()
+            if (prior == null || abs(prior.longitude-point.longitude) >= 180.0)
+                display.add(mutableListOf())
+            display.last().add(point)
+        }
+        display.map { it.toList() }
+    }
+    val displayIsolatedPoints:List<RecordedGpsPoint> get()=
+        displaySegments.filter { it.size == 1 }.flatten()
+
+    /** Continuous visual stroke through existing GPS fixes only. */
+    fun displayGeoJson():String {
+        val lines=JSONArray()
+        displaySegments.filter { it.size >= 2 }.forEach { segment ->
+            val line=JSONArray()
+            segment.forEach { point ->
+                line.put(JSONArray().put(point.longitude).put(point.latitude))
+            }
+            lines.put(line)
+        }
+        return multiLineFeature(lines)
+    }
+
     private fun isPaused(seconds: Double): Boolean =
         pauseIntervals.any { seconds >= it.startSeconds && seconds <= it.endSeconds }
 
