@@ -138,7 +138,17 @@ class NativeMainActivity: ComponentActivity() {
         loadCachedSummary=model::loadCachedSummary,
         setActivityDetailVisible=model::setActivityDetailVisible,
         signUp=model::signUp, requestPasswordReset=model::requestPasswordReset) }
-    NativeStrideContent(state, online, actions)
+    if (state.initializing) {
+        Box(
+            Modifier.fillMaxSize().background(Color.Black)
+                .testTag("local-profile-initializing"),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = Color(0xFFD8FB70))
+        }
+    } else {
+        NativeStrideContent(state, online, actions)
+    }
 }
 
 /** Presentation boundary allows isolated screenshots without a real session or fake production data. */
