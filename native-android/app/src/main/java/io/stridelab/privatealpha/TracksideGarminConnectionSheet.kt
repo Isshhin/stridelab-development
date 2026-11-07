@@ -24,6 +24,8 @@ private val garminSheetLime = Color(0xFFD8FB70)
 internal fun TracksideGarminConnectionSheet(
     accountId: String,
     syncGarmin: (suspend (GarminPersonalSource) -> GarminConnectionStatus)?,
+    backupGarminCloud: (suspend () -> Int)? = null,
+    restoreGarminCloud: (suspend () -> Int)? = null,
     busy: Boolean,
     onBusyChange: (Boolean) -> Unit,
     onDismiss: () -> Unit
@@ -71,6 +73,8 @@ internal fun TracksideGarminConnectionSheet(
             GarminSettingsCard(
                 accountId = accountId,
                 syncGarmin = syncGarmin,
+                backupGarminCloud = backupGarminCloud,
+                restoreGarminCloud = restoreGarminCloud,
                 onBusyChange = onBusyChange
             )
         }
