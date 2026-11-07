@@ -92,6 +92,54 @@ class TracksideTodayTest {
         compose.runOnIdle { assertEquals(1, signInCount) }
     }
 
+    @Test fun signedInTodayPrefetchesMultipleCurrentDayRoutesNewestFirst() {
+        val start = LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant()
+        val secondsIntoDay = java.time.Duration.between(start, java.time.Instant.now())
+            .seconds.coerceAtLeast(0L)
+        fun record(id: String, seconds: Long) = ActivityRecord(
+            id = id, title = id, type = "run", source = "garmin",
+            startedAt = start.plusSeconds(seconds),
+            distanceM = 5_000.0, durationS = 1_800.0, movingTimeS = 1_790.0,
+            recordedPace = null, averageHr = null, elevationM = null
+        )
+        val older = record("older", secondsIntoDay / 4)
+        val newer = record("newer", secondsIntoDay / 2)
+        val yesterday = ActivityRecord(
+            id = "yesterday", title = "yesterday", type = "run", source = "garmin",
+            startedAt = LocalDate.now().minusDays(1)
+                .atStartOfDay(java.time.ZoneId.systemDefault()).toInstant(),
+            distanceM = 5_000.0, durationS = 1_800.0, movingTimeS = 1_790.0,
+            recordedPace = null, averageHr = null, elevationM = null
+        )
+        val requested = java.util.Collections.synchronizedList(mutableListOf<String>())
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    StrideLabTodayScreen(
+                        state = TrainingState(
+                            initializing = false, account = "synthetic-preview-day",
+                            activities = listOf(yesterday, older, newer),
+                            cachedDetailIds = setOf("older", "newer", "yesterday")
+                        ),
+                        visibleActivities = listOf(yesterday, older, newer),
+                        online = false,
+                        onOpenTraining = {},
+                        onOpenActivity = {},
+                        onOpenWorkout = { _, _ -> },
+                        onOpenActivityDetail = {},
+                        onOpenMore = {},
+                        onSignIn = {},
+                        onEnsureCachedDetail = { requested.add(it) }
+                    )
+                }
+            }
+        }
+        compose.waitUntil(8_000L) { requested.size >= 2 }
+        compose.runOnIdle {
+            assertEquals(listOf("newer", "older"), requested.toList())
+        }
+    }
+
     @Test fun signedInEmptyPastDayUsesCompactStatusInsteadOfTallHero() {
         compose.runOnUiThread {
             compose.activity.setContent {
