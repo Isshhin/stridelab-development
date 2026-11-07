@@ -144,6 +144,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                         // First render at most one recent chronological page.
                         // Older activity summaries are loaded only after the
                         // cached Today screen has had a chance to draw.
+                        val recentStarted = SystemClock.elapsedRealtime()
                         val page = try {
                             readHistoryPage(account,null)
                         } catch (error: SQLiteException) {
@@ -153,6 +154,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                                 null
                             } else throw error
                         }
+                        traceCache("recent_sqlite_page",recentStarted,page?.records?.size ?: 0)
                         loadCache(account,publishEssentials=true,recentPage=page)
                         if (vault.read(account) == null) {
                             mutable.value = mutable.value.copy(
