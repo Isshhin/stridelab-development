@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -467,8 +468,8 @@ private fun TracksideActivityOverviewBody(
     online: Boolean,
     onLoadGarminGps: (() -> Unit)?
 ) {
-    val insights = remember(activity, recorded, history) {
-        ActivityIntelligence.briefInsights(activity, recorded, history)
+    val insightPresentation = remember(activity, recorded, history) {
+        ActivityIntelligence.presentation(activity, recorded, history)
     }
     val missingSavedCadence = remember(recorded) {
         recorded != null && recorded.samples.isNotEmpty() &&
@@ -530,19 +531,117 @@ private fun TracksideActivityOverviewBody(
         if (activity.source == "garmin" && state.message?.contains("Garmin", ignoreCase = true) == true) {
             Text(state.message.orEmpty(), color = activityMuted, fontSize = 11.sp)
         }
-        // A concise, read-only context section. This deliberately does not
-        // issue coaching prescriptions or infer fitness, recovery or fatigue.
-        if (insights.isNotEmpty()) {
-            Spacer(Modifier.height(14.dp))
-            Column(Modifier.fillMaxWidth().testTag("activity-insights"),
-                verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                ActivitySectionHeading("Activity insights")
-                insights.forEachIndexed { index, insight ->
-                    Text(insight, color = if (index == 0) activityText else activityMuted,
-                        fontSize = 12.sp, lineHeight = 17.sp,
-                        modifier = Modifier.testTag("activity-insight-" + index))
+        // Strava-style presentation rhythm: headline first, evidence on demand.
+        // This is still deterministic recorded-data analysis, NOT a generative
+        // AI coach or a recovery/fitness prediction.
+        if (insightPresentation != null) {
+            Spacer(Modifier.height(16.dp))
+            TracksideActivityIntelligenceCard(insightPresentation)
+        }
+    }
+}
+
+/**
+ * Athlete Intelligence-inspired interaction with StrideLab's own styling.
+ * Short verified highlight after the activity stats; "See analysis" expands
+ * in the same sheet rather than nesting another draggable bottom sheet.
+ */
+@Composable
+private fun TracksideActivityIntelligenceCard(insight: ActivityInsightPresentation) {
+    var expanded by remember(insight.headline) { mutableStateOf(false) }
+    val shape = RoundedCornerShape(18.dp)
+    Column(
+        Modifier.fillMaxWidth()
+            .background(Color(0xFF151F1A), shape)
+            .border(1.dp, Color(0xFF33463B), shape)
+            .testTag("activity-insights")
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp)
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier.size(26.dp)
+                    .background(activityLime, RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("S", color = activitySheetBlack,
+                    fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+            }
+            Spacer(Modifier.width(9.dp))
+            Text("StrideLab Insights", color = activityText,
+                fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+            Spacer(Modifier.weight(1f))
+            Text("RECORDED DATA", color = activityMuted, fontSize = 9.sp)
+        }
+        Spacer(Modifier.height(13.dp))
+        Text(
+            insight.headline,
+            color = activityText,
+            fontWeight = FontWeight.Bold,
+            fontSize = 19.sp,
+            lineHeight = 24.sp,
+            modifier = Modifier.testTag("activity-insights-headline")
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            insight.summary,
+            color = Color(0xFFCBD7CF),
+            fontSize = 12.sp,
+            lineHeight = 18.sp,
+            modifier = Modifier.testTag("activity-insights-summary")
+        )
+        if (expanded) {
+            Spacer(Modifier.height(15.dp))
+            HorizontalDivider(color = activityBorder, thickness = 1.dp)
+            Spacer(Modifier.height(12.dp))
+            Text("IN THE DATA", color = activityLime,
+                fontWeight = FontWeight.SemiBold, fontSize = 10.sp)
+            Spacer(Modifier.height(8.dp))
+            insight.evidence.forEachIndexed { index, line ->
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = 9.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Box(
+                        Modifier.padding(top = 7.dp).size(5.dp)
+                            .background(activityLime, RoundedCornerShape(5.dp))
+                    )
+                    Spacer(Modifier.width(9.dp))
+                    Text(
+                        line,
+                        color = activityMuted, fontSize = 12.sp, lineHeight = 17.sp,
+                        modifier = Modifier.weight(1f)
+                            .testTag("activity-insights-detail-" + index)
+                    )
                 }
             }
+            Spacer(Modifier.height(1.dp))
+            Text(
+                "These are observations from saved activity data, not a fitness, " +
+                    "recovery or training-readiness assessment.",
+                color = activityMuted.copy(alpha = .8f),
+                fontSize = 10.sp, lineHeight = 14.sp
+            )
+            Spacer(Modifier.height(11.dp))
+        } else {
+            Spacer(Modifier.height(15.dp))
+        }
+        Button(
+            onClick = { expanded = !expanded },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)
+                .testTag("activity-insights-toggle"),
+            shape = RoundedCornerShape(10.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = activityLime,
+                contentColor = activitySheetBlack
+            ),
+            contentPadding = PaddingValues(vertical = 8.dp)
+        ) {
+            Text(if (expanded) "Show less" else "See analysis",
+                fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }
