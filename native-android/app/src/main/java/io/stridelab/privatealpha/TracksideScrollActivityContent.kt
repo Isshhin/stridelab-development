@@ -317,15 +317,25 @@ internal fun TracksideActivityContinuousSections(
         }
         SourceChartAvailability(pace >= 2, hr >= 2, altitude >= 2, cadence >= 2)
     }
-    val splitWindows = remember(laps, recorded?.pauseIntervals) {
+    val splitWindows = remember(laps, recorded) {
         var cumulative = 0.0
         val allowCumulativeFallback = recorded?.pauseIntervals.isNullOrEmpty()
-        laps.map { lap ->
+        val recordingEnd = recorded?.samples?.lastOrNull()?.seconds
+        laps.mapIndexed { index, lap ->
             val duration = lap.seconds?.takeIf { it.isFinite() && it > 0.0 }
             val start = lap.startSeconds?.takeIf { it.isFinite() && it >= 0.0 }
                 ?: cumulative.takeIf { allowCumulativeFallback && duration != null }
             if (duration != null) cumulative += duration
-            if (start != null && duration != null) start to (start + duration) else null
+            val nextSourceStart = laps.getOrNull(index + 1)?.startSeconds
+                ?.takeIf { it.isFinite() && start != null && it > start }
+            val end = nextSourceStart
+                ?: recordingEnd?.takeIf {
+                    index == laps.lastIndex && start != null && it > start
+                }
+                ?: (start?.plus(duration ?: 0.0))?.takeIf {
+                    duration != null && it > start
+                }
+            if (start != null && end != null) start to end else null
         }
     }
     val splitInsight = remember(laps, activity.supportsPace) {
