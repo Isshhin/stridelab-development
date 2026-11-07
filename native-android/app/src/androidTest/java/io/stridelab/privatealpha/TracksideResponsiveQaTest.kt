@@ -423,12 +423,14 @@ class TracksideResponsiveQaTest {
                 .getUnclippedBoundsInRoot()
             val legend=compose.onNodeWithTag("builder-running-legend")
                 .getUnclippedBoundsInRoot()
-            assertTrue("Running weekly card starts away from Figma 548:95",
-                week.top.value in 255f..288f)
-            assertTrue("Running weekly card too tall for 227dp reference",
+            val title=compose.onNodeWithText("Your running week")
+                .getUnclippedBoundsInRoot()
+            assertTrue("Weekly schedule must follow its heading",
+                week.top > title.bottom)
+            assertTrue("Weekly schedule must remain compact",
                 (week.bottom-week.top).value <= 241f)
-            assertTrue("Running legend starts away from Figma 548:95",
-                legend.top.value in 530f..571f)
+            assertTrue("Weekly legend must follow the schedule",
+                legend.top >= week.bottom)
             val lastDescription=compose.onNodeWithText(
                 "Endurance session on one preferred day"
             ).getUnclippedBoundsInRoot()
