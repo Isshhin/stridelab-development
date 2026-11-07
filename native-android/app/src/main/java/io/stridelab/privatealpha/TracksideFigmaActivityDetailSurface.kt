@@ -102,11 +102,12 @@ internal fun TracksideFigmaActivityDetailSurface(
         val scaffoldState = rememberBottomSheetScaffoldState(sheetState)
         val scope = rememberCoroutineScope()
         val expanded = sheetState.currentValue == SheetValue.Expanded
-        // Do not eagerly allocate every chart, insight, and split widget for
-        // an unopened 10k-20k sample FIT file. Compose the details when the
-        // athlete first requests expansion; keep them for subsequent drags.
-        var detailsEverRequested by remember(activity.id) {
-            androidx.compose.runtime.mutableStateOf(false)
+        // Keep normal activities precomposed for smooth sheet gestures.
+        // Defer the much heavier chart subtree for recordings with thousands
+        // of FIT samples until its first expansion; never discard raw samples.
+        val heavyRecording = (recorded?.samples?.size ?: 0) > 4_000
+        var detailsEverRequested by remember(activity.id, heavyRecording) {
+            androidx.compose.runtime.mutableStateOf(!heavyRecording)
         }
         val detailsRequested = expanded || sheetState.targetValue == SheetValue.Expanded
         androidx.compose.runtime.LaunchedEffect(detailsRequested) {
