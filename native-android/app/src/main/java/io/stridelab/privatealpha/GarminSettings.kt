@@ -27,6 +27,8 @@ internal fun GarminSettingsCard(
     syncGarmin: (suspend (GarminPersonalSource) -> GarminConnectionStatus)? = null,
     backupGarminCloud: (suspend () -> Int)? = null,
     restoreGarminCloud: (suspend () -> Int)? = null,
+    cloudSignedIn: Boolean = false,
+    onCloudSignIn: () -> Unit = {},
     onBusyChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -59,7 +61,7 @@ internal fun GarminSettingsCard(
                 // A manual sync first commits the Garmin source to SQLite.
                 // Only then may opt-in cloud backup attempt a separate upload.
                 if (status.lastSuccessfulSync != null && cloudEnabled &&
-                    backupGarminCloud != null) {
+                    cloudSignedIn && backupGarminCloud != null) {
                     try {
                         val uploaded = withContext(Dispatchers.IO) { backupGarminCloud() }
                         cloudMessage = uploaded.toString() +
@@ -81,7 +83,7 @@ internal fun GarminSettingsCard(
         }
     }
     fun cloudOperation(action: suspend () -> Int, verb: String) {
-        if (busy || !cloudEnabled) return
+        if (busy || !cloudEnabled || !cloudSignedIn) return
         busy = true
         onBusyChange(true)
         cloudMessage = null
@@ -211,7 +213,10 @@ internal fun GarminSettingsCard(
             Switch(
                 checked = cloudEnabled,
                 onCheckedChange = { checked ->
-                    if (checked) confirmEnableCloud = true
+                    if (checked) {
+                        if (cloudSignedIn) confirmEnableCloud = true
+                        else onCloudSignIn()
+                    }
                     else {
                         syncPreferences.setCloudBackup(accountId, false)
                         cloudEnabled = false
@@ -225,7 +230,13 @@ internal fun GarminSettingsCard(
                 )
             )
         }
-        if (cloudEnabled) {
+        if (!cloudSignedIn) {
+            TextButton(onClick = onCloudSignIn, enabled = !busy,
+                modifier = Modifier.testTag("garmin-cloud-sign-in")) {
+                Text("Sign in only for cloud backup", color = garminLime)
+            }
+        }
+        if (cloudEnabled && cloudSignedIn) {
             Text(
                 "Uploads and restores run in bounded batches. Oversized recordings remain local.",
                 color = garminMuted, fontSize = 11.sp, lineHeight = 15.sp
