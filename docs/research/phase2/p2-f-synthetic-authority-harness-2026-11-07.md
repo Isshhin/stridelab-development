@@ -1,5 +1,13 @@
 # Synthetic authority and custody harness — 2026-11-07
 
+## Final publication recheck implementation — 2026-11-07
+
+Starting head `338892889c61c205805aaa260c73951bcdffd171`; correction implementation `b6e8fe96581c3f6990838491e09b292e8c9827f5`. The final pushed head is the documentation commit containing this entry (resolve with Git). The [independent re-review](p2-f-synthetic-authority-final-rereview-2026-11-07.md) found that hash/equality callbacks invoked during final validation could poison a read after its earlier check and before append. Immediately after the data-version check and before `key.output.append(chunk)`, the broker now executes `need(not self._violation, 'reentrant mutation')` under the existing `_state` lock.
+
+Four focused regressions cover reentrant inventory hashing, inventory equality, data-version lookup hashing between chunks, and benign custom values. The adversarial hash and equality schedules reproduced forbidden output before the fix. After correction: focused 75 passed; original review 6, correction review 8 and final review 11 passed; durable 54 passed; P2 223 passed; full research 387 run, 386 passed and one Windows symlink skip. New exact-head CI is unavailable at documentation time; check the pushed head, and do not treat queued or cancelled runs as passed.
+
+`SYNTHETIC_AUTHORITY_CUSTODY_FINAL_PUBLICATION_RECHECK_IMPLEMENTED` is awaiting independent final re-review; it is not an authority/custody pass. The in-process model does not prove actual custody, crypto, hardware or crash persistence. The separate `PASS_FOR_SYNTHETIC_DURABILITY` remains scoped to its journal. Private pilot is blocked, human/provider admission NO, `P2_F_GATE_2_NOT_READY`, and `P2_B_PROTOCOL_READY_DATA_NOT_READY`. Next: independent adversarial re-review of the exact correction head.
+
 ## Publication-fence correction — 2026-11-07
 
 Starting head `9dbb37e01740812ced317ee08de9436a92b1874d`; correction implementation `00257401e66ec2be8dbd1b0fc8168cd2e4c21d31`. Final pushed head is the documentation commit containing this entry (resolve its SHA with Git). The independent [re-review](p2-f-synthetic-authority-correction-rereview-2026-11-07.md) found that an iterator could catch a nested-read denial before yielding and cause the poisoned chunk to be emitted before the violation check. The broker now checks the violation inside the existing publication lock before every append, after obtaining each candidate chunk. Iterator code remains outside that lock. Authority, inventory, data-version and withdrawal checks remain in the publication boundary.

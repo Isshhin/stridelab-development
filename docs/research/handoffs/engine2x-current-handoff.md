@@ -1,5 +1,9 @@
 # StrideLab Engine 2.x current coordinating handoff
 
+## Synthetic final publication recheck — 2026-11-07
+
+`SYNTHETIC_AUTHORITY_CUSTODY_FINAL_PUBLICATION_RECHECK_IMPLEMENTED` at implementation `b6e8fe96581c3f6990838491e09b292e8c9827f5`, starting at `338892889c61c205805aaa260c73951bcdffd171`. The [implementation record](../phase2/p2-f-synthetic-authority-harness-2026-11-07.md#final-publication-recheck-implementation--2026-11-07) describes the one-line post-validation fence and hash/equality regression cases. Final pushed head is the documentation commit containing this entry (resolve with Git); exact-head CI is not available at documentation time. Local results: focused 75, review schedules 6/8/11, durable 54 and P2 223 passed; full research 387 run, 386 passed, one Windows symlink skip. Independent final re-review remains required. The earlier `PASS_FOR_SYNTHETIC_DURABILITY` is unchanged; private pilot blocked, human/provider admission NO, `P2_F_GATE_2_NOT_READY`, `P2_B_PROTOCOL_READY_DATA_NOT_READY`.
+
 ## Synthetic authority final publication-fence re-review — 2026-11-07
 
 Verdict: `SYNTHETIC_AUTHORITY_CUSTODY_NEEDS_CORRECTION`. The [independent re-review](../phase2/p2-f-synthetic-authority-final-rereview-2026-11-07.md) checked correction `00257401e66ec2be8dbd1b0fc8168cd2e4c21d31` at `ae0f5b093e5190fb185d59bd2f7295891747d3c2` with Graphify indexed at that same SHA. The prior generator-before-yield bug is fixed and all 6 and 8 earlier review schedules pass. A new P1 synthetic edge remains: a `str` subclass's `__hash__` invoked during the final inventory validation can catch a same-owner nested-read denial after the violation check; the broker then appends a chunk before noticing the poison. A separate review-only script contains 11 schedules: 10 pass and this one fails. No implementation change was made in review.
