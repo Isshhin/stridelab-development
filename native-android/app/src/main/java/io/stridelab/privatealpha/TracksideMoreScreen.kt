@@ -372,7 +372,7 @@ private fun AthleteHeartRatePreferenceCard(account: String?) {
                     suffix = { Text("bpm") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    isError = maximumText.isNotBlank() && maximum !in 100..240,
+                    isError = maximumText.isNotBlank() && (maximum == null || maximum !in 100..240),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = moreLime,
                         focusedLabelColor = moreLime,
@@ -398,7 +398,7 @@ private fun AthleteHeartRatePreferenceCard(account: String?) {
                     suffix = { Text("bpm") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    isError = thresholdText.isNotBlank() && threshold !in 100..230,
+                    isError = thresholdText.isNotBlank() && (threshold == null || threshold !in 100..230),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = moreLime,
                         focusedLabelColor = moreLime,
@@ -425,8 +425,8 @@ private fun AthleteHeartRatePreferenceCard(account: String?) {
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     isError = restingText.isNotBlank() &&
-                        (resting !in 30..120 ||
-                            (maximum != null && resting != null && resting >= maximum)),
+                        (resting == null || resting !in 30..120 ||
+                            (maximum != null && resting >= maximum)),
                     supportingText = {
                         if (maximum != null && resting != null && resting >= maximum) {
                             Text("Resting HR must be below maximum HR.")
