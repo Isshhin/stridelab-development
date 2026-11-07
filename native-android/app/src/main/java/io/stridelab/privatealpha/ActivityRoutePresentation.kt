@@ -34,7 +34,8 @@ internal fun activityAnalysisRoute(
     fun crossesPause(a:Double,b:Double)=pauses.any {
         a < it.endSeconds && b > it.startSeconds
     }
-    val features=JSONArray()
+    // Preserve all source values for min/max; bound only the MapLibre overlay
+    // so colored-map modes cannot construct 20,000 individual GeoJSON features.
     val edges=ArrayList<RecordedAnalysisEdge>()
     val values=ArrayList<Double>()
     samples.zipWithNext().forEach { (a,b) ->
@@ -53,18 +54,26 @@ internal fun activityAnalysisRoute(
         val metric=(av+bv)/2.0
         values.add(metric)
         edges.add(RecordedAnalysisEdge(RecordedGpsPoint(alat,alon,a.seconds), RecordedGpsPoint(blat,blon,b.seconds), metric))
+    }
+    val renderEdges = if (edges.size <= 2_000) edges
+        else (0 until 2_000).map { i ->
+            edges[kotlin.math.round(i.toDouble() * (edges.lastIndex) / 1_999)
+                .toInt().coerceIn(0, edges.lastIndex)]
+        }
+    val features=JSONArray()
+    renderEdges.forEach { edge ->
         features.put(
             JSONObject().put("type","Feature")
-                .put("properties",JSONObject().put("value",metric))
+                .put("properties",JSONObject().put("value",edge.value))
                 .put("geometry",JSONObject()
                     .put("type","LineString")
                     .put("coordinates",JSONArray()
-                        .put(JSONArray().put(alon).put(alat))
-                        .put(JSONArray().put(blon).put(blat))))
+                        .put(JSONArray().put(edge.start.longitude).put(edge.start.latitude))
+                        .put(JSONArray().put(edge.end.longitude).put(edge.end.latitude))))
         )
     }
     return TracksideAnalysisRoute(
         JSONObject().put("type","FeatureCollection").put("features",features).toString(),
-        values.minOrNull(),values.maxOrNull(),edges
+        values.minOrNull(),values.maxOrNull(),renderEdges
     )
 }
