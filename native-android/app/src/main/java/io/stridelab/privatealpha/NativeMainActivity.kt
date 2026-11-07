@@ -581,7 +581,9 @@ private fun NavHostController.openActivity(id: String) {
                             onOpenWorkout = { planId, sessionId -> nav.openWorkout(planId, sessionId) },
                             onOpenActivityDetail = { id -> nav.openActivity(id) },
                             onOpenMore = { nav.openTabRoot("settings") },
-                            onSignIn = { nav.navigate("auth") }
+                            onSignIn = { nav.navigate("auth") },
+                            onEnsureCachedDetail = actions.loadCachedDetail,
+                            isVisible = visibleRoot == null || visibleRoot == "home"
                         )
                     }
                     PersistentTabSurface(active = visibleRoot == "training") {
@@ -653,7 +655,9 @@ private fun NavHostController.openActivity(id: String) {
                         onOpenWorkout = { planId, sessionId -> nav.openWorkout(planId, sessionId) },
                         onOpenActivityDetail = { id -> nav.openActivity(id) },
                         onOpenMore = { nav.openTabRoot("settings") },
-                        onSignIn = { nav.navigate("auth") }
+                        onSignIn = { nav.navigate("auth") },
+                        onEnsureCachedDetail = actions.loadCachedDetail,
+                        isVisible = visibleRoot == null || visibleRoot == "home"
                     )
                 }
                 PersistentTabSurface(active = visibleRoot == "training") {
