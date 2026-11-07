@@ -114,6 +114,93 @@ class TracksideActivityScrollTest {
         compose.onNodeWithTag("activity-parity-overview").assertExists()
     }
 
+    @Test fun summaryCanHideForMapOnlyAndRestoreWithGrip() {
+        val activity = ActivityRecord(
+            "synthetic-map-only-activity", "Santa Mesa Running", "run", "manual",
+            Instant.parse("2026-11-06T10:38:00Z"), 13110.0, 5100.0,
+            5099.0, 390.0, 148.0, 64.0
+        )
+        val state = TrainingState(
+            initializing = false, account = "synthetic-map-only-account",
+            activities = listOf(activity)
+        )
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideFigmaActivityDetailSurface(
+                        activity = activity,
+                        recorded = null,
+                        detailSource = activity,
+                        matchedSourceIds = setOf(activity.id),
+                        history = listOf(activity),
+                        state = state,
+                        actions = NativeActions({}, {}, {}, {}, { _, _ -> }),
+                        online = false, selectedTab = 0, onTab = {},
+                        matte = false, onToggleMatte = {}, onBack = {}
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("activity-map-only-handle").assertDoesNotExist()
+        compose.onNodeWithTag("activity-parity-overview").assertIsDisplayed()
+
+        // Same third anchor reached by dragging below the compact summary.
+        compose.onNodeWithTag("activity-sheet-scroll")
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.Dismiss)
+        compose.waitUntil(timeoutMillis = 5000) {
+            compose.onAllNodesWithTag("activity-map-only-handle")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("activity-map-hero").assertExists()
+        compose.onNodeWithTag("activity-map-only-handle").assertIsDisplayed()
+        compose.onNodeWithTag("activity-sticky-pill").assertDoesNotExist()
+
+        // Touching the small bottom grip restores the approved summary.
+        compose.onNodeWithTag("activity-map-only-handle").performClick()
+        compose.waitUntil(timeoutMillis = 5000) {
+            compose.onAllNodesWithTag("activity-map-only-handle")
+                .fetchSemanticsNodes().isEmpty()
+        }
+        compose.onNodeWithTag("activity-parity-overview").assertIsDisplayed()
+        compose.onNodeWithTag("activity-primary-metrics").assertIsDisplayed()
+
+        // The third position must not break the previous expanded behavior.
+        compose.onNodeWithTag("activity-sheet-handle").performClick()
+        compose.waitUntil(timeoutMillis = 5000) {
+            compose.onAllNodesWithTag("activity-sticky-pill")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("activity-tab-overview").assertIsSelected()
+        compose.onNodeWithTag("activity-expanded-back").performClick()
+        compose.waitUntil(timeoutMillis = 5000) {
+            compose.onAllNodesWithTag("activity-sticky-pill")
+                .fetchSemanticsNodes().isEmpty()
+        }
+        compose.onNodeWithTag("activity-parity-overview").assertIsDisplayed()
+    }
+
+    @Test fun compactLinkRunDoesNotShowLegacyExplainerWhenNoPlanExists() {
+        val activity = ActivityRecord(
+            "synthetic-link-activity", "Recorded Run", "run", "manual",
+            Instant.parse("2026-11-06T10:38:00Z"), 5000.0, 1800.0,
+            1760.0, 360.0, 140.0, null
+        )
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    ActivityPlanLink(
+                        TrainingState(initializing = false, plans = emptyList()),
+                        activity, PlanActions()
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("activity-link-run-action").assertExists()
+        compose.onNodeWithText("Link run").assertExists()
+        compose.onNodeWithText("PLANNED & RECORDED").assertDoesNotExist()
+        compose.onNodeWithText("Link to planned run").assertDoesNotExist()
+    }
+
     @Test fun activityWithoutSourceStreamsDoesNotInventSplitsOrCharts() {
         val activity = ActivityRecord(
             "synthetic-scroll-no-streams", "Evening Run", "run", "manual",
