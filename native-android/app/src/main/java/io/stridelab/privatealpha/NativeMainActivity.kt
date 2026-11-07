@@ -135,6 +135,7 @@ class NativeMainActivity: ComponentActivity() {
     val actions = remember(model) { NativeActions(model::refresh, {}, {}, model::signOut, model::signIn, model::loadDetail, model::refreshWellness, model.planActions(), syncGarmin=model::syncGarmin, loadGarminGps=model::loadGarminGps,
         backupGarminCloud=model::backupGarminCloud, restoreGarminCloud=model::restoreGarminCloud,
         loadCachedDetail=model::loadCachedDetail,
+        setActivityDetailVisible=model::setActivityDetailVisible,
         signUp=model::signUp, requestPasswordReset=model::requestPasswordReset) }
     NativeStrideContent(state, online, actions)
 }
@@ -150,7 +151,8 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
     val requestPasswordReset: (String) -> Unit = {},
     val backupGarminCloud: (suspend () -> Int)? = null,
     val restoreGarminCloud: (suspend () -> Int)? = null,
-    val loadCachedDetail: (String) -> Unit = {})
+    val loadCachedDetail: (String) -> Unit = {},
+    val setActivityDetailVisible: (Boolean) -> Unit = {})
 
 /** Primary destinations switch immediately; the legacy Activity history route remains available.
  * retain the existing Navigation Compose transitions.
@@ -196,6 +198,10 @@ private fun NavHostController.openActivity(id: String) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
+    val inActivityDetail = route == "activity/{id}"
+    LaunchedEffect(inActivityDetail) {
+        actions.setActivityDetailVisible(inActivityDetail)
+    }
     // Immediate visual acknowledgement of a bottom-tab press. NavController
     // still owns the back stack, restoration and child destination lifecycle;
     // the dock's animation never gates which retained root is laid out.
