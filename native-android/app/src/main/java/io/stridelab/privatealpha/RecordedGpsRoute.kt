@@ -53,9 +53,9 @@ internal data class RecordedGpsRoute(
 
     val gpsContinuityLabel:String get()=when {
         pointCount == 0 -> "No recorded GPS"
-        unknownGaps.isEmpty() -> "Continuous GPS"
-        unknownGaps.size == 1 -> "1 GPS gap"
-        else -> unknownGaps.size.toString() + " GPS gaps"
+        gaps.isEmpty() -> "Continuous GPS"
+        gaps.size == 1 -> "1 GPS gap"
+        else -> gaps.size.toString() + " GPS gaps"
     }
 
     private fun crossesPause(start:Double,end:Double):Boolean =
@@ -76,10 +76,10 @@ internal data class RecordedGpsRoute(
             .toString()
     }
 
-    /** Actual lone coordinate fixes, retained even if there was no drawn line. */
+    /** Source lone fixes use normal route color, including during a pause. */
     fun isolatedGeoJson():String {
         val coords=JSONArray()
-        activeIsolatedPoints.forEach { point ->
+        isolatedPoints.forEach { point ->
             coords.put(JSONArray().put(point.longitude).put(point.latitude))
         }
         return JSONObject()
@@ -210,9 +210,10 @@ internal data class RecordedGpsRoute(
     fun pauseGapsGeoJson():String = gapGeoJson(pauseGaps)
 
     /**
-     * A separate LineString is used for each continuous section. Avoid
-     * drawing invented paths across missing fixes, timer pauses, long gaps,
-     * and the dateline.
+     * A separate LineString is used for each recorded continuous section.
+     * Timer state alone does not remove GPS that the watch really recorded.
+     * Unrecorded pause intervals, missing fixes, long gaps and the dateline
+     * remain disconnected rather than being reconstructed.
      */
     fun toGeoJson():String {
         val lines=JSONArray()
@@ -269,9 +270,13 @@ internal data class RecordedGpsRoute(
                 if(current.isNotEmpty())output.add(current.toList())
                 current=ArrayList()
             }
-            fun crossesPause(start:Double,end:Double):Boolean =
+            // Consecutive fixes outside a complete timer pause do not prove
+            // where the athlete travelled during that unrecorded interval.
+            // Fixes actually recorded inside the pause are retained on the
+            // same solid line, with the normal GPS continuity guards.
+            fun unrecordedPauseBetween(start:Double,end:Double):Boolean =
                 pauseIntervals.any { pause ->
-                    start < pause.endSeconds && end > pause.startSeconds
+                    start < pause.startSeconds && end > pause.endSeconds
                 }
             for(sample in samples) {
                 val lat=sample.latitude
@@ -287,7 +292,7 @@ internal data class RecordedGpsRoute(
                 val last=current.lastOrNull()
                 if(last!=null && (point.elapsedSeconds-last.elapsedSeconds>120.0 ||
                     point.elapsedSeconds<last.elapsedSeconds ||
-                    crossesPause(last.elapsedSeconds,point.elapsedSeconds) ||
+                    unrecordedPauseBetween(last.elapsedSeconds,point.elapsedSeconds) ||
                     abs(point.longitude-last.longitude)>=180.0))flush()
                 current.add(point)
             }
