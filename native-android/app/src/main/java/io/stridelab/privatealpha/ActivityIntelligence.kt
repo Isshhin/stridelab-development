@@ -108,6 +108,69 @@ internal object ActivityIntelligence {
     }
 
     /**
+     * Compact, source-only activity descriptors for the Overall Analysis card.
+     * These describe recorded pacing/HR/cadence patterns, not training benefit.
+     */
+    fun workoutCharacter(
+        activity: ActivityRecord,
+        recorded: ActivityDetail?
+    ): String? {
+        if (!running(activity) || recorded == null) return null
+        val tags = mutableListOf<String>()
+
+        val fullKilometerPaces = recorded.laps.mapNotNull { lap ->
+            val distance = lap.distance
+            val pace = lap.pace
+            if (distance != null && pace != null &&
+                distance.isFinite() && pace.isFinite() && pace > 0.0 &&
+                kotlin.math.abs(distance - 1000.0) <= 50.0
+            ) pace else null
+        }
+        if (fullKilometerPaces.size >= 4) {
+            val mean = fullKilometerPaces.average()
+            val variance = fullKilometerPaces.sumOf { (it - mean) * (it - mean) } /
+                fullKilometerPaces.size
+            val cv = kotlin.math.sqrt(variance) / mean
+            when {
+                cv <= .04 -> tags += "Steady pacing"
+                cv >= .10 -> tags += "Variable pacing"
+            }
+            val half = fullKilometerPaces.size / 2
+            val early = fullKilometerPaces.take(half).average()
+            val late = fullKilometerPaces.takeLast(half).average()
+            when {
+                late <= early * .97 -> tags += "Faster finish"
+                late >= early * 1.03 -> tags += "Slower finish"
+            }
+        }
+
+        val cadence = recorded.samples.mapNotNull {
+            it.cadenceSpm?.takeIf { value -> value.isFinite() && value > 0.0 }
+        }
+        if (tags.size < 3 && cadence.size >= 20) {
+            val mean = cadence.average()
+            val variance = cadence.sumOf { (it - mean) * (it - mean) } / cadence.size
+            val cv = kotlin.math.sqrt(variance) / mean
+            if (cv <= .035) tags += "Stable cadence"
+        }
+
+        val heartRate = recorded.samples.mapNotNull {
+            it.hr?.takeIf { value -> value.isFinite() && value > 0.0 }
+        }
+        if (tags.size < 3 && heartRate.size >= 20) {
+            val quarter = (heartRate.size / 4).coerceAtLeast(1)
+            val early = heartRate.take(quarter).average()
+            val late = heartRate.takeLast(quarter).average()
+            when {
+                late >= early + 8.0 -> tags += "Heart rate rose late"
+                late <= early - 8.0 -> tags += "Heart rate eased late"
+            }
+        }
+
+        return tags.take(3).takeIf { it.isNotEmpty() }?.joinToString(" · ")
+    }
+
+    /**
      * Read-only Activity Analysis 1.0. Describe measured evidence, not
      * fitness, training readiness, recovery or a recommended next workout.
      * The existing conservative same-source historical filter is unchanged.
