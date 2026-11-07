@@ -282,7 +282,7 @@ internal fun TracksideParityActivityMapHero(
         }
         if (route.pointCount == 0) {
             Text(
-                "No recorded GPS track",
+                if (detail == null) "Recording not loaded yet" else "No recorded GPS track",
                 modifier = Modifier.align(Alignment.Center)
                     .background(Color(0xCC080D0C), RoundedCornerShape(12.dp))
                     .padding(horizontal = 14.dp, vertical = 9.dp),
