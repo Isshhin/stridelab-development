@@ -81,6 +81,9 @@ internal fun TracksideFigmaActivityDetailSurface(
         var selectedSplitRange by remember(recorded?.activityId) {
             androidx.compose.runtime.mutableStateOf<Pair<Double,Double>?>(null)
         }
+        var mapMode by remember(recorded?.activityId) {
+            androidx.compose.runtime.mutableStateOf(TracksideActivityMapMode.ROUTE)
+        }
         val peekHeight = if (previewHeightPx > 0) {
             with(density) { previewHeightPx.toDp() } + 37.dp
         } else 220.dp // Only used before the preview's first measurement.
@@ -154,11 +157,14 @@ internal fun TracksideFigmaActivityDetailSurface(
             return t * t * (3f - 2f * t)
         }
         val collapseOrBack: () -> Unit = {
-            if (expanded || sheetState.targetValue == SheetValue.Expanded) {
+            if (expanded || mapOnly ||
+                sheetState.targetValue == SheetValue.Expanded ||
+                sheetState.targetValue == SheetValue.Hidden
+            ) {
                 scope.launch { settleSheet(SheetValue.PartiallyExpanded) }
             } else onBack()
         }
-        BackHandler(enabled = expanded) {
+        BackHandler(enabled = expanded || mapOnly) {
             scope.launch { settleSheet(SheetValue.PartiallyExpanded) }
         }
 
@@ -296,6 +302,17 @@ internal fun TracksideFigmaActivityDetailSurface(
                 heightDp = maxHeight,
                 onChangeStyle = onToggleMatte,
                 online = online,
+                fullScreen = mapOnly,
+                mapMode = mapMode,
+                onMapMode = { mapMode = it },
+                onToggleFullScreen = {
+                    scope.launch {
+                        settleSheet(
+                            if (mapOnly) SheetValue.PartiallyExpanded
+                            else SheetValue.Hidden
+                        )
+                    }
+                },
                 selectedSeconds = selectedActivitySeconds,
                 selectedRange = selectedSplitRange,
                 onSelectRange = { range ->
