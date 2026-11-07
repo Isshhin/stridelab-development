@@ -2,10 +2,10 @@ package io.stridelab.privatealpha
 
 import android.provider.Settings
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.snap
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -82,16 +82,23 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
             val cellWidth = maxWidth / destinations.size
             val targetOffset = if (selectedIndex < 0) 0.dp
                 else cellWidth * selectedIndex
-            // Keep the animated Dp as State; only placement and layer paint
-            // should observe its per-frame value. Do not rebuild tab labels.
-            val pillOffset = animateDpAsState(
-                targetValue = targetOffset,
-                animationSpec = if (animationsDisabled) snap() else spring(
-                    dampingRatio = TracksideLiquidMotion.DAMPING,
-                    stiffness = TracksideLiquidMotion.STIFFNESS
-                ),
-                label = "floating-nav-pill"
-            )
+            // The animation owns its own position. Reading it only in the
+            // graphics layer avoids per-frame recomposition of the dock and
+            // cannot gate NavController destination changes.
+            val pillOffset = remember { Animatable(targetOffset.value) }
+            LaunchedEffect(targetOffset.value, animationsDisabled) {
+                if (animationsDisabled) {
+                    pillOffset.snapTo(targetOffset.value)
+                } else {
+                    pillOffset.animateTo(
+                        targetValue = targetOffset.value,
+                        animationSpec = tween(
+                            durationMillis = 230,
+                            easing = FastOutSlowInEasing
+                        )
+                    )
+                }
+            }
             if (selectedIndex >= 0) {
                 val pillShape = remember { RoundedCornerShape(30.dp) }
                 Box(
@@ -100,13 +107,16 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
                         .graphicsLayer {
                             // GPU translation avoids relayout of the pill
                             // while its spring animates across the dock.
-                            translationX = pillOffset.value.toPx()
+                            val position = pillOffset.value
+                            translationX = position.dp.toPx()
                             val pressure = if (animationsDisabled) 0f else
                                 TracksideLiquidMotion.pressure(
-                                    pillOffset.value.value, targetOffset.value, cellWidth.value
+                                    position, targetOffset.value, cellWidth.value
                                 )
-                            scaleX = TracksideLiquidMotion.stretch(pressure, .16f)
-                            scaleY = TracksideLiquidMotion.squash(pressure, .07f)
+                            // Small elastic response, but no prolonged
+                            // spring overshoot at the destination.
+                            scaleX = TracksideLiquidMotion.stretch(pressure, .055f)
+                            scaleY = TracksideLiquidMotion.squash(pressure, .025f)
                             shape = pillShape
                             clip = true
                         }
@@ -123,7 +133,7 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
                     val ink by animateColorAsState(
                         targetValue = if (isSelected) Color(0xFF10120D)
                             else Color(0xFFC0C4C6),
-                        animationSpec = tween(if (animationsDisabled) 0 else 180),
+                        animationSpec = tween(if (animationsDisabled) 0 else 150),
                         label = "nav-ink-$path"
                     )
                     Column(
