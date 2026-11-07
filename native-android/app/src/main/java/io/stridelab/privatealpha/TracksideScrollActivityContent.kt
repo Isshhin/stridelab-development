@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,6 +17,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -38,6 +40,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -453,6 +456,10 @@ internal fun TracksideActivityContinuousSections(
                             onSelectSeconds = { selectedChartSeconds = it }
                         )
                     }
+                if (chartAvailability.heartRate)
+                    item(key = "chart-heart-rate-zones") {
+                        TracksideActivityHeartRateZones(recorded)
+                    }
                 if (chartAvailability.elevation)
                     item(key = "chart-elevation") {
                         TracksideActivitySourceChart(
@@ -795,6 +802,154 @@ private fun TracksideActivitySplitRow(
             Text(lap.hr?.roundToInt()?.toString() ?: "—",
                 color = activityMuted, fontSize = 11.sp,
                 modifier = Modifier.width(33.dp), maxLines = 1)
+        }
+    }
+}
+
+/**
+ * A functional HR zone visualization without invented athlete settings.
+ * Users supply a known maximum HR locally. No activity peak substitutes
+ * for their maximum and no settings/persistence/API contract is changed.
+ */
+@Composable
+private fun TracksideActivityHeartRateZones(recorded: ActivityDetail) {
+    var maximumText by rememberSaveable(recorded.activityId) { mutableStateOf("") }
+    val maximumHr = maximumText.toIntOrNull()
+    val zones = remember(recorded, maximumHr) {
+        maximumHr?.let { HeartRateZoneAnalysis.distribute(recorded.samples, it) }
+    }
+    val colors = listOf(
+        Color(0xFF9FABBA), Color(0xFF79C9B3), activityLime,
+        Color(0xFFFFBE7A), Color(0xFFFF8C87)
+    )
+
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Column(
+            Modifier.fillMaxWidth()
+                .background(activitySurface, RoundedCornerShape(14.dp))
+                .padding(horizontal = 12.dp, vertical = 13.dp)
+                .testTag("activity-chart-heart-rate-zones")
+        ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Heart Rate Zones", color = activityText,
+                        fontSize = 14.sp, fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "Estimated from a known maximum HR",
+                        color = activityMuted, fontSize = 10.sp,
+                        lineHeight = 15.sp
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                OutlinedTextField(
+                    value = maximumText,
+                    onValueChange = { text ->
+                        if (text.length <= 3 && text.all { it.isDigit() }) {
+                            maximumText = text
+                        }
+                    },
+                    modifier = Modifier.width(104.dp)
+                        .testTag("activity-hr-zone-max-input"),
+                    label = { Text("Max HR", fontSize = 11.sp) },
+                    placeholder = { Text("bpm", fontSize = 11.sp) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    textStyle = androidx.compose.ui.text.TextStyle(
+                        color = activityText, fontSize = 15.sp
+                    ),
+                    isError = maximumText.isNotBlank() &&
+                        (maximumHr == null || maximumHr !in 100..240),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = activityLime,
+                        focusedLabelColor = activityLime,
+                        unfocusedBorderColor = activityBorder
+                    )
+                )
+            }
+            Spacer(Modifier.height(11.dp))
+            if (zones == null) {
+                Text(
+                    when {
+                        maximumText.isBlank() ->
+                            "Enter your known maximum heart rate to show five estimated zones. " +
+                                "A workout's highest HR is not used as your maximum."
+                        maximumHr == null || maximumHr !in 100..240 ->
+                            "Enter a maximum heart rate between 100 and 240 bpm."
+                        else ->
+                            "Not enough consecutive recorded HR samples to estimate time in zones."
+                    },
+                    color = activityMuted, fontSize = 12.sp, lineHeight = 17.sp,
+                    modifier = Modifier.testTag("activity-hr-zone-help")
+                )
+            } else {
+                zones.buckets.forEachIndexed { index, zone ->
+                    val range = when {
+                        zone.lowerBpm == null -> "Below ${zone.upperBpm!! + 1} bpm"
+                        zone.upperBpm == null -> "${zone.lowerBpm}+ bpm"
+                        else -> "${zone.lowerBpm}–${zone.upperBpm} bpm"
+                    }
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .padding(vertical = 6.dp)
+                            .testTag("activity-hr-zone-${zone.zone}"),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(9.dp)
+                    ) {
+                        Text(
+                            "Z${zone.zone}", color = colors[index],
+                            fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.width(22.dp)
+                        )
+                        Column(Modifier.weight(1f)) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(range, color = activityMuted, fontSize = 10.sp)
+                                Text(
+                                    "${ActivityRecord.duration(zone.seconds)} · " +
+                                        "${(zone.fraction * 100).roundToInt()}%",
+                                    color = activityText, fontSize = 11.sp
+                                )
+                            }
+                            Spacer(Modifier.height(5.dp))
+                            Box(
+                                Modifier.fillMaxWidth().height(6.dp)
+                                    .background(activityBorder, RoundedCornerShape(4.dp))
+                            ) {
+                                if (zone.seconds > 0.0) {
+                                    Box(
+                                        Modifier.fillMaxWidth(zone.fraction.toFloat())
+                                            .fillMaxHeight()
+                                            .background(colors[index], RoundedCornerShape(4.dp))
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(7.dp))
+                Text(
+                    "Percentage of classified recorded time, not total activity duration. " +
+                        "Gaps over 30 seconds are excluded. Standard %HRmax bands; " +
+                        "not Garmin zone settings.",
+                    color = activityMuted, fontSize = 10.sp, lineHeight = 15.sp
+                )
+            }
+        }
+        if (zones != null) {
+            Spacer(Modifier.height(10.dp))
+            TracksideActivityIntelligenceCard(
+                HeartRateZoneAnalysis.presentation(zones),
+                "Heart Rate Zones Analysis", "activity-chart-insights-heart-rate-zones"
+            )
         }
     }
 }
