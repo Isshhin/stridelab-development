@@ -68,4 +68,3 @@ internal fun activityAnalysisRoute(
         values.minOrNull(),values.maxOrNull(),edges
     )
 }
-
