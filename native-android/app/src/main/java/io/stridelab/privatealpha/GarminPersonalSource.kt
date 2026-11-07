@@ -11,7 +11,10 @@ internal data class GarminConnectionStatus(
     val lastSuccessfulSync:Instant?=null,
     val importedCount:Int=0,
     val error:String?=null,
-    val issueKind:GarminIssueKind?=null
+    val issueKind:GarminIssueKind?=null,
+    val detailsImported:Int=0,
+    val detailsRemaining:Int=0,
+    val failedDetails:Int=0
 ) {
     init { require(state in setOf("not_connected","connected","error")) }
 
