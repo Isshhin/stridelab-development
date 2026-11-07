@@ -1,5 +1,9 @@
 # StrideLab Engine 2.x current coordinating handoff
 
+## Coordinated synthetic state design — 2026-11-07
+
+The [design review](../phase2/p2-f-coordinated-state-mutation-design-2026-11-07.md) selects controlled mutation ownership, one shared reentrant lock and a monotonic mutation epoch for a bounded synthetic correction. Next: separately implement and test that model, then obtain independent re-review. This is design only; `SYNTHETIC_AUTHORITY_CUSTODY_NEEDS_CORRECTION` remains. No human/provider admission; private pilot blocked; `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` unchanged.
+
 ## Synthetic state-ordering review — 2026-11-07
 
 `SYNTHETIC_AUTHORITY_CUSTODY_NEEDS_CORRECTION` at reviewed head `e21d0b2e0afe4677253bff5de2865f4b95b69760`. The [review record](../phase2/p2-f-synthetic-state-ordering-review-2026-11-07.md) documents two controlled callbacks that change previously validated anchor or inventory state while output still appends. Review-only reproductions: two failures and one pass; existing 31 schedules and Python 3.12 focused, durable, P2 and full research suites pass with the documented Windows skip. No broker implementation changed. Exact-head CI was last observed queued; current state is unverified. Private pilot remains blocked, human/provider admission NO, `P2_F_GATE_2_NOT_READY`, `P2_B_PROTOCOL_READY_DATA_NOT_READY`.

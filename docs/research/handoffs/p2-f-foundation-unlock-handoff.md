@@ -1,5 +1,9 @@
 # P2-F Foundation Unlock handoff
 
+## Coordinated synthetic state design — 2026-11-07
+
+The [design review](../phase2/p2-f-coordinated-state-mutation-design-2026-11-07.md) selects controlled mutation ownership, one shared lock and an epoch for a future synthetic-only correction and independent re-review. The model is not yet implemented; `SYNTHETIC_AUTHORITY_CUSTODY_NEEDS_CORRECTION` and all private-pilot, Gate 2 and P2-B restrictions remain.
+
 ## Synthetic state-ordering review — 2026-11-07
 
 `SYNTHETIC_AUTHORITY_CUSTODY_NEEDS_CORRECTION` at reviewed head `e21d0b2e0afe4677253bff5de2865f4b95b69760`. See the [review record](../phase2/p2-f-synthetic-state-ordering-review-2026-11-07.md) for two reproducible stale anchor/inventory publication cases, verification and scope. No broker implementation changed. Private pilot remains blocked; human/provider admission NO; `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` remain unchanged.
