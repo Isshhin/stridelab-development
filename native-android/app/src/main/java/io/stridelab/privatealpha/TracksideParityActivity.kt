@@ -42,7 +42,7 @@ internal fun TracksideParityActivityMapHero(
 ) {
     val route=remember(detail) { RecordedGpsRoute.from(detail?.samples.orEmpty()) }
     Box(Modifier.fillMaxWidth().height(heightDp).testTag("activity-map-hero")) {
-        if(route.pointCount>=2) {
+        if(route.pointCount > 0) {
             TracksideGeographicMap(route,online,Modifier.fillMaxSize())
         } else {
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
@@ -51,7 +51,7 @@ internal fun TracksideParityActivityMapHero(
         // Keep actual vector streets crisp. The old full-screen tint was
         // darkening even the lighter road/label palette; only shade the empty
         // no-GPS placeholder, not a genuine MapLibre map.
-        if (route.pointCount < 2) {
+        if (route.pointCount == 0) {
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
                 listOf(Color(0x28070B09), Color.Transparent, Color(0x14070B09))
             )))
@@ -84,7 +84,7 @@ internal fun TracksideParityActivityMapHero(
                 }
             } else Box(Modifier.size(44.dp))
         }
-        if (route.pointCount < 2) {
+        if (route.pointCount == 0) {
             Text(
                 "No recorded GPS track",
                 modifier = Modifier.align(Alignment.Center)
