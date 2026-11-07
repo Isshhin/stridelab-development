@@ -114,13 +114,15 @@ class TracksideActivityScrollTest {
         // collapsed until explicitly requested and must stay within the
         // original scrolling details sheet.
         compose.onNodeWithTag("activity-continuous-scroll")
-            .performScrollToNode(hasTestTag("activity-insights"))
-        compose.onNodeWithTag("activity-continuous-scroll")
             .performScrollToNode(hasTestTag("activity-summary-redesign"))
         compose.onNodeWithTag("activity-summary-redesign").assertExists()
         compose.onNodeWithTag("activity-summary-source").assertExists()
         compose.onNodeWithText("Summary").assertExists()
         compose.onNodeWithText("Key stats from your run at Santa Mesa.").assertExists()
+        compose.onNodeWithText("13.11 km").assertExists()
+        compose.onNodeWithText("1:24:59").assertExists()
+        compose.onNodeWithTag("activity-continuous-scroll")
+            .performScrollToNode(hasTestTag("activity-insights"))
         compose.onNodeWithTag("activity-insights-headline").assertExists()
         compose.onNodeWithTag("activity-insights-summary").assertExists()
         compose.onNodeWithText("Overall Analysis").assertExists()
@@ -303,6 +305,26 @@ class TracksideActivityScrollTest {
             }
         }
         compose.onNodeWithTag("activity-link-run-action").assertDoesNotExist()
+
+        val strengthOnlyPlan = PlanSnapshot(
+            id = "synthetic-strength-plan",
+            owner = "synthetic-owner",
+            engineVersion = ENGINE1_VERSION,
+            policyId = ENGINE1_POLICY,
+            createdAt = Instant.EPOCH,
+            request = PlanRequest(),
+            sessions = listOf(
+                PlannedSession(
+                    "str-only", java.time.LocalDate.now(), "str",
+                    "Strength", 40, null, "strength"
+                )
+            ),
+            explanations = emptyList(),
+            status = "approved"
+        )
+        org.junit.Assert.assertFalse(
+            hasRunningPlanForActivityLink(listOf(strengthOnlyPlan))
+        )
 
         val mixedPlan = PlanSnapshot(
             id = "synthetic-mixed-plan",
