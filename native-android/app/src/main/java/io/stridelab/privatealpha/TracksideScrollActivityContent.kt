@@ -979,6 +979,21 @@ private fun TracksideActivitySplitRow(
     val recordedPace = if (supportsPace) lap.pace?.takeIf { it.isFinite() && it > 0 } else null
     val fastest = paceBounds.first
     val slowest = paceBounds.second
+    val meaningfulSpread = fastest != null && slowest != null && slowest - fastest >= 1.0
+    val isFastest = meaningfulSpread && recordedPace != null &&
+        fastest != null && abs(recordedPace - fastest) < .5
+    val isSlowest = meaningfulSpread && recordedPace != null &&
+        slowest != null && abs(recordedPace - slowest) < .5
+    val splitAccent = when {
+        isFastest -> activityLime
+        isSlowest -> Color(0xFFFF8C87)
+        else -> activityMuted
+    }
+    val rowBackground = when {
+        isFastest -> activityLime.copy(alpha = .055f)
+        isSlowest -> Color(0xFFFF8C87).copy(alpha = .045f)
+        else -> Color.Transparent
+    }
     val fraction = if (recordedPace != null && slowest != null && fastest != null) {
         (.35f + .65f * ((slowest - recordedPace) / (slowest - fastest).coerceAtLeast(1.0)).toFloat())
             .coerceIn(.35f, 1f)
@@ -986,9 +1001,11 @@ private fun TracksideActivitySplitRow(
 
     Row(
         Modifier.fillMaxWidth().heightIn(min = 27.dp)
+            .background(rowBackground, RoundedCornerShape(7.dp))
             .testTag("activity-split-" + index)
             .semantics {
                 contentDescription = "Lap " + (index + 1) +
+                    (if (isFastest) ", fastest split" else if (isSlowest) ", slowest split" else "") +
                     ", distance " + (lap.distance?.let {
                         String.format(Locale.getDefault(), "%.2f km", it / 1000.0)
                     } ?: "not recorded") +
@@ -1000,8 +1017,24 @@ private fun TracksideActivitySplitRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Text((index + 1).toString(), color = activityMuted, fontSize = 11.sp,
-            modifier = Modifier.width(34.dp), maxLines = 1)
+        Row(
+            Modifier.width(34.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Box(
+                Modifier.size(4.dp)
+                    .background(
+                        if (isFastest || isSlowest) splitAccent else Color.Transparent,
+                        RoundedCornerShape(4.dp)
+                    )
+            )
+            Text(
+                (index + 1).toString(),
+                color = if (isFastest || isSlowest) splitAccent else activityMuted,
+                fontSize = 11.sp, maxLines = 1
+            )
+        }
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             Text(
@@ -1014,7 +1047,10 @@ private fun TracksideActivitySplitRow(
                 .background(Color(0xFF2A3530), RoundedCornerShape(3.dp))) {
                 if (recordedPace != null) {
                     Box(Modifier.fillMaxWidth(fraction).fillMaxHeight()
-                        .background(activityLime, RoundedCornerShape(3.dp)))
+                        .background(
+                            if (isSlowest) Color(0xFFFF8C87) else activityLime,
+                            RoundedCornerShape(3.dp)
+                        ))
                 }
             }
         }
