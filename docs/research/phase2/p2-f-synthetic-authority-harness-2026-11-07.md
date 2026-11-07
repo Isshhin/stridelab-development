@@ -1,5 +1,13 @@
 # Synthetic authority and custody harness — 2026-11-07
 
+## Final withdrawal fence — 2026-11-07
+
+Starting head `22b42eb5e941a3e132b05498312aecedd57f0b55`; correction implementation `ddb7973fa60902a106c6b36c0ece0b314227db9b`. The final pushed head is the documentation commit containing this entry (resolve with Git). The [independent withdrawal review](p2-f-synthetic-authority-withdrawal-rereview-2026-11-07.md) showed that final validation could reentrantly receive withdrawal after the initial check. The broker now checks `need(not self.withdrawal, 'withdrawal pending')` after callback-capable validation, immediately before the existing final violation check and append, under the same lock.
+
+Six focused tests cover withdrawal from inventory hash/equality, data lookup before first and subsequent chunks, inventory lookup between chunks, simultaneous violation and withdrawal, repeated receipt and later denial. Before correction, the three review reproductions and five corresponding focused schedules failed by observing post-withdrawal output. After correction: focused 81 passed; independent schedule groups 6/8/11/6 passed (31 total); durable 54 passed; P2 229 passed; full research 393 run, 392 passed and one Windows symlink skip. Prior CI run `42335896033` was cancelled, not passed; new exact-head CI is unavailable at documentation time.
+
+`SYNTHETIC_AUTHORITY_CUSTODY_FINAL_WITHDRAWAL_FENCE_IMPLEMENTED` awaits independent re-review; it is not authority/custody clearance. This invented-only, in-process model does not establish real hardware, crypto, custody or disk crash safety. `PASS_FOR_SYNTHETIC_DURABILITY` remains scoped to its separately reviewed journal. Private pilot remains blocked; human/provider admission NO; `P2_F_GATE_2_NOT_READY`; `P2_B_PROTOCOL_READY_DATA_NOT_READY`. Next: independent adversarial re-review of the exact correction head.
+
 ## Final publication recheck implementation — 2026-11-07
 
 Starting head `338892889c61c205805aaa260c73951bcdffd171`; correction implementation `b6e8fe96581c3f6990838491e09b292e8c9827f5`. The final pushed head is the documentation commit containing this entry (resolve with Git). The [independent re-review](p2-f-synthetic-authority-final-rereview-2026-11-07.md) found that hash/equality callbacks invoked during final validation could poison a read after its earlier check and before append. Immediately after the data-version check and before `key.output.append(chunk)`, the broker now executes `need(not self._violation, 'reentrant mutation')` under the existing `_state` lock.

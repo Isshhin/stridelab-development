@@ -1,5 +1,9 @@
 # StrideLab Engine 2.x current coordinating handoff
 
+## Synthetic final withdrawal fence — 2026-11-07
+
+`SYNTHETIC_AUTHORITY_CUSTODY_FINAL_WITHDRAWAL_FENCE_IMPLEMENTED` at `ddb7973fa60902a106c6b36c0ece0b314227db9b`, starting from `22b42eb5e941a3e132b05498312aecedd57f0b55`. The [implementation record](../phase2/p2-f-synthetic-authority-harness-2026-11-07.md#final-withdrawal-fence--2026-11-07) details the post-validation withdrawal recheck and six added regressions. Final pushed head is the documentation commit containing this entry (resolve with Git); exact-head CI was unavailable at documentation time. Local results: focused 81; independent schedules 6/8/11/6; durable 54; P2 229; all passed. Full research: 393 run, 392 passed, one Windows symlink skip. Prior CI 42335896033 was cancelled. Next: independent adversarial re-review; no authority/custody pass is claimed. Prior journal `PASS_FOR_SYNTHETIC_DURABILITY` unchanged; private pilot blocked, human/provider admission NO, `P2_F_GATE_2_NOT_READY`, `P2_B_PROTOCOL_READY_DATA_NOT_READY`.
+
 ## Synthetic custody withdrawal-fence re-review — 2026-11-07
 
 Verdict: `SYNTHETIC_AUTHORITY_CUSTODY_NEEDS_CORRECTION`. The [defensive re-review](../phase2/p2-f-synthetic-authority-withdrawal-rereview-2026-11-07.md) checked correction `b6e8fe96581c3f6990838491e09b292e8c9827f5` at `6e09172158fe4bb4e5819c23c872eb69b1e034d2` with Graphify indexed at that same SHA. The prior hash/equality nested-read defect is fixed in its tested schedules. A P1 synthetic withdrawal case remains: a callback from final inventory hash/equality or data lookup can call `receive_withdrawal` under the same `RLock` after the initial withdrawal check; the broker then appends a chunk before noticing withdrawal. Review-only tests: six run, three passed and three failed. No broker implementation was modified in this review.
