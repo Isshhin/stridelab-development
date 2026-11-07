@@ -453,7 +453,7 @@
       "type": "fill",
       "source": "openmaptiles",
       "source-layer": "building",
-      "minzoom": 12,
+      "minzoom": 13,
       "filter": [
         "match",
         [
@@ -469,7 +469,22 @@
       "paint": {
         "fill-antialias": true,
         "fill-color": "#394146",
-        "fill-outline-color": "#464E53"
+        "fill-outline-color": "#464E53",
+        "fill-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          13,
+          0.38,
+          15,
+          0.58,
+          18,
+          0.76
+        ]
       }
     },
     {
@@ -795,6 +810,225 @@
         ]
       },
       "minzoom": 12
+    },
+    {
+      "id": "stridelab-trail-unpaved",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "minzoom": 12,
+      "filter": [
+        "all",
+        [
+          "match",
+          [
+            "get",
+            "class"
+          ],
+          [
+            "path",
+            "track"
+          ],
+          true,
+          false
+        ],
+        [
+          "==",
+          [
+            "get",
+            "surface"
+          ],
+          "unpaved"
+        ]
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
+      "paint": {
+        "line-color": "#8B806D",
+        "line-opacity": 0.86,
+        "line-dasharray": [
+          2.2,
+          1.6
+        ],
+        "line-width": [
+          "interpolate",
+          [
+            "exponential",
+            1.22
+          ],
+          [
+            "zoom"
+          ],
+          12,
+          0.8,
+          15,
+          1.7,
+          18,
+          3.2,
+          20,
+          5.4
+        ]
+      }
+    },
+    {
+      "id": "stridelab-footway",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "minzoom": 13,
+      "filter": [
+        "all",
+        [
+          "==",
+          [
+            "get",
+            "class"
+          ],
+          "path"
+        ],
+        [
+          "match",
+          [
+            "get",
+            "subclass"
+          ],
+          [
+            "footway",
+            "pedestrian"
+          ],
+          true,
+          false
+        ]
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
+      "paint": {
+        "line-color": "#78867F",
+        "line-opacity": 0.9,
+        "line-width": [
+          "interpolate",
+          [
+            "exponential",
+            1.2
+          ],
+          [
+            "zoom"
+          ],
+          13,
+          0.8,
+          16,
+          1.8,
+          20,
+          4.6
+        ]
+      }
+    },
+    {
+      "id": "stridelab-steps",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "minzoom": 14,
+      "filter": [
+        "all",
+        [
+          "==",
+          [
+            "get",
+            "class"
+          ],
+          "path"
+        ],
+        [
+          "==",
+          [
+            "get",
+            "subclass"
+          ],
+          "steps"
+        ]
+      ],
+      "layout": {
+        "line-cap": "butt",
+        "line-join": "round"
+      },
+      "paint": {
+        "line-color": "#9A8D79",
+        "line-opacity": 0.92,
+        "line-dasharray": [
+          1,
+          1
+        ],
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          14,
+          1,
+          18,
+          2.4,
+          20,
+          3.6
+        ]
+      }
+    },
+    {
+      "id": "stridelab-cycleway",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "minzoom": 13,
+      "filter": [
+        "all",
+        [
+          "==",
+          [
+            "get",
+            "class"
+          ],
+          "path"
+        ],
+        [
+          "==",
+          [
+            "get",
+            "subclass"
+          ],
+          "cycleway"
+        ]
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
+      "paint": {
+        "line-color": "#69889A",
+        "line-opacity": 0.86,
+        "line-width": [
+          "interpolate",
+          [
+            "exponential",
+            1.18
+          ],
+          [
+            "zoom"
+          ],
+          13,
+          0.8,
+          16,
+          1.7,
+          20,
+          4.2
+        ]
+      }
     },
     {
       "id": "highway_minor",
@@ -1919,6 +2153,89 @@
           22,
           20
         ]
+      }
+    },
+    {
+      "id": "stridelab-runner-poi",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "minzoom": 15,
+      "filter": [
+        "any",
+        [
+          "match",
+          [
+            "get",
+            "class"
+          ],
+          [
+            "park",
+            "stadium",
+            "swimming",
+            "railway",
+            "bus"
+          ],
+          true,
+          false
+        ],
+        [
+          "match",
+          [
+            "get",
+            "subclass"
+          ],
+          [
+            "toilets",
+            "drinking_water",
+            "trailhead"
+          ],
+          true,
+          false
+        ]
+      ],
+      "layout": {
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_en"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ],
+        "text-font": [
+          "Noto Sans Regular"
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          15,
+          9,
+          17,
+          10,
+          19,
+          11
+        ],
+        "text-max-width": 8,
+        "text-offset": [
+          0,
+          0.55
+        ],
+        "text-anchor": "top"
+      },
+      "paint": {
+        "text-color": "#B8C3BE",
+        "text-halo-color": "#2A3035",
+        "text-halo-width": 1.2,
+        "text-halo-blur": 0.4
       }
     },
     {
