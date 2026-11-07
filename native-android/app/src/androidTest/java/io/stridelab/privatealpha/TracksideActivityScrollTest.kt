@@ -128,6 +128,13 @@ class TracksideActivityScrollTest {
         compose.onNodeWithText("Key stats from your run at Santa Mesa.").assertExists()
         compose.onNodeWithText("13.11 km").assertExists()
         compose.onNodeWithText("1:24:59").assertExists()
+        compose.onNodeWithText("Elapsed time").assertDoesNotExist()
+        val summaryBounds = compose.onNodeWithTag("activity-summary-redesign")
+            .getUnclippedBoundsInRoot()
+        for (tag in listOf("activity-summary-heading", "activity-summary-subtitle")) {
+            val bounds = compose.onNodeWithTag(tag).getUnclippedBoundsInRoot()
+            assertTrue(kotlin.math.abs(bounds.center.x - summaryBounds.center.x) < 2f)
+        }
         compose.onNodeWithTag("activity-continuous-scroll")
             .performScrollToNode(hasTestTag("activity-insights"))
         compose.onNodeWithTag("activity-insights-headline").assertExists()
@@ -135,6 +142,7 @@ class TracksideActivityScrollTest {
         compose.onNodeWithTag("activity-insights-descriptor").assertExists()
         compose.onNodeWithText("Steady pacing", substring = true).assertExists()
         compose.onNodeWithText("Overall Analysis").assertExists()
+        compose.onNodeWithText("RECORDED DATA").assertDoesNotExist()
         compose.onNodeWithTag("activity-insights-detail-0").assertDoesNotExist()
         compose.onNodeWithTag("activity-continuous-scroll")
             .performScrollToNode(hasTestTag("activity-insights-toggle"))
@@ -152,6 +160,11 @@ class TracksideActivityScrollTest {
             compose.onAllNodesWithTag("activity-section-splits")
                 .fetchSemanticsNodes().isNotEmpty()
         }
+        val splitsBounds = compose.onNodeWithTag("activity-section-splits")
+            .getUnclippedBoundsInRoot()
+        val splitsHeadingBounds = compose.onNodeWithTag("activity-section-heading-splits")
+            .getUnclippedBoundsInRoot()
+        assertTrue(kotlin.math.abs(splitsHeadingBounds.center.x - splitsBounds.center.x) < 2f)
         compose.onNodeWithTag("activity-continuous-scroll")
             .performScrollToNode(hasTestTag("activity-splits-insights"))
         compose.onNodeWithTag("activity-splits-insights").assertExists()
@@ -163,6 +176,11 @@ class TracksideActivityScrollTest {
             compose.onAllNodesWithTag("activity-section-charts")
                 .fetchSemanticsNodes().isNotEmpty()
         }
+        val chartsBounds = compose.onNodeWithTag("activity-section-charts")
+            .getUnclippedBoundsInRoot()
+        val chartsHeadingBounds = compose.onNodeWithTag("activity-section-heading-charts")
+            .getUnclippedBoundsInRoot()
+        assertTrue(kotlin.math.abs(chartsHeadingBounds.center.x - chartsBounds.center.x) < 2f)
         compose.onNodeWithTag("activity-tab-charts").assertIsSelected()
         compose.onNodeWithTag("activity-continuous-scroll").assertExists()
         // HR zones use the athlete-level value saved in App preferences.
