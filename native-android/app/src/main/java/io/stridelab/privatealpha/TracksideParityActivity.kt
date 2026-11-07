@@ -244,40 +244,24 @@ internal fun TracksideParityActivityMapHero(
             }
         }
         if (route.pointCount > 0) {
-            // The map presents pause-time fixes as normal recorded GPS.
-            // Pause details stay in Activity Overview, not a dotted legend.
-            val hasSpecialGpsState = route.unknownGaps.isNotEmpty()
+            // Presentation-only connector across recorded endpoints. Pause
+            // and missing-sample facts stay in the underlying activity data.
             Surface(
                 color = Color(0xDD080E0C),
-                border = BorderStroke(
-                    1.dp,
-                    if (route.gaps.isEmpty()) Color(0x445A6B62)
-                    else Color(0x667A8781)
-                ),
+                border = BorderStroke(1.dp, Color(0x445A6B62)),
                 shape = RoundedCornerShape(11.dp),
                 modifier = Modifier.align(Alignment.TopStart)
                     .padding(start = 12.dp, top = if (fullScreen) 116.dp else 68.dp)
                     .testTag("activity-map-legend")
             ) {
-                Column(
-                    Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
-                    Text(
-                        route.gpsContinuityLabel,
-                        color = if (route.gaps.isEmpty())
-                            Color(0xFFD8FB70) else Color(0xFFC5D0CB),
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.testTag("activity-map-gps-continuity")
-                    )
-                    if (hasSpecialGpsState) {
-                        MapLegendRow(Color(0xFFD8FB70), "Recorded route")
-                        if (route.unknownGaps.isNotEmpty()) {
-                            MapLegendRow(Color(0xFFA5B4AE), "GPS gap")
-                        }
-                    }
-                }
+                Text(
+                    "Recorded route",
+                    color = Color(0xFFD8FB70),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)
+                        .testTag("activity-map-gps-continuity")
+                )
             }
         }
         if (route.pointCount == 0) {
