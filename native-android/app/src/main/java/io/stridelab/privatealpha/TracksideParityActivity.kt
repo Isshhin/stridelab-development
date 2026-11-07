@@ -174,6 +174,67 @@ internal fun TracksideParityActivityMapHero(
                 }
             }
         }
+        if (fullScreen && mapMode != TracksideActivityMapMode.ROUTE) {
+            Surface(
+                color = Color(0xE6080E0C),
+                border = BorderStroke(1.dp, Color(0x445A6B62)),
+                shape = RoundedCornerShape(11.dp),
+                modifier = Modifier.align(Alignment.BottomEnd)
+                    .padding(end = 12.dp, bottom = 36.dp)
+                    .testTag("activity-map-analysis-legend")
+            ) {
+                Column(
+                    Modifier.padding(horizontal = 9.dp, vertical = 7.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    Text(
+                        when(mapMode) {
+                            TracksideActivityMapMode.PACE -> "Recorded pace"
+                            TracksideActivityMapMode.ELEVATION -> "Recorded elevation"
+                            TracksideActivityMapMode.HEART_RATE -> "Recorded heart rate"
+                            TracksideActivityMapMode.ROUTE -> "Recorded route"
+                        },
+                        color = Color(0xFFE5ECE8), fontSize = 9.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Box(
+                        Modifier.width(94.dp).height(4.dp)
+                            .background(
+                                Brush.horizontalGradient(
+                                    when(mapMode) {
+                                        TracksideActivityMapMode.PACE -> listOf(
+                                            Color(0xFFD8FB70), Color(0xFFFFBE7A), Color(0xFFFF8C87)
+                                        )
+                                        TracksideActivityMapMode.ELEVATION -> listOf(
+                                            Color(0xFF5EABD6), Color(0xFFC2A8FF), Color(0xFFFFBE7A)
+                                        )
+                                        TracksideActivityMapMode.HEART_RATE -> listOf(
+                                            Color(0xFF79C9B3), Color(0xFFD8FB70), Color(0xFFFF8C87)
+                                        )
+                                        TracksideActivityMapMode.ROUTE -> listOf(
+                                            Color(0xFFD8FB70), Color(0xFFD8FB70)
+                                        )
+                                    }
+                                ),
+                                RoundedCornerShape(3.dp)
+                            )
+                    )
+                    Row(
+                        Modifier.width(94.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            if(mapMode == TracksideActivityMapMode.PACE) "Faster" else "Lower",
+                            color = Color(0xFFB8C5BE), fontSize = 7.5.sp
+                        )
+                        Text(
+                            if(mapMode == TracksideActivityMapMode.PACE) "Slower" else "Higher",
+                            color = Color(0xFFB8C5BE), fontSize = 7.5.sp
+                        )
+                    }
+                }
+            }
+        }
         if (route.pointCount > 0) {
             val hasSpecialGpsState = route.pauseGaps.isNotEmpty() ||
                 route.pausedPoints.isNotEmpty() || route.unknownGaps.isNotEmpty()
