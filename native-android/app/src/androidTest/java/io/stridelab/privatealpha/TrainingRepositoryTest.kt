@@ -88,6 +88,11 @@ class TrainingRepositoryTest {
                 delay(2_500L)
                 assertEquals(40,repo.state.value.activities.size)
                 assertFalse(repo.state.value.historyFullyLoaded)
+                // A restored older Activity Detail must be retrievable by ID
+                // before older history pages are displayed.
+                assertTrue(repo.loadCachedSummary("older-126"))
+                assertTrue(repo.state.value.activities.any { it.id == "older-126" })
+                assertFalse(repo.loadCachedSummary("not-in-sqlite"))
             }
         } finally {
             repo.setActivityDetailVisible(false)
