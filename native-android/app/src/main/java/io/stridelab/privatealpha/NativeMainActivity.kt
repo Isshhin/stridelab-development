@@ -286,6 +286,17 @@ private fun NavHostController.openActivity(id: String) {
                         item { SyncStatus(state) }
                         if(state.account != null && visibleActivities.isNotEmpty())
                             item { HistoryOverview(visibleActivities) }
+                        if (state.account != null && !state.historyFullyLoaded) {
+                            item(key = "activity-history-page-status") {
+                                Text(
+                                    if (state.historyPageFailed)
+                                        "Older saved activities could not finish loading. Your records remain on this device."
+                                    else "Showing recent activities first. Loading older saved history…",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                         if(state.account == null) item { EmptyState("Sign in to view your history", "Only records belonging to your signed-in account are displayed."); Button(onClick = { nav.navigate("auth") }) { Text("Sign in") } }
                         else {
                             item { OutlinedButton(onClick = actions.refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
