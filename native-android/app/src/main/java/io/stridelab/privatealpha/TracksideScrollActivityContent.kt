@@ -425,8 +425,8 @@ internal fun TracksideActivityContinuousSections(
                     selected = selected,
                     onSelect = window?.let { range ->
                         {
-                            onSelectRange(range)
                             onSelectSeconds((range.first + range.second) / 2.0)
+                            onSelectRange(range)
                         }
                     }
                 )
