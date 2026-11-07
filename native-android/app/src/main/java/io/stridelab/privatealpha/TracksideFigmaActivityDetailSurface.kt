@@ -3,6 +3,7 @@ package io.stridelab.privatealpha
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetScaffold
@@ -25,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
@@ -80,11 +82,13 @@ internal fun TracksideFigmaActivityDetailSurface(
         val sheetHeight = (maxHeight - 24.dp).coerceAtLeast(400.dp).coerceAtMost(maxHeight)
         val sheetState = rememberStandardBottomSheetState(
             initialValue = SheetValue.PartiallyExpanded,
-            skipHiddenState = true
+            skipHiddenState = false // Enable a real third, map-only anchor.
         )
         val scaffoldState = rememberBottomSheetScaffoldState(sheetState)
         val scope = rememberCoroutineScope()
         val expanded = sheetState.currentValue == SheetValue.Expanded
+        val mapOnly = sheetState.currentValue == SheetValue.Hidden &&
+            sheetState.targetValue == SheetValue.Hidden
 
         // Speed up programmatic sheet settling without relying on internal
         // Material 3 motion APIs. Preserve Android's animator accessibility
@@ -95,8 +99,11 @@ internal fun TracksideFigmaActivityDetailSurface(
                 override val scaleFactor: Float = inherited * 0.72f
             }
             withContext(accelerated) {
-                if (target == SheetValue.Expanded) sheetState.expand()
-                else sheetState.partialExpand()
+                when (target) {
+                    SheetValue.Expanded -> sheetState.expand()
+                    SheetValue.PartiallyExpanded -> sheetState.partialExpand()
+                    SheetValue.Hidden -> sheetState.hide()
+                }
             }
         }
 
@@ -145,13 +152,32 @@ internal fun TracksideFigmaActivityDetailSurface(
                     Modifier.fillMaxWidth().height(sheetHeight)
                         .testTag("activity-sheet-scroll")
                         .semantics {
-                            stateDescription = if (expanded) "Expanded" else "Collapsed"
-                            if (expanded) collapse {
-                                scope.launch { settleQuickly(SheetValue.PartiallyExpanded) }
-                                true
-                            } else expand {
-                                scope.launch { settleQuickly(SheetValue.Expanded) }
-                                true
+                            stateDescription = when {
+                                expanded -> "Expanded activity details"
+                                mapOnly -> "Map only"
+                                else -> "Activity summary"
+                            }
+                            if (expanded) {
+                                collapse {
+                                    scope.launch { settleQuickly(SheetValue.PartiallyExpanded) }
+                                    true
+                                }
+                            } else {
+                                expand {
+                                    scope.launch {
+                                        settleQuickly(
+                                            if (mapOnly) SheetValue.PartiallyExpanded
+                                            else SheetValue.Expanded
+                                        )
+                                    }
+                                    true
+                                }
+                            }
+                            if (!expanded && !mapOnly) {
+                                dismiss {
+                                    scope.launch { settleQuickly(SheetValue.Hidden) }
+                                    true
+                                }
                             }
                         }
                 ) {
@@ -242,6 +268,52 @@ internal fun TracksideFigmaActivityDetailSurface(
                 onChangeStyle = onToggleMatte,
                 online = online
             )
+        }
+
+        // Hidden positions the full details sheet below the viewport. Keep
+        // just one small reachable grip above the system navigation area;
+        // it does not cover or intercept gestures on the GPS map itself.
+        if (mapOnly) {
+            val openSummary = { scope.launch {
+                settleQuickly(SheetValue.PartiallyExpanded)
+            } }
+            Box(
+                modifier = Modifier.align(Alignment.BottomCenter)
+                    .width(96.dp).height(36.dp)
+                    .background(
+                        Color(0xE608100D),
+                        RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)
+                    )
+                    .testTag("activity-map-only-handle")
+                    .clickable(onClick = openSummary)
+                    .pointerInput(sheetState) {
+                        var dragged = 0f
+                        detectVerticalDragGestures(
+                            onDragStart = { dragged = 0f },
+                            onVerticalDrag = { change, delta ->
+                                dragged += delta
+                                change.consume()
+                            },
+                            onDragEnd = {
+                                if (dragged <= -22.dp.toPx()) openSummary()
+                                dragged = 0f
+                            },
+                            onDragCancel = { dragged = 0f }
+                        )
+                    }
+                    .semantics {
+                        contentDescription = "Show activity summary"
+                        stateDescription = "Map only"
+                        expand { openSummary(); true }
+                    },
+                contentAlignment = Alignment.TopCenter
+            ) {
+                Box(
+                    Modifier.padding(top = 12.dp)
+                        .size(width = 42.dp, height = 5.dp)
+                        .background(Color(0xFFA4B3A9), RoundedCornerShape(4.dp))
+                )
+            }
         }
     }
 }
