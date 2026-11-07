@@ -17,7 +17,7 @@ jobs:
         with:
           arch: x64
       - name: Build and inspect only
-        shell: pwsh
+        shell: powershell
         run: |
           cl /nologo /O1 /GS- /TC /c docs/research/phase2/preflight/stridelab_p2f_preflight.c /Fo:preflight.obj
           link /nologo /SUBSYSTEM:CONSOLE /ENTRY:mainCRTStartup /NODEFAULTLIB /DYNAMICBASE /NXCOMPAT /MACHINE:X64 preflight.obj kernel32.lib /OUT:stridelab_p2f_preflight.exe
