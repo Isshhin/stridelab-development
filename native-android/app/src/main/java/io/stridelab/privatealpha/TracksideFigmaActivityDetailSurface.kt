@@ -279,8 +279,8 @@ internal fun TracksideFigmaActivityDetailSurface(
                                 },
                                 onSelectRange = { range ->
                                     selectedSplitRange = range
-                                    if (range != null) {
-                                        selectedActivitySeconds = (range.first + range.second) / 2.0
+                                    selectedActivitySeconds = range?.let {
+                                        (it.first + it.second) / 2.0
                                     }
                                 }
                             )
@@ -300,7 +300,9 @@ internal fun TracksideFigmaActivityDetailSurface(
                 selectedRange = selectedSplitRange,
                 onSelectRange = { range ->
                     selectedSplitRange = range
-                    selectedActivitySeconds = (range.first + range.second) / 2.0
+                    selectedActivitySeconds = range?.let {
+                        (it.first + it.second) / 2.0
+                    }
                 }
             )
         }
