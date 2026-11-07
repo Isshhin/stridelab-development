@@ -94,7 +94,7 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
     internal suspend fun restoreGarminCloud(): Int = repo.restoreGarminCloud()
     /** UI-triggered foreground Garmin history import; completed pages remain offline. */
     internal suspend fun syncGarmin(source:GarminPersonalSource):GarminConnectionStatus =
-        repo.syncGarmin(source)
+        repo.syncGarmin(source, manualRetry = true)
     fun refreshWellness() { viewModelScope.launch { repo.refreshWellness() } }
     fun loadDetail(id: String) { viewModelScope.launch { repo.loadDetail(id) } }
     /** Foreground, account-scoped FIT GPS import, never bulk or scheduled. */
