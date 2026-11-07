@@ -1,5 +1,9 @@
 # P2-F Foundation Unlock handoff
 
+## Independent coordinated-state review — 2026-11-07
+
+The [independent review](../phase2/p2-f-coordinated-state-independent-review-2026-11-07.md) accepts the coordinated state model at `d545f7616708dfb46e9a3af9bd8b66c6eec37644` as `PASS_FOR_SYNTHETIC_AUTHORITY_CUSTODY` for the cooperative synthetic model. The historical design and correction entries below describe earlier states. Private pilot remains NOT READY, human/provider admission NO, `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` remain unchanged.
+
 ## Coordinated synthetic state design — 2026-11-07
 
 The [design review](../phase2/p2-f-coordinated-state-mutation-design-2026-11-07.md) selects controlled mutation ownership, one shared lock and an epoch for a future synthetic-only correction and independent re-review. The model is not yet implemented; `SYNTHETIC_AUTHORITY_CUSTODY_NEEDS_CORRECTION` and all private-pilot, Gate 2 and P2-B restrictions remain.
