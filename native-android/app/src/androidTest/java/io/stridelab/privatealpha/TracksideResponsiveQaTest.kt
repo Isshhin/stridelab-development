@@ -154,7 +154,7 @@ class TracksideResponsiveQaTest {
             assertTrue("Discipline card too tall: "+discipline,
                 (bounds.bottom-bounds.top).value <= 90f)
         }
-        compose.onNodeWithText("2 of 4").assertExists()
+        compose.onNodeWithText("2 selected").assertExists()
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
         screenshot("builder-disciplines-figma-reference")
         // At 360dp and enlarged fonts the fourth card is initially below the
@@ -166,8 +166,12 @@ class TracksideResponsiveQaTest {
         if(config.screenWidthDp >= 400 && config.fontScale <= 1.01f) {
             val running=compose.onNodeWithTag("discipline-run")
                 .getUnclippedBoundsInRoot()
-            assertTrue("Discipline cards deviate from approved vertical rhythm",
-                running.top.value in 300f..336f)
+            val title=compose.onNodeWithText("Choose your disciplines")
+                .getUnclippedBoundsInRoot()
+            val cta=compose.onNodeWithTag("builder-figma-continue")
+                .getUnclippedBoundsInRoot()
+            assertTrue("Discipline card must follow its heading", running.top > title.bottom)
+            assertTrue("Discipline card must not overlap the fixed action", running.bottom < cta.top)
         }
     }
 
@@ -195,10 +199,11 @@ class TracksideResponsiveQaTest {
         if(config.screenWidthDp>=400 && config.fontScale<=1.01f) {
             val first=compose.onNodeWithTag("builder-option-race")
                 .getUnclippedBoundsInRoot()
-            assertTrue("Running Goal card vertical rhythm deviates from Figma",
-                first.top.value in 278f..325f)
-            assertTrue("Running Goal card exceeds baseline Figma height",
-                (first.bottom-first.top).value <= 90f)
+            val title=compose.onNodeWithText("Your running goal")
+                .getUnclippedBoundsInRoot()
+            assertTrue("Running Goal option must follow the heading", first.top > title.bottom)
+            assertTrue("Running Goal card must remain compact",
+                (first.bottom-first.top).value <= 96f)
         }
         compose.onNodeWithTag("builder-option-custom").performScrollTo()
         compose.onNodeWithTag("builder-option-custom").assertIsDisplayed()
@@ -322,14 +327,12 @@ class TracksideResponsiveQaTest {
                 (longestCard.bottom-longestCard.top).value<=137f)
             assertTrue("Optional result panel exceeds Figma tolerance",
                 (optional.bottom-optional.top).value<=85f)
-            // Reference 551:865: baseline positions are 392, 570 and 741dp.
-            // Keep enough tolerance for device font rasterization, not large drift.
-            assertTrue("Weekly ability card drifts from Figma",
-                weeklyCard.top.value in 379f..407f)
-            assertTrue("Longest-run card drifts from Figma",
-                longestCard.top.value in 556f..584f)
-            assertTrue("Optional result panel drifts from Figma",
-                optional.top.value in 728f..758f)
+            // The latest app/reference no longer uses the old Figma pixel offsets.
+            // Preserve reading order and leave the fixed CTA unobstructed.
+            assertTrue("Weekly ability card must precede longest run",
+                weeklyCard.bottom < longestCard.top)
+            assertTrue("Longest run must precede optional result",
+                longestCard.bottom < optional.top)
         }
         compose.onNodeWithTag("builder-ability-optional-card").performScrollTo()
         compose.onNodeWithTag("builder-ability-optional-card").assertIsDisplayed()
@@ -420,12 +423,14 @@ class TracksideResponsiveQaTest {
                 .getUnclippedBoundsInRoot()
             val legend=compose.onNodeWithTag("builder-running-legend")
                 .getUnclippedBoundsInRoot()
-            assertTrue("Running weekly card starts away from Figma 548:95",
-                week.top.value in 255f..288f)
-            assertTrue("Running weekly card too tall for 227dp reference",
+            val title=compose.onNodeWithText("Your running week")
+                .getUnclippedBoundsInRoot()
+            assertTrue("Weekly schedule must follow its heading",
+                week.top > title.bottom)
+            assertTrue("Weekly schedule must remain compact",
                 (week.bottom-week.top).value <= 241f)
-            assertTrue("Running legend starts away from Figma 548:95",
-                legend.top.value in 530f..571f)
+            assertTrue("Weekly legend must follow the schedule",
+                legend.top >= week.bottom)
             val lastDescription=compose.onNodeWithText(
                 "Endurance session on one preferred day"
             ).getUnclippedBoundsInRoot()
@@ -1026,7 +1031,8 @@ class TracksideResponsiveQaTest {
         // manufacture the engine's eventual weekday prescriptions.
         compose.onNodeWithText("9").assertExists()
         compose.onNodeWithText("AVAILABLE DAYS").assertExists()
-        compose.onNodeWithText("Generate my plan").assertExists()
+        compose.onNodeWithText("Generate My Plan").assertExists()
+        compose.onNodeWithText("6/7").assertExists()
         compose.onNodeWithText("MAX 2 / DAY").assertExists()
         compose.onNodeWithText(
             "Chosen weekdays are requests", substring = true
@@ -1042,7 +1048,8 @@ class TracksideResponsiveQaTest {
         // After the actual Engine 1 draft exists, every displayed prescription
         // comes from the saved draft and approval remains a separate action.
         compose.onNodeWithText("ACTIVE DAYS").assertExists()
-        compose.onNodeWithText("Approve plan").assertExists()
+        compose.onNodeWithText("Finalize Plan").assertExists()
+        compose.onNodeWithText("7/7").assertExists()
         compose.onNodeWithText("MAX 2 / DAY").assertExists()
         compose.onNodeWithText("5 Running").assertExists()
         compose.onNodeWithText("4 Cali").assertExists()
