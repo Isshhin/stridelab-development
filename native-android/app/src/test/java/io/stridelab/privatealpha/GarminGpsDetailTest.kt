@@ -75,6 +75,42 @@ class GarminGpsDetailTest {
         assertNull(ActivityDetail.parse(old,"owner",summary.id).samples.first().cadenceSpm)
     }
 
+    @Test fun cadenceUpgradePreservesExistingGpsPaceHeartRateAndLaps() {
+        val old = GarminGpsDetail.payload("owner",summary,fit(),1000L)
+        val newFit=fit().copy(points=fit().points.map { it.copy(cadenceRpm=86.0) })
+        val newRaw=GarminGpsDetail.payload("owner",summary,newFit,2000L)
+        val upgrade=GarminGpsDetail.mergeRecordedCadence(
+            old,newRaw,"owner",summary.id
+        )!!
+        val original=ActivityDetail.parse(old,"owner",summary.id)
+        val updated=ActivityDetail.parse(upgrade,"owner",summary.id)
+        assertEquals(original.fetchedAt,updated.fetchedAt)
+        assertEquals(original.laps,updated.laps)
+        assertEquals(
+            original.samples.map { it.copy(cadenceSpm=172.0) },updated.samples
+        )
+        assertNull(original.samples.first().cadenceSpm)
+        assertEquals(172.0,updated.samples.first().cadenceSpm!!,0.01)
+        // The new FIT file had a different fetchedAt; this upgrade must not
+        // replace original source metadata or already-saved measurements.
+        assertEquals(1000L,updated.fetchedAt)
+    }
+
+    @Test fun cadenceUpgradeRejectsChangedSamplesAndMissingCadence() {
+        val old=GarminGpsDetail.payload("owner",summary,fit(),1000L)
+        val newFit=fit().copy(points=fit().points.map { it.copy(cadenceRpm=88.0) })
+        val newRaw=GarminGpsDetail.payload("owner",summary,newFit,2000L)
+        newRaw.getJSONArray("samples").getJSONObject(1).put("elapsed_s",31.0)
+        try {
+            GarminGpsDetail.mergeRecordedCadence(old,newRaw,"owner",summary.id)
+            fail("Mismatched time accepted")
+        } catch (_: IllegalArgumentException) {}
+        assertNull(GarminGpsDetail.mergeRecordedCadence(
+            old,GarminGpsDetail.payload("owner",summary,fit(),3000L),"owner",summary.id
+        ))
+        assertNull(ActivityDetail.parse(old,"owner",summary.id).samples.first().cadenceSpm)
+    }
+
     @Test fun pausedFitUsesTimerDurationForGarminSummaryValidation() {
         val pausedSummary=summary.copy(durationS=5841.134765625,movingTimeS=5831.903961181641)
         val raw=GarminGpsDetail.payload("owner",pausedSummary,
