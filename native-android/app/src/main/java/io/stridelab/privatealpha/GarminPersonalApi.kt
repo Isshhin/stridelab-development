@@ -86,7 +86,7 @@ internal class GarminUrlConnectionTransport:GarminHttpTransport {
 internal open class GarminException(message:String,cause:Throwable?=null):Exception(message,cause)
 internal class GarminAuthenticationException(message:String):GarminException(message)
 internal class GarminRateLimitException:GarminException("Garmin rate limit reached; try again later")
-internal class GarminServiceException(status:Int):GarminException("Garmin service request failed with status $status")
+internal class GarminServiceException(val status:Int):GarminException("Garmin service request failed with status $status")
 internal class GarminTokenException:GarminException("Garmin returned an invalid access token")
 internal class GarminProtocolException(message:String):GarminException(message)
 internal class GarminNetworkException(message:String,cause:Throwable):GarminException(message,cause)
