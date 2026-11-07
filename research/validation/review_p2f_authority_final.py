@@ -53,7 +53,7 @@ class Review(unittest.TestCase):
 
     def test_authority_change_before_yield(self):
         def chunks():
-            self.x.anchor.generation+=1;yield 'bad'
+            self.x.anchor.set_generation(self.x.anchor.generation+1);yield 'bad'
         with self.assertRaises(Denied):self.x.read(chunks=chunks())
         self.assertEqual([],self.x.key.output)
 

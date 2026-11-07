@@ -26,13 +26,14 @@ class ReviewSchedules(unittest.TestCase):
   self.x.read(); self.x.broker.receive_withdrawal(self.x.scope); self.x.broker.receive_withdrawal(self.x.scope)
   self.assertEqual(['published'],self.x.broker.escaped)
  def test_uncertain_advance_recovery_does_not_double_advance(self):
-  self.x.anchor.fault='lost_result'
+  self.x.anchor.set_fault('lost_result')
   with self.assertRaises(Denied):self.x.broker.transition(self.x.scope,0,'revoke','op')
-  self.x.anchor.fault=None;self.x.broker.restart();self.x.broker.reconcile(channel_clear=True)
+  self.x.anchor.set_fault(None);self.x.broker.restart();self.x.broker.reconcile(channel_clear=True)
   self.assertEqual(1,self.x.anchor.generation)
  def test_head_mutation_during_authorize_is_denied(self):
   def hook(phase):
-   if phase=='authorize':self.x.ledger.head['operation']='changed'
+   if phase=='authorize':
+    head=self.x.ledger.head;head['operation']='changed';self.x.ledger.set_head(head)
   with self.assertRaises(Denied):self.x.read(hook=hook)
   self.assertNotIn('release',self.x.key.events)
 if __name__=='__main__':unittest.main(verbosity=2)

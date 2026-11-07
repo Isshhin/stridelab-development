@@ -29,7 +29,7 @@ class AuthorityMatrix(unittest.TestCase):
     def test_stale_grant_and_generation(self):
         old = deepcopy(self.ledger.head)
         self.broker.transition(self.scope, 0, 'revoke', 'revoke-1')
-        self.ledger.head = old
+        self.ledger.set_head(old)
         self.denied('generation', self.read)
         self.denied('generation', lambda: self.anchor.verify(0))
 
@@ -39,34 +39,34 @@ class AuthorityMatrix(unittest.TestCase):
         self.assertTrue(self.broker.closed)
 
     def test_data_rollback_and_removed_unknown_descendants(self):
-        self.inventory.objects['object'] = (self.scope, 2, 'active')
+        self.inventory.set_object('object', (self.scope, 2, 'active'))
         self.denied('inventory', self.read)
         for state in ('removed', 'withdrawn', 'unknown'):
-            self.inventory.objects['object'] = (self.scope, 1, state)
+            self.inventory.set_object('object', (self.scope, 1, state))
             self.denied('inventory', self.read)
 
     def test_missing_unavailable_corrupt_and_wrong_anchor(self):
         for fault in ('missing', 'unavailable', 'corrupt', 'wrong_identity'):
             with self.subTest(fault=fault):
-                self.anchor.fault = fault
+                self.anchor.set_fault(fault)
                 self.denied('anchor', self.read)
-                self.anchor.fault = None
+                self.anchor.set_fault(None)
                 self.broker.reconcile(channel_clear=True)
 
     def test_corrupt_authority_and_unavailable_issuer(self):
-        self.ledger.head['authenticated'] = False
+        head = self.ledger.head; head['authenticated'] = False; self.ledger.set_head(head)
         self.denied('authority', self.read)
-        self.ledger.head['authenticated'] = True
+        head = self.ledger.head; head['authenticated'] = True; self.ledger.set_head(head)
         self.broker.reconcile(channel_clear=True)
-        self.issuer.available = False
+        self.issuer.set_fault('available', False)
         self.denied('issuer', self.read)
 
     def test_detected_and_hidden_forks(self):
-        self.issuer.detected_fork = True
+        self.issuer.set_fault('detected_fork', True)
         self.denied('issuer', self.read)
-        self.issuer.detected_fork = False
+        self.issuer.set_fault('detected_fork', False)
         self.broker.reconcile(channel_clear=True)
-        self.issuer.hidden_fork = True
+        self.issuer.set_fault('hidden_fork', True)
         self.assertEqual('violated', self.issuer.assumption_status())
         self.assertEqual('published', self.read())  # The presented head cannot reveal a hidden fork.
 
@@ -74,9 +74,9 @@ class AuthorityMatrix(unittest.TestCase):
         for scope in (('B','source','research','development'), ('A','source','other','development')):
             self.denied('scope', lambda: self.broker.read(scope, 'object', 1))
         for fault in ('missing','corrupt','rollback','mismatch'):
-            self.inventory.fault = fault
+            self.inventory.set_fault(fault)
             self.denied('inventory', self.read)
-        self.inventory.fault = None
+        self.inventory.set_fault(None)
 
     def test_replayed_operation_idempotent_and_collision_denied(self):
         self.broker.transition(self.scope, 0, 'revoke', 'op')
@@ -85,10 +85,10 @@ class AuthorityMatrix(unittest.TestCase):
         self.denied('collision', lambda: self.broker.transition(self.scope, 0, 'delete', 'op'))
 
     def test_ambiguous_advance_is_not_blindly_retried(self):
-        self.anchor.fault = 'ambiguous_after'
+        self.anchor.set_fault('ambiguous_after')
         self.denied('ambiguous', lambda: self.broker.transition(self.scope, 0, 'revoke', 'op'))
         self.assertEqual(1, self.anchor.generation)
-        self.anchor.fault = None
+        self.anchor.set_fault(None)
         self.broker.restart(); self.broker.reconcile(channel_clear=True)
         self.assertEqual(1, self.anchor.read())
         self.denied('scope', self.read)
@@ -169,7 +169,7 @@ class AuthorityMatrix(unittest.TestCase):
         self.denied('generation', lambda: self.broker.reconcile(channel_clear=True))
 
     def test_authenticated_head_fields_must_match_commitment(self):
-        self.ledger.head['scope'] = ('B','source','research','development')
+        head = self.ledger.head; head['scope'] = ('B','source','research','development'); self.ledger.set_head(head)
         self.denied('authority', self.read)
 
     def test_publication_and_withdrawal_have_shared_fence(self):
@@ -191,12 +191,12 @@ class AuthorityMatrix(unittest.TestCase):
 
     def test_replayed_operation_requires_current_authority(self):
         self.broker.transition(self.scope, 0, 'revoke', 'op')
-        self.anchor.generation += 1
+        self.anchor.set_generation(self.anchor.generation + 1)
         self.denied('generation', lambda: self.broker.transition(self.scope, 0, 'revoke', 'op'))
 
     def test_tampered_pending_intent_never_recovers(self):
         self.denied('crash', lambda: self.broker.transition(self.scope, 0, 'revoke', 'op', fault='after_advance'))
-        self.ledger.intent = (self.scope, 0, 'delete', 'forged')
+        self.ledger.set_intent((self.scope, 0, 'delete', 'forged'))
         self.broker.restart()
         self.denied('intent', lambda: self.broker.reconcile(channel_clear=True))
         self.assertTrue(self.broker.closed)
@@ -219,7 +219,7 @@ class AuthorityMatrix(unittest.TestCase):
 
     def test_stale_data_with_current_authority_is_rejected(self):
         old = self.broker.checkpoint()
-        self.inventory.objects['object'] = (self.scope, 2, 'active')
+        self.inventory.set_object('object', (self.scope, 2, 'active'))
         self.broker.restore_closed(old)
         self.broker.reconcile(channel_clear=True)
         self.denied('inventory', lambda: self.broker.read(self.scope, 'object', 1))
@@ -263,17 +263,17 @@ class AuthorityMatrix(unittest.TestCase):
 
     def test_wrong_anchor_during_recovery_never_advances(self):
         self.denied('crash', lambda: self.broker.transition(self.scope,0,'revoke','op',fault='intent'))
-        self.anchor.identity = 'untrusted'
+        self.anchor.set_identity('untrusted')
         self.broker.restart()
         self.denied('anchor', lambda: self.broker.reconcile(channel_clear=True))
         self.assertEqual(0, self.anchor.generation)
         self.assertTrue(self.broker.closed)
 
     def test_lost_advance_response_is_reconciled_without_retry(self):
-        self.anchor.fault = 'lost_result'
+        self.anchor.set_fault('lost_result')
         self.denied('ambiguous', lambda: self.broker.transition(self.scope,0,'revoke','op'))
         self.assertEqual(1,self.anchor.generation)
-        self.anchor.fault = None
+        self.anchor.set_fault(None)
         self.broker.restart(); self.broker.reconcile(channel_clear=True)
         self.assertEqual(1,self.anchor.generation)
         self.denied('scope', self.read)
@@ -326,10 +326,10 @@ class AuthorityMatrix(unittest.TestCase):
         self.assertEqual(1, self.broker.audit[-1]['generation'])
 
     def test_ambiguous_before_advance_requires_readback(self):
-        self.anchor.fault = 'ambiguous_before'
+        self.anchor.set_fault('ambiguous_before')
         self.denied('ambiguous', lambda: self.broker.transition(self.scope,0,'revoke','op'))
         self.assertEqual(0, self.anchor.generation)
-        self.anchor.fault = None
+        self.anchor.set_fault(None)
         self.broker.restart(); self.broker.reconcile(channel_clear=True)
         self.assertEqual(1, self.anchor.generation)
         self.denied('scope', self.read)
@@ -390,9 +390,9 @@ class AuthorityMatrix(unittest.TestCase):
         self.assertNotIn('B', repr(record))
 
     def test_inventory_binds_full_scope_not_only_account(self):
-        self.inventory.objects['object'] = (self.scope, 1, 'active')
+        self.inventory.set_object('object', (self.scope, 1, 'active'))
         self.assertEqual('published', self.read())
-        self.inventory.objects['object'] = (('A','other-source','research','development'), 1, 'active')
+        self.inventory.set_object('object', (('A','other-source','research','development'), 1, 'active'))
         self.denied('inventory', self.read)
 
     def test_bootstrap_needs_explicit_trusted_enrollment(self):
@@ -409,12 +409,12 @@ class AuthorityMatrix(unittest.TestCase):
         self.assertEqual(1, self.anchor.generation)
 
     def test_stale_inventory_generation_denies_before_key_release(self):
-        self.inventory.generation = -1
+        self.inventory.set_generation(-1)
         self.denied('inventory', self.read)
         self.assertEqual([], self.key.events)
 
     def test_missing_anchor_object_denies_before_key_release(self):
-        self.ledger.anchor = None
+        self.ledger.set_anchor(None)
         self.denied('anchor', self.read)
         self.assertEqual([], self.key.events)
         self.assertTrue(self.broker.closed)
@@ -439,7 +439,7 @@ class AuthorityMatrix(unittest.TestCase):
 
     def test_missing_durable_intent_cannot_be_ignored_on_restart(self):
         self.denied('crash', lambda: self.broker.transition(self.scope,0,'revoke','op',fault='before_advance'))
-        self.ledger.intent = None  # Simulate a rolled-back or missing authority record.
+        self.ledger.set_intent(None)  # Simulate a rolled-back or missing authority record.
         self.broker.restart()
         self.denied('intent', lambda: self.broker.reconcile(channel_clear=True))
         self.assertTrue(self.broker.closed)
@@ -452,9 +452,9 @@ class AuthorityMatrix(unittest.TestCase):
         self.assertEqual(1, self.anchor.generation)
 
     def test_withdrawal_invalidates_scoped_descendants_not_sibling(self):
-        self.inventory.objects['derived'] = (self.scope, 2, 'active')
+        self.inventory.set_object('derived', (self.scope, 2, 'active'))
         sibling = ('B','other-source','research','development')
-        self.inventory.objects['sibling'] = (sibling, 1, 'active')
+        self.inventory.set_object('sibling', (sibling, 1, 'active'))
         self.broker.transition(self.scope,0,'revoke','op')
         self.assertEqual('withdrawn', self.inventory.objects['object'][2])
         self.assertEqual('withdrawn', self.inventory.objects['derived'][2])
@@ -472,14 +472,14 @@ class AuthorityMatrix(unittest.TestCase):
 
     def test_changed_inventory_between_authorize_and_release_denies(self):
         def change(phase):
-            if phase == 'authorize': self.inventory.objects['object'] = (self.scope,1,'withdrawn')
+            if phase == 'authorize': self.inventory.set_object('object', (self.scope,1,'withdrawn'))
         self.denied('inventory', lambda: self.read(hook=change))
         self.assertNotIn('release', self.key.events)
         self.assertEqual([], self.key.output)
 
     def test_changed_anchor_between_authorize_and_release_denies(self):
         def change(phase):
-            if phase == 'authorize': self.anchor.generation += 1
+            if phase == 'authorize': self.anchor.set_generation(self.anchor.generation + 1)
         self.denied('generation', lambda: self.read(hook=change))
         self.assertNotIn('release', self.key.events)
         self.assertEqual([], self.key.output)
@@ -623,7 +623,7 @@ class AuthorityMatrix(unittest.TestCase):
 
     def test_generator_authority_change_before_yield_denies_output(self):
         def chunks():
-            self.anchor.generation += 1
+            self.anchor.set_generation(self.anchor.generation + 1)
             yield 'must-not-publish'
         self.denied('generation', lambda: self.read(chunks=chunks()))
         self.assertEqual([], self.key.output)

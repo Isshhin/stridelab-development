@@ -39,7 +39,7 @@ class Review(unittest.TestCase):
                 if sys._getframe(1).f_code.co_name == '__getitem__':
                     calls.append(1)
                     if len(calls) == 7:
-                        x.inventory.objects['object'] = (x.scope, 0, 'active')
+                        x.inventory.set_object('object', (x.scope, 0, 'active'))
                 return super().__hash__()
 
         try:

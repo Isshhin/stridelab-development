@@ -2,7 +2,7 @@
 from copy import deepcopy
 from collections.abc import MutableMapping
 import threading
-from p2f_private_authority import Denied, need
+from p2f_private_authority import Denied, need, owned
 
 
 class FakeKey:
@@ -17,52 +17,76 @@ class FakeKey:
 
 
 class Versions(MutableMapping):
-    def __init__(self, lock, values=()):
-        self.lock = lock
-        self.values = dict(values)
+    def __init__(self, coordinator, values=()):
+        self._coordinator = coordinator
+        self._values = owned(dict(values))
 
     def __getitem__(self, key):
-        with self.lock:
-            return self.values[key]
+        with self._coordinator.lock:
+            return deepcopy(self._values[key])
 
     def __setitem__(self, key, value):
-        with self.lock:
-            self.values[key] = value
+        self._coordinator.mutate(lambda: self._values.__setitem__(owned(key), owned(value)))
 
     def __delitem__(self, key):
-        with self.lock:
-            del self.values[key]
+        self._coordinator.mutate(lambda: self._values.__delitem__(key))
 
     def __iter__(self):
-        with self.lock:
-            return iter(tuple(self.values))
+        with self._coordinator.lock:
+            return iter(tuple(deepcopy(self._values)))
 
     def __len__(self):
-        with self.lock:
-            return len(self.values)
+        with self._coordinator.lock:
+            return len(self._values)
+
+    def snapshot(self):
+        with self._coordinator.lock:
+            return deepcopy(self._values)
+
+    def replace(self, values):
+        def assign():
+            self._values = owned(dict(values))
+        self._coordinator.mutate(assign)
 
     def __deepcopy__(self, memo):
-        with self.lock:
-            return deepcopy(self.values, memo)
+        with self._coordinator.lock:
+            return deepcopy(self._values, memo)
 
 
 class Broker:
     def __init__(self, ledger, inventory, key):
-        self.ledger, self.inventory, self.key = ledger, inventory, key
+        self._ledger, self._inventory, self.key = ledger, inventory, key
         self.closed = True
         self.busy = False
         self.withdrawal = False
         self.enrolled = False
         self.escaped = []
-        self.audit = ledger.audit
         self.scope = self.anchor_identity = None
         self._gate = threading.Lock()
-        self._state = threading.RLock()
-        self.data_versions = Versions(self._state)
+        self._coordinator = ledger.coordinator
+        need(inventory.coordinator in (None, self.coordinator), 'mixed coordinator')
+        inventory._coordinator = self.coordinator
+        self._state = self.coordinator.lock
+        self._data_versions = Versions(self.coordinator)
         self.restored_head = None
         self._violation = False
         self._read_owner = None
         self._escaped_indices = set()
+
+    @property
+    def coordinator(self): return self._coordinator
+
+    @property
+    def ledger(self): return self._ledger
+
+    @property
+    def audit(self): return self.ledger.audit
+
+    @property
+    def inventory(self): return self._inventory
+
+    @property
+    def data_versions(self): return self._data_versions
 
     def enroll(self, scope, anchor_identity, obj, version, *, approved=False, time_bound=False):
         need(type(time_bound) is bool, 'invalid time policy')
@@ -78,7 +102,7 @@ class Broker:
         need(approved is True and not self.enrolled and self.ledger.head is not None, 'enroll denied')
         need(self.ledger.anchor is not None and self.ledger.anchor.identity == anchor_identity, 'anchor identity')
         self.scope, self.anchor_identity = scope, anchor_identity
-        self.data_versions = Versions(self._state, deepcopy(data_versions))
+        self.data_versions.replace(data_versions)
         self.enrolled, self.closed = True, True
 
     def current(self, scope):
@@ -191,8 +215,8 @@ class Broker:
         self.busy = True
         try:
             if fault == 'before_intent': raise Denied('crash before intent')
-            self.ledger.intent = (scope, expected, intent, operation)
-            self.ledger.issuer.intents[operation] = self.ledger.intent
+            self.ledger.set_intent((scope, expected, intent, operation))
+            self.ledger.issuer.set_intent(operation, self.ledger.intent)
             for phase in ('intent', 'before_advance'):
                 if fault == phase: raise Denied('crash '+phase)
             generation = self.ledger.anchor.advance(expected)
@@ -205,9 +229,9 @@ class Broker:
             if fault == 'inventory': raise Denied('crash inventory')
             if fault == 'audit' or self.key.fault == 'audit': raise Denied('crash audit')
             self.audit.append({'kind': 'suppressed', 'generation': generation})
-            self.ledger.operations[operation] = (scope, expected, intent)
+            self.ledger.set_operation(operation, (scope, expected, intent))
             if fault == 'ack': raise Denied('crash ack')
-            self.ledger.intent = None
+            self.ledger.set_intent(None)
             return 'acknowledged'
         except BaseException:
             self.closed = True
@@ -232,7 +256,7 @@ class Broker:
         try:
             self.closed = True
             self.restored_head = deepcopy(snapshot['head'])
-            self.data_versions = Versions(self._state, deepcopy(snapshot['data_versions']))
+            self.data_versions.replace(snapshot['data_versions'])
         finally:
             self._gate.release()
 
@@ -277,8 +301,8 @@ class Broker:
             need(self.key.fault != 'audit', 'audit unavailable')
             if not any(row['kind'] == 'suppressed' and row['generation'] == current for row in self.audit):
                 self.audit.append({'kind': 'suppressed', 'generation': current})
-            self.ledger.operations[operation] = (scope, expected, kind)
-            self.ledger.intent = None
+            self.ledger.set_operation(operation, (scope, expected, kind))
+            self.ledger.set_intent(None)
         self.ledger.validate(self.anchor_identity)
         if self.restored_head is not None:
             need(self.restored_head == self.ledger.head, 'authority generation mismatch')
