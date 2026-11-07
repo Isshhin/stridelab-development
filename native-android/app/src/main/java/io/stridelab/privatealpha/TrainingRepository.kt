@@ -599,7 +599,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 val size = if (kind == "activity") 25 else 1
                 var offset = garminSyncPreferences.restoreOffset(account, kind)
                 val batches = if (kind == "activity") 2 else 10
-                repeat(batches) {
+                for (batch in 0 until batches) {
                     val page = authenticated { session ->
                         garminCloud.readPage(session, kind, offset, size)
                     }
@@ -623,7 +623,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                         // A completed scan will start at the beginning next
                         // time, allowing newly created cloud rows to be seen.
                         garminSyncPreferences.setRestoreOffset(account, kind, 0)
-                        return@repeat
+                        break
                     }
                 }
             }
