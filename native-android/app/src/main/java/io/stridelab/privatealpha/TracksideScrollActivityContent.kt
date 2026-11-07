@@ -293,8 +293,11 @@ internal fun TracksideActivityContinuousSections(
         SourceChartAvailability(pace >= 2, hr >= 2, altitude >= 2, cadence >= 2)
     }
     var selectedChartSeconds by remember(recorded) { mutableStateOf<Double?>(null) }
+    val splitInsight = remember(laps, activity.supportsPace) {
+        ActivityDetailSectionAnalysis.splits(laps, activity.supportsPace)
+    }
     val splitStartIndex = 1
-    val chartsStartIndex = 2 + laps.size
+    val chartsStartIndex = 2 + laps.size + if (splitInsight != null) 1 else 0
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val currentSection by remember(listState, chartsStartIndex) {
@@ -348,7 +351,7 @@ internal fun TracksideActivityContinuousSections(
             item(key = "section-splits") {
                 Column(Modifier.fillMaxWidth().testTag("activity-section-splits")) {
                     ActivitySectionHeading("Splits")
-                    Spacer(Modifier.height(5.dp))
+                    Spacer(Modifier.height(3.dp))
                     if (laps.isEmpty()) {
                         Text(
                             "No recorded splits are available.",
@@ -357,14 +360,12 @@ internal fun TracksideActivityContinuousSections(
                         )
                     } else {
                         Row(
-                            Modifier.fillMaxWidth().padding(top = 5.dp, bottom = 3.dp),
+                            Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text("LAP", color = activityMuted, fontSize = 10.sp,
-                                modifier = Modifier.width(26.dp))
-                            Text("KM", color = activityMuted, fontSize = 10.sp,
-                                modifier = Modifier.width(40.dp))
+                            Text("SPLIT", color = activityMuted, fontSize = 10.sp,
+                                modifier = Modifier.width(34.dp))
                             Text("PACE", color = activityMuted, fontSize = 10.sp,
                                 modifier = Modifier.weight(1f))
                             if (hasSplitHr) Text("HR", color = activityMuted, fontSize = 10.sp,
@@ -378,6 +379,15 @@ internal fun TracksideActivityContinuousSections(
                 key = { index, lap -> "source-lap-" + index + "-" + lap.index }
             ) { index, lap ->
                 TracksideActivitySplitRow(index, lap, hasSplitHr, paceBounds, activity.supportsPace)
+            }
+            if (splitInsight != null) {
+                item(key = "section-splits-analysis") {
+                    Spacer(Modifier.height(9.dp))
+                    TracksideActivityIntelligenceCard(
+                        splitInsight, "Splits Analysis", "activity-splits-insights"
+                    )
+                    Spacer(Modifier.height(14.dp))
+                }
             }
             item(key = "section-charts") {
                 Column(Modifier.fillMaxWidth().testTag("activity-section-charts")) {
@@ -583,14 +593,18 @@ private fun TracksideActivityOverviewBody(
  * in the same sheet rather than nesting another draggable bottom sheet.
  */
 @Composable
-private fun TracksideActivityIntelligenceCard(insight: ActivityInsightPresentation) {
+private fun TracksideActivityIntelligenceCard(
+    insight: ActivityInsightPresentation,
+    heading: String = "Overall Analysis",
+    tag: String = "activity-insights"
+) {
     var expanded by remember(insight.headline) { mutableStateOf(false) }
     val shape = RoundedCornerShape(18.dp)
     Column(
         Modifier.fillMaxWidth()
             .background(Color(0xFF151F1A), shape)
             .border(1.dp, Color(0xFF33463B), shape)
-            .testTag("activity-insights")
+            .testTag(tag)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
@@ -607,7 +621,7 @@ private fun TracksideActivityIntelligenceCard(insight: ActivityInsightPresentati
                     fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
             }
             Spacer(Modifier.width(9.dp))
-            Text("StrideLab Insights", color = activityText,
+            Text(heading, color = activityText,
                 fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
             Spacer(Modifier.weight(1f))
             Text("RECORDED DATA", color = activityMuted, fontSize = 9.sp)
@@ -619,7 +633,7 @@ private fun TracksideActivityIntelligenceCard(insight: ActivityInsightPresentati
             fontWeight = FontWeight.Bold,
             fontSize = 19.sp,
             lineHeight = 24.sp,
-            modifier = Modifier.testTag("activity-insights-headline")
+            modifier = Modifier.testTag(tag + "-headline")
         )
         Spacer(Modifier.height(8.dp))
         Text(
@@ -627,7 +641,7 @@ private fun TracksideActivityIntelligenceCard(insight: ActivityInsightPresentati
             color = Color(0xFFCBD7CF),
             fontSize = 12.sp,
             lineHeight = 18.sp,
-            modifier = Modifier.testTag("activity-insights-summary")
+            modifier = Modifier.testTag(tag + "-summary")
         )
         if (expanded) {
             Spacer(Modifier.height(15.dp))
@@ -650,7 +664,7 @@ private fun TracksideActivityIntelligenceCard(insight: ActivityInsightPresentati
                         line,
                         color = activityMuted, fontSize = 12.sp, lineHeight = 17.sp,
                         modifier = Modifier.weight(1f)
-                            .testTag("activity-insights-detail-" + index)
+                            .testTag(tag + "-detail-" + index)
                     )
                 }
             }
@@ -668,7 +682,7 @@ private fun TracksideActivityIntelligenceCard(insight: ActivityInsightPresentati
         Button(
             onClick = { expanded = !expanded },
             modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)
-                .testTag("activity-insights-toggle"),
+                .testTag(tag + "-toggle"),
             shape = RoundedCornerShape(10.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = activityLime,
@@ -710,7 +724,7 @@ private fun TracksideActivitySplitRow(
     } else 0f
 
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 30.dp)
+        Modifier.fillMaxWidth().heightIn(min = 27.dp)
             .testTag("activity-split-" + index)
             .semantics {
                 contentDescription = "Lap " + (index + 1) +
@@ -726,12 +740,7 @@ private fun TracksideActivitySplitRow(
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Text((index + 1).toString(), color = activityMuted, fontSize = 11.sp,
-            modifier = Modifier.width(26.dp), maxLines = 1)
-        Text(
-            lap.distance?.let { String.format(Locale.getDefault(), "%.2f", it / 1000.0) } ?: "—",
-            color = activityMuted, fontSize = 11.sp,
-            modifier = Modifier.width(40.dp), maxLines = 1
-        )
+            modifier = Modifier.width(34.dp), maxLines = 1)
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             Text(
@@ -812,6 +821,9 @@ private fun TracksideActivitySourceChart(
         )
     }
     val (low, high, sampleAverage) = stats
+    val chartInsight = remember(validSamples, title) {
+        ActivityDetailSectionAnalysis.chart(title, validSamples)
+    }
     val firstTime = samples.first().seconds
     val lastTime = samples.last().seconds
     if (lastTime <= firstTime) return
@@ -854,7 +866,7 @@ private fun TracksideActivitySourceChart(
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            "Sample avg: " + valueText(sampleAverage) +
+            "Avg: " + valueText(sampleAverage) +
                 "    Range: " + valueText(low) + "–" + valueText(high),
             color = activityMuted, fontSize = 10.sp, maxLines = 2,
             modifier = Modifier.testTag("activity-chart-summary-" + title.lowercase().replace(" ", "-"))
@@ -936,6 +948,13 @@ private fun TracksideActivitySourceChart(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(ActivityRecord.duration(firstTime), color = activityMuted, fontSize = 10.sp)
             Text(ActivityRecord.duration(lastTime), color = activityMuted, fontSize = 10.sp)
+        }
+        if (chartInsight != null) {
+            Spacer(Modifier.height(13.dp))
+            TracksideActivityIntelligenceCard(
+                chartInsight, "$title Analysis",
+                "activity-chart-insights-" + title.lowercase(Locale.ROOT).replace(" ", "-")
+            )
         }
     }
 }
