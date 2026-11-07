@@ -1,6 +1,6 @@
 import unittest
 
-from .pipeline import AthleteState, build_synthetic_fixture, report, run, speed_blinded
+from .pipeline import AthleteState, build_synthetic_fixture, report, run, speed_blinded, AnalysisConfig, _segment, _route_compatible
 
 
 class Dev0Tests(unittest.TestCase):
@@ -24,12 +24,65 @@ class Dev0Tests(unittest.TestCase):
         self.assertEqual(report(activities), report(activities))
 
     def test_fixed_window_time_weighted_hr_and_tcx_adapter(self):
-        segment = run(build_synthetic_fixture())["segments"]["healthy-01"]
+        segment = run(build_synthetic_fixture())["segments"]["synthetic-dev0|healthy|healthy-01"]
         self.assertEqual(segment["duration_s"], 1200)
         self.assertNotEqual(segment["mean_hr_bpm"], 150)
         from .pipeline import FOUR_TU_ADMISSION, parse_tcx
         self.assertEqual(FOUR_TU_ADMISSION, "RESEARCH_ONLY_ISOLATED")
         self.assertEqual(parse_tcx(b"<TrainingCenterDatabase xmlns='x'><Activities/></TrainingCenterDatabase>"), [])
+
+    def test_scoped_duplicates_conflicts_and_funnel(self):
+        activities = list(build_synthetic_fixture())
+        duplicate = activities[0]
+        other_athlete = type(duplicate)("other", duplicate.activity_id, duplicate.date, duplicate.samples)
+        other_source = type(duplicate)(duplicate.athlete_id, duplicate.activity_id, duplicate.date, duplicate.samples, "other-source")
+        result = run(activities + [duplicate, other_athlete, other_source])
+        self.assertEqual(result["raw_input_count"], len(activities) + 3)
+        self.assertEqual(result["duplicate_count"], 2)
+        self.assertEqual(result["canonical_candidate_count"], len(activities) + 1)
+        self.assertIn("other", result["athletes"])
+        self.assertEqual(result["athletes"]["healthy"]["raw_input_count"], 8)
+        with self.assertRaises(ValueError):
+            run(activities + [type(duplicate)(duplicate.athlete_id, duplicate.activity_id, duplicate.date, tuple(dict(s, speed=4) for s in duplicate.samples))])
+
+    def test_named_sensitivities_and_route_features(self):
+        result = run(build_synthetic_fixture())
+        self.assertEqual(result["analysis"]["primary"]["config"], {"window_s": 1200, "start_s": 720, "hr_caliper_bpm": 3, "route_tolerance": "STRICT"})
+        self.assertEqual(set(result["analysis"]["sensitivities"]), {"window_900s", "hr_2bpm", "hr_5bpm", "route_MODERATE", "route_LOOSE"})
+        self.assertIn("path_length", result["segments"]["synthetic-dev0|healthy|healthy-01"]["route_features"])
+        self.assertIn("shape", result["segments"]["synthetic-dev0|healthy|healthy-01"]["route_features"])
+
+    def test_nonzero_te_fixture(self):
+        activities = list(build_synthetic_fixture())[:0]
+        base = build_synthetic_fixture()[0]
+        speeds = (2.94, 3.00, 3.06, 3.00, 2.96, 3.00)
+        for i, speed in enumerate(speeds):
+            activities.append(type(base)("stats", f"stats-{i}", f"2026-01-{i+1:02d}T00:00:00+00:00", tuple(dict(s, speed=speed) for s in base.samples)))
+        stats = run(activities)["athletes"]["stats"]
+        self.assertAlmostEqual(stats["signed_bias"], 0.013333, places=5)
+        self.assertAlmostEqual(stats["sd_differences"], 0.064291, places=5)
+        self.assertAlmostEqual(stats["TE"], 0.045461, places=5)
+        self.assertEqual(stats["agreement_limits"], [-0.112677, 0.139344])
+
+    def test_adversarial_trace_matrix_and_direction(self):
+        fixture = build_synthetic_fixture()
+        self.assertIn("HR_COVERAGE", run(fixture)["segments"]["synthetic-dev0|trace_bad|trace_bad-00"]["exclusion_reasons"])
+        self.assertIn("UNRECOVERABLE_GAP", run(fixture)["segments"]["synthetic-dev0|trace_bad|trace_bad-01"]["exclusion_reasons"])
+        self.assertIn("UNPHYSICAL_SPEED", run(fixture)["segments"]["synthetic-dev0|trace_bad|trace_bad-02"]["exclusion_reasons"])
+        base = fixture[0]
+        reversed_samples = type(base)("reverse", "reverse-00", base.date, tuple(reversed(base.samples)))
+        self.assertIn("NON_MONOTONIC_TIMESTAMP", run((reversed_samples,))["segments"]["synthetic-dev0|reverse|reverse-00"]["exclusion_reasons"])
+        turned = type(base)("reverse", "reverse-01", "2026-01-02T00:00:00+00:00", base.samples, route_direction="BACK")
+        self.assertFalse(_route_compatible(_segment(base, AnalysisConfig()), _segment(turned, AnalysisConfig()), "STRICT"))
+
+    def test_same_route_jitter_and_interior_shape_are_tolerance_sensitive(self):
+        base = build_synthetic_fixture()[0]
+        jitter = tuple(dict(s, lat=s["lat"] + .0002, lon=s["lon"] + .0001) for s in base.samples)
+        different = tuple(dict(s, lat=s["lat"] + (.001 if 1000 <= s["t"] <= 1600 else 0)) for s in base.samples)
+        a = _segment(base, AnalysisConfig()); b = _segment(type(base)("x", "b", base.date, jitter), AnalysisConfig()); c = _segment(type(base)("x", "c", base.date, different), AnalysisConfig())
+        self.assertTrue(_route_compatible(a, b, "STRICT"))
+        self.assertFalse(_route_compatible(a, c, "STRICT"))
+        self.assertTrue(_route_compatible(a, c, "MODERATE"))
 
 
 if __name__ == "__main__":
