@@ -4,13 +4,13 @@ plugins {
     id 'org.jetbrains.kotlin.plugin.compose'
 }
 android {
-    namespace 'io.stridelab.privatealpha'
-    compileSdk 36
+    namespace = 'io.stridelab.privatealpha'
+    compileSdk = 36
     defaultConfig {
         applicationId 'io.stridelab.privatealpha'
         buildConfigField 'boolean', 'ENGINE15_ACTIVE', (project.findProperty('strideEngine15Active') ?: 'false').toString().toBoolean().toString()
-        minSdk 26
-        targetSdk 35
+        minSdk = 26
+        targetSdk = 35
         versionCode = (project.findProperty('strideVersionCode') ?: '15').toInteger()
         versionName = '0.6.6-guided-workout'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
@@ -26,7 +26,7 @@ android {
         androidTest.java.exclude '**/OfflineAppTest.java'
         if(project.hasProperty('strideProcessProbe')) androidTest.java.srcDirs += '../process-probe-tests'
     }
-    buildFeatures { compose true; buildConfig true }
+    buildFeatures { compose = true; buildConfig = true }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = '17' }
     signingConfigs {
