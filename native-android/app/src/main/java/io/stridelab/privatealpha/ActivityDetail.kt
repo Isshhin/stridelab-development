@@ -3,7 +3,14 @@ package io.stridelab.privatealpha
 import org.json.JSONObject
 
 internal data class ActivitySample(val index: Int, val seconds: Double, val pace: Double?, val hr: Double?, val altitude: Double?, val latitude: Double?, val longitude: Double?, val cadenceSpm: Double? = null)
-internal data class ActivityLap(val index: Int, val distance: Double?, val seconds: Double?, val pace: Double?, val hr: Double?)
+internal data class ActivityLap(
+    val index: Int,
+    val distance: Double?,
+    val seconds: Double?,
+    val pace: Double?,
+    val hr: Double?,
+    val startSeconds: Double? = null
+)
 internal data class ActivityPauseInterval(val startSeconds: Double, val endSeconds: Double)
 internal data class ActivitySourceHeartRateZones(
     val maximumHr: Int?,
@@ -46,7 +53,14 @@ internal data class ActivityDetail(
             val laps = raw.getJSONArray("laps"); require(laps.length() <= 1000)
             val splits = (0 until laps.length()).map { i ->
                 val row = laps.getJSONObject(i); require(row.getString("activity_id") == id)
-                ActivityLap(row.getInt("lap_index").also { require(it>=0) },metric(row,"distance_m"),metric(row,"duration_s"),metric(row,"avg_pace_sec_per_km",.001),metric(row,"avg_hr",.001))
+                ActivityLap(
+                    row.getInt("lap_index").also { require(it>=0) },
+                    metric(row,"distance_m"),
+                    metric(row,"duration_s"),
+                    metric(row,"avg_pace_sec_per_km",.001),
+                    metric(row,"avg_hr",.001),
+                    metric(row,"start_s")
+                )
             }
             require(splits.zipWithNext().all { (a,b) -> b.index > a.index })
             val pauses = raw.optJSONArray("pause_intervals")?.let { array ->
