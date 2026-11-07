@@ -1030,6 +1030,7 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithText("9").assertExists()
         compose.onNodeWithText("AVAILABLE DAYS").assertExists()
         compose.onNodeWithText("Generate My Plan").assertExists()
+        compose.onNodeWithText("6/7").assertExists()
         compose.onNodeWithText("MAX 2 / DAY").assertExists()
         compose.onNodeWithText(
             "Chosen weekdays are requests", substring = true
@@ -1046,6 +1047,7 @@ class TracksideResponsiveQaTest {
         // comes from the saved draft and approval remains a separate action.
         compose.onNodeWithText("ACTIVE DAYS").assertExists()
         compose.onNodeWithText("Finalize Plan").assertExists()
+        compose.onNodeWithText("7/7").assertExists()
         compose.onNodeWithText("MAX 2 / DAY").assertExists()
         compose.onNodeWithText("5 Running").assertExists()
         compose.onNodeWithText("4 Cali").assertExists()
