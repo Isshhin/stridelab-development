@@ -30,6 +30,13 @@ private val linkLime = Color(0xFFD8FB70)
 private val linkInk = Color(0xFFEFF5F0)
 private val linkMuted = Color(0xFF81918A)
 
+internal fun hasRunningPlanForActivityLink(plans: List<PlanSnapshot>): Boolean =
+    plans.any { plan ->
+        plan.status in setOf("approved", "paused") &&
+            Engine1Engines.canManage(plan) &&
+            plan.sessions.any { it.discipline == "run" }
+    }
+
 /**
  * A single compact action in Activity Detail > Overview. Existing source
  * identity, manual linking, and unlink eligibility are preserved.
@@ -41,13 +48,7 @@ internal fun ActivityPlanLink(
     actions: PlanActions,
     matchedSourceIds: Set<String> = setOf(activity.id)
 ) {
-    val hasRunningPlan = remember(state.plans) {
-        state.plans.any { plan ->
-            plan.status in setOf("approved", "paused") &&
-                Engine1Engines.canManage(plan) &&
-                plan.sessions.any { it.discipline == "run" }
-        }
-    }
+    val hasRunningPlan = remember(state.plans) { hasRunningPlanForActivityLink(state.plans) }
     if (!hasRunningPlan) return
 
     var choosing by remember(activity.id) { mutableStateOf(false) }
