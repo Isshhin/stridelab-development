@@ -39,6 +39,20 @@ class HeartRateZoneAnalysisTest {
         assertEquals(null, zones.buckets[4].upperBpm)
     }
 
+    @Test fun equalZoneCoverageDoesNotClaimSingleDominantZone() {
+        val samples = listOf(
+            sample(0, 0.0, 100.0),
+            sample(1, 10.0, 120.0),
+            sample(2, 20.0, 140.0),
+            sample(3, 30.0, 160.0),
+            sample(4, 40.0, 180.0),
+            sample(5, 50.0, 190.0)
+        )
+        val zones = HeartRateZoneAnalysis.distribute(samples, 200)!!
+        val insight = HeartRateZoneAnalysis.presentation(zones)
+        assertTrue(insight.headline.contains("multiple heart-rate zones"))
+    }
+
     @Test fun invalidMaxOrGappyDataNeverInventsZones() {
         val samples = listOf(sample(0, 0.0, 130.0), sample(1, 100.0, 150.0))
         assertNull(HeartRateZoneAnalysis.distribute(samples, 0))
