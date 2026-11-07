@@ -334,6 +334,11 @@ internal fun TracksideActivityContinuousSections(
             val anchor = layout.visibleItemsInfo.lastOrNull { it.offset <= threshold }?.index
                 ?: listState.firstVisibleItemIndex
             when {
+                // With no fabricated trailing spacer, shorter chart sections
+                // may end before their heading can cross the upper threshold.
+                // At the genuine content end, Charts must still be selected.
+                !listState.canScrollForward &&
+                    layout.visibleItemsInfo.any { it.index >= chartsStartIndex } -> 2
                 anchor >= chartsStartIndex -> 2
                 anchor >= splitStartIndex -> 1
                 else -> 0
@@ -356,7 +361,6 @@ internal fun TracksideActivityContinuousSections(
             }
         }
         BoxWithConstraints(Modifier.weight(1f)) {
-        val viewportHeight = maxHeight
         LazyColumn(
             modifier = Modifier.fillMaxSize().testTag("activity-continuous-scroll"),
             state = listState,
@@ -463,11 +467,6 @@ internal fun TracksideActivityContinuousSections(
                             onSelectSeconds = { selectedChartSeconds = it }
                         )
                     }
-            }
-            // Give short offline activities enough scroll range for Charts to
-            // reach the sticky selection threshold without inventing rows.
-            item(key = "section-ending-space") {
-                Spacer(Modifier.height(viewportHeight))
             }
         }
         }
