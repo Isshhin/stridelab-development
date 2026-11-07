@@ -153,6 +153,22 @@ class TracksideActivityScrollTest {
         }
         compose.onNodeWithTag("activity-map-hero").assertExists()
         compose.onNodeWithTag("activity-map-only-handle").assertIsDisplayed()
+        val mapOnlyRoot = compose.onRoot().getUnclippedBoundsInRoot()
+        val sheetLip = compose.onNodeWithTag("activity-map-only-handle")
+            .getUnclippedBoundsInRoot()
+        assertTrue(
+            "The map-only grip must span the screen, not float as a black pill",
+            sheetLip.width >= mapOnlyRoot.width - 2.dp
+        )
+        assertTrue(
+            "Map-only should leave only a thin sheet edge visible",
+            sheetLip.height <= 26.dp
+        )
+        assertTrue(
+            "The sheet grip should sit flush with the bottom of the screen",
+            mapOnlyRoot.bottom - sheetLip.bottom < 2.dp
+        )
+        compose.onNodeWithTag("activity-map-attribution").assertDoesNotExist()
         compose.onNodeWithTag("activity-sticky-pill").assertDoesNotExist()
 
         // Touching the small bottom grip restores the approved summary.
@@ -199,6 +215,15 @@ class TracksideActivityScrollTest {
         compose.onNodeWithText("Link run").assertExists()
         compose.onNodeWithText("PLANNED & RECORDED").assertDoesNotExist()
         compose.onNodeWithText("Link to planned run").assertDoesNotExist()
+    }
+
+    @Test fun activityMapUsesPublishedDarkVectorStyle() {
+        org.junit.Assert.assertEquals(
+            "https://tiles.openfreemap.org/styles/dark",
+            TracksideMapTiles.STYLE_URL
+        )
+        assertTrue(TracksideMapTiles.ATTRIBUTION.contains("OpenStreetMap"))
+        assertTrue(TracksideMapTiles.ATTRIBUTION.contains("OpenFreeMap"))
     }
 
     @Test fun activityWithoutSourceStreamsDoesNotInventSplitsOrCharts() {
