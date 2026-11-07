@@ -39,7 +39,8 @@ internal data class TrainingState(
     /** SQLite detail identifiers, not their potentially enormous FIT sample payloads. */
     val cachedDetailIds: Set<String> = emptySet(),
     /** False while older SQLite activity-summary pages are hydrating. */
-    val historyFullyLoaded: Boolean = true
+    val historyFullyLoaded: Boolean = true,
+    val historyPageFailed: Boolean = false
 )
 
 /** All network/database/encryption work is serialized off the main thread, including workers. */
@@ -168,13 +169,19 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 // Do not hold the repository mutex over startup's second stage:
                 // current GPS detail requests can run as soon as the first
                 // recent page is published.
-                delay(550L)
+                delay(850L)
                 mutex.withLock {
                     if (mutable.value.account == account) {
-                        runCatching { loadAuxiliaryCache(account) }
+                        try {
+                            loadAuxiliaryCache(account)
+                        } catch (_: Exception) {
+                            mutable.value = mutable.value.copy(
+                                message = "Some saved library or wellness records could not be loaded. Original local data was retained."
+                            )
+                        }
                     }
                 }
-                delay(150L)
+                delay(1200L)
                 while (true) {
                     val more = mutex.withLock {
                         if (mutable.value.account != account) return@withLock false
@@ -186,7 +193,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                             // Existing cached rows stay available. Do not
                             // repeat a failed query in an unbounded loop.
                             mutable.value = mutable.value.copy(
-                                historyFullyLoaded = false,
+                                historyFullyLoaded = false, historyPageFailed = true,
                                 message = "Older activity history could not finish loading. Your saved records remain on this device."
                             )
                             return@withLock false
@@ -199,7 +206,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                                 compareByDescending<ActivityRecord> { it.startedAt }
                                     .thenByDescending { it.id }
                             ),
-                            historyFullyLoaded = !page.hasMore
+                            historyFullyLoaded = !page.hasMore,
+                            historyPageFailed = false
                         )
                         traceCache("older_history_page",started,page.records.size)
                         page.hasMore
@@ -207,7 +215,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                     if (!more) break
                     // Leave an explicit scheduling window for the current
                     // Activity Detail / Today GPS load ahead of older pages.
-                    delay(120L)
+                    delay(180L)
                 }
             }
         }
@@ -291,7 +299,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 activities=activities, plans=sortedPlans, details=preservedDetails,
                 cachedDetailIds=cachedDetailIds, lastSync=last,
                 initializing=false, message=warning,
-                historyFullyLoaded=historyFullyLoaded
+                historyFullyLoaded=historyFullyLoaded,
+                historyPageFailed=false
             )
             traceCache("first_cached_content",started,activities.size)
         } else {
@@ -299,7 +308,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 activities=activities, plans=sortedPlans,
                 details=preservedDetails, cachedDetailIds=cachedDetailIds,
                 lastSync=last, message=warning,
-                historyFullyLoaded=historyFullyLoaded
+                historyFullyLoaded=historyFullyLoaded,
+                historyPageFailed=false
             )
         }
         if (recentPage != null) return
