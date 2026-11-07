@@ -120,25 +120,46 @@ internal fun TracksidePrimaryActivityMetrics(activity: ActivityRecord) {
         val stacked = metrics.size == 4 &&
             (maxWidth < 305.dp || LocalDensity.current.fontScale > 1.2f)
         if (stacked) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                metrics.chunked(2).forEach { pair ->
-                    Row(Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        pair.forEach { item ->
-                            PrimaryActivityMetric(item.label, item.value, item.unit,
-                                item.glyph, Modifier.weight(1f))
-                        }
+            Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                metrics.chunked(2).forEachIndexed { index, pair ->
+                    if (index > 0) {
+                        HorizontalDivider(
+                            color = activityBorder.copy(alpha = .55f),
+                            thickness = 1.dp
+                        )
                     }
+                    CenteredActivityMetricSections(pair, compact = false)
                 }
             }
         } else {
-            Row(Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(if (metrics.size == 4) 4.dp else 6.dp)) {
-                metrics.forEach { item ->
-                    PrimaryActivityMetric(item.label, item.value, item.unit,
-                        item.glyph, Modifier.weight(1f), compact = metrics.size == 4)
-                }
+            CenteredActivityMetricSections(metrics, compact = metrics.size == 4)
+        }
+    }
+}
+
+@Composable
+private fun CenteredActivityMetricSections(
+    items: List<ActivityMetricItem>, compact: Boolean
+) {
+    Row(
+        Modifier.fillMaxWidth().testTag("activity-metric-sections"),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        items.forEachIndexed { index, item ->
+            if (index > 0) {
+                Box(
+                    Modifier.width(1.dp).height(if (compact) 54.dp else 60.dp)
+                        .background(activityBorder.copy(alpha = .72f))
+                        .testTag("activity-metric-divider-$index")
+                )
             }
+            PrimaryActivityMetric(
+                item.label, item.value, item.unit, item.glyph,
+                Modifier.weight(1f)
+                    .testTag("activity-metric-" +
+                        item.label.lowercase(Locale.ROOT).replace(" ", "-")),
+                compact = compact
+            )
         }
     }
 }
@@ -150,7 +171,11 @@ private fun PrimaryActivityMetric(
     label: String, value: String, unit: String,
     symbol: ActivityMetricGlyph, modifier: Modifier = Modifier, compact: Boolean = false
 ) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(
+        modifier,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         Canvas(Modifier.size(23.dp)) {
             val w = size.width
             val h = size.height
@@ -208,17 +233,24 @@ private fun PrimaryActivityMetric(
         }
         Text(
             label, color = activityMuted, fontSize = 9.5.sp,
-            lineHeight = 12.sp, maxLines = 1
+            lineHeight = 12.sp, maxLines = 1, textAlign = TextAlign.Center
         )
-        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally)
+        ) {
             Text(
-                value, color = activityText, fontSize = if (compact) 16.sp else 19.sp,
-                lineHeight = if (compact) 20.sp else 23.sp, fontWeight = FontWeight.Bold,
-                maxLines = 1, modifier = Modifier.weight(1f, fill = false)
+                value, color = activityText,
+                fontSize = if (compact) 16.sp else 19.sp,
+                lineHeight = if (compact) 20.sp else 23.sp,
+                fontWeight = FontWeight.Bold, maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             if (unit.isNotEmpty()) Text(
-                unit, color = activityMuted, fontSize = 10.5.sp, lineHeight = 19.sp,
-                maxLines = 1
+                unit, color = activityMuted,
+                fontSize = if (compact) 9.sp else 10.5.sp,
+                lineHeight = 19.sp, maxLines = 1
             )
         }
     }
