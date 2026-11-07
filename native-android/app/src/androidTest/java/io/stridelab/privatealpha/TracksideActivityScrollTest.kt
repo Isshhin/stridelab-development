@@ -94,6 +94,19 @@ class TracksideActivityScrollTest {
             compose.onNodeWithTag("activity-parity-overview")
                 .getUnclippedBoundsInRoot().height
         )
+        // Compact Athlete Intelligence-inspired overview. Evidence remains
+        // collapsed until explicitly requested and must stay within the
+        // original scrolling details sheet.
+        compose.onNodeWithTag("activity-continuous-scroll")
+            .performScrollToNode(hasTestTag("activity-insights"))
+        compose.onNodeWithTag("activity-insights-headline").assertExists()
+        compose.onNodeWithTag("activity-insights-summary").assertExists()
+        compose.onNodeWithTag("activity-insights-detail-0").assertDoesNotExist()
+        compose.onNodeWithTag("activity-insights-toggle").performClick()
+        compose.onNodeWithTag("activity-insights-detail-0").assertExists()
+        compose.onNodeWithTag("activity-insights-toggle").performClick()
+        compose.onNodeWithTag("activity-insights-detail-0").assertDoesNotExist()
+
         compose.onNodeWithTag("activity-tab-splits").performClick()
         compose.waitUntil(timeoutMillis = 5000) {
             compose.onAllNodesWithTag("activity-section-splits")
