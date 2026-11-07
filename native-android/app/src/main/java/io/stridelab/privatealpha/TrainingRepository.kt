@@ -6,6 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.sync.Mutex
@@ -35,7 +36,10 @@ internal data class TrainingState(
 internal class TrainingRepository(context: Context, private val gateway: TrainingGateway = SupabaseGateway(),
     databaseName: String = TrainingStore.DATABASE, preferencesName: String = "native-account-v1") {
     private val store = TrainingStore(context, databaseName)
+    private val appContext = context.applicationContext
     private val vault = SessionVault(context)
+    internal val garminSyncPreferences = GarminSyncPreferences(context)
+    private val garminCloud = GarminCloudBackupGateway()
     private val preferences = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
     private val mutex = Mutex()
     private val mutable = MutableStateFlow(TrainingState())
@@ -392,8 +396,13 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
      * automatic provider merge, training-plan change, or invented measurements.
      * The repository lock preserves sign-out and account isolation throughout.
      */
-    internal suspend fun syncGarmin(source:GarminPersonalSource):GarminConnectionStatus =
-        withContext(Dispatchers.IO) { mutex.withLock {
+    internal suspend fun syncGarmin(
+        source: GarminPersonalSource,
+        pageLimit: Int = 100,
+        detailLimit: Int = 24
+    ): GarminConnectionStatus = withContext(Dispatchers.IO) {
+        require(pageLimit in 1..100 && detailLimit in 0..24)
+        mutex.withLock {
             val account=mutable.value.account
                 ?: throw GarminAuthenticationException("Sign in to StrideLab before importing Garmin activity")
             var cursor:String?=null
@@ -401,8 +410,11 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             var imported=0
             val seen=HashSet<String>()
             do {
-                if(pages>=100)throw GarminProtocolException(
-                    "Garmin history exceeds the bounded 10,000-record sync. Earlier pages are saved; contact support for the remaining range.")
+                if(pages>=pageLimit) {
+                    if (pageLimit == 100) throw GarminProtocolException(
+                        "Garmin history exceeds the bounded 10,000-record sync. Earlier pages are saved; contact support for the remaining range.")
+                    break // Bounded automatic check; manual sync still covers all history.
+                }
                 val page=source.activities(account,cursor,100)
                 if(page.accountId!=account)throw GarminProtocolException(
                     "Garmin activity page belongs to a different account")
@@ -446,7 +458,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             var completedDetails = 0
             var failedDetails = 0
             var interruption: String? = null
-            for (activity in pending.take(24)) {
+            for (activity in pending.take(detailLimit)) {
                 try {
                     cacheGarminRecording(account, activity, source)
                     completedDetails++
@@ -471,6 +483,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             val remaining = pending.count {
                 !mutable.value.details.containsKey(it.id)
             }
+            if (pageLimit == 100) garminSyncPreferences.acknowledgeManualGarminSync(account)
             GarminConnectionStatus(
                 state = "connected",
                 lastSuccessfulSync = java.time.Instant.now(),
@@ -481,6 +494,143 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 failedDetails = failedDetails
             )
         } }
+
+    /**
+     * WorkManager and app-resume share this due-time claim. Automatic checks
+     * intentionally fetch at most 200 latest summaries and 3 FIT files so a
+     * background task does not monopolize the device or hit Garmin aggressively.
+     * User-initiated manual sync retains its existing full-history behavior.
+     */
+    internal suspend fun automaticGarminAndBackup(foreground: Boolean): Boolean =
+        withContext(Dispatchers.IO) {
+            val ready = state.first { !it.initializing }
+            val account = ready.account ?: return@withContext true
+            if (ready.needsSignIn) return@withContext true
+            var success = true
+            val interval = if (foreground) 30L * 60_000 else 6L * 60 * 60_000
+            if (garminSyncPreferences.automatic(account) &&
+                garminSyncPreferences.claim(account, "garmin", interval)) {
+                val source = GarminPersonalSource(
+                    account, GarminCredentialVault(appContext), GarminPersonalClient())
+                val connected = runCatching { source.status().state == "connected" }
+                    .getOrDefault(false)
+                if (connected) {
+                    try {
+                        val result = syncGarmin(source, pageLimit = 2, detailLimit = 3)
+                        if (result.error != null) success = false
+                    } catch (_: Exception) {
+                        // The original offline cache stays intact. An app-resume
+                        // check never overwrites foreground error messages.
+                        success = false
+                    }
+                }
+            }
+            if (garminSyncPreferences.cloudBackup(account) &&
+                garminSyncPreferences.claim(account, "cloud", interval)) {
+                try {
+                    backupGarminCloud(maxRecords = 6)
+                } catch (_: Exception) {
+                    success = false
+                }
+            }
+            success
+        }
+
+    /** Cloud upload is opt-in. Every uploaded row first exists in local SQLite. */
+    internal suspend fun backupGarminCloud(maxRecords: Int = 12): Int =
+        withContext(Dispatchers.IO) {
+            require(maxRecords in 1..24)
+            mutex.withLock {
+                val account = mutable.value.account
+                    ?: throw GarminAuthenticationException("Sign in before backing up Garmin")
+                require(garminSyncPreferences.cloudBackup(account)) {
+                    "Enable Garmin cloud backup before uploading records"
+                }
+                val candidates = mutableListOf<Triple<String, String, String>>()
+                val database = store.readableDatabase
+                database.query(
+                    "records", arrayOf("kind", "record_id", "payload"),
+                    "account=? AND kind IN (?,?)",
+                    arrayOf(account, "activity", "activity_detail"),
+                    null, null, "kind ASC,record_id ASC"
+                ).use { cursor ->
+                    while (cursor.moveToNext() && candidates.size < maxRecords) {
+                        val kind = cursor.getString(0)
+                        val id = cursor.getString(1)
+                        val payload = cursor.getString(2)
+                        if (kind == "activity") {
+                            if (runCatching { JSONObject(payload).optString("source") }
+                                    .getOrNull() != "garmin") continue
+                        } else {
+                            val summary = store.get(account, "activity", id) ?: continue
+                            if (runCatching { JSONObject(summary.payload).optString("source") }
+                                    .getOrNull() != "garmin") continue
+                        }
+                        if (garminSyncPreferences.needsCloudUpload(account, kind, id, payload))
+                            candidates.add(Triple(kind, id, payload))
+                    }
+                }
+                var uploaded = 0
+                for ((kind, id, payload) in candidates) {
+                    // Resolve a verified, renewable StrideLab session for each
+                    // request. No Garmin credential ever leaves this device.
+                    authenticated { session -> garminCloud.upload(session, kind, id, payload) }
+                    garminSyncPreferences.acknowledgeCloudUpload(account, kind, id, payload)
+                    uploaded++
+                }
+                uploaded
+            }
+        }
+
+    /**
+     * Explicit, insert-only cloud recovery. Validates owner, kind, IDs and
+     * source measurements before adding rows. Never replaces existing records.
+     * Bounded pages and durable offsets let later taps resume recovery.
+     */
+    internal suspend fun restoreGarminCloud(): Int = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val account = mutable.value.account
+                ?: throw GarminAuthenticationException("Sign in before restoring Garmin")
+            require(garminSyncPreferences.cloudBackup(account)) {
+                "Enable Garmin cloud backup before restoring"
+            }
+            var restored = 0
+            for (kind in listOf("activity", "activity_detail")) {
+                val size = if (kind == "activity") 25 else 1
+                var offset = garminSyncPreferences.restoreOffset(account, kind)
+                val batches = if (kind == "activity") 2 else 10
+                repeat(batches) {
+                    val page = authenticated { session ->
+                        garminCloud.readPage(session, kind, offset, size)
+                    }
+                    for (row in page) {
+                        if (store.get(account, kind, row.recordId) != null) continue
+                        if (kind == "activity_detail" &&
+                            store.get(account, "activity", row.recordId) == null) continue
+                        // Each source is added durably without overwriting any
+                        // other local version or touching the original server tables.
+                        store.applyRemotePage(
+                            account, kind,
+                            listOf(TrainingStore.RemoteRecord(
+                                row.recordId, row.payload, null)),
+                            null, System.currentTimeMillis()
+                        )
+                        restored++
+                    }
+                    offset += page.size
+                    garminSyncPreferences.setRestoreOffset(account, kind, offset)
+                    if (page.size < size) {
+                        // A completed scan will start at the beginning next
+                        // time, allowing newly created cloud rows to be seen.
+                        garminSyncPreferences.setRestoreOffset(account, kind, 0)
+                        return@repeat
+                    }
+                }
+            }
+            if (restored > 0) loadCache(account)
+            restored
+        }
+    }
 
     /**
      * One on-demand Garmin FIT import for a cached source record. The original
