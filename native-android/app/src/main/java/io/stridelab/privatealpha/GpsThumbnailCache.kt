@@ -28,7 +28,7 @@ internal class GpsThumbnailCache(context: Context) {
     }
     fun hasNoRoute(account: String, id: String): Boolean = try {
         DataInputStream(file(account, id).openRead()).use { input ->
-            input.readInt() == 2 && input.readUTF().matches(Regex("[0-9a-f]{64}")) &&
+            input.readInt() == 3 && input.readUTF().matches(Regex("[0-9a-f]{64}")) &&
                 input.readUTF() == hashBytes(ByteArray(0)) && input.readInt() == 0 && input.read() == -1
         }
     } catch (_: Exception) { false }
@@ -37,14 +37,14 @@ internal class GpsThumbnailCache(context: Context) {
     })
     fun storedFingerprint(account: String, id: String): String? = try {
         DataInputStream(file(account, id).openRead()).use { input ->
-            require(input.readInt() == 2)
+            require(input.readInt() == 3)
             input.readUTF().also { require(it.matches(Regex("[0-9a-f]{64}"))) }
         }
     } catch (_: Exception) { null }
 
     fun read(account: String, id: String): Bitmap? = try {
         DataInputStream(file(account, id).openRead()).use { input ->
-            require(input.readInt() == 2)
+            require(input.readInt() == 3)
             require(input.readUTF().matches(Regex("[0-9a-f]{64}")))
             val checksum = input.readUTF()
             val bytes = input.readInt().also { require(it in 1..262144) }
@@ -63,7 +63,7 @@ internal class GpsThumbnailCache(context: Context) {
 
     fun render(route: RecordedGpsRoute): ByteArray {
         val segments = if (route.allPoints.let { it.isNotEmpty() && it.maxOf { p -> p.longitude } - it.minOf { p -> p.longitude } > 180 })
-            listOf(route.segments.maxByOrNull { it.size }.orEmpty()) else route.segments
+            listOf(route.displaySegments.maxByOrNull { it.size }.orEmpty()) else route.displaySegments
         val points = segments.flatten()
         if (segments.none { it.size >= 2 }) return ByteArray(0)
         val projection = cos(Math.toRadians(points.map { it.latitude }.average())).coerceAtLeast(.01)
@@ -97,7 +97,7 @@ internal class GpsThumbnailCache(context: Context) {
         val stream = target.startWrite()
         try {
             val output = DataOutputStream(stream)
-            output.writeInt(2); output.writeUTF(fingerprint); output.writeUTF(hashBytes(bytes)); output.writeInt(bytes.size); output.write(bytes)
+            output.writeInt(3); output.writeUTF(fingerprint); output.writeUTF(hashBytes(bytes)); output.writeInt(bytes.size); output.write(bytes)
             output.flush(); target.finishWrite(stream)
         } catch (e: Exception) { target.failWrite(stream); throw e }
     }
