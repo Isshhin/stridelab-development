@@ -33,6 +33,7 @@ internal fun GarminSettingsCard(
             GarminCredentialVault(context.applicationContext), GarminPersonalClient())
     }
     var status by remember(accountId) { mutableStateOf(source.status()) }
+    var connected by remember(accountId) { mutableStateOf(status.state == "connected") }
     var apiKey by remember(accountId) { mutableStateOf("") }
     var busy by remember(accountId) { mutableStateOf(false) }
     var confirmDisconnect by remember(accountId) { mutableStateOf(false) }
@@ -44,10 +45,16 @@ internal fun GarminSettingsCard(
         scope.launch {
             try { status = withContext(Dispatchers.IO) { action() } }
             catch (error: Exception) { status = GarminConnectionStatus.fromError(error) }
-            finally { busy = false; onBusyChange(false) }
+            finally {
+                // Keystore reads must not occur in every Compose frame.
+                connected = withContext(Dispatchers.IO) {
+                    runCatching { source.status().state == "connected" }.getOrDefault(false)
+                }
+                busy = false
+                onBusyChange(false)
+            }
         }
     }
-    val connected = source.status().state == "connected"
     Column(
         Modifier.fillMaxWidth().testTag("garmin-connection-card"),
         verticalArrangement = Arrangement.spacedBy(13.dp)
