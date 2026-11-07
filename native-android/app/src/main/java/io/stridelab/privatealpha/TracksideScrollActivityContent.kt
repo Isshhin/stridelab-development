@@ -1412,6 +1412,18 @@ private fun TracksideActivitySourceChart(
             color = activityMuted, fontSize = 10.sp, maxLines = 2,
             modifier = Modifier.testTag("activity-chart-summary-" + title.lowercase().replace(" ", "-"))
         )
+        if (pauseIntervals.isNotEmpty()) {
+            Spacer(Modifier.height(3.dp))
+            Text(
+                "Recorded timer pauses are shown as amber bands.",
+                color = Color(0xFFFFBE7A).copy(alpha = .85f),
+                fontSize = 9.sp, lineHeight = 12.sp,
+                modifier = Modifier.testTag(
+                    "activity-chart-pause-note-" +
+                        title.lowercase(Locale.ROOT).replace(" ", "-")
+                )
+            )
+        }
         if (displayScale.trimmed) {
             Spacer(Modifier.height(3.dp))
             Text(
@@ -1478,6 +1490,27 @@ private fun TracksideActivitySourceChart(
         ) {
             val span = (displayHigh - displayLow).coerceAtLeast(1.0)
             val timeSpan = lastTime - firstTime
+            pauseIntervals.forEach { pause ->
+                val startX = (((pause.startSeconds - firstTime) / timeSpan)
+                    .coerceIn(0.0,1.0) * size.width).toFloat()
+                val endX = (((pause.endSeconds - firstTime) / timeSpan)
+                    .coerceIn(0.0,1.0) * size.width).toFloat()
+                if (endX > startX) {
+                    drawRect(
+                        Color(0xFFFFBE7A).copy(alpha = .08f),
+                        topLeft = Offset(startX,0f),
+                        size = androidx.compose.ui.geometry.Size(endX-startX,size.height)
+                    )
+                    drawLine(
+                        Color(0xFFFFBE7A).copy(alpha = .38f),
+                        Offset(startX,0f),Offset(startX,size.height),1.dp.toPx()
+                    )
+                    drawLine(
+                        Color(0xFFFFBE7A).copy(alpha = .38f),
+                        Offset(endX,0f),Offset(endX,size.height),1.dp.toPx()
+                    )
+                }
+            }
             fun position(sample: ActivitySample, value: Double): Offset {
                 val x = ((sample.seconds - firstTime) / timeSpan * size.width).toFloat()
                 val displayed = value.coerceIn(displayLow, displayHigh)
