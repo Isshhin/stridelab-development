@@ -389,6 +389,58 @@ class TracksideActivityScrollTest {
         compose.onNodeWithText("Link run").assertExists()
     }
 
+    @Test fun overviewSurfacesOnlyRecordedEvidenceDuringTimerPauses() {
+        val activity = ActivityRecord(
+            "synthetic-paused-run", "Paused Run", "run", "manual",
+            Instant.parse("2026-11-06T10:38:00Z"), 4000.0, 1500.0,
+            1440.0, 30.0, 145.0, 20.0
+        )
+        val recorded = ActivityDetail(
+            activity.id,
+            samples = listOf(
+                ActivitySample(0, 0.0, 390.0, 135.0, 10.0, 14.60, 121.00, 170.0),
+                ActivitySample(1, 20.0, 0.0, 110.0, 10.5, 14.601, 121.001, 90.0),
+                ActivitySample(2, 25.0, 0.0, 108.0, 10.5, 14.602, 121.002, 88.0),
+                ActivitySample(3, 40.0, 385.0, 140.0, 11.0, 14.603, 121.003, 172.0)
+            ),
+            laps = emptyList(),
+            fetchedAt = 0L,
+            pauseIntervals = listOf(ActivityPauseInterval(15.0, 30.0))
+        )
+        val state = TrainingState(
+            initializing = false, account = "synthetic-test-account",
+            activities = listOf(activity)
+        )
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideFigmaActivityDetailSurface(
+                        activity = activity, recorded = recorded,
+                        detailSource = activity, matchedSourceIds = setOf(activity.id),
+                        history = listOf(activity),
+                        state = state, actions = NativeActions({}, {}, {}, {}, { _, _ -> }),
+                        online = false, selectedTab = 0, onTab = {},
+                        matte = false, onToggleMatte = {}, onBack = {}
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("activity-sheet-handle").performClick()
+        compose.waitUntil(timeoutMillis = 5000) {
+            compose.onAllNodesWithTag("activity-pause-summary")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("activity-pause-summary").assertExists()
+        compose.onNodeWithText("Paused time").assertExists()
+        compose.onNodeWithText("1 timer pause").assertExists()
+        compose.onNodeWithText(
+            "2 source samples were still recorded during pauses · 2 GPS · 2 HR · 2 cadence."
+        ).assertExists()
+        compose.onNodeWithText(
+            "Only source-recorded values are shown. Missing paused data is not reconstructed."
+        ).assertExists()
+    }
+
     @Test fun activityMapUsesDedicatedStrideLabOpenFreeMapStyle() {
         org.junit.Assert.assertEquals(
             "asset://stridelab_activity_dark.json",
