@@ -51,6 +51,38 @@ class RecordedGpsRouteTest {
         assertEquals(2,gaps.length())
     }
 
+    @Test fun explicitTimerPauseIsSeparateFromUnknownGpsGap() {
+        val route=RecordedGpsRoute.from(
+            listOf(
+                sample(0,0.0,14.60,121.00),
+                sample(1,10.0,14.61,121.01),
+                sample(2,30.0,14.62,121.02),
+                sample(3,40.0,14.63,121.03)
+            ),
+            listOf(ActivityPauseInterval(15.0,25.0))
+        )
+        assertEquals(2,route.segments.size)
+        assertEquals(1,route.pauseGaps.size)
+        assertEquals(0,route.unknownGaps.size)
+        val pauseJson=JSONObject(route.pauseGapsGeoJson())
+            .getJSONArray("features").getJSONObject(0)
+            .getJSONObject("geometry").getJSONArray("coordinates")
+        assertEquals(1,pauseJson.length())
+    }
+
+    @Test fun selectedTimeUsesNearestRealGpsFixOnly() {
+        val route=RecordedGpsRoute.from(listOf(
+            sample(0,0.0,14.60,121.00),
+            sample(1,30.0,14.61,121.01),
+            sample(2,60.0,14.62,121.02)
+        ))
+        val selected=requireNotNull(route.selectedPoint(28.0))
+        assertEquals(30.0,selected.elapsedSeconds,0.0)
+        val json=JSONObject(route.selectedPointGeoJson(28.0))
+        assertEquals("Point",json.getJSONObject("geometry").getString("type"))
+        assertNull(route.selectedPoint(500.0))
+    }
+
     @Test fun loneRecordedFixIsPreservedWithoutInventingRouteLine() {
         val route=RecordedGpsRoute.from(listOf(
             sample(0,0.0,null,null),
