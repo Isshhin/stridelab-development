@@ -287,7 +287,9 @@ internal fun TracksideActivityContinuousSections(
     online: Boolean,
     selectedTab: Int,
     onTab: (Int) -> Unit,
-    onLoadGarminGps: (() -> Unit)?
+    onLoadGarminGps: (() -> Unit)?,
+    selectedSeconds: Double? = null,
+    onSelectSeconds: (Double) -> Unit = {}
 ) {
     val laps = remember(recorded) { recorded?.laps?.take(100).orEmpty() }
     val hasSplitHr = remember(laps) { laps.any { it.hr != null } }
@@ -314,7 +316,17 @@ internal fun TracksideActivityContinuousSections(
         }
         SourceChartAvailability(pace >= 2, hr >= 2, altitude >= 2, cadence >= 2)
     }
-    var selectedChartSeconds by remember(recorded) { mutableStateOf<Double?>(null) }
+    val splitWindows = remember(laps, recorded?.pauseIntervals) {
+        var cumulative = 0.0
+        val allowCumulativeFallback = recorded?.pauseIntervals.isNullOrEmpty()
+        laps.map { lap ->
+            val duration = lap.seconds?.takeIf { it.isFinite() && it > 0.0 }
+            val start = lap.startSeconds?.takeIf { it.isFinite() && it >= 0.0 }
+                ?: cumulative.takeIf { allowCumulativeFallback && duration != null }
+            if (duration != null) cumulative += duration
+            if (start != null && duration != null) start to (start + duration) else null
+        }
+    }
     val splitInsight = remember(laps, activity.supportsPace) {
         ActivityDetailSectionAnalysis.splits(laps, activity.supportsPace)
     }
@@ -404,7 +416,16 @@ internal fun TracksideActivityContinuousSections(
                 laps,
                 key = { index, lap -> "source-lap-" + index + "-" + lap.index }
             ) { index, lap ->
-                TracksideActivitySplitRow(index, lap, hasSplitHr, paceBounds, activity.supportsPace)
+                val window = splitWindows.getOrNull(index)
+                val selected = window != null && selectedSeconds != null &&
+                    selectedSeconds >= window.first && selectedSeconds <= window.second
+                TracksideActivitySplitRow(
+                    index, lap, hasSplitHr, paceBounds, activity.supportsPace,
+                    selected = selected,
+                    onSelect = window?.let { range ->
+                        { onSelectSeconds((range.first + range.second) / 2.0) }
+                    }
+                )
             }
             if (splitInsight != null) {
                 item(key = "section-splits-analysis") {
@@ -433,16 +454,18 @@ internal fun TracksideActivityContinuousSections(
                     item(key = "chart-pace") {
                         TracksideActivitySourceChart(
                             "Pace", "/km", recorded.samples, { it.pace }, pace = true,
-                            selectedSeconds = selectedChartSeconds,
-                            onSelectSeconds = { selectedChartSeconds = it }
+                            selectedSeconds = selectedSeconds,
+                            onSelectSeconds = onSelectSeconds,
+                            pauseIntervals = recorded.pauseIntervals
                         )
                     }
                 if (chartAvailability.heartRate)
                     item(key = "chart-heart-rate") {
                         TracksideActivitySourceChart(
                             "Heart rate", "bpm", recorded.samples, { it.hr },
-                            selectedSeconds = selectedChartSeconds,
-                            onSelectSeconds = { selectedChartSeconds = it }
+                            selectedSeconds = selectedSeconds,
+                            onSelectSeconds = onSelectSeconds,
+                            pauseIntervals = recorded.pauseIntervals
                         )
                     }
                 if (chartAvailability.heartRate)
@@ -453,16 +476,18 @@ internal fun TracksideActivityContinuousSections(
                     item(key = "chart-elevation") {
                         TracksideActivitySourceChart(
                             "Elevation", "m", recorded.samples, { it.altitude },
-                            selectedSeconds = selectedChartSeconds,
-                            onSelectSeconds = { selectedChartSeconds = it }
+                            selectedSeconds = selectedSeconds,
+                            onSelectSeconds = onSelectSeconds,
+                            pauseIntervals = recorded.pauseIntervals
                         )
                     }
                 if (chartAvailability.cadence)
                     item(key = "chart-cadence") {
                         TracksideActivitySourceChart(
                             "Cadence", "spm", recorded.samples, { it.cadenceSpm },
-                            selectedSeconds = selectedChartSeconds,
-                            onSelectSeconds = { selectedChartSeconds = it }
+                            selectedSeconds = selectedSeconds,
+                            onSelectSeconds = onSelectSeconds,
+                            pauseIntervals = recorded.pauseIntervals
                         )
                     }
             }
@@ -974,7 +999,9 @@ private fun TracksideActivityIntelligenceCard(
 @Composable
 private fun TracksideActivitySplitRow(
     index: Int, lap: ActivityLap, hasHr: Boolean,
-    paceBounds: Pair<Double?, Double?>, supportsPace: Boolean
+    paceBounds: Pair<Double?, Double?>, supportsPace: Boolean,
+    selected: Boolean = false,
+    onSelect: (() -> Unit)? = null
 ) {
     val recordedPace = if (supportsPace) lap.pace?.takeIf { it.isFinite() && it > 0 } else null
     val fastest = paceBounds.first
@@ -1001,11 +1028,21 @@ private fun TracksideActivitySplitRow(
 
     Row(
         Modifier.fillMaxWidth().heightIn(min = 27.dp)
-            .background(rowBackground, RoundedCornerShape(7.dp))
+            .background(
+                if (selected) activityLime.copy(alpha = .10f) else rowBackground,
+                RoundedCornerShape(7.dp)
+            )
+            .then(
+                if (onSelect != null) Modifier.clickable(
+                    role = Role.Button,
+                    onClick = onSelect
+                ) else Modifier
+            )
             .testTag("activity-split-" + index)
             .semantics {
                 contentDescription = "Lap " + (index + 1) +
                     (if (isFastest) ", fastest split" else if (isSlowest) ", slowest split" else "") +
+                    (if (selected) ", selected on map" else "") +
                     ", distance " + (lap.distance?.let {
                         String.format(Locale.getDefault(), "%.2f km", it / 1000.0)
                     } ?: "not recorded") +
@@ -1208,7 +1245,8 @@ private fun TracksideActivitySourceChart(
     metric: (ActivitySample) -> Double?,
     pace: Boolean = false,
     selectedSeconds: Double? = null,
-    onSelectSeconds: (Double) -> Unit = {}
+    onSelectSeconds: (Double) -> Unit = {},
+    pauseIntervals: List<ActivityPauseInterval> = emptyList()
 ) {
     // Segment by missing source values and timestamp gaps before drawing.
     // A line never bridges a pause or interpolates an unrecorded measurement.
@@ -1221,10 +1259,17 @@ private fun TracksideActivitySourceChart(
             current = mutableListOf()
             previous = null
         }
+        fun crossesPause(from: Double, to: Double): Boolean =
+            pauseIntervals.any { pause ->
+                from < pause.endSeconds && to > pause.startSeconds
+            }
         samples.forEach { sample ->
             val value = metric(sample)
             if (value == null || !value.isFinite() ||
-                (previous != null && sample.seconds - previous!!.seconds > 120.0)
+                (previous != null && (
+                    sample.seconds - previous!!.seconds > 120.0 ||
+                        crossesPause(previous!!.seconds, sample.seconds)
+                ))
             ) flush()
             if(value != null && value.isFinite()) {
                 current.add(sample)
