@@ -389,8 +389,7 @@ private fun MapLibreRouteView(
             }
         }
     }
-    LaunchedEffect(selectionJson,selectedPointSource,styleReady) {
-        if(!styleReady)return@LaunchedEffect
+    LaunchedEffect(selectionJson, selectedPointSource) {
         selectedPointSource?.setGeoJson(selectionJson)
     }
 }
