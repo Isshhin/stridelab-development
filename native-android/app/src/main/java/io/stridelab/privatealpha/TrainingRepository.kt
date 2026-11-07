@@ -1,6 +1,7 @@
 package io.stridelab.privatealpha
 
 import android.content.Context
+import android.database.sqlite.SQLiteException
 import android.content.pm.ApplicationInfo
 import android.os.SystemClock
 import android.util.Log
@@ -35,7 +36,9 @@ internal data class TrainingState(
     val details: Map<String,ActivityDetail> = emptyMap(),
     val task: String? = null,
     /** SQLite detail identifiers, not their potentially enormous FIT sample payloads. */
-    val cachedDetailIds: Set<String> = emptySet()
+    val cachedDetailIds: Set<String> = emptySet(),
+    /** False while older SQLite activity-summary pages are hydrating. */
+    val historyFullyLoaded: Boolean = true
 )
 
 /** All network/database/encryption work is serialized off the main thread, including workers. */
@@ -53,6 +56,57 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val hotDetails = ArrayDeque<String>()
     private val hotDetailLimit = 4
+    private val recentPageSize = 40
+
+    /** Chronological SQLite keyset cursor, never an activity's raw FIT payload. */
+    private data class HistoryCursor(val startedAt: String, val id: String)
+    private data class HistoryPage(
+        val records: List<ActivityRecord>,
+        val next: HistoryCursor?,
+        val hasMore: Boolean,
+        val rejected: Int
+    )
+    private var nextHistoryCursor: HistoryCursor? = null
+
+    /**
+     * Latest summaries first. JSON extraction runs inside SQLite; Kotlin only
+     * parses the bounded result page. Invalid original rows are preserved.
+     * The PK remains untouched; there is no migration or data replacement.
+     */
+    private fun readHistoryPage(account: String, after: HistoryCursor?): HistoryPage {
+        val started = "CASE WHEN json_valid(payload) THEN " +
+            "COALESCE(json_extract(payload, '$.started_at'), '') ELSE '' END"
+        val filter = if (after == null) "" else
+            " AND ($started < ? OR ($started = ? AND record_id < ?))"
+        val sql = "SELECT record_id,payload,$started AS started FROM records " +
+            "WHERE account=? AND kind='activity'$filter " +
+            "ORDER BY started DESC, record_id DESC LIMIT ${recentPageSize + 1}"
+        val arguments = if (after == null) arrayOf(account) else
+            arrayOf(account,after.startedAt,after.startedAt,after.id)
+        val records = ArrayList<ActivityRecord>(recentPageSize)
+        var rejected = 0
+        var hasMore = false
+        var last: HistoryCursor? = null
+        store.readableDatabase.rawQuery(sql,arguments).use { cursor ->
+            var rows = 0
+            while (cursor.moveToNext()) {
+                if (rows == recentPageSize) {
+                    hasMore = true
+                    break
+                }
+                rows++
+                last = HistoryCursor(cursor.getString(2) ?: "",cursor.getString(0))
+                try {
+                    val record = ActivityRecord.parse(cursor.getString(1),account)
+                    if (ActiveActivitySources.accepts(record.source)) records += record
+                } catch (_: Exception) {
+                    rejected++
+                    // Keep invalid source rows intact, not surfaced as fake data.
+                }
+            }
+        }
+        return HistoryPage(records,last.takeIf { hasMore },hasMore,rejected)
+    }
 
     /** Debug-only aggregate timings; never log account IDs, activity IDs or payloads. */
     private fun traceCache(stage: String, startedAt: Long, count: Int) {
