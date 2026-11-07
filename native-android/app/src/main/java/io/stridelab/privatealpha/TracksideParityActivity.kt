@@ -244,13 +244,14 @@ internal fun TracksideParityActivityMapHero(
             }
         }
         if (route.pointCount > 0) {
-            val hasSpecialGpsState = route.pauseGaps.isNotEmpty() ||
-                route.pausedPoints.isNotEmpty() || route.unknownGaps.isNotEmpty()
+            // The map presents pause-time fixes as normal recorded GPS.
+            // Pause details stay in Activity Overview, not a dotted legend.
+            val hasSpecialGpsState = route.unknownGaps.isNotEmpty()
             Surface(
                 color = Color(0xDD080E0C),
                 border = BorderStroke(
                     1.dp,
-                    if (route.unknownGaps.isEmpty()) Color(0x445A6B62)
+                    if (route.gaps.isEmpty()) Color(0x445A6B62)
                     else Color(0x667A8781)
                 ),
                 shape = RoundedCornerShape(11.dp),
@@ -264,7 +265,7 @@ internal fun TracksideParityActivityMapHero(
                 ) {
                     Text(
                         route.gpsContinuityLabel,
-                        color = if (route.unknownGaps.isEmpty())
+                        color = if (route.gaps.isEmpty())
                             Color(0xFFD8FB70) else Color(0xFFC5D0CB),
                         fontSize = 9.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -272,12 +273,6 @@ internal fun TracksideParityActivityMapHero(
                     )
                     if (hasSpecialGpsState) {
                         MapLegendRow(Color(0xFFD8FB70), "Recorded route")
-                        if (route.pauseGaps.isNotEmpty()) {
-                            MapLegendRow(Color(0xFFFFBE7A), "Timer pause")
-                        }
-                        if (route.pausedPoints.isNotEmpty()) {
-                            MapLegendRow(Color(0xFFFFBE7A), "GPS recorded while paused", dot = true)
-                        }
                         if (route.unknownGaps.isNotEmpty()) {
                             MapLegendRow(Color(0xFFA5B4AE), "GPS gap")
                         }
@@ -299,19 +294,14 @@ internal fun TracksideParityActivityMapHero(
 }
 
 @Composable
-private fun MapLegendRow(color: Color, label: String, dot: Boolean = false) {
+private fun MapLegendRow(color: Color, label: String) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Box(
-            Modifier.then(
-                if (dot) Modifier.size(6.dp)
-                else Modifier.size(width = 12.dp, height = 2.dp)
-            ).background(
-                color,
-                RoundedCornerShape(if (dot) 4.dp else 2.dp)
-            )
+            Modifier.size(width = 12.dp, height = 2.dp)
+                .background(color, RoundedCornerShape(2.dp))
         )
         Text(label, color = Color(0xFFCED8D3), fontSize = 8.sp, lineHeight = 10.sp)
     }
