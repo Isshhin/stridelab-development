@@ -274,6 +274,29 @@ internal fun TracksideFigmaActivityDetailSurface(
         // just one small reachable grip above the system navigation area;
         // it does not cover or intercept gestures on the GPS map itself.
         if (mapOnly) {
+            // When the sheet is fully hidden, map attribution must remain
+            // visible. Otherwise it would disappear offscreen with the sheet.
+            val hasSourceRoute = remember(recorded) {
+                recorded?.samples.orEmpty().count {
+                    it.latitude != null && it.longitude != null
+                } >= 2
+            }
+            if (online && hasSourceRoute) {
+                Text(
+                    TracksideMapTiles.ATTRIBUTION,
+                    modifier = Modifier.align(Alignment.BottomStart)
+                        .padding(start = 10.dp, bottom = 43.dp)
+                        .background(
+                            Color(0xDD08100D), RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 7.dp, vertical = 5.dp)
+                        .testTag("activity-map-only-attribution"),
+                    color = Color(0xFFC3D2C7),
+                    fontSize = 8.sp,
+                    lineHeight = 10.sp,
+                    maxLines = 1
+                )
+            }
             val openSummary: () -> Unit = {
                 scope.launch { settleQuickly(SheetValue.PartiallyExpanded) }
             }
