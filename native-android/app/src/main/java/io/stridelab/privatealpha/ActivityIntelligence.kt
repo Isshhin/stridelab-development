@@ -8,6 +8,18 @@ import kotlin.math.abs
 internal data class RunningComparison(val count: Int, val medianPace: Double, val changePercent: Double,
     val oldest: java.time.Instant, val newest: java.time.Instant)
 
+/**
+ * UI-ready, deterministic activity summary. Unlike generative athlete
+ * intelligence, these statements are assembled only from verified source
+ * metrics and the conservative same-source historical comparison.
+ */
+internal data class ActivityInsightPresentation(
+    val headline: String,
+    val summary: String,
+    val evidence: List<String>,
+    val hasComparison: Boolean
+)
+
 internal object ActivityIntelligence {
     private fun discipline(a: ActivityRecord) = a.type.lowercase(Locale.ROOT).replace(Regex("[ _-]"), "")
     private fun running(a: ActivityRecord) = discipline(a) in setOf("run", "running", "trailrun", "trailrunning", "treadmill", "virtualrun")
@@ -40,6 +52,61 @@ internal object ActivityIntelligence {
         }
         return "Your recorded average pace is $direction the median of ${comparison.count} comparable earlier runs (${ActivityRecord.duration(comparison.medianPace)} /km). This describes pace, not improved or reduced fitness: effort, terrain, weather and stops may differ. Review those conditions and how the run felt before changing your next session."
     }
+    /**
+     * Athlete-intelligence-style presentation without pretending to use a
+     * generative AI model or inventing achievements, zones or readiness.
+     * The existing comparison logic and descriptive detail lines are reused.
+     */
+    fun presentation(
+        activity: ActivityRecord,
+        recorded: ActivityDetail?,
+        history: List<ActivityRecord>
+    ): ActivityInsightPresentation? {
+        if (!running(activity)) return null
+        val matched = comparison(activity, history)
+        val pace = activity.recordedPace?.takeIf { it.isFinite() && it > 0.0 }
+        val distance = activity.distanceM?.takeIf { it.isFinite() && it > 0.0 }
+            ?.let { String.format(Locale.getDefault(), "%.2f km", it / 1000.0) }
+        val context = briefInsights(activity, recorded, history)
+
+        val headline: String
+        val summary: String
+        if (matched != null && pace != null) {
+            val change = abs(matched.changePercent)
+            headline = when {
+                change < 1.0 -> "A pace close to your comparable runs"
+                matched.changePercent < 0.0 ->
+                    String.format(Locale.getDefault(),
+                        "A %.1f%% faster pace than similar runs", change)
+                else -> String.format(Locale.getDefault(),
+                    "A %.1f%% slower pace than similar runs", change)
+            }
+            summary = "You averaged " + ActivityRecord.duration(pace) +
+                "/km, compared with " + ActivityRecord.duration(matched.medianPace) +
+                "/km across " + matched.count + " earlier matched runs. " +
+                "Effort, terrain and conditions may differ."
+        } else {
+            headline = when {
+                pace != null && distance != null ->
+                    "A " + distance + " run at " + ActivityRecord.duration(pace) + "/km"
+                pace != null -> "Your run averaged " + ActivityRecord.duration(pace) + "/km"
+                distance != null -> "You recorded a " + distance + " run"
+                else -> "Your running activity, at a glance"
+            }
+            summary = if (recorded?.samples?.any {
+                    it.hr?.isFinite() == true || it.cadenceSpm?.isFinite() == true
+                } == true) {
+                "Your recorded measurements can add context to this effort. " +
+                    "There are not yet enough similar runs for a reliable pace comparison."
+            } else {
+                "There are not yet enough comparable past runs for a pace trend. " +
+                    "More recorded activity data will make this analysis useful."
+            }
+        }
+        return ActivityInsightPresentation(headline, summary, context,
+            hasComparison = matched != null)
+    }
+
     /**
      * Read-only Activity Analysis 1.0. Describe measured evidence, not
      * fitness, training readiness, recovery or a recommended next workout.
