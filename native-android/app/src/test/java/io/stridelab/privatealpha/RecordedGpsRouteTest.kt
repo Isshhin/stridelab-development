@@ -52,6 +52,50 @@ class RecordedGpsRouteTest {
         assertEquals("2 GPS gaps",route.gpsContinuityLabel)
     }
 
+    @Test fun displayRouteConnectsExistingEndpointsAcrossPausesAndMissingFixes() {
+        val source = listOf(
+            sample(0, 0.0, 14.600, 121.000),
+            sample(1, 30.0, 14.601, 121.001),
+            sample(2, 200.0, 14.602, 121.002),
+            sample(3, 230.0, null, null),
+            sample(4, 240.0, 14.603, 121.003)
+        )
+        val pauses = listOf(ActivityPauseInterval(60.0, 180.0))
+        val route = RecordedGpsRoute.from(source, pauses)
+        // The authoritative recording still exposes tracking gaps.
+        assertEquals(3, route.segments.size)
+        assertEquals(1, route.pauseGaps.size)
+        assertEquals(1, route.unknownGaps.size)
+        assertEquals(pauses, route.pauseIntervals)
+        assertEquals(4, route.pointCount)
+        // Map and thumbnail presentation only draw through actual endpoints.
+        assertEquals(1, route.displaySegments.size)
+        assertEquals(4, route.displaySegments.single().size)
+        val lines = JSONObject(route.displayGeoJson())
+            .getJSONArray("features").getJSONObject(0)
+            .getJSONObject("geometry").getJSONArray("coordinates")
+        assertEquals(1, lines.length())
+        assertEquals(4, lines.getJSONArray(0).length())
+        assertEquals(0, route.displayIsolatedPoints.size)
+        assertEquals(2, JSONObject(route.toGeoJson())
+            .getJSONArray("features").getJSONObject(0)
+            .getJSONObject("geometry").getJSONArray("coordinates").length())
+    }
+
+    @Test fun displayRouteDoesNotJoinAcrossTheAntimeridian() {
+        val route = RecordedGpsRoute.from(listOf(
+            sample(0, 0.0, 10.0, 179.90),
+            sample(1, 10.0, 10.01, -179.90),
+            sample(2, 20.0, 10.02, -179.80)
+        ))
+        assertEquals(2, route.displaySegments.size)
+        val displayLines = JSONObject(route.displayGeoJson())
+            .getJSONArray("features").getJSONObject(0)
+            .getJSONObject("geometry").getJSONArray("coordinates")
+        assertEquals(1, displayLines.length())
+        assertEquals(2, displayLines.getJSONArray(0).length())
+    }
+
     @Test fun pauseWithoutSourceFixesDoesNotFabricateSolidRoute() {
         val route=RecordedGpsRoute.from(
             listOf(
