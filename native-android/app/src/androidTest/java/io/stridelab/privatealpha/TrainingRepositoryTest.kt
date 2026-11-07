@@ -413,6 +413,62 @@ class TrainingRepositoryTest {
         assertNull(repo.state.value.activities.find { it.id=="intervals-saved" })
     }
 
+    @Test fun garminSyncDownloadsNewestFitBeforeOlderHistoryAndResumesBackfill() = runBlocking {
+        assertTrue(repo.signIn("fixture@example.invalid", "fixture"))
+        val credentials = object : GarminCredentialStore {
+            override fun read(accountId: String) = GarminCredentialRecord(
+                accountId, "fixture-key", "fixture-bearer", Instant.now().plusSeconds(86_400)
+            )
+            override fun save(record: GarminCredentialRecord) {}
+            override fun clear(accountId: String) {}
+        }
+        // Deliberately unsorted within the first page: local priority must
+        // not depend on Garmin's ordering or on historic SQLite hydration.
+        val newest = Instant.parse("2026-11-07T12:00:00Z")
+        fun activity(index: Long) = GarminActivity(
+            "recent-fit-priority-$index", "Garmin Run $index", "running",
+            newest.minusSeconds(index * 3600L), 1800.0, 5000.0,
+            1750.0, 142.0, numericActivityId = index
+        )
+        val history = ((100L downTo 1L) + (102L downTo 101L)).map(::activity)
+        val events = mutableListOf<String>()
+        val api = object : GarminApi {
+            override fun exchange(apiKey: String) = GarminBearerToken(
+                "fixture-bearer", Instant.now().plusSeconds(86_400)
+            )
+            override fun activities(token: GarminBearerToken, start: Int, limit: Int): List<GarminActivity> {
+                events += "page:$start"
+                return history.drop(start).take(limit)
+            }
+            override fun downloadActivity(token: GarminBearerToken, numericId: Long): ByteArray {
+                events += "fit:$numericId"
+                // A failed source should be skipped on the next pass rather
+                // than starving older, healthy pending recordings.
+                throw GarminProtocolException("Synthetic unavailable FIT")
+            }
+        }
+        val source = GarminPersonalSource(account, credentials, api)
+
+        val first = repo.syncGarmin(source, pageLimit = 2, detailLimit = 3)
+        assertEquals(102, first.importedCount)
+        assertEquals(3, first.failedDetails)
+        assertEquals(
+            listOf("page:0", "fit:1", "fit:2", "fit:3", "page:100"),
+            events
+        )
+        assertEquals(102, repo.state.value.activities.count { it.source == "garmin" })
+
+        events.clear()
+        val second = repo.syncGarmin(source, pageLimit = 2, detailLimit = 3)
+        assertEquals(0, second.importedCount)
+        assertEquals(
+            listOf("page:0", "fit:4", "fit:5", "fit:6", "page:100"),
+            events
+        )
+        // A failed FIT attempt must never delete or replace its source summary.
+        assertEquals(102, repo.state.value.activities.count { it.source == "garmin" })
+    }
+
     @Test fun duplicateGarminIdsWithinOnePageDoNotPartiallyWriteHistory() = runBlocking {
         remote.rows=listOf(row())
         assertTrue(repo.signIn("fixture@example.invalid","fixture"))
