@@ -61,6 +61,20 @@ class GarminGpsDetailTest {
         } catch (_: IllegalArgumentException) {}
     }
 
+    @Test fun recordedFitStrideCadenceIsAvailableInStepsPerMinute() {
+        val withCadence=fit().copy(points=fit().points.map { it.copy(cadenceRpm=86.0) })
+        val raw=GarminGpsDetail.payload("owner",summary,withCadence,1234L)
+        val parsed=ActivityDetail.parse(raw,"owner",summary.id)
+        assertEquals(172.0,parsed.samples.first().cadenceSpm!!,0.001)
+        assertEquals(172.0,raw.getJSONArray("samples").getJSONObject(0)
+            .getDouble("cadence_spm"),0.001)
+        // Previously saved JSON has no cadence_spm key. It must still load.
+        val old=GarminGpsDetail.payload("owner",summary,fit(),1234L)
+        val oldSample=old.getJSONArray("samples").getJSONObject(0)
+        oldSample.remove("cadence_spm")
+        assertNull(ActivityDetail.parse(old,"owner",summary.id).samples.first().cadenceSpm)
+    }
+
     @Test fun pausedFitUsesTimerDurationForGarminSummaryValidation() {
         val pausedSummary=summary.copy(durationS=5841.134765625,movingTimeS=5831.903961181641)
         val raw=GarminGpsDetail.payload("owner",pausedSummary,
