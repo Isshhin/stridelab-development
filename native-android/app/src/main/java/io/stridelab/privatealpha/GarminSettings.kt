@@ -54,9 +54,23 @@ internal fun GarminSettingsCard(
         busy = true
         onBusyChange(true)
         scope.launch {
-            try { status = withContext(Dispatchers.IO) { action() } }
-            catch (error: Exception) { status = GarminConnectionStatus.fromError(error) }
-            finally {
+            try {
+                status = withContext(Dispatchers.IO) { action() }
+                // A manual sync first commits the Garmin source to SQLite.
+                // Only then may opt-in cloud backup attempt a separate upload.
+                if (status.lastSuccessfulSync != null && cloudEnabled &&
+                    backupGarminCloud != null) {
+                    try {
+                        val uploaded = withContext(Dispatchers.IO) { backupGarminCloud() }
+                        cloudMessage = uploaded.toString() +
+                            " local records uploaded to your private cloud backup."
+                    } catch (_: Exception) {
+                        cloudMessage = "Garmin saved locally; cloud backup will retry later."
+                    }
+                }
+            } catch (error: Exception) {
+                status = GarminConnectionStatus.fromError(error)
+            } finally {
                 // Keystore reads must not occur in every Compose frame.
                 connected = withContext(Dispatchers.IO) {
                     runCatching { source.status().state == "connected" }.getOrDefault(false)
@@ -212,6 +226,10 @@ internal fun GarminSettingsCard(
             )
         }
         if (cloudEnabled) {
+            Text(
+                "Uploads and restores run in bounded batches. Oversized recordings remain local.",
+                color = garminMuted, fontSize = 11.sp, lineHeight = 15.sp
+            )
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
