@@ -99,7 +99,7 @@ internal fun TracksideFigmaActivityDetailSurface(
         val hasRecordedGps = remember(recorded) {
             recorded?.samples.orEmpty().count {
                 it.latitude != null && it.longitude != null
-            } >= 2
+            } >= 1
         }
 
         // Speed up programmatic sheet settling without relying on internal
