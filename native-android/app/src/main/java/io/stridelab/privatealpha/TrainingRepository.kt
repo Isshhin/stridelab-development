@@ -522,13 +522,15 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             if (ready.needsSignIn) return@withContext true
             var success = true
             val interval = if (foreground) 30L * 60_000 else 6L * 60 * 60_000
-            if (garminSyncPreferences.automatic(account) &&
-                garminSyncPreferences.claim(account, "garmin", interval)) {
+            if (garminSyncPreferences.automatic(account)) {
                 val source = GarminPersonalSource(
                     account, GarminCredentialVault(appContext), GarminPersonalClient())
                 val connected = runCatching { source.status().state == "connected" }
                     .getOrDefault(false)
-                if (connected) {
+                // Do not consume the automatic-check window while Garmin is
+                // disconnected; a newly linked account should remain eligible.
+                if (connected &&
+                    garminSyncPreferences.claim(account, "garmin", interval)) {
                     try {
                         val result = syncGarmin(source, pageLimit = 2, detailLimit = 3)
                         if (result.error != null) success = false
