@@ -160,7 +160,6 @@ internal fun TracksideFigmaDisciplineScreen(
     Column(
         Modifier.fillMaxSize().background(Color.Black)
             .testTag("figma-builder-frame")
-            .testTag("builder-disciplines-screen")
     ) {
         Row(
             Modifier.fillMaxWidth().height(70.dp)
