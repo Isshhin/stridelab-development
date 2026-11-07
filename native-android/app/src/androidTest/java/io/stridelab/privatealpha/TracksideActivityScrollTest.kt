@@ -65,6 +65,8 @@ class TracksideActivityScrollTest {
         val rootBounds = compose.onRoot().getUnclippedBoundsInRoot()
         val previewBottom = compose.onNodeWithTag("activity-preview-bottom")
             .getUnclippedBoundsInRoot()
+        val previewHeight = compose.onNodeWithTag("activity-parity-overview")
+            .getUnclippedBoundsInRoot().height
         val handleBounds = compose.onNodeWithTag("activity-sheet-handle")
             .getUnclippedBoundsInRoot()
         assertTrue(
@@ -83,6 +85,15 @@ class TracksideActivityScrollTest {
             compose.onAllNodesWithTag("activity-sticky-pill").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithTag("activity-tab-overview").assertIsSelected()
+        // The summary stays mounted, at the same measured height, as the
+        // expanded content fades in. No full content swap or peek-anchor jump.
+        compose.onNodeWithTag("activity-parity-overview").assertExists()
+        compose.onNodeWithTag("activity-preview-bottom").assertExists()
+        org.junit.Assert.assertEquals(
+            previewHeight,
+            compose.onNodeWithTag("activity-parity-overview")
+                .getUnclippedBoundsInRoot().height
+        )
         compose.onNodeWithTag("activity-tab-splits").performClick()
         compose.waitUntil(timeoutMillis = 5000) {
             compose.onAllNodesWithTag("activity-section-splits")
