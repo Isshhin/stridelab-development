@@ -60,6 +60,8 @@ class TracksideActivityScrollTest {
         compose.onNodeWithTag("activity-map-hero").assertExists()
         compose.onNodeWithTag("activity-parity-overview").assertExists()
         compose.onNodeWithTag("activity-primary-metrics").assertIsDisplayed()
+        compose.onNodeWithText("DURATION").assertExists()
+        compose.onNodeWithText("AVG HR").assertExists()
         // Regression: the collapsed summary must finish near the bottom
         // edge, not leave a large unused sheet area below its metrics.
         val rootBounds = compose.onRoot().getUnclippedBoundsInRoot()
@@ -101,6 +103,7 @@ class TracksideActivityScrollTest {
             .performScrollToNode(hasTestTag("activity-insights"))
         compose.onNodeWithTag("activity-insights-headline").assertExists()
         compose.onNodeWithTag("activity-insights-summary").assertExists()
+        compose.onNodeWithText("Overall Analysis").assertExists()
         compose.onNodeWithTag("activity-insights-detail-0").assertDoesNotExist()
         compose.onNodeWithTag("activity-continuous-scroll")
             .performScrollToNode(hasTestTag("activity-insights-toggle"))
@@ -118,6 +121,10 @@ class TracksideActivityScrollTest {
             compose.onAllNodesWithTag("activity-section-splits")
                 .fetchSemanticsNodes().isNotEmpty()
         }
+        compose.onNodeWithTag("activity-continuous-scroll")
+            .performScrollToNode(hasTestTag("activity-splits-insights"))
+        compose.onNodeWithTag("activity-splits-insights").assertExists()
+        compose.onNodeWithText("Splits Analysis").assertExists()
         compose.onNodeWithTag("activity-tab-charts").performClick()
         compose.waitUntil(timeoutMillis = 5000) {
             compose.onAllNodesWithTag("activity-section-charts")
@@ -130,6 +137,9 @@ class TracksideActivityScrollTest {
             .performScrollToNode(hasTestTag("activity-chart-cadence"))
         compose.onNodeWithTag("activity-chart-cadence").assertIsDisplayed()
         compose.onNodeWithTag("activity-chart-summary-cadence").assertExists()
+        compose.onNodeWithTag("activity-chart-y-axis-cadence").assertExists()
+        compose.onNodeWithTag("activity-chart-insights-cadence").assertExists()
+        compose.onNodeWithText("Cadence Analysis").assertExists()
         compose.onNodeWithTag("stream-Cadence").performTouchInput { swipeRight() }
         compose.onNodeWithTag("activity-chart-cursor-cadence").assertExists()
         compose.onNodeWithTag("activity-map-hero").assertExists()
