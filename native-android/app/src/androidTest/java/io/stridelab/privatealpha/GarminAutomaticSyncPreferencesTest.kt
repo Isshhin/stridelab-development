@@ -30,9 +30,15 @@ class GarminAutomaticSyncPreferencesTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val prefs = GarminSyncPreferences(context)
         val owner = "test-" + UUID.randomUUID()
+        assertTrue(prefs.due(owner, "garmin", 1800000L, 10000000L))
+        // Merely checking due time does not consume a future claim.
+        assertTrue(prefs.due(owner, "garmin", 1800000L, 10000000L))
         assertTrue(prefs.claim(owner, "garmin", 1800000L, 10000000L))
+        assertFalse(prefs.due(owner, "garmin", 1800000L, 10000001L))
         assertFalse(prefs.claim(owner, "garmin", 1800000L, 10000001L))
+        assertTrue(prefs.due(owner, "garmin", 1800000L, 11800001L))
         assertTrue(prefs.claim(owner, "garmin", 1800000L, 11800001L))
+        assertFalse(prefs.due(owner, "garmin", 1800000L, 11800002L))
         assertTrue(prefs.claim(owner, "cloud", 1800000L, 10000001L))
         val id = "garmin-" + "a".repeat(64)
         val payload = "{\"id\":\"record-1\"}"
