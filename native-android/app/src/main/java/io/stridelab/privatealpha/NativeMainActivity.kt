@@ -108,7 +108,17 @@ class NativeMainActivity: ComponentActivity() {
 @Composable internal fun NativeStrideApp(model: TrainingViewModel = viewModel()) {
     val state by model.state.collectAsStateWithLifecycle(context=kotlinx.coroutines.Dispatchers.Main.immediate)
     val online by model.online.collectAsStateWithLifecycle(context=kotlinx.coroutines.Dispatchers.Main.immediate)
-    val actions = remember(model) { NativeActions(model::refresh, {}, {}, model::signOut, model::signIn, model::loadDetail, model::refreshWellness, model.planActions(), syncGarmin=model::syncGarmin, loadGarminGps=model::loadGarminGps, signUp=model::signUp, requestPasswordReset=model::requestPasswordReset) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(model, lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) model.onAppResumed()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    val actions = remember(model) { NativeActions(model::refresh, {}, {}, model::signOut, model::signIn, model::loadDetail, model::refreshWellness, model.planActions(), syncGarmin=model::syncGarmin, loadGarminGps=model::loadGarminGps,
+        backupGarminCloud=model::backupGarminCloud, restoreGarminCloud=model::restoreGarminCloud,
+        signUp=model::signUp, requestPasswordReset=model::requestPasswordReset) }
     NativeStrideContent(state, online, actions)
 }
 
@@ -120,7 +130,9 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
     val syncGarmin: (suspend (GarminPersonalSource) -> GarminConnectionStatus)? = null,
     val loadGarminGps: ((String,GarminPersonalSource)->Unit)?=null,
     val signUp: (String, String, String) -> Unit = { _, _, _ -> },
-    val requestPasswordReset: (String) -> Unit = {})
+    val requestPasswordReset: (String) -> Unit = {},
+    val backupGarminCloud: (suspend () -> Int)? = null,
+    val restoreGarminCloud: (suspend () -> Int)? = null)
 
 /** Primary destinations switch immediately; the legacy Activity history route remains available.
  * retain the existing Navigation Compose transitions.
@@ -574,6 +586,8 @@ private fun NavHostController.openActivity(id: String) {
                                 TracksideGarminConnectionSheet(
                                     accountId = state.account!!,
                                     syncGarmin = actions.syncGarmin,
+                                    backupGarminCloud = actions.backupGarminCloud,
+                                    restoreGarminCloud = actions.restoreGarminCloud,
                                     busy = garminBusy,
                                     onBusyChange = { garminBusy = it },
                                     onDismiss = { if (!garminBusy) garminSheetOpen = false }
