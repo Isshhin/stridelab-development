@@ -57,6 +57,74 @@ import kotlin.math.cos
  * for interactive app maps, with no API key and no bulk/offline prefetch.
  * https://openfreemap.org/
  */
+internal enum class TracksideActivityMapMode(val label:String) {
+    ROUTE("Route"),
+    PACE("Pace"),
+    ELEVATION("Elevation"),
+    HEART_RATE("HR")
+}
+
+private data class TracksideAnalysisRoute(
+    val geoJson:String,
+    val minimum:Double?,
+    val maximum:Double?
+)
+
+private fun activityAnalysisRoute(
+    samples:List<ActivitySample>,
+    pauses:List<ActivityPauseInterval>,
+    mode:TracksideActivityMapMode
+):TracksideAnalysisRoute {
+    if (mode == TracksideActivityMapMode.ROUTE) {
+        return TracksideAnalysisRoute(
+            JSONObject().put("type","FeatureCollection")
+                .put("features",JSONArray()).toString(),
+            null,null
+        )
+    }
+    fun value(sample:ActivitySample):Double?=when(mode) {
+        TracksideActivityMapMode.PACE -> sample.pace
+        TracksideActivityMapMode.ELEVATION -> sample.altitude
+        TracksideActivityMapMode.HEART_RATE -> sample.hr
+        TracksideActivityMapMode.ROUTE -> null
+    }?.takeIf { it.isFinite() }
+
+    fun crossesPause(a:Double,b:Double)=pauses.any {
+        a < it.endSeconds && b > it.startSeconds
+    }
+    val features=JSONArray()
+    val values=ArrayList<Double>()
+    samples.zipWithNext().forEach { (a,b) ->
+        val av=value(a)
+        val bv=value(b)
+        val alat=a.latitude
+        val alon=a.longitude
+        val blat=b.latitude
+        val blon=b.longitude
+        if(av==null || bv==null || alat==null || alon==null ||
+            blat==null || blon==null ||
+            b.seconds-a.seconds > 120.0 ||
+            crossesPause(a.seconds,b.seconds) ||
+            kotlin.math.abs(alon-blon) >= 180.0
+        ) return@forEach
+        val metric=(av+bv)/2.0
+        values.add(metric)
+        features.put(
+            JSONObject().put("type","Feature")
+                .put("properties",JSONObject().put("value",metric))
+                .put("geometry",JSONObject()
+                    .put("type","LineString")
+                    .put("coordinates",JSONArray()
+                        .put(JSONArray().put(alon).put(alat))
+                        .put(JSONArray().put(blon).put(blat))))
+        )
+    }
+    return TracksideAnalysisRoute(
+        JSONObject().put("type","FeatureCollection").put("features",features).toString(),
+        values.minOrNull(),values.maxOrNull()
+    )
+}
+
 internal object TracksideMapTiles {
     // Dedicated StrideLab activity-map style. It uses OpenFreeMap/OpenMapTiles
     // sources but owns the presentation: dark slate land, differentiated green
@@ -77,6 +145,8 @@ internal fun TracksideGeographicMap(
     modifier:Modifier=Modifier,
     selectedSeconds:Double?=null,
     laps:List<ActivityLap> = emptyList(),
+    samples:List<ActivitySample> = emptyList(),
+    mapMode:TracksideActivityMapMode = TracksideActivityMapMode.ROUTE,
     selectedRange:Pair<Double,Double>? = null,
     onSelectRange:(Pair<Double,Double>?) -> Unit = {}
 ) {
@@ -89,6 +159,8 @@ internal fun TracksideGeographicMap(
                 modifier = Modifier.fillMaxSize(),
                 selectedSeconds = selectedSeconds,
                 laps = laps,
+                samples = samples,
+                mapMode = mapMode,
                 selectedRange = selectedRange,
                 recenterRequest = recenterRequest,
                 onSelectRange = onSelectRange
@@ -137,6 +209,8 @@ private fun MapLibreRouteView(
     modifier:Modifier=Modifier,
     selectedSeconds:Double?=null,
     laps:List<ActivityLap> = emptyList(),
+    samples:List<ActivitySample> = emptyList(),
+    mapMode:TracksideActivityMapMode = TracksideActivityMapMode.ROUTE,
     selectedRange:Pair<Double,Double>? = null,
     recenterRequest:Int = 0,
     onSelectRange:(Pair<Double,Double>?) -> Unit = {},
@@ -165,6 +239,9 @@ private fun MapLibreRouteView(
     val finishPointJson=remember(route) { route.finishPointGeoJson() }
     val directionJson=remember(route) { route.directionMarkersGeoJson() }
     val splitMarkersJson=remember(route,laps) { route.splitMarkersGeoJson(laps) }
+    val analysisRoute=remember(samples,route.pauseIntervals,mapMode) {
+        activityAnalysisRoute(samples,route.pauseIntervals,mapMode)
+    }
     val selectedRangeJson=remember(route,selectedRange) { route.rangeGeoJson(selectedRange) }
     val gapJson=remember(route) { route.gapsGeoJson() }
     val pauseGapJson=remember(route) { route.pauseGapsGeoJson() }
@@ -250,7 +327,7 @@ private fun MapLibreRouteView(
     LaunchedEffect(
         mapView, geoJson, isolatedJson, pausedPointsJson,
         startPointJson, finishPointJson, directionJson, splitMarkersJson,
-        gapJson, pauseGapJson
+        analysisRoute.geoJson, mapMode, gapJson, pauseGapJson
     ) {
         mapView.getMapAsync { map ->
             liveMap = map
@@ -313,10 +390,69 @@ private fun MapLibreRouteView(
                     val line=LineLayer("stride-gps-line","stride-actual-gps").withProperties(
                         PropertyFactory.lineColor(AndroidColor.rgb(216,251,112)),
                         PropertyFactory.lineWidth(routeWidth),
-                        PropertyFactory.lineOpacity(if (selectedRange == null) 0.97f else 0.42f)
+                        PropertyFactory.lineOpacity(
+                            when {
+                                selectedRange != null -> 0.36f
+                                mapMode != TracksideActivityMapMode.ROUTE -> 0.18f
+                                else -> 0.97f
+                            }
+                        )
                     )
                     style.addLayer(line)
                     activeRouteLayer = line
+
+                    if (
+                        mapMode != TracksideActivityMapMode.ROUTE &&
+                        analysisRoute.minimum != null &&
+                        analysisRoute.maximum != null
+                    ) {
+                        style.addSource(
+                            GeoJsonSource("stride-analysis-route",analysisRoute.geoJson)
+                        )
+                        val low=analysisRoute.minimum
+                        val high=analysisRoute.maximum
+                        val mid=(low+high)/2.0
+                        val lineColors=when(mapMode) {
+                            TracksideActivityMapMode.PACE -> arrayOf(
+                                AndroidColor.rgb(216,251,112),
+                                AndroidColor.rgb(255,190,122),
+                                AndroidColor.rgb(255,140,135)
+                            )
+                            TracksideActivityMapMode.ELEVATION -> arrayOf(
+                                AndroidColor.rgb(94,171,214),
+                                AndroidColor.rgb(194,168,255),
+                                AndroidColor.rgb(255,190,122)
+                            )
+                            TracksideActivityMapMode.HEART_RATE -> arrayOf(
+                                AndroidColor.rgb(121,201,179),
+                                AndroidColor.rgb(216,251,112),
+                                AndroidColor.rgb(255,140,135)
+                            )
+                            TracksideActivityMapMode.ROUTE -> arrayOf(
+                                AndroidColor.rgb(216,251,112),
+                                AndroidColor.rgb(216,251,112),
+                                AndroidColor.rgb(216,251,112)
+                            )
+                        }
+                        // Pace intentionally maps lower sec/km to the first,
+                        // faster color. Elevation and HR map low->high directly.
+                        style.addLayer(
+                            LineLayer("stride-analysis-route-line","stride-analysis-route")
+                                .withProperties(
+                                    PropertyFactory.lineColor(
+                                        Expression.interpolate(
+                                            Expression.linear(),
+                                            Expression.get("value"),
+                                            Expression.stop(low,lineColors[0]),
+                                            Expression.stop(mid,lineColors[1]),
+                                            Expression.stop(high,lineColors[2])
+                                        )
+                                    ),
+                                    PropertyFactory.lineWidth(routeWidth),
+                                    PropertyFactory.lineOpacity(0.98f)
+                                )
+                        )
+                    }
 
                     val rangeSource=GeoJsonSource("stride-selected-split",selectedRangeJson)
                     style.addSource(rangeSource)
@@ -460,7 +596,13 @@ private fun MapLibreRouteView(
     LaunchedEffect(selectedRangeJson, selectedRangeSource, activeRouteLayer) {
         selectedRangeSource?.setGeoJson(selectedRangeJson)
         activeRouteLayer?.setProperties(
-            PropertyFactory.lineOpacity(if (selectedRange == null) 0.97f else 0.42f)
+            PropertyFactory.lineOpacity(
+                when {
+                    selectedRange != null -> 0.36f
+                    mapMode != TracksideActivityMapMode.ROUTE -> 0.18f
+                    else -> 0.97f
+                }
+            )
         )
     }
     LaunchedEffect(recenterRequest, liveMap) {
