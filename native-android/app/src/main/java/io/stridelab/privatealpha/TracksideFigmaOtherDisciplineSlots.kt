@@ -67,7 +67,7 @@ internal fun TracksideFigmaOtherDisciplineSlots(
                         },
                         modifier=Modifier.weight(1f).height(41.dp)
                             .testTag("builder-discipline-day-tab-"+name),
-                        color=if(name==discipline)Color(0xFFDBF351)
+                        color=if(name==discipline)PlanBuilderPalette.selected
                             else Color(0xFF303030),
                         shape=RoundedCornerShape(9.dp),
                         border=BorderStroke(1.dp,
@@ -118,7 +118,7 @@ internal fun TracksideFigmaOtherDisciplineSlots(
                         modifier=Modifier.widthIn(min=99.dp).heightIn(min=49.dp)
                             .testTag("builder-other-session-"+i),
                         shape=RoundedCornerShape(9.dp),
-                        color=if(activeSlot)Color(0xFFDBF351)
+                        color=if(activeSlot)PlanBuilderPalette.selected
                             else Color(0xFF303030),
                         border=BorderStroke(if(activeSlot)2.dp else 1.dp,
                             if(activeSlot)Color(0xFFDBF351) else border)
@@ -153,8 +153,8 @@ internal fun TracksideFigmaOtherDisciplineSlots(
                             onClick={onAssignDay(discipline,current,day)},
                             modifier=Modifier.fillMaxWidth().height(44.dp)
                                 .testTag("builder-other-day-"+day),
-                            color=if(picked)Color(0xFFDBF351)
-                                else if(occupied>=0)Color(0xFFDBF351)
+                            color=if(picked)PlanBuilderPalette.selected
+                                else if(occupied>=0)PlanBuilderPalette.surfaceRaised
                                 else Color(0xFF303030),
                             shape=RoundedCornerShape(8.dp),
                             border=BorderStroke(if(picked)2.dp else 1.dp,
