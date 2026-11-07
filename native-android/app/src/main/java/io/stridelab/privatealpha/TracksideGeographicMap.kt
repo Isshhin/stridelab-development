@@ -567,7 +567,7 @@ private fun RecordedGpsFallback(
         )
         // Outline styling joins recorded endpoints visually. It never
         // changes the source gap/pause evidence or recorded distance.
-        route.displaySegments.forEach { segment ->
+        route.renderSegments.forEach { segment ->
             segment.zipWithNext().forEach { (a,b) ->
                 drawLine(Color(0xFFD8FB70),position(a),position(b),3.dp.toPx())
             }
