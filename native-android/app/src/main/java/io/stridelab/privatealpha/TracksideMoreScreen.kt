@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -277,12 +278,30 @@ internal fun TracksideMoreDetailScreen(
 private fun AthleteHeartRatePreferenceCard(account: String?) {
     val context = LocalContext.current
     val preferences = remember(context) { AthleteHeartRatePreferences(context) }
-    var savedMaximum by remember(account) { mutableStateOf(preferences.maximumHr(account)) }
-    var text by remember(account, savedMaximum) {
-        mutableStateOf(savedMaximum?.toString().orEmpty())
+    var saved by remember(account) {
+        mutableStateOf(preferences.settings(account))
     }
-    val parsed = text.toIntOrNull()
-    val valid = text.isBlank() || parsed in 100..240
+    var method by remember(account, saved) { mutableStateOf(saved.method) }
+    var maximumText by remember(account, saved) {
+        mutableStateOf(saved.maximumHr?.toString().orEmpty())
+    }
+    var thresholdText by remember(account, saved) {
+        mutableStateOf(saved.lactateThresholdHr?.toString().orEmpty())
+    }
+    var restingText by remember(account, saved) {
+        mutableStateOf(saved.restingHr?.toString().orEmpty())
+    }
+
+    val maximum = maximumText.toIntOrNull()
+    val threshold = thresholdText.toIntOrNull()
+    val resting = restingText.toIntOrNull()
+    val candidate = AthleteHeartRateZoneSettings(
+        method = method,
+        maximumHr = maximum,
+        lactateThresholdHr = threshold,
+        restingHr = resting
+    )
+    val valid = candidate.ready
 
     Surface(
         shape = RoundedCornerShape(21.dp), color = moreSurface,
@@ -291,57 +310,170 @@ private fun AthleteHeartRatePreferenceCard(account: String?) {
     ) {
         Column(
             Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(11.dp)
         ) {
             Text(
                 "Heart rate zones", color = moreWhite, fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                "Set your maximum heart rate once. Activity Detail uses it for " +
-                    "five estimated %HRmax zones; this does not change Garmin zones or coaching.",
+                "Choose how StrideLab calculates five heart-rate zones. " +
+                    "These settings affect Activity Detail only and do not change Garmin or coaching.",
                 color = moreMuted, fontSize = 12.sp, lineHeight = 18.sp
             )
-            OutlinedTextField(
-                value = text,
-                onValueChange = { value ->
-                    if (value.length <= 3 && value.all { it.isDigit() }) text = value
-                },
-                modifier = Modifier.fillMaxWidth().testTag("athlete-max-hr-input"),
-                label = { Text("Maximum heart rate") },
-                placeholder = { Text("100–240 bpm") },
-                suffix = { Text("bpm") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                isError = text.isNotBlank() && !valid,
-                supportingText = {
-                    Text(
-                        when {
-                            text.isNotBlank() && !valid -> "Enter a value from 100 to 240 bpm."
-                            account == null -> "Saved locally on this device."
-                            else -> "Saved for the signed-in athlete on this device."
-                        }
+
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                HeartRateZoneMethod.entries.forEach { option ->
+                    FilterChip(
+                        selected = method == option,
+                        onClick = { method = option },
+                        label = {
+                            Text(
+                                option.displayName,
+                                maxLines = 1,
+                                fontSize = 11.sp
+                            )
+                        },
+                        modifier = Modifier.weight(1f)
+                            .testTag("athlete-hr-method-" + option.storageValue)
                     )
+                }
+            }
+
+            Text(
+                when (method) {
+                    HeartRateZoneMethod.MAX_BPM ->
+                        "MAX BPM uses percentages of your saved maximum heart rate."
+                    HeartRateZoneMethod.LTHR_PERCENT ->
+                        "LTHR% uses your lactate-threshold heart rate."
+                    HeartRateZoneMethod.HRR_PERCENT ->
+                        "HRR% uses heart-rate reserve: maximum HR minus resting HR."
                 },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = moreLime,
-                    focusedLabelColor = moreLime,
-                    unfocusedBorderColor = moreBorder,
-                    focusedTextColor = moreWhite,
-                    unfocusedTextColor = moreWhite
-                )
+                color = moreSecondary, fontSize = 11.sp, lineHeight = 16.sp
             )
+
+            if (method == HeartRateZoneMethod.MAX_BPM ||
+                method == HeartRateZoneMethod.HRR_PERCENT
+            ) {
+                OutlinedTextField(
+                    value = maximumText,
+                    onValueChange = { value ->
+                        if (value.length <= 3 && value.all { it.isDigit() }) {
+                            maximumText = value
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("athlete-max-hr-input"),
+                    label = { Text("Maximum heart rate") },
+                    placeholder = { Text("100–240") },
+                    suffix = { Text("bpm") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = maximumText.isNotBlank() && maximum !in 100..240,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = moreLime,
+                        focusedLabelColor = moreLime,
+                        unfocusedBorderColor = moreBorder,
+                        focusedTextColor = moreWhite,
+                        unfocusedTextColor = moreWhite
+                    )
+                )
+            }
+
+            if (method == HeartRateZoneMethod.LTHR_PERCENT) {
+                OutlinedTextField(
+                    value = thresholdText,
+                    onValueChange = { value ->
+                        if (value.length <= 3 && value.all { it.isDigit() }) {
+                            thresholdText = value
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("athlete-lthr-input"),
+                    label = { Text("Lactate threshold HR") },
+                    placeholder = { Text("100–230") },
+                    suffix = { Text("bpm") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = thresholdText.isNotBlank() && threshold !in 100..230,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = moreLime,
+                        focusedLabelColor = moreLime,
+                        unfocusedBorderColor = moreBorder,
+                        focusedTextColor = moreWhite,
+                        unfocusedTextColor = moreWhite
+                    )
+                )
+            }
+
+            if (method == HeartRateZoneMethod.HRR_PERCENT) {
+                OutlinedTextField(
+                    value = restingText,
+                    onValueChange = { value ->
+                        if (value.length <= 3 && value.all { it.isDigit() }) {
+                            restingText = value
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("athlete-resting-hr-input"),
+                    label = { Text("Resting heart rate") },
+                    placeholder = { Text("30–120") },
+                    suffix = { Text("bpm") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = restingText.isNotBlank() &&
+                        (resting !in 30..120 ||
+                            (maximum != null && resting != null && resting >= maximum)),
+                    supportingText = {
+                        if (maximum != null && resting != null && resting >= maximum) {
+                            Text("Resting HR must be below maximum HR.")
+                        }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = moreLime,
+                        focusedLabelColor = moreLime,
+                        unfocusedBorderColor = moreBorder,
+                        focusedTextColor = moreWhite,
+                        unfocusedTextColor = moreWhite
+                    )
+                )
+            }
+
+            Text(
+                when (method) {
+                    HeartRateZoneMethod.MAX_BPM ->
+                        "Zones: <60%, 60–69%, 70–79%, 80–89%, ≥90% Max HR."
+                    HeartRateZoneMethod.LTHR_PERCENT ->
+                        "Zones: <85%, 85–89%, 90–94%, 95–99%, ≥100% LTHR."
+                    HeartRateZoneMethod.HRR_PERCENT ->
+                        "Zones: <60%, 60–69%, 70–79%, 80–89%, ≥90% HRR."
+                },
+                color = moreMuted, fontSize = 10.sp, lineHeight = 15.sp
+            )
+
+            Text(
+                if (account == null)
+                    "Saved locally on this device."
+                else
+                    "Saved for the signed-in athlete on this device.",
+                color = moreSecondary, fontSize = 10.sp
+            )
+
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (savedMaximum != null) {
+                if (saved.maximumHr != null || saved.lactateThresholdHr != null ||
+                    saved.restingHr != null
+                ) {
                     TextButton(
                         onClick = {
-                            preferences.setMaximumHr(account, null)
-                            savedMaximum = null
-                            text = ""
+                            preferences.clear(account)
+                            saved = preferences.settings(account)
                         },
                         modifier = Modifier.testTag("athlete-max-hr-clear")
                     ) {
@@ -350,10 +482,10 @@ private fun AthleteHeartRatePreferenceCard(account: String?) {
                 }
                 Button(
                     onClick = {
-                        preferences.setMaximumHr(account, parsed)
-                        savedMaximum = parsed
+                        preferences.save(account, candidate)
+                        saved = candidate
                     },
-                    enabled = text.isNotBlank() && valid && parsed != savedMaximum,
+                    enabled = valid && candidate != saved,
                     modifier = Modifier.testTag("athlete-max-hr-save"),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = moreLime,
