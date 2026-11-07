@@ -467,6 +467,9 @@ private fun TracksideActivityOverviewBody(
     online: Boolean,
     onLoadGarminGps: (() -> Unit)?
 ) {
+    val insights = remember(activity, recorded, history) {
+        ActivityIntelligence.briefInsights(activity, recorded, history)
+    }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(0.dp)) {
         if (DashboardSummary.isRun(activity)) {
             ActivityPlanLink(state, activity, actions.planning, matchedSourceIds)
@@ -513,13 +516,18 @@ private fun TracksideActivityOverviewBody(
         if (activity.source == "garmin" && state.message?.contains("Garmin", ignoreCase = true) == true) {
             Text(state.message.orEmpty(), color = activityMuted, fontSize = 11.sp)
         }
-        // Preserve source-derived training context without inventing training effect.
-        if (history.size > 1) {
-            val comparison = ActivityIntelligence.comparison(activity, history)
-            if (comparison != null) {
-                Spacer(Modifier.height(12.dp))
-                Text("Compared with " + comparison.count + " earlier saved runs",
-                    color = activityMuted, fontSize = 11.sp)
+        // A concise, read-only context section. This deliberately does not
+        // issue coaching prescriptions or infer fitness, recovery or fatigue.
+        if (insights.isNotEmpty()) {
+            Spacer(Modifier.height(14.dp))
+            Column(Modifier.fillMaxWidth().testTag("activity-insights"),
+                verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                ActivitySectionHeading("Activity insights")
+                insights.forEachIndexed { index, insight ->
+                    Text(insight, color = if (index == 0) activityText else activityMuted,
+                        fontSize = 12.sp, lineHeight = 17.sp,
+                        modifier = Modifier.testTag("activity-insight-" + index))
+                }
             }
         }
     }
