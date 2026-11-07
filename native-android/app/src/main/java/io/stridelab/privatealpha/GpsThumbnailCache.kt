@@ -63,7 +63,7 @@ internal class GpsThumbnailCache(context: Context) {
 
     fun render(route: RecordedGpsRoute): ByteArray {
         val segments = if (route.allPoints.let { it.isNotEmpty() && it.maxOf { p -> p.longitude } - it.minOf { p -> p.longitude } > 180 })
-            listOf(route.displaySegments.maxByOrNull { it.size }.orEmpty()) else route.displaySegments
+            listOf(route.renderSegments.maxByOrNull { it.size }.orEmpty()) else route.renderSegments
         val points = segments.flatten()
         if (segments.none { it.size >= 2 }) return ByteArray(0)
         val projection = cos(Math.toRadians(points.map { it.latitude }.average())).coerceAtLeast(.01)
