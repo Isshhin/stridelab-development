@@ -86,7 +86,7 @@ internal fun TracksidePrimaryActivityMetrics(activity: ActivityRecord) {
             ActivityMetricGlyph.Route, Modifier.weight(1f)
         )
         PrimaryActivityMetric(
-            "MOVING TIME", activity.movingTimeS?.let(ActivityRecord::duration) ?: "—",
+            "MOVING TIME", activity.movingTimeS?.let { ActivityRecord.duration(it) } ?: "—",
             "", ActivityMetricGlyph.Timer, Modifier.weight(1.13f)
         )
         PrimaryActivityMetric(
@@ -430,7 +430,7 @@ private fun TracksideActivityOverviewBody(
         ActivityInfoLine("Average pace",
             if (activity.supportsPace && activity.detailPaceLabel != "Not recorded")
                 activity.detailPaceLabel else null)
-        ActivityInfoLine("Elapsed time", activity.durationS?.let(ActivityRecord::duration))
+        ActivityInfoLine("Elapsed time", activity.durationS?.let { ActivityRecord.duration(it) })
         ActivityInfoLine("Average heart rate",
             activity.averageHr?.let { it.roundToInt().toString() + " bpm" })
         ActivityInfoLine("Elevation gain",
@@ -518,8 +518,8 @@ private fun TracksideActivitySplitRow(
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    recordedPace?.let(ActivityRecord::duration)
-                        ?: lap.seconds?.let(ActivityRecord::duration) ?: "—",
+                    recordedPace?.let { ActivityRecord.duration(it) }
+                        ?: lap.seconds?.let { ActivityRecord.duration(it) } ?: "—",
                     color = activityText, fontSize = 12.sp,
                     modifier = Modifier.width(52.dp)
                 )
@@ -553,16 +553,41 @@ private fun TracksideActivitySourceChart(
 ) {
     // Limit drawing cost for long FIT recordings; missing samples and gaps
     // remain breaks, never interpolated measurements.
-    val points = remember(samples, title) {
-        val stride = (samples.size / 450).coerceAtLeast(1)
-        samples.filterIndexed { i, _ -> i % stride == 0 || i == samples.lastIndex }
+    // Build real contiguous segments before downsampling. Never draw a
+    // connecting line across missing values or gaps in the source recording.
+    val segments = remember(samples, title) {
+        val result = mutableListOf<List<ActivitySample>>()
+        var segment = mutableListOf<ActivitySample>()
+        var previous: ActivitySample? = null
+        fun finish() {
+            if (segment.isNotEmpty()) result.add(segment)
+            segment = mutableListOf()
+            previous = null
+        }
+        samples.forEach { sample ->
+            val value = metric(sample)
+            if (value == null || !value.isFinite() ||
+                (previous != null && sample.seconds - previous!!.seconds > 120.0)
+            ) {
+                finish()
+            }
+            if (value != null && value.isFinite()) {
+                segment.add(sample)
+                previous = sample
+            }
+        }
+        finish()
+        val step = (samples.size / 450).coerceAtLeast(1)
+        result.map { contiguous ->
+            contiguous.filterIndexed { i, _ -> i % step == 0 || i == contiguous.lastIndex }
+        }
     }
-    val values = points.mapNotNull(metric)
+    val values = segments.flatten().mapNotNull(metric)
     if (values.size < 2) return
     val low = values.minOrNull() ?: return
     val high = values.maxOrNull() ?: return
-    val firstTime = points.first().seconds
-    val lastTime = points.last().seconds
+    val firstTime = samples.first().seconds
+    val lastTime = samples.last().seconds
     if (lastTime <= firstTime) return
     Column(
         Modifier.fillMaxWidth().padding(vertical = 5.dp)
@@ -594,15 +619,17 @@ private fun TracksideActivitySourceChart(
                     else (1f - norm) * (size.height - 8f) + 4f
                 return Offset(x, y)
             }
-            points.zipWithNext().forEach { (a, b) ->
-                val first = metric(a)
-                val second = metric(b)
-                if (first != null && second != null && b.seconds - a.seconds <= 120.0) {
-                    drawLine(
-                        if (title == "Elevation") activityMuted else activityLime,
-                        position(a, first), position(b, second),
-                        strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round
-                    )
+            segments.forEach { segment ->
+                segment.zipWithNext().forEach { (a, b) ->
+                    val first = metric(a)
+                    val second = metric(b)
+                    if (first != null && second != null) {
+                        drawLine(
+                            if (title == "Elevation") activityMuted else activityLime,
+                            position(a, first), position(b, second),
+                            strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round
+                        )
+                    }
                 }
             }
         }
