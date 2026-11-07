@@ -28,4 +28,32 @@ class ActivityIntelligenceTest {
         val history = listOf(prior("1",380.0),prior("2",400.0),prior("3",420.0),prior("4",440.0).copy(distanceM=5500.0,startedAt=run.startedAt.minusSeconds(90*86400)))
         assertEquals(410.0,ActivityIntelligence.comparison(run,history)!!.medianPace,0.0)
     }
+    @Test fun readOnlyInsightsUseOnlyRecordedSamplesAndComparableHistory() {
+        val recorded=ActivityDetail(run.id, listOf(
+            ActivitySample(0,0.0,400.0,140.0,null,null,null,172.0),
+            ActivitySample(1,60.0,390.0,160.0,null,null,null,184.0)
+        ), emptyList(),0L)
+        val lines=ActivityIntelligence.briefInsights(
+            run, recorded, listOf(prior("1"),prior("2"),prior("3"))
+        )
+        assertEquals(3,lines.size)
+        assertTrue(lines[0].contains("comparable earlier runs"))
+        assertTrue(lines[1].contains("140 to 160 bpm"))
+        assertTrue(lines[2].contains("172 to 184 spm"))
+        assertFalse(lines.joinToString(" ").contains("readiness score"))
+    }
+
+    @Test fun insufficientHistoryAndMissingCadenceDoNotProduceInventedInsights() {
+        val recorded=ActivityDetail(run.id,listOf(
+            ActivitySample(0,0.0,400.0,null,null,null,null),
+            ActivitySample(1,60.0,390.0,null,null,null,null)
+        ),emptyList(),0L)
+        val lines=ActivityIntelligence.briefInsights(run,recorded,emptyList())
+        assertEquals(1,lines.size)
+        assertTrue(lines.single().contains("No reliable pace comparison"))
+        assertTrue(ActivityIntelligence.briefInsights(
+            run.copy(type="strength"), recorded, emptyList()
+        ).isEmpty())
+    }
+
 }
