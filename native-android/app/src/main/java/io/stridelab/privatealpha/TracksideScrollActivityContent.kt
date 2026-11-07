@@ -1,14 +1,13 @@
 package io.stridelab.privatealpha
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.animateDpAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,12 +16,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -93,7 +90,7 @@ internal fun TracksidePrimaryActivityMetrics(activity: ActivityRecord) {
             "", ActivityMetricGlyph.Timer, Modifier.weight(1.13f)
         )
         PrimaryActivityMetric(
-            "AVG PACE", if (activity.supportsPace) {
+            "AVG PACE", if (activity.supportsPace && activity.detailPaceLabel != "Not recorded") {
                 activity.detailPaceLabel.removeSuffix(" /km").trim()
             } else "—",
             if (activity.supportsPace && activity.detailPaceLabel != "Not recorded") "/km" else "",
@@ -218,15 +215,35 @@ internal fun TracksideActivityContinuousSections(
     onLoadGarminGps: (() -> Unit)?
 ) {
     val laps = remember(recorded) { recorded?.laps?.take(100).orEmpty() }
+    val hasSplitHr = remember(laps) { laps.any { it.hr != null } }
+    val paceBounds = remember(laps, activity.supportsPace) {
+        val paces = if (activity.supportsPace)
+            laps.mapNotNull { it.pace?.takeIf { pace -> pace.isFinite() && pace > 0 } }
+        else emptyList()
+        (paces.minOrNull() to paces.maxOrNull())
+    }
+    val hasChartData = remember(recorded, activity.supportsPace) {
+        val samples = recorded?.samples.orEmpty()
+        (activity.supportsPace && samples.count { it.pace != null } >= 2) ||
+            samples.count { it.hr != null } >= 2 ||
+            samples.count { it.altitude != null } >= 2
+    }
     val splitStartIndex = 1
     val chartsStartIndex = 2 + laps.size
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val currentSection by remember(listState, chartsStartIndex) {
         derivedStateOf {
+            val layout = listState.layoutInfo
+            // The active section changes as its heading crosses the upper
+            // third of the viewport; avoid measuring every scroll pixel.
+            val threshold = layout.viewportStartOffset +
+                ((layout.viewportEndOffset - layout.viewportStartOffset) * .32f).roundToInt()
+            val anchor = layout.visibleItemsInfo.lastOrNull { it.offset <= threshold }?.index
+                ?: listState.firstVisibleItemIndex
             when {
-                listState.firstVisibleItemIndex >= chartsStartIndex -> 2
-                listState.firstVisibleItemIndex >= splitStartIndex -> 1
+                anchor >= chartsStartIndex -> 2
+                anchor >= splitStartIndex -> 1
                 else -> 0
             }
         }
@@ -246,6 +263,8 @@ internal fun TracksideActivityContinuousSections(
                 finally { pendingSection = null }
             }
         }
+        BoxWithConstraints(Modifier.weight(1f)) {
+        val viewportHeight = maxHeight
         LazyColumn(
             modifier = Modifier.fillMaxSize().testTag("activity-continuous-scroll"),
             state = listState,
@@ -285,7 +304,7 @@ internal fun TracksideActivityContinuousSections(
                                 "PACE", color = activityMuted, fontSize = 10.sp,
                                 modifier = Modifier.weight(1f)
                             )
-                            if (laps.any { it.hr != null }) Text(
+                            if (hasSplitHr) Text(
                                 "HR", color = activityMuted, fontSize = 10.sp
                             )
                         }
@@ -296,13 +315,13 @@ internal fun TracksideActivityContinuousSections(
                 laps,
                 key = { index, lap -> "source-lap-" + index + "-" + lap.index }
             ) { index, lap ->
-                TracksideActivitySplitRow(index, lap, laps, activity.supportsPace)
+                TracksideActivitySplitRow(index, lap, hasSplitHr, paceBounds, activity.supportsPace)
             }
             item(key = "section-charts") {
                 Column(Modifier.fillMaxWidth().testTag("activity-section-charts")) {
                     ActivitySectionHeading("Charts")
                     Spacer(Modifier.height(5.dp))
-                    if (recorded == null || recorded.samples.isEmpty()) {
+                    if (!hasChartData) {
                         Text(
                             "No recorded charts are available.",
                             color = activityMuted, fontSize = 13.sp,
@@ -311,30 +330,32 @@ internal fun TracksideActivityContinuousSections(
                     }
                 }
             }
-            if (recorded != null && recorded.samples.isNotEmpty()) {
-                item(key = "chart-pace") {
-                    if (activity.supportsPace) {
+            if (recorded != null) {
+                if (activity.supportsPace && recorded.samples.count { it.pace != null } >= 2)
+                    item(key = "chart-pace") {
                         TracksideActivitySourceChart(
                             "Pace", "/km", recorded.samples, { it.pace }, pace = true
                         )
                     }
-                }
-                item(key = "chart-heart-rate") {
-                    TracksideActivitySourceChart(
-                        "Heart rate", "bpm", recorded.samples, { it.hr }
-                    )
-                }
-                item(key = "chart-elevation") {
-                    TracksideActivitySourceChart(
-                        "Elevation", "m", recorded.samples, { it.altitude }
-                    )
-                }
+                if (recorded.samples.count { it.hr != null } >= 2)
+                    item(key = "chart-heart-rate") {
+                        TracksideActivitySourceChart(
+                            "Heart rate", "bpm", recorded.samples, { it.hr }
+                        )
+                    }
+                if (recorded.samples.count { it.altitude != null } >= 2)
+                    item(key = "chart-elevation") {
+                        TracksideActivitySourceChart(
+                            "Elevation", "m", recorded.samples, { it.altitude }
+                        )
+                    }
             }
-            // Enough remaining scroll range to reach the final section on short
-            // activities with no streams. This is layout space, not fake data.
+            // Give short offline activities enough scroll range for Charts to
+            // reach the sticky selection threshold without inventing rows.
             item(key = "section-ending-space") {
-                Spacer(Modifier.height(225.dp))
+                Spacer(Modifier.height(viewportHeight))
             }
+        }
         }
     }
 }
@@ -475,15 +496,12 @@ private fun TracksideActivityOverviewBody(
 
 @Composable
 private fun TracksideActivitySplitRow(
-    index: Int, lap: ActivityLap, laps: List<ActivityLap>, supportsPace: Boolean
+    index: Int, lap: ActivityLap, hasHr: Boolean,
+    paceBounds: Pair<Double?, Double?>, supportsPace: Boolean
 ) {
     val recordedPace = if (supportsPace) lap.pace?.takeIf { it.isFinite() && it > 0 } else null
-    val validPaces = remember(laps, supportsPace) {
-        if (supportsPace) laps.mapNotNull { it.pace?.takeIf { value -> value.isFinite() && value > 0 } }
-        else emptyList()
-    }
-    val slowest = validPaces.maxOrNull()
-    val fastest = validPaces.minOrNull()
+    val fastest = paceBounds.first
+    val slowest = paceBounds.second
     val fraction = if (recordedPace != null && slowest != null && fastest != null) {
         (.35f + .65f * ((slowest - recordedPace) / (slowest - fastest).coerceAtLeast(1.0)).toFloat())
             .coerceIn(.35f, 1f)
@@ -516,7 +534,7 @@ private fun TracksideActivitySplitRow(
                 }
             }
         }
-        if (laps.any { it.hr != null }) {
+        if (hasHr) {
             Text(
                 lap.hr?.roundToInt()?.toString() ?: "—",
                 color = activityMuted, fontSize = 11.sp
