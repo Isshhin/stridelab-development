@@ -55,29 +55,57 @@ internal object TracksideMapTiles {
 }
 
 /**
- * StrideLab twilight map. Inspired by readable athletic navigation maps and
- * Google Maps' differentiated land/water/road contrast, without copying either.
+ * Readable blue-gray MapLibre palette inspired by the supplied Google Maps
+ * screenshot. Crucially these are the real layer IDs of OpenFreeMap's hosted
+ * Dark Matter style (hyperknot/openfreemap-styles/styles/dark/style.json).
  *
- * Colors are applied ONCE when the hosted style loads. MapLibre retains the
- * original source filters, zoom-based road widths, text placement and sprites.
- * Missing or renamed provider layers are ignored safely rather than causing
- * Activity Detail to fail.
+ * The previous palette used layer IDs from a DIFFERENT style ("Road network",
+ * "Background", etc.), so every attempted color override was silently skipped
+ * and the near-black provider defaults remained visible.
+ *
+ * Applied once after MapLibre loads the style, never on a drag/frame.
  */
 internal object TracksideReadableMapPalette {
-    val canvas = AndroidColor.rgb(44, 58, 73)           // slate-blue ground
-    val residential = AndroidColor.rgb(50, 67, 81)
-    val buildings = AndroidColor.rgb(55, 72, 85)
-    val sand = AndroidColor.rgb(76, 81, 78)
-    val grass = AndroidColor.rgb(55, 89, 72)            // visible, muted parks
-    val wood = AndroidColor.rgb(47, 77, 64)
-    val water = AndroidColor.rgb(38, 76, 101)
-    val waterways = AndroidColor.rgb(62, 105, 130)
-    val roads = AndroidColor.rgb(119, 140, 157)         // brighter, legible roads
-    val paths = AndroidColor.rgb(100, 120, 135)
-    val rail = AndroidColor.rgb(86, 110, 127)
-    val roadLabels = AndroidColor.rgb(221, 231, 239)
-    val placeLabels = AndroidColor.rgb(242, 245, 248)
-    val labelHalo = AndroidColor.rgb(43, 57, 70)
+    val canvas = AndroidColor.rgb(37, 53, 76)        // #25354C, blue-gray base
+    val residential = AndroidColor.rgb(43, 60, 83)
+    val buildings = AndroidColor.rgb(49, 67, 87)
+    val buildingEdges = AndroidColor.rgb(68, 86, 105)
+    val sand = AndroidColor.rgb(77, 79, 76)
+    val grass = AndroidColor.rgb(47, 82, 70)
+    val wood = AndroidColor.rgb(44, 73, 66)
+    val water = AndroidColor.rgb(26, 66, 92)
+    val waterways = AndroidColor.rgb(62, 113, 142)
+    val minorRoads = AndroidColor.rgb(88, 111, 133)
+    val majorRoads = AndroidColor.rgb(120, 143, 161)
+    val roadCasings = AndroidColor.rgb(64, 88, 111)
+    val motorways = AndroidColor.rgb(143, 164, 180)
+    val paths = AndroidColor.rgb(79, 103, 121)
+    val rail = AndroidColor.rgb(79, 101, 124)
+    val roadLabels = AndroidColor.rgb(214, 227, 237)
+    val placeLabels = AndroidColor.rgb(237, 242, 246)
+    val labelHalo = AndroidColor.rgb(31, 47, 65)
+    val waterLabels = AndroidColor.rgb(163, 203, 223)
+
+    // Stable reference IDs verified against the actual OpenFreeMap dark style.
+    // If the provider renames them, an app-side source update should be made.
+    internal val recoloredLayerIds = setOf(
+        "background", "landuse_residential", "building", "landuse_park",
+        "landcover_wood", "landcover_ice_shelf", "landcover_glacier",
+        "water", "waterway", "water_name", "road_area_pier", "road_pier",
+        "highway_path", "highway_minor", "highway_major_casing",
+        "highway_major_inner", "highway_major_subtle",
+        "highway_motorway_casing", "highway_motorway_inner",
+        "highway_motorway_subtle", "aeroway-area", "aeroway-runway",
+        "aeroway-runway-casing", "aeroway-taxiway",
+        "railway", "railway_minor", "railway_transit",
+        "railway_transit_dashline", "railway_minor_dashline",
+        "railway_dashline", "highway_name_other",
+        "highway_name_motorway", "place_other", "place_suburb",
+        "place_village", "place_town", "place_city", "place_city_large",
+        "place_state", "place_country_other", "place_country_minor",
+        "place_country_major", "boundary_state",
+        "boundary_country_z0-4", "boundary_country_z5-"
+    )
 
     fun apply(style: Style) {
         fun background(id: String, color: Int) {
@@ -92,36 +120,75 @@ internal object TracksideReadableMapPalette {
             (style.getLayer(id) as? LineLayer)?.setProperties(
                 PropertyFactory.lineColor(color))
         }
-        fun text(id: String, color: Int) {
-            (style.getLayer(id) as? SymbolLayer)?.setProperties(
-                PropertyFactory.textColor(color),
-                PropertyFactory.textHaloColor(labelHalo))
+        fun text(id: String, color: Int, sizeSp: Float? = null) {
+            (style.getLayer(id) as? SymbolLayer)?.let { layer ->
+                layer.setProperties(
+                    PropertyFactory.textColor(color),
+                    PropertyFactory.textHaloColor(labelHalo),
+                    PropertyFactory.textHaloWidth(1.15f))
+                if (sizeSp != null) {
+                    // The provider defaults to tiny 10px labels. Improve
+                    // legibility without increasing MapLibre's work each frame.
+                    layer.setProperties(PropertyFactory.textSize(sizeSp))
+                }
+            }
         }
 
-        background("Background", canvas)
-        fill("Residential", residential)
-        fill("Building", buildings)
-        fill("Sand", sand)
-        fill("Grass", grass)
-        fill("Wood", wood)
-        fill("Water", water)
-        fill("Bridge", residential)
-        fill("Pier", residential)
-        line("River", waterways)
-        line("River intermittent", waterways)
-        line("Road network", roads)
-        line("Path", paths)
-        line("Railway", rail)
-        line("Transit", rail)
-        line("Transit tunnel", rail)
+        background("background", canvas)
+        fill("landuse_residential", residential)
+        fill("building", buildings)
+        // Dark Matter's default near-black outlines would still obscure
+        // buildings against their new fill if not recolored too.
+        (style.getLayer("building") as? FillLayer)?.setProperties(
+            PropertyFactory.fillOutlineColor(buildingEdges))
+        fill("landuse_park", grass)
+        // The wood layer uses a patterned fill; its pattern may retain
+        // contrast beyond the solid color. Keep the provider's geometry.
+        fill("landcover_wood", wood)
+        fill("landcover_ice_shelf", residential)
+        fill("landcover_glacier", residential)
+        fill("water", water)
+        line("waterway", waterways)
+        text("water_name", waterLabels)
+        fill("road_area_pier", residential)
+        line("road_pier", majorRoads)
 
-        text("Road labels", roadLabels)
-        text("Place labels", placeLabels)
-        text("City labels", placeLabels)
-        text("Country labels", placeLabels)
-        text("Continent labels", placeLabels)
-        text("Station labels", roadLabels)
-        text("Airport labels", roadLabels)
+        // Respect the provider's zoom-dependent width and road hierarchy.
+        line("highway_path", paths)
+        line("highway_minor", minorRoads)
+        line("highway_major_casing", roadCasings)
+        line("highway_major_inner", majorRoads)
+        line("highway_major_subtle", minorRoads)
+        line("highway_motorway_casing", roadCasings)
+        line("highway_motorway_inner", motorways)
+        line("highway_motorway_subtle", majorRoads)
+
+        fill("aeroway-area", residential)
+        line("aeroway-taxiway", paths)
+        line("aeroway-runway", majorRoads)
+        line("aeroway-runway-casing", roadCasings)
+        for (layer in listOf(
+            "railway", "railway_minor", "railway_transit",
+            "railway_transit_dashline", "railway_minor_dashline",
+            "railway_dashline"
+        )) line(layer, rail)
+
+        text("highway_name_other", roadLabels, sizeSp = 11.5f)
+        text("highway_name_motorway", roadLabels, sizeSp = 11f)
+        text("place_other", placeLabels, sizeSp = 11f)
+        text("place_suburb", placeLabels, sizeSp = 12.5f)
+        text("place_village", placeLabels)
+        text("place_town", placeLabels)
+        text("place_city", placeLabels)
+        text("place_city_large", placeLabels)
+        text("place_state", placeLabels)
+        text("place_country_other", placeLabels)
+        text("place_country_minor", placeLabels)
+        text("place_country_major", placeLabels)
+
+        line("boundary_state", roadCasings)
+        line("boundary_country_z0-4", roadCasings)
+        line("boundary_country_z5-", roadCasings)
     }
 }
 
@@ -137,7 +204,7 @@ internal fun TracksideGeographicMap(
     modifier:Modifier=Modifier
 ) {
     var styleReady by remember(route,online) { mutableStateOf(false) }
-    Box(modifier.background(Color(0xFF2C3A49)).testTag("activity-geographic-map")) {
+    Box(modifier.background(Color(0xFF25354C)).testTag("activity-geographic-map")) {
         if(online && route.pointCount>=2) {
             MapLibreRouteView(route,Modifier.fillMaxSize()) { styleReady=true }
         }
