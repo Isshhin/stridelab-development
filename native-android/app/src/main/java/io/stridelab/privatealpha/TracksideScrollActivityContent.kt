@@ -652,9 +652,17 @@ private fun TracksideActivitySourceChart(
         }
     }
     if (validSamples.size < 2 || samples.isEmpty()) return
-    val low = validSamples.minOf { it.second }
-    val high = validSamples.maxOf { it.second }
-    val sampleAverage = validSamples.sumOf { it.second } / validSamples.size
+    // A shared chart cursor can update frequently while dragging. Cache
+    // full-stream statistics rather than scanning 20,000 FIT points on each
+    // touch event or each LazyColumn recomposition.
+    val stats = remember(validSamples) {
+        Triple(
+            validSamples.minOf { it.second },
+            validSamples.maxOf { it.second },
+            validSamples.sumOf { it.second } / validSamples.size
+        )
+    }
+    val (low, high, sampleAverage) = stats
     val firstTime = samples.first().seconds
     val lastTime = samples.last().seconds
     if (lastTime <= firstTime) return
