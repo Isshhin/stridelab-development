@@ -100,7 +100,7 @@ internal fun TracksideFigmaWeekReview(
             listOf(
                 targetDistance to if (request.runDays > 0) "km target" else "no running",
                 total.toString() to "sessions",
-                trainingDays.toString() to if (plan == null) "available" else "active days",
+                trainingDays.toString() to if (plan == null) "AVAILABLE DAYS" else "ACTIVE DAYS",
                 (7-trainingDays).toString() to "rest days"
             ).forEach { (value, caption) ->
                 Surface(Modifier.weight(1f).heightIn(min = 62.dp),
@@ -116,6 +116,19 @@ internal fun TracksideFigmaWeekReview(
                             overflow = TextOverflow.Ellipsis)
                     }
                 }
+            }
+        }
+        Spacer(Modifier.height(9.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            counts.filter { it.second > 0 }.forEach { (discipline, count) ->
+                val name = when (discipline) {
+                    "run" -> "Running"
+                    "str" -> "Strength"
+                    "cal" -> "Cali"
+                    else -> "Conditioning"
+                }
+                Text("$count $name", color = PlanBuilderPalette.secondary,
+                    fontSize = 10.sp, maxLines = 1)
             }
         }
         Spacer(Modifier.height(12.dp))
