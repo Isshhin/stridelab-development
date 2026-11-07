@@ -444,3 +444,8 @@ P2-A/C/D/E remain dependency-gated.
 
 
 > **2026-11-07 independent v6 review — current:** `P2F_CUSTODY_AUTHORITY_V6_DESIGN_NEEDS_CORRECTION` at reviewed head `6bd4abfd55ac85a0d2528892f204427fa113ccac`. See [independent v6 review](../phase2/p2-f-custody-authority-v6-independent-security-review-2026-11-07.md): finality validation, witness bootstrap/lifecycle, output quiescence, complete canonical schema, and the actual frozen preflight artifact remain deficient. Next: bounded v7 design correction and frozen artifact packet, then independent review; no preflight execution or implementation is authorized. PR #34 remains open, draft, unmerged; no target access, keys, private data, Gate 2 PASS, or P2-B.
+
+
+## v7 preflight workflow repair — 2026-11-07
+
+Commit `2e1f4fcb35c9f4e479ff4045e8b5d18fafdb845e7` repairs the research-only manual workflow by replacing inline `with` mappings with block mappings for checkout and MSVC setup; it remains `workflow_dispatch` only on `windows-2025`. Run `42368016764` reached a real build job but was blocked before startup by account billing/spending-limit policy. No static binary evidence or artifact exists; the collector was never executed. PR #34 remains open, draft, and unmerged. Status remains `P2F_CUSTODY_AUTHORITY_V7_CORRECTIONS_INCOMPLETE`.
