@@ -705,11 +705,14 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
 
     suspend fun saveFeedback(id:String,revision:Int,category:String,text:String,sessionId:String?=null)=changePlan(id,revision) { PlanOperations.feedback(it,category,text,sessionId) }
     suspend fun refreshWellness() = operation("Refreshing wellness records…") {
-        val account=mutable.value.account ?: throw IllegalStateException("Sign in first")
+        val account=requireNotNull(mutable.value.account)
+        val cloud=session().account
         val raw=authenticated { gateway.wellness(it) }
         val seen=HashSet<String>(); val rows=ArrayList<TrainingStore.RemoteRecord>()
         for(i in 0 until raw.length()) {
-            val row=raw.getJSONObject(i)
+            val remote=raw.getJSONObject(i)
+            require(remote.getString("user_id") == cloud) { "Cloud wellness owner mismatch" }
+            val row=JSONObject(remote.toString()).put("user_id",account)
             val record=WellnessRecord.parse(row,account) ?: continue
             if(!ActiveActivitySources.accepts(record.source))continue
             require(seen.add(record.id))
@@ -719,9 +722,12 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         loadCache(account)
     }
     suspend fun loadDetail(id: String) = operation("Loading recorded streams…") {
-        val account = mutable.value.account ?: throw IllegalStateException("Sign in first")
+        val account = requireNotNull(mutable.value.account)
         require(mutable.value.activities.any { it.id == id })
-        val raw = authenticated { gateway.detail(it,id) }
+        val cloud = session().account
+        val remote = authenticated { gateway.detail(it,id) }
+        require(remote.getString("user_id") == cloud) { "Cloud detail owner mismatch" }
+        val raw = JSONObject(remote.toString()).put("user_id", account)
         val parsed = ActivityDetail.parse(raw,account,id)
         prepareThumbnailWrite(account, id, parsed)
         store.applyRemotePage(account,"activity_detail",listOf(TrainingStore.RemoteRecord(id,raw.toString(),null)),null,System.currentTimeMillis())
@@ -820,7 +826,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         }
     }
     private fun fetchActivities() {
-        val account = mutable.value.account ?: throw IllegalStateException("Sign in first")
+        val account = requireNotNull(mutable.value.account)
+        val cloud = session().account
         val started = SystemClock.elapsedRealtime()
         var before: ActivityRecord? = null
         var received = 0
@@ -832,7 +839,9 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             val rows = ArrayList<TrainingStore.RemoteRecord>()
             var last: ActivityRecord? = null
             for(i in 0 until page.length()) {
-                val raw = page.getJSONObject(i)
+                val remote = page.getJSONObject(i)
+                require(remote.getString("user_id") == cloud) { "Cloud activity owner mismatch" }
+                val raw = JSONObject(remote.toString()).put("user_id", account)
                 val parsed = ActivityRecord.parse(raw.toString(), account)
                 require((last ?: before)?.let { parsed.isBefore(it) } != false) { "History page is not in stable cursor order" }
                 require(seen.add(parsed.id)) { "Repeated page; synchronization stopped safely" }
@@ -1007,7 +1016,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         withContext(Dispatchers.IO) {
             val ready = state.first { !it.initializing }
             val account = ready.account ?: return@withContext true
-            if (ready.needsSignIn) return@withContext true
+            // Local Garmin synchronization continues when StrideLab cloud
+            // authentication is absent or expired.
             var success = true
             val interval = if (foreground) 30L * 60_000 else 6L * 60 * 60_000
             if (garminSyncPreferences.automatic(account) &&
@@ -1035,7 +1045,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                     }
                 }
             }
-            if (garminSyncPreferences.cloudBackup(account) &&
+            if (mutable.value.cloudAccount != null && !mutable.value.needsSignIn &&
+                garminSyncPreferences.cloudBackup(account) &&
                 garminSyncPreferences.claim(account, "cloud", interval)) {
                 try {
                     backupGarminCloud(maxRecords = 6)
@@ -1053,8 +1064,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         withContext(Dispatchers.IO) {
             require(maxRecords in 1..24)
             mutex.withLock {
-                val account = mutable.value.account
-                    ?: throw GarminAuthenticationException("Sign in before backing up Garmin")
+                val account = requireNotNull(mutable.value.account)
+                require(mutable.value.cloudAccount != null && !mutable.value.needsSignIn) {
+                    "Sign in to StrideLab only when you want cloud backup"
+                }
                 require(garminSyncPreferences.cloudBackup(account)) {
                     "Enable Garmin cloud backup before uploading records"
                 }
@@ -1089,7 +1102,14 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 for ((kind, id, payload) in candidates) {
                     // Resolve a verified, renewable StrideLab session for each
                     // request. No Garmin credential ever leaves this device.
-                    authenticated { session -> garminCloud.upload(session, kind, id, payload) }
+                    authenticated { session ->
+                        val raw = JSONObject(payload)
+                        require(raw.getString("user_id") == account) {
+                            "Local recording owner mismatch"
+                        }
+                        val cloudPayload = raw.put("user_id", session.account).toString()
+                        garminCloud.upload(session, kind, id, cloudPayload)
+                    }
                     garminSyncPreferences.acknowledgeCloudUpload(account, kind, id, payload)
                     uploaded++
                 }
@@ -1104,8 +1124,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
      */
     internal suspend fun restoreGarminCloud(): Int = withContext(Dispatchers.IO) {
         mutex.withLock {
-            val account = mutable.value.account
-                ?: throw GarminAuthenticationException("Sign in before restoring Garmin")
+            val account = requireNotNull(mutable.value.account)
+            require(mutable.value.cloudAccount != null && !mutable.value.needsSignIn) {
+                "Sign in to StrideLab only when you want cloud restore"
+            }
             require(garminSyncPreferences.cloudBackup(account)) {
                 "Enable Garmin cloud backup before restoring"
             }
@@ -1122,13 +1144,20 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                         if (store.get(account, kind, row.recordId) != null) continue
                         if (kind == "activity_detail" &&
                             store.get(account, "activity", row.recordId) == null) continue
-                        if (kind == "activity_detail") invalidateThumbnail(account, row.recordId)
-                        // Each source is added durably without overwriting any
-                        // other local version or touching the original server tables.
+                        // Cloud owner is verified at the gateway; local owner
+                        // is set only when persisting into this device profile.
+                        val localPayload = JSONObject(row.payload)
+                            .put("user_id", account).toString()
+                        if (kind == "activity") {
+                            ActivityRecord.parse(localPayload, account)
+                        } else {
+                            ActivityDetail.parse(JSONObject(localPayload), account, row.recordId)
+                            invalidateThumbnail(account, row.recordId)
+                        }
                         store.applyRemotePage(
                             account, kind,
                             listOf(TrainingStore.RemoteRecord(
-                                row.recordId, row.payload, null)),
+                                row.recordId, localPayload, null)),
                             null, System.currentTimeMillis()
                         )
                         restored++
