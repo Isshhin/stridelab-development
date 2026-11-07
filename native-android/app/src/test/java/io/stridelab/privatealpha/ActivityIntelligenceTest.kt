@@ -43,6 +43,33 @@ class ActivityIntelligenceTest {
         assertFalse(lines.joinToString(" ").contains("readiness score"))
     }
 
+    @Test fun athleteStyleSummaryUsesOnlyComparablePaceEvidence() {
+        val matched = ActivityIntelligence.presentation(
+            run, null, listOf(prior("1", 380.0), prior("2", 400.0), prior("3", 420.0))
+        )!!
+        assertTrue(matched.hasComparison)
+        assertTrue(matched.headline.contains("10.0% faster pace"))
+        assertTrue(matched.summary.contains("across 3 earlier matched runs"))
+        assertFalse(matched.headline.contains("PR"))
+        assertFalse(matched.summary.contains("recovery score"))
+
+        val slower=ActivityIntelligence.presentation(
+            run.copy(recordedPace=440.0),null,
+            listOf(prior("1",380.0),prior("2",400.0),prior("3",420.0))
+        )!!
+        assertTrue(slower.headline.contains("10.0% slower pace"))
+    }
+
+    @Test fun athleteStyleSummaryFallsBackToSourceWithoutClaimingFitness() {
+        val message=ActivityIntelligence.presentation(run,null,emptyList())!!
+        assertFalse(message.hasComparison)
+        assertTrue(message.headline.contains("5.00 km run"))
+        assertTrue(message.summary.contains("not yet enough comparable past runs"))
+        assertNull(ActivityIntelligence.presentation(
+            run.copy(type="strength"),null,emptyList()
+        ))
+    }
+
     @Test fun insufficientHistoryAndMissingCadenceDoNotProduceInventedInsights() {
         val recorded=ActivityDetail(run.id,listOf(
             ActivitySample(0,0.0,400.0,null,null,null,null),
