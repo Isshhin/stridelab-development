@@ -1,5 +1,9 @@
 # StrideLab Engine 2.x current coordinating handoff
 
+## Coordinated state Batch 1 — 2026-11-07
+
+`COORDINATED_STATE_BATCH1_FOUNDATION_COMPLETE` at implementation `46981678123dd709c7cb8641ade808dcc2a7d370`, starting from `a6b0ecdc510efcb8ba6a51b8b1489e401a6d5ee8`. The [Batch 1 record](../phase2/p2-f-coordinated-state-batch1-2026-11-07.md) inventories shared-lock/epoch mutation ownership, copy-out protections, uncovered broker paths, fixture migration and exact results. Coordinator 15 and authority 81 passed; prior review groups 6/8/11/6 passed; durable 54 and P2 244 passed; full research 408 run, 407 passed and one Windows symlink skip. The two state-ordering reproductions remain failing; `Broker.read` epoch publication integration is deliberately deferred. Final pushed head is the documentation commit containing this entry; CI unavailable at documentation time. Next: separately implement Batch 2, including broker/admission ownership, internal audit epoch handling and callback-free publication. No authority/custody pass or private-pilot readiness is claimed; prior journal durability pass and blocked Gate 2/P2-B statuses remain unchanged.
+
 ## Coordinated synthetic state design — 2026-11-07
 
 The [design review](../phase2/p2-f-coordinated-state-mutation-design-2026-11-07.md) selects controlled mutation ownership, one shared reentrant lock and a monotonic mutation epoch for a bounded synthetic correction. Next: separately implement and test that model, then obtain independent re-review. This is design only; `SYNTHETIC_AUTHORITY_CUSTODY_NEEDS_CORRECTION` remains. No human/provider admission; private pilot blocked; `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY` unchanged.
