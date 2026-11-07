@@ -1,17 +1,23 @@
 package io.stridelab.privatealpha
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -20,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
@@ -79,9 +86,44 @@ internal fun TracksideFigmaActivityDetailSurface(
         )
         val scaffoldState = rememberBottomSheetScaffoldState(sheetState)
         val scope = rememberCoroutineScope()
-        // Do not replace the preview mid-drag. Expanded content is installed
-        // only when the sheet reaches the expanded anchor.
         val expanded = sheetState.currentValue == SheetValue.Expanded
+
+        // Material 3 normally uses a longer default spatial transition for
+        // docked sheets. Scope a faster 220 ms easing to this sheet only,
+        // leaving the app's Today/date-picker motion unchanged.
+        val parentMotion = MaterialTheme.motionScheme
+        val activitySheetMotion = remember(parentMotion) {
+            object : MotionScheme by parentMotion {
+                override fun <T> defaultSpatialSpec(): FiniteAnimationSpec<T> =
+                    tween(durationMillis = 220, easing = FastOutSlowInEasing)
+            }
+        }
+
+        // Track the real draggable offset in draw, not in composition. The
+        // summary-to-details dissolve follows the finger and reverses without
+        // waiting for the sheet to finish its anchored animation.
+        val collapsedOffsetPx = with(density) { (maxHeight - effectivePeekHeight).toPx() }
+        val expandedOffsetPx = with(density) { (maxHeight - sheetHeight).toPx() }
+        fun sheetFraction(): Float {
+            val offset = try {
+                sheetState.requireOffset()
+            } catch (_: IllegalStateException) {
+                collapsedOffsetPx
+            }
+            return ((collapsedOffsetPx - offset) /
+                (collapsedOffsetPx - expandedOffsetPx).coerceAtLeast(1f)).coerceIn(0f, 1f)
+        }
+        fun detailsAlpha(): Float {
+            val t = ((sheetFraction() - 0.35f) / 0.45f).coerceIn(0f, 1f)
+            return t * t * (3f - 2f * t)
+        }
+        val prepareDetails by remember(sheetState, collapsedOffsetPx, expandedOffsetPx) {
+            derivedStateOf {
+                sheetFraction() > 0.27f ||
+                    sheetState.currentValue == SheetValue.Expanded ||
+                    sheetState.targetValue == SheetValue.Expanded
+            }
+        }
         val collapseOrBack: () -> Unit = {
             if (expanded || sheetState.targetValue == SheetValue.Expanded) {
                 scope.launch { sheetState.partialExpand() }
@@ -91,6 +133,7 @@ internal fun TracksideFigmaActivityDetailSurface(
             scope.launch { sheetState.partialExpand() }
         }
 
+        MaterialTheme(motionScheme = activitySheetMotion) {
         BottomSheetScaffold(
             scaffoldState = scaffoldState,
             sheetPeekHeight = effectivePeekHeight,
@@ -146,10 +189,13 @@ internal fun TracksideFigmaActivityDetailSurface(
                             )
                         }
                     }
-                    if (!expanded) {
-                        // No pill and no body below the approved initial preview.
+                    Box(Modifier.fillMaxWidth().weight(1f)) {
+                        // Always keep the preview measured at its approved
+                        // compact height. Swapping this whole subtree at the
+                        // Expanded anchor caused the visibly abrupt cut.
                         Box(
                             Modifier.fillMaxWidth().wrapContentHeight()
+                                .graphicsLayer { alpha = 1f - detailsAlpha() }
                                 .onSizeChanged { size ->
                                     if (previewHeightPx != size.height)
                                         previewHeightPx = size.height
@@ -157,21 +203,29 @@ internal fun TracksideFigmaActivityDetailSurface(
                         ) {
                             TracksideActivityInitialPreview(activity)
                         }
-                    } else {
-                        TracksideActivityExpandedHeader(activity, collapseOrBack)
-                        TracksideActivityContinuousSections(
-                            activity = activity,
-                            recorded = recorded,
-                            detailSource = detailSource,
-                            matchedSourceIds = matchedSourceIds,
-                            history = history,
-                            state = state,
-                            actions = actions,
-                            online = online,
-                            selectedTab = selectedTab,
-                            onTab = onTab,
-                            onLoadGarminGps = onLoadGarminGps
-                        )
+                        if (prepareDetails) {
+                            // Compose the section list shortly before it fades
+                            // in. No page replacement or jump when settling.
+                            Column(
+                                Modifier.fillMaxSize()
+                                    .graphicsLayer { alpha = detailsAlpha() }
+                            ) {
+                                TracksideActivityExpandedHeader(activity, collapseOrBack)
+                                TracksideActivityContinuousSections(
+                                    activity = activity,
+                                    recorded = recorded,
+                                    detailSource = detailSource,
+                                    matchedSourceIds = matchedSourceIds,
+                                    history = history,
+                                    state = state,
+                                    actions = actions,
+                                    online = online,
+                                    selectedTab = selectedTab,
+                                    onTab = onTab,
+                                    onLoadGarminGps = onLoadGarminGps
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -185,5 +239,6 @@ internal fun TracksideFigmaActivityDetailSurface(
                 online = online
             )
         }
+        } // Fast motion is scoped to Activity Detail only.
     }
 }
