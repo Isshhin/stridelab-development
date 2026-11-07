@@ -442,8 +442,9 @@ class TrainingRepositoryTest {
             }
             override fun downloadActivity(token: GarminBearerToken, numericId: Long): ByteArray {
                 events += "fit:$numericId"
-                // A failed source should be skipped on the next pass rather
-                // than starving older, healthy pending recordings.
+                // Missing individual exports (404) must not abort the batch.
+                if (numericId == 1L) throw GarminServiceException(404)
+                // Other invalid FITs are also scoped to their source record.
                 throw GarminProtocolException("Synthetic unavailable FIT")
             }
         }
