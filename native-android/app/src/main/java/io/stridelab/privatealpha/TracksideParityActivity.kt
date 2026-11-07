@@ -28,7 +28,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.sp
 
 /**
- * Activity hero. The street map uses real source coordinates through MapLibre.
+ * Activity hero. The street map uses real source coordinates through Mapbox.
  * No recorded GPS means no map location or illustrative/fake route is shown.
  */
 @Composable
