@@ -106,6 +106,24 @@ class LocalProfileOfflineTest {
         assertNull(repository.state.value.cloudAccount)
     }
 
+    @Test fun cloudOwnerMappingRequiresExactSourceOwner() {
+        val local = requireNotNull(repository.state.value.account)
+        val original = org.json.JSONObject()
+            .put("user_id", local)
+            .put("activity_id", "synthetic-run")
+            .put("samples", org.json.JSONArray())
+            .toString()
+        val remote = remapCloudSnapshotOwner(original, local, cloudOwnerA)
+        assertEquals(cloudOwnerA, org.json.JSONObject(remote).getString("user_id"))
+        val roundTrip = remapCloudSnapshotOwner(remote, cloudOwnerA, local)
+        assertEquals(local, org.json.JSONObject(roundTrip).getString("user_id"))
+        assertEquals("synthetic-run", org.json.JSONObject(roundTrip).getString("activity_id"))
+        try {
+            remapCloudSnapshotOwner(remote, cloudOwnerB, local)
+            fail("Mismatched cloud owners must not be imported")
+        } catch (_: IllegalArgumentException) {}
+    }
+
     @Test fun differentCloudAccountCannotInheritLocalTrainingWithoutConsent() = runBlocking {
         val local = requireNotNull(repository.state.value.account)
         assertTrue(repository.signIn("fixture@example.invalid", "fixture"))
