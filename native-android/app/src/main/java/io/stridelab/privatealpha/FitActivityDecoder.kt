@@ -12,10 +12,20 @@ internal object FitActivityDecoder {
         val longitude: Double?, val cadenceRpm: Double?, val powerW: Double?)
     data class Lap(val startedAt: Instant?, val elapsedS: Double?, val timerS: Double?,
         val distanceM: Double?, val averageHr: Double?)
+    data class TimerPause(val startedAt: Instant, val endedAt: Instant)
+    data class SourceHeartRateZones(
+        val maximumHr: Int?,
+        val thresholdHr: Int?,
+        val restingHr: Int?,
+        val calculationType: String?,
+        val highBpms: List<Int>
+    )
     data class Activity(val identity: ImportedSourceIdentity, val sport: String,
         val startedAt: Instant, val elapsedS: Double?, val timerS: Double?,
         val distanceM: Double?, val averageHr: Double?, val maximumHr: Double?,
-        val points: List<Point>, val laps: List<Lap>) {
+        val points: List<Point>, val laps: List<Lap>,
+        val timerPauses: List<TimerPause> = emptyList(),
+        val sourceHeartRateZones: SourceHeartRateZones? = null) {
         fun candidate() = ImportedActivityCandidate(identity,sport,startedAt,elapsedS,distanceM)
         /** Factual observations only; no invented recovery or coaching conclusion. */
         fun evidence(): List<String> = buildList {
@@ -45,6 +55,10 @@ internal object FitActivityDecoder {
         val sessions = mutableListOf<SessionMesg>()
         val records = mutableListOf<RecordMesg>()
         val laps = mutableListOf<LapMesg>()
+        val events = mutableListOf<EventMesg>()
+        val zoneTargets = mutableListOf<ZonesTargetMesg>()
+        val heartRateZones = mutableListOf<HrZoneMesg>()
+        val userProfiles = mutableListOf<UserProfileMesg>()
         var activityFile = false
         var count = 0
         val decoder = Decode()
@@ -55,6 +69,16 @@ internal object FitActivityDecoder {
                 MesgNum.SESSION -> sessions.add(SessionMesg(message))
                 MesgNum.RECORD -> { require(records.size < 20_000); records.add(RecordMesg(message)) }
                 MesgNum.LAP -> { require(laps.size < 1000); laps.add(LapMesg(message)) }
+                MesgNum.EVENT -> { require(events.size < 5000); events.add(EventMesg(message)) }
+                MesgNum.ZONES_TARGET -> {
+                    require(zoneTargets.size < 4); zoneTargets.add(ZonesTargetMesg(message))
+                }
+                MesgNum.HR_ZONE -> {
+                    require(heartRateZones.size < 32); heartRateZones.add(HrZoneMesg(message))
+                }
+                MesgNum.USER_PROFILE -> {
+                    require(userProfiles.size < 4); userProfiles.add(UserProfileMesg(message))
+                }
             }
         })
         require(decoder.read(ByteArrayInputStream(bytes)))
@@ -73,10 +97,47 @@ internal object FitActivityDecoder {
         val elapsed = metric(s.totalElapsedTime)
         val timer = metric(s.totalTimerTime)
         require(elapsed == null || timer == null || timer <= elapsed + 0.001)
+        val timerPauses = buildList {
+            var pausedAt: Instant? = null
+            events.sortedBy { time(it.timestamp) }.forEach { event ->
+                if (event.event != Event.TIMER) return@forEach
+                val at = time(event.timestamp) ?: return@forEach
+                when (event.eventType) {
+                    EventType.STOP,
+                    EventType.STOP_ALL,
+                    EventType.STOP_DISABLE,
+                    EventType.STOP_DISABLE_ALL -> if (pausedAt == null && at > start) pausedAt = at
+                    EventType.START -> {
+                        val paused = pausedAt
+                        if (paused != null && at > paused) add(TimerPause(paused, at))
+                        pausedAt = null
+                    }
+                    else -> Unit
+                }
+            }
+        }
+        val zoneTarget = zoneTargets.lastOrNull()
+        val profile = userProfiles.lastOrNull()
+        val zoneHighs = heartRateZones
+            .sortedBy { it.messageIndex ?: Int.MAX_VALUE }
+            .mapNotNull { it.highBpm?.toInt()?.takeIf { bpm -> bpm in 30..255 } }
+        val sourceZones = SourceHeartRateZones(
+            maximumHr = (zoneTarget?.maxHeartRate ?: profile?.defaultMaxRunningHeartRate
+                ?: profile?.defaultMaxHeartRate)?.toInt()?.takeIf { it in 100..240 },
+            thresholdHr = zoneTarget?.thresholdHeartRate?.toInt()?.takeIf { it in 100..230 },
+            restingHr = profile?.restingHeartRate?.toInt()?.takeIf { it in 30..120 },
+            calculationType = zoneTarget?.hrCalcType?.name,
+            highBpms = zoneHighs
+        ).takeIf {
+            it.maximumHr != null || it.thresholdHr != null || it.restingHr != null ||
+                it.calculationType != null || it.highBpms.isNotEmpty()
+        }
         val hash = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
         return Activity(ImportedSourceIdentity(account,"fit-file",sha256=hash),sport,start,elapsed,timer,
             metric(s.totalDistance),metric(s.avgHeartRate,1.0),metric(s.maxHeartRate,1.0),points,
             laps.map { Lap(time(it.startTime),metric(it.totalElapsedTime),metric(it.totalTimerTime),
-                metric(it.totalDistance),metric(it.avgHeartRate,1.0)) })
+                metric(it.totalDistance),metric(it.avgHeartRate,1.0)) },
+            timerPauses = timerPauses,
+            sourceHeartRateZones = sourceZones)
     }
 }
