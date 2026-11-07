@@ -89,39 +89,64 @@ private fun activityDisplayName(name: String): String {
         name.dropLast(8).trimEnd() else name
 }
 
+private data class ActivityMetricItem(
+    val label: String, val value: String, val unit: String, val glyph: ActivityMetricGlyph
+)
+
 @Composable
 internal fun TracksidePrimaryActivityMetrics(activity: ActivityRecord) {
-    Row(
-        Modifier.fillMaxWidth().testTag("activity-primary-metrics"),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        PrimaryActivityMetric(
-            "DISTANCE", activity.distanceM?.let { 
-                String.format(Locale.getDefault(), "%.2f", it / 1000.0) 
-            } ?: "—",
-            if (activity.distanceM != null) "km" else "",
-            ActivityMetricGlyph.Route, Modifier.weight(1f)
-        )
-        PrimaryActivityMetric(
-            "MOVING TIME", activity.movingTimeS?.let { ActivityRecord.duration(it) } ?: "—",
-            "", ActivityMetricGlyph.Timer, Modifier.weight(1.13f)
-        )
-        PrimaryActivityMetric(
-            "AVG PACE", if (activity.supportsPace && activity.detailPaceLabel != "Not recorded") {
-                activity.detailPaceLabel.removeSuffix(" /km").trim()
-            } else "—",
+    val recordedHr = activity.averageHr?.takeIf { it.isFinite() && it > 0.0 }
+    val metrics = buildList {
+        add(ActivityMetricItem("DISTANCE", activity.distanceM?.let {
+            String.format(Locale.getDefault(), "%.2f", it / 1000.0)
+        } ?: "—", if (activity.distanceM != null) "km" else "", ActivityMetricGlyph.Route))
+        // Existing moving-time measurement is intentionally unchanged.
+        add(ActivityMetricItem("DURATION",
+            activity.movingTimeS?.let { ActivityRecord.duration(it) } ?: "—",
+            "", ActivityMetricGlyph.Timer))
+        add(ActivityMetricItem("AVG PACE",
+            if (activity.supportsPace && activity.detailPaceLabel != "Not recorded")
+                activity.detailPaceLabel.removeSuffix(" /km").trim() else "—",
             if (activity.supportsPace && activity.detailPaceLabel != "Not recorded") "/km" else "",
-            ActivityMetricGlyph.Shoe, Modifier.weight(1f)
-        )
+            ActivityMetricGlyph.Shoe))
+        if (recordedHr != null) add(ActivityMetricItem("AVG HR",
+            recordedHr.roundToInt().toString(), "bpm", ActivityMetricGlyph.Heart))
+    }
+    BoxWithConstraints(Modifier.fillMaxWidth().testTag("activity-primary-metrics")) {
+        // Keep four metrics on one row at normal phone width; never clip
+        // duration or HR when the user has increased the system font scale.
+        val stacked = metrics.size == 4 &&
+            (maxWidth < 305.dp || LocalDensity.current.fontScale > 1.2f)
+        if (stacked) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                metrics.chunked(2).forEach { pair ->
+                    Row(Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        pair.forEach { item ->
+                            PrimaryActivityMetric(item.label, item.value, item.unit,
+                                item.glyph, Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+        } else {
+            Row(Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(if (metrics.size == 4) 4.dp else 6.dp)) {
+                metrics.forEach { item ->
+                    PrimaryActivityMetric(item.label, item.value, item.unit,
+                        item.glyph, Modifier.weight(1f), compact = metrics.size == 4)
+                }
+            }
+        }
     }
 }
 
-private enum class ActivityMetricGlyph { Route, Timer, Shoe }
+private enum class ActivityMetricGlyph { Route, Timer, Shoe, Heart }
 
 @Composable
 private fun PrimaryActivityMetric(
     label: String, value: String, unit: String,
-    symbol: ActivityMetricGlyph, modifier: Modifier = Modifier
+    symbol: ActivityMetricGlyph, modifier: Modifier = Modifier, compact: Boolean = false
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Canvas(Modifier.size(23.dp)) {
@@ -166,6 +191,17 @@ private fun PrimaryActivityMetric(
                     }
                     drawPath(p, activityLime, style = Stroke(sw, cap = StrokeCap.Round))
                 }
+                ActivityMetricGlyph.Heart -> {
+                    val p = Path().apply {
+                        moveTo(w * .5f, h * .85f)
+                        cubicTo(w * .29f, h * .72f, w * .09f, h * .53f, w * .15f, h * .32f)
+                        cubicTo(w * .23f, h * .12f, w * .43f, h * .16f, w * .5f, h * .31f)
+                        cubicTo(w * .58f, h * .16f, w * .78f, h * .12f, w * .86f, h * .32f)
+                        cubicTo(w * .93f, h * .53f, w * .72f, h * .72f, w * .5f, h * .85f)
+                        close()
+                    }
+                    drawPath(p, activityLime, style = Stroke(sw, cap = StrokeCap.Round))
+                }
             }
         }
         Text(
@@ -174,8 +210,8 @@ private fun PrimaryActivityMetric(
         )
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
-                value, color = activityText, fontSize = 19.sp,
-                lineHeight = 23.sp, fontWeight = FontWeight.Bold,
+                value, color = activityText, fontSize = if (compact) 16.sp else 19.sp,
+                lineHeight = if (compact) 20.sp else 23.sp, fontWeight = FontWeight.Bold,
                 maxLines = 1, modifier = Modifier.weight(1f, fill = false)
             )
             if (unit.isNotEmpty()) Text(
@@ -483,7 +519,7 @@ private fun TracksideActivityOverviewBody(
         ActivitySectionHeading("Summary")
         Spacer(Modifier.height(8.dp))
         ActivityInfoLine("Distance", activity.distanceM?.let { activity.distanceLabel })
-        ActivityInfoLine("Moving time", activity.movingTimeS?.let { ActivityRecord.duration(it) })
+        ActivityInfoLine("Duration", activity.movingTimeS?.let { ActivityRecord.duration(it) })
         ActivityInfoLine("Average pace",
             if (activity.supportsPace && activity.detailPaceLabel != "Not recorded")
                 activity.detailPaceLabel else null)
