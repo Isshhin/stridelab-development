@@ -80,4 +80,38 @@ internal object GarminGpsDetail {
         }
         return raw
     }
+    /**
+     * Upgrade only cadence in an already persisted Garmin recording. All
+     * previously saved samples, GPS, lap metrics and source metadata survive
+     * unchanged. A differently sampled FIT is NOT merged by index.
+     *
+     * Returns null when the refreshed FIT has no recorded cadence.
+     */
+    fun mergeRecordedCadence(
+        existing: JSONObject, refreshed: JSONObject, account: String, id: String
+    ): JSONObject? {
+        val old = ActivityDetail.parse(existing, account, id)
+        val latest = ActivityDetail.parse(refreshed, account, id)
+        require(old.samples.size == latest.samples.size && old.laps.size == latest.laps.size) {
+            "Garmin FIT point count changed; saved recording was preserved"
+        }
+        require(old.samples.zip(latest.samples).all { (a,b) ->
+            a.index == b.index &&
+                abs(a.seconds - b.seconds) <= 0.05 &&
+                a.latitude == b.latitude && a.longitude == b.longitude
+        }) {
+            "Garmin FIT sample positions changed; saved recording was preserved"
+        }
+        if (latest.samples.none { it.cadenceSpm != null }) return null
+        val merged = JSONObject(existing.toString())
+        val rows = merged.getJSONArray("samples")
+        latest.samples.forEachIndexed { i, sample ->
+            val cadence = sample.cadenceSpm
+            if (cadence != null) rows.getJSONObject(i).put("cadence_spm", cadence)
+        }
+        // Validate the merged result before it is offered to persistence.
+        ActivityDetail.parse(merged, account, id)
+        return merged
+    }
+
 }
