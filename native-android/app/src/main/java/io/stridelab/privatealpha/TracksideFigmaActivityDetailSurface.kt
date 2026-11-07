@@ -297,7 +297,11 @@ internal fun TracksideFigmaActivityDetailSurface(
                 onChangeStyle = onToggleMatte,
                 online = online,
                 selectedSeconds = selectedActivitySeconds,
-                selectedRange = selectedSplitRange
+                selectedRange = selectedSplitRange,
+                onSelectRange = { range ->
+                    selectedSplitRange = range
+                    selectedActivitySeconds = (range.first + range.second) / 2.0
+                }
             )
         }
 
