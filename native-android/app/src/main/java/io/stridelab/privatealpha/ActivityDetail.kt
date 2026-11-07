@@ -2,7 +2,7 @@ package io.stridelab.privatealpha
 
 import org.json.JSONObject
 
-internal data class ActivitySample(val index: Int, val seconds: Double, val pace: Double?, val hr: Double?, val altitude: Double?, val latitude: Double?, val longitude: Double?)
+internal data class ActivitySample(val index: Int, val seconds: Double, val pace: Double?, val hr: Double?, val altitude: Double?, val latitude: Double?, val longitude: Double?, val cadenceSpm: Double? = null)
 internal data class ActivityLap(val index: Int, val distance: Double?, val seconds: Double?, val pace: Double?, val hr: Double?)
 internal data class ActivityDetail(val activityId: String, val samples: List<ActivitySample>, val laps: List<ActivityLap>, val fetchedAt: Long) {
     companion object {
@@ -25,7 +25,7 @@ internal data class ActivityDetail(val activityId: String, val samples: List<Act
                     return row.getDouble(key).also { require(it.isFinite() && it in -limit..limit) }
                 }
                 ActivitySample(index, metric(row,"elapsed_s")!!, metric(row,"pace_sec_per_km",.001), metric(row,"heart_rate",.001),
-                    metric(row,"altitude_m",-12000.0), coordinate("latitude",90.0),coordinate("longitude",180.0))
+                    metric(row,"altitude_m",-12000.0), coordinate("latitude",90.0),coordinate("longitude",180.0),metric(row,"cadence_spm"))
             }
             require(points.zipWithNext().all { (a,b) -> b.index > a.index && b.seconds >= a.seconds })
             val laps = raw.getJSONArray("laps"); require(laps.length() <= 1000)
