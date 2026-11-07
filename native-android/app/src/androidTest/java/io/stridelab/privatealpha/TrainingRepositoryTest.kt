@@ -217,15 +217,55 @@ class TrainingRepositoryTest {
         assertTrue(repo.signIn("fixture@example.invalid","fixture"))
         assertTrue(repo.loadDetail("activity-1"))
         assertEquals(1,repo.state.value.details["activity-1"]!!.samples.size)
+        val providerCalls=remote.detailRequests
         repo.close(); remote.offline=true; open()
+        // Cold startup indexes detail IDs without parsing any FIT streams.
+        assertTrue(repo.state.value.details.isEmpty())
+        assertTrue("activity-1" in repo.state.value.cachedDetailIds)
+        assertTrue(repo.loadCachedDetail("activity-1"))
+        assertEquals(providerCalls,remote.detailRequests)
         assertEquals(1,repo.state.value.details["activity-1"]!!.samples.size)
         assertFalse(repo.loadDetail("activity-1"))
         assertEquals(1,repo.state.value.details["activity-1"]!!.samples.size)
         remote.offline=false; remote.wrongDetailOwner=true
         assertFalse(repo.loadDetail("activity-1"))
         assertEquals(1,repo.state.value.details["activity-1"]!!.samples.size)
-        assertTrue(repo.signOut()); assertTrue(repo.state.value.details.isEmpty())
+        assertTrue(repo.signOut())
+        assertTrue(repo.state.value.details.isEmpty())
+        assertTrue(repo.state.value.cachedDetailIds.isEmpty())
     }
+    @Test fun coldStartKeepsMultipleActivityDetailsOnDiskUntilOpened() = runBlocking {
+        remote.rows=listOf(row("a"),row("b"))
+        assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        assertTrue(repo.loadDetail("a"))
+        assertTrue(repo.loadDetail("b"))
+        assertEquals(2,repo.state.value.cachedDetailIds.size)
+        repo.close()
+        remote.offline=true
+        open()
+        assertEquals(2,repo.state.value.activities.size)
+        assertEquals(setOf("a","b"),repo.state.value.cachedDetailIds)
+        assertTrue(repo.state.value.details.isEmpty())
+        val requests=remote.detailRequests
+        assertTrue(repo.loadCachedDetail("b"))
+        assertEquals(setOf("b"),repo.state.value.details.keys)
+        assertEquals(requests,remote.detailRequests)
+        assertFalse(repo.loadCachedDetail("unknown"))
+        assertEquals(setOf("b"),repo.state.value.details.keys)
+    }
+
+    @Test fun openedDetailMemoryCacheIsBoundedWithoutDeletingSqliteRecords() = runBlocking {
+        val ids=(1..6).map { "fixture-$it" }
+        remote.rows=ids.map { row(it) }
+        assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        ids.forEach { id -> assertTrue(repo.loadDetail(id)) }
+        assertEquals(6,repo.state.value.cachedDetailIds.size)
+        assertTrue(repo.state.value.details.size <= 4)
+        assertTrue(repo.loadCachedDetail(ids.first()))
+        assertTrue(ids.first() in repo.state.value.details)
+        assertEquals(6,repo.state.value.cachedDetailIds.size)
+    }
+
     @Test fun authenticWellnessPersistsOfflineAndIsHiddenOnSignOut() = runBlocking {
         remote.rows=listOf(row()); assertTrue(repo.signIn("fixture@example.invalid","fixture"))
         assertTrue(repo.refreshWellness()); assertEquals(7.5,repo.state.value.wellness.single().value,0.0)
@@ -306,6 +346,7 @@ class TrainingRepositoryTest {
 
     private class FakeGateway(val account: String): TrainingGateway {
         var wrongDetailOwner = false
+        var detailRequests = 0
         var rows: List<JSONObject> = emptyList()
         var offline = false
         var failAfterFirstPage = false
@@ -345,6 +386,7 @@ class TrainingRepositoryTest {
         }
         override fun detail(session: NativeSession, id: String): JSONObject {
             connected()
+            detailRequests++
             return JSONObject().put("user_id",if(wrongDetailOwner) "another" else account).put("activity_id",id).put("fetched_at",1234)
                 .put("samples",JSONArray().put(JSONObject().put("activity_id",id).put("sample_index",0).put("elapsed_s",0).put("heart_rate",145)))
                 .put("laps",JSONArray())
