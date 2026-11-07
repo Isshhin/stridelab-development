@@ -224,7 +224,7 @@ internal fun TracksideMoreDetailScreen(
             MorePage.Garmin -> item(key = "detail-garmin") {
                 val account = state.account
                 if (account == null) {
-                    MoreGroup { MoreActionRow("Create local profile", MoreSymbol.Person, "connect-sign-in", onBack) }
+                    MoreInfoCard("Local profile", "StrideLab is preparing private device storage. No StrideLab sign-in is required.")
                 } else {
                     // Preserve existing secure credential, sync and disconnect behaviour.
                     GarminSettingsCard(
