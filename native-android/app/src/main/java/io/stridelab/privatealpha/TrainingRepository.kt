@@ -69,6 +69,11 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         val rejected: Int
     )
     private var nextHistoryCursor: HistoryCursor? = null
+    // This is a presentation hint only; it never changes SQLite or providers.
+    @Volatile private var activityDetailVisible: Boolean = false
+    internal fun setActivityDetailVisible(visible: Boolean) {
+        activityDetailVisible = visible
+    }
 
     /**
      * Latest summaries first. JSON extraction runs inside SQLite; Kotlin only
@@ -183,8 +188,15 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 }
                 delay(1200L)
                 while (true) {
+                    // Route/map work takes precedence over background history.
+                    // Do not decode or publish more pages while a detail is open.
+                    if (activityDetailVisible) {
+                        delay(250L)
+                        continue
+                    }
                     val more = mutex.withLock {
                         if (mutable.value.account != account) return@withLock false
+                        if (activityDetailVisible) return@withLock true
                         val after = nextHistoryCursor ?: return@withLock false
                         val started = SystemClock.elapsedRealtime()
                         val page = try {
