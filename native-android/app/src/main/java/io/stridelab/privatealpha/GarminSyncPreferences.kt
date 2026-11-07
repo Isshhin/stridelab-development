@@ -63,6 +63,30 @@ internal class GarminSyncPreferences(context: Context) {
         ) != hash(payload)
     }
 
+    /**
+     * Failed recordings are deprioritized for one day so a bad FIT never
+     * blocks the rest of the user's history. Manual sync can still retry them
+     * after healthy pending records are handled.
+     */
+    fun readyForDetail(account: String, id: String,
+                       now: Long = System.currentTimeMillis()): Boolean {
+        val last = store.getLong(key(account, "detail-failure:" + hash(id)), 0L)
+        return last == 0L || now < last || now - last >= 24L * 60 * 60_000
+    }
+
+    fun noteDetailFailure(account: String, id: String,
+                          now: Long = System.currentTimeMillis()) {
+        check(store.edit().putLong(
+            key(account, "detail-failure:" + hash(id)), now
+        ).commit())
+    }
+
+    fun clearDetailFailure(account: String, id: String) {
+        check(store.edit().remove(
+            key(account, "detail-failure:" + hash(id))
+        ).commit())
+    }
+
     fun restoreOffset(account: String, kind: String): Int {
         require(kind == "activity" || kind == "activity_detail")
         return store.getInt(key(account, "restore-offset-" + kind), 0).coerceAtLeast(0)
