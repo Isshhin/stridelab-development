@@ -30,12 +30,10 @@ import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
+import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
-import org.maplibre.android.style.layers.BackgroundLayer
-import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.PropertyFactory
-import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.android.maps.Style
 import kotlin.math.cos
@@ -49,137 +47,11 @@ import kotlin.math.cos
  * https://openfreemap.org/
  */
 internal object TracksideMapTiles {
-    // Use OpenFreeMap's dark vector style as the complete dark-mode base.
-    // StrideLab then recolors the published layers for a readable activity map
-    // with visible greens instead of the previous near-black treatment.
-    const val STYLE_URL = "https://tiles.openfreemap.org/styles/dark"
+    // Dedicated StrideLab activity-map style. It uses OpenFreeMap/OpenMapTiles
+    // sources but owns the presentation: dark slate land, differentiated green
+    // spaces, blue water, runner-focused paths and zoom-aware labels.
+    const val STYLE_URL = "asset://stridelab_activity_dark.json"
     const val ATTRIBUTION = "© OpenStreetMap contributors · © OpenMapTiles · OpenFreeMap"
-}
-
-/**
- * StrideLab dark activity-map palette.
- *
- * The provider's dark style guarantees that every unmodified layer is already
- * dark. These overrides deliberately lift land/roads/labels and restore green
- * parks/woodland so the map stays readable without becoming a black void.
- */
-internal object TracksideReadableMapPalette {
-    val canvas = AndroidColor.rgb(45, 52, 58)          // #2D343A slate-charcoal
-    val residential = AndroidColor.rgb(50, 58, 63)    // #323A3F
-    val buildings = AndroidColor.rgb(57, 65, 70)      // #394146
-    val buildingEdges = AndroidColor.rgb(70, 78, 83)
-    val grass = AndroidColor.rgb(72, 105, 78)          // #48694E lighter park green
-    val wood = AndroidColor.rgb(36, 68, 47)            // #24442F deeper forest/woodland green
-    val water = AndroidColor.rgb(45, 72, 94)           // #2D485E Strava-like blue
-    val waterways = AndroidColor.rgb(71, 106, 128)
-    val minorRoads = AndroidColor.rgb(92, 101, 106)
-    val majorRoads = AndroidColor.rgb(124, 133, 138)
-    val roadCasings = AndroidColor.rgb(62, 70, 75)
-    val motorways = AndroidColor.rgb(146, 155, 160)
-    val paths = AndroidColor.rgb(80, 89, 94)
-    val rail = AndroidColor.rgb(84, 93, 98)
-    val roadLabels = AndroidColor.rgb(202, 209, 212)
-    val placeLabels = AndroidColor.rgb(232, 236, 238)
-    val labelHalo = AndroidColor.rgb(42, 48, 53)
-    val waterLabels = AndroidColor.rgb(137, 176, 201)
-
-    internal val recoloredLayerIds = setOf(
-        "background", "water", "landcover_ice_shelf", "landcover_glacier",
-        "landuse_residential", "landcover_wood", "landuse_park", "waterway",
-        "water_name", "building", "aeroway-taxiway",
-        "aeroway-runway-casing", "aeroway-area", "aeroway-runway",
-        "road_area_pier", "road_pier", "highway_path", "highway_minor",
-        "highway_major_casing", "highway_major_inner", "highway_major_subtle",
-        "highway_motorway_casing", "highway_motorway_inner",
-        "highway_motorway_subtle", "railway_transit",
-        "railway_transit_dashline", "railway_minor",
-        "railway_minor_dashline", "railway", "railway_dashline",
-        "highway_name_other", "highway_name_motorway", "boundary_state",
-        "boundary_country_z0-4", "boundary_country_z5-", "place_other",
-        "place_suburb", "place_village", "place_town", "place_city",
-        "place_city_large", "place_state", "place_country_other",
-        "place_country_minor", "place_country_major"
-    )
-
-    fun apply(style: Style) {
-        fun background(id: String, color: Int) {
-            (style.getLayer(id) as? BackgroundLayer)?.setProperties(
-                PropertyFactory.backgroundColor(color))
-        }
-        fun fill(id: String, color: Int) {
-            (style.getLayer(id) as? FillLayer)?.setProperties(
-                PropertyFactory.fillColor(color))
-        }
-        fun line(id: String, color: Int) {
-            (style.getLayer(id) as? LineLayer)?.setProperties(
-                PropertyFactory.lineColor(color))
-        }
-        fun text(id: String, color: Int, sizeSp: Float? = null) {
-            (style.getLayer(id) as? SymbolLayer)?.let { layer ->
-                layer.setProperties(
-                    PropertyFactory.textColor(color),
-                    PropertyFactory.textHaloColor(labelHalo),
-                    PropertyFactory.textHaloWidth(1.2f)
-                )
-                if (sizeSp != null) {
-                    layer.setProperties(PropertyFactory.textSize(sizeSp))
-                }
-            }
-        }
-
-        background("background", canvas)
-        fill("landuse_residential", residential)
-        fill("building", buildings)
-        (style.getLayer("building") as? FillLayer)?.setProperties(
-            PropertyFactory.fillOutlineColor(buildingEdges))
-
-        // Greens remain visible even in dark mode.
-        fill("landuse_park", grass)
-        fill("landcover_wood", wood)
-        fill("landcover_ice_shelf", residential)
-        fill("landcover_glacier", residential)
-
-        fill("water", water)
-        line("waterway", waterways)
-        text("water_name", waterLabels)
-
-        fill("road_area_pier", residential)
-        line("road_pier", majorRoads)
-        fill("aeroway-area", residential)
-        line("aeroway-taxiway", paths)
-        line("aeroway-runway", majorRoads)
-        line("aeroway-runway-casing", roadCasings)
-
-        // Keep the provider's zoom-dependent widths and hierarchy.
-        line("highway_path", paths)
-        line("highway_minor", minorRoads)
-        line("highway_major_casing", roadCasings)
-        line("highway_major_inner", majorRoads)
-        line("highway_major_subtle", minorRoads)
-        line("highway_motorway_casing", roadCasings)
-        line("highway_motorway_inner", motorways)
-        line("highway_motorway_subtle", majorRoads)
-
-        for (id in listOf(
-            "railway", "railway_minor", "railway_transit",
-            "railway_transit_dashline", "railway_minor_dashline",
-            "railway_dashline"
-        )) line(id, rail)
-
-        text("highway_name_other", roadLabels, 11.5f)
-        text("highway_name_motorway", roadLabels, 11f)
-        text("place_other", placeLabels, 11f)
-        text("place_suburb", placeLabels, 12.5f)
-        for (id in listOf(
-            "place_village", "place_town", "place_city", "place_city_large",
-            "place_state", "place_country_other", "place_country_minor",
-            "place_country_major"
-        )) text(id, placeLabels)
-
-        line("boundary_state", roadCasings)
-        line("boundary_country_z0-4", roadCasings)
-        line("boundary_country_z5-", roadCasings)
-    }
 }
 
 /**
@@ -277,10 +149,7 @@ private fun MapLibreRouteView(
             map.uiSettings.setRotateGesturesEnabled(false)
             map.uiSettings.setAttributionEnabled(false)
             map.uiSettings.setLogoEnabled(false)
-            map.setStyle(TracksideMapTiles.STYLE_URL) { style ->
-                // Dark-style layers exist at this point. Apply StrideLab's
-                // readable charcoal/green activity palette before GPS overlays.
-                TracksideReadableMapPalette.apply(style)
+            map.setStyle(Style.Builder().fromUri(TracksideMapTiles.STYLE_URL)) { style ->
                 // A lone FIT fix has no line geometry; it is still rendered
                 // below as a recorded dot instead of an empty line source.
                 if(route.segments.any { it.size >= 2 }) {
@@ -311,11 +180,32 @@ private fun MapLibreRouteView(
                     )
                 }
                 if(route.segments.any { it.size >= 2 }) {
+                    val routeWidth = Expression.interpolate(
+                        Expression.linear(), Expression.zoom(),
+                        Expression.stop(10f, 3.2f),
+                        Expression.stop(14f, 4.0f),
+                        Expression.stop(18f, 5.2f)
+                    )
+                    val routeOutlineWidth = Expression.interpolate(
+                        Expression.linear(), Expression.zoom(),
+                        Expression.stop(10f, 5.0f),
+                        Expression.stop(14f, 6.2f),
+                        Expression.stop(18f, 7.8f)
+                    )
+                    // Dark casing preserves route readability over green parks,
+                    // blue water and brighter road geometry at every zoom.
+                    style.addLayer(
+                        LineLayer("stride-gps-line-outline","stride-actual-gps").withProperties(
+                            PropertyFactory.lineColor(AndroidColor.rgb(24,31,27)),
+                            PropertyFactory.lineWidth(routeOutlineWidth),
+                            PropertyFactory.lineOpacity(0.82f)
+                        )
+                    )
                     style.addLayer(
                         LineLayer("stride-gps-line","stride-actual-gps").withProperties(
                             PropertyFactory.lineColor(AndroidColor.rgb(216,251,112)),
-                            PropertyFactory.lineWidth(4f),
-                            PropertyFactory.lineOpacity(0.95f)
+                            PropertyFactory.lineWidth(routeWidth),
+                            PropertyFactory.lineOpacity(0.97f)
                         )
                     )
                 }
@@ -355,7 +245,9 @@ private fun MapLibreRouteView(
                             val bounds=LatLngBounds.Builder()
                             gps.forEach { bounds.include(LatLng(it.latitude,it.longitude)) }
                             map.moveCamera(CameraUpdateFactory.newLatLngBounds(
-                                bounds.build(),64))
+                                bounds.build(),
+                                72, 72, 72, 156
+                            ))
                         }
                     }
                     // Style loading can finish before Compose measures AndroidView.
