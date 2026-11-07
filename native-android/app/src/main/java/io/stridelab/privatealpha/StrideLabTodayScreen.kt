@@ -191,12 +191,11 @@ private fun savedWeekMetrics(
 /**
  * A Today route preview must not force the whole saved FIT history into RAM.
  * Prefer the newest GPS-capable activities on the selected calendar day.
- * Bound thumbnail requests; uncached Garmin recordings retain the existing sync contract.
+ * Uncached Garmin recordings retain the existing sync contract.
  */
 internal fun todayCachedGpsPreviewIds(
     activities: List<ActivityRecord>,
-    cachedDetailIds: Set<String>,
-    limit: Int = 32
+    cachedDetailIds: Set<String>
 ): List<String> = activities.asSequence()
     .filter { it.id in cachedDetailIds }
     .sortedWith(
@@ -205,7 +204,6 @@ internal fun todayCachedGpsPreviewIds(
     )
     .map { it.id }
     .distinct()
-    .take(limit.coerceAtLeast(0))
     .toList()
 
 @Composable
@@ -245,28 +243,6 @@ internal fun StrideLabTodayScreen(
                 it.startedAt.atZone(ZoneId.systemDefault()).toLocalDate() == date
         }.sortedWith(compareBy<ActivityRecord>({ it.startedAt }, { it.id }))
     }
-    // Selected cards lead; recent days follow after the initial frame.
-    // Only local detail IDs are eligible, with a bounded request budget.
-    val previewDetailIds = remember(recordedOnDate, safeActivities, state.cachedDetailIds, todayDate) {
-        val selected = todayCachedGpsPreviewIds(recordedOnDate, state.cachedDetailIds)
-        val recent = safeActivities.filter {
-            val day = it.startedAt.atZone(ZoneId.systemDefault()).toLocalDate()
-            !day.isAfter(todayDate) && !day.isBefore(todayDate.minusDays(2))
-        }
-        (selected + todayCachedGpsPreviewIds(recent, state.cachedDetailIds)).distinct().take(32)
-    }
-    LaunchedEffect(state.account, date, previewDetailIds, isVisible) {
-        if (isVisible && state.account != null && previewDetailIds.isNotEmpty()) {
-            withFrameNanos { }
-            previewDetailIds.forEach { id ->
-                if (id !in state.gpsThumbnails) {
-                    onEnsureCachedDetail(id)
-                    // Date or tab changes cancel remaining requests.
-                    kotlinx.coroutines.delay(120L)
-                }
-            }
-        }
-    }
     val confirmedOnDate = remember(date, todayDate, safePlans, safeHistory) {
         if (date.isAfter(todayDate)) emptyList() else
             DashboardSummary.confirmedWorkouts(safePlans, safeHistory, Instant.now())
@@ -297,6 +273,17 @@ internal fun StrideLabTodayScreen(
     val showRecorded = state.account != null && (isPastDate ||
         (date == todayDate && !hasUnfinishedWorkout &&
             (recordedOnDate.isNotEmpty() || confirmedOnDate.isNotEmpty())))
+    val previewDetailIds = remember(recordedOnDate, state.cachedDetailIds) {
+        todayCachedGpsPreviewIds(recordedOnDate, state.cachedDetailIds)
+    }
+    LaunchedEffect(state.account, previewDetailIds, isVisible, showRecorded, mixedToday) {
+        if (isVisible && showRecorded && !mixedToday) {
+            withFrameNanos { }
+            previewDetailIds.forEach { id ->
+                if (id !in state.gpsThumbnails) onEnsureCachedDetail(id)
+            }
+        }
+    }
     val recordedKinds = recordedOnDate.map { todayRecordedKind(it.type) } +
         confirmedOnDate.map { todayHeroDiscipline(it.discipline) }
     val tone = when {

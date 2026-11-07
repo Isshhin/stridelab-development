@@ -50,8 +50,6 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     private val store = TrainingStore(context, databaseName)
     private val thumbnails = GpsThumbnailCache(context)
     private val thumbnailMutex = Mutex()
-    private val pendingThumbnails = mutableSetOf<Pair<String, String>>()
-    private val retryThumbnails = mutableSetOf<Pair<String, String>>()
     private val appContext = context.applicationContext
     private val vault = SessionVault(context)
     internal val garminSyncPreferences = GarminSyncPreferences(context)
@@ -415,12 +413,6 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     /** Cache hits open only the small image. Misses parse one local detail off the UI thread. */
     internal suspend fun loadGpsThumbnail(id: String): Unit = withContext(Dispatchers.IO) {
         val account = mutable.value.account ?: return@withContext
-        val key = account to id
-        val admitted = synchronized(pendingThumbnails) {
-            if (key in pendingThumbnails) { retryThumbnails.add(key); false }
-            else if (pendingThumbnails.size >= 32) false else pendingThumbnails.add(key)
-        }
-        if (!admitted) return@withContext
         try {
         val started = SystemClock.elapsedRealtime()
         suspend fun lookup(): Boolean = mutex.withLock {
@@ -428,8 +420,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             if (id in mutable.value.gpsThumbnails) return@withLock true
             if (thumbnails.hasNoRoute(account, id)) return@withLock true
             val image = thumbnails.read(account, id) ?: return@withLock false
-            val images = (mutable.value.gpsThumbnails + (id to image)).entries.toList().takeLast(32)
-            mutable.value = mutable.value.copy(gpsThumbnails = images.associate { it.toPair() })
+            mutable.value = mutable.value.copy(gpsThumbnails = mutable.value.gpsThumbnails + (id to image))
             true
         }
         if (lookup()) { traceCache("thumbnail_hit", started, 1); return@withContext }
@@ -450,8 +441,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 thumbnails.save(account, id, fingerprint, encoded)
                 val bitmap = thumbnails.read(account, id)
                 if (bitmap != null) {
-                    val images = (mutable.value.gpsThumbnails + (id to bitmap)).entries.toList().takeLast(32)
-                    mutable.value = mutable.value.copy(gpsThumbnails = images.associate { it.toPair() })
+                    mutable.value = mutable.value.copy(gpsThumbnails = mutable.value.gpsThumbnails + (id to bitmap))
                 }
             }
             traceCache("thumbnail_generation", generation, 1)
@@ -460,12 +450,6 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             throw cancelled
         } catch (_: Exception) {
             // The original recording remains available for a later retry.
-        } finally {
-            val retry = synchronized(pendingThumbnails) {
-                pendingThumbnails.remove(key)
-                retryThumbnails.remove(key)
-            }
-            if (retry && mutable.value.account == account) scope.launch { loadGpsThumbnail(id) }
         }
     }
 

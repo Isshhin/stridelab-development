@@ -4,7 +4,7 @@ import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** The Today GPS request queue is bounded and always recent-first. */
+/** Displayed GPS previews are requested newest first. */
 class TodayCachedGpsPreviewPriorityTest {
     private fun activity(id: String, start: String, type: String = "run") =
         ActivityRecord(
@@ -26,15 +26,13 @@ class TodayCachedGpsPreviewPriorityTest {
         assertEquals(listOf("strength", "newest", "older"), selected)
     }
 
-    @Test fun requestBudgetRemainsBounded() {
-        val records = (0..7).map {
+    @Test fun allDisplayedActivitiesAreRequested() {
+        val records = (0..39).map {
             activity("run-$it", Instant.parse("2026-11-07T12:00:00Z")
                 .minusSeconds(it * 60L).toString())
         }
-        assertEquals((0..7).map { "run-$it" },
+        assertEquals((0..39).map { "run-$it" },
             todayCachedGpsPreviewIds(records.reversed(), records.map { it.id }.toSet()))
-        assertEquals(emptyList<String>(),
-            todayCachedGpsPreviewIds(records, records.map { it.id }.toSet(), limit = 0))
     }
 
     @Test fun sameTimestampUsesDeterministicRecentFirstTieBreak() {
