@@ -1,3 +1,19 @@
+# Current bounded v7 historical-role correction — 2026-11-07
+
+This entry supersedes ALL historical status/next-action entries below. Starting head: `8645e2fd4a8ed264a2184df72711355c2d50a1df`; branch `research/runna-garmin-coaching-20261102`; PR #34 remains **OPEN, DRAFT, UNMERGED**.
+
+**Current v7 status: `P2F_CUSTODY_AUTHORITY_V7_CORRECTIONS_INCOMPLETE`**, pending correction-head GitHub research validation. This is the bounded implementation correction for F1 in the [independent correction review](../phase2/p2-f-custody-authority-v7-correction-independent-security-review-2026-11-07.md), not another independent review. The accepted normative rule, collector source, frozen binary packet and preflight workflow remain unchanged.
+
+The fixture verifier now reconstructs permanent `raw public key -> role` history from pinned genesis, initial policy, every finalized bridge and every coordinator/gateway epoch start. Its eight role categories are genesis-root, log, validator, witness, coordinator-root, gateway-root, coordinator-epoch and gateway-epoch. Cross-role collisions are rejected generically; retired keys are never deleted on bridge, replacement or revoke. A bridge may retain an unchanged current key in its exact policy role; retired same-role keys cannot return as fresh replacements. Operational epochs always require previously unseen keys and epoch IDs. Candidate history changes remain on a copy until every signature passes, so rejection cannot mutate prior authority. Complete certified replay reconstructs the same registry without trusting a cache.
+
+Both original review counterexamples were reproduced byte-for-byte with their reported SHA-256 hashes and now reject: F1a `ROLE_KEY_COLLISION`; F1b `EPOCH_KEY_REUSE`. Added fully signed fixtures: `reject-policy-cross-role-active-coordinator-as-gateway-root` and `reject-gateway-epoch-cross-role-retired-validator`. Negative controls remove only the conflicting history entry and then accept each complete proof, confirming all other cryptographic/state bindings pass.
+
+Local Python 3.12 evidence: **365 exact objects, 34 accepted finality scenarios across all 14 event types, 53 rejections, 1 exact replay, 8 lock/lifecycle schedules**; generator self-check, deterministic artifact regeneration, catalogue replay, RFC8032 known-answer and rejection no-mutation checks PASS. All 363 baseline objects and 86 baseline scenarios are preserved exactly. Eight focused vector tests PASS. Full research suite: **444 run, 443 passed, 1 existing Windows symlink skip**. All research workflow runner/readiness scripts completed successfully; the contract runner records **58 PASS / 0 FAIL**, with 58 real-engine cases still BLOCKED. Readiness/original-source gates remain blocked as intended; these are synthetic structural checks, not coaching efficacy or operational qualification.
+
+Independent frozen binary-byte inspection remains ACCEPTED from the existing review. **Collector NEVER EXECUTED.** No target access/qualification, TPM/TBS, operational key provisioning, participant/provider/private data, production deployment, Engine 1.5, Trackside, APK/release infrastructure, Session G or P2-B changes. No Gate 2 PASS or PR merge/ready transition. Private admission NO; `P2_F_GATE_2_NOT_READY`; `P2_B_PROTOCOL_READY_DATA_NOT_READY`.
+
+**Exact next permitted task:** finish exact-head GitHub research validation of this bounded correction, then update status and obtain a separately scoped NEW independent conformance/security review. That independent review is not performed in this task. Collector execution and preflight authorization remain outside scope.
+
 # Current independent corrected-v7 review — 2026-11-07
 
 This entry supersedes ALL historical status/next-action entries below. Reviewed starting head: `2104f1ff2ba8be79a54c1700c65f10e2152dfc72`; branch `research/runna-garmin-coaching-20261102`; PR #34 remains **OPEN, DRAFT, UNMERGED**.

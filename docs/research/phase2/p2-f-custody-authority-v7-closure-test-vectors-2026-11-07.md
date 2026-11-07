@@ -29,15 +29,15 @@ Regenerate: `python research/tools/p2f_v7_closure_vectors.py`; check drift: add 
   ],
   "exact_replays": 1,
   "lock_lifecycle_schedules": 8,
-  "objects": 363,
-  "rejections": 51,
+  "objects": 365,
+  "rejections": 53,
   "rfc8032_known_answer": "PASS"
 }
 ```
 
 PASS: every accepted finality is parsed, request/state/proof-bound and signature-verified; each negative actually rejects at its named check. RFC8032 empty-message known-answer sign/verify and wrong-message rejection PASS. Synthetic lock/lifecycle records specify obligations, not real durability/independence tests.
 
-JSON raw UTF-8 SHA256: `4eb90d75c42a17c820c9874589e3e506a5d5ed752ed208795df6c078fff3e049`.
+JSON raw UTF-8 SHA256: `94b77f53680d46ed9f685c6e63ae581f33ece8e016228434395df03777b9090d`.
 
 ## Scenario catalogue
 
@@ -92,6 +92,8 @@ JSON raw UTF-8 SHA256: `4eb90d75c42a17c820c9874589e3e506a5d5ed752ed208795df6c078
 | bad-witness-signature | negative fixture | `WRONG_ZERO32` |
 | bridge-mismatched-old-new-body | negative fixture | `INVALID_SIGNATURE` |
 | bridge-wrong-old-epoch | negative fixture | `BRIDGE_BINDING_MISMATCH` |
+| reject-policy-cross-role-active-coordinator-as-gateway-root | negative fixture | `ROLE_KEY_COLLISION` |
+| reject-gateway-epoch-cross-role-retired-validator | negative fixture | `EPOCH_KEY_REUSE` |
 | duplicate-send-started | negative fixture | `SEND_ALREADY_CONSUMED` |
 | send-unknown-then-same-release | negative fixture | `SEND_ALREADY_CONSUMED` |
 | output-after-fence | negative fixture | `WITHDRAWAL_FENCE_VIOLATION` |

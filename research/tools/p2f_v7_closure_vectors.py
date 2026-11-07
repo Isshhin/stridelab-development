@@ -254,7 +254,12 @@ def keyset(keys):
     need(keys == sorted(set(keys)), "INVALID_KEY_SET")
 
 
-def policy_check(raw, g):
+def policy_roles(p):
+    return {**dict.fromkeys(p[4], "validator"), **dict.fromkeys(decode(p[12])[3], "witness"),
+            p[6]: "coordinator-root", p[7]: "gateway-root"}
+
+
+def policy_check(raw, g, keyroles=None, retained=None):
     p = decode(raw); fields(p, 16)
     need(p[0] == p[8] == p[9] == p[10] == 1 and p[5] == 3, "INVALID_POLICY_ALGORITHM")
     uint(p[2]); prime_point(p[6]); prime_point(p[7]); keyset(p[4])
@@ -265,6 +270,10 @@ def policy_check(raw, g):
     keyset(wp[3])
     keys = p[4] + wp[3] + [p[6], p[7], g[3], g[6]]
     need(len(set(keys)) == len(keys), "ROLE_KEY_COLLISION")
+    if keyroles is not None:
+        for key, role in policy_roles(p).items():
+            need(key not in keyroles or (keyroles[key] == role and retained is not None and retained.get(key) == role),
+                 "ROLE_KEY_COLLISION")
     need(p[15] == artifact(p[14], g[3], wp[3]) and p[3] == sha256(p[15]).digest(), "C2SP_ARTIFACT_MISMATCH")
     return p
 
@@ -292,10 +301,12 @@ def initial(genesis, pin, rootpin, crypto):
     need(type(g[2]) is bytes and 1 <= len(g[2]) <= 255 and all(33 <= b <= 126 and b != 43 for b in g[2]), "INVALID_ORIGIN")
     need(g[4] == h("log-id", encode([g[2], g[3]])), "WRONG_LOG_ID")
     crypto.verify(rootpin, "sig/genesis", signed[0], signed[1])
-    need(policy_check(g[5], g)[2] == 0, "INVALID_GENESIS_EPOCH")
+    p = policy_check(g[5], g)
+    need(p[2] == 0, "INVALID_GENESIS_EPOCH")
     return {"genesis": g, "pin": pin, "policy": g[5], "leaves": [], "cp": Z, "control": Z, "cs": 0,
             "coordinator": None, "gateway": None, "namespaces": {}, "operations": {},
-            "ids": set(), "epochs": set(), "epochkeys": set(), "operation_proofs": {}}
+            "ids": set(), "epochs": set(), "operation_proofs": {},
+            "keyroles": {g[3]: "log", g[6]: "genesis-root", **policy_roles(p)}}
 
 
 def auth_expected(s, e, p):
@@ -344,10 +355,9 @@ def transition(s, e):
         need(v[1] == s["cp"] and v[3] == s["cs"], "STALE_CHALLENGE")
     if t in (2, 3):
         need(v[1] == s["control"], "STALE_CONTROL_HEAD")
-        p = decode(s["policy"])
-        forbidden = p[4] + decode(p[12])[3] + [p[6], p[7], s["genesis"][3], s["genesis"][6]]
-        need(v[0] not in s["epochs"] and v[2] not in s["epochkeys"] and v[2] not in forbidden, "EPOCH_KEY_REUSE")
-        s["epochs"].add(v[0]); s["epochkeys"].add(v[2])
+        need(v[0] not in s["epochs"] and v[2] not in s["keyroles"], "EPOCH_KEY_REUSE")
+        s["epochs"].add(v[0])
+        s["keyroles"][v[2]] = "coordinator-epoch" if t == 2 else "gateway-epoch"
         if t == 2:
             s["coordinator"] = (v[0], v[2])
         else:
@@ -433,7 +443,7 @@ def verify(raw, prior, crypto):
     need(type(f[7]) is list and len(f[7]) == (2 if e[1] == 5 else 1) and f[7][0] == prior["policy"], "WRONG_POLICY_OBJECTS")
     policies = [p]
     if e[1] == 5:
-        new = policy_check(f[7][1], prior["genesis"])
+        new = policy_check(f[7][1], prior["genesis"], prior["keyroles"], policy_roles(p))
         need(new[2] == p[2] + 1, "INVALID_BRIDGE_EPOCH")
         need(e[15] == {0: h("policy", f[7][0]), 1: h("policy", f[7][1]), 2: p[2], 3: new[2], 4: prior["cs"] + 1}, "BRIDGE_BINDING_MISMATCH")
         policies.append(new)
@@ -470,6 +480,7 @@ def verify(raw, prior, crypto):
         approval_check(aset, h("policy", f[7][i]), pp[4], domain, f[4], crypto)
     if e[1] == 5:
         s["policy"] = f[7][1]
+        s["keyroles"].update(policy_roles(new))
     s["leaves"].append(leaf); s["cp"] = cpd; s["operations"][e[13]] = f[1]
     s["operation_proofs"][e[13]] = raw
     return s
@@ -647,6 +658,13 @@ def suite(crypto):
         rejection(name, "start-a", 18, starts["a"], expected, mutate_bundle=fn)
     rejection("bridge-mismatched-old-new-body", "policy-bridge", 5, bridge, "INVALID_SIGNATURE", newpolicy=new, alternate_new_body=True)
     rejection("bridge-wrong-old-epoch", "policy-bridge", 5, {**bridge, 2: 1}, "BRIDGE_BINDING_MISMATCH", newpolicy=new)
+    colliding = decode(new); colliding[7] = states["policy-bridge"][0]["coordinator"][1]
+    colliding = encode(colliding)
+    rejection("reject-policy-cross-role-active-coordinator-as-gateway-root", "policy-bridge", 5,
+              {**bridge, 1: h("policy", colliding)}, "ROLE_KEY_COLLISION", newpolicy=colliding)
+    rejection("reject-gateway-epoch-cross-role-retired-validator", "coordinator-rotation", 3,
+              {0: ident("retired-validator-gateway-epoch"), 1: states["coordinator-rotation"][0]["control"],
+               2: decode(old)[4][0]}, "EPOCH_KEY_REUSE")
     rejection("duplicate-send-started", "completed", 18, starts["a"], "SEND_ALREADY_CONSUMED")
     rejection("send-unknown-then-same-release", "escape-c-new-explicit", 18, starts["c"], "SEND_ALREADY_CONSUMED")
     rejection("output-after-fence", "unknown-after-fence", 17, escapes["d"], "WITHDRAWAL_FENCE_VIOLATION")
