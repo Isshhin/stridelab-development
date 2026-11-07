@@ -274,9 +274,9 @@ internal fun TracksideFigmaActivityDetailSurface(
         // just one small reachable grip above the system navigation area;
         // it does not cover or intercept gestures on the GPS map itself.
         if (mapOnly) {
-            val openSummary = { scope.launch {
-                settleQuickly(SheetValue.PartiallyExpanded)
-            } }
+            val openSummary: () -> Unit = {
+                scope.launch { settleQuickly(SheetValue.PartiallyExpanded) }
+            }
             Box(
                 modifier = Modifier.align(Alignment.BottomCenter)
                     .width(96.dp).height(36.dp)
