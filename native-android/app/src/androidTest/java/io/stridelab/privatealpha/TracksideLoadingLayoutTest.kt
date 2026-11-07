@@ -2,11 +2,8 @@ package io.stridelab.privatealpha
 
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.test.assertExists
-import androidx.compose.ui.test.assertDoesNotExist
-import androidx.compose.ui.test.fetchSemanticsNode
+import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithTag
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
