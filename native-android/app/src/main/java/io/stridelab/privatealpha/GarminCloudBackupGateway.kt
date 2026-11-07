@@ -24,13 +24,13 @@ internal class GarminCloudBackupGateway(
             MessageDigest.getInstance("SHA-256")
                 .digest(payload.toByteArray(StandardCharsets.UTF_8))
                 .joinToString("") { "%02x".format(it.toInt() and 255) }
-        internal fun kind(kind: String) {
+        internal fun validateKind(kind: String) {
             require(kind == "activity" || kind == "activity_detail")
         }
     }
 
     private fun validate(owner: String, kind: String, id: String, payload: String) {
-        kind(kind)
+        validateKind(kind)
         RecordPolicy.identifier(owner)
         RecordPolicy.identifier(id)
         require(payload.toByteArray(StandardCharsets.UTF_8).size <= MAX_PAYLOAD_BYTES) {
@@ -69,7 +69,7 @@ internal class GarminCloudBackupGateway(
 
     /** Explicitly requested restoration only; RLS also isolates owner rows. */
     fun readPage(session: NativeSession, kind: String, offset: Int, limit: Int): List<GarminCloudBackupRow> {
-        kind(kind)
+        validateKind(kind)
         require(offset >= 0 && limit in 1..50)
         val owner = URLEncoder.encode(session.account, "UTF-8")
         val path = TABLE +
