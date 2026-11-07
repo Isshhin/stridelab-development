@@ -168,7 +168,7 @@ internal fun TracksideAuthScreen(
             Spacer(Modifier.height(58.dp))
             Text(
                 when (page) {
-                    TracksideAuthPage.SignIn -> "SIGN IN"
+                    TracksideAuthPage.SignIn -> "CLOUD BACKUP"
                     TracksideAuthPage.SignUp -> "CREATE ACCOUNT"
                     TracksideAuthPage.Reset -> "RESET PASSWORD"
                 },
@@ -178,7 +178,7 @@ internal fun TracksideAuthScreen(
             Spacer(Modifier.height(12.dp))
             Text(
                 when (page) {
-                    TracksideAuthPage.SignIn -> "Welcome back"
+                    TracksideAuthPage.SignIn -> "Connect your account"
                     TracksideAuthPage.SignUp -> "Get started"
                     TracksideAuthPage.Reset -> "Reset password"
                 },
