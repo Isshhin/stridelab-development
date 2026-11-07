@@ -41,8 +41,13 @@ class TracksideActivityScrollTest {
             activities = listOf(activity)
         )
         val tab = mutableIntStateOf(0)
-        AthleteHeartRatePreferences(compose.activity)
-            .setMaximumHr(state.account, 197)
+        AthleteHeartRatePreferences(compose.activity).save(
+            state.account,
+            AthleteHeartRateZoneSettings(
+                method = HeartRateZoneMethod.MAX_BPM,
+                maximumHr = 197
+            )
+        )
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
@@ -165,8 +170,8 @@ class TracksideActivityScrollTest {
             .performScrollToNode(hasTestTag("activity-chart-heart-rate-zones"))
         compose.onNodeWithTag("activity-chart-heart-rate-zones").assertExists()
         compose.onNodeWithTag("activity-hr-zone-max-input").assertDoesNotExist()
-        compose.onNodeWithTag("activity-hr-zone-saved-max").assertExists()
-        compose.onNodeWithText("197 bpm max").assertExists()
+        compose.onNodeWithTag("activity-hr-zone-method").assertExists()
+        compose.onNodeWithText("MAX BPM").assertExists()
         compose.onNodeWithTag("activity-hr-zone-1").assertExists()
         compose.onNodeWithTag("activity-hr-zone-5").assertExists()
         compose.onNodeWithTag("activity-chart-insights-heart-rate-zones").assertExists()
