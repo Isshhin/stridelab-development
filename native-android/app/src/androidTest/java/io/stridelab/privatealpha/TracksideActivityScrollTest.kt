@@ -389,46 +389,44 @@ class TracksideActivityScrollTest {
         compose.onNodeWithText("Link run").assertExists()
     }
 
-    @Test fun activityMapUsesOpenFreeMapLiberty() {
+    @Test fun activityMapUsesOpenFreeMapDarkBase() {
         org.junit.Assert.assertEquals(
-            "https://tiles.openfreemap.org/styles/liberty",
+            "https://tiles.openfreemap.org/styles/dark",
             TracksideMapTiles.STYLE_URL
         )
         assertTrue(TracksideMapTiles.ATTRIBUTION.contains("OpenStreetMap"))
         assertTrue(TracksideMapTiles.ATTRIBUTION.contains("OpenFreeMap"))
     }
 
-    @Test fun lightActivityMapKeepsGreensRoadsWaterAndLabelsDistinct() {
-        // These are actual layer IDs in OpenFreeMap Liberty.
+    @Test fun darkActivityMapKeepsGreensRoadsWaterAndLabelsDistinct() {
         val ids = TracksideReadableMapPalette.recoloredLayerIds
         for (id in listOf(
-            "background", "park", "landcover_grass", "water",
-            "road_minor", "road_secondary_tertiary", "road_trunk_primary",
-            "highway-name-minor", "label_city", "building"
-        )) assertTrue("Missing Liberty layer ID: " + id, id in ids)
-
-        val hidden = TracksideReadableMapPalette.hiddenClutterLayerIds
-        assertTrue("building-3d" in hidden)
-        assertTrue("poi_r20" in hidden)
-        assertTrue("poi_r7" in hidden)
-        assertTrue("poi_r1" in hidden)
+            "background", "water", "landuse_park", "landcover_wood",
+            "highway_minor", "highway_major_inner",
+            "highway_motorway_inner", "highway_name_other",
+            "place_suburb", "building"
+        )) assertTrue("Missing dark-style layer ID: " + id, id in ids)
 
         val ground = TracksideReadableMapPalette.canvas
         val minor = TracksideReadableMapPalette.minorRoads
+        val major = TracksideReadableMapPalette.majorRoads
         val labels = TracksideReadableMapPalette.roadLabels
-        val parks = TracksideReadableMapPalette.park
+        val parks = TracksideReadableMapPalette.grass
+        val woods = TracksideReadableMapPalette.wood
         val water = TracksideReadableMapPalette.water
         fun red(color: Int) = android.graphics.Color.red(color)
         fun green(color: Int) = android.graphics.Color.green(color)
         fun blue(color: Int) = android.graphics.Color.blue(color)
 
-        // Light neutral land, visibly greener parks, blue water and bright roads.
-        assertTrue(red(ground) >= 230)
-        assertTrue(red(minor) > red(ground))
+        // Reference target: slate-charcoal ground, visible greens/blues,
+        // brighter roads and readable light labels.
+        assertTrue(red(ground) in 40..70)
         assertTrue(green(parks) > red(parks))
-        assertTrue(green(parks) > blue(parks))
+        assertTrue(green(woods) > red(woods))
         assertTrue(blue(water) > red(water))
-        assertTrue(red(labels) < 120)
+        assertTrue(red(minor) > red(ground))
+        assertTrue(red(major) > red(minor))
+        assertTrue(red(labels) > 180)
     }
 
     @Test fun activityWithoutSourceStreamsDoesNotInventSplitsOrCharts() {
