@@ -83,10 +83,12 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     private fun readHistoryPage(account: String, after: HistoryCursor?): HistoryPage {
         val started = "CASE WHEN json_valid(payload) THEN " +
             "COALESCE(json_extract(payload, '$.started_at'), '') ELSE '' END"
+        val source = "CASE WHEN json_valid(payload) THEN " +
+            "LOWER(COALESCE(json_extract(payload, '$.source'), '')) ELSE '' END"
         val filter = if (after == null) "" else
             " AND ($started < ? OR ($started = ? AND record_id < ?))"
         val sql = "SELECT record_id,payload,$started AS started FROM records " +
-            "WHERE account=? AND kind='activity'$filter " +
+            "WHERE account=? AND kind='activity' AND $source != 'intervals'$filter " +
             "ORDER BY started DESC, record_id DESC LIMIT ${recentPageSize + 1}"
         val arguments = if (after == null) arrayOf(account) else
             arrayOf(account,after.startedAt,after.startedAt,after.id)
