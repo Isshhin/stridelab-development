@@ -82,6 +82,10 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
     fun setActivityDetailVisible(visible: Boolean) =
         repo.setActivityDetailVisible(visible)
 
+    /** A restored older Activity destination must be available without history hydration. */
+    fun loadCachedSummary(id: String) {
+        viewModelScope.launch { repo.loadCachedSummary(id) }
+    }
     /** Disk-only, account-scoped; no refresh or provider request. */
     fun loadCachedDetail(id: String) {
         viewModelScope.launch { repo.loadCachedDetail(id) }
