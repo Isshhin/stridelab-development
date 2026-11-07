@@ -586,6 +586,10 @@ private fun TracksideActivityOverviewBody(
             Spacer(Modifier.height(15.dp))
         }
         TracksideActivitySummary(activity)
+        if (recorded != null && recorded.pauseIntervals.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            TracksideActivityPauseSummary(recorded)
+        }
         if (activity.source == "garmin" && detailSource.id == activity.id &&
             (recorded == null || missingSavedCadence)) {
             Spacer(Modifier.height(12.dp))
@@ -629,6 +633,83 @@ private fun TracksideActivityOverviewBody(
                 insightPresentation, descriptor = workoutCharacter
             )
         }
+    }
+}
+
+private data class ActivityPauseEvidence(
+    val pauseCount: Int,
+    val totalSeconds: Double,
+    val sourceSamples: Int,
+    val gpsFixes: Int,
+    val heartRateSamples: Int,
+    val cadenceSamples: Int
+)
+
+@Composable
+private fun TracksideActivityPauseSummary(recorded: ActivityDetail) {
+    val evidence = remember(recorded) {
+        val pauses = recorded.pauseIntervals
+        fun paused(seconds: Double): Boolean =
+            pauses.any { seconds >= it.startSeconds && seconds <= it.endSeconds }
+        val duringPause = recorded.samples.filter { paused(it.seconds) }
+        ActivityPauseEvidence(
+            pauseCount = pauses.size,
+            totalSeconds = pauses.sumOf { it.endSeconds - it.startSeconds },
+            sourceSamples = duringPause.size,
+            gpsFixes = duringPause.count { it.latitude != null && it.longitude != null },
+            heartRateSamples = duringPause.count { it.hr != null },
+            cadenceSamples = duringPause.count { it.cadenceSpm != null }
+        )
+    }
+    Column(
+        Modifier.fillMaxWidth()
+            .background(activitySurface, RoundedCornerShape(14.dp))
+            .padding(horizontal = 13.dp, vertical = 12.dp)
+            .testTag("activity-pause-summary"),
+        verticalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Paused time", color = activityText,
+                fontSize = 13.sp, fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                ActivityRecord.duration(evidence.totalSeconds),
+                color = Color(0xFFFFBE7A), fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+        Text(
+            evidence.pauseCount.toString() +
+                (if (evidence.pauseCount == 1) " timer pause" else " timer pauses"),
+            color = activityMuted, fontSize = 10.sp
+        )
+        if (evidence.sourceSamples == 0) {
+            Text(
+                "The FIT file contains no source samples during the paused interval.",
+                color = activityMuted, fontSize = 10.5.sp, lineHeight = 15.sp
+            )
+        } else {
+            val recordedKinds = buildList {
+                if (evidence.gpsFixes > 0) add(evidence.gpsFixes.toString() + " GPS")
+                if (evidence.heartRateSamples > 0) add(evidence.heartRateSamples.toString() + " HR")
+                if (evidence.cadenceSamples > 0) add(evidence.cadenceSamples.toString() + " cadence")
+            }.joinToString(" · ")
+            Text(
+                evidence.sourceSamples.toString() +
+                    " source samples were still recorded during pauses" +
+                    (if (recordedKinds.isNotEmpty()) " · " + recordedKinds else "") + ".",
+                color = activityMuted, fontSize = 10.5.sp, lineHeight = 15.sp
+            )
+        }
+        Text(
+            "Only source-recorded values are shown. Missing paused data is not reconstructed.",
+            color = activityMuted.copy(alpha = .82f), fontSize = 9.5.sp, lineHeight = 14.sp
+        )
     }
 }
 
@@ -1259,7 +1340,7 @@ private fun TracksideActivitySourceChart(
 ) {
     // Segment by missing source values and timestamp gaps before drawing.
     // A line never bridges a pause or interpolates an unrecorded measurement.
-    val segments = remember(samples, title) {
+    val segments = remember(samples, title, pauseIntervals) {
         val result = mutableListOf<List<ActivitySample>>()
         var current = mutableListOf<ActivitySample>()
         var previous: ActivitySample? = null
@@ -1296,6 +1377,15 @@ private fun TracksideActivitySourceChart(
     val validSamples = remember(samples, title) {
         samples.mapNotNull { sample ->
             metric(sample)?.takeIf { it.isFinite() }?.let { sample to it }
+        }
+    }
+    val pausedMetricSamples = remember(samples, pauseIntervals, title) {
+        if (pauseIntervals.isEmpty()) emptyList()
+        else samples.filter { sample ->
+            metric(sample)?.isFinite() == true &&
+                pauseIntervals.any { pause ->
+                    sample.seconds >= pause.startSeconds && sample.seconds <= pause.endSeconds
+                }
         }
     }
     if (validSamples.size < 2 || samples.isEmpty()) return
@@ -1466,6 +1556,10 @@ private fun TracksideActivitySourceChart(
                     contentDescription = title + " recorded chart, " +
                         validSamples.size + " measured points. " +
                         "Average " + valueText(sampleAverage) +
+                        (if (pausedMetricSamples.isNotEmpty())
+                            ". " + pausedMetricSamples.size +
+                                " measurements were recorded during timer pauses"
+                        else "") +
                         ". Drag to inspect values."
                 }
         ) {
@@ -1528,6 +1622,18 @@ private fun TracksideActivitySourceChart(
                         drawLine(lineColor,position(a,av),position(b,bv),
                             strokeWidth=2.dp.toPx(),cap=StrokeCap.Round)
                     }
+                }
+            }
+            // Real measurements saved while TIMER was stopped stay visible as
+            // amber evidence points. They are never connected or interpolated.
+            pausedMetricSamples.forEach { sample ->
+                val value = metric(sample)
+                if (value != null) {
+                    drawCircle(
+                        Color(0xFFFFBE7A).copy(alpha = .92f),
+                        2.6.dp.toPx(),
+                        position(sample, value)
+                    )
                 }
             }
             displayedOutliers.forEach { sample ->
