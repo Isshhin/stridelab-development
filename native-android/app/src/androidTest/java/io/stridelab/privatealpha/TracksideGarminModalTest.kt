@@ -19,7 +19,8 @@ class TracksideGarminModalTest {
                     GarminSettingsCard(
                         accountId = owner,
                         backupGarminCloud = { 0 },
-                        restoreGarminCloud = { 0 }
+                        restoreGarminCloud = { 0 },
+                        cloudSignedIn = true
                     )
                 }
             }
