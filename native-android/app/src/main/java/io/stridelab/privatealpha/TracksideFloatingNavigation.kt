@@ -6,6 +6,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,8 +20,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -100,29 +103,47 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
                 }
             }
             if (selectedIndex >= 0) {
-                val pillShape = remember { RoundedCornerShape(30.dp) }
-                Box(
-                    modifier = Modifier
-                        .width(cellWidth).fillMaxHeight()
-                        .graphicsLayer {
-                            // GPU translation avoids relayout of the pill
-                            // while its spring animates across the dock.
-                            val position = pillOffset.value
-                            translationX = position.dp.toPx()
-                            val pressure = if (animationsDisabled) 0f else
-                                TracksideLiquidMotion.pressure(
-                                    position, targetOffset.value, cellWidth.value
-                                )
-                            // Small elastic response, but no prolonged
-                            // spring overshoot at the destination.
-                            scaleX = TracksideLiquidMotion.stretch(pressure, .055f)
-                            scaleY = TracksideLiquidMotion.squash(pressure, .025f)
-                            shape = pillShape
-                            clip = true
-                        }
-                        .background(lime)
+                // Liquid capsule and wake share a single draw phase. The
+                // animation value is read by Canvas, never by the tab row or
+                // the NavHost. Fast retaps change destination immediately.
+                Canvas(
+                    modifier = Modifier.fillMaxSize()
                         .testTag("nav-selected-indicator")
-                )
+                ) {
+                    val offset = pillOffset.value.dp.toPx()
+                    val target = targetOffset.toPx()
+                    val cell = size.width / destinations.size
+                    val inset = 3.dp.toPx()
+                    val y = inset
+                    val h = (size.height - inset * 2f).coerceAtLeast(1f)
+                    val w = (cell - inset * 2f).coerceAtLeast(1f)
+                    val p = TracksideLiquidMotion.pressure(
+                        pillOffset.value, targetOffset.value, cellWidth.value
+                    )
+                    val movingRight = target >= offset
+                    val tail = p * 10.dp.toPx()
+                    // A short soft wake makes the capsule feel like moving
+                    // water without blur, a shader, continuous simulation,
+                    // or expensive re-layout.
+                    if (tail > .5f) {
+                        val wakeX = if (movingRight) offset - tail else offset + cell - inset
+                        drawRoundRect(
+                            color = lime.copy(alpha = .22f * p),
+                            topLeft = Offset(wakeX, y + h * .13f),
+                            size = Size(tail + inset, h * .74f),
+                            cornerRadius = CornerRadius(h * .37f, h * .37f)
+                        )
+                    }
+                    val stretch = p * 6.dp.toPx()
+                    val left = offset + inset - if (!movingRight) stretch else 0f
+                    val width = w + stretch
+                    drawRoundRect(
+                        color = lime,
+                        topLeft = Offset(left, y),
+                        size = Size(width, h),
+                        cornerRadius = CornerRadius(h * .50f, h * .50f)
+                    )
+                }
             }
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 destinations.forEachIndexed { index, (path, label, drawable) ->
