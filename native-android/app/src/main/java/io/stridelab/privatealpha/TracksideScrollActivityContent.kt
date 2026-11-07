@@ -299,7 +299,7 @@ internal fun TracksideActivityContinuousSections(
         ActivityDetailSectionAnalysis.splits(laps, activity.supportsPace)
     }
     val splitStartIndex = 1
-    val chartsStartIndex = 2 + laps.size + if (splitInsight != null) 1 else 0
+    val chartsStartIndex = 2 + laps.size + (if (splitInsight != null) 1 else 0)
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val currentSection by remember(listState, chartsStartIndex) {
@@ -887,7 +887,8 @@ private fun TracksideActivitySourceChart(
         Spacer(Modifier.height(9.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(
-                Modifier.width(43.dp).height(124.dp),
+                Modifier.width(43.dp).height(124.dp)
+                    .testTag("activity-chart-y-axis-" + title.lowercase(Locale.ROOT).replace(" ", "-")),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 val top = if (pace) low else high
