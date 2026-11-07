@@ -238,6 +238,8 @@ internal fun TracksideFigmaActivityDetailSurface(
                         // through a drag, which could cause a perceptible hitch.
                         // While fully transparent it is translated below the
                         // sheet so it cannot steal compact-summary gestures.
+                        val detailsSemanticsVisible = expanded ||
+                            sheetState.targetValue == SheetValue.Expanded
                         Column(
                             Modifier.fillMaxSize()
                                 .graphicsLayer {
@@ -246,6 +248,9 @@ internal fun TracksideFigmaActivityDetailSurface(
                                     translationY = if (details <= .001f) {
                                         with(density) { sheetHeight.toPx() }
                                     } else 0f
+                                }
+                                .semantics {
+                                    if (!detailsSemanticsVisible) invisibleToUser()
                                 }
                         ) {
                             TracksideActivityExpandedHeader(activity, collapseOrBack)
