@@ -140,4 +140,4 @@ Initialize each scenario from pinned signed genesis, replay its `history` object
 
 Wrapper documents use Git LF bytes for the stated file hash; Windows CRLF checkout translation is normalized only for wrapper drift checking. Embedded canonical objects are always compared as exact bytes.
 
-This bounded fixture oracle is implementation-side evidence, not a production verifier or independent review. Strict point admission is checked with fixture-only field arithmetic; signatures use platform crypto. Neither establishes deployed parser/crypto handling, disk durability, operational independence, genuine human consent or target qualification. Binary independent inspection/preflight/runtime gates remain blocked. Collector NEVER EXECUTED.
+This bounded fixture oracle is implementation-side evidence, not a production verifier or independent review. Strict point admission is checked with fixture-only field arithmetic; signatures use platform crypto. Neither establishes deployed parser/crypto handling, disk durability, operational independence, genuine human consent or target qualification. Preflight execution/runtime gates remain blocked. Collector NEVER EXECUTED.
