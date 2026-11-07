@@ -14,20 +14,19 @@ internal data class RecordedGpsPoint(
 internal data class RecordedGpsRoute(val segments:List<List<RecordedGpsPoint>>) {
     val pointCount:Int get()=segments.sumOf { it.size }
     val allPoints:List<RecordedGpsPoint> get()=segments.flatten()
+    val isolatedPoints:List<RecordedGpsPoint> get()=segments.filter { it.size == 1 }.flatten()
 
-    /**
-     * A separate LineString is used for each continuous section. Avoid
-     * drawing invented paths across missing fixes, long gaps and the dateline.
+    /** Missing GPS intervals are shown as a DASHED indication of unknown path,
+     * never as part of the measured lime route. Dateline crossings are omitted.
      */
-    fun toGeoJson():String {
-        val lines=JSONArray()
-        segments.forEach { segment ->
-            val line=JSONArray()
-            segment.forEach { point ->
-                line.put(JSONArray().put(point.longitude).put(point.latitude))
-            }
-            lines.put(line)
+    val gaps:List<Pair<RecordedGpsPoint,RecordedGpsPoint>> get()=
+        segments.zipWithNext().mapNotNull { (a,b) ->
+            val start=a.lastOrNull() ?: return@mapNotNull null
+            val end=b.firstOrNull() ?: return@mapNotNull null
+            if (abs(start.longitude-end.longitude)>=180.0) null else start to end
         }
+
+    private fun multiLineFeature(lines:JSONArray):String {
         val feature=JSONObject()
             .put("type","Feature")
             .put("properties",JSONObject())
@@ -38,6 +37,46 @@ internal data class RecordedGpsRoute(val segments:List<List<RecordedGpsPoint>>) 
             .put("type","FeatureCollection")
             .put("features",JSONArray().put(feature))
             .toString()
+    }
+
+    /** Actual lone coordinate fixes, retained even if there was no drawn line. */
+    fun isolatedGeoJson():String {
+        val coords=JSONArray()
+        isolatedPoints.forEach { point ->
+            coords.put(JSONArray().put(point.longitude).put(point.latitude))
+        }
+        return JSONObject()
+            .put("type","Feature")
+            .put("properties",JSONObject())
+            .put("geometry",JSONObject().put("type","MultiPoint").put("coordinates",coords))
+            .toString()
+    }
+
+    /** Straight dashed visual connector means unknown tracking, NOT distance. */
+    fun gapsGeoJson():String {
+        val lines=JSONArray()
+        gaps.forEach { (a,b) ->
+            lines.put(JSONArray()
+                .put(JSONArray().put(a.longitude).put(a.latitude))
+                .put(JSONArray().put(b.longitude).put(b.latitude)))
+        }
+        return multiLineFeature(lines)
+    }
+
+    /**
+     * A separate LineString is used for each continuous section. Avoid
+     * drawing invented paths across missing fixes, long gaps and the dateline.
+     */
+    fun toGeoJson():String {
+        val lines=JSONArray()
+        segments.filter { it.size >= 2 }.forEach { segment ->
+            val line=JSONArray()
+            segment.forEach { point ->
+                line.put(JSONArray().put(point.longitude).put(point.latitude))
+            }
+            lines.put(line)
+        }
+        return multiLineFeature(lines)
     }
 
     /** An antimeridian-spanning route is framed to its longest contiguous section. */
@@ -54,7 +93,7 @@ internal data class RecordedGpsRoute(val segments:List<List<RecordedGpsPoint>>) 
             val output=ArrayList<List<RecordedGpsPoint>>()
             var current=ArrayList<RecordedGpsPoint>()
             fun flush() {
-                if(current.size>=2)output.add(current.toList())
+                if(current.isNotEmpty())output.add(current.toList())
                 current=ArrayList()
             }
             for(sample in samples) {
