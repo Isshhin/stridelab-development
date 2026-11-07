@@ -161,10 +161,14 @@ internal fun TracksideFigmaActivityDetailSurface(
                 sheetState.targetValue == SheetValue.Expanded ||
                 sheetState.targetValue == SheetValue.Hidden
             ) {
+                if (mapOnly || sheetState.targetValue == SheetValue.Hidden) {
+                    mapMode = TracksideActivityMapMode.ROUTE
+                }
                 scope.launch { settleSheet(SheetValue.PartiallyExpanded) }
             } else onBack()
         }
         BackHandler(enabled = expanded || mapOnly) {
+            if (mapOnly) mapMode = TracksideActivityMapMode.ROUTE
             scope.launch { settleSheet(SheetValue.PartiallyExpanded) }
         }
 
@@ -306,6 +310,7 @@ internal fun TracksideFigmaActivityDetailSurface(
                 mapMode = mapMode,
                 onMapMode = { mapMode = it },
                 onToggleFullScreen = {
+                    if (mapOnly) mapMode = TracksideActivityMapMode.ROUTE
                     scope.launch {
                         settleSheet(
                             if (mapOnly) SheetValue.PartiallyExpanded
@@ -357,6 +362,7 @@ internal fun TracksideFigmaActivityDetailSurface(
         // The map remains freely pannable everywhere outside this 24dp strip.
         if (showMapLip) {
             val openSummary: () -> Unit = {
+                mapMode = TracksideActivityMapMode.ROUTE
                 scope.launch { settleSheet(SheetValue.PartiallyExpanded) }
             }
             Box(
