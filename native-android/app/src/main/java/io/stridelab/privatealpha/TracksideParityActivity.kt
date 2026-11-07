@@ -39,6 +39,10 @@ internal fun TracksideParityActivityMapHero(
     onChangeStyle: (() -> Unit)? = null,
     online:Boolean = true,
     gpsSourceLabel:String? = null,
+    fullScreen:Boolean = false,
+    mapMode:TracksideActivityMapMode = TracksideActivityMapMode.ROUTE,
+    onMapMode:(TracksideActivityMapMode) -> Unit = {},
+    onToggleFullScreen:() -> Unit = {},
     selectedSeconds:Double? = null,
     selectedRange:Pair<Double,Double>? = null,
     onSelectRange:(Pair<Double,Double>?) -> Unit = {}
@@ -55,6 +59,8 @@ internal fun TracksideParityActivityMapHero(
                 route, online, Modifier.fillMaxSize(),
                 selectedSeconds = selectedSeconds,
                 laps = detail?.laps.orEmpty(),
+                samples = detail?.samples.orEmpty(),
+                mapMode = mapMode,
                 selectedRange = selectedRange,
                 onSelectRange = onSelectRange
             )
@@ -82,6 +88,29 @@ internal fun TracksideParityActivityMapHero(
                 Text("‹", fontSize = 25.sp, color = TracksidePalette.text)
             } }
             Spacer(Modifier.weight(1f))
+            Surface(
+                onClick = onToggleFullScreen,
+                modifier = Modifier.size(44.dp)
+                    .testTag("activity-map-fullscreen")
+                    .semantics {
+                        contentDescription = if (fullScreen)
+                            "Exit full-screen activity map"
+                        else
+                            "Open full-screen activity map"
+                    },
+                shape = RoundedCornerShape(25.dp),
+                color = Color(0xDD080E0C),
+                border = BorderStroke(1.dp, Color(0x5546574F))
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        if (fullScreen) "⌄" else "⛶",
+                        fontSize = if (fullScreen) 20.sp else 17.sp,
+                        color = TracksidePalette.text
+                    )
+                }
+            }
+            Spacer(Modifier.width(8.dp))
             if (onChangeStyle != null) {
                 Surface(
                     onClick = onChangeStyle,
@@ -97,6 +126,53 @@ internal fun TracksideParityActivityMapHero(
                     }
                 }
             } else Box(Modifier.size(44.dp))
+        }
+        if (fullScreen && route.pointCount > 0) {
+            val samples=detail?.samples.orEmpty()
+            val availableModes=buildList {
+                add(TracksideActivityMapMode.ROUTE)
+                if(samples.count { it.latitude != null && it.longitude != null && it.pace != null } >= 2)
+                    add(TracksideActivityMapMode.PACE)
+                if(samples.count { it.latitude != null && it.longitude != null && it.altitude != null } >= 2)
+                    add(TracksideActivityMapMode.ELEVATION)
+                if(samples.count { it.latitude != null && it.longitude != null && it.hr != null } >= 2)
+                    add(TracksideActivityMapMode.HEART_RATE)
+            }
+            Surface(
+                color = Color(0xE6080E0C),
+                border = BorderStroke(1.dp, Color(0x5546574F)),
+                shape = RoundedCornerShape(22.dp),
+                modifier = Modifier.align(Alignment.TopCenter)
+                    .padding(top = 68.dp)
+                    .testTag("activity-map-mode-selector")
+            ) {
+                Row(
+                    Modifier.padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    availableModes.forEach { mode ->
+                        Surface(
+                            onClick = { onMapMode(mode) },
+                            shape = RoundedCornerShape(17.dp),
+                            color = if (mapMode == mode) Color(0xFFD8FB70)
+                                else Color.Transparent,
+                            modifier = Modifier.testTag(
+                                "activity-map-mode-" + mode.name.lowercase()
+                            )
+                        ) {
+                            Text(
+                                mode.label,
+                                color = if (mapMode == mode) Color(0xFF080D0C)
+                                    else Color(0xFFD7E0DB),
+                                fontSize = 10.sp,
+                                fontWeight = if (mapMode == mode)
+                                    FontWeight.SemiBold else FontWeight.Normal,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
+                            )
+                        }
+                    }
+                }
+            }
         }
         if (route.pointCount > 0) {
             val hasSpecialGpsState = route.pauseGaps.isNotEmpty() ||
