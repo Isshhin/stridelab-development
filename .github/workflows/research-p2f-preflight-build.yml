@@ -11,9 +11,11 @@ jobs:
     runs-on: windows-2025
     steps:
       - uses: actions/checkout@v4
-        with: {ref: ${{ inputs.ref }}}
+        with:
+          ref: ${{ inputs.ref }}
       - uses: ilammy/msvc-dev-cmd@v1
-        with: {arch: x64}
+        with:
+          arch: x64
       - name: Build and inspect only
         shell: pwsh
         run: |
