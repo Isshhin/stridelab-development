@@ -16,6 +16,18 @@ public class RecordPolicyTest {
         assertThrows(IllegalArgumentException.class,()->RecordPolicy.kind("credentials"));
         assertThrows(IllegalArgumentException.class,()->RecordPolicy.payload(new String(new char[RecordPolicy.MAX_PAYLOAD_BYTES+1]).replace('\0','x')));
     }
+    @Test public void largeRecordingDetailsAreNotRejectedBySmallRecordLimit() {
+        StringBuilder json = new StringBuilder(RecordPolicy.MAX_PAYLOAD_BYTES + 256);
+        json.append("{\"samples\":\"");
+        for (int i=0; i<RecordPolicy.MAX_PAYLOAD_BYTES; i++) json.append('x');
+        json.append("\"}");
+        String large = json.toString();
+        RecordPolicy.record("athlete-a","activity_detail","garmin-detail",large);
+        assertThrows(IllegalArgumentException.class,
+            ()->RecordPolicy.record("athlete-a","activity","summary",large));
+        assertThrows(IllegalArgumentException.class,
+            ()->RecordPolicy.record("athlete-a","activity_detail","malformed","{bad"));
+    }
     @Test public void rejectsPartialJsonAndNonObjectPayloads() {
         for(String value:new String[]{null,"[]","null","{broken","{} trailing"})
             assertThrows(IllegalArgumentException.class,()->RecordPolicy.payload(value));
