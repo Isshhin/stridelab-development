@@ -45,7 +45,8 @@ internal fun TracksideParityActivityMapHero(
     onToggleFullScreen:() -> Unit = {},
     selectedSeconds:Double? = null,
     selectedRange:Pair<Double,Double>? = null,
-    onSelectRange:(Pair<Double,Double>?) -> Unit = {}
+    onSelectRange:(Pair<Double,Double>?) -> Unit = {},
+    onShare:(() -> Unit)? = null
 ) {
     val route=remember(detail) {
         RecordedGpsRoute.from(
@@ -88,6 +89,13 @@ internal fun TracksideParityActivityMapHero(
                 Text("‹", fontSize = 25.sp, color = TracksidePalette.text)
             } }
             Spacer(Modifier.weight(1f))
+            if (onShare != null) {
+                androidx.compose.material3.TextButton(onClick = onShare,
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("activity-share")) {
+                    Text("Share", color = TracksidePalette.text)
+                }
+                Spacer(Modifier.width(8.dp))
+            }
             Surface(
                 onClick = onToggleFullScreen,
                 modifier = Modifier.size(44.dp)

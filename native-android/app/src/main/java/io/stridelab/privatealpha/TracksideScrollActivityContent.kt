@@ -246,7 +246,7 @@ private fun PrimaryActivityMetric(
 
 /** Compact header used only after the user expands the details sheet. */
 @Composable
-internal fun TracksideActivityExpandedHeader(activity: ActivityRecord, onBack: () -> Unit) {
+internal fun TracksideActivityExpandedHeader(activity: ActivityRecord, onBack: () -> Unit, onShare: (() -> Unit)? = null) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
             .heightIn(min = 51.dp),
@@ -267,6 +267,10 @@ internal fun TracksideActivityExpandedHeader(activity: ActivityRecord, onBack: (
                 lineHeight = 19.sp, fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(activity.dateLabel, color = activityMuted, fontSize = 10.sp, maxLines = 1)
+        }
+        if (onShare != null) TextButton(onClick = onShare,
+            modifier = Modifier.heightIn(min = 48.dp).testTag("activity-share-expanded")) {
+            Text("Share", color = activityText)
         }
     }
 }

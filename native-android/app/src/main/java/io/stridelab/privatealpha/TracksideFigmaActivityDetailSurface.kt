@@ -20,6 +20,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,6 +66,7 @@ internal fun TracksideFigmaActivityDetailSurface(
     onBack: () -> Unit,
     onLoadGarminGps: (() -> Unit)? = null
 ) {
+    var shareOpen by rememberSaveable(activity.id) { androidx.compose.runtime.mutableStateOf(false) }
     BoxWithConstraints(
         Modifier.fillMaxSize().background(Color.Black)
             .testTag("screen")
@@ -269,7 +273,7 @@ internal fun TracksideFigmaActivityDetailSurface(
                                     if (!detailsSemanticsVisible) invisibleToUser()
                                 }
                         ) {
-                            TracksideActivityExpandedHeader(activity, collapseOrBack)
+                            TracksideActivityExpandedHeader(activity, collapseOrBack, onShare = { shareOpen = true })
                             TracksideActivityContinuousSections(
                                 activity = activity,
                                 recorded = recorded,
@@ -303,6 +307,7 @@ internal fun TracksideFigmaActivityDetailSurface(
                 detail = recorded,
                 gpsSourceLabel = detailSource.sourceLabel,
                 onBack = collapseOrBack,
+                onShare = { shareOpen = true },
                 heightDp = maxHeight,
                 onChangeStyle = onToggleMatte,
                 online = online,
@@ -448,6 +453,15 @@ internal fun TracksideFigmaActivityDetailSurface(
                 titleContentColor = Color(0xFFF0F7F1),
                 textContentColor = Color(0xFFBFCFC4)
             )
+        }
+        if (shareOpen) {
+            Dialog(
+                onDismissRequest = { shareOpen = false },
+                properties = DialogProperties(usePlatformDefaultWidth = false,
+                    decorFitsSystemWindows = false, dismissOnClickOutside = false)
+            ) {
+                ShareStudioScreen(activity, recorded, online, onBack = { shareOpen = false })
+            }
         }
     }
 }
