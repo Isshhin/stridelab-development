@@ -101,6 +101,17 @@ internal object TracksideReadableMapPalette {
         "road_secondary_tertiary", "road_trunk_primary_casing",
         "road_trunk_primary", "road_motorway_casing", "road_motorway",
         "road_service_track", "road_path_pedestrian", "road_major_rail",
+        "tunnel_service_track_casing", "tunnel_link_casing",
+        "tunnel_street_casing", "tunnel_secondary_tertiary_casing",
+        "tunnel_trunk_primary_casing", "tunnel_motorway_casing",
+        "tunnel_path_pedestrian", "tunnel_service_track", "tunnel_link",
+        "tunnel_minor", "tunnel_secondary_tertiary", "tunnel_trunk_primary",
+        "tunnel_motorway", "bridge_service_track_casing", "bridge_link_casing",
+        "bridge_street_casing", "bridge_path_pedestrian_casing",
+        "bridge_secondary_tertiary_casing", "bridge_trunk_primary_casing",
+        "bridge_motorway_casing", "bridge_path_pedestrian",
+        "bridge_service_track", "bridge_link", "bridge_street",
+        "bridge_secondary_tertiary", "bridge_trunk_primary", "bridge_motorway",
         "building", "waterway_line_label", "water_name_point_label",
         "water_name_line_label", "highway-name-path", "highway-name-minor",
         "highway-name-major", "label_other", "label_village", "label_town",
@@ -170,6 +181,33 @@ internal object TracksideReadableMapPalette {
         line("road_service_track", minorRoads)
         line("road_path_pedestrian", paths)
         line("road_major_rail", rail)
+
+        // Bridges and tunnels keep the same hierarchy so route context does
+        // not suddenly change color when a road crosses or passes underground.
+        for (id in listOf(
+            "tunnel_service_track_casing", "tunnel_link_casing",
+            "tunnel_street_casing", "tunnel_secondary_tertiary_casing",
+            "tunnel_trunk_primary_casing", "tunnel_motorway_casing",
+            "bridge_service_track_casing", "bridge_link_casing",
+            "bridge_street_casing", "bridge_path_pedestrian_casing",
+            "bridge_secondary_tertiary_casing", "bridge_trunk_primary_casing",
+            "bridge_motorway_casing"
+        )) line(id, roadCasings)
+        for (id in listOf(
+            "tunnel_service_track", "tunnel_link", "tunnel_minor",
+            "bridge_service_track", "bridge_link", "bridge_street"
+        )) line(id, minorRoads)
+        for (id in listOf(
+            "tunnel_secondary_tertiary", "bridge_secondary_tertiary"
+        )) line(id, secondaryRoads)
+        for (id in listOf(
+            "tunnel_trunk_primary", "bridge_trunk_primary"
+        )) line(id, primaryRoads)
+        for (id in listOf(
+            "tunnel_motorway", "bridge_motorway"
+        )) line(id, motorwayRoads)
+        line("tunnel_path_pedestrian", paths)
+        line("bridge_path_pedestrian", paths)
 
         fill("building", buildings)
         outline("building", buildingEdges)
