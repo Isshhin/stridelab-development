@@ -23,15 +23,15 @@ class TodayCachedGpsPreviewPriorityTest {
             listOf(older, strength, noLocalFit, newest),
             setOf("older", "newest", "strength")
         )
-        assertEquals(listOf("newest", "older"), selected)
+        assertEquals(listOf("strength", "newest", "older"), selected)
     }
 
-    @Test fun requestBudgetMatchesFourHotDetailSlots() {
+    @Test fun requestBudgetRemainsBounded() {
         val records = (0..7).map {
             activity("run-$it", Instant.parse("2026-11-07T12:00:00Z")
                 .minusSeconds(it * 60L).toString())
         }
-        assertEquals(listOf("run-0","run-1","run-2","run-3"),
+        assertEquals((0..7).map { "run-$it" },
             todayCachedGpsPreviewIds(records.reversed(), records.map { it.id }.toSet()))
         assertEquals(emptyList<String>(),
             todayCachedGpsPreviewIds(records, records.map { it.id }.toSet(), limit = 0))

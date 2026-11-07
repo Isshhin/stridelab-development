@@ -35,6 +35,7 @@ internal data class TrainingState(
     val workoutDrafts:Map<Pair<String,String>,WorkoutEntryDraft> = emptyMap(),
     val wellness: List<WellnessRecord> = emptyList(),
     val details: Map<String,ActivityDetail> = emptyMap(),
+    val gpsThumbnails: Map<String,android.graphics.Bitmap> = emptyMap(),
     val task: String? = null,
     /** SQLite detail identifiers, not their potentially enormous FIT sample payloads. */
     val cachedDetailIds: Set<String> = emptySet(),
@@ -47,6 +48,10 @@ internal data class TrainingState(
 internal class TrainingRepository(context: Context, private val gateway: TrainingGateway = SupabaseGateway(),
     databaseName: String = TrainingStore.DATABASE, preferencesName: String = "native-account-v1") {
     private val store = TrainingStore(context, databaseName)
+    private val thumbnails = GpsThumbnailCache(context)
+    private val thumbnailMutex = Mutex()
+    private val pendingThumbnails = mutableSetOf<Pair<String, String>>()
+    private val retryThumbnails = mutableSetOf<Pair<String, String>>()
     private val appContext = context.applicationContext
     private val vault = SessionVault(context)
     internal val garminSyncPreferences = GarminSyncPreferences(context)
@@ -407,6 +412,75 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             true
         } }
 
+    /** Cache hits open only the small image. Misses parse one local detail off the UI thread. */
+    internal suspend fun loadGpsThumbnail(id: String): Unit = withContext(Dispatchers.IO) {
+        val account = mutable.value.account ?: return@withContext
+        val key = account to id
+        val admitted = synchronized(pendingThumbnails) {
+            if (key in pendingThumbnails) { retryThumbnails.add(key); false }
+            else if (pendingThumbnails.size >= 32) false else pendingThumbnails.add(key)
+        }
+        if (!admitted) return@withContext
+        try {
+        val started = SystemClock.elapsedRealtime()
+        suspend fun lookup(): Boolean = mutex.withLock {
+            if (mutable.value.account != account || id !in mutable.value.cachedDetailIds) return@withLock true
+            if (id in mutable.value.gpsThumbnails) return@withLock true
+            if (thumbnails.hasNoRoute(account, id)) return@withLock true
+            val image = thumbnails.read(account, id) ?: return@withLock false
+            val images = (mutable.value.gpsThumbnails + (id to image)).entries.toList().takeLast(32)
+            mutable.value = mutable.value.copy(gpsThumbnails = images.associate { it.toPair() })
+            true
+        }
+        if (lookup()) { traceCache("thumbnail_hit", started, 1); return@withContext }
+        traceCache("thumbnail_miss", started, 1)
+        thumbnailMutex.withLock {
+            if (lookup()) return@withLock
+            while (activityDetailVisible) delay(250)
+            val saved = mutex.withLock {
+                if (mutable.value.account == account) store.get(account, "activity_detail", id)?.payload else null
+            } ?: return@withLock
+            val detail = runCatching { ActivityDetail.parse(JSONObject(saved), account, id) }.getOrNull() ?: return@withLock
+            val route = RecordedGpsRoute.from(detail.samples, detail.pauseIntervals)
+            val generation = SystemClock.elapsedRealtime()
+            val fingerprint = thumbnails.fingerprint(route)
+            val encoded = thumbnails.render(route)
+            mutex.withLock save@ {
+                if (mutable.value.account != account || store.get(account, "activity_detail", id)?.payload != saved) return@save
+                thumbnails.save(account, id, fingerprint, encoded)
+                val bitmap = thumbnails.read(account, id)
+                if (bitmap != null) {
+                    val images = (mutable.value.gpsThumbnails + (id to bitmap)).entries.toList().takeLast(32)
+                    mutable.value = mutable.value.copy(gpsThumbnails = images.associate { it.toPair() })
+                }
+            }
+            traceCache("thumbnail_generation", generation, 1)
+        }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            // The original recording remains available for a later retry.
+        } finally {
+            val retry = synchronized(pendingThumbnails) {
+                pendingThumbnails.remove(key)
+                retryThumbnails.remove(key)
+            }
+            if (retry && mutable.value.account == account) scope.launch { loadGpsThumbnail(id) }
+        }
+    }
+
+    private fun prepareThumbnailWrite(account: String, id: String, detail: ActivityDetail) {
+        val route = RecordedGpsRoute.from(detail.samples, detail.pauseIntervals)
+        if (thumbnails.storedFingerprint(account, id) != thumbnails.fingerprint(route)) {
+            invalidateThumbnail(account, id)
+        }
+    }
+
+    private fun invalidateThumbnail(account: String, id: String) {
+        thumbnails.remove(account, id)
+        mutable.value = mutable.value.copy(gpsThumbnails = mutable.value.gpsThumbnails - id)
+    }
+
     /**
      * Open only the requested cached detail; never call a provider on the
      * cached-data path. The original SQLite payload is preserved on error.
@@ -653,8 +727,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         require(mutable.value.activities.any { it.id == id })
         val raw = authenticated { gateway.detail(it,id) }
         val parsed = ActivityDetail.parse(raw,account,id)
+        prepareThumbnailWrite(account, id, parsed)
         store.applyRemotePage(account,"activity_detail",listOf(TrainingStore.RemoteRecord(id,raw.toString(),null)),null,System.currentTimeMillis())
         retainHotDetail(id,parsed)
+        scope.launch { loadGpsThumbnail(id) }
     }
     private suspend fun operation(label: String, action: () -> Unit): Boolean = withContext(Dispatchers.IO) {
         mutex.withLock {
@@ -1013,6 +1089,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                         if (store.get(account, kind, row.recordId) != null) continue
                         if (kind == "activity_detail" &&
                             store.get(account, "activity", row.recordId) == null) continue
+                        if (kind == "activity_detail") invalidateThumbnail(account, row.recordId)
                         // Each source is added durably without overwriting any
                         // other local version or touching the original server tables.
                         store.applyRemotePage(
@@ -1142,12 +1219,15 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         } else raw
         val checked = if (saved != null)
             ActivityDetail.parse(storedPayload, account, id) else parsed
+        prepareThumbnailWrite(account, id, checked)
         store.applyRemotePage(
             account, "activity_detail",
             listOf(TrainingStore.RemoteRecord(id, storedPayload.toString(), null)),
             null, System.currentTimeMillis()
         )
-        return publishIfOpened(checked)
+        val result = publishIfOpened(checked)
+        scope.launch { loadGpsThumbnail(id) }
+        return result
     }
 
     internal fun close() { scope.cancel(); store.close() }

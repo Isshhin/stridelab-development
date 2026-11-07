@@ -43,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Path
@@ -190,15 +191,14 @@ private fun savedWeekMetrics(
 /**
  * A Today route preview must not force the whole saved FIT history into RAM.
  * Prefer the newest GPS-capable activities on the selected calendar day.
- * Keep the request budget within TrainingRepository's four hot detail slots.
- * Uncached Garmin recordings retain the existing on-demand/sync contract.
+ * Bound thumbnail requests; uncached Garmin recordings retain the existing sync contract.
  */
 internal fun todayCachedGpsPreviewIds(
     activities: List<ActivityRecord>,
     cachedDetailIds: Set<String>,
-    limit: Int = 4
+    limit: Int = 32
 ): List<String> = activities.asSequence()
-    .filter { it.supportsPace && it.id in cachedDetailIds }
+    .filter { it.id in cachedDetailIds }
     .sortedWith(
         compareByDescending<ActivityRecord> { it.startedAt }
             .thenByDescending { it.id }
@@ -245,22 +245,23 @@ internal fun StrideLabTodayScreen(
                 it.startedAt.atZone(ZoneId.systemDefault()).toLocalDate() == date
         }.sortedWith(compareBy<ActivityRecord>({ it.startedAt }, { it.id }))
     }
-    // Summaries arrive in recent-first pages, but each saved GPS detail is
-    // intentionally lazy. Request the current day's newest cached running
-    // routes first (not just its oldest/first card) after the initial frame.
-    // On another calendar date, request only that date's previews. This is
-    // bounded by the repository's four hot-detail slots, never all history.
-    val previewDetailIds = remember(recordedOnDate, state.cachedDetailIds) {
-        todayCachedGpsPreviewIds(recordedOnDate, state.cachedDetailIds)
+    // Selected cards lead; recent days follow after the initial frame.
+    // Only local detail IDs are eligible, with a bounded request budget.
+    val previewDetailIds = remember(recordedOnDate, safeActivities, state.cachedDetailIds, todayDate) {
+        val selected = todayCachedGpsPreviewIds(recordedOnDate, state.cachedDetailIds)
+        val recent = safeActivities.filter {
+            val day = it.startedAt.atZone(ZoneId.systemDefault()).toLocalDate()
+            !day.isAfter(todayDate) && !day.isBefore(todayDate.minusDays(2))
+        }
+        (selected + todayCachedGpsPreviewIds(recent, state.cachedDetailIds)).distinct().take(32)
     }
     LaunchedEffect(state.account, date, previewDetailIds, isVisible) {
         if (isVisible && state.account != null && previewDetailIds.isNotEmpty()) {
             withFrameNanos { }
             previewDetailIds.forEach { id ->
-                if (id !in state.details) {
+                if (id !in state.gpsThumbnails) {
                     onEnsureCachedDetail(id)
-                    // Allow the newest route to start decoding before the
-                    // next request; date/tab changes cancel remaining work.
+                    // Date or tab changes cancel remaining requests.
                     kotlinx.coroutines.delay(120L)
                 }
             }
@@ -412,7 +413,7 @@ internal fun StrideLabTodayScreen(
                     activities = recordedOnDate,
                     logs = confirmedOnDate,
                     plans = safePlans,
-                    cachedDetails = state.details,
+                    cachedDetails = state.gpsThumbnails,
                     notchFraction = notchPosition.value,
                     onOpenActivity = onOpenActivityDetail,
                     onOpenWorkout = onOpenWorkout
@@ -881,7 +882,7 @@ private fun TodayCompactRecordedCards(
     activities: List<ActivityRecord>,
     logs: List<ConfirmedWorkout>,
     plans: List<PlanSnapshot>,
-    cachedDetails: Map<String, ActivityDetail>,
+    cachedDetails: Map<String, android.graphics.Bitmap>,
     notchFraction: Float,
     onOpenActivity: (String) -> Unit,
     onOpenWorkout: (String, String) -> Unit
@@ -965,7 +966,7 @@ private fun TodayCompactRecordedCard(
     notchFraction: Float,
     discipline: String,
     accent: Color,
-    recordedDetail: ActivityDetail?,
+    recordedDetail: android.graphics.Bitmap?,
     primary: String,
     secondary: String,
     tag: String,
@@ -974,10 +975,6 @@ private fun TodayCompactRecordedCard(
     val shape = remember(first, notchFraction) {
         if (first) todayNotchedShape(notchFraction)
         else RoundedCornerShape(18.dp)
-    }
-    val route = remember(recordedDetail) {
-        recordedDetail?.let { RecordedGpsRoute.from(it.samples,it.pauseIntervals) }
-            ?.takeIf { it.pointCount >= 2 }
     }
     Surface(
         onClick = onClick,
@@ -1039,9 +1036,10 @@ private fun TodayCompactRecordedCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            if (route != null) {
-                TodayCompactGpsThumbnail(
-                    route = route,
+            if (recordedDetail != null) {
+                androidx.compose.foundation.Image(
+                    bitmap = recordedDetail.asImageBitmap(),
+                    contentDescription = "Recorded GPS route preview, north up",
                     modifier = Modifier.size(width = 66.dp, height = 64.dp)
                 )
             }

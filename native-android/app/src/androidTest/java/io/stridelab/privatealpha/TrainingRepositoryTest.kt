@@ -283,6 +283,26 @@ class TrainingRepositoryTest {
         assertFalse(repo.refresh()); assertTrue(repo.state.value.needsSignIn)
         assertEquals(1,repo.state.value.activities.size); assertArrayEquals(damaged,file.readBytes())
     }
+    @Test fun thumbnailReopensOfflineWithoutLoadingDetailOrProvider() = runBlocking {
+        GpsThumbnailCache(context).remove(account, "activity-1")
+        remote.rows = listOf(row())
+        remote.gpsDetail = true
+        assertTrue(repo.signIn("fixture@example.invalid", "fixture"))
+        assertTrue(repo.loadDetail("activity-1"))
+        repo.loadGpsThumbnail("activity-1")
+        withTimeout(10_000L) { repo.state.first { "activity-1" in it.gpsThumbnails } }
+        val requests = remote.detailRequests
+        repo.close(); remote.offline = true; open()
+        assertTrue(repo.state.value.details.isEmpty())
+        repo.loadGpsThumbnail("activity-1")
+        assertNotNull(repo.state.value.gpsThumbnails["activity-1"])
+        assertTrue(repo.state.value.details.isEmpty())
+        assertEquals(requests, remote.detailRequests)
+        val sqlite = TrainingStore(context, database)
+        try { assertEquals(2, JSONObject(sqlite.get(account, "activity_detail", "activity-1").payload).getJSONArray("samples").length()) }
+        finally { sqlite.close() }
+    }
+
     @Test fun detailsSurviveOfflineRecreationAndRejectCrossAccountReplacement() = runBlocking {
         remote.rows=listOf(row())
         assertTrue(repo.signIn("fixture@example.invalid","fixture"))
@@ -417,6 +437,7 @@ class TrainingRepositoryTest {
     }
 
     private class FakeGateway(val account: String): TrainingGateway {
+        var gpsDetail = false
         var wrongDetailOwner = false
         var detailRequests = 0
         var rows: List<JSONObject> = emptyList()
@@ -459,8 +480,11 @@ class TrainingRepositoryTest {
         override fun detail(session: NativeSession, id: String): JSONObject {
             connected()
             detailRequests++
+            val samples = JSONArray().put(JSONObject().put("activity_id",id).put("sample_index",0).put("elapsed_s",0).put("heart_rate",145)
+                .apply { if (gpsDetail) put("latitude", 14.0).put("longitude", 121.0) })
+            if (gpsDetail) samples.put(JSONObject().put("activity_id",id).put("sample_index",1).put("elapsed_s",10).put("latitude",14.01).put("longitude",121.01))
             return JSONObject().put("user_id",if(wrongDetailOwner) "another" else account).put("activity_id",id).put("fetched_at",1234)
-                .put("samples",JSONArray().put(JSONObject().put("activity_id",id).put("sample_index",0).put("elapsed_s",0).put("heart_rate",145)))
+                .put("samples",samples)
                 .put("laps",JSONArray())
         }
         override fun signOut(session: NativeSession) { connected(); logoutEntered?.countDown(); if(finishLogout != null) check(finishLogout!!.await(10,TimeUnit.SECONDS)) }

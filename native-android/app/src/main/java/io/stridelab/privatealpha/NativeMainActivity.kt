@@ -134,7 +134,7 @@ class NativeMainActivity: ComponentActivity() {
     }
     val actions = remember(model) { NativeActions(model::refresh, {}, {}, model::signOut, model::signIn, model::loadDetail, model::refreshWellness, model.planActions(), syncGarmin=model::syncGarmin, loadGarminGps=model::loadGarminGps,
         backupGarminCloud=model::backupGarminCloud, restoreGarminCloud=model::restoreGarminCloud,
-        loadCachedDetail=model::loadCachedDetail,
+        loadCachedDetail=model::loadCachedDetail, loadGpsThumbnail=model::loadGpsThumbnail,
         loadCachedSummary=model::loadCachedSummary,
         setActivityDetailVisible=model::setActivityDetailVisible,
         signUp=model::signUp, requestPasswordReset=model::requestPasswordReset) }
@@ -153,6 +153,7 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
     val backupGarminCloud: (suspend () -> Int)? = null,
     val restoreGarminCloud: (suspend () -> Int)? = null,
     val loadCachedDetail: (String) -> Unit = {},
+    val loadGpsThumbnail: (String) -> Unit = {},
     val loadCachedSummary: (String) -> Unit = {},
     val setActivityDetailVisible: (Boolean) -> Unit = {})
 
@@ -623,7 +624,7 @@ private fun NavHostController.openActivity(id: String) {
                             onOpenActivityDetail = { id -> nav.openActivity(id) },
                             onOpenMore = { nav.openTabRoot("settings") },
                             onSignIn = { nav.navigate("auth") },
-                            onEnsureCachedDetail = actions.loadCachedDetail,
+                            onEnsureCachedDetail = actions.loadGpsThumbnail,
                             isVisible = visibleRoot == null || visibleRoot == "home"
                         )
                     }
@@ -697,7 +698,7 @@ private fun NavHostController.openActivity(id: String) {
                         onOpenActivityDetail = { id -> nav.openActivity(id) },
                         onOpenMore = { nav.openTabRoot("settings") },
                         onSignIn = { nav.navigate("auth") },
-                        onEnsureCachedDetail = actions.loadCachedDetail,
+                        onEnsureCachedDetail = actions.loadGpsThumbnail,
                         isVisible = visibleRoot == null || visibleRoot == "home"
                     )
                 }

@@ -86,6 +86,7 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
     fun loadCachedSummary(id: String) {
         viewModelScope.launch { repo.loadCachedSummary(id) }
     }
+    fun loadGpsThumbnail(id: String) { viewModelScope.launch { repo.loadGpsThumbnail(id) } }
     /** Disk-only, account-scoped; no refresh or provider request. */
     fun loadCachedDetail(id: String) {
         viewModelScope.launch { repo.loadCachedDetail(id) }
