@@ -383,6 +383,29 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     }
 
     /**
+     * A restored Activity Detail destination may point to an older activity
+     * outside the initial recent page. Fetch only that account-owned summary,
+     * so process recreation cannot temporarily label a saved activity missing.
+     */
+    internal suspend fun loadCachedSummary(id: String): Boolean =
+        withContext(Dispatchers.IO) { mutex.withLock {
+            val account = mutable.value.account ?: return@withLock false
+            if (mutable.value.activities.any { it.id == id }) return@withLock true
+            val row = store.get(account,"activity",id) ?: return@withLock false
+            val parsed = runCatching {
+                ActivityRecord.parse(row.payload,account)
+            }.getOrNull() ?: return@withLock false
+            if (!ActiveActivitySources.accepts(parsed.source)) return@withLock false
+            mutable.value = mutable.value.copy(
+                activities=(mutable.value.activities + parsed).sortedWith(
+                    compareByDescending<ActivityRecord> { it.startedAt }
+                        .thenByDescending { it.id }
+                )
+            )
+            true
+        } }
+
+    /**
      * Open only the requested cached detail; never call a provider on the
      * cached-data path. The original SQLite payload is preserved on error.
      */
