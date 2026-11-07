@@ -1110,6 +1110,7 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, account: S
     val settings = remember(recorded.activityId, account) {
         preferences.settings(account)
     }
+    val sourceZones = recorded.sourceHeartRateZones
     val zones = remember(recorded, settings) {
         HeartRateZoneAnalysis.distribute(recorded.samples, settings)
     }
@@ -1152,6 +1153,33 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, account: S
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.testTag("activity-hr-zone-method")
                 )
+            }
+            if (sourceZones != null) {
+                Spacer(Modifier.height(8.dp))
+                val sourceSummary = buildList {
+                    sourceZones.maximumHr?.let { add("$it max") }
+                    sourceZones.thresholdHr?.let { add("$it LTHR") }
+                    sourceZones.restingHr?.let { add("$it resting") }
+                    sourceZones.calculationType?.let { add(it.replace('_', ' ')) }
+                }.joinToString(" · ")
+                if (sourceSummary.isNotBlank()) {
+                    Text(
+                        "Garmin FIT recorded · " + sourceSummary,
+                        color = Color(0xFF79C9B3), fontSize = 9.5.sp,
+                        lineHeight = 13.sp,
+                        modifier = Modifier.testTag("activity-hr-zone-fit-source")
+                    )
+                }
+                if (sourceZones.highBpms.size >= 5) {
+                    Text(
+                        sourceZones.highBpms.take(5).mapIndexed { index, bpm ->
+                            "Z${index + 1} ≤$bpm"
+                        }.joinToString(" · ") + " bpm",
+                        color = activityMuted, fontSize = 9.sp,
+                        lineHeight = 13.sp,
+                        modifier = Modifier.testTag("activity-hr-zone-fit-boundaries")
+                    )
+                }
             }
             Spacer(Modifier.height(11.dp))
             if (zones == null) {
