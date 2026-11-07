@@ -75,7 +75,75 @@ class HeartRateZoneAnalysisTest {
         assertEquals(1, zones.classifiedIntervals)
     }
 
-    @Test fun zoneAnalysisExplicitlyQualifiesEstimatedSource() {
+    @Test fun lthrPercentUsesThresholdSpecificFiveZoneBoundaries() {
+        val samples = listOf(
+            sample(0, 0.0, 140.0),
+            sample(1, 10.0, 145.0),
+            sample(2, 20.0, 153.0),
+            sample(3, 30.0, 162.0),
+            sample(4, 40.0, 170.0),
+            sample(5, 50.0, 175.0)
+        )
+        val zones = HeartRateZoneAnalysis.distribute(
+            samples,
+            AthleteHeartRateZoneSettings(
+                method = HeartRateZoneMethod.LTHR_PERCENT,
+                lactateThresholdHr = 170
+            )
+        )!!
+        assertEquals(145, zones.buckets[1].lowerBpm)
+        assertEquals(152, zones.buckets[1].upperBpm)
+        assertEquals(170, zones.buckets[4].lowerBpm)
+        assertEquals(HeartRateZoneMethod.LTHR_PERCENT, zones.method)
+        assertTrue(HeartRateZoneAnalysis.methodDefinition(zones.settings).contains("85%"))
+    }
+
+    @Test fun hrrPercentUsesRestingPlusReserveForBoundaries() {
+        val samples = listOf(
+            sample(0, 0.0, 120.0),
+            sample(1, 10.0, 130.0),
+            sample(2, 20.0, 145.0),
+            sample(3, 30.0, 160.0),
+            sample(4, 40.0, 175.0),
+            sample(5, 50.0, 185.0)
+        )
+        val zones = HeartRateZoneAnalysis.distribute(
+            samples,
+            AthleteHeartRateZoneSettings(
+                method = HeartRateZoneMethod.HRR_PERCENT,
+                maximumHr = 200,
+                restingHr = 50
+            )
+        )!!
+        assertEquals(140, zones.buckets[1].lowerBpm)
+        assertEquals(154, zones.buckets[1].upperBpm)
+        assertEquals(HeartRateZoneMethod.HRR_PERCENT, zones.method)
+        assertTrue(
+            HeartRateZoneAnalysis.methodSummary(zones.settings)
+                .contains("200 max / 50 resting")
+        )
+    }
+
+    @Test fun incompleteLthrOrHrrSettingsNeverInventZones() {
+        val samples = listOf(sample(0, 0.0, 130.0), sample(1, 10.0, 150.0))
+        assertNull(
+            HeartRateZoneAnalysis.distribute(
+                samples,
+                AthleteHeartRateZoneSettings(method = HeartRateZoneMethod.LTHR_PERCENT)
+            )
+        )
+        assertNull(
+            HeartRateZoneAnalysis.distribute(
+                samples,
+                AthleteHeartRateZoneSettings(
+                    method = HeartRateZoneMethod.HRR_PERCENT,
+                    maximumHr = 197
+                )
+            )
+        )
+    }
+
+    @Test fun zoneAnalysisExplicitlyQualifiesEstimatedSourceAndMethod() {
         val samples = listOf(
             sample(0, 0.0, 130.0),
             sample(1, 10.0, 135.0),
@@ -84,8 +152,8 @@ class HeartRateZoneAnalysisTest {
         val zones = HeartRateZoneAnalysis.distribute(samples, 197)!!
         val insight = HeartRateZoneAnalysis.presentation(zones)
         assertTrue(insight.headline.contains("Zone"))
-        assertTrue(insight.summary.contains("entered"))
-        assertTrue(insight.evidence.any { it.contains("not the athlete's imported Garmin") })
+        assertTrue(insight.summary.contains("MAX BPM"))
+        assertTrue(insight.evidence.any { it.contains("not imported Garmin") })
         assertFalse(insight.hasComparison)
     }
 }
