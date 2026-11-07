@@ -293,7 +293,6 @@ internal fun TracksideActivityContinuousSections(
         ) {
             item(key = "section-overview") {
                 Column(Modifier.fillMaxWidth().testTag("activity-section-overview")) {
-                    ActivitySectionHeading("Activity details")
                     Spacer(Modifier.height(8.dp))
                     TracksideActivityOverviewBody(
                         activity, recorded, detailSource, matchedSourceIds,
@@ -449,6 +448,12 @@ private fun TracksideActivityOverviewBody(
     onLoadGarminGps: (() -> Unit)?
 ) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(0.dp)) {
+        if (DashboardSummary.isRun(activity)) {
+            ActivityPlanLink(state, activity, actions.planning, matchedSourceIds)
+            Spacer(Modifier.height(15.dp))
+        }
+        ActivitySectionHeading("Summary")
+        Spacer(Modifier.height(8.dp))
         ActivityInfoLine("Distance", activity.distanceM?.let { activity.distanceLabel })
         ActivityInfoLine("Moving time", activity.movingTimeS?.let { ActivityRecord.duration(it) })
         ActivityInfoLine("Average pace",
@@ -464,10 +469,6 @@ private fun TracksideActivityOverviewBody(
         Spacer(Modifier.height(12.dp))
         Text("Recorded by " + activity.sourceLabel,
             color = activityMuted, fontSize = 11.sp)
-        if (DashboardSummary.isRun(activity)) {
-            Spacer(Modifier.height(13.dp))
-            ActivityPlanLink(state, activity, actions.planning, matchedSourceIds)
-        }
         if (activity.source == "garmin" && detailSource.id == activity.id && recorded == null) {
             Spacer(Modifier.height(12.dp))
             Text(
