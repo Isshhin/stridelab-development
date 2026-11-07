@@ -41,6 +41,15 @@ internal fun ActivityPlanLink(
     actions: PlanActions,
     matchedSourceIds: Set<String> = setOf(activity.id)
 ) {
+    val hasRunningPlan = remember(state.plans) {
+        state.plans.any { plan ->
+            plan.status in setOf("approved", "paused") &&
+                Engine1Engines.canManage(plan) &&
+                plan.sessions.any { it.discipline == "run" }
+        }
+    }
+    if (!hasRunningPlan) return
+
     var choosing by remember(activity.id) { mutableStateOf(false) }
     var linkedDetails by remember(activity.id) { mutableStateOf(false) }
 
