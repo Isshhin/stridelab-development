@@ -52,7 +52,7 @@ class RecordedGpsRouteTest {
         assertEquals("2 GPS gaps",route.gpsContinuityLabel)
     }
 
-    @Test fun explicitTimerPauseIsSeparateFromUnknownGpsGap() {
+    @Test fun pauseWithoutSourceFixesDoesNotFabricateSolidRoute() {
         val route=RecordedGpsRoute.from(
             listOf(
                 sample(0,0.0,14.60,121.00),
@@ -65,6 +65,7 @@ class RecordedGpsRouteTest {
         assertEquals(2,route.segments.size)
         assertEquals(1,route.pauseGaps.size)
         assertEquals(0,route.unknownGaps.size)
+        assertEquals("1 GPS gap",route.gpsContinuityLabel)
         val pauseJson=JSONObject(route.pauseGapsGeoJson())
             .getJSONArray("features").getJSONObject(0)
             .getJSONObject("geometry").getJSONArray("coordinates")
@@ -83,6 +84,18 @@ class RecordedGpsRouteTest {
             listOf(ActivityPauseInterval(15.0,30.0))
         )
         assertEquals(listOf(20.0,25.0),route.pausedPoints.map { it.elapsedSeconds })
+        assertEquals(1,route.segments.size)
+        assertEquals(0,route.pauseGaps.size)
+        assertEquals("Continuous GPS",route.gpsContinuityLabel)
+        val actualLine=JSONObject(route.toGeoJson()).getJSONArray("features")
+            .getJSONObject(0).getJSONObject("geometry")
+            .getJSONArray("coordinates").getJSONArray(0)
+        assertEquals(5,actualLine.length())
+        // Paused points are part of the same solid, source-recorded route.
+        assertEquals(121.002,actualLine.getJSONArray(2).getDouble(0),1e-8)
+        assertEquals(121.003,actualLine.getJSONArray(3).getDouble(0),1e-8)
+        assertEquals(0,JSONObject(route.isolatedGeoJson()).getJSONObject("geometry")
+            .getJSONArray("coordinates").length())
         assertTrue(route.activeIsolatedPoints.none {
             it.elapsedSeconds in 15.0..30.0
         })
@@ -96,6 +109,40 @@ class RecordedGpsRouteTest {
             .getJSONObject("geometry").getJSONArray("coordinates")
         assertEquals(121.000,start.getDouble(0),1e-8)
         assertEquals(121.004,finish.getDouble(0),1e-8)
+    }
+
+    @Test fun isolatedPauseFixIsRetainedAsNormalRecordedGpsPoint() {
+        val route=RecordedGpsRoute.from(
+            listOf(
+                sample(0,10.0,null,null),
+                sample(1,20.0,14.601,121.001),
+                sample(2,30.0,null,null)
+            ),
+            listOf(ActivityPauseInterval(15.0,25.0))
+        )
+        assertEquals(1,route.pausedPoints.size)
+        assertEquals(1,route.isolatedPoints.size)
+        val coords=JSONObject(route.isolatedGeoJson()).getJSONObject("geometry")
+            .getJSONArray("coordinates")
+        assertEquals(1,coords.length())
+        assertEquals(121.001,coords.getJSONArray(0).getDouble(0),1e-8)
+        assertEquals(0,JSONObject(route.toGeoJson()).getJSONArray("features")
+            .getJSONObject(0).getJSONObject("geometry")
+            .getJSONArray("coordinates").length())
+    }
+
+    @Test fun pauseBoundaryFixesWithoutInteriorSamplesStayDisconnected() {
+        val route=RecordedGpsRoute.from(
+            listOf(
+                sample(0,10.0,14.600,121.000),
+                sample(1,15.0,14.601,121.001),
+                sample(2,30.0,14.602,121.002),
+                sample(3,40.0,14.603,121.003)
+            ),
+            listOf(ActivityPauseInterval(15.0,30.0))
+        )
+        assertEquals(2,route.segments.size)
+        assertEquals(1,route.pauseGaps.size)
     }
 
     @Test fun presentationMarkersAndSplitHighlightUseRecordedCoordinatesOnly() {
