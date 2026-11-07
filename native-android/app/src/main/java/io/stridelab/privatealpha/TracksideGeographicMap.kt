@@ -253,6 +253,9 @@ private fun MapLibreRouteView(
     val selectionJson=remember(route,selectedSeconds) {
         route.selectedPointGeoJson(selectedSeconds)
     }
+    var selectedPointSource by remember(mapView) {
+        mutableStateOf<GeoJsonSource?>(null)
+    }
 
     DisposableEffect(mapView,lifecycleOwner) {
         val observer=LifecycleEventObserver { _,event ->
@@ -340,7 +343,9 @@ private fun MapLibreRouteView(
                         )
                     )
                 }
-                style.addSource(GeoJsonSource("stride-selected-point",selectionJson))
+                val selectedSource=GeoJsonSource("stride-selected-point",selectionJson)
+                style.addSource(selectedSource)
+                selectedPointSource=selectedSource
                 style.addLayer(
                     CircleLayer("stride-selected-point-layer","stride-selected-point").withProperties(
                         PropertyFactory.circleColor(AndroidColor.rgb(8,13,12)),
@@ -384,12 +389,9 @@ private fun MapLibreRouteView(
             }
         }
     }
-    LaunchedEffect(mapView,selectionJson,styleReady) {
+    LaunchedEffect(selectionJson,selectedPointSource,styleReady) {
         if(!styleReady)return@LaunchedEffect
-        mapView.getMapAsync { map ->
-            val source=map.style?.getSource("stride-selected-point") as? GeoJsonSource
-            source?.setGeoJson(selectionJson)
-        }
+        selectedPointSource?.setGeoJson(selectionJson)
     }
 }
 
