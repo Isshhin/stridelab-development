@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.async
 import java.time.Instant
 import java.util.concurrent.CountDownLatch
@@ -74,11 +75,23 @@ class TrainingRepositoryTest {
             assertFalse(first.activities.any { it.id == "older-126" })
         }
         assertTrue(first.details.isEmpty())
-        // Opening real locally cached GPS must work before older summaries
-        // finish loading, without a server or Garmin request.
-        assertTrue(repo.loadCachedDetail("latest"))
-        assertEquals(1,repo.state.value.details.getValue("latest").samples.size)
-        assertEquals(detailRequests,remote.detailRequests)
+        // While Activity Detail is on screen, page hydration must yield
+        // entirely. This avoids competing with FIT parsing and map rendering.
+        repo.setActivityDetailVisible(true)
+        try {
+            // Opening real locally cached GPS must work before older summaries
+            // finish loading, without a server or Garmin request.
+            assertTrue(repo.loadCachedDetail("latest"))
+            assertEquals(1,repo.state.value.details.getValue("latest").samples.size)
+            assertEquals(detailRequests,remote.detailRequests)
+            if (!first.historyFullyLoaded) {
+                delay(2_500L)
+                assertEquals(40,repo.state.value.activities.size)
+                assertFalse(repo.state.value.historyFullyLoaded)
+            }
+        } finally {
+            repo.setActivityDetailVisible(false)
+        }
 
         withTimeout(25_000L) {
             repo.state.first { it.historyFullyLoaded && it.activities.size == 128 }
