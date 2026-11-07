@@ -43,7 +43,7 @@ import kotlin.math.cos
  * https://openfreemap.org/
  */
 internal object TracksideMapTiles {
-    const val STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
+    const val STYLE_URL = "https://tiles.openfreemap.org/styles/dark"
     const val ATTRIBUTION = "© OpenStreetMap contributors · © OpenMapTiles · OpenFreeMap"
 }
 
@@ -59,7 +59,7 @@ internal fun TracksideGeographicMap(
     modifier:Modifier=Modifier
 ) {
     var styleReady by remember(route,online) { mutableStateOf(false) }
-    Box(modifier.background(Color(0xFF132732)).testTag("activity-geographic-map")) {
+    Box(modifier.background(Color(0xFF07100D)).testTag("activity-geographic-map")) {
         if(online && route.pointCount>=2) {
             MapLibreRouteView(route,Modifier.fillMaxSize()) { styleReady=true }
         }
@@ -81,7 +81,14 @@ private fun MapLibreRouteView(
         // MapLibre must be initialized before MapView is constructed.
         MapLibre.getInstance(context.applicationContext)
         // TextureView is required for correct Compose bottom-sheet overlap.
-        MapView(context,MapLibreMapOptions().textureMode(true))
+        MapView(
+            context,
+            MapLibreMapOptions().textureMode(true)
+                // One custom, accessible source credit is attached to the
+                // moving sheet edge. Avoid a second MapLibre logo/credit
+                // covering the full-map grip at the bottom of the screen.
+                .attributionEnabled(false).logoEnabled(false)
+        )
             .apply { onCreate(null) }
     }
     val geoJson=remember(route) { route.toGeoJson() }
@@ -116,6 +123,8 @@ private fun MapLibreRouteView(
         mapView.getMapAsync { map ->
             map.uiSettings.setTiltGesturesEnabled(false)
             map.uiSettings.setRotateGesturesEnabled(false)
+            map.uiSettings.setAttributionEnabled(false)
+            map.uiSettings.setLogoEnabled(false)
             map.setStyle(TracksideMapTiles.STYLE_URL) { style ->
                 style.addSource(GeoJsonSource("stride-actual-gps",geoJson))
                 style.addLayer(
