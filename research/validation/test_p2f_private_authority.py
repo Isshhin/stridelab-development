@@ -1,6 +1,7 @@
 """Invented-only authority/custody model acceptance tests."""
 import unittest
 import threading
+from unittest.mock import patch
 from copy import deepcopy
 from p2f_private_authority import Anchor, Issuer, Ledger, Inventory, Denied
 from p2f_private_custody import Broker, FakeKey
@@ -488,6 +489,79 @@ class AuthorityMatrix(unittest.TestCase):
             self.denied('contention', self.read)
         finally:
             self.broker._gate.release()
+
+    def test_data_rollback_at_each_read_boundary(self):
+        for changed_after in ('authorize', 'release', 'decrypt', 'publish', 'published_chunk'):
+            with self.subTest(changed_after=changed_after):
+                self.setUp()
+                def rollback(phase):
+                    if phase == changed_after: self.broker.data_versions['object'] = 0
+                self.denied('inventory', lambda: self.read(hook=rollback, chunks=('one', 'two')))
+                if changed_after == 'authorize': self.assertNotIn('release', self.key.events)
+                self.assertEqual(['one'] if changed_after == 'published_chunk' else [], self.key.output)
+
+    def test_data_version_mutations_use_publication_fence(self):
+        started, finished = threading.Event(), threading.Event()
+        def rollback():
+            started.set()
+            self.broker.data_versions.update({'object': 0})
+            finished.set()
+        with self.broker._state:
+            thread = threading.Thread(target=rollback)
+            thread.start()
+            self.assertTrue(started.wait(2))
+            self.assertFalse(finished.wait(0.05))
+        thread.join(timeout=2)
+        self.assertFalse(thread.is_alive())
+        self.denied('inventory', self.read)
+
+    def test_interrupt_before_and_after_anchor_advance_recovers_closed(self):
+        for after in (False, True):
+            with self.subTest(after=after):
+                self.setUp()
+                advance = self.anchor.advance
+                def interrupt(expected):
+                    if after: advance(expected)
+                    raise KeyboardInterrupt()
+                with patch.object(self.anchor, 'advance', side_effect=interrupt):
+                    with self.assertRaises(KeyboardInterrupt):
+                        self.broker.transition(self.scope, 0, 'revoke', 'interrupt')
+                self.denied('closed', self.read)
+                self.broker.restart()
+                self.broker.reconcile(channel_clear=True)
+                self.assertEqual(1, self.anchor.generation)
+                self.denied('scope', self.read)
+
+    def test_caught_nested_read_fences_outer_read(self):
+        def nested(phase):
+            if phase == 'decrypt':
+                try: self.read()
+                except Denied: pass
+        self.denied('reentrant', lambda: self.read(hook=nested))
+        self.assertEqual([], self.key.output)
+
+    def test_other_thread_read_contention_does_not_cancel_owner(self):
+        attempted = []
+        def contend(phase):
+            if phase == 'authorize':
+                def reader():
+                    try: self.read()
+                    except Denied: attempted.append('denied')
+                thread = threading.Thread(target=reader)
+                thread.start()
+                thread.join(timeout=2)
+                self.assertFalse(thread.is_alive())
+        self.assertEqual('published', self.read(hook=contend))
+        self.assertEqual(['denied'], attempted)
+
+    def test_repeated_receipt_and_partial_failure_count_output_once(self):
+        self.read(chunks=('same', 'same'))
+        def fail(phase):
+            if phase == 'published_chunk': raise RuntimeError('interrupted')
+        with self.assertRaises(RuntimeError): self.read(hook=fail, chunks=('same', 'later'))
+        self.broker.receive_withdrawal(self.scope)
+        self.broker.receive_withdrawal(self.scope)
+        self.assertEqual(['same', 'same', 'same'], self.broker.escaped)
 
 
 if __name__ == '__main__':

@@ -1,5 +1,6 @@
 """Deterministic invented-only broker; not encryption, custody or private intake."""
 from copy import deepcopy
+from collections.abc import MutableMapping
 import threading
 from p2f_private_authority import Denied, need
 
@@ -15,6 +16,36 @@ class FakeKey:
         need(self.fault != name, name + ' failure')
 
 
+class Versions(MutableMapping):
+    def __init__(self, lock, values=()):
+        self.lock = lock
+        self.values = dict(values)
+
+    def __getitem__(self, key):
+        with self.lock:
+            return self.values[key]
+
+    def __setitem__(self, key, value):
+        with self.lock:
+            self.values[key] = value
+
+    def __delitem__(self, key):
+        with self.lock:
+            del self.values[key]
+
+    def __iter__(self):
+        with self.lock:
+            return iter(tuple(self.values))
+
+    def __len__(self):
+        with self.lock:
+            return len(self.values)
+
+    def __deepcopy__(self, memo):
+        with self.lock:
+            return deepcopy(self.values, memo)
+
+
 class Broker:
     def __init__(self, ledger, inventory, key):
         self.ledger, self.inventory, self.key = ledger, inventory, key
@@ -27,9 +58,11 @@ class Broker:
         self.scope = self.anchor_identity = None
         self._gate = threading.Lock()
         self._state = threading.RLock()
-        self.data_versions = {}
+        self.data_versions = Versions(self._state)
         self.restored_head = None
         self._violation = False
+        self._read_owner = None
+        self._escaped_indices = set()
 
     def enroll(self, scope, anchor_identity, obj, version, *, approved=False, time_bound=False):
         need(type(time_bound) is bool, 'invalid time policy')
@@ -45,7 +78,7 @@ class Broker:
         need(approved is True and not self.enrolled and self.ledger.head is not None, 'enroll denied')
         need(self.ledger.anchor is not None and self.ledger.anchor.identity == anchor_identity, 'anchor identity')
         self.scope, self.anchor_identity = scope, anchor_identity
-        self.data_versions = deepcopy(data_versions)
+        self.data_versions = Versions(self._state, deepcopy(data_versions))
         self.enrolled, self.closed = True, True
 
     def current(self, scope):
@@ -61,7 +94,10 @@ class Broker:
         return head
 
     def read(self, scope, obj, version, *, hook=None, time_required=False, trusted_time=None, chunks=('published',)):
-        need(self._gate.acquire(blocking=False), 'contention')
+        if not self._gate.acquire(blocking=False):
+            if self._read_owner == threading.get_ident(): self._violation = True
+            raise Denied('contention')
+        self._read_owner = threading.get_ident()
         self.busy = True
         self._violation = False
         start_output = len(self.key.output)
@@ -76,6 +112,7 @@ class Broker:
                     need(not self._violation, 'reentrant mutation')
                     need(self.current(scope) == head, 'authority changed')
                     self.inventory.verify(head['generation'], scope, obj, version)
+                    need(self.data_versions.get(obj) == version, 'inventory restored object mismatch')
                     self.key.step(phase)
                     if phase == 'audit': self.audit.append({'kind': 'read_allowed', 'generation': head['generation']})
                 if hook: hook(phase)
@@ -86,6 +123,7 @@ class Broker:
                     need(not self.withdrawal, 'withdrawal pending')
                     need(self.current(scope) == head, 'authority changed')
                     self.inventory.verify(head['generation'], scope, obj, version)
+                    need(self.data_versions.get(obj) == version, 'inventory restored object mismatch')
                     self.key.output.append(chunk)
                 if hook: hook('published_chunk')
                 need(not self._violation, 'reentrant mutation')
@@ -95,20 +133,25 @@ class Broker:
             with self._state:
                 escaped = self.key.output[start_output:]
                 if escaped:
-                    if not self.withdrawal: self.escaped.extend(escaped)
+                    self._record_escaped(start_output)
                     self.audit.append({'kind': 'partial_exposure', 'count': len(escaped)})
                 if isinstance(error, Denied) and self.key.fault != 'audit':
                     self.audit.append({'kind': 'denied', 'reason': str(error)})
             raise
         finally:
             self.busy = False
+            self._read_owner = None
             self._gate.release()
+
+    def _record_escaped(self, start):
+        self._escaped_indices.update(range(start, len(self.key.output)))
+        self.escaped[:] = [self.key.output[i] for i in sorted(self._escaped_indices)]
 
     def receive_withdrawal(self, scope):
         need(scope == self.scope, 'scope denied')
         with self._state:
             self.withdrawal = True
-            self.escaped.extend(self.key.output)
+            self._record_escaped(0)
 
     def finish_withdrawal(self, operation):
         need(self.withdrawal and not self.busy, 'withdrawal in flight')
@@ -163,7 +206,7 @@ class Broker:
             if fault == 'ack': raise Denied('crash ack')
             self.ledger.intent = None
             return 'acknowledged'
-        except Exception:
+        except BaseException:
             self.closed = True
             raise
         finally:
@@ -186,7 +229,7 @@ class Broker:
         try:
             self.closed = True
             self.restored_head = deepcopy(snapshot['head'])
-            self.data_versions = deepcopy(snapshot['data_versions'])
+            self.data_versions = Versions(self._state, deepcopy(snapshot['data_versions']))
         finally:
             self._gate.release()
 
