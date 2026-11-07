@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
@@ -127,32 +128,105 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         )
     }
 
-    init { scope.launch { mutex.withLock {
-        val account = preferences.getString("active", null)
-        try {
-            mutable.value = TrainingState(initializing = true, account = account)
-            if (account != null) {
-                loadCache(account, publishEssentials = true)
-                // Retired Intervals.icu connection settings remain untouched on
-                // disk but can no longer trigger a provider connection.
-                if(vault.read(account) == null) mutable.value = mutable.value.copy(needsSignIn = true, message = "Sign in again to synchronize. Your saved activities remain available.")
+    init {
+        scope.launch {
+            val account = preferences.getString("active", null)
+            mutex.withLock {
+                try {
+                    mutable.value = TrainingState(initializing = true, account = account)
+                    if (account != null) {
+                        // First render at most one recent chronological page.
+                        // Older activity summaries are loaded only after the
+                        // cached Today screen has had a chance to draw.
+                        val page = try {
+                            readHistoryPage(account,null)
+                        } catch (error: SQLiteException) {
+                            if (error.message?.contains("no such function",true) == true) {
+                                // Older Android SQLite without JSON1 retains
+                                // the original full-scan behavior, no data loss.
+                                null
+                            } else throw error
+                        }
+                        loadCache(account,publishEssentials=true,recentPage=page)
+                        if (vault.read(account) == null) {
+                            mutable.value = mutable.value.copy(
+                                needsSignIn = true,
+                                message = "Sign in again to synchronize. Your saved activities remain available."
+                            )
+                        }
+                    }
+                    mutable.value = mutable.value.copy(initializing = false)
+                } catch (_: Exception) {
+                    mutable.value = mutable.value.copy(
+                        initializing = false, needsSignIn = true,
+                        message = "Saved data could not be fully loaded. Existing files were retained. Try signing in again."
+                    )
+                }
             }
-            mutable.value = mutable.value.copy(initializing = false)
-        } catch (_: Exception) {
-            mutable.value = mutable.value.copy(initializing = false, needsSignIn = true, message = "Saved data could not be fully loaded. Existing files were retained. Try signing in again.")
+
+            if (account != null) {
+                // Do not hold the repository mutex over startup's second stage:
+                // current GPS detail requests can run as soon as the first
+                // recent page is published.
+                delay(550L)
+                mutex.withLock {
+                    if (mutable.value.account == account) {
+                        runCatching { loadAuxiliaryCache(account) }
+                    }
+                }
+                delay(150L)
+                while (true) {
+                    val more = mutex.withLock {
+                        if (mutable.value.account != account) return@withLock false
+                        val after = nextHistoryCursor ?: return@withLock false
+                        val started = SystemClock.elapsedRealtime()
+                        val page = try {
+                            readHistoryPage(account,after)
+                        } catch (_: SQLiteException) {
+                            // Existing cached rows stay available. Do not
+                            // repeat a failed query in an unbounded loop.
+                            mutable.value = mutable.value.copy(
+                                historyFullyLoaded = false,
+                                message = "Older activity history could not finish loading. Your saved records remain on this device."
+                            )
+                            return@withLock false
+                        }
+                        val byId = mutable.value.activities.associateBy { it.id }.toMutableMap()
+                        page.records.forEach { byId[it.id] = it }
+                        nextHistoryCursor = page.next
+                        mutable.value = mutable.value.copy(
+                            activities = byId.values.sortedWith(
+                                compareByDescending<ActivityRecord> { it.startedAt }
+                                    .thenByDescending { it.id }
+                            ),
+                            historyFullyLoaded = !page.hasMore
+                        )
+                        traceCache("older_history_page",started,page.records.size)
+                        page.hasMore
+                    }
+                    if (!more) break
+                    // Leave an explicit scheduling window for the current
+                    // Activity Detail / Today GPS load ahead of older pages.
+                    delay(120L)
+                }
+            }
         }
-    } } }
+    }
 
     /**
      * Cache-first loading. Publish locally saved activity summaries and plans
      * before decoding secondary collections. Large FIT streams stay in SQLite
      * until an Activity Detail destination requests one specific record.
      */
-    private fun loadCache(account: String, publishEssentials: Boolean = false) {
+    private fun loadCache(
+        account: String,
+        publishEssentials: Boolean = false,
+        recentPage: HistoryPage? = null
+    ) {
         val started = SystemClock.elapsedRealtime()
-        val records = mutableListOf<ActivityRecord>()
-        var rejected = 0
-        store.readableDatabase.query(
+        val records = recentPage?.records?.toMutableList() ?: mutableListOf<ActivityRecord>()
+        var rejected = recentPage?.rejected ?: 0
+        if (recentPage == null) store.readableDatabase.query(
             "records", arrayOf("payload"), "account=? AND kind=?",
             arrayOf(account,"activity"),null,null,null
         ).use { cursor ->
@@ -175,7 +249,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         ).use { cursor ->
             while (cursor.moveToNext()) {
                 val id = cursor.getString(0)
-                if (id in allowedIds) cachedDetailIds += id
+                if (recentPage != null || id in allowedIds) cachedDetailIds += id
             }
         }
         val preservedDetails = mutable.value.details.filterKeys {
@@ -201,6 +275,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id }
         )
         val sortedPlans = plans.sortedByDescending { it.createdAt }
+        nextHistoryCursor = recentPage?.next
+        val historyFullyLoaded = recentPage?.hasMore != true
         val warning = when {
             unsupportedPlans > 0 ->
                 "$unsupportedPlans saved plans require a supported contract and were retained for review."
@@ -214,11 +290,26 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             mutable.value = mutable.value.copy(
                 activities=activities, plans=sortedPlans, details=preservedDetails,
                 cachedDetailIds=cachedDetailIds, lastSync=last,
-                initializing=false, message=warning
+                initializing=false, message=warning,
+                historyFullyLoaded=historyFullyLoaded
             )
             traceCache("first_cached_content",started,activities.size)
+        } else {
+            mutable.value = mutable.value.copy(
+                activities=activities, plans=sortedPlans,
+                details=preservedDetails, cachedDetailIds=cachedDetailIds,
+                lastSync=last, message=warning,
+                historyFullyLoaded=historyFullyLoaded
+            )
         }
+        if (recentPage != null) return
+        loadAuxiliaryCache(account)
+        traceCache("all_cache_metadata",started,activities.size)
+    }
 
+    /** Secondary local collections are not on the critical path to GPS detail. */
+    private fun loadAuxiliaryCache(account: String) {
+        val plans = mutable.value.plans
         val wellness = mutableListOf<WellnessRecord>()
         store.readableDatabase.query(
             "records",arrayOf("payload"),"account=? AND kind=?",
@@ -262,12 +353,9 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             }.onSuccess { if (validDraft(it,plans)) drafts[it.key] = it }
         }
         mutable.value = mutable.value.copy(
-            activities=activities, lastSync=last,
-            details=preservedDetails, cachedDetailIds=cachedDetailIds,
             wellness=wellness, shelf=shelf, templates=templates,
-            workoutDrafts=drafts, plans=sortedPlans, message=warning
+            workoutDrafts=drafts
         )
-        traceCache("all_cache_metadata",started,activities.size)
     }
 
     /**
@@ -333,9 +421,9 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             activities=active.values.sortedWith(
                 compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id }
             ),
-            cachedDetailIds=mutable.value.cachedDetailIds.filterTo(HashSet<String>()) {
-                it in currentIds
-            },
+            // Keep the disk detail index for older history pages still
+            // hydrating; the full SQLite cache remains account-scoped.
+            cachedDetailIds=mutable.value.cachedDetailIds,
             details=mutable.value.details.filterKeys { it in currentIds },
             lastSync=completed ?: mutable.value.lastSync
         )
