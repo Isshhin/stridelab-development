@@ -76,7 +76,8 @@ internal fun TracksideGeographicMap(
     modifier:Modifier=Modifier,
     selectedSeconds:Double?=null,
     laps:List<ActivityLap> = emptyList(),
-    selectedRange:Pair<Double,Double>? = null
+    selectedRange:Pair<Double,Double>? = null,
+    onSelectRange:(Pair<Double,Double>) -> Unit = {}
 ) {
     var styleReady by remember(route,online) { mutableStateOf(false) }
     var recenterRequest by remember(route) { mutableIntStateOf(0) }
@@ -88,7 +89,8 @@ internal fun TracksideGeographicMap(
                 selectedSeconds = selectedSeconds,
                 laps = laps,
                 selectedRange = selectedRange,
-                recenterRequest = recenterRequest
+                recenterRequest = recenterRequest,
+                onSelectRange = onSelectRange
             ) { styleReady=true }
         }
         if(!online || !styleReady) {
@@ -136,6 +138,7 @@ private fun MapLibreRouteView(
     laps:List<ActivityLap> = emptyList(),
     selectedRange:Pair<Double,Double>? = null,
     recenterRequest:Int = 0,
+    onSelectRange:(Pair<Double,Double>) -> Unit = {},
     onStyleReady:()->Unit
 ) {
     val context=LocalContext.current
@@ -202,6 +205,37 @@ private fun MapLibreRouteView(
         }
     }
 
+    DisposableEffect(liveMap,laps,onSelectRange) {
+        val map=liveMap
+        if(map == null) {
+            onDispose {}
+        } else {
+            val listener=MapLibreMap.OnMapClickListener { point ->
+                val screen=map.projection.toScreenLocation(point)
+                val feature=map.queryRenderedFeatures(
+                    screen,
+                    arrayOf("stride-split-markers-circle","stride-split-markers-label")
+                ).firstOrNull() ?: return@OnMapClickListener false
+                val boundary=feature.getStringProperty("label")?.toIntOrNull()
+                    ?: return@OnMapClickListener false
+                val splitIndex=boundary-1
+                val start=if(splitIndex == 0) {
+                    laps.firstOrNull()?.startSeconds ?: 0.0
+                } else {
+                    laps.getOrNull(splitIndex)?.startSeconds
+                        ?: return@OnMapClickListener false
+                }
+                val end=laps.getOrNull(splitIndex+1)?.startSeconds
+                    ?: return@OnMapClickListener false
+                if(end <= start) return@OnMapClickListener false
+                onSelectRange(start to end)
+                true
+            }
+            map.addOnMapClickListener(listener)
+            onDispose { map.removeOnMapClickListener(listener) }
+        }
+    }
+
     AndroidView(
         factory={mapView},
         modifier=modifier.testTag("activity-maplibre-view")
@@ -209,7 +243,7 @@ private fun MapLibreRouteView(
     LaunchedEffect(
         mapView, geoJson, isolatedJson, pausedPointsJson,
         startPointJson, finishPointJson, directionJson, splitMarkersJson,
-        selectedRangeJson, gapJson, pauseGapJson
+        gapJson, pauseGapJson
     ) {
         mapView.getMapAsync { map ->
             liveMap = map
