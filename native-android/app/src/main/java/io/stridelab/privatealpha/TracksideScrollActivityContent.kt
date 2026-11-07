@@ -583,7 +583,7 @@ private fun TracksideActivitySourceChart(
                     drawLine(
                         if (title == "Elevation") activityMuted else activityLime,
                         position(a, first), position(b, second),
-                        width = 2.dp.toPx(), cap = StrokeCap.Round
+                        strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round
                     )
                 }
             }
