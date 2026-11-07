@@ -111,7 +111,7 @@ import kotlinx.coroutines.withContext
                         onSelectWeek = { selectedDate = it.toString() }
                     )
                 }
-                if(state.account==null) item { SignalCard { Text("Plan without a watch",style=MaterialTheme.typography.headlineSmall);Text("Sign in once to create private, account-isolated plans. Generation, calendar and logging then work offline.");SignalButton("Sign in",onSignIn) } }
+                if(state.account==null) item { SignalCard { Text("Plan without a watch",style=MaterialTheme.typography.headlineSmall);Text("Setting up your private local training profile. No sign-in or watch is required.");SignalButton("Back",onSignIn) } }
                 else if(plan==null) item { SignalCard { Text("Build your training around your life.",style=MaterialTheme.typography.headlineMedium);Text("Running, strength, calisthenics and conditioning share one calendar. Choose your goal, ability, days and equipment. Review real prescriptions before approving.");SignalButton("Create a plan",onBuild) } }
                 if(plans.size>1) item { Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) { plans.forEach { p -> SignalChip(p.id==plan?.id,{selectedId=p.id},label={Text((p.name ?: p.request.goal)+" · "+p.status)}) } } }
                 if(plan!=null) {
