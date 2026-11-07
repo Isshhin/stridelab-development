@@ -238,9 +238,7 @@ private fun TracksideFigmaOption(
             ) {
                 Icon(
                     painterResource(icon), contentDescription = null,
-                    tint = if (runningGoal) Color.Unspecified
-                        else if (selected) Color(0xFFDBF351)
-                        else Color(0xFFDBF351),
+                    tint = PlanBuilderPalette.accent,
                     modifier = Modifier.size(if (runningGoal) 25.dp else 24.dp)
                         .testTag("builder-goal-icon-$tag")
                 )
@@ -331,7 +329,7 @@ private fun TracksideFigmaRaceOption(
             ) {
                 Icon(
                     painterResource(icon), contentDescription = null,
-                    tint = Color.Unspecified,
+                    tint = PlanBuilderPalette.accent,
                     modifier = Modifier.size(25.dp)
                         .testTag("builder-race-icon-$tag")
                 )
@@ -346,7 +344,7 @@ private fun TracksideFigmaRaceOption(
             }
             if (selected) Icon(
                 painterResource(R.drawable.trackside_race_goal_check),
-                contentDescription = null, tint = Color.Unspecified,
+                contentDescription = null, tint = PlanBuilderPalette.accent,
                 modifier = Modifier.size(18.dp)
                     .testTag("builder-race-selected-check")
             )
