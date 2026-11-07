@@ -17,9 +17,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -41,6 +43,12 @@ private val activityText = Color(0xFFF3F6F3)
 private val activityMuted = Color(0xFFA6B4AD)
 private val activityBorder = Color(0xFF303E37)
 private val activitySurface = Color(0xFF111A16)
+
+private data class SourceChartAvailability(
+    val pace: Boolean, val heartRate: Boolean, val elevation: Boolean
+) {
+    val any: Boolean get() = pace || heartRate || elevation
+}
 
 /** Approved initial peek: unboxed three metrics, no tabs, tags or dummy data. */
 @Composable
@@ -222,11 +230,20 @@ internal fun TracksideActivityContinuousSections(
         else emptyList()
         (paces.minOrNull() to paces.maxOrNull())
     }
-    val hasChartData = remember(recorded, activity.supportsPace) {
+    // A FIT recording may contain thousands of samples. Inspect them once
+    // when the source changes, never for every LazyColumn measurement.
+    val chartAvailability = remember(recorded, activity.supportsPace) {
         val samples = recorded?.samples.orEmpty()
-        (activity.supportsPace && samples.count { it.pace != null } >= 2) ||
-            samples.count { it.hr != null } >= 2 ||
-            samples.count { it.altitude != null } >= 2
+        var pace = 0
+        var hr = 0
+        var altitude = 0
+        for (sample in samples) {
+            if (activity.supportsPace && sample.pace?.isFinite() == true) pace++
+            if (sample.hr?.isFinite() == true) hr++
+            if (sample.altitude?.isFinite() == true) altitude++
+            if (pace >= 2 && hr >= 2 && altitude >= 2) break
+        }
+        SourceChartAvailability(pace >= 2, hr >= 2, altitude >= 2)
     }
     val splitStartIndex = 1
     val chartsStartIndex = 2 + laps.size
@@ -321,7 +338,7 @@ internal fun TracksideActivityContinuousSections(
                 Column(Modifier.fillMaxWidth().testTag("activity-section-charts")) {
                     ActivitySectionHeading("Charts")
                     Spacer(Modifier.height(5.dp))
-                    if (!hasChartData) {
+                    if (!chartAvailability.any) {
                         Text(
                             "No recorded charts are available.",
                             color = activityMuted, fontSize = 13.sp,
@@ -331,19 +348,19 @@ internal fun TracksideActivityContinuousSections(
                 }
             }
             if (recorded != null) {
-                if (activity.supportsPace && recorded.samples.count { it.pace != null } >= 2)
+                if (chartAvailability.pace)
                     item(key = "chart-pace") {
                         TracksideActivitySourceChart(
                             "Pace", "/km", recorded.samples, { it.pace }, pace = true
                         )
                     }
-                if (recorded.samples.count { it.hr != null } >= 2)
+                if (chartAvailability.heartRate)
                     item(key = "chart-heart-rate") {
                         TracksideActivitySourceChart(
                             "Heart rate", "bpm", recorded.samples, { it.hr }
                         )
                     }
-                if (recorded.samples.count { it.altitude != null } >= 2)
+                if (chartAvailability.elevation)
                     item(key = "chart-elevation") {
                         TracksideActivitySourceChart(
                             "Elevation", "m", recorded.samples, { it.altitude }
@@ -368,13 +385,17 @@ private fun TracksideActivitySectionPill(selected: Int, onSelect: (Int) -> Unit)
             .testTag("activity-sticky-pill")
     ) {
         val segment = maxWidth / 3
+        val density = LocalDensity.current
         val position by animateDpAsState(
             targetValue = segment * selected,
             animationSpec = tween(durationMillis = 180),
             label = "activity-section-pill-position"
         )
+        // Translate only the highlight layer; avoid remeasuring the rail
+        // during every animation frame on high-refresh-rate phones.
         Box(
-            Modifier.width(segment).fillMaxHeight().offset(x = position)
+            Modifier.width(segment).fillMaxHeight()
+                .graphicsLayer { translationX = with(density) { position.toPx() } }
                 .padding(3.dp)
                 .background(activityLime, RoundedCornerShape(25.dp))
         )
@@ -582,7 +603,7 @@ private fun TracksideActivitySourceChart(
             contiguous.filterIndexed { i, _ -> i % step == 0 || i == contiguous.lastIndex }
         }
     }
-    val values = segments.flatten().mapNotNull(metric)
+    val values = remember(segments, title) { segments.flatten().mapNotNull(metric) }
     if (values.size < 2) return
     val low = values.minOrNull() ?: return
     val high = values.maxOrNull() ?: return
