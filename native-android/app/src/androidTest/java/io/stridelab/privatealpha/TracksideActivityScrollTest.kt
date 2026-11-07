@@ -6,6 +6,8 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Assert.assertTrue
+import androidx.compose.ui.unit.dp
 import java.time.Instant
 
 /**
@@ -57,7 +59,24 @@ class TracksideActivityScrollTest {
         }
         compose.onNodeWithTag("activity-map-hero").assertExists()
         compose.onNodeWithTag("activity-parity-overview").assertExists()
-        compose.onNodeWithTag("activity-primary-metrics").assertExists()
+        compose.onNodeWithTag("activity-primary-metrics").assertIsDisplayed()
+        // Regression: the collapsed summary must finish near the bottom
+        // edge, not leave a large unused sheet area below its metrics.
+        val rootBounds = compose.onRoot().getUnclippedBoundsInRoot()
+        val previewBottom = compose.onNodeWithTag("activity-preview-bottom")
+            .getUnclippedBoundsInRoot()
+        val handleBounds = compose.onNodeWithTag("activity-sheet-handle")
+            .getUnclippedBoundsInRoot()
+        assertTrue(
+            "Collapsed sheet leaves empty space after its metrics",
+            rootBounds.bottom - previewBottom.bottom < 40.dp
+        )
+        if (rootBounds.height >= 520.dp) {
+            assertTrue(
+                "Collapsed sheet should keep most of the map visible",
+                handleBounds.top > rootBounds.height * 0.58f
+            )
+        }
         compose.onNodeWithTag("activity-sticky-pill").assertDoesNotExist()
         compose.onNodeWithTag("activity-sheet-handle").performClick()
         compose.waitUntil(timeoutMillis = 5000) {
