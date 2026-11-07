@@ -371,45 +371,15 @@ class TracksideActivityScrollTest {
         compose.onNodeWithText("Link run").assertExists()
     }
 
-    @Test fun activityMapUsesPublishedDarkVectorStyle() {
+    @Test fun activityMapUsesMapboxStandardAndNoLegacyProviderAttribution() {
         org.junit.Assert.assertEquals(
-            "https://tiles.openfreemap.org/styles/dark",
+            "mapbox://styles/mapbox/standard",
             TracksideMapTiles.STYLE_URL
         )
+        assertTrue(TracksideMapTiles.ATTRIBUTION.contains("Mapbox"))
         assertTrue(TracksideMapTiles.ATTRIBUTION.contains("OpenStreetMap"))
-        assertTrue(TracksideMapTiles.ATTRIBUTION.contains("OpenFreeMap"))
-    }
-
-    @Test fun twilightMapKeepsStreetsLegibleAndDistinctFromGround() {
-        // These are the actual IDs published by OpenFreeMap's Dark Matter
-        // style, not titles copied from a different provider style.
-        val ids = TracksideReadableMapPalette.recoloredLayerIds
-        for (id in listOf(
-            "background", "water", "landuse_park", "highway_minor",
-            "highway_major_inner", "highway_motorway_inner",
-            "highway_name_other", "place_suburb", "building"
-        )) assertTrue("Missing real provider layer ID: " + id, id in ids)
-        assertFalse(ids.contains("Background"))
-        assertFalse(ids.contains("Road network"))
-        assertFalse(ids.contains("Road labels"))
-
-        val ground = TracksideReadableMapPalette.canvas
-        val minor = TracksideReadableMapPalette.minorRoads
-        val major = TracksideReadableMapPalette.majorRoads
-        val labels = TracksideReadableMapPalette.roadLabels
-        val parks = TracksideReadableMapPalette.grass
-        val water = TracksideReadableMapPalette.water
-        fun red(color: Int) = android.graphics.Color.red(color)
-        fun green(color: Int) = android.graphics.Color.green(color)
-        fun blue(color: Int) = android.graphics.Color.blue(color)
-
-        // Google Maps-inspired slate-blue night palette: never near black.
-        assertTrue(red(ground) >= 35)
-        assertTrue(red(minor) - red(ground) >= 45)
-        assertTrue(red(major) > red(minor))
-        assertTrue(blue(labels) - blue(major) >= 70)
-        assertTrue(green(parks) > green(ground))
-        assertTrue(blue(water) > blue(ground))
+        assertFalse(TracksideMapTiles.ATTRIBUTION.contains("OpenFreeMap"))
+        assertFalse(TracksideMapTiles.ATTRIBUTION.contains("OpenMapTiles"))
     }
 
     @Test fun activityWithoutSourceStreamsDoesNotInventSplitsOrCharts() {
