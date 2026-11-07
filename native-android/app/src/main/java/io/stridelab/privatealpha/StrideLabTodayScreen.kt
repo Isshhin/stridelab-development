@@ -187,6 +187,27 @@ private fun savedWeekMetrics(
     )
 }
 
+/**
+ * A Today route preview must not force the whole saved FIT history into RAM.
+ * Prefer the newest GPS-capable activities on the selected calendar day.
+ * Keep the request budget within TrainingRepository's four hot detail slots.
+ * Uncached Garmin recordings retain the existing on-demand/sync contract.
+ */
+internal fun todayCachedGpsPreviewIds(
+    activities: List<ActivityRecord>,
+    cachedDetailIds: Set<String>,
+    limit: Int = 4
+): List<String> = activities.asSequence()
+    .filter { it.supportsPace && it.id in cachedDetailIds }
+    .sortedWith(
+        compareByDescending<ActivityRecord> { it.startedAt }
+            .thenByDescending { it.id }
+    )
+    .map { it.id }
+    .distinct()
+    .take(limit.coerceAtLeast(0))
+    .toList()
+
 @Composable
 internal fun StrideLabTodayScreen(
     state: TrainingState,
@@ -224,16 +245,25 @@ internal fun StrideLabTodayScreen(
                 it.startedAt.atZone(ZoneId.systemDefault()).toLocalDate() == date
         }.sortedWith(compareBy<ActivityRecord>({ it.startedAt }, { it.id }))
     }
-    // Previously Today used the entire eagerly loaded FIT detail map for the
-    // first card's real route preview. Cold startup now loads only summaries.
-    // Prefetch at most the first visible day's detail AFTER the first frame.
-    val previewDetailId = recordedOnDate.firstOrNull()?.id?.takeIf {
-        it in state.cachedDetailIds && it !in state.details
+    // Summaries arrive in recent-first pages, but each saved GPS detail is
+    // intentionally lazy. Request the current day's newest cached running
+    // routes first (not just its oldest/first card) after the initial frame.
+    // On another calendar date, request only that date's previews. This is
+    // bounded by the repository's four hot-detail slots, never all history.
+    val previewDetailIds = remember(recordedOnDate, state.cachedDetailIds) {
+        todayCachedGpsPreviewIds(recordedOnDate, state.cachedDetailIds)
     }
-    LaunchedEffect(previewDetailId, isVisible) {
-        if (isVisible && previewDetailId != null) {
+    LaunchedEffect(state.account, date, previewDetailIds, isVisible) {
+        if (isVisible && state.account != null && previewDetailIds.isNotEmpty()) {
             withFrameNanos { }
-            onEnsureCachedDetail(previewDetailId)
+            previewDetailIds.forEach { id ->
+                if (id !in state.details) {
+                    onEnsureCachedDetail(id)
+                    // Allow the newest route to start decoding before the
+                    // next request; date/tab changes cancel remaining work.
+                    kotlinx.coroutines.delay(120L)
+                }
+            }
         }
     }
     val confirmedOnDate = remember(date, todayDate, safePlans, safeHistory) {
@@ -829,10 +859,12 @@ private fun todayChronologicalRecordedEntries(
             confirmed = entry
         )
     }
+    // Recent recordings appear first; date-only logs remain after events
+    // with a real start timestamp rather than receiving an invented time.
     return (recorded + confirmed).sortedWith(
         compareBy<TodayRecordedDisplayEntry> { it.time == null }
-            .thenBy { it.time }
-            .thenBy { it.stableKey }
+            .thenByDescending { it.time }
+            .thenByDescending { it.stableKey }
     )
 }
 
