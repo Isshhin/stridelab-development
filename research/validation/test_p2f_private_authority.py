@@ -708,5 +708,94 @@ class AuthorityMatrix(unittest.TestCase):
         self.assertEqual(['published'], self.key.output)
 
 
+    def test_final_withdrawal_in_inventory_hash_denies_output(self):
+        owner, calls = self, []
+        class ObjectId(str):
+            def __hash__(self):
+                if sys._getframe(1).f_code.co_name == 'verify':
+                    calls.append(True)
+                    if len(calls) == 7: owner.broker.receive_withdrawal(owner.scope)
+                return super().__hash__()
+        self.denied('withdrawal', lambda: self.broker.read(self.scope, ObjectId('object'), 1))
+        self.assertEqual([], self.key.output)
+        self.assertEqual([], self.broker.escaped)
+        self.assertIsNone(self.broker._read_owner)
+        self.assertFalse(self.broker._gate.locked())
+        self.denied('scope', self.read)
+
+    def test_final_withdrawal_in_inventory_equality_denies_output(self):
+        owner, calls = self, []
+        class Version(int):
+            def __eq__(self, other):
+                if sys._getframe(1).f_code.co_name == 'verify':
+                    calls.append(True)
+                    if len(calls) == 7: owner.broker.receive_withdrawal(owner.scope)
+                return super().__eq__(other)
+        self.denied('withdrawal', lambda: self.broker.read(self.scope, 'object', Version(1)))
+        self.assertEqual([], self.key.output)
+        self.assertEqual([], self.broker.escaped)
+
+    def test_final_withdrawal_in_data_lookup_preserves_prior_chunk(self):
+        owner, armed, invoked = self, [], []
+        class ObjectId(str):
+            def __hash__(self):
+                if armed and sys._getframe(1).f_code.co_name == '__getitem__':
+                    armed.clear(); invoked.append(True)
+                    owner.broker.receive_withdrawal(owner.scope)
+                return super().__hash__()
+        def hook(phase):
+            if phase == 'published_chunk': armed.append(True)
+        self.denied('withdrawal', lambda: self.broker.read(
+            self.scope, ObjectId('object'), 1, hook=hook, chunks=('first', 'bad')))
+        self.assertEqual([True], invoked)
+        self.assertEqual(['first'], self.key.output)
+        self.assertEqual(['first'], self.broker.escaped)
+        self.broker.receive_withdrawal(self.scope)
+        self.assertEqual(['first'], self.broker.escaped)
+        self.denied('scope', self.read)
+
+    def test_final_withdrawal_in_data_lookup_before_first_chunk(self):
+        owner, calls = self, []
+        class ObjectId(str):
+            def __hash__(self):
+                if sys._getframe(1).f_code.co_name == '__getitem__':
+                    calls.append(True)
+                    if len(calls) == 7: owner.broker.receive_withdrawal(owner.scope)
+                return super().__hash__()
+        self.denied('withdrawal', lambda: self.broker.read(self.scope, ObjectId('object'), 1))
+        self.assertEqual([], self.key.output)
+        self.assertEqual([], self.broker.escaped)
+
+    def test_final_withdrawal_in_inventory_between_chunks(self):
+        owner, armed = self, []
+        class ObjectId(str):
+            def __hash__(self):
+                if armed and sys._getframe(1).f_code.co_name == 'verify':
+                    armed.clear(); owner.broker.receive_withdrawal(owner.scope)
+                return super().__hash__()
+        def hook(phase):
+            if phase == 'published_chunk': armed.append(True)
+        self.denied('withdrawal', lambda: self.broker.read(
+            self.scope, ObjectId('object'), 1, hook=hook, chunks=('first', 'bad')))
+        self.assertEqual(['first'], self.key.output)
+        self.assertEqual(['first'], self.broker.escaped)
+
+    def test_final_validation_can_set_withdrawal_and_violation(self):
+        owner, calls = self, []
+        class ObjectId(str):
+            def __hash__(self):
+                if sys._getframe(1).f_code.co_name == 'verify':
+                    calls.append(True)
+                    if len(calls) == 7:
+                        try: owner.read()
+                        except Denied: pass
+                        owner.broker.receive_withdrawal(owner.scope)
+                return super().__hash__()
+        self.denied('withdrawal', lambda: self.broker.read(self.scope, ObjectId('object'), 1))
+        self.assertTrue(self.broker._violation)
+        self.assertEqual([], self.key.output)
+        self.assertEqual([], self.broker.escaped)
+
+
 if __name__ == '__main__':
     unittest.main()
