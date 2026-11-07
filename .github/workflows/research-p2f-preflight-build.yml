@@ -8,7 +8,7 @@ on:
         default: research/runna-garmin-coaching-20261102
 jobs:
   build:
-    runs-on: windows-2025
+    runs-on: [self-hosted, Windows, X64]
     steps:
       - uses: actions/checkout@v4
         with:
