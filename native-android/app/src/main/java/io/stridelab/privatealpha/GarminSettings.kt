@@ -185,7 +185,7 @@ internal fun GarminSettingsCard(
                     color = garminMuted, fontSize = 11.sp, lineHeight = 16.sp)
             }
             Switch(
-                checked = automaticEnabled,
+                checked = automaticEnabled && connected,
                 onCheckedChange = {
                     syncPreferences.setAutomatic(accountId, it)
                     automaticEnabled = it
