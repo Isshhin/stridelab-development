@@ -10,7 +10,7 @@ class LongRunMapRenderingTest {
         ActivitySample(
             index = index,
             seconds = index.toDouble(),
-            pace = if (index == 7_777) 240.0 else 370.0,
+            pace = if (index == 7_777 || index == 7_778) 240.0 else 370.0,
             hr = if (index == 7_777) 185.0 else 140.0,
             altitude = 10.0 + index * .001,
             latitude = 14.6000 + index * .000001,
@@ -25,8 +25,8 @@ class LongRunMapRenderingTest {
         assertEquals(15_000, route.pointCount)
         assertEquals(15_000, route.allPoints.size)
         assertTrue(route.renderSegments.sumOf { it.size } <= 2_000)
-        assertEquals(samples.first().latitude, route.renderSegments.first().first().latitude)
-        assertEquals(samples.last().longitude, route.renderSegments.last().last().longitude)
+        assertEquals(samples.first().latitude!!, route.renderSegments.first().first().latitude, 0.0)
+        assertEquals(samples.last().longitude!!, route.renderSegments.last().last().longitude, 0.0)
         assertEquals(pauses, route.pauseIntervals)
         val lines = JSONObject(route.displayGeoJson())
             .getJSONArray("features").getJSONObject(0)
