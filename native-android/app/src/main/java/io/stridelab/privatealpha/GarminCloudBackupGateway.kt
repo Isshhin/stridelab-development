@@ -18,6 +18,8 @@ internal class GarminCloudBackupGateway(
     companion object {
         private const val TABLE = "/rest/v1/stridelab_garmin_backups"
         private const val MAX_PAYLOAD_BYTES = 2_500_000
+        internal fun fitsUpload(payload: String): Boolean =
+            payload.toByteArray(StandardCharsets.UTF_8).size <= MAX_PAYLOAD_BYTES
         internal fun sha256(payload: String): String =
             MessageDigest.getInstance("SHA-256")
                 .digest(payload.toByteArray(StandardCharsets.UTF_8))
