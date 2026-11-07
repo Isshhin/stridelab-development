@@ -1,5 +1,7 @@
 # P2-F Custody/Authority Canonical Protocol v1
 
+> HISTORICAL / SUPERSEDED IN FULL for v7 conformance by the [v7 correction closure](p2-f-custody-authority-v7-correction-closure-2026-11-07.md). The schemas/status below are retained as reviewed history and must not be combined with current objects.
+
 Status: additive v7 correction; ready for independent review only. This document freezes the application protocol; it does not authorize implementation or execution.
 
 ## Encoding and identity

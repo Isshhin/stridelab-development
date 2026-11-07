@@ -1,5 +1,7 @@
 # P2-F Canonical Test Vectors v1
 
+> HISTORICAL PAYLOAD-ONLY FIXTURES / NON-AUTHORITATIVE. Superseded by the [complete v7 fixtures](p2-f-custody-authority-v7-closure-test-vectors-2026-11-07.md) under the [v7 correction closure](p2-f-custody-authority-v7-correction-closure-2026-11-07.md). Do not implement a verifier from these old fragments.
+
 These vectors are frozen review fixtures. The bytes use deterministic CBOR: small maps with integer keys, minimal unsigned integers, and fixed bstr values. Digests are SHA-256 over the exact domain prefix plus the listed bytes. A future verifier must reproduce these values and reject the negative cases.
 
 | Case | Canonical CBOR hex | Expected domain digest |

@@ -1,5 +1,7 @@
 # P2-F v7 closure supplement
 
+> HISTORICAL / SUPERSEDED IN FULL by the [v7 correction closure](p2-f-custody-authority-v7-correction-closure-2026-11-07.md). All schemas and readiness/next-action wording below describe the earlier reviewed proposal, not current authority. Collector evidence remains reference evidence only; execution remains blocked.
+
 Status: bounded v7 closure; ready for a new independent review only. This supplement supersedes conflicting v7 wording while preserving v1-v6 history. It does not authorize execution, target access, TPM/TBS, key provisioning, implementation, deployment, Gate 2, or P2-B.
 
 ## Frozen type and object rules
