@@ -173,7 +173,6 @@ private fun MapLibreRouteView(
     }
     val geoJson=remember(route) { route.toGeoJson() }
     val isolatedJson=remember(route) { route.isolatedGeoJson() }
-    val pausedPointsJson=remember(route) { route.pausedPointsGeoJson() }
     val startPointJson=remember(route) { route.startPointGeoJson() }
     val finishPointJson=remember(route) { route.finishPointGeoJson() }
     val directionJson=remember(route) { route.directionMarkersGeoJson() }
@@ -183,7 +182,6 @@ private fun MapLibreRouteView(
     }
     val selectedRangeJson=remember(route,selectedRange) { route.rangeGeoJson(selectedRange) }
     val gapJson=remember(route) { route.gapsGeoJson() }
-    val pauseGapJson=remember(route) { route.pauseGapsGeoJson() }
     val selectionJson=remember(route,selectedSeconds) {
         route.selectedPointGeoJson(selectedSeconds)
     }
@@ -264,9 +262,9 @@ private fun MapLibreRouteView(
         modifier=modifier.testTag("activity-maplibre-view")
     )
     LaunchedEffect(
-        mapView, geoJson, isolatedJson, pausedPointsJson,
+        mapView, geoJson, isolatedJson,
         startPointJson, finishPointJson, directionJson, splitMarkersJson,
-        analysisRoute.geoJson, mapMode, gapJson, pauseGapJson
+        analysisRoute.geoJson, mapMode, gapJson
     ) {
         mapView.getMapAsync { map ->
             liveMap = map
@@ -289,18 +287,6 @@ private fun MapLibreRouteView(
                             PropertyFactory.lineWidth(1.5f),
                             PropertyFactory.lineOpacity(0.65f),
                             PropertyFactory.lineDasharray(arrayOf(2f,3f))
-                        )
-                    )
-                }
-                if(route.pauseGaps.isNotEmpty()) {
-                    // Amber dashed = FIT timer was explicitly stopped, then resumed.
-                    style.addSource(GeoJsonSource("stride-pause-gaps",pauseGapJson))
-                    style.addLayer(
-                        LineLayer("stride-pause-gap-indicator","stride-pause-gaps").withProperties(
-                            PropertyFactory.lineColor(AndroidColor.rgb(255,190,122)),
-                            PropertyFactory.lineWidth(2.2f),
-                            PropertyFactory.lineOpacity(0.92f),
-                            PropertyFactory.lineDasharray(arrayOf(2f,2f))
                         )
                     )
                 }
@@ -442,8 +428,8 @@ private fun MapLibreRouteView(
                 splitLabels.setMinZoom(14f)
                 style.addLayer(splitLabels)
 
-                if(route.activeIsolatedPoints.isNotEmpty()) {
-                    // Single active fixes remain visible without implying a line.
+                if(route.isolatedPoints.isNotEmpty()) {
+                    // A lone recorded fix remains visible without inventing a line.
                     style.addSource(GeoJsonSource("stride-gps-isolated",isolatedJson))
                     style.addLayer(
                         CircleLayer("stride-gps-isolated-fixes","stride-gps-isolated").withProperties(
@@ -454,22 +440,6 @@ private fun MapLibreRouteView(
                         )
                     )
                 }
-                if(route.pausedPoints.isNotEmpty()) {
-                    // These are real FIT GPS fixes recorded while TIMER was
-                    // stopped. Amber distinguishes them from active-route GPS.
-                    style.addSource(GeoJsonSource("stride-paused-gps-fixes",pausedPointsJson))
-                    style.addLayer(
-                        CircleLayer("stride-paused-gps-fixes-layer","stride-paused-gps-fixes")
-                            .withProperties(
-                                PropertyFactory.circleColor(AndroidColor.rgb(255,190,122)),
-                                PropertyFactory.circleRadius(3.2f),
-                                PropertyFactory.circleOpacity(0.92f),
-                                PropertyFactory.circleStrokeColor(AndroidColor.rgb(45,52,58)),
-                                PropertyFactory.circleStrokeWidth(1.2f)
-                            )
-                    )
-                }
-
                 // Minimal start/finish markers use only recorded endpoint fixes.
                 style.addSource(GeoJsonSource("stride-start-point",startPointJson))
                 style.addLayer(
@@ -603,23 +573,13 @@ private fun RecordedGpsFallback(
             drawLine(Color(0xFFA5B4AE).copy(alpha = .7f), position(a), position(b),
                 1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f,7f)))
         }
-        route.pauseGaps.forEach { (a,b) ->
-            drawLine(Color(0xFFFFBE7A).copy(alpha = .92f), position(a), position(b),
-                2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(7f,6f)))
-        }
         route.segments.forEach { segment ->
             segment.zipWithNext().forEach { (a,b) ->
                 drawLine(Color(0xFFD8FB70),position(a),position(b),3.dp.toPx())
             }
         }
-        route.activeIsolatedPoints.forEach { point ->
+        route.isolatedPoints.forEach { point ->
             drawCircle(Color(0xFFD8FB70),radius=4.dp.toPx(),center=position(point))
-        }
-        route.pausedPoints.forEach { point ->
-            drawCircle(
-                Color(0xFFFFBE7A).copy(alpha=.92f),
-                radius=3.2.dp.toPx(),center=position(point)
-            )
         }
         route.allPoints.firstOrNull()?.let { point ->
             val center=position(point)
