@@ -6,6 +6,10 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteDatabaseCorruptException;
 import android.database.sqlite.SQLiteOpenHelper;
+import java.io.ByteArrayOutputStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -15,7 +19,7 @@ import java.util.Set;
 /** Durable native records/outbox. Does not read, replace or migrate WebView afterglow2. */
 public final class TrainingStore extends SQLiteOpenHelper {
     public static final String DATABASE = "stridelab-athlete-v1.db";
-    private static final String[] RECORD_COLUMNS = {"record_id","payload","server_version","synced_at"};
+    private static final String[] RECORD_COLUMNS = {"record_id","server_version","synced_at"};
 
     public static final class RemoteRecord {
         public final String id,payload,version;
@@ -24,16 +28,16 @@ public final class TrainingStore extends SQLiteOpenHelper {
     public static final class CachedRecord {
         public final String id,payload,serverVersion;
         public final long syncedAt;
-        CachedRecord(Cursor c) {id=c.getString(0);payload=c.getString(1);serverVersion=c.getString(2);syncedAt=c.getLong(3);}
+        CachedRecord(Cursor c,String payload) {id=c.getString(0);this.payload=payload;serverVersion=c.getString(1);syncedAt=c.getLong(2);}
     }
     public static final class Mutation {
         public final String operationId,kind,recordId,payload,baseVersion;
         public final int attempts;
-        Mutation(Cursor c) {operationId=c.getString(0);kind=c.getString(1);recordId=c.getString(2);payload=c.getString(3);baseVersion=c.getString(4);attempts=c.getInt(5);}
+        Mutation(Cursor c,String payload) {operationId=c.getString(0);kind=c.getString(1);recordId=c.getString(2);this.payload=payload;baseVersion=c.getString(3);attempts=c.getInt(4);}
     }
     public static final class Conflict {
         public final String localPayload,remotePayload,remoteVersion;
-        Conflict(Cursor c) {localPayload=c.getString(0);remotePayload=c.getString(1);remoteVersion=c.getString(2);}
+        Conflict(String local,String remote,String version) {localPayload=local;remotePayload=remote;remoteVersion=version;}
     }
 
     public TrainingStore(Context context) {this(context,DATABASE);}
@@ -66,26 +70,63 @@ public final class TrainingStore extends SQLiteOpenHelper {
         if(db.insertWithOnConflict(table,null,values,SQLiteDatabase.CONFLICT_REPLACE)<0)
             throw new IllegalStateException("Local database write did not complete");
     }
+    // Read bytes in bounded windows; a transaction keeps every chunk on one snapshot.
+    private static String payload(SQLiteDatabase db,String table,String column,String where,String[] args) {
+        ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+        int offset=1;
+        while(true) {
+            String[] params=new String[args.length+1];
+            params[0]=String.valueOf(offset);System.arraycopy(args,0,params,1,args.length);
+            try(Cursor c=db.rawQuery("SELECT substr(CAST("+column+" AS BLOB),?,65536) FROM "+table+" WHERE "+where,params)) {
+                if(!c.moveToFirst()||c.isNull(0))throw new android.database.sqlite.SQLiteException("Local record disappeared while reading");
+                byte[] part=c.getBlob(0);
+                bytes.write(part,0,part.length);
+                if(part.length<65536)break;
+                offset+=part.length;
+            }
+        }
+        try {return StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(bytes.toByteArray())).toString();}
+        catch(CharacterCodingException e) {throw new android.database.sqlite.SQLiteException("Local record has invalid UTF-8",e); }
+    }
     private static CachedRecord find(SQLiteDatabase db,String account,String kind,String id) {
-        try(Cursor c=db.query("records",RECORD_COLUMNS,"account=? AND kind=? AND record_id=?",key(account,kind,id),null,null,null)) {
-            return c.moveToFirst()?new CachedRecord(c):null;
+        String where="account=? AND kind=? AND record_id=?";
+        String[] args=key(account,kind,id);
+        try(Cursor c=db.query("records",RECORD_COLUMNS,where,args,null,null,null)) {
+            return c.moveToFirst()?new CachedRecord(c,payload(db,"records","payload",where,args)):null;
         }
     }
-    public CachedRecord get(String account,String kind,String id) {keyCheck(account,kind,id);return find(getReadableDatabase(),account,kind,id);}
+    public CachedRecord get(String account,String kind,String id) {
+        keyCheck(account,kind,id);SQLiteDatabase db=getReadableDatabase();
+        db.beginTransactionNonExclusive();
+        try {CachedRecord row=find(db,account,kind,id);db.setTransactionSuccessful();return row;}
+        finally {db.endTransaction();}
+    }
     public List<CachedRecord> list(String account,String kind,int limit) {
         RecordPolicy.identifier(account);RecordPolicy.kind(kind);limit(limit);
-        List<CachedRecord> out=new ArrayList<>();
-        try(Cursor c=getReadableDatabase().query("records",RECORD_COLUMNS,"account=? AND kind=?",new String[]{account,kind},null,null,"record_id",String.valueOf(limit))) {while(c.moveToNext())out.add(new CachedRecord(c));}
-        return out;
+        SQLiteDatabase db=getReadableDatabase();db.beginTransactionNonExclusive();
+        try {
+            List<CachedRecord> out=new ArrayList<>();
+            try(Cursor c=db.query("records",RECORD_COLUMNS,"account=? AND kind=?",new String[]{account,kind},null,null,"record_id",String.valueOf(limit))) {
+                while(c.moveToNext())out.add(new CachedRecord(c,payload(db,"records","payload","account=? AND kind=? AND record_id=?",key(account,kind,c.getString(0)))));
+            }
+            db.setTransactionSuccessful();return out;
+        } finally {db.endTransaction();}
     }
     private static void limit(int limit) {if(limit<1||limit>1000)throw new IllegalArgumentException("Page size must be 1–1000");}
     private static boolean hasPending(SQLiteDatabase db,String account,String kind,String id) {
         try(Cursor c=db.rawQuery("SELECT 1 FROM outbox WHERE account=? AND kind=? AND record_id=? LIMIT 1",key(account,kind,id))) {return c.moveToFirst();}
     }
     private static Conflict conflict(SQLiteDatabase db,String account,String kind,String id) {
-        try(Cursor c=db.query("conflicts",new String[]{"local_payload","remote_payload","remote_version"},"account=? AND kind=? AND record_id=?",key(account,kind,id),null,null,null)) {return c.moveToFirst()?new Conflict(c):null;}
+        String where="account=? AND kind=? AND record_id=?";String[] args=key(account,kind,id);
+        try(Cursor c=db.query("conflicts",new String[]{"remote_version"},where,args,null,null,null)) {
+            return c.moveToFirst()?new Conflict(payload(db,"conflicts","local_payload",where,args),payload(db,"conflicts","remote_payload",where,args),c.getString(0)):null;
+        }
     }
-    public Conflict getConflict(String account,String kind,String id) {keyCheck(account,kind,id);return conflict(getReadableDatabase(),account,kind,id);}
+    public Conflict getConflict(String account,String kind,String id) {
+        keyCheck(account,kind,id);SQLiteDatabase db=getReadableDatabase();db.beginTransactionNonExclusive();
+        try {Conflict result=conflict(db,account,kind,id);db.setTransactionSuccessful();return result;}
+        finally {db.endTransaction();}
+    }
 
     /** One transaction commits both visible local edits and their replay record. */
     public void enqueue(String account,String kind,String id,String operationId,String payload,String expectedVersion,long now) {
@@ -95,9 +136,9 @@ public final class TrainingStore extends SQLiteOpenHelper {
         finally {db.endTransaction();}
     }
     private static void enqueueInside(SQLiteDatabase db,String account,String kind,String id,String op,String payload,String version,long now) {
-        try(Cursor c=db.query("outbox",new String[]{"account","kind","record_id","payload","base_version"},"operation_id=?",new String[]{op},null,null,null)) {
+        try(Cursor c=db.query("outbox",new String[]{"account","kind","record_id"},"operation_id=?",new String[]{op},null,null,null)) {
             if(c.moveToFirst()) {
-                if(!account.equals(c.getString(0))||!kind.equals(c.getString(1))||!id.equals(c.getString(2))||!payload.equals(c.getString(3)))
+                if(!account.equals(c.getString(0))||!kind.equals(c.getString(1))||!id.equals(c.getString(2))||!payload.equals(payload(db,"outbox","payload","operation_id=?",new String[]{op})))
                     throw new IllegalArgumentException("An operation identifier cannot be reused for a different edit");
                 return;
             }
@@ -146,8 +187,13 @@ public final class TrainingStore extends SQLiteOpenHelper {
     /** Only the head of each record's edit chain is eligible; unrelated records can sync independently. */
     public List<Mutation> ready(String account,int limit) {
         RecordPolicy.identifier(account);limit(limit);List<Mutation> out=new ArrayList<>();
-        try(Cursor c=getReadableDatabase().query("outbox",new String[]{"operation_id","kind","record_id","payload","base_version","attempts"},"account=? AND state='pending' AND parent_operation_id IS NULL",new String[]{account},null,null,"seq",String.valueOf(limit))) {while(c.moveToNext())out.add(new Mutation(c));}
-        return out;
+        SQLiteDatabase db=getReadableDatabase();db.beginTransactionNonExclusive();
+        try {
+            try(Cursor c=db.query("outbox",new String[]{"operation_id","kind","record_id","base_version","attempts"},"account=? AND state='pending' AND parent_operation_id IS NULL",new String[]{account},null,null,"seq",String.valueOf(limit))) {
+                while(c.moveToNext())out.add(new Mutation(c,payload(db,"outbox","payload","account=? AND operation_id=?",new String[]{account,c.getString(0)})));
+            }
+            db.setTransactionSuccessful();return out;
+        } finally {db.endTransaction();}
     }
     /** Acknowledge only a replayable operation. Later offline edits remain visible and queued. */
     public boolean acknowledge(String account,String operationId,String serverPayload,String serverVersion,long now) {

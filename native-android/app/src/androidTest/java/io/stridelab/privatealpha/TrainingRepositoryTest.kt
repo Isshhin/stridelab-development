@@ -325,6 +325,57 @@ class TrainingRepositoryTest {
         assertTrue(repo.state.value.details.isEmpty())
         assertTrue(repo.state.value.cachedDetailIds.isEmpty())
     }
+    @Test fun largeRecordedDetailOpensOfflineAfterDatabaseReopen() = runBlocking {
+        val localAccount=repo.state.value.account!!
+        repo.close()
+        val samples=JSONArray()
+        repeat(15000) { i -> samples.put(JSONObject().put("activity_id","activity-1")
+            .put("sample_index",i).put("elapsed_s",i).put("heart_rate",145)
+            .put("cadence_spm",178).put("latitude",14.123456).put("longitude",121.123456)
+            .put("timestamp","2026-11-08T00:00:00Z")) }
+        val detail=JSONObject().put("user_id",localAccount).put("activity_id","activity-1")
+            .put("fetched_at",1234).put("samples",samples)
+            .put("laps",JSONArray().put(JSONObject().put("activity_id","activity-1").put("lap_index",0)))
+            .put("pause_intervals",JSONArray().put(JSONObject().put("start_s",10).put("end_s",20)))
+        val raw=detail.toString()
+        assertTrue(raw.toByteArray().size > 2 * 1024 * 1024)
+        val sqlite=TrainingStore(context,database)
+        sqlite.applyRemotePage(localAccount,"activity",listOf(TrainingStore.RemoteRecord("activity-1",row(owner=localAccount).toString(),null)),null,1234)
+        sqlite.applyRemotePage(localAccount,"activity_detail",listOf(TrainingStore.RemoteRecord("activity-1",raw,null)),null,1234)
+        sqlite.close()
+        remote.offline=true; open()
+        assertTrue(repo.loadCachedDetail("activity-1"))
+        val loaded=repo.state.value.details.getValue("activity-1")
+        assertEquals(15000,loaded.samples.size)
+        assertEquals(178.0,loaded.samples.last().cadenceSpm!!,0.0)
+        assertEquals(14.123456,loaded.samples.last().latitude!!,0.0)
+        assertEquals(1,loaded.laps.size)
+        assertEquals(1,loaded.pauseIntervals.size)
+        val reopened=TrainingStore(context,database)
+        try { assertEquals(raw,reopened.get(localAccount,"activity_detail","activity-1").payload) }
+        finally { reopened.close() }
+    }
+    @Test fun cachedDetailReadFailureShowsRetainedRecordWarning() = runBlocking {
+        val localAccount=repo.state.value.account!!
+        repo.close()
+        val seed=TrainingStore(context,database)
+        seed.applyRemotePage(localAccount,"activity",listOf(TrainingStore.RemoteRecord("activity-1",row(owner=localAccount).toString(),null)),null,1)
+        val detail=JSONObject().put("user_id",localAccount).put("activity_id","activity-1")
+            .put("fetched_at",1).put("samples",JSONArray()).put("laps",JSONArray())
+        seed.applyRemotePage(localAccount,"activity_detail",listOf(TrainingStore.RemoteRecord("activity-1",detail.toString(),null)),null,1)
+        seed.close(); remote.offline=true; open()
+        val sqlite=TrainingStore(context,database)
+        try { sqlite.writableDatabase.execSQL("ALTER TABLE records RENAME TO retained_records") }
+        finally { sqlite.close() }
+        assertFalse(repo.loadCachedDetail("activity-1"))
+        assertTrue(repo.state.value.message.orEmpty().contains("original local record was retained"))
+        val retained=TrainingStore(context,database)
+        try {
+            retained.readableDatabase.rawQuery("SELECT count(*) FROM retained_records WHERE kind='activity_detail'",null).use {
+                assertTrue(it.moveToFirst()); assertEquals(1,it.getInt(0))
+            }
+        } finally { retained.close() }
+    }
     @Test fun coldStartKeepsMultipleActivityDetailsOnDiskUntilOpened() = runBlocking {
         remote.rows=listOf(row("a"),row("b"))
         assertTrue(repo.signIn("fixture@example.invalid","fixture"))
