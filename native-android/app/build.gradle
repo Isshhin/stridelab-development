@@ -9,6 +9,9 @@ android {
     defaultConfig {
         applicationId 'io.stridelab.privatealpha'
         buildConfigField 'boolean', 'ENGINE15_ACTIVE', (project.findProperty('strideEngine15Active') ?: 'false').toString().toBoolean().toString()
+        def mapboxPublicToken = (project.findProperty('mapboxPublicToken') ?: System.getenv('MAPBOX_PUBLIC_TOKEN') ?: '').toString()
+        def escapedMapboxPublicToken = mapboxPublicToken.replace('\\', '\\\\').replace('"', '\\"')
+        buildConfigField 'String', 'MAPBOX_PUBLIC_TOKEN', '"' + escapedMapboxPublicToken + '"'
         minSdk = 26
         targetSdk = 35
         versionCode = (project.findProperty('strideVersionCode') ?: '15').toInteger()
@@ -50,8 +53,10 @@ android {
 }
 dependencies {
     implementation 'com.garmin:fit:21.218.0'
-    // Native geographic OSM-based maps for recorded GPS; no map tiles for absent GPS.
-    implementation 'org.maplibre.gl:android-sdk:13.7.1'
+    // Mapbox Standard basemap for recorded GPS. The public token comes from
+    // ~/.gradle/gradle.properties (mapboxPublicToken=pk...) or MAPBOX_PUBLIC_TOKEN.
+    // It is intentionally never committed to the repository.
+    implementation 'com.mapbox.maps:android-ndk27:11.34.2'
     implementation platform('androidx.compose:compose-bom:2025.10.00')
     implementation 'androidx.activity:activity-compose:1.11.0'
     implementation 'androidx.compose.material3:material3'
