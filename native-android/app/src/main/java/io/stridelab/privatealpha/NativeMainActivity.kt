@@ -166,6 +166,27 @@ private fun NavHostController.openActivity(id: String) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
+    // Immediate visual acknowledgement of a bottom-tab press. NavController
+    // still owns the back stack, restoration and child destination lifecycle;
+    // the dock's animation never gates which retained root is laid out.
+    var requestedTab by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(route, state.account) {
+        if (requestedTab == route || route !in mainTabRoutes) requestedTab = null
+    }
+    val visibleRoot = if (route == null || route in mainTabRoutes) {
+        requestedTab ?: route
+    } else route
+    val onDockTab: (String) -> Unit = { target ->
+        if (nav.currentDestination?.route != target) {
+            requestedTab = target
+            try {
+                nav.openTabRoot(target)
+            } catch (error: Exception) {
+                requestedTab = null
+                throw error
+            }
+        }
+    }
     val groupedActivities = remember(state.activities) {
         ActivityDisplayConsolidation.groups(ActiveActivitySources.filter(state.activities))
     }
@@ -230,20 +251,7 @@ private fun NavHostController.openActivity(id: String) {
                     else fadeOut(animationSpec = tween(700))
                 }
             ) {
-                composable("home") {
-                    if (state.account != null && diagnosticTabs) TabDiagnosticPlaceholder("Today")
-                    else if (state.account != null) StrideLabTodayScreen(
-                        state = state,
-                        visibleActivities = visibleActivities,
-                        online = online,
-                        onOpenTraining = { nav.openTabRoot("training") },
-                        onOpenActivity = { nav.openTabRoot("training") },
-                        onOpenWorkout = { planId, sessionId -> nav.openWorkout(planId, sessionId) },
-                        onOpenActivityDetail = { id -> nav.openActivity(id) },
-                        onOpenMore = { nav.openTabRoot("settings") },
-                        onSignIn = { nav.navigate("auth") }
-                    )
-                }
+                composable("home") { /* Root content is retained below NavHost. */ }
                 composable("activities") {
                     Screen("Activities", "YOUR HISTORY") {
                         item { SyncStatus(state) }
@@ -333,10 +341,7 @@ private fun NavHostController.openActivity(id: String) {
                         )
                     }
                 }
-                composable("training") {
-                    if (state.account != null && diagnosticTabs) TabDiagnosticPlaceholder("Training")
-                    else if (state.account != null) StrideLabUnifiedTrainingTimeline(state,groupedActivities,actions.planning,{nav.navigate("builder/all")},{p,s->nav.openWorkout(p,s)},{id->nav.openActivity(id)},{nav.navigate("auth")},{p,d->nav.navigate("manage/${android.net.Uri.encode(p)}/$d")})
-                }
+                composable("training") { /* Retained tab surface. */ }
                 composable("manage/{planId}/{date}") { back ->
                     val planId = back.arguments?.getString("planId") ?: ""
                     val plan = state.plans.firstOrNull { it.id == planId }
@@ -454,38 +459,7 @@ private fun NavHostController.openActivity(id: String) {
                         }
                     )
                 }
-                composable("settings") {
-                    if (state.account != null && diagnosticTabs) TabDiagnosticPlaceholder("More")
-                    else if (state.account != null) {
-                        var confirmSignOut by remember { mutableStateOf(false) }
-                        TracksideMoreScreen(
-                            state = state,
-                            onSignIn = { nav.navigate("auth") },
-                            onLibrary = { nav.openTabRoot("library") },
-                            onGarmin = { nav.navigate("more/garmin") },
-                            onData = { nav.navigate("more/data") },
-                            onPreferences = { nav.navigate("more/preferences") },
-                            onAbout = { nav.navigate("more/about") },
-                            onSignOut = { confirmSignOut = true }
-                        )
-                        if (confirmSignOut) {
-                            AlertDialog(
-                                onDismissRequest = { confirmSignOut = false },
-                                title = { Text("Sign out?") },
-                                text = { Text("Your saved offline records will remain on this device.") },
-                                confirmButton = {
-                                    TextButton(
-                                        onClick = { confirmSignOut = false; actions.signOut() },
-                                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFD8FB70))
-                                    ) { Text("Sign out") }
-                                },
-                                dismissButton = {
-                                    TextButton(onClick = { confirmSignOut = false }) { Text("Cancel") }
-                                }
-                            )
-                        }
-                    }
-                }
+                composable("settings") { /* Retained tab surface. */ }
                 composable("more/garmin") {
                     TracksideMoreDetailDestination(MorePage.Garmin, nav, state, actions)
                 }
@@ -547,11 +521,73 @@ private fun NavHostController.openActivity(id: String) {
                     )
                 }
             }
-            if (state.account == null) {
-                // Only the anonymous roots are retained for now. Signed-in
-                // flows keep their existing NavHost lifecycle and permissions.
-                // This prevents a sign-out from retaining account UI.
-                PersistentTabSurface(active = route == null || route == "home") {
+            if (state.account != null) {
+                // Keep signed-in roots composed but measure/place only the
+                // selected one. Switching tabs no longer reconstructs Today,
+                // Training and More after every NavHost destination change.
+                // The keyed group is disposed if the account changes.
+                key(state.account) {
+                    PersistentTabSurface(active = visibleRoot == "home") {
+                        if (diagnosticTabs) TabDiagnosticPlaceholder("Today") else StrideLabTodayScreen(
+                            state = state,
+                            visibleActivities = visibleActivities,
+                            online = online,
+                            onOpenTraining = { nav.openTabRoot("training") },
+                            onOpenActivity = { nav.openTabRoot("training") },
+                            onOpenWorkout = { planId, sessionId -> nav.openWorkout(planId, sessionId) },
+                            onOpenActivityDetail = { id -> nav.openActivity(id) },
+                            onOpenMore = { nav.openTabRoot("settings") },
+                            onSignIn = { nav.navigate("auth") }
+                        )
+                    }
+                    PersistentTabSurface(active = visibleRoot == "training") {
+                        if (diagnosticTabs) TabDiagnosticPlaceholder("Training")
+                        else StrideLabUnifiedTrainingTimeline(
+                            state, groupedActivities, actions.planning,
+                            { nav.navigate("builder/all") },
+                            { p, session -> nav.openWorkout(p, session) },
+                            { id -> nav.openActivity(id) },
+                            { nav.navigate("auth") },
+                            { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") }
+                        )
+                    }
+                    PersistentTabSurface(active = visibleRoot == "settings") {
+                        if (diagnosticTabs) TabDiagnosticPlaceholder("More") else {
+                            var confirmSignOut by remember { mutableStateOf(false) }
+                            TracksideMoreScreen(
+                                state = state,
+                                onSignIn = { nav.navigate("auth") },
+                                onLibrary = { nav.openTabRoot("library") },
+                                onGarmin = { nav.navigate("more/garmin") },
+                                onData = { nav.navigate("more/data") },
+                                onPreferences = { nav.navigate("more/preferences") },
+                                onAbout = { nav.navigate("more/about") },
+                                onSignOut = { confirmSignOut = true }
+                            )
+                            if (confirmSignOut) {
+                                AlertDialog(
+                                    onDismissRequest = { confirmSignOut = false },
+                                    title = { Text("Sign out?") },
+                                    text = { Text("Your saved offline records will remain on this device.") },
+                                    confirmButton = {
+                                        TextButton(
+                                            onClick = { confirmSignOut = false; actions.signOut() },
+                                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFD8FB70))
+                                        ) { Text("Sign out") }
+                                    },
+                                    dismissButton = {
+                                        TextButton(onClick = { confirmSignOut = false }) {
+                                            Text("Cancel")
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Guest roots stay retained and account content is removed.
+                PersistentTabSurface(active = visibleRoot == null || visibleRoot == "home") {
                     if (diagnosticTabs) TabDiagnosticPlaceholder("Today") else StrideLabTodayScreen(
                         state = state, visibleActivities = visibleActivities,
                         online = online,
@@ -563,7 +599,7 @@ private fun NavHostController.openActivity(id: String) {
                         onSignIn = { nav.navigate("auth") }
                     )
                 }
-                PersistentTabSurface(active = route == "training") {
+                PersistentTabSurface(active = visibleRoot == "training") {
                     if (diagnosticTabs) TabDiagnosticPlaceholder("Training") else StrideLabUnifiedTrainingTimeline(
                         state, groupedActivities, actions.planning,
                         { nav.navigate("builder/all") },
@@ -573,7 +609,7 @@ private fun NavHostController.openActivity(id: String) {
                         { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") }
                     )
                 }
-                PersistentTabSurface(active = route == "settings") {
+                PersistentTabSurface(active = visibleRoot == "settings") {
                     if (diagnosticTabs) TabDiagnosticPlaceholder("More") else TracksideMoreScreen(
                         state = state,
                         onSignIn = { nav.navigate("auth") },
@@ -609,7 +645,7 @@ private fun NavHostController.openActivity(id: String) {
                 .widthIn(max = 410.dp)
                 .testTag("floating-navigation-overlay")
         ) {
-            TracksideFloatingNavigation(route) { path -> nav.openTabRoot(path) }
+            TracksideFloatingNavigation(visibleRoot, onDockTab)
         }
     }
     }
