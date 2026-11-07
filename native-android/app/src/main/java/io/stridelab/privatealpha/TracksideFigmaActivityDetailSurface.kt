@@ -2,19 +2,18 @@ package io.stridelab.privatealpha
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -23,15 +22,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 /**
- * Figma approved 551:235 / 551:365 require the map to remain behind an
- * independently scrolling, overlapping activity sheet. The old implementation
- * incorrectly placed the map in a LazyColumn, so scrolling erased it entirely.
+ * Approved Trackside activity interaction:
+ * - real, independently interactive GPS map behind the draggable sheet;
+ * - initial preview contains only title, date, and three unboxed metrics;
+ * - expanded state reveals a sticky lime section pill and one continuous list;
+ * - scrolling, not page replacement, advances Overview -> Splits -> Charts.
  *
- * MapLibre shows geographically correct OSM-derived streets when actual
- * recorded GPS and network access exist; offline retains source coordinates.
+ * The persisted activity and Garmin/Intervals source APIs are unchanged.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,28 +48,29 @@ internal fun TracksideFigmaActivityDetailSurface(
     matte: Boolean,
     onToggleMatte: () -> Unit,
     onBack: () -> Unit,
-    onLoadGarminGps:(()->Unit)?=null
+    onLoadGarminGps: (() -> Unit)? = null
 ) {
     BoxWithConstraints(
-        Modifier.fillMaxSize().background(Color(0xFF000000))
+        Modifier.fillMaxSize().background(Color.Black)
             .testTag("screen")
             .semantics { paneTitle = activity.title }
     ) {
         val sheetTop = if (maxHeight < 720.dp) 355.dp else 425.dp
-        val sheetHeight = (maxHeight - 96.dp).coerceAtLeast(520.dp)
+        val sheetHeight = (maxHeight - 24.dp).coerceAtLeast(400.dp).coerceAtMost(maxHeight)
         val sheetState = rememberStandardBottomSheetState(
             initialValue = SheetValue.PartiallyExpanded,
             skipHiddenState = true
         )
         val scaffoldState = rememberBottomSheetScaffoldState(sheetState)
         val scope = rememberCoroutineScope()
-        val expanded = sheetState.currentValue == SheetValue.Expanded ||
-            sheetState.targetValue == SheetValue.Expanded
+        // Do not replace the preview mid-drag. Expanded content is installed
+        // only when the sheet reaches the expanded anchor.
+        val expanded = sheetState.currentValue == SheetValue.Expanded
         val collapseOrBack: () -> Unit = {
-            if (expanded) scope.launch { sheetState.partialExpand() }
-            else onBack()
+            if (expanded || sheetState.targetValue == SheetValue.Expanded) {
+                scope.launch { sheetState.partialExpand() }
+            } else onBack()
         }
-
         BackHandler(enabled = expanded) {
             scope.launch { sheetState.partialExpand() }
         }
@@ -78,13 +78,13 @@ internal fun TracksideFigmaActivityDetailSurface(
         BottomSheetScaffold(
             scaffoldState = scaffoldState,
             sheetPeekHeight = maxHeight - sheetTop,
-            sheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-            sheetContainerColor = if (matte) Color(0xFF091B26)
-                else Color(0xFF122A38),
+            sheetShape = RoundedCornerShape(topStart = 25.dp, topEnd = 25.dp),
+            sheetContainerColor = if (matte) Color(0xFF0A110F) else Color(0xFF080D0C),
             sheetDragHandle = null,
             sheetContent = {
-                ActivitySheetContent(
-                    modifier = Modifier.fillMaxWidth().height(sheetHeight)
+                Column(
+                    Modifier.fillMaxWidth().height(sheetHeight)
+                        .testTag("activity-sheet-scroll")
                         .semantics {
                             stateDescription = if (expanded) "Expanded" else "Collapsed"
                             if (expanded) collapse {
@@ -94,20 +94,62 @@ internal fun TracksideFigmaActivityDetailSurface(
                                 scope.launch { sheetState.expand() }
                                 true
                             }
-                        },
-                    activity = activity,
-                    recorded = recorded,
-                    detailSource = detailSource,
-                    matchedSourceIds = matchedSourceIds,
-                    history = history,
-                    state = state,
-                    actions = actions,
-                    online = online,
-                    selectedTab = selectedTab,
-                    onTab = onTab,
-                    matte = matte,
-                    onLoadGarminGps=onLoadGarminGps
-                )
+                        }
+                ) {
+                    Box(
+                        Modifier.fillMaxWidth().height(37.dp)
+                            .clickable {
+                                scope.launch {
+                                    if (expanded) sheetState.partialExpand()
+                                    else sheetState.expand()
+                                }
+                            }.testTag("activity-sheet-handle")
+                            .semantics {
+                                contentDescription = if (expanded)
+                                    "Collapse activity details" else "Expand activity details"
+                            }
+                    ) {
+                        Box(
+                            Modifier.align(Alignment.TopCenter).padding(top = 11.dp)
+                                .size(width = 44.dp, height = 5.dp)
+                                .background(Color(0xFF899790), RoundedCornerShape(4.dp))
+                        )
+                        val route = recorded?.samples.orEmpty()
+                        if (online && route.count { it.latitude != null && it.longitude != null } >= 2) {
+                            // Attribution is anchored to the moving sheet, rather
+                            // than floating over independently pannable map tiles.
+                            Text(
+                                TracksideMapTiles.ATTRIBUTION,
+                                modifier = Modifier.align(Alignment.BottomCenter)
+                                    .padding(horizontal = 5.dp, vertical = 2.dp)
+                                    .testTag("activity-map-attribution"),
+                                fontSize = 8.sp,
+                                lineHeight = 10.sp,
+                                maxLines = 1,
+                                color = Color(0xFF9CABAB)
+                            )
+                        }
+                    }
+                    if (!expanded) {
+                        // No pill and no body below the approved initial preview.
+                        TracksideActivityInitialPreview(activity)
+                    } else {
+                        TracksideActivityExpandedHeader(activity, collapseOrBack)
+                        TracksideActivityContinuousSections(
+                            activity = activity,
+                            recorded = recorded,
+                            detailSource = detailSource,
+                            matchedSourceIds = matchedSourceIds,
+                            history = history,
+                            state = state,
+                            actions = actions,
+                            online = online,
+                            selectedTab = selectedTab,
+                            onTab = onTab,
+                            onLoadGarminGps = onLoadGarminGps
+                        )
+                    }
+                }
             }
         ) {
             TracksideParityActivityMapHero(
@@ -119,129 +161,5 @@ internal fun TracksideFigmaActivityDetailSurface(
                 online = online
             )
         }
-    }
-}
-
-@Composable
-private fun ActivitySheetContent(
-    modifier: Modifier,
-    activity: ActivityRecord,
-    recorded: ActivityDetail?,
-    detailSource: ActivityRecord,
-    matchedSourceIds: Set<String>,
-    history: List<ActivityRecord>,
-    state: TrainingState,
-    actions: NativeActions,
-    online: Boolean,
-    selectedTab: Int,
-    onTab: (Int) -> Unit,
-    matte: Boolean,
-    onLoadGarminGps:(()->Unit)?
-) {
-    Column(
-        modifier.verticalScroll(rememberScrollState())
-            .testTag("activity-sheet-scroll")
-    ) {
-        if (matte) TracksideParityMatteActivityOverview(activity)
-        else TracksideParityActivityOverview(activity)
-
-        if (matte) TracksideParityMatteActivityTabs(selectedTab, onTab)
-        else TracksideParityActivityTabs(selectedTab, onTab)
-
-        when (selectedTab) {
-            0 -> {
-                Spacer(Modifier.height(20.dp))
-                if (matte) TracksideParityMatteActivityHighlights(
-                    activity, history, recorded
-                ) else Column(Modifier.padding(horizontal = 17.dp)) {
-                    TracksideParityActivityHighlights(activity, history)
-                }
-                Spacer(Modifier.height(13.dp))
-                Column(Modifier.fillMaxWidth().padding(horizontal = 17.dp)) {
-                    Text("ADDITIONAL RUN DETAILS", fontSize = 14.sp,
-                        color = Color.White, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(10.dp))
-                    MetricPair(
-                        "Elapsed time" to activity.durationLabel,
-                        "Average heart rate" to (activity.averageHr?.let {
-                            it.roundToInt().toString() + " bpm"
-                        } ?: "Not recorded")
-                    )
-                    activity.elevationM?.let {
-                        Spacer(Modifier.height(8.dp))
-                        Metric("Elevation gain", it.roundToInt().toString() + " m")
-                    }
-                    if (DashboardSummary.isRun(activity)) {
-                        Spacer(Modifier.height(12.dp))
-                        ActivityPlanLink(state, activity, actions.planning, matchedSourceIds)
-                    }
-                    Spacer(Modifier.height(18.dp))
-                    Text("RECORDING DETAILS", fontSize = 14.sp,
-                        color = Color.White, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(9.dp))
-                    Text(activity.sourceLabel + " · " + activity.dateLabel,
-                        color = TracksidePalette.textMuted, fontSize = 12.sp)
-                    Spacer(Modifier.height(13.dp))
-                    if(activity.garminMovingPaceSPerKm!=null)
-                        Text("Pace calculated from Garmin moving time and distance.",
-                            color = TracksidePalette.textMuted, fontSize = 11.sp)
-                    Text("Source-derived values only. Missing GPS, splits, heart rate and training effect are not estimated.",
-                        color = TracksidePalette.textMuted, fontSize = 11.sp)
-                }
-            }
-            1 -> {
-                Spacer(Modifier.height(17.dp))
-                Column(Modifier.padding(horizontal = 17.dp)) {
-                    TracksideParityActivityLaps(recorded)
-                }
-            }
-            else -> {
-                Spacer(Modifier.height(17.dp))
-                Column(Modifier.padding(horizontal = 17.dp)) {
-                    if (recorded != null) RecordedActivityDetail(
-                        recorded, activity.supportsPace
-                    ) else Text(
-                        "Recorded charts aren't cached for this activity.",
-                        color = TracksidePalette.textMuted
-                    )
-                }
-            }
-        }
-
-        if(activity.source=="garmin" && recorded==null && detailSource.id==activity.id) {
-            Spacer(Modifier.height(18.dp))
-            Text(
-                "No Garmin GPS track is cached for this activity. StrideLab can request the original FIT recording when available; no route is invented.",
-                modifier=Modifier.fillMaxWidth().padding(horizontal=17.dp),
-                color=TracksidePalette.textMuted,fontSize=11.sp
-            )
-        }
-        if(activity.source=="garmin" && detailSource.id==activity.id && recorded==null) {
-            Spacer(Modifier.height(10.dp))
-            OutlinedButton(
-                onClick={ onLoadGarminGps?.invoke() },
-                enabled=online && !state.busy && !state.needsSignIn && onLoadGarminGps!=null,
-                modifier=Modifier.fillMaxWidth().padding(horizontal=17.dp)
-                    .testTag("garmin-load-gps")
-            ) { Text(if(state.busy && state.task?.contains("Garmin")==true)
-                "Loading Garmin GPS…" else "Load Garmin GPS") }
-            if(state.message?.contains("Garmin",ignoreCase=true)==true) {
-                Text(state.message.orEmpty(),
-                    modifier=Modifier.fillMaxWidth().padding(horizontal=17.dp),
-                    color=TracksidePalette.textMuted,fontSize=11.sp)
-            }
-        }
-        if (detailSource.source!="garmin" && online && !state.busy && !state.needsSignIn) {
-            Spacer(Modifier.height(18.dp))
-            OutlinedButton(
-                onClick = { actions.loadDetail(detailSource.id) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 17.dp)
-                    .testTag("activity-refresh-streams")
-            ) {
-                Text(if(recorded != null)
-                    "Refresh source data" else "Load recorded streams")
-            }
-        }
-        Spacer(Modifier.height(32.dp))
     }
 }
