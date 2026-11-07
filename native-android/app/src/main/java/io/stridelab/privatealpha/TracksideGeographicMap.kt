@@ -64,24 +64,24 @@ internal object TracksideMapTiles {
  * parks/woodland so the map stays readable without becoming a black void.
  */
 internal object TracksideReadableMapPalette {
-    val canvas = AndroidColor.rgb(31, 37, 34)          // #1F2522
-    val residential = AndroidColor.rgb(38, 45, 42)    // #262D2A
-    val buildings = AndroidColor.rgb(46, 54, 50)      // #2E3632
-    val buildingEdges = AndroidColor.rgb(59, 69, 64)
-    val grass = AndroidColor.rgb(52, 83, 61)           // #34533D
-    val wood = AndroidColor.rgb(42, 67, 49)            // #2A4331
-    val water = AndroidColor.rgb(35, 58, 68)           // #233A44
-    val waterways = AndroidColor.rgb(56, 91, 105)
-    val minorRoads = AndroidColor.rgb(76, 86, 81)
-    val majorRoads = AndroidColor.rgb(103, 114, 108)
-    val roadCasings = AndroidColor.rgb(49, 58, 54)
-    val motorways = AndroidColor.rgb(132, 143, 136)
-    val paths = AndroidColor.rgb(67, 77, 72)
-    val rail = AndroidColor.rgb(72, 82, 77)
-    val roadLabels = AndroidColor.rgb(205, 213, 209)
-    val placeLabels = AndroidColor.rgb(239, 242, 240)
-    val labelHalo = AndroidColor.rgb(29, 35, 32)
-    val waterLabels = AndroidColor.rgb(145, 184, 199)
+    val canvas = AndroidColor.rgb(45, 52, 58)          // #2D343A slate-charcoal
+    val residential = AndroidColor.rgb(50, 58, 63)    // #323A3F
+    val buildings = AndroidColor.rgb(57, 65, 70)      // #394146
+    val buildingEdges = AndroidColor.rgb(70, 78, 83)
+    val grass = AndroidColor.rgb(64, 91, 68)           // #405B44 visible park green
+    val wood = AndroidColor.rgb(49, 76, 57)            // #314C39 deeper vegetation
+    val water = AndroidColor.rgb(45, 72, 94)           // #2D485E Strava-like blue
+    val waterways = AndroidColor.rgb(71, 106, 128)
+    val minorRoads = AndroidColor.rgb(92, 101, 106)
+    val majorRoads = AndroidColor.rgb(124, 133, 138)
+    val roadCasings = AndroidColor.rgb(62, 70, 75)
+    val motorways = AndroidColor.rgb(146, 155, 160)
+    val paths = AndroidColor.rgb(80, 89, 94)
+    val rail = AndroidColor.rgb(84, 93, 98)
+    val roadLabels = AndroidColor.rgb(202, 209, 212)
+    val placeLabels = AndroidColor.rgb(232, 236, 238)
+    val labelHalo = AndroidColor.rgb(42, 48, 53)
+    val waterLabels = AndroidColor.rgb(137, 176, 201)
 
     internal val recoloredLayerIds = setOf(
         "background", "water", "landcover_ice_shelf", "landcover_glacier",
@@ -195,7 +195,7 @@ internal fun TracksideGeographicMap(
     selectedSeconds:Double?=null
 ) {
     var styleReady by remember(route,online) { mutableStateOf(false) }
-    Box(modifier.background(Color(0xFF1F2522)).testTag("activity-geographic-map")) {
+    Box(modifier.background(Color(0xFF2D343A)).testTag("activity-geographic-map")) {
         if(online && route.pointCount > 0) {
             MapLibreRouteView(
                 route = route,
