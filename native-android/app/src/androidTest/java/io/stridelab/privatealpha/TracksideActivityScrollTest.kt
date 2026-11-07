@@ -441,6 +441,39 @@ class TracksideActivityScrollTest {
         ).assertExists()
     }
 
+    @Test fun activityMapLegendExplainsRecordedPauseEvidence() {
+        val detail=ActivityDetail(
+            "synthetic-map-legend",
+            samples=listOf(
+                ActivitySample(0,0.0,390.0,135.0,10.0,14.600,121.000,170.0),
+                ActivitySample(1,10.0,388.0,138.0,10.2,14.601,121.001,171.0),
+                ActivitySample(2,20.0,null,110.0,10.3,14.602,121.002,90.0),
+                ActivitySample(3,30.0,386.0,140.0,10.4,14.603,121.003,172.0),
+                ActivitySample(4,40.0,384.0,142.0,10.5,14.604,121.004,173.0)
+            ),
+            laps=emptyList(),
+            fetchedAt=0L,
+            pauseIntervals=listOf(ActivityPauseInterval(15.0,25.0))
+        )
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideParityActivityMapHero(
+                        detail=detail,
+                        onBack={},
+                        online=false
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("activity-map-legend").assertExists()
+        compose.onNodeWithTag("activity-map-gps-continuity").assertExists()
+        compose.onNodeWithText("Continuous GPS").assertExists()
+        compose.onNodeWithText("Recorded route").assertExists()
+        compose.onNodeWithText("Timer pause").assertExists()
+        compose.onNodeWithText("GPS recorded while paused").assertExists()
+    }
+
     @Test fun activityMapUsesDedicatedStrideLabOpenFreeMapStyle() {
         org.junit.Assert.assertEquals(
             "asset://stridelab_activity_dark.json",
