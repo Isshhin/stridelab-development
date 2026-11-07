@@ -67,8 +67,8 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
     var name by rememberSaveable { mutableStateOf("") }
     var deleting by remember { mutableStateOf<SharePreset?>(null) }
     var pendingDocumentName by rememberSaveable { mutableStateOf<String?>(null) }
-    val renderable by produceState<ShareRenderableActivity?>(null,activity,detail) {
-        value=withContext(Dispatchers.Default) { ShareRenderableActivity.from(activity,detail) }
+    val renderable by produceState<ShareRenderableActivity?>(null,activity,detail,config.privacy) {
+        value=withContext(Dispatchers.Default) { ShareRenderableActivity.from(activity,detail,config.privacy) }
     }
     LaunchedEffect(store) {
         try { presets=withContext(Dispatchers.IO) { store.load() }; presetsReady=true }
@@ -78,7 +78,7 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
             message="Saved presets could not be read. Existing presets have been kept."
         }
     }
-    val source=renderable
+    val source=renderable?.takeIf { it.id==activity.id && it.privacy==config.privacy }
     val effective=source?.let { config.forActivity(it) }
     val geometry=effective?.let(ShareCardRenderer::geometry)
     val request=if(source!=null && effective!=null && geometry!=null && online && effective.background==ShareBackground.MAP &&
@@ -185,9 +185,9 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                 item {
                     val status=when {
                         mapLoading -> "Loading Activity Dark map…"
-                        effective?.routeMode==ShareRouteMode.HIDDEN -> "Route hidden · ${config.ratio.label} PNG"
-                        map==null -> "Recorded coordinate trace · no basemap · ${config.ratio.label} PNG"
-                        else -> "Activity Dark map · ${config.ratio.label} PNG"
+                        effective?.routeMode==ShareRouteMode.HIDDEN -> "Route hidden or too short to trim · Full activity stats · ${config.ratio.label} PNG"
+                        map==null -> "Route trimmed · Full activity stats · no basemap · ${config.ratio.label} PNG"
+                        else -> "Route trimmed · Full activity stats · map · ${config.ratio.label} PNG"
                     }
                     Text(status,style=MaterialTheme.typography.labelMedium,color=Color(ShareCardPalette.MUTED),modifier=Modifier.semantics { liveRegion=LiveRegionMode.Polite })
                 }
@@ -207,7 +207,9 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                                 ShareSection.VARIANT -> ShareChoices(config.template.variants,config.variant,{it.label}) { configure(config.selectVariant(it)) }
                                 ShareSection.RATIO -> ShareChoices(ShareRatio.entries,config.ratio,{it.label}) { configure(config.copy(ratio=it)) }
                                 ShareSection.ROUTE -> {
-                                    Text("Colors use recorded samples only. Pauses and GPS gaps stay separate.",style=MaterialTheme.typography.bodyMedium,color=Color(ShareCardPalette.MUTED))
+                                    Text("Route endpoints are trimmed. Stats cover the full activity. Trimming does not guarantee location anonymity.",style=MaterialTheme.typography.bodyMedium,color=Color(ShareCardPalette.MUTED))
+                                    Text("Trim distance from each endpoint",style=MaterialTheme.typography.labelLarge)
+                                    ShareChoices(SharePrivacy.entries,config.privacy,{it.label}) { configure(config.copy(privacy=it)) }
                                     ShareChoices(source?.availableModes?.toList().orEmpty(),effective?.routeMode,{it.label}) { configure(config.copy(routeMode=it)) }
                                     if(config.routeMode!=effective?.routeMode) Text("This activity cannot provide ${config.routeMode.label}; using ${effective?.routeMode?.label ?: "Hidden"}.",style=MaterialTheme.typography.bodySmall)
                                 }

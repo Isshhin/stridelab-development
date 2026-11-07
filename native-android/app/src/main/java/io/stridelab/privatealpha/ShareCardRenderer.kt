@@ -84,6 +84,7 @@ internal object ShareCardRenderer {
                 if(featured || (state.variant==ShareVariant.PERFORMANCE && i==0)) ShareCardPalette.LIME else ShareCardPalette.WHITE,true,456f)
             text(metric.label.uppercase(java.util.Locale.getDefault()),x,y+110f,23f,ShareCardPalette.MUTED,maxWidth=456f)
         }
+        text(if(state.routeMode==ShareRouteMode.HIDDEN) "ROUTE HIDDEN · FULL ACTIVITY STATS" else "ROUTE TRIMMED · FULL ACTIVITY STATS",56f,bitmap.height-80f,20f,ShareCardPalette.MUTED)
         val brandSize=when(state.branding) { ShareBranding.MINIMAL->22f; ShareBranding.SUBTLE->27f; ShareBranding.STANDARD->34f }
         text("STRIDELAB",56f,bitmap.height-40f,brandSize,ShareCardPalette.MUTED,true)
         if(state.branding==ShareBranding.STANDARD) text("EVERY STRIDE COUNTS",540f,bitmap.height-40f,22f,ShareCardPalette.MUTED,maxWidth=484f)
@@ -108,7 +109,7 @@ internal object ShareCardRenderer {
         activity.route.segments.forEach { segment ->
             val path=Path()
             segment.forEachIndexed { i,p -> val xy=position(p); if(i==0) path.moveTo(xy.x,xy.y) else path.lineTo(xy.x,xy.y) }
-            paint.alpha=if(state.routeMode==ShareRouteMode.ROUTE) 255 else 46
+            paint.alpha=255
             canvas.drawPath(path,paint)
             if(segment.size==1) { val xy=position(segment[0]); canvas.drawPoint(xy.x,xy.y,paint) }
         }

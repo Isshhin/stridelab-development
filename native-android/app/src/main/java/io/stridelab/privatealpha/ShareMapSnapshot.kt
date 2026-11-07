@@ -35,7 +35,7 @@ internal suspend fun shareMapSnapshot(context:Context, activity:ShareRenderableA
                         .withSource(GeoJsonSource("share-route",activity.route.toGeoJson()))
                         .withLayer(LineLayer("share-route-line","share-route").withProperties(
                             PropertyFactory.lineColor(ShareCardPalette.LIME),PropertyFactory.lineWidth(8f),
-                            PropertyFactory.lineOpacity(if(state.routeMode==ShareRouteMode.ROUTE) 1f else .18f)))
+                            PropertyFactory.lineOpacity(1f)))
                         .withSource(GeoJsonSource("share-isolated",activity.route.isolatedGeoJson()))
                         .withLayer(CircleLayer("share-isolated-points","share-isolated").withProperties(
                             PropertyFactory.circleRadius(4f),PropertyFactory.circleColor(ShareCardPalette.LIME)))

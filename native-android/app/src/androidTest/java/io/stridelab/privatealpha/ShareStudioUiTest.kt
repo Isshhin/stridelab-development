@@ -133,4 +133,47 @@ class ShareStudioUiTest {
             }
         } finally { uri?.let { context.contentResolver.delete(it,null,null) }; bitmap.recycle() }
     }
+
+    @Test fun offlinePausedRouteRendersAndExportMatchesPreviewBitmap() {
+        val samples=(0..16).filter { it!=8 }.map { i ->
+            ActivitySample(i,i*10.0,350.0+i,120.0+i,10.0+i,14.6+i*.001,121.0)
+        }
+        val source=ShareRenderableActivity.from(activity,ActivityDetail(activity.id,samples,emptyList(),0L,
+            listOf(ActivityPauseInterval(75.0,85.0))))
+        assertEquals(1,source.route.segments.size)
+        assertTrue(source.route.allPoints.first().latitude>samples.first().latitude!!)
+        assertTrue(source.route.allPoints.last().latitude<samples.last().latitude!!)
+        val state=ShareStudioState(ratio=ShareRatio.SQUARE).forActivity(source)
+        val bitmap=ShareCardRenderer.render(source,state,null)
+        try {
+            val geometry=ShareCardRenderer.geometry(state).route
+            var routePixels=0
+            for(y in geometry.top.toInt() until geometry.bottom.toInt()) {
+                for(x in geometry.left.toInt() until geometry.right.toInt()) {
+                    if(bitmap.getPixel(x,y)==ShareCardPalette.LIME) routePixels++
+                }
+            }
+            assertTrue(routePixels>0)
+            val bytes=ByteArrayOutputStream()
+            ShareImageExport.writePng(bitmap,bytes)
+            val png=BitmapFactory.decodeByteArray(bytes.toByteArray(),0,bytes.size())
+            assertTrue(bitmap.sameAs(png))
+            png.recycle()
+        } finally { bitmap.recycle() }
+    }
+
+    @Test fun longRunRendersAndExportsOffline() {
+        val samples=(0 until 25000).map { i ->
+            ActivitySample(i,i.toDouble(),350.0,125.0,10.0,14.0+i*.00001,121.0)
+        }
+        val source=ShareRenderableActivity.from(activity,ActivityDetail(activity.id,samples,emptyList(),0L))
+        assertTrue(source.route.pointCount<=2000)
+        assertTrue(source.route.pointCount>1)
+        val bitmap=ShareCardRenderer.render(source,ShareStudioState(ratio=ShareRatio.SQUARE).forActivity(source),null)
+        try {
+            val bytes=ByteArrayOutputStream()
+            ShareImageExport.writePng(bitmap,bytes)
+            assertTrue(bytes.size()>0)
+        } finally { bitmap.recycle() }
+    }
 }
