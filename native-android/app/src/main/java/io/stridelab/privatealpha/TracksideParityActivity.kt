@@ -247,7 +247,7 @@ internal fun TracksideParityActivityMapHero(
                 ),
                 shape = RoundedCornerShape(11.dp),
                 modifier = Modifier.align(Alignment.TopStart)
-                    .padding(start = 12.dp, top = 68.dp)
+                    .padding(start = 12.dp, top = if (fullScreen) 116.dp else 68.dp)
                     .testTag("activity-map-legend")
             ) {
                 Column(
