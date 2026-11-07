@@ -37,6 +37,18 @@ internal class GarminSyncPreferences(context: Context) {
     }
 
     /**
+     * A non-mutating due check lets app resume skip unnecessary status traffic.
+     * The final claim still arbitrates races with WorkManager after validation.
+     */
+    fun due(account: String, scope: String, minimumIntervalMs: Long,
+            now: Long = System.currentTimeMillis()): Boolean = synchronized(lock) {
+        require(scope == "garmin" || scope == "cloud")
+        require(minimumIntervalMs >= 0)
+        val previous = store.getLong(key(account, "attempt-" + scope), 0L)
+        previous <= 0 || now < previous || now - previous >= minimumIntervalMs
+    }
+
+    /**
      * Claim before network access, preventing resume/WorkManager duplicates.
      * Scheduling is inexact; interval is a minimum, never a promised timer.
      */
