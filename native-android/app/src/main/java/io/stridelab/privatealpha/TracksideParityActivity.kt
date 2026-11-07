@@ -39,7 +39,8 @@ internal fun TracksideParityActivityMapHero(
     onChangeStyle: (() -> Unit)? = null,
     online:Boolean = true,
     gpsSourceLabel:String? = null,
-    selectedSeconds:Double? = null
+    selectedSeconds:Double? = null,
+    selectedRange:Pair<Double,Double>? = null
 ) {
     val route=remember(detail) {
         RecordedGpsRoute.from(
@@ -51,7 +52,9 @@ internal fun TracksideParityActivityMapHero(
         if(route.pointCount > 0) {
             TracksideGeographicMap(
                 route, online, Modifier.fillMaxSize(),
-                selectedSeconds = selectedSeconds
+                selectedSeconds = selectedSeconds,
+                laps = detail?.laps.orEmpty(),
+                selectedRange = selectedRange
             )
         } else {
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
@@ -93,21 +96,46 @@ internal fun TracksideParityActivityMapHero(
                 }
             } else Box(Modifier.size(44.dp))
         }
-        if (route.pauseGaps.isNotEmpty()) {
+        if (route.pointCount > 0) {
+            val hasSpecialGpsState = route.pauseGaps.isNotEmpty() ||
+                route.pausedPoints.isNotEmpty() || route.unknownGaps.isNotEmpty()
             Surface(
                 color = Color(0xDD080E0C),
-                border = BorderStroke(1.dp, Color(0x66FFBE7A)),
+                border = BorderStroke(
+                    1.dp,
+                    if (route.unknownGaps.isEmpty()) Color(0x445A6B62)
+                    else Color(0x667A8781)
+                ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.align(Alignment.BottomStart)
                     .padding(start = 12.dp, bottom = 14.dp)
-                    .testTag("activity-map-pause-legend")
+                    .testTag("activity-map-legend")
             ) {
-                Text(
-                    (if (route.pauseGaps.size == 1) "1 recorded pause"
-                        else "${route.pauseGaps.size} recorded pauses") + " · amber gap",
-                    color = Color(0xFFFFBE7A), fontSize = 10.sp,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
-                )
+                Column(
+                    Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        route.gpsContinuityLabel,
+                        color = if (route.unknownGaps.isEmpty())
+                            Color(0xFFD8FB70) else Color(0xFFC5D0CB),
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.testTag("activity-map-gps-continuity")
+                    )
+                    if (hasSpecialGpsState) {
+                        MapLegendRow(Color(0xFFD8FB70), "Recorded route")
+                        if (route.pauseGaps.isNotEmpty()) {
+                            MapLegendRow(Color(0xFFFFBE7A), "Timer pause")
+                        }
+                        if (route.pausedPoints.isNotEmpty()) {
+                            MapLegendRow(Color(0xFFFFBE7A), "GPS recorded while paused", dot = true)
+                        }
+                        if (route.unknownGaps.isNotEmpty()) {
+                            MapLegendRow(Color(0xFFA5B4AE), "GPS gap")
+                        }
+                    }
+                }
             }
         }
         if (route.pointCount == 0) {
@@ -120,6 +148,25 @@ internal fun TracksideParityActivityMapHero(
                 fontSize = 12.sp
             )
         }
+    }
+}
+
+@Composable
+private fun MapLegendRow(color: Color, label: String, dot: Boolean = false) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Box(
+            Modifier.then(
+                if (dot) Modifier.size(6.dp)
+                else Modifier.size(width = 12.dp, height = 2.dp)
+            ).background(
+                color,
+                RoundedCornerShape(if (dot) 4.dp else 2.dp)
+            )
+        )
+        Text(label, color = Color(0xFFCED8D3), fontSize = 8.5.sp)
     }
 }
 
