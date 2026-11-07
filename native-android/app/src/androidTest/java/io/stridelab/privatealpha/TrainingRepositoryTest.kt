@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.async
 import java.time.Instant
 import java.util.concurrent.CountDownLatch
@@ -41,6 +42,53 @@ class TrainingRepositoryTest {
         repo.close(); SessionVault(context).clear(account)
         context.deleteDatabase(database); context.getSharedPreferences(prefs, 0).edit().clear().commit()
     }
+    @Test fun coldReopenLoadsRecentPageThenOlderHistoryWithoutBlockingGps() = runBlocking {
+        remote.rows = listOf(row("latest"))
+        assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        assertTrue(repo.loadDetail("latest"))
+        val sourceRequests = remote.requestCount
+        val detailRequests = remote.detailRequests
+        repo.close()
+
+        // Inject a synthetic account-owned history using the real SQLite store.
+        // Every fixture is older than the cached "latest" detail.
+        val sqlite = TrainingStore(context,database)
+        val additions = (0 until 127).map { index ->
+            val raw = row("older-$index")
+                .put("started_at",
+                    Instant.parse("2026-10-01T12:00:00Z")
+                        .minusSeconds(index.toLong() * 60).toString())
+            TrainingStore.RemoteRecord("older-$index",raw.toString(),null)
+        }
+        sqlite.applyRemotePage(account,"activity",additions,null,System.currentTimeMillis())
+        sqlite.close()
+        remote.offline = true
+        open()
+
+        val first = repo.state.value
+        assertEquals(account,first.account)
+        assertEquals("latest",first.activities.first().id)
+        assertTrue("latest" in first.cachedDetailIds)
+        if (!first.historyFullyLoaded) {
+            assertEquals(40,first.activities.size)
+            assertFalse(first.activities.any { it.id == "older-126" })
+        }
+        assertTrue(first.details.isEmpty())
+        // Opening real locally cached GPS must work before older summaries
+        // finish loading, without a server or Garmin request.
+        assertTrue(repo.loadCachedDetail("latest"))
+        assertEquals(1,repo.state.value.details.getValue("latest").samples.size)
+        assertEquals(detailRequests,remote.detailRequests)
+
+        withTimeout(25_000L) {
+            repo.state.first { it.historyFullyLoaded && it.activities.size == 128 }
+        }
+        assertEquals(128,repo.state.value.activities.map { it.id }.distinct().size)
+        assertEquals("older-126",repo.state.value.activities.last().id)
+        assertEquals(sourceRequests,remote.requestCount)
+        assertEquals(detailRequests,remote.detailRequests)
+    }
+
     @Test fun cachedHistoryAndSessionSurviveRepositoryRecreationOffline() = runBlocking {
         remote.rows = listOf(row())
         assertTrue(repo.signIn("fixture@example.invalid", "fixture"))
@@ -90,6 +138,11 @@ class TrainingRepositoryTest {
         assertEquals(200, repo.state.value.activities.size)
         assertNull(repo.state.value.lastSync)
         repo.close(); remote.offline = true; open()
+        // The initial page is bounded; remaining local summaries hydrate
+        // without network requests or changing saved records.
+        withTimeout(20_000L) {
+            repo.state.first { it.historyFullyLoaded && it.activities.size == 200 }
+        }
         assertEquals(200, repo.state.value.activities.size)
     }
     @Test fun wrongOwnerAndDuplicatePageNeverOverwriteCachedRecords() = runBlocking {
@@ -270,6 +323,7 @@ class TrainingRepositoryTest {
         remote.rows=listOf(row()); assertTrue(repo.signIn("fixture@example.invalid","fixture"))
         assertTrue(repo.refreshWellness()); assertEquals(7.5,repo.state.value.wellness.single().value,0.0)
         repo.close(); remote.offline=true; open()
+        withTimeout(10_000L) { repo.state.first { it.wellness.isNotEmpty() } }
         assertEquals("sleep_duration",repo.state.value.wellness.single().type)
         assertFalse(repo.refreshWellness()); assertEquals(1,repo.state.value.wellness.size)
         remote.offline=false; assertTrue(repo.signOut()); assertTrue(repo.state.value.wellness.isEmpty())
