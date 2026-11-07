@@ -56,7 +56,7 @@ Mapping references test names in `test_p2f_private_authority.py` with `test_` om
 
 ## Independent verification and assessment
 
-CPython 3.12 on Windows: authority/custody suite 57 passed; existing durable suite 54 passed; P2 suite 205 passed; full research 369 run, 368 passed and one Windows symlink test skipped. These independently repeated the implementation report's counts. Additional review schedules: 6 run, 2 passed, 4 failed. GitHub Actions run `42287780335` was queued at review; it is not a pass. No assertion is made about why it was queued.
+CPython 3.12 on Windows: authority/custody suite 57 passed; existing durable suite 54 passed; P2 suite 205 passed; full research 369 run, 368 passed and one Windows symlink test skipped. These independently repeated the implementation report's counts. Additional review schedules: 6 run, 2 passed, 4 failed. GitHub Actions run `42287780335` was cancelled; it is not a pass. No assertion is made about the reason for cancellation.
 
 Anchor: selected modeled stale/ambiguous and readback tests pass; the interruption defect prevents a complete fail-closed verdict. Issuer: detected and hidden fork distinction is preserved in the idealized oracle; real non-equivocation is not demonstrated. Inventory: a current inventory detects stale data at entry but not data-version mutation during the read. Revoke/read: tested receipt fence works for selected schedules, but repeated receipt corrupts exposure accounting and caught nested read can publish. Transition/recovery: deterministic `Denied` fault cases and idempotence tests pass; interrupted pending intent is unsafe. No cryptographic, TPM, independent inventory persistence, disk crash, key custody, deletion, provider or device property is established.
 
