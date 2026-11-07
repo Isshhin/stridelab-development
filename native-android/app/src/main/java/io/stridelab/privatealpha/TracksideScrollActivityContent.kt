@@ -289,7 +289,8 @@ internal fun TracksideActivityContinuousSections(
     onTab: (Int) -> Unit,
     onLoadGarminGps: (() -> Unit)?,
     selectedSeconds: Double? = null,
-    onSelectSeconds: (Double) -> Unit = {}
+    onSelectSeconds: (Double) -> Unit = {},
+    onSelectRange: (Pair<Double,Double>?) -> Unit = {}
 ) {
     val laps = remember(recorded) { recorded?.laps?.take(100).orEmpty() }
     val hasSplitHr = remember(laps) { laps.any { it.hr != null } }
@@ -423,7 +424,10 @@ internal fun TracksideActivityContinuousSections(
                     index, lap, hasSplitHr, paceBounds, activity.supportsPace,
                     selected = selected,
                     onSelect = window?.let { range ->
-                        { onSelectSeconds((range.first + range.second) / 2.0) }
+                        {
+                            onSelectRange(range)
+                            onSelectSeconds((range.first + range.second) / 2.0)
+                        }
                     }
                 )
             }
