@@ -1063,18 +1063,18 @@ private fun TracksideActivitySplitRow(
 }
 
 /**
- * Heart-rate zones use the athlete-level maximum HR saved in Preferences.
- * A workout peak is never substituted for the athlete setting.
+ * Heart-rate zones use the athlete-level calculation method saved in Preferences.
+ * A workout peak is never substituted for missing athlete settings.
  */
 @Composable
 private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, account: String?) {
     val context = LocalContext.current
     val preferences = remember(context) { AthleteHeartRatePreferences(context) }
-    val maximumHr = remember(recorded.activityId, account) {
-        preferences.maximumHr(account)
+    val settings = remember(recorded.activityId, account) {
+        preferences.settings(account)
     }
-    val zones = remember(recorded, maximumHr) {
-        maximumHr?.let { HeartRateZoneAnalysis.distribute(recorded.samples, it) }
+    val zones = remember(recorded, settings) {
+        HeartRateZoneAnalysis.distribute(recorded.samples, settings)
     }
     val colors = listOf(
         Color(0xFF9FABBA), Color(0xFF79C9B3), activityLime,
@@ -1099,30 +1099,35 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, account: S
                         fontSize = 14.sp, fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        if (maximumHr != null)
-                            "Estimated from your saved maximum heart rate"
+                        if (settings.ready)
+                            "Calculated from your saved athlete settings"
                         else
-                            "Set maximum HR once in More > App preferences",
+                            "Configure " + settings.method.displayName +
+                                " in More > App preferences",
                         color = activityMuted, fontSize = 10.sp,
                         lineHeight = 15.sp
                     )
                 }
-                if (maximumHr != null) {
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        maximumHr.toString() + " bpm max",
-                        color = activityLime, fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.testTag("activity-hr-zone-saved-max")
-                    )
-                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    settings.method.displayName,
+                    color = activityLime, fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.testTag("activity-hr-zone-method")
+                )
             }
             Spacer(Modifier.height(11.dp))
             if (zones == null) {
                 Text(
-                    if (maximumHr == null)
-                        "Heart-rate zones are hidden until a maximum heart rate is saved. " +
-                            "The highest HR from this workout is never used as your maximum."
+                    if (!settings.ready)
+                        when (settings.method) {
+                            HeartRateZoneMethod.MAX_BPM ->
+                                "Save your maximum heart rate to calculate zones."
+                            HeartRateZoneMethod.LTHR_PERCENT ->
+                                "Save your lactate-threshold heart rate to calculate zones."
+                            HeartRateZoneMethod.HRR_PERCENT ->
+                                "Save both maximum and resting heart rate to calculate HRR zones."
+                        }
                     else
                         "Not enough consecutive recorded HR samples to estimate time in zones.",
                     color = activityMuted, fontSize = 12.sp, lineHeight = 17.sp,
@@ -1178,9 +1183,9 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, account: S
                 }
                 Spacer(Modifier.height(7.dp))
                 Text(
-                    "Percentage of classified recorded time, not total activity duration. " +
-                        "Gaps over 30 seconds are excluded. Standard %HRmax bands; " +
-                        "not Garmin zone settings.",
+                    HeartRateZoneAnalysis.methodSummary(settings) + ". " +
+                        "Percentage of classified recorded time, not total activity duration. " +
+                        "Gaps over 30 seconds are excluded; these are not imported Garmin zones.",
                     color = activityMuted, fontSize = 10.sp, lineHeight = 15.sp
                 )
             }
