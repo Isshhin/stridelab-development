@@ -114,7 +114,10 @@ class TracksideActivityScrollTest {
             compose.onAllNodesWithTag("activity-sticky-pill").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithTag("activity-tab-charts").performClick()
-        compose.onNodeWithText("No recorded charts are available.").assertExists()
+        compose.waitUntil(timeoutMillis = 5000) {
+            compose.onAllNodesWithText("No recorded charts are available.")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithTag("activity-chart-pace").assertDoesNotExist()
     }
 }
