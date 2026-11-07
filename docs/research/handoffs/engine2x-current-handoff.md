@@ -525,6 +525,10 @@ P2-A/C/D/E remain dependency-gated.
 ## v7 preflight workflow repair — 2026-11-07
 
 Commit `2e1f4fcb35c9f4e479ff4045e8b5d18fafdb845e7` repairs the research-only manual workflow by replacing inline `with` mappings with block mappings for checkout and MSVC setup; it remains `workflow_dispatch` only on `windows-2025`. Run `42368016764` reached a real build job but was blocked before startup by account billing/spending-limit policy. No static binary evidence or artifact exists; the collector was never executed. PR #34 remains open, draft, and unmerged. Status remains `P2F_CUSTODY_AUTHORITY_V7_CORRECTIONS_INCOMPLETE`.
+## P2-B DEV-0 final narrow correction (2026-11-08)
+
+The ten funnel fields are now separate, and athlete states derive from actual route groups and pair stages. Same-route GPS jitter accepted by STRICT remains eligible; incompatible singleton routes report route-overlap insufficiency; HR mismatch is reported after chronological candidates fail the caliper. Corrected 4TU DOI: `10.4121/efa64223-ba51-48fa-91be-53f0e48460b4.v1`. Synthetic-only boundary remains unchanged: 4TU actual-data validation is NOT RUN, FitRec was NOT USED/REJECTED, and no real evidence, P2-B activation, or Gate 2 readiness is claimed.
+
 ## P2-B DEV-0 continuation (2026-11-08)
 
 The 2026-11-08 narrow correction addressed the previous review's route, sensitivity, identity, denominator, attrition, adversarial-test and statistics-fixture defects. The implementation remains synthetic software/pipeline feasibility only; do not claim real repeatability, P2-B activation, or Gate 2 readiness. 4TU remains `RESEARCH_ONLY_ISOLATED`: parser support exists, actual-data adapter validation is NOT RUN, and its three unlike session types are not comparable-easy repeats. FitRec was NOT USED/REJECTED. PR #34 remains open, draft and unmerged. Exact next permitted task: independent re-review only.

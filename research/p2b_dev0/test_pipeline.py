@@ -84,6 +84,31 @@ class Dev0Tests(unittest.TestCase):
         self.assertFalse(_route_compatible(a, c, "STRICT"))
         self.assertTrue(_route_compatible(a, c, "MODERATE"))
 
+    def test_funnel_stages_and_states_are_explicit(self):
+        result = run(build_synthetic_fixture())
+        primary = result["analysis"]["primary"]
+        self.assertEqual({k for k in ("raw_input_count", "canonical_candidate_count", "duplicate_count", "fixed_window_count", "qc_pass_count", "supported_measurement_count", "route_compatible_count", "chronological_candidate_pair_count", "hr_compatible_pair_count", "final_pair_count") if k in result}, {"raw_input_count", "canonical_candidate_count", "duplicate_count", "fixed_window_count", "qc_pass_count", "supported_measurement_count", "route_compatible_count", "chronological_candidate_pair_count", "hr_compatible_pair_count", "final_pair_count"})
+        self.assertEqual(primary["chronological_candidate_pair_count"], 4)
+        self.assertGreater(primary["chronological_candidate_pair_count"], primary["hr_compatible_pair_count"])
+        self.assertEqual(result["athletes"]["route_mismatch"]["state"], AthleteState.INSUFFICIENT_ROUTE_OVERLAP.value)
+        self.assertEqual(result["athletes"]["hr_mismatch"]["chronological_candidate_pair_count"], 1)
+        self.assertEqual(result["athletes"]["hr_mismatch"]["hr_compatible_pair_count"], 0)
+
+    def test_unavailable_window_and_doi(self):
+        from .pipeline import FOUR_TU_DOI
+        base = build_synthetic_fixture()[0]
+        short = type(base)("short", "short-00", base.date, tuple(s for s in base.samples if s["t"] < 1800))
+        result = run((short,))
+        self.assertEqual(result["fixed_window_count"], 0)
+        self.assertEqual(result["qc_pass_count"], 0)
+        self.assertEqual(FOUR_TU_DOI, "10.4121/efa64223-ba51-48fa-91be-53f0e48460b4.v1")
+
+    def test_same_route_jitter_uses_grouping_for_state(self):
+        base = build_synthetic_fixture()[0]
+        activities = tuple(type(base)("jitter", f"jitter-{i}", f"2026-01-{i+1:02d}T00:00:00+00:00", tuple(dict(s, lat=s["lat"] + i*.0002, lon=s["lon"] + i*.0001) for s in base.samples)) for i in range(6))
+        result = run(activities)
+        self.assertEqual(result["athletes"]["jitter"]["state"], AthleteState.ESTIMABLE.value)
+
 
 if __name__ == "__main__":
     unittest.main()

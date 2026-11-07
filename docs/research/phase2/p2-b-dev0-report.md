@@ -8,6 +8,8 @@ This additive, standard-library pipeline asks whether repeated fixed running win
 
 ## Pipeline
 
+The final funnel is explicit: raw input → canonical candidate → duplicate accounting → fixed-window available → QC pass → supported measurement → route-compatible (groups of at least two) → chronological candidate pairs → HR-compatible pairs → final pairs. Athlete states use actual route and pair stages, not exact coordinate equality.
+
 `research/p2b_dev0/pipeline.py` defines scoped canonical identities `(source_dataset, athlete_id, activity_id)`, deterministic fixed windows beginning at elapsed 720 s, strict timestamp/coverage/QC checks, capped 5-second time weighting, chronological disjoint pairing, descriptive statistics, and sorted JSON replay. Route groups compare start/end proximity, direction, path-length fraction, and nine-point ordered normalized geometry; STRICT is endpoint/shape `.0008`, path fraction `.03`; MODERATE `.002`, `.20`; LOOSE `.005`, `.30`. Speed is excluded from route grouping and pair membership.
 
 The primary configuration is 1200 s / start 720 s / HR ±3 bpm / STRICT. Named sensitivities are 900 s, HR ±2 bpm, HR ±5 bpm, MODERATE, and LOOSE. The report exposes raw input, canonical candidates, duplicates, fixed-window, QC, route-compatible, HR-compatible, final-pair, and estimability/state fields. Exact scoped duplicates are counted and deduplicated; conflicting content for one scoped identity raises explicitly. Same activity IDs under different athletes or sources remain independent.
