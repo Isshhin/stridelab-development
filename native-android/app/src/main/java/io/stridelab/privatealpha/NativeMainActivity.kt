@@ -135,6 +135,7 @@ class NativeMainActivity: ComponentActivity() {
     val actions = remember(model) { NativeActions(model::refresh, {}, {}, model::signOut, model::signIn, model::loadDetail, model::refreshWellness, model.planActions(), syncGarmin=model::syncGarmin, loadGarminGps=model::loadGarminGps,
         backupGarminCloud=model::backupGarminCloud, restoreGarminCloud=model::restoreGarminCloud,
         loadCachedDetail=model::loadCachedDetail,
+        loadCachedSummary=model::loadCachedSummary,
         setActivityDetailVisible=model::setActivityDetailVisible,
         signUp=model::signUp, requestPasswordReset=model::requestPasswordReset) }
     NativeStrideContent(state, online, actions)
@@ -152,6 +153,7 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
     val backupGarminCloud: (suspend () -> Int)? = null,
     val restoreGarminCloud: (suspend () -> Int)? = null,
     val loadCachedDetail: (String) -> Unit = {},
+    val loadCachedSummary: (String) -> Unit = {},
     val setActivityDetailVisible: (Boolean) -> Unit = {})
 
 /** Primary destinations switch immediately; the legacy Activity history route remains available.
@@ -319,9 +321,20 @@ private fun NavHostController.openActivity(id: String) {
                     }
                 }
                 composable("activity/{id}") { detail ->
+                    val requestedActivityId = detail.arguments?.getString("id")
                     val activity = state.activities.firstOrNull {
-                        it.id == detail.arguments?.getString("id") &&
+                        it.id == requestedActivityId &&
                             ActiveActivitySources.accepts(it.source)
+                    }
+                    // Restored destinations can reference an older activity
+                    // outside the initial 40-row page. Fetch that one summary
+                    // from account-private SQLite instead of waiting for bulk
+                    // history hydration or contacting a provider.
+                    LaunchedEffect(requestedActivityId, state.account) {
+                        if (requestedActivityId != null && state.account != null &&
+                            state.activities.none { it.id == requestedActivityId }) {
+                            actions.loadCachedSummary(requestedActivityId)
+                        }
                     }
                     // Only enabled sources can open an active detail route.
                     val matchedGroup = groupedActivities.firstOrNull { it.primary.id == activity?.id }
