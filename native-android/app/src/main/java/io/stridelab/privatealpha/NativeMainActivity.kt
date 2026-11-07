@@ -177,7 +177,10 @@ private fun NavHostController.openActivity(id: String) {
         requestedTab ?: route
     } else route
     val onDockTab: (String) -> Unit = { target ->
-        if (nav.currentDestination?.route != target) {
+        if (nav.currentDestination?.route == target) {
+            // Repeated taps do not start another destination transaction.
+            requestedTab = null
+        } else {
             requestedTab = target
             try {
                 nav.openTabRoot(target)
@@ -527,7 +530,7 @@ private fun NavHostController.openActivity(id: String) {
                 // Training and More after every NavHost destination change.
                 // The keyed group is disposed if the account changes.
                 key(state.account) {
-                    PersistentTabSurface(active = visibleRoot == "home") {
+                    PersistentTabSurface(active = visibleRoot == null || visibleRoot == "home") {
                         if (diagnosticTabs) TabDiagnosticPlaceholder("Today") else StrideLabTodayScreen(
                             state = state,
                             visibleActivities = visibleActivities,
