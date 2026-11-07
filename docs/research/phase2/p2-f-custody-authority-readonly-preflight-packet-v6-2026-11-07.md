@@ -4,8 +4,8 @@ Status: source frozen; binary identity blocked. This packet is not executed and 
 
 ## Frozen source
 
-Source: `docs/research/phase2/preflight/stridelab_p2f_preflight.c`  
-Source SHA-256: `00d06f56ce8ed62bab00fe72822dcb6f39c17022a7a0d804dbebf741e7bd4eff`  
+Source: `docs/research/phase2/preflight/stridelab_p2f_preflight.c`
+Source SHA-256: `00d06f56ce8ed62bab00fe72822dcb6f39c17022a7a0d804dbebf741e7bd4eff`
 Purpose: exactly two future information calls, `RtlGetVersion` and `GetNativeSystemInfo`; console output only. No TPM/TBS, registry, network, installation, elevation, identifiers, filesystem output, child process or wrapper.
 
 ## Build and artifact identity
