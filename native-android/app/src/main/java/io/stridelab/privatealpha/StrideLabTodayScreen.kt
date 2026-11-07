@@ -373,6 +373,13 @@ internal fun StrideLabTodayScreen(
                     onOpenActivity = onOpenActivityDetail,
                     onOpenWorkout = onOpenWorkout
                 )
+            } else if (showRecorded && schedule.isEmpty() &&
+                recordedOnDate.isEmpty() && confirmedOnDate.isEmpty() &&
+                !state.initializing) {
+                // A completely empty date should not claim the same vertical
+                // space as a real scheduled or recorded workout. Dates with
+                // saved sessions retain their full, interactive hero cards.
+                TodayCompactEmptyDay(online = online)
             } else if (showRecorded) {
                 TodayRecordedTraining(
                     selectedDate = date,
@@ -1467,6 +1474,49 @@ private fun TodayMixedDayCard(
                 }
             }
         }
+    }
+}
+
+/**
+ * Minimal empty-day status. Only shown when the selected date has neither
+ * a saved activity/log nor a session in the current approved schedule.
+ * It has no decorative success checkmark, fabricated workout, or dead CTA.
+ */
+@Composable
+private fun TodayCompactEmptyDay(online: Boolean) {
+    val shape = RoundedCornerShape(14.dp)
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(shape)
+            .background(TodayLook.card)
+            .border(1.dp, TodayLook.outline, shape)
+            .testTag("today-compact-empty-day")
+            .semantics {
+                contentDescription = "No saved activity or scheduled session for this date"
+            }
+            .padding(horizontal = 15.dp, vertical = 13.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Box(
+                Modifier.size(7.dp)
+                    .background(TodayLook.muted, CircleShape)
+            )
+            Text(
+                "Nothing scheduled or saved",
+                color = TodayLook.text, fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+        Text(
+            if (online) "No activity or workout for this date."
+            else "Offline · based on saved records and schedule.",
+            color = TodayLook.muted, fontSize = 11.sp,
+            modifier = Modifier.padding(start = 16.dp)
+        )
     }
 }
 
