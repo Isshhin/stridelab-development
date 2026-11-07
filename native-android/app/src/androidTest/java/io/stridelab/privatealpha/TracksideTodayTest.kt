@@ -124,6 +124,57 @@ class TracksideTodayTest {
         compose.onNodeWithText("Not signed in").assertDoesNotExist()
     }
 
+    @Test fun signedInTabsRetainTodayDateAndDoNotExposeInactiveControls() {
+        val state = TrainingState(initializing = false, account = "synthetic-retained-tab")
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    NativeStrideContent(
+                        state = state,
+                        online = false,
+                        actions = NativeActions({}, {}, {}, {}, { _, _ -> })
+                    )
+                }
+            }
+        }
+        // Signed-in Today was previously reconstructed on each NavHost visit.
+        // A weekday selection now belongs to its retained, account-scoped root.
+        compose.onNodeWithTag("today-day-0").performClick().assertIsSelected()
+        compose.onNodeWithTag("nav-training").performClick().assertIsSelected()
+        compose.onNodeWithTag("training-unified-timeline").assertExists()
+        compose.onNodeWithTag("today-day-0").assertDoesNotExist()
+        compose.onNodeWithTag("nav-settings").performClick().assertIsSelected()
+        compose.onNodeWithTag("screen-title").assertExists()
+        compose.onNodeWithTag("training-unified-timeline").assertDoesNotExist()
+        compose.onNodeWithTag("nav-home").performClick().assertIsSelected()
+        compose.onNodeWithTag("today-day-0").assertIsSelected()
+        compose.onNodeWithTag("screen-title").assertDoesNotExist()
+    }
+
+    @Test fun rapidTabRequestsEndAtLastDestination() {
+        listOf(null, "synthetic-tab-account").forEach { account ->
+            compose.runOnUiThread {
+                compose.activity.setContent {
+                    StrideTheme {
+                        NativeStrideContent(
+                            state = TrainingState(initializing = false, account = account),
+                            online = false,
+                            actions = NativeActions({}, {}, {}, {}, { _, _ -> }),
+                            diagnosticTabs = true
+                        )
+                    }
+                }
+            }
+            compose.onNodeWithTag("nav-training").performClick()
+            compose.onNodeWithTag("nav-home").performClick()
+            compose.onNodeWithTag("nav-settings").performClick().assertIsSelected()
+            compose.onNodeWithTag("tab-diagnostic-More").assertExists()
+            compose.onNodeWithTag("tab-diagnostic-Today").assertDoesNotExist()
+            compose.onNodeWithTag("nav-home").performClick().assertIsSelected()
+            compose.onNodeWithTag("tab-diagnostic-Today").assertExists()
+        }
+    }
+
     @Test fun diagnosticTabsUseNavigationWhenSignedOut() = checkDiagnosticTabs(null)
 
     @Test fun diagnosticTabsUseNavigationWhenSignedIn() = checkDiagnosticTabs("test-account")
