@@ -67,15 +67,16 @@ internal fun TracksideFigmaWeekReview(
     }
 
     TracksideFigmaBuilderFrame(
-        toolbarTitle = "Week Preview",
+        progressStep = if (plan == null) 6 else 7,
+        toolbarTitle = if (plan == null) "Training blueprint" else "Review plan",
         eyebrow = "PLAN / WEEK PREVIEW",
-        headline = "Your training week",
-        description = if (plan == null) "Review availability before generating."
-            else "Review before activating",
+        headline = if (plan == null) "Your training blueprint" else "Review your training plan",
+        description = if (plan == null) "Review your setup before StrideLab creates your plan."
+            else "Your personalized plan. Review before finalizing.",
         onBack = onBack,
-        ctaLabel = if(plan == null)"Generate my plan" else "Approve plan",
+        ctaLabel = if(plan == null)"Generate My Plan" else "Finalize Plan",
         onContinue = onContinue,
-        continueEnabled = !busy,
+        continueEnabled = !busy, descriptionBottomGap = 16,
         footer = {
             Column(Modifier.padding(horizontal=20.dp,vertical=9.dp)) {
                 Text(
@@ -84,12 +85,40 @@ internal fun TracksideFigmaWeekReview(
                     else if(plan == null)
                         "Unassigned sessions will be placed by the coaching engine."
                     else "Confirm only after reviewing the saved prescriptions.",
-                    color=Color(0xFFB6C0CA),fontSize=11.sp,
+                    color=Color(0xFFC5C5C5),fontSize=11.sp,
                     modifier=Modifier.fillMaxWidth()
                 )
             }
         }
     ) {
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            val trainingDays = days.coerceIn(0,7)
+            val targetDistance = if (request.runDays > 0) {
+                String.format(Locale.getDefault(), "%.0f", request.weeklyKm)
+            } else "—"
+            listOf(
+                targetDistance to if (request.runDays > 0) "km target" else "no running",
+                total.toString() to "sessions",
+                trainingDays.toString() to if (plan == null) "available" else "active days",
+                (7-trainingDays).toString() to "rest days"
+            ).forEach { (value, caption) ->
+                Surface(Modifier.weight(1f).heightIn(min = 62.dp),
+                    color = PlanBuilderPalette.surface,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, PlanBuilderPalette.border)) {
+                    Column(Modifier.padding(horizontal = 5.dp, vertical = 10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(value, color = PlanBuilderPalette.text,
+                            fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                        Text(caption, color = PlanBuilderPalette.secondary,
+                            fontSize = 9.sp, maxLines = 2,
+                            overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
         if(plan != null) {
             Row(Modifier.fillMaxWidth().height(36.dp),
                 verticalAlignment=Alignment.CenterVertically,
@@ -99,7 +128,7 @@ internal fun TracksideFigmaWeekReview(
                     Text("‹ Previous",color=Color.White,fontSize=11.sp)
                 }
                 Text("Week ${weekIndex+1} of ${request.weeks}",fontSize=11.sp,
-                    color=Color(0xFFB6C0CA))
+                    color=Color(0xFFC5C5C5))
                 TextButton(onClick={onWeekChange(weekIndex+1)},
                     enabled=weekIndex<request.weeks-1,
                     modifier=Modifier.testTag("builder-next-week")) {
@@ -108,59 +137,10 @@ internal fun TracksideFigmaWeekReview(
             }
             Spacer(Modifier.height(8.dp))
         }
-        Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(14.dp),
-            color=Color(0xFF192E39),
-            border=BorderStroke(1.dp,Color(0xFF4F6E7E))) {
-            Column(Modifier.padding(14.dp)) {
-                Text("THIS WEEK",fontSize=10.sp,color=Color(0xFFB6C0CA),
-                    fontWeight=FontWeight.Bold)
-                Spacer(Modifier.height(16.dp))
-                Row(verticalAlignment=Alignment.CenterVertically) {
-                    Text(total.toString(),fontSize=39.sp,fontWeight=FontWeight.Bold,
-                        color=Color.White)
-                    Spacer(Modifier.width(16.dp))
-                    Text("SESSIONS",fontSize=10.sp,color=Color(0xFFB6C0CA))
-                    Spacer(Modifier.weight(1f))
-                    Text(days.toString(),fontSize=39.sp,fontWeight=FontWeight.Bold,
-                        color=Color.White)
-                    Spacer(Modifier.width(12.dp))
-                    Text(if(plan == null) "AVAILABLE DAYS" else "ACTIVE DAYS",
-                        fontSize=10.sp,color=Color(0xFFB6C0CA))
-                }
-                Spacer(Modifier.height(15.dp))
-                Row(Modifier.fillMaxWidth().height(9.dp),
-                    horizontalArrangement=Arrangement.spacedBy(1.dp)) {
-                    counts.filter { it.second > 0 }.forEach { (d,n) ->
-                        Box(Modifier.weight(n.toFloat()).fillMaxHeight()
-                            .background(tracksideDisciplineColor(d),
-                                RoundedCornerShape(4.dp)))
-                    }
-                }
-                Spacer(Modifier.height(13.dp))
-                Row(Modifier.fillMaxWidth(),
-                    horizontalArrangement=Arrangement.spacedBy(5.dp)) {
-                    counts.filter { it.second > 0 }.forEach { (d,n) ->
-                        Surface(
-                            Modifier.weight(1f).height(48.dp),
-                            color=Color(0xFF1E3441),shape=RoundedCornerShape(9.dp),
-                            border=BorderStroke(1.dp,Color(0xFF537080))
-                        ) { Box(contentAlignment=Alignment.Center) {
-                            Text("$n " + when(d) {
-                                "run" -> "Running"
-                                "str" -> "Strength"
-                                "cal" -> "Cali"
-                                else -> "Conditioning"
-                            },fontSize=10.sp,color=Color.White,maxLines=1,
-                                overflow=TextOverflow.Ellipsis)
-                        }}
-                    }
-                }
-            }
-        }
         Spacer(Modifier.height(12.dp))
-        Surface(Modifier.fillMaxWidth(),color=Color(0xFF152C38),
+        Surface(Modifier.fillMaxWidth(),color=Color(0xFF151515),
             shape=RoundedCornerShape(14.dp),
-            border=BorderStroke(1.dp,Color(0xFF486D7F))) {
+            border=BorderStroke(1.dp,Color(0xFF2B2B2B))) {
             Column(Modifier.padding(10.dp),
                 verticalArrangement=Arrangement.spacedBy(5.dp)) {
                 Row(Modifier.fillMaxWidth(),
@@ -170,14 +150,14 @@ internal fun TracksideFigmaWeekReview(
                             java.util.Locale.getDefault())) + " – " +
                         weekEnd.format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM",
                             java.util.Locale.getDefault())),
-                        fontSize=10.sp,color=Color(0xFFB6C0CA),
+                        fontSize=10.sp,color=Color(0xFFC5C5C5),
                         fontWeight=FontWeight.Bold
                     )
                     val doubleDays = plan?.let { PlanScheduleValidation.isMultiPolicy(it.policyId) }
                         ?: (request.policyChoice == "multi-session" || request.allowDoubleDays)
                     Text(
                         if (doubleDays) "MAX 2 / DAY" else "CURRENT POLICY · 1 / DAY",
-                        fontSize=10.sp,color=Color(0xFFB6C0CA))
+                        fontSize=10.sp,color=Color(0xFFC5C5C5))
                 }
                 Spacer(Modifier.height(7.dp))
                 (0..6).forEach { offset ->
@@ -186,7 +166,7 @@ internal fun TracksideFigmaWeekReview(
                     val assigned=rows.filter { it.date==date }
                     Row(
                         Modifier.fillMaxWidth().heightIn(min=40.dp)
-                            .background(Color(0xFF1C3441),RoundedCornerShape(9.dp))
+                            .background(Color(0xFF171717),RoundedCornerShape(9.dp))
                             .padding(horizontal=9.dp,vertical=5.dp),
                         verticalAlignment=Alignment.CenterVertically,
                         horizontalArrangement=Arrangement.spacedBy(7.dp)
@@ -206,24 +186,23 @@ internal fun TracksideFigmaWeekReview(
                                 },
                                 fontSize=11.sp,
                                 color=if(choices.isNotEmpty())Color.White
-                                      else Color(0xFFB6C0CA),
+                                      else Color(0xFFC5C5C5),
                                 maxLines=2,overflow=TextOverflow.Ellipsis,
                                 modifier=Modifier.testTag("builder-requested-day-"+day)
                             )
                         } else if(assigned.isEmpty()) {
                             Text("Rest / no scheduled session",fontSize=11.sp,
-                                color=Color(0xFFB6C0CA))
+                                color=Color(0xFFC5C5C5))
                         } else {
                             assigned.take(2).forEach { session ->
                                 Surface(
                                     modifier=Modifier.weight(1f).heightIn(min=31.dp)
                                         .testTag("builder-preview-session-" + session.id),
                                     onClick={onOpenSession(session.id)},
-                                    color=tracksideDisciplineColor(
-                                        session.discipline).copy(alpha=0.53f),
+                                    color=PlanBuilderPalette.selected,
                                     shape=RoundedCornerShape(9.dp),
                                     border=BorderStroke(1.dp,
-                                        tracksideDisciplineColor(session.discipline))
+                                        PlanBuilderPalette.accent)
                                 ) {
                                     Box(contentAlignment=Alignment.Center) {
                                         Text(session.effectiveTitle,
@@ -243,10 +222,10 @@ internal fun TracksideFigmaWeekReview(
             "○ Coaching checks will run when you generate a saved draft."
             else "✓ Saved engine prescriptions · approval is a separate action",
             fontSize=11.sp,
-            color=if(plan==null) Color(0xFFB6C0CA) else Color(0xFF69D3B0))
+            color=if(plan==null) Color(0xFFC5C5C5) else Color(0xFFDBF351))
         error?.let {
             Spacer(Modifier.height(8.dp))
-            Text(it,color=Color(0xFFFFA8AE),fontSize=12.sp,
+            Text(it,color=Color(0xFFFF9DA7),fontSize=12.sp,
                 modifier=Modifier.testTag("plan-form-error"))
         }
     }
