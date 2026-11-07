@@ -4,11 +4,6 @@ import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
-/**
- * UI-only percent-of-maximum-HR zones. No activity summary peak is ever
- * substituted for an athlete's known maximum HR. The input is provided
- * explicitly in Activity Detail; this does not change coaching or storage.
- */
 internal data class HeartRateZoneBucket(
     val zone: Int,
     val lowerBpm: Int?,
@@ -18,7 +13,8 @@ internal data class HeartRateZoneBucket(
 )
 
 internal data class HeartRateZoneDistribution(
-    val maximumHr: Int,
+    val method: HeartRateZoneMethod,
+    val settings: AthleteHeartRateZoneSettings,
     val buckets: List<HeartRateZoneBucket>,
     val classifiedSeconds: Double,
     val classifiedIntervals: Int,
@@ -27,19 +23,17 @@ internal data class HeartRateZoneDistribution(
 
 internal object HeartRateZoneAnalysis {
     private const val MAX_RECORDED_GAP_SECONDS = 30.0
-    // Conventional five-zone %HRmax scheme; the lower half of Z1 includes
-    // values below 50% so covered measurements are not silently discarded.
-    private val upperCutoffFractions = listOf(0.60, 0.70, 0.80, 0.90)
 
     fun distribute(
         samples: List<ActivitySample>,
-        knownMaximumHr: Int
+        settings: AthleteHeartRateZoneSettings
     ): HeartRateZoneDistribution? {
-        if (knownMaximumHr !in 100..240 || samples.size < 2) return null
-        val cutoffs = upperCutoffFractions.map { ceil(knownMaximumHr * it).toInt() }
+        if (!settings.ready || samples.size < 2) return null
+        val cutoffs = cutoffs(settings) ?: return null
         val secondsPerZone = DoubleArray(5)
         var included = 0
         var excluded = 0
+
         samples.zipWithNext().forEach { (from, to) ->
             val seconds = to.seconds - from.seconds
             val fromHr = from.hr
@@ -51,70 +45,129 @@ internal object HeartRateZoneAnalysis {
             ) {
                 excluded++
             } else {
-                // The first observed HR represents the bounded interval to
-                // the next real measurement. This is an estimate, not
-                // fabricated interpolated HR or full-session time.
                 val index = cutoffs.indexOfFirst { fromHr < it }
                     .takeIf { it >= 0 } ?: 4
                 secondsPerZone[index] += seconds
                 included++
             }
         }
+
         val total = secondsPerZone.sum()
         if (total <= 0.0) return null
-        val buckets = secondsPerZone.mapIndexed { index, seconds ->
-            HeartRateZoneBucket(
-                zone = index + 1,
-                lowerBpm = if (index == 0) null else cutoffs[index - 1],
-                upperBpm = cutoffs.getOrNull(index)?.minus(1),
-                seconds = seconds,
-                fraction = seconds / total
-            )
-        }
         return HeartRateZoneDistribution(
-            maximumHr = knownMaximumHr,
-            buckets = buckets,
+            method = settings.method,
+            settings = settings,
+            buckets = secondsPerZone.mapIndexed { index, seconds ->
+                HeartRateZoneBucket(
+                    zone = index + 1,
+                    lowerBpm = if (index == 0) null else cutoffs[index - 1],
+                    upperBpm = cutoffs.getOrNull(index)?.minus(1),
+                    seconds = seconds,
+                    fraction = seconds / total
+                )
+            },
             classifiedSeconds = total,
             classifiedIntervals = included,
             excludedIntervals = excluded
         )
     }
 
-    fun presentation(distribution: HeartRateZoneDistribution): ActivityInsightPresentation {
+    fun distribute(
+        samples: List<ActivitySample>,
+        knownMaximumHr: Int
+    ): HeartRateZoneDistribution? =
+        distribute(
+            samples,
+            AthleteHeartRateZoneSettings(
+                method = HeartRateZoneMethod.MAX_BPM,
+                maximumHr = knownMaximumHr
+            )
+        )
+
+    private fun cutoffs(settings: AthleteHeartRateZoneSettings): List<Int>? =
+        when (settings.method) {
+            HeartRateZoneMethod.MAX_BPM -> {
+                val max = settings.maximumHr ?: return null
+                listOf(.60, .70, .80, .90).map {
+                    ceil(max * it).toInt()
+                }
+            }
+            HeartRateZoneMethod.LTHR_PERCENT -> {
+                val threshold = settings.lactateThresholdHr ?: return null
+                listOf(.85, .90, .95, 1.00).map {
+                    ceil(threshold * it).toInt()
+                }
+            }
+            HeartRateZoneMethod.HRR_PERCENT -> {
+                val max = settings.maximumHr ?: return null
+                val resting = settings.restingHr ?: return null
+                val reserve = max - resting
+                listOf(.60, .70, .80, .90).map {
+                    ceil(resting + reserve * it).toInt()
+                }
+            }
+        }
+
+    fun methodSummary(settings: AthleteHeartRateZoneSettings): String =
+        when (settings.method) {
+            HeartRateZoneMethod.MAX_BPM ->
+                "MAX BPM · \${settings.maximumHr ?: "—"} bpm maximum"
+            HeartRateZoneMethod.LTHR_PERCENT ->
+                "LTHR% · \${settings.lactateThresholdHr ?: "—"} bpm threshold"
+            HeartRateZoneMethod.HRR_PERCENT ->
+                "HRR% · \${settings.maximumHr ?: "—"} max / " +
+                    "\${settings.restingHr ?: "—"} resting"
+        }
+
+    fun methodDefinition(settings: AthleteHeartRateZoneSettings): String =
+        when (settings.method) {
+            HeartRateZoneMethod.MAX_BPM ->
+                "Z1 below 60% Max HR, Z2 60–69%, Z3 70–79%, " +
+                    "Z4 80–89%, Z5 at least 90%."
+            HeartRateZoneMethod.LTHR_PERCENT ->
+                "Z1 below 85% LTHR, Z2 85–89%, Z3 90–94%, " +
+                    "Z4 95–99%, Z5 at least 100%."
+            HeartRateZoneMethod.HRR_PERCENT ->
+                "Z1 below 60% HRR, Z2 60–69%, Z3 70–79%, " +
+                    "Z4 80–89%, Z5 at least 90% HRR."
+        }
+
+    fun presentation(
+        distribution: HeartRateZoneDistribution
+    ): ActivityInsightPresentation {
         val dominant = distribution.buckets.maxByOrNull { it.seconds }!!
         val tied = distribution.buckets.count {
             kotlin.math.abs(it.seconds - dominant.seconds) < 0.001
         } > 1
         val dominantPct = (dominant.fraction * 100).roundToInt()
         val evidence = distribution.buckets.map { bucket ->
-            "Zone ${bucket.zone}: ${ActivityRecord.duration(bucket.seconds)} " +
-                "(${(bucket.fraction * 100).roundToInt()}% of classified time)."
+            "Zone \${bucket.zone}: \${ActivityRecord.duration(bucket.seconds)} " +
+                "(\${(bucket.fraction * 100).roundToInt()}% of classified time)."
         } + listOf(
-            "Zones use the manually entered ${distribution.maximumHr} bpm maximum: " +
-                "Z1 below 60%, Z2 60–69%, Z3 70–79%, Z4 80–89%, Z5 at least 90%. " +
-                "These are not the athlete's imported Garmin zone settings.",
-            "Only ${distribution.classifiedIntervals} intervals between recorded HR " +
+            "Method: \${methodSummary(distribution.settings)}. " +
+                methodDefinition(distribution.settings) +
+                " These are StrideLab estimates, not imported Garmin zone boundaries.",
+            "Only \${distribution.classifiedIntervals} intervals between recorded HR " +
                 "samples lasting 30 seconds or less were classified; " +
-                "${distribution.excludedIntervals} missing, duplicate or longer " +
+                "\${distribution.excludedIntervals} missing, duplicate or longer " +
                 "intervals were excluded. Time in zones is approximate.",
             "This distribution cannot determine training readiness, recovery " +
                 "or a specific workout benefit."
         )
         return ActivityInsightPresentation(
             headline = if (tied) "Time was spread across multiple heart-rate zones"
-                else "Most classified time in Zone ${dominant.zone}",
+                else "Most classified time in Zone \${dominant.zone}",
             summary = if (tied)
                 "Multiple zones share the largest portion of " +
-                    "${ActivityRecord.duration(distribution.classifiedSeconds)} classified " +
-                    "recording time. The zones use the maximum HR you entered, not Garmin settings."
+                    "\${ActivityRecord.duration(distribution.classifiedSeconds)} classified " +
+                    "recording time using \${distribution.method.displayName}."
             else String.format(
                 Locale.getDefault(),
-                "About %d%% of %s classified recording time was in Zone %d. " +
-                    "These estimates use the maximum heart rate you entered, " +
-                    "not Garmin's configured zones.",
+                "About %d%% of %s classified recording time was in Zone %d using %s.",
                 dominantPct,
                 ActivityRecord.duration(distribution.classifiedSeconds),
-                dominant.zone
+                dominant.zone,
+                distribution.method.displayName
             ),
             evidence = evidence,
             hasComparison = false
