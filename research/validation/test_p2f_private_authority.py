@@ -1,6 +1,7 @@
 """Invented-only authority/custody model acceptance tests."""
 import unittest
 import threading
+import sys
 from unittest.mock import patch
 from copy import deepcopy
 from p2f_private_authority import Anchor, Issuer, Ledger, Inventory, Denied
@@ -635,6 +636,76 @@ class AuthorityMatrix(unittest.TestCase):
             self.read(chunks=chunks())
         self.assertEqual(['first'], self.key.output)
         self.assertEqual(['first'], self.broker.escaped)
+
+
+    def test_final_inventory_hash_reentry_denies_and_cleans_up(self):
+        owner = self
+        calls = []
+        class ObjectId(str):
+            def __hash__(self):
+                if sys._getframe(1).f_code.co_name == 'verify':
+                    calls.append(1)
+                    if len(calls) == 7:
+                        try: owner.read()
+                        except Denied: pass
+                return super().__hash__()
+        self.denied('reentrant', lambda: self.broker.read(self.scope, ObjectId('object'), 1))
+        self.assertGreaterEqual(len(calls), 7)
+        self.assertEqual([], self.key.output)
+        self.assertEqual([], self.broker.escaped)
+        self.assertIsNone(self.broker._read_owner)
+        self.assertFalse(self.broker._gate.locked())
+        self.assertEqual('published', self.read())
+        self.assertFalse(self.broker._violation)
+        self.assertIsNone(self.broker._read_owner)
+        self.assertFalse(self.broker._gate.locked())
+
+    def test_final_inventory_equality_reentry_denies(self):
+        owner = self
+        calls = []
+        class Version(int):
+            def __eq__(self, other):
+                if sys._getframe(1).f_code.co_name == 'verify':
+                    calls.append(1)
+                    if len(calls) == 7:
+                        try: owner.read()
+                        except Denied: pass
+                return super().__eq__(other)
+        self.denied('reentrant', lambda: self.broker.read(self.scope, 'object', Version(1)))
+        self.assertGreaterEqual(len(calls), 7)
+        self.assertEqual([], self.key.output)
+        self.assertEqual([], self.broker.escaped)
+        self.assertEqual('published', self.read())
+
+    def test_final_data_lookup_hash_reentry_preserves_prior_chunk(self):
+        owner = self
+        armed = []
+        invoked = []
+        class ObjectId(str):
+            def __hash__(self):
+                if armed and sys._getframe(1).f_code.co_name == '__getitem__':
+                    armed.clear()
+                    invoked.append(True)
+                    try: owner.read()
+                    except Denied: pass
+                return super().__hash__()
+        def hook(phase):
+            if phase == 'published_chunk': armed.append(True)
+        self.denied('reentrant', lambda: self.broker.read(
+            self.scope, ObjectId('object'), 1, hook=hook, chunks=('first', 'bad')))
+        self.assertEqual([True], invoked)
+        self.assertEqual(['first'], self.key.output)
+        self.assertEqual(['first'], self.broker.escaped)
+        self.assertEqual('published', self.read())
+
+    def test_normal_custom_key_and_value_are_accepted(self):
+        class ObjectId(str):
+            def __hash__(self): return super().__hash__()
+            def __eq__(self, other): return super().__eq__(other)
+        class Version(int):
+            def __eq__(self, other): return super().__eq__(other)
+        self.assertEqual('published', self.broker.read(self.scope, ObjectId('object'), Version(1)))
+        self.assertEqual(['published'], self.key.output)
 
 
 if __name__ == '__main__':

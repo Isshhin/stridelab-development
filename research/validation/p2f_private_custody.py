@@ -125,6 +125,7 @@ class Broker:
                     need(self.current(scope) == head, 'authority changed')
                     self.inventory.verify(head['generation'], scope, obj, version)
                     need(self.data_versions.get(obj) == version, 'inventory restored object mismatch')
+                    need(not self._violation, 'reentrant mutation')
                     self.key.output.append(chunk)
                 if hook: hook('published_chunk')
                 need(not self._violation, 'reentrant mutation')
