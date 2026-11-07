@@ -3,22 +3,30 @@ package io.stridelab.privatealpha
 import android.graphics.Color as AndroidColor
 import android.view.View
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
@@ -28,11 +36,13 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
+import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.LineLayer
+import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.android.maps.Style
@@ -64,21 +74,56 @@ internal fun TracksideGeographicMap(
     route:RecordedGpsRoute,
     online:Boolean,
     modifier:Modifier=Modifier,
-    selectedSeconds:Double?=null
+    selectedSeconds:Double?=null,
+    laps:List<ActivityLap> = emptyList(),
+    selectedRange:Pair<Double,Double>? = null
 ) {
     var styleReady by remember(route,online) { mutableStateOf(false) }
+    var recenterRequest by remember(route) { mutableIntStateOf(0) }
     Box(modifier.background(Color(0xFF2D343A)).testTag("activity-geographic-map")) {
         if(online && route.pointCount > 0) {
             MapLibreRouteView(
                 route = route,
                 modifier = Modifier.fillMaxSize(),
-                selectedSeconds = selectedSeconds
+                selectedSeconds = selectedSeconds,
+                laps = laps,
+                selectedRange = selectedRange,
+                recenterRequest = recenterRequest
             ) { styleReady=true }
         }
         if(!online || !styleReady) {
             RecordedGpsFallback(
                 route, Modifier.fillMaxSize(), selectedSeconds
             )
+        }
+        if (online && route.pointCount > 0 && styleReady) {
+            Box(
+                Modifier.align(Alignment.TopEnd)
+                    .padding(top = 68.dp, end = 14.dp)
+                    .size(42.dp)
+                    .background(Color(0xDD080E0C), RoundedCornerShape(22.dp))
+                    .clickable { recenterRequest++ }
+                    .testTag("activity-map-recenter")
+                    .semantics { contentDescription = "Recenter activity route" },
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(Modifier.size(19.dp)) {
+                    val stroke=1.8.dp.toPx()
+                    drawCircle(
+                        Color(0xFFD8FB70),radius=size.minDimension*.31f,
+                        center=Offset(size.width/2,size.height/2),
+                        style=androidx.compose.ui.graphics.drawscope.Stroke(stroke)
+                    )
+                    drawLine(Color(0xFFD8FB70),
+                        Offset(size.width*.5f,0f),Offset(size.width*.5f,size.height*.22f),stroke)
+                    drawLine(Color(0xFFD8FB70),
+                        Offset(size.width*.5f,size.height*.78f),Offset(size.width*.5f,size.height),stroke)
+                    drawLine(Color(0xFFD8FB70),
+                        Offset(0f,size.height*.5f),Offset(size.width*.22f,size.height*.5f),stroke)
+                    drawLine(Color(0xFFD8FB70),
+                        Offset(size.width*.78f,size.height*.5f),Offset(size.width,size.height*.5f),stroke)
+                }
+            }
         }
     }
 }
@@ -88,6 +133,9 @@ private fun MapLibreRouteView(
     route:RecordedGpsRoute,
     modifier:Modifier=Modifier,
     selectedSeconds:Double?=null,
+    laps:List<ActivityLap> = emptyList(),
+    selectedRange:Pair<Double,Double>? = null,
+    recenterRequest:Int = 0,
     onStyleReady:()->Unit
 ) {
     val context=LocalContext.current
@@ -111,6 +159,9 @@ private fun MapLibreRouteView(
     val pausedPointsJson=remember(route) { route.pausedPointsGeoJson() }
     val startPointJson=remember(route) { route.startPointGeoJson() }
     val finishPointJson=remember(route) { route.finishPointGeoJson() }
+    val directionJson=remember(route) { route.directionMarkersGeoJson() }
+    val splitMarkersJson=remember(route,laps) { route.splitMarkersGeoJson(laps) }
+    val selectedRangeJson=remember(route,selectedRange) { route.rangeGeoJson(selectedRange) }
     val gapJson=remember(route) { route.gapsGeoJson() }
     val pauseGapJson=remember(route) { route.pauseGapsGeoJson() }
     val selectionJson=remember(route,selectedSeconds) {
@@ -118,6 +169,15 @@ private fun MapLibreRouteView(
     }
     var selectedPointSource by remember(mapView) {
         mutableStateOf<GeoJsonSource?>(null)
+    }
+    var selectedRangeSource by remember(mapView) {
+        mutableStateOf<GeoJsonSource?>(null)
+    }
+    var activeRouteLayer by remember(mapView) {
+        mutableStateOf<LineLayer?>(null)
+    }
+    var liveMap by remember(mapView) {
+        mutableStateOf<MapLibreMap?>(null)
     }
 
     DisposableEffect(mapView,lifecycleOwner) {
@@ -148,9 +208,11 @@ private fun MapLibreRouteView(
     )
     LaunchedEffect(
         mapView, geoJson, isolatedJson, pausedPointsJson,
-        startPointJson, finishPointJson, gapJson, pauseGapJson
+        startPointJson, finishPointJson, directionJson, splitMarkersJson,
+        selectedRangeJson, gapJson, pauseGapJson
     ) {
         mapView.getMapAsync { map ->
+            liveMap = map
             map.uiSettings.setTiltGesturesEnabled(false)
             map.uiSettings.setRotateGesturesEnabled(false)
             map.uiSettings.setAttributionEnabled(false)
@@ -207,14 +269,63 @@ private fun MapLibreRouteView(
                             PropertyFactory.lineOpacity(0.82f)
                         )
                     )
+                    val line=LineLayer("stride-gps-line","stride-actual-gps").withProperties(
+                        PropertyFactory.lineColor(AndroidColor.rgb(216,251,112)),
+                        PropertyFactory.lineWidth(routeWidth),
+                        PropertyFactory.lineOpacity(if (selectedRange == null) 0.97f else 0.42f)
+                    )
+                    style.addLayer(line)
+                    activeRouteLayer = line
+
+                    val rangeSource=GeoJsonSource("stride-selected-split",selectedRangeJson)
+                    style.addSource(rangeSource)
+                    selectedRangeSource=rangeSource
                     style.addLayer(
-                        LineLayer("stride-gps-line","stride-actual-gps").withProperties(
-                            PropertyFactory.lineColor(AndroidColor.rgb(216,251,112)),
+                        LineLayer("stride-selected-split-line","stride-selected-split").withProperties(
+                            PropertyFactory.lineColor(AndroidColor.rgb(236,255,174)),
                             PropertyFactory.lineWidth(routeWidth),
-                            PropertyFactory.lineOpacity(0.97f)
+                            PropertyFactory.lineOpacity(0.99f)
                         )
                     )
                 }
+                style.addSource(GeoJsonSource("stride-direction-markers",directionJson))
+                val directionLayer=SymbolLayer("stride-direction-markers-layer","stride-direction-markers")
+                    .withProperties(
+                        PropertyFactory.textField("▲"),
+                        PropertyFactory.textSize(10.5f),
+                        PropertyFactory.textColor(AndroidColor.rgb(216,251,112)),
+                        PropertyFactory.textOpacity(0.72f),
+                        PropertyFactory.textRotate(Expression.get("bearing")),
+                        PropertyFactory.textRotationAlignment("map"),
+                        PropertyFactory.textAllowOverlap(true),
+                        PropertyFactory.textIgnorePlacement(true),
+                        PropertyFactory.textHaloColor(AndroidColor.rgb(45,52,58)),
+                        PropertyFactory.textHaloWidth(1.2f)
+                    )
+                directionLayer.setMinZoom(15f)
+                style.addLayer(directionLayer)
+
+                style.addSource(GeoJsonSource("stride-split-markers",splitMarkersJson))
+                val splitCircle=CircleLayer("stride-split-markers-circle","stride-split-markers")
+                    .withProperties(
+                        PropertyFactory.circleColor(AndroidColor.rgb(45,52,58)),
+                        PropertyFactory.circleRadius(8f),
+                        PropertyFactory.circleStrokeColor(AndroidColor.rgb(216,251,112)),
+                        PropertyFactory.circleStrokeWidth(1.6f)
+                    )
+                splitCircle.setMinZoom(14f)
+                style.addLayer(splitCircle)
+                val splitLabels=SymbolLayer("stride-split-markers-label","stride-split-markers")
+                    .withProperties(
+                        PropertyFactory.textField(Expression.get("label")),
+                        PropertyFactory.textSize(9f),
+                        PropertyFactory.textColor(AndroidColor.rgb(216,251,112)),
+                        PropertyFactory.textAllowOverlap(true),
+                        PropertyFactory.textIgnorePlacement(true)
+                    )
+                splitLabels.setMinZoom(14f)
+                style.addLayer(splitLabels)
+
                 if(route.activeIsolatedPoints.isNotEmpty()) {
                     // Single active fixes remain visible without implying a line.
                     style.addSource(GeoJsonSource("stride-gps-isolated",isolatedJson))
@@ -262,6 +373,12 @@ private fun MapLibreRouteView(
                         PropertyFactory.circleStrokeWidth(2.2f)
                     )
                 )
+                style.addLayer(
+                    CircleLayer("stride-finish-point-center","stride-finish-point").withProperties(
+                        PropertyFactory.circleColor(AndroidColor.rgb(45,52,58)),
+                        PropertyFactory.circleRadius(1.9f)
+                    )
+                )
 
                 val selectedSource=GeoJsonSource("stride-selected-point",selectionJson)
                 style.addSource(selectedSource)
@@ -276,22 +393,7 @@ private fun MapLibreRouteView(
                 )
                 val gps=route.cameraPoints()
                 if(gps.isNotEmpty()) {
-                    fun fitCamera() {
-                        if(mapView.width<=0 || mapView.height<=0)return
-                        val latRange=gps.maxOf{it.latitude}-gps.minOf{it.latitude}
-                        val lonRange=gps.maxOf{it.longitude}-gps.minOf{it.longitude}
-                        if(latRange<0.00001 && lonRange<0.00001) {
-                            map.moveCamera(CameraUpdateFactory.newLatLngZoom(
-                                LatLng(gps.first().latitude,gps.first().longitude),15.0))
-                        } else {
-                            val bounds=LatLngBounds.Builder()
-                            gps.forEach { bounds.include(LatLng(it.latitude,it.longitude)) }
-                            map.moveCamera(CameraUpdateFactory.newLatLngBounds(
-                                bounds.build(),
-                                72, 72, 72, 156
-                            ))
-                        }
-                    }
+                    fun fitCamera()=fitRecordedRouteCamera(map,mapView,gps)
                     // Style loading can finish before Compose measures AndroidView.
                     // Fit only after layout, not to a zero-sized map at (0,0).
                     if(mapView.width>0 && mapView.height>0)mapView.post { fitCamera() }
@@ -313,6 +415,41 @@ private fun MapLibreRouteView(
     }
     LaunchedEffect(selectionJson, selectedPointSource) {
         selectedPointSource?.setGeoJson(selectionJson)
+    }
+    LaunchedEffect(selectedRangeJson, selectedRangeSource, activeRouteLayer) {
+        selectedRangeSource?.setGeoJson(selectedRangeJson)
+        activeRouteLayer?.setProperties(
+            PropertyFactory.lineOpacity(if (selectedRange == null) 0.97f else 0.42f)
+        )
+    }
+    LaunchedEffect(recenterRequest, liveMap) {
+        if (recenterRequest > 0) {
+            val map=liveMap ?: return@LaunchedEffect
+            val gps=route.cameraPoints()
+            if (gps.isNotEmpty()) mapView.post {
+                fitRecordedRouteCamera(map,mapView,gps)
+            }
+        }
+    }
+}
+
+private fun fitRecordedRouteCamera(
+    map:MapLibreMap,
+    mapView:MapView,
+    gps:List<RecordedGpsPoint>
+) {
+    if(mapView.width<=0 || mapView.height<=0)return
+    val latRange=gps.maxOf{it.latitude}-gps.minOf{it.latitude}
+    val lonRange=gps.maxOf{it.longitude}-gps.minOf{it.longitude}
+    if(latRange<0.00001 && lonRange<0.00001) {
+        map.moveCamera(CameraUpdateFactory.newLatLngZoom(
+            LatLng(gps.first().latitude,gps.first().longitude),15.0))
+    } else {
+        val bounds=LatLngBounds.Builder()
+        gps.forEach { bounds.include(LatLng(it.latitude,it.longitude)) }
+        map.moveCamera(CameraUpdateFactory.newLatLngBounds(
+            bounds.build(),72,72,72,156
+        ))
     }
 }
 
