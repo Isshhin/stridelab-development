@@ -23,6 +23,8 @@ import org.json.JSONObject
 internal data class TrainingState(
     val initializing: Boolean = true,
     val account: String? = null,
+    /** Optional authenticated StrideLab owner; never the local SQLite namespace. */
+    val cloudAccount: String? = null,
     val activities: List<ActivityRecord> = emptyList(),
     val busy: Boolean = false,
     val message: String? = null,
@@ -141,11 +143,25 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
 
     init {
         scope.launch {
-            val account = preferences.getString("active", null)
+            // A device-local profile exists independently of any network login.
+            // Existing account namespaces are preserved on upgrade.
+            val account = preferences.getString("active", null) ?: run {
+                val created = "local-" + java.util.UUID.randomUUID().toString()
+                check(preferences.edit().putString("active", created).commit())
+                created
+            }
+            val savedCloud = preferences.getString("cloud_account", null)
+                ?: account.takeUnless { it.startsWith("local-") }
+            val cloudAvailable = savedCloud != null &&
+                runCatching { vault.read(savedCloud) != null }.getOrDefault(false)
             mutex.withLock {
                 try {
-                    mutable.value = TrainingState(initializing = true, account = account)
-                    if (account != null) {
+                    mutable.value = TrainingState(
+                        initializing = true, account = account,
+                        cloudAccount = savedCloud.takeIf { cloudAvailable },
+                        needsSignIn = savedCloud != null && !cloudAvailable
+                    )
+                    if (account.isNotBlank()) {
                         // First render at most one recent chronological page.
                         // Older activity summaries are loaded only after the
                         // cached Today screen has had a chance to draw.
@@ -161,18 +177,14 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                         }
                         traceCache("recent_sqlite_page",recentStarted,page?.records?.size ?: 0)
                         loadCache(account,publishEssentials=true,recentPage=page)
-                        if (vault.read(account) == null) {
-                            mutable.value = mutable.value.copy(
-                                needsSignIn = true,
-                                message = "Sign in again to synchronize. Your saved activities remain available."
-                            )
-                        }
+                        // Cloud credentials are optional. Their absence must
+                        // never lock a local plan, workout, activity or Garmin sync.
                     }
                     mutable.value = mutable.value.copy(initializing = false)
                 } catch (_: Exception) {
                     mutable.value = mutable.value.copy(
-                        initializing = false, needsSignIn = true,
-                        message = "Saved data could not be fully loaded. Existing files were retained. Try signing in again."
+                        initializing = false,
+                        message = "Saved offline data could not be fully loaded. Existing files were retained."
                     )
                 }
             }
@@ -751,33 +763,51 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             message = "If this address has an account, reset instructions will be sent by email."
         )
     }
-    suspend fun signIn(email: String, password: String) = operation("Signing in securely…") {
+    /**
+     * Online authentication only connects cloud services. Do not switch the
+     * active local profile or fetch remote history over a local workout.
+     */
+    suspend fun signIn(email: String, password: String) = operation("Connecting cloud backup…") {
         require(email.isNotBlank() && password.isNotEmpty())
         val session = try {
             gateway.signIn(email, password).also { gateway.verify(it) }
         } catch(e: ServiceFailure) {
-            // A failed login attempt must not invalidate a different, still-active session.
             throw ServiceFailure(e.status, e.message ?: "Sign-in was not accepted", requiresSignIn = false)
         }
-        vault.save(session) // No account activation unless encryption succeeds.
-        check(preferences.edit().putString("active", session.account).commit())
-        hotDetails.clear()
-        mutable.value = TrainingState(initializing = false, account = session.account, busy = true, loginGeneration = mutable.value.loginGeneration + 1)
-        loadCache(session.account)
-        // Authentication is complete even if this first cache refresh fails.
-        fetchActivities()
+        val local = requireNotNull(mutable.value.account)
+        val bound = preferences.getString("profile_cloud_binding", null)
+            ?: local.takeUnless { it.startsWith("local-") }
+        if (bound != null && bound != session.account) {
+            throw ServiceFailure(
+                403, "This local profile belongs to a different cloud account. Local data was not shared.",
+                requiresSignIn = false
+            )
+        }
+        vault.save(session)
+        // Binding prevents switching accounts from silently uploading another
+        // account's offline workouts. These preferences contain no tokens.
+        check(preferences.edit()
+            .putString("cloud_account", session.account)
+            .putString("profile_cloud_binding", session.account)
+            .commit())
+        mutable.value = mutable.value.copy(
+            cloudAccount = session.account, needsSignIn = false,
+            loginGeneration = mutable.value.loginGeneration + 1,
+            message = "Cloud account connected. Your local training remains unchanged."
+        )
     }
     private fun session(): NativeSession {
-        val account = mutable.value.account ?: throw IllegalStateException("Sign in first")
-        val saved = try { vault.read(account) } catch (_: java.io.IOException) {
-            throw ServiceFailure(401,"Your saved session could not be verified. Sign in again; cached activities are retained.")
-        } ?: throw ServiceFailure(401,"Sign in again to synchronize. Saved activities remain available.")
-        val current = if(saved.expiresAtSeconds <= System.currentTimeMillis()/1000 + 90) renew(saved) else saved
-        return current
+        val cloud = mutable.value.cloudAccount
+            ?: throw ServiceFailure(401, "Sign in to use cloud backup.", requiresSignIn = true)
+        val saved = try { vault.read(cloud) } catch (_: java.io.IOException) {
+            throw ServiceFailure(401, "Cloud session unavailable. Local training remains accessible.", requiresSignIn = true)
+        } ?: throw ServiceFailure(401, "Sign in to use cloud backup.", requiresSignIn = true)
+        return if(saved.expiresAtSeconds <= System.currentTimeMillis()/1000 + 90) renew(saved) else saved
     }
     private fun renew(saved: NativeSession): NativeSession {
         val fresh = gateway.refresh(saved)
-        if(fresh.account != saved.account || fresh.account != mutable.value.account) throw ServiceFailure(401,"The renewed session did not match this account. Sign in again; cached data is retained.")
+        if(fresh.account != saved.account || fresh.account != mutable.value.cloudAccount)
+            throw ServiceFailure(401,"Cloud session owner changed. Local data was retained.",requiresSignIn=true)
         vault.save(fresh)
         return fresh
     }
@@ -1235,15 +1265,17 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
 
     internal fun close() { scope.cancel(); store.close() }
 
-    suspend fun signOut() = operation("Signing out…") {
-        val account = mutable.value.account ?: return@operation
-        val saved = runCatching { vault.read(account) }.getOrNull()
-        // End local access before waiting for an unavailable network to revoke the server session.
-        vault.clear(account)
-        check(preferences.edit().remove("active").commit())
-        hotDetails.clear()
-        mutable.value = TrainingState(initializing = false,busy = true,task = "Finishing sign-out…")
+    suspend fun signOut() = operation("Signing out of cloud backup…") {
+        val cloud = mutable.value.cloudAccount ?: return@operation
+        val saved = runCatching { vault.read(cloud) }.getOrNull()
+        vault.clear(cloud)
+        check(preferences.edit().remove("cloud_account").commit())
+        // Local owner, Garmin credential, saved activities, and workout state
+        // are intentionally unchanged by online account sign-out.
+        mutable.value = mutable.value.copy(cloudAccount = null, needsSignIn = false)
         val revoked = saved != null && runCatching { gateway.signOut(saved); true }.getOrDefault(false)
-        mutable.value = mutable.value.copy(message = if(revoked) null else "Signed out on this device. Server session revocation was unavailable; saved files were retained.")
+        mutable.value = mutable.value.copy(message =
+            if (revoked) "Cloud account disconnected. Local training is still available."
+            else "Cloud account disconnected on this device. Local training was retained.")
     }
 }
