@@ -65,6 +65,7 @@ class WorkoutPlayerTest {
         assertEquals(8,session.exercises.first().reps)
         compose.onNodeWithTag("workout-review").performClick();compose.onNodeWithText("Return to guided workout").assertExists()
         compose.onNodeWithText("Workout Details").assertExists()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("Workout prescription"))
         compose.onNodeWithText("Workout prescription").assertExists()
         assertEquals("in_progress",state.value.plans.single().sessions.first().status)
     }
