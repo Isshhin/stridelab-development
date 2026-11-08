@@ -233,5 +233,20 @@ class AthleteStateSyntheticTests(unittest.TestCase):
         self.assertIsNone(v["proposed_workout_change"])
 
 
+    def test_30_malformed_quality_fails_closed(self):
+        bad = quality(1, "struggled", -2)
+        bad["quality"] = {"unexpected": "object"}
+        v = interpret(frame(bad, quality(2, "struggled", -1)))
+        self.assertEqual("unknown", v["workout_tolerance"]["state"])
+        self.assertEqual(1, v["evidence_quality"]["excluded_by_reason"]["LOW_QUALITY"])
+
+    def test_31_unhashable_outcome_is_unknown(self):
+        bad = quality(1, ["not", "an", "outcome"], -2)
+        v = interpret(frame(bad, quality(2, "struggled", -1)))
+        self.assertEqual("unknown", v["workout_tolerance"]["state"])
+        self.assertEqual("UNVERIFIED_SESSION_OUTCOME",
+                         v["workout_tolerance"]["reason"])
+
+
 if __name__ == "__main__":
     unittest.main()

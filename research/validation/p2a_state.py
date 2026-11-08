@@ -127,7 +127,8 @@ def _tolerance(rows: list[dict], registered_sessions: dict) -> dict:
         return _result("unknown", "INSUFFICIENT_QUALITY_REPEATS")
     last = same[-2:]
     outcomes = [r["value"] for r in last]
-    if any(x not in {"met_intent", "struggled"} for x in outcomes):
+    if any(not isinstance(x, str) or x not in {"met_intent", "struggled"}
+           for x in outcomes):
         return _result("unknown", "UNVERIFIED_SESSION_OUTCOME")
     if outcomes == ["met_intent", "met_intent"]:
         return _result("observed_consistent", "DESCRIPTIVE_ONLY", last)
@@ -183,7 +184,7 @@ def interpret(snapshot: dict[str, Any]) -> dict[str, Any]:
         if record["status"] != "measured":
             exclusions["NOT_MEASURED"] += 1
             continue
-        if record.get("quality") not in QUALITY or record["quality"] != "good":
+        if not isinstance(record.get("quality"), str) or record["quality"] != "good":
             exclusions["LOW_QUALITY"] += 1
             continue
         if not _nonempty(record.get("source_id")) or not _nonempty(record.get("protocol_id")):
