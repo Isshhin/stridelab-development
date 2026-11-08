@@ -115,6 +115,7 @@ internal object MultiSessionEngine1 : PlanGenerationEngine {
         }
         val placed = mutableListOf<PlannedSession>()
         var attempts = 0
+        var pinnedRecoveryConflict: Pair<PlannedSession, PlannedSession>? = null
         fun solve(index: Int): Boolean {
             if (index == ordered.size) return true
             if (++attempts > 250_000) return false
@@ -134,7 +135,14 @@ internal object MultiSessionEngine1 : PlanGenerationEngine {
                 val candidate = session.copy(date = date)
                 val sameDay = (prior + placed).filter { it.date == date }
                 if (sameDay.sumOf { it.effectiveMinutes } + candidate.effectiveMinutes > request.dailyMinutes) continue
-                if ((prior + placed).any { MultiSessionScheduling.conflict(candidate, it) }) continue
+                val blocker = (prior + placed).firstOrNull {
+                    MultiSessionScheduling.conflict(candidate, it)
+                }
+                if (blocker != null) {
+                    if (pinnedDay != null && pinnedRecoveryConflict == null)
+                        pinnedRecoveryConflict = candidate to blocker
+                    continue
+                }
                 placed += candidate
                 if (solve(index + 1)) return true
                 placed.removeAt(placed.lastIndex)
@@ -145,6 +153,9 @@ internal object MultiSessionEngine1 : PlanGenerationEngine {
             if(request.weeklySlots.isEmpty())
                 "These sessions cannot fit the available days, ${request.dailyMinutes}-minute daily budget and recovery constraints. Add days, reduce sessions or change long-run/quality preferences."
             else "Selected weekdays cannot fit the available days, ${request.dailyMinutes}-minute budget and recovery constraints. Change placements or switch to automatic scheduling."
+                + pinnedRecoveryConflict?.let {
+                    ScheduleConflictExplanation.observed(it.first, it.second)
+                }.orEmpty()
         )
         return placed
     }
