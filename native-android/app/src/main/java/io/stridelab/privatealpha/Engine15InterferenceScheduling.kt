@@ -70,6 +70,7 @@ internal object Engine15InterferenceScheduling {
                 }.thenBy { it.id })
             val placed=mutableListOf<PlannedSession>()
             var attempts=0
+            var pinnedRecoveryConflict: Pair<PlannedSession, PlannedSession>? = null
             fun solve(index:Int):Boolean {
                 if(index==ordered.size)return true
                 if(++attempts>250_000)return false
@@ -96,7 +97,12 @@ internal object Engine15InterferenceScheduling {
                     val day=current.filter { it.date==date }
                     if(day.size>=2 || day.sumOf { it.effectiveMinutes }+
                         proposed.effectiveMinutes>p.dailyMinutes)continue
-                    if(current.any { conflict(proposed,it) })continue
+                    val blocker = current.firstOrNull { conflict(proposed,it) }
+                    if (blocker != null) {
+                        if (pinnedDay != null && pinnedRecoveryConflict == null)
+                            pinnedRecoveryConflict = proposed to blocker
+                        continue
+                    }
                     placed+=proposed
                     if(solve(index+1))return true
                     placed.removeAt(placed.lastIndex)
@@ -106,7 +112,10 @@ internal object Engine15InterferenceScheduling {
             if(!solve(0))throw PlanConstraint(
                 "These mixed sessions cannot fit the selected available days, " +
                 "daily time budget and lower-body recovery spacing. Add days, " +
-                "increase the budget or reduce sessions; no workout was dropped.")
+                "increase the budget or reduce sessions; no workout was dropped." +
+                    pinnedRecoveryConflict?.let {
+                        ScheduleConflictExplanation.observed(it.first, it.second)
+                    }.orEmpty())
             scheduled+=placed
         }
         if(scheduled.size!=allTemplates.size)
