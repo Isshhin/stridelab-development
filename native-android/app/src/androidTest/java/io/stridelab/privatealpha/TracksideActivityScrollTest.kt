@@ -39,9 +39,9 @@ class TracksideActivityScrollTest {
             activity.id,
             samples = listOf(
                 ActivitySample(0, 0.0, 405.0, 130.0, 12.0, null, null, 172.0),
-                ActivitySample(1, 60.0, 390.0, 145.0, 18.0, null, null, 177.0),
-                ActivitySample(2, 120.0, 381.0, 152.0, 15.0, null, null, 180.0),
-                ActivitySample(3, 180.0, 395.0, 149.0, 19.0, null, null, 175.0)
+                ActivitySample(1, 30.0, 390.0, 145.0, 18.0, null, null, 177.0),
+                ActivitySample(2, 60.0, 381.0, 152.0, 15.0, null, null, 180.0),
+                ActivitySample(3, 90.0, 395.0, 149.0, 19.0, null, null, 175.0)
             ),
             laps = (0 until 8).map { i ->
                 ActivityLap(i, 1000.0, 390.0 + i, 390.0 + i, 140.0 + i)
