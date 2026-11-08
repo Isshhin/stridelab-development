@@ -130,8 +130,3 @@ internal object ActivityChartPreparation {
     }
 }
 
-/** Allows the UI to reject a completed computation for a previous recording. */
-internal data class PreparedActivityCharts(
-    val source: ActivityDetail,
-    val charts: Map<String, PreparedActivityChart>
-)
