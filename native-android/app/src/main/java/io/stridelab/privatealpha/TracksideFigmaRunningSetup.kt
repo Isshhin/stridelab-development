@@ -24,10 +24,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.DayOfWeek
 
-private val weekPanel = Color(0xFF14212A)
-private val weekOutline = Color(0xFF364652)
-private val weekMuted = Color(0xFFADBBC6)
-private val weekWhite = Color(0xFFF4F7F9)
+private val weekPanel = Color(0xFF242424)
+private val weekOutline = Color(0xFF383838)
+private val weekMuted = Color(0xFFC5C5C5)
+private val weekWhite = Color(0xFFFFFFFF)
 
 /**
  * Running-week baseline: approved Figma 548:95 (412dp) / 553:107 (360dp).
@@ -62,6 +62,7 @@ internal fun TracksideFigmaRunningSetup(
     var editorOpen by remember { mutableStateOf(false) }
 
     TracksideFigmaBuilderFrame(
+        progressStep = 3,
         toolbarTitle="Running Setup",
         eyebrow="RUNNING / WEEKLY SCHEDULE",
         headline="Your running week",
@@ -91,7 +92,7 @@ internal fun TracksideFigmaRunningSetup(
                         onClick={onRunningCount((count-1).coerceAtLeast(1))},
                         enabled=count>1,
                         modifier=Modifier.size(44.dp).testTag("builder-run-minus"),
-                        color=Color(0xFF23313C),shape=RoundedCornerShape(10.dp),
+                        color=Color(0xFF303030),shape=RoundedCornerShape(10.dp),
                         border=BorderStroke(1.dp,weekOutline)
                     ) { Box(contentAlignment=Alignment.Center) {
                         Text("−",color=weekWhite,fontSize=23.sp,fontWeight=FontWeight.Bold)
@@ -104,7 +105,7 @@ internal fun TracksideFigmaRunningSetup(
                         onClick={onRunningCount((count+1).coerceAtMost(6))},
                         enabled=count<6,
                         modifier=Modifier.size(44.dp).testTag("builder-run-plus"),
-                        color=Color(0xFF23313C),shape=RoundedCornerShape(10.dp),
+                        color=Color(0xFF303030),shape=RoundedCornerShape(10.dp),
                         border=BorderStroke(1.dp,weekOutline)
                     ) { Box(contentAlignment=Alignment.Center) {
                         Text("+",color=weekWhite,fontSize=23.sp,fontWeight=FontWeight.Bold)
@@ -129,18 +130,18 @@ internal fun TracksideFigmaRunningSetup(
                             else -> ""
                         }
                         val cellBg=when(code) {
-                            "L" -> Color(0xFFEDF1F3)
-                            "Q" -> Color(0xFFCE3F54)
-                            "E" -> Color(0xFF562B36)
-                            "−" -> Color(0xFF151A21)
-                            else -> Color(0xFF0E161D)
+                            "L" -> Color(0xFFFFFFFF)
+                            "Q" -> Color(0xFFDBF351)
+                            "E" -> Color(0xFF1D240B)
+                            "−" -> Color(0xFF242424)
+                            else -> Color(0xFF171717)
                         }
                         val cellBorder=when(code) {
                             "L" -> Color.White
-                            "Q" -> Color(0xFFEC8090)
-                            "E" -> Color(0xFFAC5D6C)
-                            "−" -> Color(0xFF49545F)
-                            else -> Color(0xFF3A4650)
+                            "Q" -> Color(0xFFDBF351)
+                            "E" -> Color(0xFFDBF351)
+                            "−" -> Color(0xFF383838)
+                            else -> Color(0xFF383838)
                         }
                         Column(Modifier.width(46.dp),
                             horizontalAlignment=Alignment.CenterHorizontally) {
@@ -167,14 +168,14 @@ internal fun TracksideFigmaRunningSetup(
                             ) {
                                 Box(contentAlignment=Alignment.Center) {
                                     if(code.isNotBlank()) Text(code,
-                                        color=if(code=="L") Color(0xFF111922)
-                                            else if(code=="−") Color(0xFF748492)
+                                        color=if(code=="L") Color(0xFF242424)
+                                            else if(code=="−") Color(0xFFDBF351)
                                             else weekWhite,
                                         fontSize=15.sp,fontWeight=FontWeight.Bold)
                                     if(isPinned) Text("◆",
                                         modifier=Modifier.align(Alignment.TopEnd)
                                             .padding(end=3.dp,top=1.dp),
-                                        color=Color(0xFFB7354F),fontSize=8.sp)
+                                        color=Color(0xFFDBF351),fontSize=8.sp)
                                 }
                             }
                         }
@@ -202,13 +203,13 @@ internal fun TracksideFigmaRunningSetup(
             // 18dp bottom inset prevents the final subtitle touching its border.
             Column(Modifier.padding(start=10.dp,end=10.dp,top=2.dp,bottom=18.dp)) {
                 RunningWeekLegendRow("E","Easy run","Aerobic base and recovery",
-                    Color(0xFF532B35),weekWhite)
+                    Color(0xFF1D240B),weekWhite)
                 RunningWeekLegendRow("Q","Quality",
                     "Threshold, tempo or selected categories",
-                    Color(0xFFCF4054),weekWhite)
+                    Color(0xFFDBF351),weekWhite)
                 RunningWeekLegendRow("L","Long run",
                     "Endurance session on one preferred day",
-                    Color(0xFFEDF1F3),Color(0xFF111922))
+                    Color(0xFFFFFFFF),Color(0xFF242424))
             }
         }
 
@@ -246,12 +247,12 @@ internal fun TracksideFigmaRunningSetup(
                         modifier=Modifier.weight(1f).heightIn(min=48.dp)
                             .testTag(if(mode)"builder-running-custom"
                                 else "builder-running-decide"),
-                        color=if(custom==mode)Color(0xFF642F41)
-                            else Color(0xFF213642),
+                        color=if(custom==mode)Color(0xFF1D240B)
+                            else Color(0xFF303030),
                         shape=RoundedCornerShape(10.dp),
                         border=BorderStroke(1.dp,
-                            if(custom==mode)Color(0xFFD28293)
-                            else Color(0xFF506E80))
+                            if(custom==mode)Color(0xFFDBF351)
+                            else Color(0xFFDBF351))
                     ) { Box(contentAlignment=Alignment.Center) {
                         Text(label,fontSize=12.sp,color=weekWhite,
                             fontWeight=FontWeight.Bold)
@@ -272,11 +273,11 @@ internal fun TracksideFigmaRunningSetup(
                             onClick={onSelectSlot(i)},
                             modifier=Modifier.widthIn(min=100.dp).heightIn(min=56.dp)
                                 .testTag("builder-run-session-"+i),
-                            color=if(active)Color(0xFF653344)
-                                else Color(0xFF203544),
+                            color=if(active)Color(0xFF1D240B)
+                                else Color(0xFF303030),
                             shape=RoundedCornerShape(10.dp),
                             border=BorderStroke(if(active)2.dp else 1.dp,
-                                if(active)Color(0xFFFFA7B8) else weekOutline)
+                                if(active)Color(0xFFDBF351) else weekOutline)
                         ) {
                             Column(Modifier.padding(horizontal=11.dp,vertical=7.dp),
                                 verticalArrangement=Arrangement.spacedBy(4.dp)) {
@@ -308,10 +309,10 @@ internal fun TracksideFigmaRunningSetup(
                             onClick={onAssignDay(day)},
                             modifier=Modifier.size(46.dp)
                                 .testTag("builder-run-editor-day-"+day),
-                            color=if(active) Color(0xFFCE3F54) else Color(0xFF23313C),
+                            color=if(active) PlanBuilderPalette.selected else PlanBuilderPalette.surface,
                             shape=RoundedCornerShape(9.dp),
                             border=BorderStroke(1.dp,
-                                if(active)Color(0xFFEC8090) else weekOutline)
+                                if(active)Color(0xFFDBF351) else weekOutline)
                         ) { Box(contentAlignment=Alignment.Center) {
                             Text(DayOfWeek.of(day).name.take(3),fontSize=10.sp,
                                 color=weekWhite,fontWeight=FontWeight.Bold)
@@ -321,7 +322,7 @@ internal fun TracksideFigmaRunningSetup(
                 TextButton(onClick=onClearSlot,
                     modifier=Modifier.testTag("builder-run-clear-selected")) {
                     Text("Remove selected session's day",
-                        fontSize=12.sp,color=Color(0xFFFFA6B2))
+                        fontSize=12.sp,color=Color(0xFFDBF351))
                 }
                 Text("Quality sessions",fontSize=11.sp,color=weekMuted)
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -333,11 +334,12 @@ internal fun TracksideFigmaRunningSetup(
                             onClick={onQualityCount(q)},enabled=eligible,
                             modifier=Modifier.size(48.dp)
                                 .testTag("builder-run-quality-count-"+q),
-                            color=if(q==request.qualityCount)Color(0xFFB33B52)
-                                else Color(0xFF263F4C),
+                            color=if(q==request.qualityCount)Color(0xFFDBF351)
+                                else Color(0xFF383838),
                             shape=RoundedCornerShape(9.dp)
                         ) { Box(contentAlignment=Alignment.Center) {
-                            Text(q.toString(),fontSize=13.sp,color=weekWhite)
+                            Text(q.toString(),fontSize=13.sp,
+                                color=if(q==request.qualityCount)PlanBuilderPalette.accentOn else weekWhite)
                         }}
                     }
                 }
@@ -352,11 +354,11 @@ internal fun TracksideFigmaRunningSetup(
                             onClick={onQualityPreference(choice)},
                             modifier=Modifier.widthIn(min=78.dp).heightIn(min=44.dp)
                                 .testTag("builder-quality-"+choice),
-                            color=if(choice==qualityPreference)Color(0xFF673246)
-                                else Color(0xFF223846),
+                            color=if(choice==qualityPreference)Color(0xFF1D240B)
+                                else Color(0xFF303030),
                             shape=RoundedCornerShape(8.dp),
                             border=BorderStroke(1.dp,
-                                if(choice==qualityPreference)Color(0xFFB56C80)
+                                if(choice==qualityPreference)Color(0xFFDBF351)
                                 else weekOutline)
                         ) { Box(contentAlignment=Alignment.Center) {
                             Text(choice,fontSize=11.sp,color=weekWhite)

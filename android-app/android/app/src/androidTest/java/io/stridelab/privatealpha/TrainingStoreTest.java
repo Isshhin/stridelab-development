@@ -22,6 +22,29 @@ public class TrainingStoreTest {
     private void base(String kind) {store.applyRemotePage(A,kind,Collections.singletonList(new TrainingStore.RemoteRecord("r1","{\"value\":1}","v1")),"cursor-1",10);}
     private void reopen() {store.close();store=new TrainingStore(context,DB);}
 
+    @Test public void oversizedActivityDetailSurvivesReopenAndAccountScopedReads() {
+        StringBuilder raw=new StringBuilder("{\"samples\":[");
+        for(int i=0;i<40000;i++) {
+            if(i>0)raw.append(',');
+            raw.append("{\"timestamp\":\"2026-11-08T00:00:00Z\",\"latitude\":14.123,\"longitude\":121.456,\"hr\":145,\"cadence\":178,\"note\":\"🏃\"}");
+        }
+        raw.append("],\"laps\":[{\"start\":0}],\"pauses\":[{\"start\":10,\"end\":20}]}");
+        String payload=raw.toString();
+        store.applyRemotePage(A,"activity_detail",Collections.singletonList(new TrainingStore.RemoteRecord("long",payload,"v1")),null,10);
+        reopen();
+        assertEquals(payload,store.get(A,"activity_detail","long").payload);
+        assertEquals(payload,store.list(A,"activity_detail",10).get(0).payload);
+        assertNull(store.get(B,"activity_detail","long"));
+        assertTrue(store.list(B,"activity_detail",10).isEmpty());
+        store.enqueue(A,"activity_detail","long","large-op",payload,"v1",11);
+        store.enqueue(A,"activity_detail","long","large-op",payload,"v1",12);
+        assertEquals(payload,store.ready(A,10).get(0).payload);
+        String remote=payload.replace("14.123","14.124");
+        store.applyRemotePage(A,"activity_detail",Collections.singletonList(new TrainingStore.RemoteRecord("long",remote,"v2")),null,13);
+        reopen();
+        assertEquals(payload,store.getConflict(A,"activity_detail","long").localPayload);
+        assertEquals(remote,store.getConflict(A,"activity_detail","long").remotePayload);
+    }
     @Test public void rawMetricsAndCursorSurviveDatabaseCloseAndReopen() {
         String raw="{\"source\":\"intervals\",\"distance_m\":1234.5,\"heart_rate\":null,\"sleep_duration\":null}";
         store.applyRemotePage(A,"activity",Collections.singletonList(new TrainingStore.RemoteRecord("recorded",raw,"v1")),"page-1",10);reopen();

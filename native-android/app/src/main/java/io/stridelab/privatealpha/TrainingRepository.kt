@@ -497,7 +497,14 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             if (mutable.value.activities.none { it.id == id }) return@withLock false
             if (mutable.value.details.containsKey(id)) return@withLock true
             if (id !in mutable.value.cachedDetailIds) return@withLock false
-            val saved = store.get(account,"activity_detail",id) ?: run {
+            val saved = try {
+                store.get(account,"activity_detail",id)
+            } catch (_: android.database.SQLException) {
+                mutable.value = mutable.value.copy(
+                    message="The saved activity details could not be read. The original local record was retained."
+                )
+                return@withLock false
+            } ?: run {
                 // SQLite is authoritative if a detail was removed by an
                 // explicit operation after the lightweight ID query.
                 mutable.value = mutable.value.copy(
@@ -1097,7 +1104,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 val candidates = mutableListOf<Triple<String, String, String>>()
                 val database = store.readableDatabase
                 database.query(
-                    "records", arrayOf("kind", "record_id", "payload"),
+                    "records", arrayOf("kind", "record_id"),
                     "account=? AND kind IN (?,?)",
                     arrayOf(account, "activity", "activity_detail"),
                     null, null, "kind ASC,record_id ASC"
@@ -1105,7 +1112,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                     while (cursor.moveToNext() && candidates.size < maxRecords) {
                         val kind = cursor.getString(0)
                         val id = cursor.getString(1)
-                        val payload = cursor.getString(2)
+                        val payload = store.get(account, kind, id)?.payload ?: continue
                         if (kind == "activity") {
                             if (runCatching { JSONObject(payload).optString("source") }
                                     .getOrNull() != "garmin") continue
