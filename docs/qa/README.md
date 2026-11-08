@@ -1,6 +1,8 @@
 # StrideLab QA knowledge base
 
-**Read first:** [Latest approved Engine 1.5 primary / Engine 1.0 controlled fallback / quality-session requirements](engine15-primary-plan-quality-requirements-20261105.md). The older Engine 1.0-default QA results remain historical; this corrected product target is **not yet implemented or verified**.
+**Current Android UI and source-branch safety:** [2026-11-08 modern Android baseline, retired branches, and required preflight](current-android-baseline.md). This supersedes older UI/Figma handoffs for *visual design and branch selection*; past QA evidence remains historical, not proof of the current combined build.
+
+**Training-engine QA context:** [Latest approved Engine 1.5 primary / Engine 1.0 controlled fallback / quality-session requirements](engine15-primary-plan-quality-requirements-20261105.md). The older Engine 1.0-default QA results remain historical; this corrected product target is **not yet implemented or verified**.
 
 Read this file before starting QA work. This directory is the durable index; detailed design and audit evidence stays in the authoritative documents linked below.
 
