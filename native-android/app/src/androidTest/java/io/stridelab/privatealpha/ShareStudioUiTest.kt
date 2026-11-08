@@ -296,6 +296,9 @@ class ShareStudioUiTest {
         compose.onNodeWithTag("share-metric-DURATION").assertIsSelected()
         compose.onNodeWithText("Moving time").assertDoesNotExist()
         compose.onNodeWithTag("share-metric-DISTANCE").assertIsSelected()
+        // Stage 2 metadata visibility remains editable in the refined sheet.
+        compose.onNodeWithTag("share-detail-TITLE").assertIsSelected()
+        compose.onNodeWithTag("share-detail-TITLE").performClick().assertIsNotSelected()
         compose.onNodeWithTag("share-card-preview").assertIsDisplayed()
     }
 
