@@ -47,6 +47,39 @@ class UnifiedTrainingTimelineTest {
         sessions = sessions, explanations = emptyList(), status = status
     )
 
+    @Test fun trainingGpsPreviewRequestsAreBoundedToNearbyDates() {
+        val dates = (0..9).map { day ->
+            UnifiedTrainingDay(
+                date = today.plusDays(day.toLong()),
+                activities = (0..11).map { index ->
+                    DisplayActivity(activity("d$day-$index", "2026-11-04T10:00:00Z"))
+                },
+                workouts = emptyList()
+            )
+        }
+        val allIds = dates.flatMap { it.activities }.map { it.primary.id }.toSet()
+        val chosen = timelineThumbnailRequestIds(dates, listOf(4), allIds)
+        assertEquals(48, chosen.size)
+        assertEquals("d2-0", chosen.first())
+        assertEquals("d5-11", chosen.last())
+        assertEquals(emptyList<String>(),
+            timelineThumbnailRequestIds(dates, listOf(4), emptySet()))
+    }
+
+    @Test fun trainingPreviewCanUseAGroupedSourceAliasWithoutInventingGps() {
+        val main = activity("summary", "2026-11-04T10:00:00Z")
+        val alias = activity("source-detail", "2026-11-04T10:00:01Z")
+        val date = UnifiedTrainingDay(
+            today,
+            listOf(DisplayActivity(main, listOf(alias))),
+            emptyList()
+        )
+        assertEquals(
+            listOf("source-detail"),
+            timelineThumbnailRequestIds(listOf(date),listOf(0),setOf(alias.id))
+        )
+    }
+
     @Test fun noPlanOrActivityStillHasCurrentDateAnchor() {
         val days = unifiedTrainingDays(today, emptyList(), emptyList(), null, manila)
         assertEquals(listOf(today), days.map { it.date })
