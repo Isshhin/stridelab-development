@@ -47,7 +47,14 @@ internal object ShareCardRenderer {
                 intArrayOf(0xFF1C2D28.toInt(),ShareCardPalette.BLACK,0xFF252032.toInt()),null,Shader.TileMode.CLAMP)
             canvas.drawPaint(paint); paint.shader=null
         }
-        val g=geometry(state)
+        // A route-focused card must never be an empty giant route frame
+        // when no privacy-safe GPS coordinates exist (or route is hidden).
+        // Reflow the poster using genuine recorded stats instead.
+        val renderTemplate=if(state.template==ShareTemplate.ROUTE &&
+            (activity.route.pointCount<2 || state.routeMode==ShareRouteMode.HIDDEN))
+            ShareTemplate.STATS else state.template
+        val g=geometry(if(renderTemplate==state.template) state
+            else state.copy(template=renderTemplate))
         fun text(value:String,x:Float,y:Float,size:Float,color:Int=ShareCardPalette.WHITE,bold:Boolean=false,maxWidth:Float=968f) {
             paint.color=color; paint.typeface=Typeface.create(if(state.typography==ShareTypography.CONDENSED) "sans-serif-condensed" else "sans-serif",if(bold) Typeface.BOLD else Typeface.NORMAL)
             paint.textSize=size
@@ -81,7 +88,7 @@ internal object ShareCardRenderer {
             text(activity.metrics.getValue(metric),x,y,valueSize,if(accent) ShareCardPalette.LIME else ShareCardPalette.WHITE,true,width)
             text(metric.label.uppercase(java.util.Locale.getDefault()),x,y+labelSize*1.45f,labelSize,ShareCardPalette.MUTED,maxWidth=width)
         }
-        when(state.template) {
+        when(renderTemplate) {
             ShareTemplate.ROUTE -> fields.forEachIndexed { i,metric ->
                 val row=if(i==0) 0 else 1+(i-1)/2
                 val x=if(i==0) 72f else 72f+((i-1)%2)*490f
@@ -120,7 +127,7 @@ internal object ShareCardRenderer {
         }
         // Privacy status belongs to the editor UI, not the shareable image.
         // No route-trim indicator, original endpoint or editor chrome is exported.
-        if(!state.transparent && state.template==ShareTemplate.STATS) {
+        if(!state.transparent && renderTemplate==ShareTemplate.STATS) {
             paint.shader=null; paint.color=ShareCardPalette.LIME; paint.style=Paint.Style.FILL
             canvas.drawRect(0f,state.ratio.height-90f,1080f,
                 state.ratio.height.toFloat(),paint)
