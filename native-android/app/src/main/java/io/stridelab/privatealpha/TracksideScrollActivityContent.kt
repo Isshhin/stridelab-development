@@ -1410,6 +1410,11 @@ private fun TracksideActivitySourceChart(
                 }
         }
     }
+    // Raw pause evidence is retained, but drawing thousands of pause dots
+    // during sheet gestures is unnecessary; keep the first and last markers.
+    val drawnPausedSamples = remember(pausedMetricSamples) {
+        ActivityChartRenderBudget.markers(pausedMetricSamples)
+    }
     if (validSamples.size < 2 || samples.isEmpty()) return
     // A shared chart cursor can update frequently while dragging. Cache
     // full-stream statistics rather than scanning 20,000 FIT points on each
@@ -1453,9 +1458,9 @@ private fun TracksideActivitySourceChart(
     if (lastTime <= firstTime) return
     val renderedPoints = remember(segments) { segments.flatten() }
     val displayedOutliers = remember(renderedPoints, displayScale, title) {
-        renderedPoints.filter { sample ->
+        ActivityChartRenderBudget.markers(renderedPoints.filter { sample ->
             metric(sample)?.let(displayScale::isOutside) == true
-        }
+        })
     }
     val selectedPoint = remember(selectedSeconds, renderedPoints, title) {
         selectedSeconds?.let { at ->
@@ -1648,7 +1653,7 @@ private fun TracksideActivitySourceChart(
             }
             // Real measurements saved while TIMER was stopped stay visible as
             // amber evidence points. They are never connected or interpolated.
-            pausedMetricSamples.forEach { sample ->
+            drawnPausedSamples.forEach { sample ->
                 val value = metric(sample)
                 if (value != null) {
                     drawCircle(
