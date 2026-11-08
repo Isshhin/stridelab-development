@@ -7,8 +7,6 @@ package io.stridelab.privatealpha
  */
 internal data class PreparedActivityChart(
     val validSamples: List<Pair<ActivitySample, Double>>,
-    val pausedMetricSamples: List<ActivitySample>,
-    val pausedDrawSamples: List<ActivitySample>,
     val lowest: Double,
     val highest: Double,
     val sampleAverage: Double,
@@ -16,7 +14,6 @@ internal data class PreparedActivityChart(
     val displaySegments: List<List<ActivitySample>>,
     val insight: ActivityInsightPresentation?,
     val renderedPoints: List<ActivitySample>,
-    val displayedOutliers: List<ActivitySample>,
     val firstTime: Double,
     val lastTime: Double
 )
@@ -50,11 +47,20 @@ internal object ActivityChartPreparation {
             current = mutableListOf()
             previous = null
         }
-        fun crossesPause(from: Double, to: Double): Boolean =
-            pauses.any { pause -> from < pause.endSeconds && to > pause.startSeconds }
+        // Source pause boundaries are already sorted and non-overlapping.
+        // Advance one cursor instead of scanning every pause for every sample.
+        // Preserves the recorded breaks even though the UI no longer draws
+        // timer-pause bands or dots.
+        var pauseIndex = 0
+        fun crossesPause(from: Double, to: Double): Boolean {
+            while (pauseIndex < pauses.size && pauses[pauseIndex].endSeconds <= from)
+                pauseIndex++
+            return pauseIndex < pauses.size &&
+                from < pauses[pauseIndex].endSeconds &&
+                to > pauses[pauseIndex].startSeconds
+        }
 
         val valid = ArrayList<Pair<ActivitySample, Double>>(samples.size)
-        val paused = ArrayList<ActivitySample>()
         for (sample in samples) {
             val value = metric(title, sample)
             if (value == null || !value.isFinite() ||
@@ -67,10 +73,6 @@ internal object ActivityChartPreparation {
                 current.add(sample)
                 previous = sample
                 valid.add(sample to value)
-                if (pauses.any { interval ->
-                    sample.seconds >= interval.startSeconds &&
-                        sample.seconds <= interval.endSeconds
-                }) paused.add(sample)
             }
         }
         flush()
@@ -106,16 +108,8 @@ internal object ActivityChartPreparation {
             }
         }
         val renderedPoints = reduced.flatten()
-        val outliers = renderedPoints.filter { sample ->
-            metric(title, sample)?.let(scale::isOutside) == true
-        }
         return PreparedActivityChart(
             validSamples = valid,
-            pausedMetricSamples = paused,
-            // Keep every real pause value for semantics; limit circles on the canvas.
-            pausedDrawSamples = paused.filterIndexed { index, _ ->
-                index % (paused.size / 450).coerceAtLeast(1) == 0 || index == paused.lastIndex
-            },
             lowest = lowest,
             highest = highest,
             sampleAverage = average,
@@ -123,7 +117,6 @@ internal object ActivityChartPreparation {
             displaySegments = visible,
             insight = ActivityDetailSectionAnalysis.chart(title, valid),
             renderedPoints = renderedPoints,
-            displayedOutliers = outliers,
             firstTime = firstTime,
             lastTime = lastTime
         )
