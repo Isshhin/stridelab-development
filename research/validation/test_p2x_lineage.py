@@ -3,7 +3,7 @@ from copy import deepcopy
 import json
 import unittest
 
-from p2x_lineage import assess, migrate_p2c_fixture, SCHEMA
+from p2x_lineage import assess, migrate_p2c_fixture, _native_digest, SCHEMA
 
 NOW = "2026-11-08T12:00:00+00:00"
 LATER = "2026-11-09T12:00:00+00:00"
@@ -15,7 +15,9 @@ Y = "b" * 64
 def rec(name, **changes):
     v = {"event_id": name, "athlete_id": "A-invented", "source_id": "source-invented",
          "observed_at": BEFORE, "available_at": BEFORE,
-         "status": "measured", "quality": "good"}
+         "status": "measured", "quality": "good", "source_revision": 1,
+         "lineage_root_id": {"A1": "p2a:root", "C1": "p2c:root",
+                             "D1": "p2d:root", "E1": "p2e:root"}.get(name, "other:root")}
     v.update(changes)
     return v
 
@@ -46,12 +48,13 @@ def fixture():
     for track, event in (("p2a", "A1"), ("p2c", "C1"), ("p2d", "D1"), ("p2e", "E1")):
         m["evidence_bindings"].append({"track": track, "event_id": event, "source_id": "source-invented",
                                         "ledger_event_id": track + ":" + event, "source_revision": 1,
-                                        "lineage_root_id": track + ":root", "payload_sha256": X,
+                                        "lineage_root_id": track + ":root", "payload_sha256":
+                                        _native_digest(bundle[track]["events" if track == "p2c" else "observations"][0]),
                                         "observed_at": BEFORE, "available_at": BEFORE})
     ledger = {"athlete_id": "A-invented", "plan_id": "P-1", "plan_version": 7,
               "opportunity_id": "O-1", "as_of": NOW, "ledger_tip": Y,
               "active_records": [{"event_id": t + ":" + eid, "source_id": "source-invented",
-                                  "payload_digest": X}
+                                  "payload_digest": next(b["payload_sha256"] for b in m["evidence_bindings"] if b["track"] == t)}
                                  for t, eid in (("p2a", "A1"), ("p2c", "C1"),
                                                 ("p2d", "D1"), ("p2e", "E1"))],
               "withdrawal_event_ids": [], "revoked_sources": [], "corrected_event_ids": []}
@@ -195,6 +198,8 @@ class LineageTests(unittest.TestCase):
         m["evidence_bindings"][2]["event_id"] = "C1"
         m["evidence_bindings"][2]["ledger_event_id"] = "p2d:C1"
         l["active_records"][2]["event_id"] = "p2d:C1"
+        m["evidence_bindings"][2]["payload_sha256"] = _native_digest(b["p2d"]["observations"][0])
+        l["active_records"][2]["payload_digest"] = m["evidence_bindings"][2]["payload_sha256"]
         self.assertEqual(4, len(assess(b, m, l)["evidence"]))
 
     def test_24_wrong_payload_rejected(self):
@@ -296,6 +301,9 @@ class LineageTests(unittest.TestCase):
     def test_40_correlated_roots_reported_no_votes(self):
         b, m, l = fixture()
         m["evidence_bindings"][1]["lineage_root_id"] = m["evidence_bindings"][0]["lineage_root_id"]
+        b["p2c"]["events"][0]["lineage_root_id"] = m["evidence_bindings"][1]["lineage_root_id"]
+        m["evidence_bindings"][1]["payload_sha256"] = _native_digest(b["p2c"]["events"][0])
+        l["active_records"][1]["payload_digest"] = m["evidence_bindings"][1]["payload_sha256"]
         out = assess(b, m, l)
         self.assertEqual(["p2a:root"], out["potentially_correlated_lineage_roots"])
         self.assertNotIn("readiness", out)
@@ -306,6 +314,8 @@ class LineageTests(unittest.TestCase):
         old = deepcopy(b["p2c"])
         b["p2c"] = migrate_p2c_fixture(b["p2c"], "P-1")
         m["p2c_native_plan_id"] = "P-1"
+        m["evidence_bindings"][1]["payload_sha256"] = _native_digest(b["p2c"]["events"][0])
+        l["active_records"][1]["payload_digest"] = m["evidence_bindings"][1]["payload_sha256"]
         self.assertNotIn("plan_id", old)
         out = assess(b, m, l)
         self.assertEqual("SYNTHETIC_NATIVE_ID_CONSISTENT_UNAUTHENTICATED", out["p2c_native_plan_id"])
@@ -367,6 +377,59 @@ class LineageTests(unittest.TestCase):
         m["source_authorized"] = True
         with self.assertRaisesRegex(ValueError, "MANIFEST_SCHEMA_MISMATCH"):
             assess(b, m, l)
+
+    def test_51_payload_mutation_must_not_pass_silent_consistency(self):
+        b, m, l = fixture()
+        b["p2a"]["observations"][0]["value"] = 999999
+        with self.assertRaisesRegex(ValueError, "NATIVE_PAYLOAD_DIGEST_MISMATCH"):
+            assess(b, m, l)
+
+    def test_52_omitting_three_eligible_native_bindings_defers(self):
+        b, m, l = fixture()
+        m["evidence_bindings"] = m["evidence_bindings"][:1]
+        out = assess(b, m, l)
+        self.assertEqual("DEFER_UNVERIFIED_EVIDENCE", out["status"])
+        self.assertEqual(3, out["excluded_by_reason"]["UNBOUND_ELIGIBLE_NATIVE_EVENT"])
+
+    def test_53_missing_native_source_revision_defers(self):
+        b, m, l = fixture()
+        del b["p2a"]["observations"][0]["source_revision"]
+        out = assess(b, m, l)
+        self.assertEqual("DEFER_UNVERIFIED_EVIDENCE", out["status"])
+        self.assertEqual(1, out["excluded_by_reason"]["MISSING_NATIVE_SOURCE_REVISION"])
+
+    def test_54_incorrect_native_lineage_root_fails(self):
+        b, m, l = fixture()
+        b["p2a"]["observations"][0]["lineage_root_id"] = "forged-root"
+        with self.assertRaisesRegex(ValueError, "NATIVE_LINEAGE_ROOT_MISMATCH"):
+            assess(b, m, l)
+
+    def test_55_changed_planned_workout_payload_fails(self):
+        b, m, l = fixture()
+        b["p2d"]["observations"][0]["distance_km"] = 42
+        with self.assertRaisesRegex(ValueError, "NATIVE_PAYLOAD_DIGEST_MISMATCH"):
+            assess(b, m, l)
+
+    def test_56_extra_eligible_record_requires_binding(self):
+        b, m, l = fixture()
+        b["p2a"]["observations"].append(rec("A2"))
+        out = assess(b, m, l)
+        self.assertEqual("DEFER_UNVERIFIED_EVIDENCE", out["status"])
+        self.assertEqual(1, out["excluded_by_reason"]["UNBOUND_ELIGIBLE_NATIVE_EVENT"])
+
+    def test_57_unhashable_native_status_is_deferred(self):
+        b, m, l = fixture()
+        b["p2a"]["observations"][0]["status"] = ["measured"]
+        out = assess(b, m, l)
+        self.assertEqual("DEFER_UNVERIFIED_EVIDENCE", out["status"])
+        self.assertEqual(1, out["excluded_by_reason"]["UNVERIFIED_NATIVE_RECORD"])
+
+    def test_58_unknown_native_status_cannot_pass(self):
+        b, m, l = fixture()
+        b["p2a"]["observations"][0]["status"] = "invented_status"
+        out = assess(b, m, l)
+        self.assertEqual("DEFER_UNVERIFIED_EVIDENCE", out["status"])
+        self.assertEqual(1, out["excluded_by_reason"]["UNVERIFIED_NATIVE_RECORD"])
 
 
 if __name__ == "__main__":

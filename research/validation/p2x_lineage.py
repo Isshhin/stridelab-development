@@ -6,6 +6,8 @@ without a trusted plan authority and provider/source custody it proves no identi
 from __future__ import annotations
 
 from collections import Counter
+from hashlib import sha256
+from json import dumps
 from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any
@@ -27,6 +29,20 @@ def _name(v: Any) -> bool:
 
 def _sha(v: Any) -> bool:
     return isinstance(v, str) and len(v) == 64 and all(c in "0123456789abcdef" for c in v)
+
+
+def _native_digest(record: dict[str, Any]) -> str:
+    """Deterministic checksum of the supplied synthetic native event payload.
+
+    It is not a provider attestation or a signature. Fail closed on values
+    unsuitable for a canonical JSON fixture (including NaN and infinity).
+    """
+    try:
+        payload = dumps(record, sort_keys=True, separators=(",", ":"),
+                        ensure_ascii=True, allow_nan=False)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("NONCANONICAL_NATIVE_PAYLOAD") from exc
+    return sha256(payload.encode("utf-8")).hexdigest()
 
 
 def _instant(v: Any) -> datetime:
@@ -213,8 +229,16 @@ def assess(bundle: dict[str, Any], manifest: dict[str, Any],
             raise ValueError("P2D_EVIDENCE_SESSION_MISMATCH")
         if track == "p2e" and (record.get("plan_id") != plan_id or record.get("plan_version") != version or record.get("session_id") != links["p2e_session_id"]):
             raise ValueError("P2E_EVIDENCE_PLAN_MISMATCH")
-        if "source_revision" in record and record["source_revision"] != b["source_revision"]:
+        if "source_revision" not in record or type(record["source_revision"]) is not int:
+            excluded["MISSING_NATIVE_SOURCE_REVISION"] += 1
+            continue
+        if record["source_revision"] != b["source_revision"]:
             raise ValueError("SOURCE_REVISION_MISMATCH")
+        if not _name(record.get("lineage_root_id")):
+            excluded["MISSING_NATIVE_LINEAGE_ROOT"] += 1
+            continue
+        if record["lineage_root_id"] != b["lineage_root_id"]:
+            raise ValueError("NATIVE_LINEAGE_ROOT_MISMATCH")
         observed = _instant(b["observed_at"])
         available = _instant(b["available_at"])
         if (_instant(record.get("observed_at")) != observed or _instant(record.get("available_at")) != available):
@@ -224,16 +248,44 @@ def assess(bundle: dict[str, Any], manifest: dict[str, Any],
         if observed > as_of or available > as_of:
             excluded["AFTER_DECISION_CUTOFF"] += 1
             continue
-        if (not isinstance(record.get("status", "measured"), str)
-                or record.get("status") in {"unknown", "missing_upload", "not_collected", "invalid", "withheld"}
+        allowed_status = {
+            "p2a": {"measured"},
+            "p2c": {"completed", "partial", "confirmed_skipped"},
+            "p2d": {"measured"},
+            "p2e": {"completed", "partial", "confirmed_skipped"},
+        }[track]
+        if (not isinstance(record.get("status"), str)
+                or record["status"] not in allowed_status
                 or ("quality" in record and record["quality"] != "good")):
             excluded["UNVERIFIED_NATIVE_RECORD"] += 1
             continue
+        # Comparing two caller-supplied digests without hashing the native
+        # payload did not detect source-record changes. Check native bytes too.
+        if _native_digest(record) != b["payload_sha256"]:
+            raise ValueError("NATIVE_PAYLOAD_DIGEST_MISMATCH")
         validated.append({"track": track, "event_id": event_id,
                           "ledger_event_id": b["ledger_event_id"],
                           "source_revision": b["source_revision"],
                           "source_id": b["source_id"],
                           "payload_sha256": b["payload_sha256"], "lineage_root_id": b["lineage_root_id"]})
+    # Require complete eligible native-event coverage. A selective subset of
+    # evidence must not be presented as full consistency.
+    for track in TRACKS:
+        for event_id, record in native[track].items():
+            observed = _instant(record.get("observed_at"))
+            available = _instant(record.get("available_at"))
+            if observed > as_of or available > as_of or available < observed:
+                continue
+            if ((track, event_id) not in seen
+                    and isinstance(record.get("status"), str)
+                    and record["status"] in {
+                        "p2a": {"measured"},
+                        "p2c": {"completed", "partial", "confirmed_skipped"},
+                        "p2d": {"measured"},
+                        "p2e": {"completed", "partial", "confirmed_skipped"},
+                    }[track]
+                    and record.get("quality", "good") == "good"):
+                excluded["UNBOUND_ELIGIBLE_NATIVE_EVENT"] += 1
     status = "SYNTHETIC_ASSERTED_CONSISTENCY_ONLY"
     if ledger_projection is None:
         status = "DEFER_LEDGER_PROJECTION_ABSENT"

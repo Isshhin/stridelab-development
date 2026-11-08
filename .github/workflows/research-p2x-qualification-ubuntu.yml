@@ -1,0 +1,53 @@
+name: P2-X qualification GitHub-hosted regression
+
+on:
+  push:
+    branches:
+      - research/p2x-foundation-qualification-20261108
+    paths:
+      - 'research/validation/p2x_lineage.py'
+      - 'research/validation/test_p2x_lineage.py'
+      - '.github/workflows/research-p2x-qualification-ubuntu.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualification-regression:
+    name: Exact-head synthetic foundation regression (hosted Linux only)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Configure Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Require GitHub-hosted Linux (never self-hosted PC)
+        shell: bash
+        run: |
+          test "$RUNNER_OS" = "Linux"
+          test "$RUNNER_ENVIRONMENT" = "github-hosted"
+          echo "Exact SHA: $GITHUB_SHA"
+      - name: All eight synthetic foundation suites, first replay
+        env:
+          PYTHONPATH: research/validation
+          PYTHONHASHSEED: '7'
+        run: |
+          python -m unittest -q \
+            test_p2a_state test_p2a_comparison \
+            test_p2c_wave test_p2d_shadow test_p2e_wave \
+            test_p2x_integration test_p2x_dev1 test_p2x_lineage
+      - name: Re-run all eight suites with second hash seed
+        env:
+          PYTHONPATH: research/validation
+          PYTHONHASHSEED: '213'
+        run: |
+          python -m unittest -q \
+            test_p2a_state test_p2a_comparison \
+            test_p2c_wave test_p2d_shadow test_p2e_wave \
+            test_p2x_integration test_p2x_dev1 test_p2x_lineage
