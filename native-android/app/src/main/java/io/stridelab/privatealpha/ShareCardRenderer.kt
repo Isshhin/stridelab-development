@@ -116,7 +116,7 @@ internal object ShareCardRenderer {
         val scale=state.zoom.factor*min((rect.width()-100)/(maxX-minX).coerceAtLeast(.000001),
             (rect.height()-100)/(maxY-minY).coerceAtLeast(.000001))
         fun position(p:RecordedGpsPoint)=PointF((rect.centerX()+rect.width()*state.position.shift+(mx(p)-(minX+maxX)/2)*scale).toFloat(),
-            (rect.centerY()+(my(p)-(minY+maxY)/2)*scale).toFloat())
+            (rect.centerY()+rect.height()*state.verticalPosition.shift+(my(p)-(minY+maxY)/2)*scale).toFloat())
         val paint=Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color=state.routeColor.color; strokeWidth=state.stroke.width; strokeCap=Paint.Cap.ROUND; strokeJoin=Paint.Join.ROUND; style=Paint.Style.STROKE
         }

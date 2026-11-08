@@ -4,6 +4,8 @@ import android.graphics.BitmapFactory
 import android.content.Intent
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.graphics.asAndroidBitmap
+import java.io.File
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
@@ -62,7 +64,7 @@ class ShareStudioUiTest {
         compose.onNodeWithTag("activity-share").performClick()
         compose.waitUntil(5000) { compose.onAllNodesWithTag("share-card-preview").fetchSemanticsNodes().isNotEmpty() }
         listOf("LAYOUT","MAP","STATS","STYLE","EXPORT").forEach { tool ->
-            compose.onNodeWithTag("share-section-$tool").performClick()
+            compose.onNodeWithTag("share-section-$tool").assertIsDisplayed().performClick()
             compose.onNodeWithTag("share-card-preview").assertIsDisplayed()
         }
         compose.onNodeWithTag("share-save-image").assertIsDisplayed()
@@ -205,18 +207,64 @@ class ShareStudioUiTest {
     }
 
     @Test fun transparentPngHasClearBackgroundAndScaledPreview() {
-        val source=ShareRenderableActivity.from(activity,detail)
+        val samples=(0..15).map { i -> ActivitySample(i,i*10.0,350.0,120.0,10.0,14.6+i*.001,121.0) }
+        val source=ShareRenderableActivity.from(activity,ActivityDetail(activity.id,samples,emptyList(),0L))
         val state=ShareStudioState(ratio=ShareRatio.SQUARE,transparent=true).forActivity(source)
-        val full=ShareCardRenderer.render(source,state)
+        val opaqueMap=android.graphics.Bitmap.createBitmap(10,10,android.graphics.Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.MAGENTA) }
+        val full=ShareCardRenderer.render(source,state,opaqueMap)
         val preview=ShareCardRenderer.render(source,state,width=540)
         try {
             assertEquals(0,android.graphics.Color.alpha(full.getPixel(0,0)))
+            assertEquals(0,android.graphics.Color.alpha(full.getPixel(500,400)))
+            assertNotEquals(android.graphics.Color.MAGENTA,full.getPixel(500,400))
             assertEquals(540,preview.width)
             assertEquals(540,preview.height)
             val bytes=ByteArrayOutputStream()
             ShareImageExport.writePng(full,bytes)
             val decoded=BitmapFactory.decodeByteArray(bytes.toByteArray(),0,bytes.size())
             assertTrue(full.sameAs(decoded)); decoded.recycle()
-        } finally { full.recycle(); preview.recycle() }
+        } finally { full.recycle(); preview.recycle(); opaqueMap.recycle() }
+    }
+
+    @Test fun previewAndExportMatchForEveryTemplateAndRatio() {
+        val samples=(0..30).map { i ->
+            ActivitySample(i,i*10.0,350.0+i,120.0+i,10.0+i,14.6+i*.001,121.0+kotlin.math.sin(i/5.0)*.004)
+        }
+        val fixture=ActivityDetail(activity.id,samples,emptyList(),0L)
+        val source=ShareRenderableActivity.from(activity,fixture)
+        val directory=File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null),"share-review")
+        assertTrue(directory.isDirectory || directory.mkdirs())
+        ShareTemplate.entries.forEach { template -> ShareRatio.entries.forEach { ratio ->
+            val state=ShareStudioState(ratio=ratio).selectTemplate(template).forActivity(source)
+            val full=ShareCardRenderer.render(source,state)
+            val preview=ShareCardRenderer.render(source,state,width=540)
+            val resized=android.graphics.Bitmap.createScaledBitmap(full,preview.width,preview.height,true)
+            try {
+                var difference=0L; var count=0
+                for(y in 0 until preview.height step 5) for(x in 0 until preview.width step 5) {
+                    val a=preview.getPixel(x,y); val b=resized.getPixel(x,y)
+                    difference+=kotlin.math.abs(android.graphics.Color.red(a)-android.graphics.Color.red(b))
+                    difference+=kotlin.math.abs(android.graphics.Color.green(a)-android.graphics.Color.green(b))
+                    difference+=kotlin.math.abs(android.graphics.Color.blue(a)-android.graphics.Color.blue(b)); count+=3
+                }
+                assertTrue("$template $ratio preview mismatch",difference.toDouble()/count<8.0)
+                File(directory,"${template.name.lowercase()}-${ratio.name.lowercase()}.png").outputStream().use { full.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+            } finally { full.recycle(); preview.recycle(); resized.recycle() }
+        } }
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { ShareStudioScreen(activity,fixture,false,{}) } } }
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("share-card-preview").fetchSemanticsNodes().isNotEmpty() }
+        val screen=compose.onNodeWithTag("share-studio").captureToImage().asAndroidBitmap()
+        File(directory,"editor.png").outputStream().use { screen.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+    }
+
+    @Test fun unavailableStreetMapIsDisclosedOffline() {
+        val samples=(0..15).map { i -> ActivitySample(i,i*10.0,350.0,120.0,10.0,14.6+i*.001,121.0) }
+        val fixture=ActivityDetail(activity.id,samples,emptyList(),0L)
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { ShareStudioScreen(activity,fixture,false,{}) } } }
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("share-card-preview").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("share-section-MAP").performClick()
+        compose.onNodeWithText("Activity Dark Map").performScrollTo().performClick()
+        compose.onNodeWithText("Street map unavailable · showing route only").assertIsDisplayed()
+        compose.onNodeWithTag("share-card-preview").assertIsDisplayed()
     }
 }

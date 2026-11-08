@@ -57,9 +57,10 @@ internal suspend fun shareMapSnapshot(context:Context, activity:ShareRenderableA
                     }
                     val pad=if(state.zoom==ShareZoom.FIT) 70 else 10
                     val shift=when(state.position) { SharePosition.LEFT -> -50; SharePosition.CENTER -> 0; SharePosition.RIGHT -> 50 }
+                    val vertical=when(state.verticalPosition) { ShareVerticalPosition.UP -> -50; ShareVerticalPosition.CENTER -> 0; ShareVerticalPosition.DOWN -> 50 }
                     snapshotter=MapSnapshotter(context.applicationContext,MapSnapshotter.Options(rect.width().toInt(),rect.height().toInt())
                         .withPixelRatio(1f).withStyleBuilder(style).withRegion(bounds)
-                        .withPadding((pad+shift).coerceAtLeast(0),pad,(pad-shift).coerceAtLeast(0),pad).withLogo(true).withAttribution(true))
+                        .withPadding((pad+shift).coerceAtLeast(0),(pad+vertical).coerceAtLeast(0),(pad-shift).coerceAtLeast(0),(pad-vertical).coerceAtLeast(0)).withLogo(true).withAttribution(true))
                     val active=snapshotter
                     continuation.invokeOnCancellation { active.cancel() }
                     active.start({ snapshot ->

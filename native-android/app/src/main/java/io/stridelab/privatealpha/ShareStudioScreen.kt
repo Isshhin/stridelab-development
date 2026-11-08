@@ -44,7 +44,7 @@ import java.io.File
 private enum class ShareSection(val label:String) {
     LAYOUT("Layout"), MAP("Map"), STATS("Stats"), STYLE("Style"), EXPORT("Export")
 }
-private data class ShareMapRequest(val mode:ShareRouteMode, val width:Int, val height:Int, val color:ShareRouteColor, val stroke:ShareStroke, val zoom:ShareZoom, val position:SharePosition)
+private data class ShareMapRequest(val mode:ShareRouteMode, val width:Int, val height:Int, val color:ShareRouteColor, val stroke:ShareStroke, val zoom:ShareZoom, val position:SharePosition, val verticalPosition:ShareVerticalPosition)
 private data class ShareMapResult(val source:ShareRenderableActivity, val request:ShareMapRequest, val bitmap:Bitmap?, val loading:Boolean)
 private data class ShareCardResult(val source:ShareRenderableActivity, val state:ShareStudioState, val map:Bitmap?, val bitmap:Bitmap)
 
@@ -84,13 +84,17 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
     val geometry=effective?.let(ShareCardRenderer::geometry)
     val request=if(source!=null && effective!=null && geometry!=null && online && !effective.transparent && effective.background==ShareBackground.MAP &&
         effective.routeMode!=ShareRouteMode.HIDDEN && source.route.pointCount>=2 && geometry.route.height()>0)
-        ShareMapRequest(effective.routeMode,geometry.route.width().toInt(),geometry.route.height().toInt(),effective.routeColor,effective.stroke,effective.zoom,effective.position) else null
+        ShareMapRequest(effective.routeMode,geometry.route.width().toInt(),geometry.route.height().toInt(),effective.routeColor,effective.stroke,effective.zoom,effective.position,effective.verticalPosition) else null
     // Template, metric-count and ratio changes may alter the map rectangle; unrelated controls reuse the map.
+    val mapCache=remember(source) { android.util.LruCache<ShareMapRequest,Bitmap>(4) }
     val mapResult by produceState<ShareMapResult?>(null,source,request) {
         val current=request
         if(current==null || source==null || effective==null) { value=null; return@produceState }
         value=ShareMapResult(source,current,null,true)
-        try { value=ShareMapResult(source,current,shareMapSnapshot(context,source,effective),false) }
+        try {
+            val snapshot=mapCache.get(current) ?: shareMapSnapshot(context,source,effective).also { mapCache.put(current,it) }
+            value=ShareMapResult(source,current,snapshot,false)
+        }
         catch(error:TimeoutCancellationException) { value=ShareMapResult(source,current,null,false) }
         catch(error:Exception) {
             if(error is CancellationException) throw error
@@ -192,10 +196,10 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                         label={ Text(if(template==ShareTemplate.STATS) "Performance" else template.label) },modifier=Modifier.heightIn(min=48.dp).testTag("share-template-${template.name}"))
                 }
             }
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=8.dp),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal=8.dp)) {
                 ShareSection.entries.forEach { tool ->
-                    TextButton(onClick={ section=tool },modifier=Modifier.heightIn(min=48.dp).testTag("share-section-${tool.name}")) {
-                        Text(tool.label,color=if(section==tool) Color(ShareCardPalette.LIME) else Color(ShareCardPalette.MUTED))
+                    TextButton(onClick={ section=tool },contentPadding=PaddingValues(0.dp),modifier=Modifier.weight(1f).heightIn(min=48.dp).testTag("share-section-${tool.name}")) {
+                        Text(tool.label,style=MaterialTheme.typography.labelMedium,color=if(section==tool) Color(ShareCardPalette.LIME) else Color(ShareCardPalette.MUTED))
                     }
                 }
             }
@@ -220,6 +224,7 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                             Text("Framing",style=MaterialTheme.typography.labelLarge)
                             ShareChoices(ShareZoom.entries,config.zoom,{it.label}) { configure(config.copy(zoom=it)) }
                             ShareChoices(SharePosition.entries,config.position,{it.label}) { configure(config.copy(position=it)) }
+                            ShareChoices(ShareVerticalPosition.entries,config.verticalPosition,{it.label}) { configure(config.copy(verticalPosition=it)) }
                         }
                         ShareSection.STATS -> {
                             Text("Full activity stats · select at least one",style=MaterialTheme.typography.bodySmall,color=Color(ShareCardPalette.MUTED))

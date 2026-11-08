@@ -35,6 +35,7 @@ internal enum class ShareRouteColor(val label:String,val color:Int) { LIME("Lime
 internal enum class ShareStroke(val label:String,val width:Float) { FINE("Fine",6f), STANDARD("Standard",9f), BOLD("Bold",14f) }
 internal enum class ShareZoom(val label:String,val factor:Float) { FIT("Fit",1f), CLOSE("Closer",1.15f) }
 internal enum class SharePosition(val label:String,val shift:Float) { LEFT("Left",-.1f), CENTER("Center",0f), RIGHT("Right",.1f) }
+internal enum class ShareVerticalPosition(val label:String,val shift:Float) { UP("Up",-.1f), CENTER("Center",0f), DOWN("Down",.1f) }
 internal enum class ShareLayout(val label:String) { AIRY("Airy"), COMPACT("Compact") }
 
 internal data class ShareStudioState(
@@ -53,6 +54,7 @@ internal data class ShareStudioState(
     val stroke:ShareStroke = ShareStroke.STANDARD,
     val zoom:ShareZoom = ShareZoom.FIT,
     val position:SharePosition = SharePosition.CENTER,
+    val verticalPosition:ShareVerticalPosition = ShareVerticalPosition.CENTER,
     val featuredMetric:ShareMetric? = null
 ) {
     fun selectTemplate(value:ShareTemplate):ShareStudioState = copy(template=value).selectVariant(value.variants.first())
@@ -127,7 +129,7 @@ internal object SharePresetCodec {
             put("route",s.routeMode.name); put("metrics",JSONArray(s.metrics.map { it.name }))
             put("background",s.background.name); put("branding",s.branding.name); put("layout",s.layout.name); put("privacy",s.privacy.name)
             put("transparent",s.transparent); put("typography",s.typography.name); put("routeColor",s.routeColor.name)
-            put("stroke",s.stroke.name); put("zoom",s.zoom.name); put("position",s.position.name)
+            put("stroke",s.stroke.name); put("zoom",s.zoom.name); put("position",s.position.name); put("verticalPosition",s.verticalPosition.name)
             s.featuredMetric?.let { put("featuredMetric",it.name) }
         }) }
     }).toString()
@@ -153,7 +155,7 @@ internal object SharePresetCodec {
                 row.optBoolean("transparent",false),ShareTypography.valueOf(row.optString("typography",ShareTypography.CLASSIC.name)),
                 ShareRouteColor.valueOf(row.optString("routeColor",ShareRouteColor.LIME.name)),ShareStroke.valueOf(row.optString("stroke",ShareStroke.STANDARD.name)),
                 ShareZoom.valueOf(row.optString("zoom",ShareZoom.FIT.name)),SharePosition.valueOf(row.optString("position",SharePosition.CENTER.name)),
-                row.optString("featuredMetric","").takeIf { it.isNotEmpty() }?.let(ShareMetric::valueOf)))
+                ShareVerticalPosition.valueOf(row.optString("verticalPosition",ShareVerticalPosition.CENTER.name)),row.optString("featuredMetric","").takeIf { it.isNotEmpty() }?.let(ShareMetric::valueOf)))
         }
         require(result.map { it.id }.distinct().size==result.size)
         return result
