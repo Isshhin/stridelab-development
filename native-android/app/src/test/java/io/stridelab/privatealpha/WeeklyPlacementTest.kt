@@ -116,6 +116,31 @@ class WeeklyPlacementTest {
         }
     }
 
+    @Test fun reducingRunCountDropsExcessQualityBeforePreservedEasyDay() {
+        val request = running().copy(
+            qualityCount = 2, qualityDays = setOf(2,4),
+            weeklySlots = mapOf("run" to listOf(7,2,4,5))
+        )
+        val changed = WeeklyPlacement.resize(request, "run", 3)
+        assertEquals(3, changed.runDays)
+        assertEquals(1, changed.qualityCount)
+        assertEquals(listOf(7,2,5), changed.weeklySlots["run"])
+        assertEquals(7, changed.longDay)
+        assertEquals(setOf(2), changed.qualityDays)
+        assertNull(WeeklyPlacement.validationError(changed))
+    }
+
+    @Test fun reducingFourRunsRetainsNonChronologicalSaturdayLongRun() {
+        val request = running().copy(
+            longDay = 6, weeklySlots = mapOf("run" to listOf(6,2,4,5))
+        )
+        val changed = WeeklyPlacement.resize(request, "run", 3)
+        assertEquals(listOf(6,2,4), changed.weeklySlots["run"])
+        assertEquals(6, changed.longDay)
+        assertEquals(setOf(2), changed.qualityDays)
+        assertNull(WeeklyPlacement.validationError(changed))
+    }
+
     @Test fun aWednesdayStartRetainsEverySessionAcrossWholePlanWeekWindows() {
         val start=LocalDate.parse("2026-11-04")
         val request=running().copy(start=start,weeks=3)
