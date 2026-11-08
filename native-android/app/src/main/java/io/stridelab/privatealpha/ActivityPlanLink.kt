@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package io.stridelab.privatealpha
 
 import androidx.compose.foundation.BorderStroke
@@ -179,7 +181,7 @@ internal fun ActivityPlanLink(
                 )
                 HorizontalDivider(color=StrideWorkoutVisuals.divider)
                 LazyColumn(
-                    modifier=Modifier.fillMaxWidth().weight(1f,fill=false),
+                    modifier=Modifier.fillMaxWidth().heightIn(max=425.dp),
                     verticalArrangement=Arrangement.spacedBy(4.dp),
                     contentPadding=PaddingValues(bottom=4.dp)
                 ) {
