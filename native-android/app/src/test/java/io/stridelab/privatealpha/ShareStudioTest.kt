@@ -12,6 +12,27 @@ class ShareStudioTest {
     private fun detail(samples:List<ActivitySample>, pauses:List<ActivityPauseInterval> = emptyList()) =
         ActivityDetail(activity.id, samples, emptyList(), 0, pauses)
 
+    @Test fun durationIsSourcedFromDurationNotMovingTime() {
+        val stored=activity.copy(durationS=4500.0,movingTimeS=3600.0)
+        val rendered=ShareRenderableActivity.from(stored,null)
+        assertEquals(ActivityRecord.duration(4500.0),rendered.metrics[ShareMetric.DURATION])
+        assertEquals("Duration",ShareMetric.DURATION.label)
+        assertNotEquals(ActivityRecord.duration(3600.0),rendered.metrics[ShareMetric.DURATION])
+    }
+
+    @Test fun onlyExistingNonzeroRoutePrivacyChoicesAreAvailable() {
+        assertEquals(listOf(200.0,400.0,800.0),SharePrivacy.entries.map { it.meters })
+        assertEquals(SharePrivacy.STANDARD,ShareStudioState().privacy)
+        assertFalse(ShareStudioState().transparent)
+    }
+
+    @Test fun routeFocusWithoutGpsUsesRecordedStatsNotInventedTrace() {
+        val source=ShareRenderableActivity.from(activity,null)
+        assertEquals(0,source.route.pointCount)
+        val state=ShareStudioState().forActivity(source)
+        assertEquals(ShareRouteMode.HIDDEN,state.routeMode)
+    }
+
     @Test fun routeModesRequireRecordedGeographicMetricPairs() {
         val render = ShareRenderableActivity.from(activity, detail((0..8).map { sample(it,it*10.0) }))
         assertEquals(setOf(ShareRouteMode.ROUTE, ShareRouteMode.PACE, ShareRouteMode.ELEVATION, ShareRouteMode.HIDDEN), render.availableModes)
@@ -58,6 +79,24 @@ class ShareStudioTest {
             background=ShareBackground.GRADIENT,branding=ShareBranding.MINIMAL,layout=ShareLayout.COMPACT))
         assertEquals(listOf(preset), SharePresetCodec.decode(SharePresetCodec.encode(listOf(preset))))
         assertEquals(emptyList<SharePreset>(),SharePresetCodec.decode(SharePresetCodec.encode(listOf(preset).filterNot { it.id=="one" })))
+    }
+
+    @Test fun legacyFiveRecordedMetricsRemainRenderableAfterTwoOneUpdate() {
+        val withMoreMetrics=activity.copy(averageHr=143.0,elevationM=25.0)
+        val source=ShareRenderableActivity.from(withMoreMetrics,null)
+        val selected=setOf(ShareMetric.DISTANCE,ShareMetric.DURATION,
+            ShareMetric.PACE,ShareMetric.HR,ShareMetric.ELEVATION)
+        val legacy=ShareStudioState().selectTemplate(ShareTemplate.STATS)
+            .copy(metrics=selected)
+        val restored=SharePresetCodec.decode(
+            SharePresetCodec.encode(listOf(SharePreset("legacy","Five metrics",legacy)))
+        ).single().state
+        assertEquals(selected,restored.forActivity(source).metrics.intersect(selected))
+        val fresh=ShareStudioState().selectTemplate(ShareTemplate.STATS)
+        assertEquals(4,fresh.metrics.count {
+            it in setOf(ShareMetric.DISTANCE,ShareMetric.DURATION,
+                ShareMetric.PACE,ShareMetric.HR,ShareMetric.ELEVATION)
+        })
     }
 
     @Test fun exportDimensionsPreserveEveryRatio() {

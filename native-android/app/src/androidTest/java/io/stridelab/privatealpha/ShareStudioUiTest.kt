@@ -27,6 +27,56 @@ class ShareStudioUiTest {
         ActivitySample(2,20.0,370.0,null,11.0,14.602,121.002)),
         listOf(ActivityLap(0,1000.0,360.0,360.0,null,0.0),ActivityLap(1,1000.0,360.0,360.0,null,10.0)),0L)
 
+    @Test fun routeFocusWithoutGpsUsesRecordedStatsNotInventedTrace() {
+        val source=ShareRenderableActivity.from(activity,null)
+        assertEquals(0,source.route.pointCount)
+        val state=ShareStudioState().forActivity(source)
+        assertEquals(ShareRouteMode.HIDDEN,state.routeMode)
+        val image=ShareCardRenderer.render(source,state)
+        try {
+            // Honest stats-first fallback uses the Performance footer, not a fake route.
+            assertEquals(ShareCardPalette.LIME,image.getPixel(0,image.height-2))
+        } finally { image.recycle() }
+    }
+
+    @Test fun performanceFooterIsLimeOnlyForOpaqueExport() {
+        val source=ShareRenderableActivity.from(activity,null)
+        val base=ShareStudioState(ratio=ShareRatio.SQUARE)
+            .selectTemplate(ShareTemplate.STATS).forActivity(source)
+        val opaque=ShareCardRenderer.render(source,base)
+        val transparent=ShareCardRenderer.render(source,base.copy(transparent=true))
+        try {
+            assertEquals(ShareCardPalette.LIME,opaque.getPixel(0,opaque.height-2))
+            assertEquals(0,android.graphics.Color.alpha(
+                transparent.getPixel(0,transparent.height-2)))
+        } finally {
+            opaque.recycle(); transparent.recycle()
+        }
+    }
+
+    @Test fun legacyFiveRecordedMetricsRemainRenderableAfterTwoOneUpdate() {
+        val withMoreMetrics=activity.copy(averageHr=143.0,elevationM=25.0)
+        val source=ShareRenderableActivity.from(withMoreMetrics,null)
+        val selected=setOf(ShareMetric.DISTANCE,ShareMetric.DURATION,
+            ShareMetric.PACE,ShareMetric.HR,ShareMetric.ELEVATION)
+        val legacy=ShareStudioState().selectTemplate(ShareTemplate.STATS)
+            .copy(metrics=selected)
+        val restored=SharePresetCodec.decode(
+            SharePresetCodec.encode(listOf(SharePreset("legacy","Five metrics",legacy)))
+        ).single().state
+        assertEquals(selected,restored.forActivity(source).metrics.intersect(selected))
+        val png=ShareCardRenderer.render(source,restored.forActivity(source))
+        try {
+            assertEquals(1080,png.width)
+            assertEquals(ShareRatio.STORY.height,png.height)
+        } finally { png.recycle() }
+        val fresh=ShareStudioState().selectTemplate(ShareTemplate.STATS)
+        assertEquals(4,fresh.metrics.count {
+            it in setOf(ShareMetric.DISTANCE,ShareMetric.DURATION,
+                ShareMetric.PACE,ShareMetric.HR,ShareMetric.ELEVATION)
+        })
+    }
+
     private fun mountDetail() {
         val tab=mutableIntStateOf(0)
         compose.runOnUiThread { compose.activity.setContent {
@@ -63,11 +113,15 @@ class ShareStudioUiTest {
         mountDetail()
         compose.onNodeWithTag("activity-share").performClick()
         compose.waitUntil(5000) { compose.onAllNodesWithTag("share-card-preview").fetchSemanticsNodes().isNotEmpty() }
-        listOf("LAYOUT","MAP","STATS","STYLE","EXPORT").forEach { tool ->
+        // The poster is immediately visible; tools are optional, not an onboarding gate.
+        compose.onNodeWithTag("share-tool-sheet").assertDoesNotExist()
+        compose.onNodeWithTag("share-section-TEMPLATE").assertIsDisplayed()
+        listOf("TEMPLATE","LAYOUT","MAP","STATS","STYLE","EXPORT").forEach { tool ->
             compose.onNodeWithTag("share-section-$tool").assertIsDisplayed().performClick()
+            compose.onNodeWithTag("share-section-$tool").assertIsSelected()
             compose.onNodeWithTag("share-card-preview").assertIsDisplayed()
         }
-        compose.onNodeWithTag("share-save-image").assertIsDisplayed()
+        compose.onNodeWithTag("share-save-image").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("share-send").assertIsDisplayed()
     }
 
@@ -257,12 +311,56 @@ class ShareStudioUiTest {
         File(directory,"editor.png").outputStream().use { screen.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
     }
 
+    @Test fun revisedEditorHasVisiblePrivacyAndExistingPresetEntry() {
+        val samples=(0..22).map { i ->
+            ActivitySample(i,i*10.0,350.0,120.0,10.0,14.6+i*.001,121.0)
+        }
+        val fixture=ActivityDetail(activity.id,samples,emptyList(),0L)
+        compose.runOnUiThread { compose.activity.setContent {
+            StrideTheme { ShareStudioScreen(activity,fixture,false,{}) }
+        } }
+        compose.waitUntil(10000) {
+            compose.onAllNodesWithTag("share-privacy-indicator").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("share-privacy-indicator").assertIsDisplayed()
+        compose.onNodeWithTag("share-preview-status").assertDoesNotExist()
+        compose.onNodeWithTag("share-section-MAP").performClick()
+        compose.onNodeWithText("200 m").assertIsDisplayed()
+        compose.onNodeWithText("400 m").assertIsDisplayed()
+        compose.onNodeWithText("800 m").assertIsDisplayed()
+        compose.onNodeWithText("Off").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Close").performClick()
+        compose.onNodeWithTag("share-presets-open").performClick()
+        compose.onNodeWithTag("share-presets-sheet").assertIsDisplayed()
+        compose.onNodeWithTag("share-save-preset").assertIsDisplayed()
+        compose.onNodeWithTag("share-card-preview").assertIsDisplayed()
+    }
+
+    @Test fun metricRowsUseWholeCardSelectionAndRecordedDurationLabel() {
+        val fixture=detail
+        compose.runOnUiThread { compose.activity.setContent {
+            StrideTheme { ShareStudioScreen(activity,fixture,false,{}) }
+        } }
+        compose.waitUntil(10000) {
+            compose.onAllNodesWithTag("share-card-preview").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("share-section-STATS").performClick()
+        compose.onNodeWithTag("share-metric-DURATION").assertIsSelected()
+        compose.onNodeWithText("Moving time").assertDoesNotExist()
+        compose.onNodeWithTag("share-metric-DISTANCE").assertIsSelected()
+        // Stage 2 metadata visibility remains editable in the refined sheet.
+        compose.onNodeWithTag("share-detail-TITLE").assertIsSelected()
+        compose.onNodeWithTag("share-detail-TITLE").performClick().assertIsNotSelected()
+        compose.onNodeWithTag("share-card-preview").assertIsDisplayed()
+    }
+
     @Test fun unavailableStreetMapIsDisclosedOffline() {
         val samples=(0..15).map { i -> ActivitySample(i,i*10.0,350.0,120.0,10.0,14.6+i*.001,121.0) }
         val fixture=ActivityDetail(activity.id,samples,emptyList(),0L)
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { ShareStudioScreen(activity,fixture,false,{}) } } }
         compose.waitUntil(10000) { compose.onAllNodesWithTag("share-card-preview").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("share-section-MAP").performClick()
+        compose.onNodeWithText("Map").performClick()
         compose.onNodeWithText("Activity Dark Map").performScrollTo().performClick()
         compose.onNodeWithText("Street map unavailable · showing route only").assertIsDisplayed()
         compose.onNodeWithTag("share-card-preview").assertIsDisplayed()
