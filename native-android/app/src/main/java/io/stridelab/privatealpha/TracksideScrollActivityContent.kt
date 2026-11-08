@@ -67,21 +67,21 @@ internal fun TracksideActivityInitialPreview(activity: ActivityRecord) {
             .testTag("activity-parity-overview"),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(5.dp))
         Text(
             activityDisplayName(activity.title),
-            color = activityText, fontSize = 29.sp, lineHeight = 35.sp,
+            color = activityText, fontSize = 26.sp, lineHeight = 31.sp,
             fontWeight = FontWeight.Bold, maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.testTag("activity-preview-title")
         )
         Spacer(Modifier.height(5.dp))
         Text(activity.dateLabel, color = activityMuted, fontSize = 12.sp)
-        Spacer(Modifier.height(26.dp))
+        Spacer(Modifier.height(14.dp))
         TracksidePrimaryActivityMetrics(activity)
         // This is the bottom of the collapsed sheet, not a large empty
         // scrolling region. The sheet peek is sized to the measured preview.
-        Spacer(Modifier.height(18.dp).testTag("activity-preview-bottom"))
+        Spacer(Modifier.height(10.dp).testTag("activity-preview-bottom"))
     }
 }
 
@@ -112,11 +112,14 @@ internal fun TracksidePrimaryActivityMetrics(activity: ActivityRecord) {
             recordedHr.roundToInt().toString(), "bpm", ActivityMetricGlyph.Heart))
     }
     BoxWithConstraints(Modifier.fillMaxWidth().testTag("activity-primary-metrics")) {
-        // Three centered metrics at normal phone widths. Only the compact
-        // preview layout changes: the recorded duration remains in Overview.
-        // On narrow devices or with large text, preserve readable values by
-        // giving each metric its own full-width row rather than truncating.
-        val stacked = maxWidth < 280.dp || LocalDensity.current.fontScale > 1.35f
+        // Keep the premium three-column preview at common accessibility font
+        // scales (up to 180%). The previous 135% cutover stacked all three
+        // metrics and obscured most of the map on an ordinary Pixel screen.
+        // Truly narrow displays or extremely large fonts still get a readable
+        // full-width fallback rather than truncated data.
+        val fontScale = LocalDensity.current.fontScale
+        val stacked = maxWidth < 260.dp || fontScale > 1.8f
+        val compactMetrics = maxWidth < 360.dp || fontScale > 1.15f
         if (stacked) {
             Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 metrics.forEachIndexed { index, item ->
@@ -126,11 +129,11 @@ internal fun TracksidePrimaryActivityMetrics(activity: ActivityRecord) {
                             thickness = 1.dp
                         )
                     }
-                    CenteredActivityMetricSections(listOf(item), compact = false)
+                    CenteredActivityMetricSections(listOf(item), compact = compactMetrics)
                 }
             }
         } else {
-            CenteredActivityMetricSections(metrics, compact = false)
+            CenteredActivityMetricSections(metrics, compact = compactMetrics)
         }
     }
 }
@@ -146,7 +149,7 @@ private fun CenteredActivityMetricSections(
         items.forEachIndexed { index, item ->
             if (index > 0) {
                 Box(
-                    Modifier.width(1.dp).height(if (compact) 54.dp else 60.dp)
+                    Modifier.width(1.dp).height(if (compact) 48.dp else 60.dp)
                         .background(activityBorder.copy(alpha = .72f))
                         .testTag("activity-metric-divider-$index")
                 )
@@ -171,10 +174,10 @@ private fun PrimaryActivityMetric(
 ) {
     Column(
         modifier,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Canvas(Modifier.size(23.dp)) {
+        Canvas(Modifier.size(if (compact) 19.dp else 23.dp)) {
             val w = size.width
             val h = size.height
             val sw = 2.3.dp.toPx()
