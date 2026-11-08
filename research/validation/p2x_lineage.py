@@ -108,6 +108,25 @@ def _raw_events(snapshot: dict[str, Any], track: str) -> list[dict[str, Any]]:
     return value
 
 
+def _roster_ids(rows: Any, id_field: str, label: str) -> set[str]:
+    """Check that a native plan roster names each row exactly once.
+
+    A successful existential match is unsafe when multiple planned sessions
+    share the same identity, even if those rows are byte-for-byte equal.
+    """
+    if not isinstance(rows, list):
+        raise ValueError(label + "_ROSTER_INVALID")
+    names: set[str] = set()
+    for entry in rows:
+        if not isinstance(entry, dict) or not _name(entry.get(id_field)):
+            raise ValueError(label + "_ID_INVALID")
+        name = entry[id_field]
+        if name in names:
+            raise ValueError(label + "_ID_DUPLICATE")
+        names.add(name)
+    return names
+
+
 def assess(bundle: dict[str, Any], manifest: dict[str, Any],
            ledger_projection: dict[str, Any] | None = None) -> dict[str, Any]:
     """Review a canonical *invented* plan join; never return authority.
@@ -175,7 +194,8 @@ def assess(bundle: dict[str, Any], manifest: dict[str, Any],
     if not isinstance(links, dict) or set(links) != _LINKS or any(not _name(links[k]) for k in _LINKS):
         raise ValueError("LINK_SCHEMA_MISMATCH")
     opportunities = c.get("opportunities")
-    if not isinstance(opportunities, list) or not any(isinstance(r, dict) and r.get("opportunity_id") == links["p2c_opportunity_id"] for r in opportunities):
+    p2c_ids = _roster_ids(opportunities, "opportunity_id", "P2C_OPPORTUNITY")
+    if links["p2c_opportunity_id"] not in p2c_ids:
         raise ValueError("P2C_LINK_NOT_FOUND")
     # The native P2-C snapshot version must also cover its plan opportunities;
     # a consistent plan ID alone cannot legitimate an old-version session.
@@ -187,7 +207,8 @@ def assess(bundle: dict[str, Any], manifest: dict[str, Any],
         ("p2e", ep, links["p2e_session_id"], e.get("review_context", {}).get("target_session_id") if isinstance(e.get("review_context"), dict) else None),
     ):
         sessions = plan.get("sessions")
-        if not isinstance(sessions, list) or not any(isinstance(r, dict) and r.get("id") == wanted for r in sessions) or requested != wanted:
+        native_session_ids = _roster_ids(sessions, "id", track.upper() + "_SESSION")
+        if wanted not in native_session_ids or requested != wanted:
             raise ValueError("TARGET_SESSION_LINK_MISMATCH_" + track.upper())
     bindings = manifest.get("evidence_bindings")
     if not isinstance(bindings, list):
