@@ -177,6 +177,11 @@ def assess(bundle: dict[str, Any], manifest: dict[str, Any],
     opportunities = c.get("opportunities")
     if not isinstance(opportunities, list) or not any(isinstance(r, dict) and r.get("opportunity_id") == links["p2c_opportunity_id"] for r in opportunities):
         raise ValueError("P2C_LINK_NOT_FOUND")
+    # The native P2-C snapshot version must also cover its plan opportunities;
+    # a consistent plan ID alone cannot legitimate an old-version session.
+    if any(not isinstance(r, dict) or type(r.get("plan_version")) is not int
+           or r["plan_version"] != version for r in opportunities):
+        raise ValueError("P2C_OPPORTUNITY_VERSION_MISMATCH")
     for track, plan, wanted, requested in (
         ("p2d", dp, links["p2d_session_id"], d.get("request", {}).get("session_id") if isinstance(d.get("request"), dict) else None),
         ("p2e", ep, links["p2e_session_id"], e.get("review_context", {}).get("target_session_id") if isinstance(e.get("review_context"), dict) else None),
@@ -274,18 +279,26 @@ def assess(bundle: dict[str, Any], manifest: dict[str, Any],
         for event_id, record in native[track].items():
             observed = _instant(record.get("observed_at"))
             available = _instant(record.get("available_at"))
-            if observed > as_of or available > as_of or available < observed:
+            if available < observed:
+                raise ValueError("NATIVE_EVENT_AVAILABILITY_BACKDATED")
+            if observed > as_of or available > as_of:
                 continue
-            if ((track, event_id) not in seen
-                    and isinstance(record.get("status"), str)
-                    and record["status"] in {
-                        "p2a": {"measured"},
-                        "p2c": {"completed", "partial", "confirmed_skipped"},
-                        "p2d": {"measured"},
-                        "p2e": {"completed", "partial", "confirmed_skipped"},
-                    }[track]
-                    and record.get("quality", "good") == "good"):
+            if (track, event_id) in seen:
+                continue
+            eligible = (isinstance(record.get("status"), str)
+                        and record["status"] in {
+                            "p2a": {"measured"},
+                            "p2c": {"completed", "partial", "confirmed_skipped"},
+                            "p2d": {"measured"},
+                            "p2e": {"completed", "partial", "confirmed_skipped"},
+                        }[track]
+                        and record.get("quality", "good") == "good")
+            if eligible:
                 excluded["UNBOUND_ELIGIBLE_NATIVE_EVENT"] += 1
+            else:
+                # Invalid/missing evidence is not inferred to be negative; it
+                # is explicitly unresolved, never silently ignored.
+                excluded["UNBOUND_UNVERIFIED_NATIVE_EVENT"] += 1
     status = "SYNTHETIC_ASSERTED_CONSISTENCY_ONLY"
     if ledger_projection is None:
         status = "DEFER_LEDGER_PROJECTION_ABSENT"
@@ -313,6 +326,14 @@ def assess(bundle: dict[str, Any], manifest: dict[str, Any],
                 excluded["NOT_ACTIVE_IN_LEDGER"] += 1
             elif r.get("source_id") != v["source_id"] or r.get("payload_digest") != v["payload_sha256"]:
                 raise ValueError("LEDGER_BINDING_MISMATCH")
+        # The review must not claim complete ledger consistency if the
+        # active projection carries additional, unbound source events.
+        reviewed_ledger_ids = {v["ledger_event_id"] for v in validated}
+        excluded["UNBOUND_ACTIVE_LEDGER_EVENT"] += sum(
+            ledger_id not in reviewed_ledger_ids for ledger_id in active_index
+        )
+        if excluded["UNBOUND_ACTIVE_LEDGER_EVENT"] == 0:
+            del excluded["UNBOUND_ACTIVE_LEDGER_EVENT"]
         if (ledger_projection.get("withdrawal_event_ids") or ledger_projection.get("revoked_sources")
                 or ledger_projection.get("corrected_event_ids")):
             status = "DEFER_LEDGER_CORRECTION_WITHDRAWAL"

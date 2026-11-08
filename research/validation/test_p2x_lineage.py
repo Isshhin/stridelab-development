@@ -432,5 +432,55 @@ class LineageTests(unittest.TestCase):
         self.assertEqual(1, out["excluded_by_reason"]["UNVERIFIED_NATIVE_RECORD"])
 
 
+    def test_59_extra_active_ledger_event_defers(self):
+        b, m, l = fixture()
+        l["active_records"].append({"event_id": "p2a:UNBOUND", "source_id": "source-invented",
+                                    "payload_digest": X})
+        out = assess(b, m, l)
+        self.assertEqual("DEFER_UNVERIFIED_EVIDENCE", out["status"])
+        self.assertEqual(1, out["excluded_by_reason"]["UNBOUND_ACTIVE_LEDGER_EVENT"])
+
+    def test_60_wrong_native_p2c_opportunity_version_fails(self):
+        b, m, l = fixture()
+        b["p2c"] = migrate_p2c_fixture(b["p2c"], "P-1")
+        m["p2c_native_plan_id"] = "P-1"
+        b["p2c"]["opportunities"][0]["plan_version"] = 6
+        m["evidence_bindings"][1]["payload_sha256"] = _native_digest(b["p2c"]["events"][0])
+        l["active_records"][1]["payload_digest"] = m["evidence_bindings"][1]["payload_sha256"]
+        with self.assertRaisesRegex(ValueError, "P2C_OPPORTUNITY_VERSION_MISMATCH"):
+            assess(b, m, l)
+
+    def test_61_unbound_invalid_decision_time_record_defers(self):
+        b, m, l = fixture()
+        b["p2a"]["observations"].append(rec("A-HIDDEN", status="fabricated"))
+        out = assess(b, m, l)
+        self.assertEqual("DEFER_UNVERIFIED_EVIDENCE", out["status"])
+        self.assertEqual(1, out["excluded_by_reason"]["UNBOUND_UNVERIFIED_NATIVE_EVENT"])
+
+    def test_62_future_unbound_event_does_not_change_historical_review(self):
+        b, m, l = fixture()
+        b["p2a"]["observations"].append(rec("A-FUTURE", available_at=LATER))
+        self.assertEqual("SYNTHETIC_ASSERTED_CONSISTENCY_ONLY", assess(b, m, l)["status"])
+
+    def test_63_malformed_unbound_native_clock_rejected(self):
+        b, m, l = fixture()
+        b["p2a"]["observations"].append(rec("A-BAD-CLOCK", available_at="yesterday"))
+        with self.assertRaisesRegex(ValueError, "OFFSET_TIME_REQUIRED"):
+            assess(b, m, l)
+
+    def test_64_bound_record_with_extra_unbound_ledger_event_still_deferred(self):
+        b, m, l = fixture()
+        l["active_records"].append({"event_id": "p2c:ALT", "source_id": "other-source", "payload_digest": X})
+        out = assess(b, m, l)
+        self.assertEqual("DEFER_UNVERIFIED_EVIDENCE", out["status"])
+        self.assertFalse(out["can_write_plan"])
+
+    def test_65_native_p2c_opportunity_version_mismatch_even_unmigrated(self):
+        b, m, l = fixture()
+        b["p2c"]["opportunities"][0]["plan_version"] = 9
+        with self.assertRaisesRegex(ValueError, "P2C_OPPORTUNITY_VERSION_MISMATCH"):
+            assess(b, m, l)
+
+
 if __name__ == "__main__":
     unittest.main()
