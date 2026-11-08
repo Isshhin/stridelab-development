@@ -129,20 +129,25 @@ internal fun TracksideFigmaRunningSetup(
                             !available -> "−"
                             else -> ""
                         }
-                        val cellBg=when(code) {
-                            "L" -> Color(0xFFFFFFFF)
-                            "Q" -> Color(0xFFDBF351)
-                            "E" -> Color(0xFF1D240B)
-                            "−" -> Color(0xFF242424)
+                        // Suggestions should never look like locked appointments.
+                        val suggested = !isPinned && code in setOf("L","Q","E")
+                        val cellBg=when {
+                            suggested -> Color(0xFF252B2B)
+                            code=="L" -> Color(0xFFFFFFFF)
+                            code=="Q" -> Color(0xFFDBF351)
+                            code=="E" -> Color(0xFF1D240B)
+                            code=="−" -> Color(0xFF242424)
                             else -> Color(0xFF171717)
                         }
-                        val cellBorder=when(code) {
-                            "L" -> Color.White
-                            "Q" -> Color(0xFFDBF351)
-                            "E" -> Color(0xFFDBF351)
-                            "−" -> Color(0xFF383838)
+                        val cellBorder=when {
+                            suggested -> weekOutline
+                            code=="L" -> Color.White
+                            code=="Q" -> Color(0xFFDBF351)
+                            code=="E" -> Color(0xFFDBF351)
+                            code=="−" -> Color(0xFF383838)
                             else -> Color(0xFF383838)
                         }
+                        // Color distinguishes suggestion versus pinned session.
                         Column(Modifier.width(46.dp),
                             horizontalAlignment=Alignment.CenterHorizontally) {
                             Text(DayOfWeek.of(day).name.take(3),
@@ -168,7 +173,7 @@ internal fun TracksideFigmaRunningSetup(
                             ) {
                                 Box(contentAlignment=Alignment.Center) {
                                     if(code.isNotBlank()) Text(code,
-                                        color=if(code=="L") Color(0xFF242424)
+                                        color=if(code=="L" && isPinned) Color(0xFF242424)
                                             else if(code=="−") Color(0xFFDBF351)
                                             else weekWhite,
                                         fontSize=15.sp,fontWeight=FontWeight.Bold)
@@ -221,10 +226,21 @@ internal fun TracksideFigmaRunningSetup(
             border=BorderStroke(1.dp,weekOutline)
         ) {
             Column(Modifier.padding(13.dp)) {
-                Text(if(pinned!=null) "Pinned by you ◆" else "Suggested · Pin your days ◆",
+                Text(when {
+                        pinned != null -> "Pinned by you ◆"
+                        custom -> "Suggested · pins on Continue"
+                        else -> "Suggested · coach decides"
+                    },
                     color=weekWhite,fontSize=12.sp,fontWeight=FontWeight.Bold)
                 Spacer(Modifier.height(10.dp))
-                Text("Tap any day to edit or remove its session. Pinned choices are saved and cannot be moved silently.",
+                Text(when {
+                        pinned != null ->
+                            "Pinned days are fixed. Reduce the run count carefully: extra quality or easy sessions may be removed."
+                        custom ->
+                            "These are suggestions. Continuing with Choose my days saves them as fixed weekday pins."
+                        else ->
+                            "These are suggestions, not appointments. The coach schedules flexible runs, but still honors preferred long-run and quality days."
+                    },
                     color=weekMuted,fontSize=10.5f.sp,lineHeight=14.sp)
             }
         }
@@ -369,7 +385,7 @@ internal fun TracksideFigmaRunningSetup(
                 Text("Quality style is advisory until supported by the active coaching engine. Exact pinned weekdays are enforced.",
                     fontSize=10.sp,lineHeight=14.sp,color=weekMuted)
             } else {
-                Text("The coach will schedule sessions on your available days. Choose my days to pin an exact day.",
+                Text("The coach places flexible runs on available days; preferred long and quality days remain constraints. The generated draft shows final dates. Choose my days to pin exact weekdays.",
                     fontSize=11.sp,lineHeight=16.sp,color=weekMuted)
             }
         }
