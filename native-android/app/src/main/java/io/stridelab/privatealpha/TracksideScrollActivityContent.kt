@@ -1234,7 +1234,7 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, account: S
             }
         }
     }
-    val zones by zonesState
+    val zones = zonesState.value
     val colors = listOf(
         Color(0xFF9FABBA), Color(0xFF79C9B3), activityLime,
         Color(0xFFFFBE7A), Color(0xFFFF8C87)
