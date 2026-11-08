@@ -57,7 +57,19 @@ internal object WeeklyPlacement {
     fun resize(p: PlanRequest, discipline: String, newCount: Int): PlanRequest {
         require(discipline in disciplines && newCount >= 0)
         val original = days(p, discipline)
-        val slots = (original.take(newCount) + List(newCount) { 0 }).take(newCount)
+        // Reduce session roles, not arbitrary calendar days. Slot 0 is always
+        // the long run. If a lower run count reduces permitted quality work,
+        // discard the extra quality slot before discarding an existing easy run.
+        // Otherwise a pinned easy day can silently become a different workout.
+        val retained = if (discipline == "run" && newCount < original.size) {
+            val qualityToKeep = p.qualityCount.coerceAtMost((newCount - 2).coerceAtLeast(0))
+            val easyToKeep = (newCount - (if (newCount > 0) 1 else 0) -
+                qualityToKeep).coerceAtLeast(0)
+            original.take(if (newCount > 0) 1 else 0) +
+                original.drop(1).take(qualityToKeep) +
+                original.drop(1 + p.qualityCount).take(easyToKeep)
+        } else original.take(newCount)
+        val slots = (retained + List(newCount) { 0 }).take(newCount)
         val updated = when(discipline) {
             "run" -> p.copy(runDays=newCount,
                 qualityCount=p.qualityCount.coerceAtMost((newCount-2).coerceAtLeast(0)))
