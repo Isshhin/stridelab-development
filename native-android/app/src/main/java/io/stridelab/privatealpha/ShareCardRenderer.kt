@@ -28,8 +28,10 @@ internal object ShareCardRenderer {
         val h=state.ratio.height.toFloat()
         return when(state.template) {
             ShareTemplate.ROUTE -> ShareCardGeometry(RectF(72f,max(260f,h*.21f),1008f,h*.68f),h*.71f,(h*.91f-h*.71f)/3f)
-            ShareTemplate.STATS -> ShareCardGeometry(RectF(565f,h*.65f,1008f,h*.89f),260f,(h*.61f-260f)/3f)
-            ShareTemplate.MINIMAL -> ShareCardGeometry(RectF(200f,h*.46f,880f,h*.70f),h*.73f,(h*.91f-h*.73f)/2f)
+            ShareTemplate.STATS -> ShareCardGeometry(
+                RectF(720f,max(275f,h*.19f),1008f,h*.36f),h*.41f,(h*.90f-h*.41f)/4f)
+            ShareTemplate.MINIMAL -> ShareCardGeometry(
+                RectF(205f,h*.28f,875f,h*.61f),h*.82f,(h*.94f-h*.82f)/2f)
         }
     }
 
@@ -84,24 +86,56 @@ internal object ShareCardRenderer {
                 val row=if(i==0) 0 else 1+(i-1)/2
                 val x=if(i==0) 72f else 72f+((i-1)%2)*490f
                 val y=g.statsTop+row*g.rowHeight+g.rowHeight*.54f
-                stat(metric,x,y,g.rowHeight*(if(i==0) .65f else .48f),g.rowHeight*.16f,if(i==0) 920f else 440f,i==0)
+                stat(metric,x,y,g.rowHeight*(if(i==0) .83f else .48f),
+                    g.rowHeight*.16f,if(i==0) 920f else 440f,i==0)
             }
-            ShareTemplate.STATS -> fields.forEachIndexed { i,metric ->
-                val x=72f+(i%2)*490f; val y=g.statsTop+(i/2)*g.rowHeight+g.rowHeight*.55f
-                stat(metric,x,y,g.rowHeight*(if(i==0) .60f else .46f),g.rowHeight*.15f,440f,i==0)
+            ShareTemplate.STATS -> fields.take(4).forEachIndexed { i,metric ->
+                val y=g.statsTop+i*g.rowHeight+g.rowHeight*.56f
+                stat(metric,72f,y,min(122f,g.rowHeight*.53f),
+                    max(20f,g.rowHeight*.14f),910f,i==0)
+                if(i<3 && !state.transparent) {
+                    paint.color=0xFF27322B.toInt(); paint.strokeWidth=2f
+                    val bottom=g.statsTop+(i+1)*g.rowHeight-12f
+                    canvas.drawLine(72f,bottom,1008f,bottom,paint)
+                }
             }
             ShareTemplate.MINIMAL -> {
-                fields.firstOrNull()?.let { stat(it,100f,state.ratio.height*.36f,128f,24f,880f,true) }
-                fields.drop(1).forEachIndexed { i,metric ->
-                    val x=100f+(i%2)*470f; val y=g.statsTop+(i/2)*g.rowHeight+g.rowHeight*.48f
-                    stat(metric,x,y,g.rowHeight*.42f,g.rowHeight*.14f,420f)
+                fields.firstOrNull()?.let { metric ->
+                    stat(metric,72f,g.statsTop,min(175f,state.ratio.height*.15f),
+                        24f,936f,false)
+                }
+                fields.drop(1).take(3).forEachIndexed { i,metric ->
+                    val x=72f+i*310f
+                    val y=state.ratio.height*.925f
+                    stat(metric,x,y,min(49f,state.ratio.height*.047f),
+                        20f,290f)
                 }
             }
         }
-        if(!state.transparent) text(if(state.routeMode==ShareRouteMode.HIDDEN) "ROUTE HIDDEN · FULL ACTIVITY STATS" else "ROUTE TRIMMED · FULL ACTIVITY STATS",56f,state.ratio.height-80f,20f,ShareCardPalette.MUTED)
-        val brandSize=when(state.branding) { ShareBranding.MINIMAL->22f; ShareBranding.SUBTLE->27f; ShareBranding.STANDARD->34f }
-        if(!state.transparent) text("STRIDELAB",56f,state.ratio.height-40f,brandSize,ShareCardPalette.MUTED,true)
-        if(!state.transparent && state.branding==ShareBranding.STANDARD) text("EVERY STRIDE COUNTS",540f,state.ratio.height-40f,22f,ShareCardPalette.MUTED,maxWidth=484f)
+        // Privacy status belongs to the editor UI, not the shareable image.
+        // No route-trim indicator, original endpoint or editor chrome is exported.
+        if(!state.transparent && state.template==ShareTemplate.STATS) {
+            paint.shader=null; paint.color=ShareCardPalette.LIME; paint.style=Paint.Style.FILL
+            canvas.drawRect(0f,state.ratio.height-90f,1080f,
+                state.ratio.height.toFloat(),paint)
+            text("STRIDELAB",56f,state.ratio.height-34f,28f,ShareCardPalette.BLACK,true)
+            text("RUN LOG",856f,state.ratio.height-34f,22f,
+                ShareCardPalette.BLACK,true,maxWidth=160f)
+        } else {
+            val brandSize=when(state.branding) {
+                ShareBranding.MINIMAL->22f
+                ShareBranding.SUBTLE->27f
+                ShareBranding.STANDARD->34f
+            }
+            if(!state.transparent) {
+                text("STRIDELAB",56f,state.ratio.height-40f,
+                    brandSize,ShareCardPalette.MUTED,true)
+                if(state.branding==ShareBranding.STANDARD) {
+                    text("EVERY STRIDE COUNTS",540f,state.ratio.height-40f,
+                        22f,ShareCardPalette.MUTED,maxWidth=484f)
+                }
+            }
+        }
         return bitmap
     }
 
