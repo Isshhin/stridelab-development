@@ -1022,10 +1022,14 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                     activity.id.startsWith("garmin-") &&
                     activity.id !in mutable.value.cachedDetailIds
             }
-            if (pageLimit == 100) garminSyncPreferences.acknowledgeManualGarminSync(account)
+            // A partial/interrupted provider check is not a successful sync.
+            // Keep already saved summary pages, but do not suppress retries or
+            // trigger automatic cloud backup based on a false completion stamp.
+            if (pageLimit == 100 && interruption == null)
+                garminSyncPreferences.acknowledgeManualGarminSync(account)
             GarminConnectionStatus(
                 state = "connected",
-                lastSuccessfulSync = java.time.Instant.now(),
+                lastSuccessfulSync = if (interruption == null) java.time.Instant.now() else null,
                 importedCount = imported,
                 error = interruption ?: if (recoverableFitFailures)
                     "Some Garmin recordings could not be verified or stored. Open a missing activity and tap Load Garmin recording to retry."
