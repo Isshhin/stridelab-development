@@ -2,6 +2,11 @@
 package io.stridelab.privatealpha
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -82,23 +87,34 @@ import org.json.JSONObject
     val actualText=input.optString(prefix+if(ex.seconds!=null)"seconds" else "reps")
     val confirmation=actualText.ifBlank { (ex.seconds ?: ex.reps).toString() }
     val unit=if(ex.seconds!=null)"seconds" else "reps"
-    Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background,contentColor=MaterialTheme.colorScheme.onBackground) {
+    Surface(Modifier.fillMaxSize(),color=StrideWorkoutVisuals.black,contentColor=StrideWorkoutVisuals.white) {
     Column(Modifier.fillMaxSize().testTag("workout-player").semantics { paneTitle="Guided workout" }) {
-        Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),verticalAlignment=Alignment.CenterVertically) {
-            TextButton(onClick=onBack) { Text("Leave workout") }
-            Spacer(Modifier.weight(1f))
-            TextButton(onClick=onReview,modifier=Modifier.testTag("workout-review")) { Text("Review & finish") }
+        Row(Modifier.fillMaxWidth().padding(horizontal=10.dp),verticalAlignment=Alignment.CenterVertically) {
+            IconButton(onClick=onBack,modifier=Modifier.size(48.dp)) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack,"Leave workout",tint=StrideWorkoutVisuals.white)
+            }
+            Text("Guided Workout",style=MaterialTheme.typography.titleMedium,
+                color=StrideWorkoutVisuals.white,modifier=Modifier.weight(1f))
+            TextButton(onClick=onReview,modifier=Modifier.heightIn(min=48.dp).testTag("workout-review")) {
+                Text("Review & finish",color=StrideWorkoutVisuals.lime)
+            }
         }
-        LinearProgressIndicator(progress={recorded.toFloat()/total.coerceAtLeast(1)},modifier=Modifier.fillMaxWidth().padding(horizontal=22.dp).semantics { contentDescription="$recorded of $total sets recorded" })
+        LinearProgressIndicator(
+            progress={recorded.toFloat()/total.coerceAtLeast(1)},
+            color=StrideWorkoutVisuals.lime,
+            trackColor=StrideWorkoutVisuals.divider,
+            modifier=Modifier.fillMaxWidth().padding(horizontal=22.dp)
+                .semantics { contentDescription="$recorded of $total sets recorded" }
+        )
         LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("screen"),state=playerScroll,contentPadding=PaddingValues(22.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
             item {
-                Text("EXERCISE ${index+1} OF ${exercises.size}",color=disciplineColor(session.discipline),style=MaterialTheme.typography.labelLarge)
-                Text(ex.name,style=MaterialTheme.typography.headlineLarge,modifier=Modifier.testTag("player-exercise").semantics { heading() })
+                Text("EXERCISE ${index+1} OF ${exercises.size}",color=StrideWorkoutVisuals.lime,style=MaterialTheme.typography.labelMedium)
+                Text(ex.name,fontSize=30.sp,lineHeight=36.sp,color=StrideWorkoutVisuals.white,modifier=Modifier.testTag("player-exercise").semantics { heading() })
                 Text("Set $set of ${count(ex)} · ${ex.equipment}",style=MaterialTheme.typography.bodyLarge)
             }
             if(resting) {
-                item { SignalCard(Modifier.testTag("player-rest")) {
-                    Text(if(restSeconds>0)"TAKE A BREATHER" else "READY WHEN YOU ARE",color=MaterialTheme.colorScheme.primary,style=MaterialTheme.typography.labelLarge)
+                item { StrideWorkoutSection("Recovery",Modifier.testTag("player-rest")) {
+                    Text(if(restSeconds>0)"TAKE A BREATHER" else "READY WHEN YOU ARE",color=StrideWorkoutVisuals.lime,style=MaterialTheme.typography.labelLarge)
                     Text("${restSeconds/60}:${(restSeconds%60).toString().padStart(2,'0')}",style=MaterialTheme.typography.displayLarge,modifier=Modifier.semantics { contentDescription="$restSeconds seconds rest remaining" })
                     Text("Set recorded. ${if(set<count(ex))"Next: set ${set+1} of ${count(ex)}" else if(index<exercises.lastIndex)"Up next: ${exercises[index+1].name}" else "Next: review your workout"}",style=MaterialTheme.typography.bodyLarge)
                     Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -108,8 +124,8 @@ import org.json.JSONObject
                     Text("The timer pauses when you leave the app. Continue when you feel ready.",style=MaterialTheme.typography.bodySmall)
                 } }
             } else {
-                item { SignalCard {
-                    Text("${ex.seconds ?: ex.reps}",style=MaterialTheme.typography.displayLarge,color=MaterialTheme.colorScheme.primary)
+                item { StrideWorkoutSection("Planned target") {
+                    Text("${ex.seconds ?: ex.reps}",style=MaterialTheme.typography.displayLarge,color=StrideWorkoutVisuals.white)
                     Text(if(ex.seconds!=null)"SECOND HOLD · PLANNED TARGET" else "REPETITIONS · PLANNED TARGET",style=MaterialTheme.typography.labelLarge)
                     Text(ex.cue,style=MaterialTheme.typography.bodyLarge)
                     if(exactImage && guide!=null)LibraryImage(guide,compact=true)
@@ -124,7 +140,7 @@ import org.json.JSONObject
                     }
                 } }
                 item {
-                    if(saved!=null)Text("Set saved · ${saved.seconds ?: saved.reps ?: "Not recorded"} $unit${saved.kg?.let { " · $it kg" } ?: ""}",color=MaterialTheme.colorScheme.primary,modifier=Modifier.testTag("player-set-saved"))
+                    if(saved!=null)Text("Set saved · ${saved.seconds ?: saved.reps ?: "Not recorded"} $unit${saved.kg?.let { " · $it kg" } ?: ""}",color=StrideWorkoutVisuals.lime,modifier=Modifier.testTag("player-set-saved"))
                     else Text("Confirm only the reps or hold you actually performed. You can enter a different value.",style=MaterialTheme.typography.bodyMedium)
                 }
                 item { Text(if(index<exercises.lastIndex)"UP NEXT · ${exercises[index+1].name}" else "LAST EXERCISE · Review your actual workout when ready",style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -135,19 +151,23 @@ import org.json.JSONObject
             }
             (error ?: saveNotice)?.let { item { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.semantics { liveRegion=LiveRegionMode.Polite }) } }
         }
-        Surface(tonalElevation=3.dp) { Column(Modifier.padding(horizontal=22.dp,vertical=12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+        Surface(color=StrideWorkoutVisuals.black) {
+            Column(Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=12.dp),
+                verticalArrangement=Arrangement.spacedBy(10.dp)) {
+            HorizontalDivider(color=StrideWorkoutVisuals.divider)
+            Spacer(Modifier.height(2.dp))
             // Stable touch targets: image decoding and scrolling must not move these controls.
             if(!resting)Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick={holdRunning=false;showGuide=true},modifier=Modifier.weight(1f).heightIn(min=48.dp)) { Text("Form guide") }
                 OutlinedButton(onClick={if(saved!=null)onReview()else editing=true},modifier=Modifier.weight(1f).heightIn(min=48.dp),enabled=!busy&&waitingForSave==null) { Text(if(saved!=null)"Review set" else "Adjust set") }
             }
-            SignalButton(if(resting) { if(restSeconds>0)"Finish rest & continue" else "Continue" } else if(saved!=null)"Continue to next set" else if(busy||waitingForSave!=null)"Saving set…" else "Confirm $confirmation $unit & rest",{
+            StrideWorkoutPrimaryButton(if(resting) { if(restSeconds>0)"Finish rest & continue" else "Continue" } else if(saved!=null)"Continue to next set" else if(busy||waitingForSave!=null)"Saving set…" else "Confirm $confirmation $unit & rest",{
                 if(resting||saved!=null)advance() else {saveNotice=null;observedSaving=false;savingRevision=session.logRevision;waitingForSave="${ex.id}|$set";holdRunning=false;if(!onConfirm(ex,set))waitingForSave=null}
             },!busy&&(waitingForSave==null||resting))
         } }
     }
     }
-    if(editing)ModalBottomSheet(onDismissRequest={editing=false},sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true)) {
+    if(editing)ModalBottomSheet(onDismissRequest={editing=false},sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),containerColor=StrideWorkoutVisuals.card,contentColor=StrideWorkoutVisuals.white) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal=22.dp).padding(bottom=32.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
             Text("Your actual set",style=MaterialTheme.typography.headlineMedium)
             Text("${ex.name} · set $set",style=MaterialTheme.typography.titleMedium)
@@ -158,7 +178,7 @@ import org.json.JSONObject
             SignalButton("Use these values",{editing=false})
         }
     }
-    if(showGuide)ModalBottomSheet(onDismissRequest={showGuide=false},sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true)) {
+    if(showGuide)ModalBottomSheet(onDismissRequest={showGuide=false},sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),containerColor=StrideWorkoutVisuals.card,contentColor=StrideWorkoutVisuals.white) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal=22.dp).padding(bottom=32.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
             Text(ex.name,style=MaterialTheme.typography.headlineMedium)
             Text(ex.equipment,style=MaterialTheme.typography.labelLarge)
