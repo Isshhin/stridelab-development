@@ -15,19 +15,56 @@ concurrency:
 
 jobs:
   android-unit-and-build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # Use the user's Windows runner; do not spend hosted-runner minutes.
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - name: Check out exact source revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify source and local Android SDK
+        shell: powershell
+        run: |
+          $Head = (git rev-parse HEAD).Trim()
+          if ($Head -ne $env:GITHUB_SHA) { throw "Checkout does not match the requested source revision" }
+          Write-Host "Verifying StrideLab revision: $Head"
+
+          $Sdk = if ($env:ANDROID_HOME -and (Test-Path "$env:ANDROID_HOME\platforms\android-36")) {
+            $env:ANDROID_HOME
+          } else {
+            "$env:LOCALAPPDATA\Android\Sdk"
+          }
+          if (!(Test-Path "$Sdk\platforms\android-36")) { throw "Android 36 compile SDK not found at $Sdk" }
+          if (!(Test-Path "$Sdk\build-tools\35.0.0")) { throw "Android build-tools 35.0.0 not found at $Sdk" }
+          "ANDROID_HOME=$Sdk" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "ANDROID_SDK_ROOT=$Sdk" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v4
-      - run: sdkmanager --install 'platforms;android-36' 'build-tools;35.0.0'
-      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-      - name: Run JVM regression suite and compile debug APK
-        working-directory: native-android
-        run: gradle --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
+
+      - name: Run all Android JVM tests and compile debug APK
+        shell: powershell
+        run: |
+          gradle --no-daemon --stacktrace -p native-android :app:testDebugUnitTest :app:assembleDebug --console=plain
+          if ($LASTEXITCODE -ne 0) { throw "Gradle unit tests or debug APK compilation failed" }
+
+      - name: Retain regression test and build reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stridelab-wave12-windows-reports-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            native-android/app/build/test-results/testDebugUnitTest/
+            native-android/app/build/reports/tests/testDebugUnitTest/
