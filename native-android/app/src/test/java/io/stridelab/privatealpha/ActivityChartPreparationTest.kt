@@ -44,8 +44,8 @@ class ActivityChartPreparationTest {
             ActivityChartPreparation.prepare(samples,"Pace",pauses)
         )
         assertEquals(7,result.validSamples.size)
-        assertEquals(2,result.pausedMetricSamples.size)
-        assertTrue(result.pausedDrawSamples.size <= result.pausedMetricSamples.size)
+        // The pause remains a real source discontinuity even when its
+        // amber overlays are no longer drawn in Activity Detail.
         result.displaySegments.forEach { section ->
             section.zipWithNext().forEach { (a,b) ->
                 assertTrue(b.seconds-a.seconds <= 120.0)

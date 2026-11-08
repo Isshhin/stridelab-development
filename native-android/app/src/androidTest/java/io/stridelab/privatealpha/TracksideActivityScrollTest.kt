@@ -389,7 +389,7 @@ class TracksideActivityScrollTest {
         compose.onNodeWithText("Link run").assertExists()
     }
 
-    @Test fun overviewSurfacesOnlyRecordedEvidenceDuringTimerPauses() {
+    @Test fun overviewKeepsPauseDataWithoutLegacyTimerPausePanel() {
         val activity = ActivityRecord(
             "synthetic-paused-run", "Paused Run", "run", "manual",
             Instant.parse("2026-11-06T10:38:00Z"), 4000.0, 1500.0,
@@ -426,19 +426,9 @@ class TracksideActivityScrollTest {
             }
         }
         compose.onNodeWithTag("activity-sheet-handle").performClick()
-        compose.waitUntil(timeoutMillis = 5000) {
-            compose.onAllNodesWithTag("activity-pause-summary")
-                .fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithTag("activity-pause-summary").assertExists()
-        compose.onNodeWithText("Paused time").assertExists()
-        compose.onNodeWithText("1 timer pause").assertExists()
-        compose.onNodeWithText(
-            "2 source samples were still recorded during pauses · 2 GPS · 2 HR · 2 cadence."
-        ).assertExists()
-        compose.onNodeWithText(
-            "Only source-recorded values are shown. Missing paused data is not reconstructed."
-        ).assertExists()
+        compose.onNodeWithTag("activity-section-overview").assertExists()
+        compose.onNodeWithTag("activity-pause-summary").assertDoesNotExist()
+        compose.onNodeWithText("Paused time").assertDoesNotExist()
     }
 
     @Test fun mapKeepsRecordedPauseFixesWithoutSpecialDotLegend() {

@@ -1,6 +1,7 @@
 package io.stridelab.privatealpha
 
 import android.provider.Settings
+import android.graphics.Bitmap
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
@@ -17,6 +18,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -107,6 +112,32 @@ internal fun unifiedTrainingDays(
     }
 }
 
+/**
+ * Bounded, nearby-date preview requests. Pages of old history can be large,
+ * but only the visible date and a small prefetch neighborhood request WebPs.
+ * Source aliases remain valid candidates for a grouped recorded activity.
+ */
+internal fun timelineThumbnailRequestIds(
+    days: List<UnifiedTrainingDay>,
+    nearbyIndices: List<Int>,
+    cachedDetailIds: Set<String>,
+    limit: Int = 48
+): List<String> {
+    require(limit in 1..48)
+    return nearbyIndices.asSequence()
+        .flatMap { ((it - 2)..(it + 1)).asSequence() }
+        .distinct()
+        .filter { it in days.indices }
+        .flatMap { index -> days[index].activities.asSequence() }
+        .flatMap { group ->
+            sequenceOf(group.primary.id) + group.additionalSources.asSequence().map { it.id }
+        }
+        .distinct()
+        .filter { it in cachedDetailIds }
+        .take(limit)
+        .toList()
+}
+
 /** Only actual dated training records introduce a month heading. */
 internal fun unifiedTimelineMonthHeading(
     days: List<UnifiedTrainingDay>,
@@ -134,7 +165,8 @@ internal fun StrideLabUnifiedTrainingTimeline(
     onOpenWorkout: (String, String) -> Unit,
     onOpenActivity: (String) -> Unit,
     onSignIn: () -> Unit,
-    onManage: (String, LocalDate) -> Unit
+    onManage: (String, LocalDate) -> Unit,
+    onEnsureCachedThumbnail: (String) -> Unit = {}
 ) {
     val account = state.account
     val plans = if (account == null) emptyList() else state.plans
@@ -171,6 +203,24 @@ internal fun StrideLabUnifiedTrainingTimeline(
     }
     val todayIndex = days.indexOfFirst { it.date == today }.coerceAtLeast(0)
     val scroll = rememberLazyListState(initialFirstVisibleItemIndex = todayIndex)
+    // Prefetch small, already-saved WebPs for the dates nearest the viewport.
+    // We do not read/parse 20k-sample activity details for Training cards.
+    // Unlike eager whole-history loading, this stays bounded as pages grow.
+    val nearbyIndices by remember(scroll, todayIndex) {
+        derivedStateOf {
+            scroll.layoutInfo.visibleItemsInfo.map { it.index }
+                .ifEmpty { listOf(todayIndex) }
+        }
+    }
+    LaunchedEffect(account, nearbyIndices, state.cachedDetailIds, days) {
+        if(account != null) {
+            timelineThumbnailRequestIds(
+                days, nearbyIndices, state.cachedDetailIds
+            ).forEach { id ->
+                if(id !in state.gpsThumbnails) onEnsureCachedThumbnail(id)
+            }
+        }
+    }
     // Re-center when the Training tab is entered again. Keep the position
     // while this screen remains open so scrolling into history still works.
     var initialAnchorSet by remember(account, today, active?.id) {
@@ -291,13 +341,16 @@ internal fun StrideLabUnifiedTrainingTimeline(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             day.activities.forEach { group ->
-                                val cached = state.details[group.primary.id]
+                                // Prefer a resident WebP from any linked source.
+                                // Both Today and Training now render the same
+                                // persisted account-owned thumbnail bitmap.
+                                val cachedImage = state.gpsThumbnails[group.primary.id]
                                     ?: group.additionalSources.firstNotNullOfOrNull {
-                                        state.details[it.id]
+                                        state.gpsThumbnails[it.id]
                                     }
                                 TimelineRecordedCard(
                                     activity = group.primary,
-                                    cachedDetail = cached,
+                                    cachedThumbnail = cachedImage,
                                     onClick = { onOpenActivity(group.primary.id) }
                                 )
                             }
@@ -484,7 +537,7 @@ internal fun timelineRecordedMetrics(activity: ActivityRecord): Pair<String, Str
 @Composable
 private fun TimelineRecordedCard(
     activity: ActivityRecord,
-    cachedDetail: ActivityDetail?,
+    cachedThumbnail: Bitmap?,
     onClick: () -> Unit
 ) {
     val type = activity.type.lowercase(Locale.ROOT)
@@ -510,9 +563,8 @@ private fun TimelineRecordedCard(
         else -> R.drawable.trackside_discipline_conditioning
     }
     val (primary, secondary) = timelineRecordedMetrics(activity)
-    val gps = remember(cachedDetail) {
-        cachedDetail?.let { RecordedGpsRoute.from(it.samples) }
-            ?.takeIf { it.pointCount >= 2 }
+    val previewBitmap = remember(cachedThumbnail) {
+        cachedThumbnail?.asImageBitmap()
     }
     Surface(
         onClick = onClick,
@@ -587,8 +639,13 @@ private fun TimelineRecordedCard(
                 // not this recorded activity has a genuine cached GPS route.
                 // Empty space is intentional; never fabricate a route preview.
                 Box(Modifier.size(width = 55.dp, height = 52.dp)) {
-                    if (gps != null) {
-                        TodayCompactGpsThumbnail(gps, modifier = Modifier.fillMaxSize())
+                    if (previewBitmap != null) {
+                        Image(
+                            bitmap = previewBitmap,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
                     }
                 }
             }

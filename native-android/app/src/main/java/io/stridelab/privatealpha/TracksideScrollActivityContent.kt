@@ -407,8 +407,17 @@ internal fun TracksideActivityContinuousSections(
             pendingSection = index
             onTab(index)
             scope.launch {
-                try { listState.animateScrollToItem(sectionOffset[index]) }
-                finally { pendingSection = null }
+                try {
+                    val target = sectionOffset[index]
+                    // Avoid animating through dozens of split rows and
+                    // composing every intermediate item just to reach Charts.
+                    // The lime section indicator still animates normally.
+                    if (abs(target - listState.firstVisibleItemIndex) > 8)
+                        listState.scrollToItem(target)
+                    else listState.animateScrollToItem(target)
+                } finally {
+                    pendingSection = null
+                }
             }
         }
         BoxWithConstraints(Modifier.weight(1f)) {
@@ -504,8 +513,7 @@ internal fun TracksideActivityContinuousSections(
                             "Pace", "/km", recorded.samples, preparedCharts["Pace"],
                             "Pace" !in preparedCharts, { it.pace }, pace = true,
                             selectedSeconds = selectedSeconds,
-                            onSelectSeconds = onSelectSeconds,
-                            pauseIntervals = recorded.pauseIntervals
+                            onSelectSeconds = onSelectSeconds
                         )
                     }
                 if (chartAvailability.heartRate)
@@ -514,8 +522,7 @@ internal fun TracksideActivityContinuousSections(
                             "Heart rate", "bpm", recorded.samples, preparedCharts["Heart rate"],
                             "Heart rate" !in preparedCharts, { it.hr },
                             selectedSeconds = selectedSeconds,
-                            onSelectSeconds = onSelectSeconds,
-                            pauseIntervals = recorded.pauseIntervals
+                            onSelectSeconds = onSelectSeconds
                         )
                     }
                 if (chartAvailability.heartRate)
@@ -528,8 +535,7 @@ internal fun TracksideActivityContinuousSections(
                             "Elevation", "m", recorded.samples, preparedCharts["Elevation"],
                             "Elevation" !in preparedCharts, { it.altitude },
                             selectedSeconds = selectedSeconds,
-                            onSelectSeconds = onSelectSeconds,
-                            pauseIntervals = recorded.pauseIntervals
+                            onSelectSeconds = onSelectSeconds
                         )
                     }
                 if (chartAvailability.cadence)
@@ -538,8 +544,7 @@ internal fun TracksideActivityContinuousSections(
                             "Cadence", "spm", recorded.samples, preparedCharts["Cadence"],
                             "Cadence" !in preparedCharts, { it.cadenceSpm },
                             selectedSeconds = selectedSeconds,
-                            onSelectSeconds = onSelectSeconds,
-                            pauseIntervals = recorded.pauseIntervals
+                            onSelectSeconds = onSelectSeconds
                         )
                     }
             }
@@ -638,10 +643,6 @@ private fun TracksideActivityOverviewBody(
             Spacer(Modifier.height(15.dp))
         }
         TracksideActivitySummary(activity)
-        if (recorded != null && recorded.pauseIntervals.isNotEmpty()) {
-            Spacer(Modifier.height(12.dp))
-            TracksideActivityPauseSummary(recorded)
-        }
         if (activity.source == "garmin" && detailSource.id == activity.id &&
             (recorded == null || missingSavedCadence)) {
             Spacer(Modifier.height(12.dp))
@@ -685,83 +686,6 @@ private fun TracksideActivityOverviewBody(
                 insightPresentation, descriptor = workoutCharacter
             )
         }
-    }
-}
-
-private data class ActivityPauseEvidence(
-    val pauseCount: Int,
-    val totalSeconds: Double,
-    val sourceSamples: Int,
-    val gpsFixes: Int,
-    val heartRateSamples: Int,
-    val cadenceSamples: Int
-)
-
-@Composable
-private fun TracksideActivityPauseSummary(recorded: ActivityDetail) {
-    val evidence = remember(recorded) {
-        val pauses = recorded.pauseIntervals
-        fun paused(seconds: Double): Boolean =
-            pauses.any { seconds >= it.startSeconds && seconds <= it.endSeconds }
-        val duringPause = recorded.samples.filter { paused(it.seconds) }
-        ActivityPauseEvidence(
-            pauseCount = pauses.size,
-            totalSeconds = pauses.sumOf { it.endSeconds - it.startSeconds },
-            sourceSamples = duringPause.size,
-            gpsFixes = duringPause.count { it.latitude != null && it.longitude != null },
-            heartRateSamples = duringPause.count { it.hr != null },
-            cadenceSamples = duringPause.count { it.cadenceSpm != null }
-        )
-    }
-    Column(
-        Modifier.fillMaxWidth()
-            .background(activitySurface, RoundedCornerShape(14.dp))
-            .padding(horizontal = 13.dp, vertical = 12.dp)
-            .testTag("activity-pause-summary"),
-        verticalArrangement = Arrangement.spacedBy(5.dp)
-    ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "Paused time", color = activityText,
-                fontSize = 13.sp, fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                ActivityRecord.duration(evidence.totalSeconds),
-                color = Color(0xFFFFBE7A), fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-        Text(
-            evidence.pauseCount.toString() +
-                (if (evidence.pauseCount == 1) " timer pause" else " timer pauses"),
-            color = activityMuted, fontSize = 10.sp
-        )
-        if (evidence.sourceSamples == 0) {
-            Text(
-                "The FIT file contains no source samples during the paused interval.",
-                color = activityMuted, fontSize = 10.5.sp, lineHeight = 15.sp
-            )
-        } else {
-            val recordedKinds = buildList {
-                if (evidence.gpsFixes > 0) add(evidence.gpsFixes.toString() + " GPS")
-                if (evidence.heartRateSamples > 0) add(evidence.heartRateSamples.toString() + " HR")
-                if (evidence.cadenceSamples > 0) add(evidence.cadenceSamples.toString() + " cadence")
-            }.joinToString(" · ")
-            Text(
-                evidence.sourceSamples.toString() +
-                    " source samples were still recorded during pauses" +
-                    (if (recordedKinds.isNotEmpty()) " · " + recordedKinds else "") + ".",
-                color = activityMuted, fontSize = 10.5.sp, lineHeight = 15.sp
-            )
-        }
-        Text(
-            "Only source-recorded values are shown. Missing paused data is not reconstructed.",
-            color = activityMuted.copy(alpha = .82f), fontSize = 9.5.sp, lineHeight = 14.sp
-        )
     }
 }
 
@@ -1396,8 +1320,7 @@ private fun TracksideActivitySourceChart(
     metric: (ActivitySample) -> Double?,
     pace: Boolean = false,
     selectedSeconds: Double? = null,
-    onSelectSeconds: (Double) -> Unit = {},
-    pauseIntervals: List<ActivityPauseInterval> = emptyList()
+    onSelectSeconds: (Double) -> Unit = {}
 ) {
     if (prepared == null) {
         if (preparing) {
@@ -1418,7 +1341,6 @@ private fun TracksideActivitySourceChart(
         return
     }
     val validSamples = prepared.validSamples
-    val pausedMetricSamples = prepared.pausedMetricSamples
     val low = prepared.lowest
     val high = prepared.highest
     val sampleAverage = prepared.sampleAverage
@@ -1430,7 +1352,6 @@ private fun TracksideActivitySourceChart(
     val firstTime = prepared.firstTime
     val lastTime = prepared.lastTime
     val renderedPoints = prepared.renderedPoints
-    val displayedOutliers = prepared.displayedOutliers
     val selectedPoint = remember(selectedSeconds, renderedPoints, title) {
         selectedSeconds?.let { at ->
             renderedPoints.minByOrNull { abs(it.seconds - at) }
@@ -1479,30 +1400,6 @@ private fun TracksideActivitySourceChart(
             color = activityMuted, fontSize = 10.sp, maxLines = 2,
             modifier = Modifier.testTag("activity-chart-summary-" + title.lowercase().replace(" ", "-"))
         )
-        if (pauseIntervals.isNotEmpty()) {
-            Spacer(Modifier.height(3.dp))
-            Text(
-                "Recorded timer pauses are shown as amber bands.",
-                color = Color(0xFFFFBE7A).copy(alpha = .85f),
-                fontSize = 9.sp, lineHeight = 12.sp,
-                modifier = Modifier.testTag(
-                    "activity-chart-pause-note-" +
-                        title.lowercase(Locale.ROOT).replace(" ", "-")
-                )
-            )
-        }
-        if (displayScale.trimmed) {
-            Spacer(Modifier.height(3.dp))
-            Text(
-                "Scale focuses on typical recorded values; extreme points remain inspectable.",
-                color = activityMuted.copy(alpha = .82f),
-                fontSize = 9.sp, lineHeight = 12.sp,
-                modifier = Modifier.testTag(
-                    "activity-chart-trim-note-" +
-                        title.lowercase(Locale.ROOT).replace(" ", "-")
-                )
-            )
-        }
         if (selectedSeconds != null) {
             Spacer(Modifier.height(4.dp))
             Text(
@@ -1552,36 +1449,11 @@ private fun TracksideActivitySourceChart(
                     contentDescription = title + " recorded chart, " +
                         validSamples.size + " measured points. " +
                         "Average " + valueText(sampleAverage) +
-                        (if (pausedMetricSamples.isNotEmpty())
-                            ". " + pausedMetricSamples.size +
-                                " measurements were recorded during timer pauses"
-                        else "") +
                         ". Drag to inspect values."
                 }
         ) {
             val span = (displayHigh - displayLow).coerceAtLeast(1.0)
             val timeSpan = lastTime - firstTime
-            pauseIntervals.forEach { pause ->
-                val startX = (((pause.startSeconds - firstTime) / timeSpan)
-                    .coerceIn(0.0,1.0) * size.width).toFloat()
-                val endX = (((pause.endSeconds - firstTime) / timeSpan)
-                    .coerceIn(0.0,1.0) * size.width).toFloat()
-                if (endX > startX) {
-                    drawRect(
-                        Color(0xFFFFBE7A).copy(alpha = .08f),
-                        topLeft = Offset(startX,0f),
-                        size = androidx.compose.ui.geometry.Size(endX-startX,size.height)
-                    )
-                    drawLine(
-                        Color(0xFFFFBE7A).copy(alpha = .38f),
-                        Offset(startX,0f),Offset(startX,size.height),1.dp.toPx()
-                    )
-                    drawLine(
-                        Color(0xFFFFBE7A).copy(alpha = .38f),
-                        Offset(endX,0f),Offset(endX,size.height),1.dp.toPx()
-                    )
-                }
-            }
             fun position(sample: ActivitySample, value: Double): Offset {
                 val x = ((sample.seconds - firstTime) / timeSpan * size.width).toFloat()
                 val displayed = value.coerceIn(displayLow, displayHigh)
@@ -1610,36 +1482,22 @@ private fun TracksideActivitySourceChart(
                     floatArrayOf(6.dp.toPx(), 5.dp.toPx())
                 )
             )
+            // One stroked path per genuine source segment is cheaper than
+            // hundreds of individual drawLine calls every time the sheet
+            // animates. No interpolation across missing values or pauses.
             displaySegments.forEach { section ->
-                section.zipWithNext().forEach { (a,b) ->
-                    val av=metric(a)
-                    val bv=metric(b)
-                    if(av != null && bv != null) {
-                        drawLine(lineColor,position(a,av),position(b,bv),
-                            strokeWidth=2.dp.toPx(),cap=StrokeCap.Round)
+                if (section.size >= 2) {
+                    val linePath = Path()
+                    section.forEachIndexed { index, sample ->
+                        val value = metric(sample)
+                        if (value != null) {
+                            val point = position(sample, value)
+                            if (index == 0) linePath.moveTo(point.x, point.y)
+                            else linePath.lineTo(point.x, point.y)
+                        }
                     }
-                }
-            }
-            // Real measurements saved while TIMER was stopped stay visible as
-            // amber evidence points. They are never connected or interpolated.
-            prepared.pausedDrawSamples.forEach { sample ->
-                val value = metric(sample)
-                if (value != null) {
-                    drawCircle(
-                        Color(0xFFFFBE7A).copy(alpha = .92f),
-                        2.6.dp.toPx(),
-                        position(sample, value)
-                    )
-                }
-            }
-            displayedOutliers.forEach { sample ->
-                val value = metric(sample)
-                if (value != null) {
-                    drawCircle(
-                        lineColor.copy(alpha = .36f),
-                        2.2.dp.toPx(),
-                        position(sample, value)
-                    )
+                    drawPath(linePath, lineColor,
+                        style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
                 }
             }
             if(selectedPoint != null && selectedValue != null) {
