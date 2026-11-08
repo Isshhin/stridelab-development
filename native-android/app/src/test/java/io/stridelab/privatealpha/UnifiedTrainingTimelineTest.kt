@@ -192,6 +192,48 @@ class UnifiedTrainingTimelineTest {
         assertEquals("Completed activity" to "", timelineRecordedMetrics(saved))
     }
 
+    @Test fun thumbnailHydrationOnlyRequestsVisibleDatesAndCachedIds() {
+        val yesterday = today.minusDays(1)
+        val days = listOf(
+            UnifiedTrainingDay(
+                yesterday,
+                listOf(DisplayActivity(activity("past", "2026-11-04T10:00:00Z"))),
+                emptyList()
+            ),
+            UnifiedTrainingDay(
+                today,
+                listOf(DisplayActivity(activity("visible", "2026-11-05T18:00:00Z"))),
+                emptyList()
+            )
+        )
+        assertEquals(
+            listOf("visible"),
+            visibleTrainingThumbnailIds(
+                days, listOf(1), setOf("past", "visible"), emptySet()
+            )
+        )
+        assertTrue(visibleTrainingThumbnailIds(
+            days, listOf(1), setOf("past", "visible"), setOf("visible")
+        ).isEmpty())
+    }
+
+    @Test fun thumbnailHydrationIncludesAdditionalSourceAndDeduplicatesIds() {
+        val primary = activity("primary", "2026-11-05T18:00:00Z")
+        val alias = activity("with-gps", "2026-11-05T18:00:01Z")
+        val day = UnifiedTrainingDay(
+            today,
+            listOf(DisplayActivity(primary, listOf(alias))),
+            emptyList()
+        )
+        assertEquals(
+            listOf("primary", "with-gps"),
+            visibleTrainingThumbnailIds(
+                listOf(day), listOf(0,0,42), setOf("primary", "with-gps"),
+                emptySet()
+            )
+        )
+    }
+
     @Test fun twoDistinctRecordedRunsRemainSeparateOnSameDate() {
         val groups = listOf(
             DisplayActivity(activity("run1", "2026-11-06T06:00:00Z")),
