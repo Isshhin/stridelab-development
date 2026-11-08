@@ -66,7 +66,7 @@ internal data class ShareStudioState(
             routeMode=if(value==ShareVariant.PERFORMANCE) ShareRouteMode.PACE else ShareRouteMode.ROUTE,
             metrics=if(value==ShareVariant.SILHOUETTE) setOf(ShareMetric.DISTANCE)
                 else if(sparse) setOf(ShareMetric.TITLE,ShareMetric.DISTANCE,ShareMetric.PACE)
-                else ShareStudioState().metrics + if(template==ShareTemplate.STATS) setOf(ShareMetric.ELEVATION) else emptySet(),
+                else ShareStudioState().metrics, // Four numeric metrics maximum for newly selected posters.
             background=ShareBackground.DARK,
             layout=if(value==ShareVariant.RUN_RECAP || value==ShareVariant.DARK_CLEAN) ShareLayout.COMPACT else ShareLayout.AIRY)
     }
