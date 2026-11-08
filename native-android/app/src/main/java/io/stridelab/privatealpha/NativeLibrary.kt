@@ -194,7 +194,7 @@ internal fun readCuratedLibrary(context: Context): List<LibraryEntry> {
                 outline=StrideWorkoutVisuals.divider
             )) {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal=22.dp).padding(bottom=32.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-                Text(disciplineLabel(entry.discipline)+" · "+entry.text("level"),style=MaterialTheme.typography.labelMedium,color=disciplineColor(entry.discipline))
+                Text(disciplineLabel(entry.discipline)+" · "+entry.text("level"),style=MaterialTheme.typography.labelMedium,color=if(entry.discipline=="run") StrideWorkoutVisuals.lime else disciplineColor(entry.discipline))
                 Text(entry.title,style=MaterialTheme.typography.headlineMedium)
                 LibraryImage(entry)
                 Text(entry.text("eq")+" · "+entry.text("pattern"),color=MaterialTheme.colorScheme.onSurfaceVariant)
