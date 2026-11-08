@@ -12,6 +12,35 @@ class ShareStudioTest {
     private fun detail(samples:List<ActivitySample>, pauses:List<ActivityPauseInterval> = emptyList()) =
         ActivityDetail(activity.id, samples, emptyList(), 0, pauses)
 
+    @Test fun durationIsSourcedFromDurationNotMovingTime() {
+        val stored=activity.copy(durationS=4500.0,movingTimeS=3600.0)
+        val rendered=ShareRenderableActivity.from(stored,null)
+        assertEquals(ActivityRecord.duration(4500.0),rendered.metrics[ShareMetric.DURATION])
+        assertEquals("Duration",ShareMetric.DURATION.label)
+        assertNotEquals(ActivityRecord.duration(3600.0),rendered.metrics[ShareMetric.DURATION])
+    }
+
+    @Test fun onlyExistingNonzeroRoutePrivacyChoicesAreAvailable() {
+        assertEquals(listOf(200.0,400.0,800.0),SharePrivacy.entries.map { it.meters })
+        assertEquals(SharePrivacy.STANDARD,ShareStudioState().privacy)
+        assertFalse(ShareStudioState().transparent)
+    }
+
+    @Test fun performanceFooterIsLimeOnlyForOpaqueExport() {
+        val source=ShareRenderableActivity.from(activity,null)
+        val base=ShareStudioState(ratio=ShareRatio.SQUARE)
+            .selectTemplate(ShareTemplate.STATS).forActivity(source)
+        val opaque=ShareCardRenderer.render(source,base)
+        val transparent=ShareCardRenderer.render(source,base.copy(transparent=true))
+        try {
+            assertEquals(ShareCardPalette.LIME,opaque.getPixel(0,opaque.height-2))
+            assertEquals(0,android.graphics.Color.alpha(
+                transparent.getPixel(0,transparent.height-2)))
+        } finally {
+            opaque.recycle(); transparent.recycle()
+        }
+    }
+
     @Test fun routeModesRequireRecordedGeographicMetricPairs() {
         val render = ShareRenderableActivity.from(activity, detail((0..8).map { sample(it,it*10.0) }))
         assertEquals(setOf(ShareRouteMode.ROUTE, ShareRouteMode.PACE, ShareRouteMode.ELEVATION, ShareRouteMode.HIDDEN), render.availableModes)
