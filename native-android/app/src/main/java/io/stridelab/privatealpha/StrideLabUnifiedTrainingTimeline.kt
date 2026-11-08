@@ -21,12 +21,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -44,6 +46,8 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 
 private object TimelineStyle {
     val background = Color.Black
@@ -107,6 +111,28 @@ internal fun unifiedTrainingDays(
     }
 }
 
+/** Request only small persisted thumbnail images belonging to visible date cards.
+ * A consolidated card can have multiple source IDs; the cache may contain GPS
+ * for an additional source rather than the primary source.
+ */
+internal fun visibleTrainingThumbnailIds(
+    days: List<UnifiedTrainingDay>,
+    visiblePositions: Collection<Int>,
+    cachedDetailIds: Set<String>,
+    loadedThumbnailIds: Set<String>
+): List<String> {
+    val needed = linkedSetOf<String>()
+    for (position in visiblePositions) {
+        val day = days.getOrNull(position) ?: continue
+        for (group in day.activities) {
+            for (id in listOf(group.primary.id) + group.additionalSources.map { it.id }) {
+                if (id in cachedDetailIds && id !in loadedThumbnailIds) needed.add(id)
+            }
+        }
+    }
+    return needed.toList()
+}
+
 /** Only actual dated training records introduce a month heading. */
 internal fun unifiedTimelineMonthHeading(
     days: List<UnifiedTrainingDay>,
@@ -134,7 +160,9 @@ internal fun StrideLabUnifiedTrainingTimeline(
     onOpenWorkout: (String, String) -> Unit,
     onOpenActivity: (String) -> Unit,
     onSignIn: () -> Unit,
-    onManage: (String, LocalDate) -> Unit
+    onManage: (String, LocalDate) -> Unit,
+    onEnsureCachedThumbnail: (String) -> Unit = {},
+    isVisible: Boolean = true
 ) {
     val account = state.account
     val plans = if (account == null) emptyList() else state.plans
@@ -180,6 +208,23 @@ internal fun StrideLabUnifiedTrainingTimeline(
         if (!initialAnchorSet && !state.initializing) {
             scroll.scrollToItem(todayIndex)
             initialAnchorSet = true
+        }
+    }
+    // Only the visible Training page hydrates thumbnails; the retained hidden
+    // tab must not queue work. A short cancellation window prevents loading
+    // every intermediate date during a fast scroll.
+    val requestedThumbnailIds = remember(account) { mutableSetOf<String>() }
+    LaunchedEffect(account, isVisible, days, state.cachedDetailIds, state.initializing) {
+        if (account != null && isVisible && !state.initializing) {
+            snapshotFlow { scroll.layoutInfo.visibleItemsInfo.map { it.index } }
+                .collectLatest { visible ->
+                    delay(120)
+                    visibleTrainingThumbnailIds(
+                        days, visible, state.cachedDetailIds, state.gpsThumbnails.keys
+                    ).forEach { id ->
+                        if (requestedThumbnailIds.add(id)) onEnsureCachedThumbnail(id)
+                    }
+                }
         }
     }
     val context = LocalContext.current
@@ -291,13 +336,13 @@ internal fun StrideLabUnifiedTrainingTimeline(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             day.activities.forEach { group ->
-                                val cached = state.details[group.primary.id]
+                                val preview = state.gpsThumbnails[group.primary.id]
                                     ?: group.additionalSources.firstNotNullOfOrNull {
-                                        state.details[it.id]
+                                        state.gpsThumbnails[it.id]
                                     }
                                 TimelineRecordedCard(
                                     activity = group.primary,
-                                    cachedDetail = cached,
+                                    cachedThumbnail = preview,
                                     onClick = { onOpenActivity(group.primary.id) }
                                 )
                             }
@@ -484,7 +529,7 @@ internal fun timelineRecordedMetrics(activity: ActivityRecord): Pair<String, Str
 @Composable
 private fun TimelineRecordedCard(
     activity: ActivityRecord,
-    cachedDetail: ActivityDetail?,
+    cachedThumbnail: android.graphics.Bitmap?,
     onClick: () -> Unit
 ) {
     val type = activity.type.lowercase(Locale.ROOT)
@@ -510,9 +555,8 @@ private fun TimelineRecordedCard(
         else -> R.drawable.trackside_discipline_conditioning
     }
     val (primary, secondary) = timelineRecordedMetrics(activity)
-    val gps = remember(cachedDetail) {
-        cachedDetail?.let { RecordedGpsRoute.from(it.samples) }
-            ?.takeIf { it.pointCount >= 2 }
+    val thumbnailImage = remember(cachedThumbnail) {
+        cachedThumbnail?.asImageBitmap()
     }
     Surface(
         onClick = onClick,
@@ -583,12 +627,16 @@ private fun TimelineRecordedCard(
                         )
                     }
                 }
-                // Keep an identical row height and metrics width whether or
-                // not this recorded activity has a genuine cached GPS route.
-                // Empty space is intentional; never fabricate a route preview.
+                // Only render the small persisted WebP preview. Never rebuild
+                // GPS geometry from thousands of FIT samples while scrolling.
+                // Missing routes retain the same reserved card dimensions.
                 Box(Modifier.size(width = 55.dp, height = 52.dp)) {
-                    if (gps != null) {
-                        TodayCompactGpsThumbnail(gps, modifier = Modifier.fillMaxSize())
+                    if (thumbnailImage != null) {
+                        androidx.compose.foundation.Image(
+                            bitmap = thumbnailImage,
+                            contentDescription = "Recorded GPS route preview, north up",
+                            modifier = Modifier.fillMaxSize()
+                        )
                     }
                 }
             }
