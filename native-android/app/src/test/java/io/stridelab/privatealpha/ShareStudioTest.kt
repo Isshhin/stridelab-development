@@ -98,4 +98,16 @@ class ShareStudioTest {
     fun futurePresetVersionDoesNotSilentlyEraseStoredDesigns() {
         SharePresetCodec.decode("{\"version\":2,\"presets\":[]}")
     }
+
+    @Test fun extendedOptionsRoundTripWithoutChangingLegacyPresets() {
+        val state=ShareStudioState(transparent=true,typography=ShareTypography.CONDENSED,
+            routeColor=ShareRouteColor.WHITE,stroke=ShareStroke.BOLD,zoom=ShareZoom.CLOSE,
+            position=SharePosition.RIGHT,verticalPosition=ShareVerticalPosition.UP,featuredMetric=ShareMetric.HR)
+        val restored=SharePresetCodec.decode(SharePresetCodec.encode(listOf(SharePreset("x","Style",state)))).single().state
+        assertEquals(state,restored)
+        val old=org.json.JSONObject(SharePresetCodec.encode(listOf(SharePreset("x","Old",ShareStudioState()))))
+        val row=old.getJSONArray("presets").getJSONObject(0)
+        listOf("transparent","typography","routeColor","stroke","zoom","position","verticalPosition","featuredMetric").forEach(row::remove)
+        assertEquals(ShareStudioState(),SharePresetCodec.decode(old.toString()).single().state)
+    }
 }

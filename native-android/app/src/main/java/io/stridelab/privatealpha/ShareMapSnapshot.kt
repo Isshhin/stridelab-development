@@ -34,7 +34,7 @@ internal suspend fun shareMapSnapshot(context:Context, activity:ShareRenderableA
                     val style=Style.Builder().fromUri(TracksideMapTiles.STYLE_URL)
                         .withSource(GeoJsonSource("share-route",activity.route.toGeoJson()))
                         .withLayer(LineLayer("share-route-line","share-route").withProperties(
-                            PropertyFactory.lineColor(ShareCardPalette.LIME),PropertyFactory.lineWidth(8f),
+                            PropertyFactory.lineColor(state.routeColor.color),PropertyFactory.lineWidth(state.stroke.width),
                             PropertyFactory.lineOpacity(1f)))
                         .withSource(GeoJsonSource("share-isolated",activity.route.isolatedGeoJson()))
                         .withLayer(CircleLayer("share-isolated-points","share-isolated").withProperties(
@@ -49,15 +49,18 @@ internal suspend fun shareMapSnapshot(context:Context, activity:ShareRenderableA
                         val colors=ShareCardPalette.colors(state.routeMode)
                         style.withSource(GeoJsonSource("share-analysis",analysis.geoJson))
                             .withLayer(LineLayer("share-analysis-line","share-analysis").withProperties(
-                                PropertyFactory.lineWidth(8f),PropertyFactory.lineColor(Expression.interpolate(
+                                PropertyFactory.lineWidth(state.stroke.width),PropertyFactory.lineColor(Expression.interpolate(
                                     Expression.linear(),Expression.get("value"),
                                     Expression.stop(low,Expression.color(colors[0])),
                                     Expression.stop((low+high)/2,Expression.color(colors[1])),
                                     Expression.stop(high,Expression.color(colors[2]))))))
                     }
+                    val pad=if(state.zoom==ShareZoom.FIT) 70 else 10
+                    val shift=when(state.position) { SharePosition.LEFT -> -50; SharePosition.CENTER -> 0; SharePosition.RIGHT -> 50 }
+                    val vertical=when(state.verticalPosition) { ShareVerticalPosition.UP -> -50; ShareVerticalPosition.CENTER -> 0; ShareVerticalPosition.DOWN -> 50 }
                     snapshotter=MapSnapshotter(context.applicationContext,MapSnapshotter.Options(rect.width().toInt(),rect.height().toInt())
                         .withPixelRatio(1f).withStyleBuilder(style).withRegion(bounds)
-                        .withPadding(70,70,70,70).withLogo(true).withAttribution(true))
+                        .withPadding((pad+shift).coerceAtLeast(0),(pad+vertical).coerceAtLeast(0),(pad-shift).coerceAtLeast(0),(pad-vertical).coerceAtLeast(0)).withLogo(true).withAttribution(true))
                     val active=snapshotter
                     continuation.invokeOnCancellation { active.cancel() }
                     active.start({ snapshot ->
