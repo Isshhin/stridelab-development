@@ -126,7 +126,7 @@ internal fun TracksideManagePlanScreen(
                         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Box(Modifier.size(9.dp).background(
-                                tracksideDisciplineColor(session.discipline), RoundedCornerShape(5.dp)))
+                                planAccent(session.discipline), RoundedCornerShape(5.dp)))
                             Column(Modifier.weight(1f)) {
                                 Text(session.effectiveTitle, style = MaterialTheme.typography.titleSmall,
                                     color = StrideWorkoutVisuals.white, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -255,14 +255,14 @@ private fun TracksidePlanWeekOverview(plan: PlanSnapshot, selected: LocalDate) {
             Row(Modifier.fillMaxWidth().height(8.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                 distribution.forEach { (discipline, rows) ->
                     Box(Modifier.weight(rows.size.toFloat()).height(8.dp)
-                        .background(tracksideDisciplineColor(discipline), RoundedCornerShape(4.dp)))
+                        .background(planAccent(discipline), RoundedCornerShape(4.dp)))
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                 distribution.forEach { (discipline, rows) ->
                     Text(rows.size.toString() + " " + disciplineLabel(discipline),
                         modifier = Modifier.weight(rows.size.toFloat()), maxLines = 2,
-                        color = tracksideDisciplineColor(discipline),
+                        color = planAccent(discipline),
                         style = MaterialTheme.typography.labelSmall)
                 }
             }
@@ -276,7 +276,7 @@ private fun TracksidePlanWeekOverview(plan: PlanSnapshot, selected: LocalDate) {
                             day.byDiscipline.reversed().forEach { (discipline, minutes) ->
                                 val height = (minutes.toFloat() / high * 88f).coerceAtLeast(3f)
                                 Box(Modifier.fillMaxWidth().height(height.dp)
-                                    .background(tracksideDisciplineColor(discipline), RoundedCornerShape(5.dp)))
+                                    .background(planAccent(discipline), RoundedCornerShape(5.dp)))
                             }
                         }
                         Text(day.date.dayOfWeek.name.take(3), style = MaterialTheme.typography.labelSmall,
@@ -302,3 +302,7 @@ private fun TracksideManageAction(
     StridePlanActionRow(title=title,subtitle=subtitle,enabled=enabled,
         modifier=modifier,onClick=onClick)
 }
+
+/** Running adopts the current StrideLab lime; other disciplines keep their meaning. */
+private fun planAccent(discipline:String):Color =
+    if(discipline=="run") StrideWorkoutVisuals.lime else tracksideDisciplineColor(discipline)
