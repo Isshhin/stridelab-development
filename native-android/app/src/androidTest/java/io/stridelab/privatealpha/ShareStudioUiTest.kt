@@ -203,4 +203,20 @@ class ShareStudioUiTest {
             }
         }
     }
+
+    @Test fun transparentPngHasClearBackgroundAndScaledPreview() {
+        val source=ShareRenderableActivity.from(activity,detail)
+        val state=ShareStudioState(ratio=ShareRatio.SQUARE,transparent=true).forActivity(source)
+        val full=ShareCardRenderer.render(source,state)
+        val preview=ShareCardRenderer.render(source,state,width=540)
+        try {
+            assertEquals(0,android.graphics.Color.alpha(full.getPixel(0,0)))
+            assertEquals(540,preview.width)
+            assertEquals(540,preview.height)
+            val bytes=ByteArrayOutputStream()
+            ShareImageExport.writePng(full,bytes)
+            val decoded=BitmapFactory.decodeByteArray(bytes.toByteArray(),0,bytes.size())
+            assertTrue(full.sameAs(decoded)); decoded.recycle()
+        } finally { full.recycle(); preview.recycle() }
+    }
 }

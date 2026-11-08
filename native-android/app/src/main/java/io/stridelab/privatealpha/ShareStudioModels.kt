@@ -30,6 +30,11 @@ internal enum class ShareMetric(val label:String) {
 internal enum class ShareBackground(val label:String) { MAP("Activity Dark Map"), DARK("Clean Dark"), GRADIENT("Soft Gradient") }
 internal enum class ShareBranding(val label:String) { SUBTLE("Subtle"), STANDARD("Standard"), MINIMAL("Minimal") }
 internal enum class SharePrivacy(val label:String, val meters:Double) { STANDARD("200 m",200.0), EXTRA("400 m",400.0), MAXIMUM("800 m",800.0) }
+internal enum class ShareTypography(val label:String) { CLASSIC("Classic"), CONDENSED("Condensed") }
+internal enum class ShareRouteColor(val label:String,val color:Int) { LIME("Lime",0xFFD8FB70.toInt()), WHITE("White",0xFFFFFFFF.toInt()) }
+internal enum class ShareStroke(val label:String,val width:Float) { FINE("Fine",6f), STANDARD("Standard",9f), BOLD("Bold",14f) }
+internal enum class ShareZoom(val label:String,val factor:Float) { FIT("Fit",1f), CLOSE("Closer",1.15f) }
+internal enum class SharePosition(val label:String,val shift:Float) { LEFT("Left",-.1f), CENTER("Center",0f), RIGHT("Right",.1f) }
 internal enum class ShareLayout(val label:String) { AIRY("Airy"), COMPACT("Compact") }
 
 internal data class ShareStudioState(
@@ -41,7 +46,14 @@ internal data class ShareStudioState(
     val background:ShareBackground = ShareBackground.DARK,
     val branding:ShareBranding = ShareBranding.SUBTLE,
     val layout:ShareLayout = ShareLayout.AIRY,
-    val privacy:SharePrivacy = SharePrivacy.STANDARD
+    val privacy:SharePrivacy = SharePrivacy.STANDARD,
+    val transparent:Boolean = false,
+    val typography:ShareTypography = ShareTypography.CLASSIC,
+    val routeColor:ShareRouteColor = ShareRouteColor.LIME,
+    val stroke:ShareStroke = ShareStroke.STANDARD,
+    val zoom:ShareZoom = ShareZoom.FIT,
+    val position:SharePosition = SharePosition.CENTER,
+    val featuredMetric:ShareMetric? = null
 ) {
     fun selectTemplate(value:ShareTemplate):ShareStudioState = copy(template=value).selectVariant(value.variants.first())
     fun selectVariant(value:ShareVariant):ShareStudioState {
@@ -114,6 +126,9 @@ internal object SharePresetCodec {
             put("template",s.template.name); put("variant",s.variant.name); put("ratio",s.ratio.name)
             put("route",s.routeMode.name); put("metrics",JSONArray(s.metrics.map { it.name }))
             put("background",s.background.name); put("branding",s.branding.name); put("layout",s.layout.name); put("privacy",s.privacy.name)
+            put("transparent",s.transparent); put("typography",s.typography.name); put("routeColor",s.routeColor.name)
+            put("stroke",s.stroke.name); put("zoom",s.zoom.name); put("position",s.position.name)
+            s.featuredMetric?.let { put("featuredMetric",it.name) }
         }) }
     }).toString()
 
@@ -134,7 +149,11 @@ internal object SharePresetCodec {
             SharePreset(id,name,ShareStudioState(template,variant,ShareRatio.valueOf(row.getString("ratio")),
                 ShareRouteMode.valueOf(row.getString("route")),metrics,ShareBackground.valueOf(row.getString("background")),
                 ShareBranding.valueOf(row.getString("branding")),ShareLayout.valueOf(row.getString("layout")),
-                SharePrivacy.valueOf(row.optString("privacy",SharePrivacy.STANDARD.name))))
+                SharePrivacy.valueOf(row.optString("privacy",SharePrivacy.STANDARD.name)),
+                row.optBoolean("transparent",false),ShareTypography.valueOf(row.optString("typography",ShareTypography.CLASSIC.name)),
+                ShareRouteColor.valueOf(row.optString("routeColor",ShareRouteColor.LIME.name)),ShareStroke.valueOf(row.optString("stroke",ShareStroke.STANDARD.name)),
+                ShareZoom.valueOf(row.optString("zoom",ShareZoom.FIT.name)),SharePosition.valueOf(row.optString("position",SharePosition.CENTER.name)),
+                row.optString("featuredMetric","").takeIf { it.isNotEmpty() }?.let(ShareMetric::valueOf)))
         }
         require(result.map { it.id }.distinct().size==result.size)
         return result

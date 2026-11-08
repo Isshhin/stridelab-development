@@ -44,7 +44,7 @@ import java.io.File
 private enum class ShareSection(val label:String) {
     LAYOUT("Layout"), MAP("Map"), STATS("Stats"), STYLE("Style"), EXPORT("Export")
 }
-private data class ShareMapRequest(val mode:ShareRouteMode, val width:Int, val height:Int)
+private data class ShareMapRequest(val mode:ShareRouteMode, val width:Int, val height:Int, val color:ShareRouteColor, val stroke:ShareStroke, val zoom:ShareZoom, val position:SharePosition)
 private data class ShareMapResult(val source:ShareRenderableActivity, val request:ShareMapRequest, val bitmap:Bitmap?, val loading:Boolean)
 private data class ShareCardResult(val source:ShareRenderableActivity, val state:ShareStudioState, val map:Bitmap?, val bitmap:Bitmap)
 
@@ -82,9 +82,9 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
     val source=renderable?.takeIf { it.id==activity.id && it.privacy==config.privacy }
     val effective=source?.let { config.forActivity(it) }
     val geometry=effective?.let(ShareCardRenderer::geometry)
-    val request=if(source!=null && effective!=null && geometry!=null && online && effective.background==ShareBackground.MAP &&
+    val request=if(source!=null && effective!=null && geometry!=null && online && !effective.transparent && effective.background==ShareBackground.MAP &&
         effective.routeMode!=ShareRouteMode.HIDDEN && source.route.pointCount>=2 && geometry.route.height()>0)
-        ShareMapRequest(effective.routeMode,geometry.route.width().toInt(),geometry.route.height().toInt()) else null
+        ShareMapRequest(effective.routeMode,geometry.route.width().toInt(),geometry.route.height().toInt(),effective.routeColor,effective.stroke,effective.zoom,effective.position) else null
     // Template, metric-count and ratio changes may alter the map rectangle; unrelated controls reuse the map.
     val mapResult by produceState<ShareMapResult?>(null,source,request) {
         val current=request
@@ -101,7 +101,7 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
     val mapLoading=request!=null && (mapResult?.source!==source || mapResult?.request!=request || mapResult?.loading==true)
     val cardResult by produceState<ShareCardResult?>(null,source,effective,map) {
         if(source!=null && effective!=null) {
-            try { value=withContext(Dispatchers.Default) { ShareCardResult(source,effective,map,ShareCardRenderer.render(source,effective,map)) } }
+            try { value=withContext(Dispatchers.Default) { ShareCardResult(source,effective,map,ShareCardRenderer.render(source,effective,map,width=540)) } }
             catch(error:Exception) {
                 if(error is CancellationException) throw error
                 value=null; message="Could not render the card. Try another template."
@@ -181,7 +181,7 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
             val status=when {
                 mapLoading -> "Loading Activity Dark map…"
                 effective?.routeMode==ShareRouteMode.HIDDEN -> "Route hidden · Full activity stats"
-                config.background==ShareBackground.MAP && map==null -> "Street map unavailable · showing route only"
+                !config.transparent && config.background==ShareBackground.MAP && map==null -> "Street map unavailable · showing route only"
                 else -> "Route trimmed · Full activity stats"
             }
             Text(status,style=MaterialTheme.typography.labelSmall,color=Color(ShareCardPalette.MUTED),
@@ -214,9 +214,17 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                             ShareChoices(SharePrivacy.entries,config.privacy,{it.label}) { configure(config.copy(privacy=it)) }
                             ShareChoices(source?.availableModes?.toList().orEmpty(),effective?.routeMode,{it.label}) { configure(config.copy(routeMode=it)) }
                             ShareChoices(ShareBackground.entries,config.background,{it.label}) { configure(config.copy(background=it)) }
+                            Text("Route color and line",style=MaterialTheme.typography.labelLarge)
+                            ShareChoices(ShareRouteColor.entries,config.routeColor,{it.label}) { configure(config.copy(routeColor=it)) }
+                            ShareChoices(ShareStroke.entries,config.stroke,{it.label}) { configure(config.copy(stroke=it)) }
+                            Text("Framing",style=MaterialTheme.typography.labelLarge)
+                            ShareChoices(ShareZoom.entries,config.zoom,{it.label}) { configure(config.copy(zoom=it)) }
+                            ShareChoices(SharePosition.entries,config.position,{it.label}) { configure(config.copy(position=it)) }
                         }
                         ShareSection.STATS -> {
                             Text("Full activity stats · select at least one",style=MaterialTheme.typography.bodySmall,color=Color(ShareCardPalette.MUTED))
+                            Text("Featured metric",style=MaterialTheme.typography.labelLarge)
+                            ShareChoices(source?.metrics?.keys?.filter { it in setOf(ShareMetric.DISTANCE,ShareMetric.DURATION,ShareMetric.PACE,ShareMetric.HR,ShareMetric.ELEVATION) }.orEmpty(),config.featuredMetric,{it.label}) { configure(config.copy(featuredMetric=it,metrics=config.metrics+it)) }
                             FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                                 if(source!=null) source.metrics.keys.forEach { metric ->
                                     val selected=metric in effective?.metrics.orEmpty()
@@ -230,10 +238,16 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                         ShareSection.STYLE -> {
                             Text("Background",style=MaterialTheme.typography.labelLarge)
                             ShareChoices(ShareBackground.entries,config.background,{it.label}) { configure(config.copy(background=it)) }
+                            Text("Typography",style=MaterialTheme.typography.labelLarge)
+                            ShareChoices(ShareTypography.entries,config.typography,{it.label}) { configure(config.copy(typography=it)) }
                             Text("Branding",style=MaterialTheme.typography.labelLarge)
                             ShareChoices(ShareBranding.entries,config.branding,{it.label}) { configure(config.copy(branding=it)) }
                         }
                         ShareSection.EXPORT -> {
+                            Row(verticalAlignment=Alignment.CenterVertically) {
+                                Switch(checked=config.transparent,onCheckedChange={ configure(config.copy(transparent=it)) },modifier=Modifier.testTag("share-transparent"))
+                                Text("Transparent PNG · route and stats",modifier=Modifier.padding(start=12.dp))
+                            }
                             OutlinedButton(onClick={ message=null; name=presets.firstOrNull { it.id==activePreset }?.name.orEmpty(); naming=true },
                                 enabled=presetsReady && !busy,modifier=Modifier.heightIn(min=48.dp).testTag("share-save-preset")) { Text("Save preset") }
                             if(presetLoadFailed) Text("Saved presets unavailable; stored designs have been kept.")
@@ -251,42 +265,48 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                 Text(text,color=Color(ShareCardPalette.LIME),modifier=Modifier.padding(horizontal=16.dp)
                     .semantics { liveRegion=LiveRegionMode.Polite }.testTag("share-message"))
             }
-            FlowRow(Modifier.fillMaxWidth().padding(16.dp),horizontalArrangement=Arrangement.spacedBy(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(enabled=exportReady,onClick={
-                    val image=card ?: return@OutlinedButton
+                    val currentSource=source ?: return@OutlinedButton
+                    val currentState=effective ?: return@OutlinedButton
+                    val currentMap=map
                     busy=true; message=null
-                    if(Build.VERSION.SDK_INT<Build.VERSION_CODES.Q) {
-                        scope.launch {
-                            try {
+                    scope.launch {
+                        var image:Bitmap?=null
+                        try {
+                            image=withContext(Dispatchers.Default) { ShareCardRenderer.render(currentSource,currentState,currentMap) }
+                            if(Build.VERSION.SDK_INT<Build.VERSION_CODES.Q) {
                                 val file=withContext(Dispatchers.IO) { ShareImageExport.cachePng(context,image) }
                                 pendingDocumentName=file.name
                                 documentLauncher.launch(file.name)
-                            } catch(error:Exception) {
-                                if(error is CancellationException) throw error
-                                pendingDocumentName?.let { File(File(context.cacheDir,"share-studio"),it).delete() }
-                                busy=false; pendingDocumentName=null; message="Could not open image storage."
+                            } else {
+                                withContext(Dispatchers.IO) { ShareImageExport.saveToGallery(context,image) }
+                                message="Saved to Pictures / StrideLab"; busy=false
                             }
-                        }
-                    } else scope.launch {
-                        try { withContext(Dispatchers.IO) { ShareImageExport.saveToGallery(context,image) }; message="Saved to Pictures / StrideLab" }
-                        catch(error:Exception) { if(error is CancellationException) throw error; message="Could not save image. Check storage and try again." }
-                        finally { busy=false }
+                        } catch(error:Exception) {
+                            if(error is CancellationException) throw error
+                            message="Could not save image. Check storage and try again."; busy=false
+                        } finally { image?.recycle() }
                     }
-                },modifier=Modifier.heightIn(min=48.dp).testTag("share-save-image")) { Text("Save Image") }
+                },modifier=Modifier.weight(1f).heightIn(min=48.dp).testTag("share-save-image")) { Text("Save Image") }
                 Button(enabled=exportReady,onClick={
-                    val image=card ?: return@Button
+                    val currentSource=source ?: return@Button
+                    val currentState=effective ?: return@Button
+                    val currentMap=map
                     busy=true; message=null
                     scope.launch {
+                        var image:Bitmap?=null
                         try {
+                            image=withContext(Dispatchers.Default) { ShareCardRenderer.render(currentSource,currentState,currentMap) }
                             val intent=withContext(Dispatchers.IO) { ShareImageExport.shareIntent(context,image) }
                             context.startActivity(Intent.createChooser(intent,"Share activity"))
                         } catch(error:Exception) {
                             if(error is CancellationException) throw error
                             message="Could not share image. Try Save Image instead."
-                        } finally { busy=false }
+                        } finally { image?.recycle(); busy=false }
                     }
                 },colors=ButtonDefaults.buttonColors(containerColor=Color(ShareCardPalette.LIME),contentColor=Color.Black),
-                    modifier=Modifier.heightIn(min=48.dp).testTag("share-send")) { Text(if(busy) "Working…" else "Share") }
+                    modifier=Modifier.weight(1f).heightIn(min=48.dp).testTag("share-send")) { Text(if(busy) "Working…" else "Share") }
             }
         }
     }
