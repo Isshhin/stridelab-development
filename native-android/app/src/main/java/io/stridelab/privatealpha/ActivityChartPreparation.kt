@@ -8,6 +8,7 @@ package io.stridelab.privatealpha
 internal data class PreparedActivityChart(
     val validSamples: List<Pair<ActivitySample, Double>>,
     val pausedMetricSamples: List<ActivitySample>,
+    val pausedDrawSamples: List<ActivitySample>,
     val lowest: Double,
     val highest: Double,
     val sampleAverage: Double,
@@ -111,6 +112,10 @@ internal object ActivityChartPreparation {
         return PreparedActivityChart(
             validSamples = valid,
             pausedMetricSamples = paused,
+            // Keep every real pause value for semantics; limit circles on the canvas.
+            pausedDrawSamples = paused.filterIndexed { index, _ ->
+                index % (paused.size / 450).coerceAtLeast(1) == 0 || index == paused.lastIndex
+            },
             lowest = lowest,
             highest = highest,
             sampleAverage = average,
