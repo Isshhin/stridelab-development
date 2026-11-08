@@ -58,6 +58,23 @@ internal class GpsThumbnailCache(context: Context) {
         }
     } catch (_: Exception) { null }
 
+    /**
+     * Restore already-generated previews before an activity summary is first
+     * published. Only small, account-scoped WebP files are opened here; never
+     * decode a recorded FIT/route or generate new thumbnail geometry.
+     *
+     * The caller supplies its bounded, newest-first visible history page.
+     * Limiting attempted files (not just hits) keeps startup IO predictable.
+     */
+    fun preload(account: String, newestFirstIds: List<String>, limit: Int = 40): Map<String, Bitmap> {
+        require(limit in 1..40)
+        val images = LinkedHashMap<String, Bitmap>()
+        newestFirstIds.asSequence().distinct().take(limit).forEach { id ->
+            read(account, id)?.let { images[id] = it }
+        }
+        return images
+    }
+
     fun write(account: String, id: String, route: RecordedGpsRoute) =
         save(account, id, fingerprint(route), render(route))
 
