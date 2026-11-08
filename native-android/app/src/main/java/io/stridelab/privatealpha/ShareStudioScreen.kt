@@ -438,6 +438,23 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                                         })
                                 }
                                 if(choices.isEmpty()) Text("No recorded metrics available")
+                                // Preserve Stage 2's title/date visibility controls;
+                                // these are metadata, not numbered featured metrics.
+                                val details=source?.metrics?.keys?.filter {
+                                    it in setOf(ShareMetric.TITLE,ShareMetric.DATE,ShareMetric.LOCATION)
+                                }.orEmpty()
+                                if(details.isNotEmpty()) {
+                                    Text("Poster details",style=MaterialTheme.typography.labelLarge)
+                                    details.forEach { metric ->
+                                        val included=metric in config.metrics
+                                        ShareStudioOptionRow(title=metric.label,
+                                            selected=included,tag="share-detail-"+metric.name,
+                                            onClick={
+                                                configure(config.copy(metrics=if(included)
+                                                    config.metrics-metric else config.metrics+metric))
+                                            })
+                                    }
+                                }
                                 Text("Featured metric",style=MaterialTheme.typography.labelLarge)
                                 ShareChoices(chosen,config.featuredMetric,{it.label}) {
                                     configure(config.copy(featuredMetric=it))
