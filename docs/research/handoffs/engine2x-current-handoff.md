@@ -1,6 +1,14 @@
-# Current independent v7 historical-key-role review — 2026-11-07
+# Engine 2.x current handoff
 
-This entry supersedes ALL historical status/next-action entries below. Exact reviewed head: `4f3805f84ba9fb5828eb94d513be643fc37cf9c9`; branch `research/runna-garmin-coaching-20261102`; PR #34 remains **OPEN, DRAFT, UNMERGED**.
+## P2-B DEV-0 closure and DEV-1 preparation (2026-11-08)
+
+DEV-0 is CLOSED: `P2B_DEV0_PUBLIC_REPEATABILITY_PIPELINE_FEASIBLE`, synthetic pipeline/software validation only. The prior [conversational independent final re-review](chatgpt-conversation://6aeee02e-9d50-83ec-b12d-b1b1eb1cbc8e) recorded `P2B_DEV0_SYNTHETIC_PIPELINE_ACCEPTABLE_PENDING_EXACT_HEAD_CI` at `a1da6287ba6159dd64dd8f25a63b88dad0f3e1e1`; it was not a GitHub PR review or identified human audit. [Run 42457192727](https://github.com/Isshhin/stridelab-development/actions/runs/42457192727), attempt 1, subsequently completed SUCCESS at that exact SHA. This documentation-only change does not alter the tested implementation; its later commit is not the CI-tested head. See [DEV-0 report](../phase2/p2-b-dev0-report.md). No real-world repeatability, source admission, P2-B activation, or Gate 2 approval follows.
+
+DEV-1A remains blocked pending the designated steward's documented lawful source-rights, privacy and custody admission for OpenFitness. Repository license labels do not establish file-level rights or privacy authorization. DEV-1B remains blocked pending ethics, custody and prospective protocol authorization. The prior Work readiness and source-rights assessments informed this preparation; no new permissions are inferred. No FIT access, participant contact, data collection or unapproved source ingestion is authorized or performed. The designated steward's decision on the documented admission and authorization requirements is the next action. PR #34 remains open, draft and unmerged.
+
+## Current independent v7 historical-key-role review — 2026-11-07
+
+This v7 entry supersedes historical v7 status/next-action entries below. Exact reviewed head: `4f3805f84ba9fb5828eb94d513be643fc37cf9c9`; branch `research/runna-garmin-coaching-20261102`; PR #34 remains **OPEN, DRAFT, UNMERGED**.
 
 **Current v7 verdict: `P2F_CUSTODY_AUTHORITY_V7_DESIGN_ACCEPTABLE_FOR_PREFLIGHT_AUTHORIZATION_REVIEW`.** See the NEW [historical key-role independent review](../phase2/p2-f-custody-authority-v7-historical-key-role-independent-review-2026-11-07.md). This separately scoped review closes prior F1a/F1b at their exact original proof hashes. Permanent raw-key roles reconstruct from pinned genesis and every finalized policy/epoch; retirement, replacement and revoke preserve history. Cross-role reuse rejects generically; unchanged current same-role policy retention accepts; retired same-role resurrection and operational epoch-key reuse reject.
 

@@ -1,6 +1,6 @@
 # P2-B DEV-0 report
 
-Status: `P2B_DEV0_PIPELINE_CORRECTED_SYNTHETICALLY`; previous review found bounded defects. No longitudinal public repeatability evidence, P2-B activation, or Gate 2 readiness is claimed.
+Status: **CLOSED — `P2B_DEV0_PUBLIC_REPEATABILITY_PIPELINE_FEASIBLE`**, synthetic pipeline/software validation only. No real-world repeatability, data admission, P2-B activation, or Gate 2 approval is claimed.
 
 ## Scope
 
@@ -25,3 +25,9 @@ Adversarial coverage includes deleted HR, 30-second gap/pause, reversed timestam
 ## Verdict and limits
 
 `P2B_DEV0_PUBLIC_REPEATABILITY_PIPELINE_FEASIBLE` for synthetic software qualification. `LONGITUDINAL_PUBLIC_REPEATABILITY_EVIDENCE_UNAVAILABLE` remains the real-data status. No private StrideLab data, athlete data, product code, custody protocol, Engine 1.5, Trackside, Android UI, APK infrastructure or frozen Session G code was used or changed. No coaching authority follows.
+
+## Formal closure evidence (2026-11-08)
+
+The independent final re-review recorded `P2B_DEV0_SYNTHETIC_PIPELINE_ACCEPTABLE_PENDING_EXACT_HEAD_CI` at `a1da6287ba6159dd64dd8f25a63b88dad0f3e1e1` in the prior [StrideLab Engine Planning conversation](chatgpt-conversation://6aeee02e-9d50-83ec-b12d-b1b1eb1cbc8e); this was a conversational review, not a GitHub PR review or a separately identified human audit. GitHub records no PR reviews. Subsequently [research validation run 42457192727](https://github.com/Isshhin/stridelab-development/actions/runs/42457192727) completed successfully, attempt 1, on that exact commit. This closes DEV-0 under the synthetic-only verdict above.
+
+This documentation-only closure does not change the tested implementation. The successful run applies to `a1da6287ba6159dd64dd8f25a63b88dad0f3e1e1`, not to the later documentation commit.
