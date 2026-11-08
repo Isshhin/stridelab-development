@@ -89,14 +89,20 @@ internal object ShareCardRenderer {
                 stat(metric,x,y,g.rowHeight*(if(i==0) .83f else .48f),
                     g.rowHeight*.16f,if(i==0) 920f else 440f,i==0)
             }
-            ShareTemplate.STATS -> fields.take(4).forEachIndexed { i,metric ->
-                val y=g.statsTop+i*g.rowHeight+g.rowHeight*.56f
-                stat(metric,72f,y,min(122f,g.rowHeight*.53f),
-                    max(20f,g.rowHeight*.14f),910f,i==0)
-                if(i<3 && !state.transparent) {
-                    paint.color=0xFF27322B.toInt(); paint.strokeWidth=2f
-                    val bottom=g.statsTop+(i+1)*g.rowHeight-12f
-                    canvas.drawLine(72f,bottom,1008f,bottom,paint)
+            ShareTemplate.STATS -> {
+                // New designs use up to four rows; legacy presets with five
+                // recorded metrics must still render all saved selections.
+                val rowHeight=(state.ratio.height*.90f-g.statsTop)/
+                    max(4,fields.size).toFloat()
+                fields.forEachIndexed { i,metric ->
+                    val y=g.statsTop+i*rowHeight+rowHeight*.56f
+                    stat(metric,72f,y,min(122f,rowHeight*.53f),
+                        max(20f,rowHeight*.14f),910f,i==0)
+                    if(i<fields.lastIndex && !state.transparent) {
+                        paint.color=0xFF27322B.toInt(); paint.strokeWidth=2f
+                        val bottom=g.statsTop+(i+1)*rowHeight-12f
+                        canvas.drawLine(72f,bottom,1008f,bottom,paint)
+                    }
                 }
             }
             ShareTemplate.MINIMAL -> {
