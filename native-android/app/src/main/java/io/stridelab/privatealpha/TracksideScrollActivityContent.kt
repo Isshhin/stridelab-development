@@ -328,20 +328,25 @@ internal fun TracksideActivityContinuousSections(
     // The already-parsed saved detail is reused; no SQLite/provider request.
     // Each finished chart is published independently. Recording changes cancel
     // the previous producer instead of showing stale values from another run.
-    val preparedCharts by produceState(
-        initialValue = emptyMap<String, PreparedActivityChart?>(),
-        recorded
-    ) {
-        val source = recorded ?: return@produceState
-        for (title in ActivityChartPreparation.titles) {
-            val prepared = withContext(Dispatchers.Default) {
-                ActivityChartPreparation.prepare(
-                    source.samples, title, source.pauseIntervals
-                )
+    // Key the state holder itself, not just the coroutine. A new recording
+    // must never display prepared lines or values from the previous activity
+    // while its background producer is starting.
+    val preparedChartsState = key(recorded) {
+        produceState(
+            initialValue = emptyMap<String, PreparedActivityChart?>()
+        ) {
+            val source = recorded ?: return@produceState
+            for (title in ActivityChartPreparation.titles) {
+                val prepared = withContext(Dispatchers.Default) {
+                    ActivityChartPreparation.prepare(
+                        source.samples, title, source.pauseIntervals
+                    )
+                }
+                value = value + (title to prepared)
             }
-            value = value + (title to prepared)
         }
     }
+    val preparedCharts by preparedChartsState
     val splitWindows = remember(laps, recorded) {
         var cumulative = 0.0
         val allowCumulativeFallback = recorded?.pauseIntervals.isNullOrEmpty()
@@ -1222,13 +1227,14 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, account: S
     val sourceZones = recorded.sourceHeartRateZones
     // Zone distribution also walks the entire FIT stream. Keep that pass
     // outside Compose composition and the draggable sheet's UI thread.
-    val zones by produceState<HeartRateZoneDistribution?>(
-        initialValue = null, recorded, settings
-    ) {
-        value = withContext(Dispatchers.Default) {
-            HeartRateZoneAnalysis.distribute(recorded.samples, settings)
+    val zonesState = key(recorded, settings) {
+        produceState<HeartRateZoneDistribution?>(initialValue = null) {
+            value = withContext(Dispatchers.Default) {
+                HeartRateZoneAnalysis.distribute(recorded.samples, settings)
+            }
         }
     }
+    val zones by zonesState
     val colors = listOf(
         Color(0xFF9FABBA), Color(0xFF79C9B3), activityLime,
         Color(0xFFFFBE7A), Color(0xFFFF8C87)
