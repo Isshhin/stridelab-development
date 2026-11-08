@@ -1402,7 +1402,8 @@ private fun TracksideActivitySourceChart(
     if (prepared == null) {
         if (preparing) {
             Column(
-                Modifier.fillMaxWidth().padding(vertical = 12.dp)
+                Modifier.fillMaxWidth().padding(vertical = 6.dp)
+                    .heightIn(min = 226.dp)
                     .background(activitySurface, RoundedCornerShape(14.dp))
                     .padding(horizontal = 16.dp, vertical = 20.dp)
                     .testTag("activity-chart-preparing-" + title.lowercase().replace(" ", "-"))
