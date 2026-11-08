@@ -115,7 +115,7 @@ import kotlinx.coroutines.flow.drop
         metrics=summaryMetrics,
         onBack=onBack
     ) {
-        if(active && exercises.isNotEmpty()) item { SignalButton("Return to guided workout",{guided=true}) }
+        if(active && exercises.isNotEmpty()) item { StrideWorkoutPrimaryButton("Return to guided workout",{guided=true}) }
         if(shown.reason.isNotBlank()) item {
             Text(shown.reason,color=StrideWorkoutVisuals.muted,
                 style=MaterialTheme.typography.bodyMedium)
@@ -128,7 +128,7 @@ import kotlinx.coroutines.flow.drop
             if(suggestion.accepted) "Recovery adjustment" else "Suggested adjustment"
         ) {
             Text(suggestion.reason)
-            if(!suggestion.accepted&&active) { SignalButton(if(suggestion.minutes==0) "Choose rest for this session" else "Accept lighter alternative",{actions.acceptSuggestion(plan.id,plan.revision,session.id)},!state.busy);Text("Original prescriptions remain saved. No catch-up workout is added.",style=MaterialTheme.typography.bodySmall) }
+            if(!suggestion.accepted&&active) { StrideWorkoutPrimaryButton(if(suggestion.minutes==0) "Choose rest for this session" else "Accept lighter alternative",{actions.acceptSuggestion(plan.id,plan.revision,session.id)},!state.busy);Text("Original prescriptions remain saved. No catch-up workout is added.",style=MaterialTheme.typography.bodySmall) }
         } } }
         item { StrideWorkoutSection("Workout prescription") {
             if (rest || timeOnly) {
@@ -169,7 +169,7 @@ import kotlinx.coroutines.flow.drop
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick={restSeconds=ex.rest;restRunning=true}) { Text("Start rest") };TextButton(onClick={restRunning=!restRunning},enabled=restSeconds>0) { Text(if(restRunning) "Pause" else "Resume") } }
             } }
         }
-        if (!rest && session.status!="unassigned" && (exercises.isNotEmpty() || done)) item { StrideWorkoutSection(if(done) "Recorded workout" else "Actual workout record") {
+        if (!rest && session.status!="unassigned" && exercises.isNotEmpty()) item { StrideWorkoutSection(if(done) "Recorded workout" else "Actual workout record") {
             if(active)Text(if(entryDraft?.contentKey==currentCandidate?.contentKey)"Entry draft saved on this device · not yet confirmed as training" else "Entries auto-save on this device. Save progress or completion to confirm what you performed.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Only enter values you actually performed. Blank values stay unrecorded; no target is copied into your history.",style=MaterialTheme.typography.bodySmall)
             NativeDateField("Actual workout date",performedOn,{performedOn=it.take(32)},active)
@@ -188,9 +188,25 @@ import kotlinx.coroutines.flow.drop
         formError?.let { item { Text(it,color=MaterialTheme.colorScheme.error) } }
         if(active && exercises.isNotEmpty()) item { StrideWorkoutPrimaryButton("Save completed workout",{try {formError=null;actions.record(plan.id,plan.revision,session.id,log(),true)}catch(e:PlanConstraint){formError=e.message}},!state.busy)
             OutlinedButton(onClick={try {formError=null;actions.record(plan.id,plan.revision,session.id,log(),false)}catch(e:PlanConstraint){formError=e.message}},enabled=!state.busy,modifier=Modifier.fillMaxWidth()) { Text("Save progress for offline reopening") }
-            Row { TextButton(onClick={ if(onMissed!=null) onMissed() else missed=true }) { Text("Missed / skipped") };TextButton(onClick={ if(onMove!=null) onMove() else move=true },enabled=session.log==null && session.id !in plan.request.lockedSessionDays) { Text("Move workout") } }
+        }
+        if(active) item {
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                TextButton(onClick={ if(onMissed!=null) onMissed() else missed=true }) {
+                    Text("Missed / skipped",color=StrideWorkoutVisuals.muted)
+                }
+                TextButton(onClick={ if(onMove!=null) onMove() else move=true },
+                    enabled=session.log==null && session.id !in plan.request.lockedSessionDays) {
+                    Text("Move workout",color=StrideWorkoutVisuals.muted)
+                }
+            }
         }
         if(done) item { StrideWorkoutSection("Recording status") {
+            session.log?.let { saved ->
+                saved.performedOn?.let { Text("Performed $it",
+                    style=MaterialTheme.typography.bodyMedium,color=StrideWorkoutVisuals.white) }
+                saved.notes.takeIf { it.isNotBlank() }?.let { Text(it,
+                    style=MaterialTheme.typography.bodyLarge,color=StrideWorkoutVisuals.white) }
+            }
             Text("Completion is your recorded confirmation, not a sensor-verified activity. It appears separately in workout history without invented pace, GPS or heart rate.",
                 style=MaterialTheme.typography.bodySmall,color=StrideWorkoutVisuals.muted)
         } }
@@ -206,6 +222,14 @@ import kotlinx.coroutines.flow.drop
                 topStart=26.dp,topEnd=26.dp),
             dragHandle={ BottomSheetDefaults.DragHandle(color=StrideWorkoutVisuals.muted) }
         ) {
+            MaterialTheme(colorScheme=MaterialTheme.colorScheme.copy(
+                primary=StrideWorkoutVisuals.lime,
+                onPrimary=Color(0xFF10120D),
+                surface=StrideWorkoutVisuals.card,
+                onSurface=StrideWorkoutVisuals.white,
+                onSurfaceVariant=StrideWorkoutVisuals.muted,
+                outline=StrideWorkoutVisuals.divider
+            )) {
             Column(
                 Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
                     .imePadding().padding(horizontal=22.dp).padding(bottom=36.dp),
@@ -253,6 +277,7 @@ import kotlinx.coroutines.flow.drop
                     modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {
                     Text("Save progress for offline reopening")
                 }
+            }
             }
         }
     }
