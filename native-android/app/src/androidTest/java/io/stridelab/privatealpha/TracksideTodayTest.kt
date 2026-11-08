@@ -9,8 +9,6 @@ import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.assertDoesNotExist
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -18,6 +16,10 @@ import org.junit.Test
 import java.time.LocalDate
 
 /** Exercises the Today's saved-data presentation without external login or network access. */
+// Compose test bounds return DpRect, whose height is derived from the edges.
+private val androidx.compose.ui.unit.DpRect.height: androidx.compose.ui.unit.Dp
+    get() = bottom - top
+
 class TracksideTodayTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
 
