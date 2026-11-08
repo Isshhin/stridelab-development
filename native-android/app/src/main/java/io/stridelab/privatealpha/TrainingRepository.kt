@@ -323,6 +323,18 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id }
         )
         val sortedPlans = plans.sortedByDescending { it.createdAt }
+        // The first Today cards and their existing GPS WebPs must be emitted
+        // together. Previously Compose painted cards, waited a frame, then
+        // asynchronously read these saved images, creating a visible pop-in
+        // after every process restart. No FIT stream is opened here.
+        val startupThumbnails = if (publishEssentials) {
+            val previewStarted = SystemClock.elapsedRealtime()
+            val ids = activities.asSequence().map { it.id }
+                .filter { it in cachedDetailIds }.take(recentPageSize).toList()
+            thumbnails.preload(account, ids, recentPageSize).also {
+                traceCache("startup_thumbnail_restore", previewStarted, it.size)
+            }
+        } else emptyMap()
         nextHistoryCursor = recentPage?.next
         val historyFullyLoaded = recentPage?.hasMore != true
         val warning = when {
@@ -337,6 +349,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             // wellness, exercise templates and local workout drafts are decoded.
             mutable.value = mutable.value.copy(
                 activities=activities, plans=sortedPlans, details=preservedDetails,
+                gpsThumbnails=startupThumbnails,
                 cachedDetailIds=cachedDetailIds, lastSync=last,
                 initializing=false, message=warning,
                 historyFullyLoaded=historyFullyLoaded,
