@@ -1,0 +1,48 @@
+name: P2-X DEV-2 isolated hosted regression
+
+on:
+  push:
+    branches:
+      - research/p2x-dev2-plan-lineage-review-20261108
+    paths:
+      - 'research/validation/p2x_lineage.py'
+      - 'research/validation/test_p2x_lineage.py'
+      - '.github/workflows/research-p2x-dev2-ubuntu.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  combined-synthetic-research:
+    name: Exact-head P2-A/C/D/E/X combined synthetic checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact SHA
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Enforce GitHub-hosted Linux
+        shell: bash
+        run: |
+          test "$RUNNER_OS" = "Linux"
+          test "$RUNNER_ENVIRONMENT" = "github-hosted"
+          echo "Exact head: $GITHUB_SHA"
+      - name: Execute 8 synthetic suites
+        env:
+          PYTHONPATH: research/validation
+          PYTHONHASHSEED: '7'
+        run: |
+          python -m unittest -v \
+            test_p2a_state test_p2a_comparison \
+            test_p2c_wave test_p2d_shadow test_p2e_wave \
+            test_p2x_integration test_p2x_dev1 test_p2x_lineage
+      - name: Repeat combined discovery with independent hash seed
+        env:
+          PYTHONHASHSEED: '213'
+        run: python -m unittest discover -s research/validation -p 'test_p2x*.py' -v
