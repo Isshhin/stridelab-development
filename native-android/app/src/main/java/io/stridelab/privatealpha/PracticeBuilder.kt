@@ -19,7 +19,7 @@ import java.util.UUID
     val context=LocalContext.current
     var catalog by remember { mutableStateOf<List<LibraryEntry>>(emptyList()) };var failed by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { withContext(Dispatchers.Main.immediate) { runCatching { withContext(Dispatchers.IO) { readLibrary(context) } }.onSuccess { catalog=it }.onFailure { failed=true } } }
-    if(state.account==null || catalog.isEmpty()) { Screen("Prepare a session","LIBRARY") { item { Text(if(state.account==null)"Sign in once through Settings to keep practice and templates private to your account." else if(failed)"The preserved library could not be opened." else "Opening offline movement library…");TextButton(onClick=onDone) { Text("Back") } } };return }
+    if(state.account==null || catalog.isEmpty()) { StrideLibraryFrame("Prepare a session","LIBRARY",onBack=onDone) { item { Text(if(state.account==null)"Sign in once through Settings to keep practice and templates private to your account." else if(failed)"The preserved library could not be opened." else "Opening offline movement library…");TextButton(onClick=onDone) { Text("Back") } } };return }
     val saved=state.templates.find { "saved-${it.id}"==key }
     val entry=catalog.find { "entry-${it.id}"==key }
     val initialIds=if(saved!=null)saved.exercises.map { it.id }else if(entry!=null)listOf(entry.id)else if(key=="lower")listOf("e1","e3","e6")else emptyList()
@@ -44,11 +44,11 @@ import java.util.UUID
     }
     val preview=state.plans.find { it.id==previewId }
     LaunchedEffect(preview?.status) { if(preview?.status=="approved")onApproved() }
-    if(preview!=null) { Screen("Practice preview","DRAFT · NOT APPROVED") {
+    if(preview!=null) { StrideLibraryFrame("Practice preview","DRAFT · NOT APPROVED",onBack=onDone) {
         item { PlanOverview(preview) };preview.sessions.forEach { session -> item { PlannedWorkoutCard(session) { onPreview(preview.id,session.id) } } }
-        item { SignalButton("Approve practice session",{actions.approve(preview.id,preview.revision)},!state.busy);TextButton(onClick={previewId=null;awaiting=false}) { Text("Edit session targets / date") };TextButton(onClick=onDone) { Text("Keep draft and return") } }
+        item { StrideWorkoutPrimaryButton("Approve practice session",{actions.approve(preview.id,preview.revision)},!state.busy);TextButton(onClick={previewId=null;awaiting=false}) { Text("Edit session targets / date") };TextButton(onClick=onDone) { Text("Keep draft and return") } }
     };return }
-    Screen("Prepare a session","LIBRARY · YOUR TARGETS") {
+    StrideLibraryFrame("Prepare a session","LIBRARY · YOUR TARGETS",onBack=onDone) {
         item { Text("Choose a movement or reusable template, review the targets, then create a dated draft. Actual workout values remain blank until you log them.") }
         item { FormText("Session / template name",name,{name=it.take(80)});NativeDateField("Scheduled date",date,{date=it});FormText("Available session minutes",minutes,{minutes=it},true) }
         item { ChoiceChips(listOf("Strength","Calisthenics"),if(type=="cal")1 else 0) { val next=if(it==1)"cal" else "str";if(next!=type){type=next;idsRaw="[]"} } }
@@ -60,15 +60,15 @@ import java.util.UUID
         ids.forEach { id -> item(key=id) {
             val entry=catalog.first { it.id==id };val d=JSONObject(doses).optJSONObject(id) ?: JSONObject()
             fun set(k:String,v:String) { doses=JSONObject(doses).put(id,JSONObject(d.toString()).put(k,v)).toString() }
-            SignalCard { Text(entry.title,style=MaterialTheme.typography.titleLarge);Text(entry.text("level")+" · "+entry.text("eq"));Text(entry.text("reg"),style=MaterialTheme.typography.bodySmall)
+            StrideWorkoutSection(entry.title) { Text(entry.text("level")+" · "+entry.text("eq"));Text(entry.text("reg"),style=MaterialTheme.typography.bodySmall)
                 FormText("Target sets",d.optString("sets"),{set("sets",it)},true);FormText("Target reps per set",d.optString("reps"),{set("reps",it)},true);FormText("Rest seconds",d.optString("rest"),{set("rest",it)},true)
             }
         } }
-        item { Text("Current ability",style=MaterialTheme.typography.titleLarge);Text("Choose what you can control now. Use an easier library option when needed.");Text("Strength experience");ChoiceChips(listOf("Starting","Some experience","Experienced"),request.strengthExperience) { edit(request.copy(strengthExperience=it)) };Text("Pushing ability");ChoiceChips(listOf("Assisted","Controlled push-up","Comfortable push-up"),request.calLevel) { edit(request.copy(calLevel=it)) };Text("Pulling ability");ChoiceChips(listOf("Assisted","Supported pull","Controlled pull-up"),request.pullLevel) { edit(request.copy(pullLevel=it)) };Text("Core ability");ChoiceChips(listOf("Starting","Hollow tuck","Controlled hollow hold"),request.coreLevel) { edit(request.copy(coreLevel=it)) } }
-        item { Text("Available equipment quantities",style=MaterialTheme.typography.titleLarge);Text("Only selected suitable equipment is used when preparing this session.") }
+        item { StrideWorkoutSection("Current ability") {Text("Choose what you can control now. Use an easier library option when needed.");Text("Strength experience");ChoiceChips(listOf("Starting","Some experience","Experienced"),request.strengthExperience) { edit(request.copy(strengthExperience=it)) };Text("Pushing ability");ChoiceChips(listOf("Assisted","Controlled push-up","Comfortable push-up"),request.calLevel) { edit(request.copy(calLevel=it)) };Text("Pulling ability");ChoiceChips(listOf("Assisted","Supported pull","Controlled pull-up"),request.pullLevel) { edit(request.copy(pullLevel=it)) };Text("Core ability");ChoiceChips(listOf("Starting","Hollow tuck","Controlled hollow hold"),request.coreLevel) { edit(request.copy(coreLevel=it)) } } }
+        item { StrideWorkoutSection("Available equipment") {Text("Only selected suitable equipment is used when preparing this session.")} }
         listOf("db" to "Dumbbells","bb" to "Barbells","rack" to "Racks with safeties","bench" to "Benches","bar" to "Secure overhead bars","support" to "Stable raised / foot supports","bands" to "Bands","anchor" to "Secure band anchors").forEach { (k,label) -> item { Row(Modifier.fillMaxWidth()) { Text(label,Modifier.weight(1f));TextButton(onClick={edit(request.copy(equipment=request.equipment+(k to maxOf(0,(request.equipment[k]?:0)-1))))}) { Text("−") };Text("${request.equipment[k]?:0}",Modifier.padding(12.dp));TextButton(onClick={edit(request.copy(equipment=request.equipment+(k to minOf(20,(request.equipment[k]?:0)+1))))}) { Text("+") } } } }
         error?.let { item { Text(it,color=MaterialTheme.colorScheme.error) } }
-        item { SignalButton("Create practice draft",{try { error=null;val t=template();val day=LocalDate.parse(date);t.draft(state.account,request,day);beforeId=state.plans.firstOrNull()?.id;awaiting=true;actions.prepareSession(t,request,day) }catch(e:Exception){error=if(e is PlanConstraint)e.message else "Check the date and numeric targets."}},!state.busy&&!awaiting)
+        item { StrideWorkoutPrimaryButton("Create practice draft",{try { error=null;val t=template();val day=LocalDate.parse(date);t.draft(state.account,request,day);beforeId=state.plans.firstOrNull()?.id;awaiting=true;actions.prepareSession(t,request,day) }catch(e:Exception){error=if(e is PlanConstraint)e.message else "Check the date and numeric targets."}},!state.busy&&!awaiting)
             OutlinedButton(onClick={try {error=null;actions.saveTemplate(template())}catch(e:PlanConstraint){error=e.message}},enabled=!state.busy,modifier=Modifier.fillMaxWidth()) { Text(if(state.templates.any { it.id==templateId })"Update reusable template" else "Save reusable template") }
             if(state.templates.any { it.id==templateId })Text("Template saved for this account. Its edits never rewrite previous sessions.",style=MaterialTheme.typography.bodySmall)
             TextButton(onClick=onDone) { Text("Back to Library") }
