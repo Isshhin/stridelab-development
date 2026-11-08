@@ -202,16 +202,97 @@ import kotlinx.coroutines.withContext
     }
 }
 @Composable internal fun PlanFeedbackForm(plan:PlanSnapshot,actions:PlanActions,sessionId:String?=null) {
+    // Presentation only. Preserve the categories, 3-character rule and
+    // revision-guarded local feedback action.
     var pendingCount by rememberSaveable(plan.id,sessionId) { mutableStateOf<Int?>(null) }
-    var category by rememberSaveable(plan.id,sessionId) { mutableStateOf("Plan quality") };var text by rememberSaveable(plan.id,sessionId) { mutableStateOf("") }
-    LaunchedEffect(plan.feedback.size) { if(pendingCount!=null && plan.feedback.size>pendingCount!!) { text="";pendingCount=null } }
-    SignalCard {
-        Text("PRIVATE TESTING FEEDBACK",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
-        FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) { listOf("Plan quality","Inappropriate prescription","Workout quality","Usability").forEach { c -> SignalChip(category==c,{category=c},label={Text(c)}) } }
-        FormText("What worked, or what should change?",text,{text=it.take(2000)})
-        Text("Saved privately on this device and included in your manual plan export. Nothing is sent automatically.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        OutlinedButton(onClick={pendingCount=plan.feedback.size;actions.feedback(plan.id,plan.revision,category,text,sessionId)},enabled=text.trim().length>=3,modifier=Modifier.fillMaxWidth()) { Text("Save feedback") }
-        Text("${plan.feedback.size} saved feedback records",style=MaterialTheme.typography.bodySmall)
+    var category by rememberSaveable(plan.id,sessionId) { mutableStateOf("Plan quality") }
+    var text by rememberSaveable(plan.id,sessionId) { mutableStateOf("") }
+    LaunchedEffect(plan.feedback.size) {
+        if(pendingCount!=null && plan.feedback.size>pendingCount!!) {
+            text=""
+            pendingCount=null
+        }
+    }
+    Column(
+        modifier=Modifier.fillMaxWidth().padding(vertical=10.dp)
+            .testTag("plan-feedback-form"),
+        verticalArrangement=Arrangement.spacedBy(15.dp)
+    ) {
+        HorizontalDivider(color=StrideWorkoutVisuals.divider)
+        Column(
+            modifier=Modifier.fillMaxWidth().padding(top=6.dp),
+            verticalArrangement=Arrangement.spacedBy(5.dp)
+        ) {
+            Text("Private feedback",
+                style=MaterialTheme.typography.titleLarge,
+                color=StrideWorkoutVisuals.white)
+            Text("Saved on your device",
+                style=MaterialTheme.typography.labelSmall,
+                color=StrideWorkoutVisuals.muted)
+        }
+        Text("What would you like to tell us?",
+            style=MaterialTheme.typography.bodyMedium,
+            color=StrideWorkoutVisuals.white)
+        FlowRow(
+            horizontalArrangement=Arrangement.spacedBy(8.dp),
+            verticalArrangement=Arrangement.spacedBy(7.dp)
+        ) {
+            listOf(
+                "Plan quality",
+                "Inappropriate prescription",
+                "Workout quality",
+                "Usability"
+            ).forEach { option ->
+                StrideLibraryChip(
+                    selected=category==option,
+                    onClick={ category=option },
+                    label=option,
+                    modifier=Modifier.testTag(
+                        "plan-feedback-category-"+option.replace(" ","-").lowercase()
+                    )
+                )
+            }
+        }
+        OutlinedTextField(
+            value=text,
+            onValueChange={ text=it.take(2000) },
+            placeholder={
+                Text("What worked, or what should change?",
+                    color=StrideWorkoutVisuals.muted)
+            },
+            modifier=Modifier.fillMaxWidth().heightIn(min=132.dp)
+                .testTag("plan-feedback-text"),
+            minLines=4,
+            maxLines=8,
+            textStyle=MaterialTheme.typography.bodyLarge.copy(
+                color=StrideWorkoutVisuals.white
+            ),
+            shape=RoundedCornerShape(18.dp),
+            colors=OutlinedTextFieldDefaults.colors(
+                focusedBorderColor=StrideWorkoutVisuals.lime,
+                unfocusedBorderColor=StrideWorkoutVisuals.divider,
+                focusedContainerColor=StrideWorkoutVisuals.card,
+                unfocusedContainerColor=StrideWorkoutVisuals.card,
+                cursorColor=StrideWorkoutVisuals.lime
+            )
+        )
+        Text(
+            "Saved privately on this device and included in your manual plan export. Nothing is sent automatically.",
+            style=MaterialTheme.typography.bodySmall,
+            color=StrideWorkoutVisuals.muted
+        )
+        StrideWorkoutPrimaryButton(
+            label="Save feedback",
+            onClick={
+                pendingCount=plan.feedback.size
+                actions.feedback(plan.id,plan.revision,category,text,sessionId)
+            },
+            enabled=text.trim().length>=3,
+            modifier=Modifier.testTag("plan-feedback-save")
+        )
+        Text("${plan.feedback.size} saved feedback records",
+            style=MaterialTheme.typography.bodySmall,
+            color=StrideWorkoutVisuals.muted)
     }
 }
 @Composable internal fun NativePlanExport(plans:List<PlanSnapshot>) {
