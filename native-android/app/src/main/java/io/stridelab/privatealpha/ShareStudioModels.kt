@@ -62,6 +62,7 @@ internal data class ShareStudioState(
         require(value in template.variants)
         val sparse = template==ShareTemplate.MINIMAL || value==ShareVariant.STORY
         return copy(variant=value,
+            routeColor=if(template==ShareTemplate.MINIMAL) ShareRouteColor.WHITE else routeColor,
             routeMode=if(value==ShareVariant.PERFORMANCE) ShareRouteMode.PACE else ShareRouteMode.ROUTE,
             metrics=if(value==ShareVariant.SILHOUETTE) setOf(ShareMetric.DISTANCE)
                 else if(sparse) setOf(ShareMetric.TITLE,ShareMetric.DISTANCE,ShareMetric.PACE)
