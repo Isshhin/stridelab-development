@@ -1,0 +1,63 @@
+name: P2-X isolated GitHub-hosted synthetic conformance
+
+on:
+  push:
+    branches:
+      - research/p2x-integration-20261108
+    paths:
+      - 'research/validation/p2x_integration.py'
+      - 'research/validation/test_p2x_integration.py'
+      - '.github/workflows/research-p2x-isolated-ubuntu.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cross-track-regression:
+    name: P2-A/C/D/E and P2-X synthetic regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact isolated branch commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify exact SHA and no Windows self-hosted execution
+        run: |
+          echo "SHA=$GITHUB_SHA"
+          test "$RUNNER_OS" = "Linux"
+          test "$RUNNER_ENVIRONMENT" = "github-hosted"
+      - name: Run all P2-A/C/D/E/P2-X synthetic cases
+        env:
+          PYTHONPATH: research/validation
+        run: >
+          python -m unittest -v
+          test_p2a_state
+          test_p2a_comparison
+          test_p2c_wave
+          test_p2d_shadow
+          test_p2e_wave
+          test_p2x_integration
+
+  all-research-unit-tests:
+    name: All research validation unittest discovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify GitHub-hosted Linux runner
+        run: |
+          test "$RUNNER_OS" = "Linux"
+          test "$RUNNER_ENVIRONMENT" = "github-hosted"
+      - name: Execute repository research unit tests
+        run: python -m unittest discover -s research/validation -p 'test_*.py' -v
