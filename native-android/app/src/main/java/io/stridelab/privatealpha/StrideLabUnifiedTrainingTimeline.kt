@@ -212,7 +212,7 @@ internal fun StrideLabUnifiedTrainingTimeline(
                 .ifEmpty { listOf(todayIndex) }
         }
     }
-    LaunchedEffect(account, nearbyIndices, state.cachedDetailIds) {
+    LaunchedEffect(account, nearbyIndices, state.cachedDetailIds, days) {
         if(account != null) {
             timelineThumbnailRequestIds(
                 days, nearbyIndices, state.cachedDetailIds
