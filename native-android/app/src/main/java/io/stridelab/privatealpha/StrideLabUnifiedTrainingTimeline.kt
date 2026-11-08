@@ -112,6 +112,32 @@ internal fun unifiedTrainingDays(
     }
 }
 
+/**
+ * Bounded, nearby-date preview requests. Pages of old history can be large,
+ * but only the visible date and a small prefetch neighborhood request WebPs.
+ * Source aliases remain valid candidates for a grouped recorded activity.
+ */
+internal fun timelineThumbnailRequestIds(
+    days: List<UnifiedTrainingDay>,
+    nearbyIndices: List<Int>,
+    cachedDetailIds: Set<String>,
+    limit: Int = 48
+): List<String> {
+    require(limit in 1..48)
+    return nearbyIndices.asSequence()
+        .flatMap { ((it - 2)..(it + 1)).asSequence() }
+        .distinct()
+        .filter { it in days.indices }
+        .flatMap { index -> days[index].activities.asSequence() }
+        .flatMap { group ->
+            sequenceOf(group.primary.id) + group.additionalSources.asSequence().map { it.id }
+        }
+        .distinct()
+        .filter { it in cachedDetailIds }
+        .take(limit)
+        .toList()
+}
+
 /** Only actual dated training records introduce a month heading. */
 internal fun unifiedTimelineMonthHeading(
     days: List<UnifiedTrainingDay>,
@@ -188,15 +214,9 @@ internal fun StrideLabUnifiedTrainingTimeline(
     }
     LaunchedEffect(account, nearbyIndices, state.cachedDetailIds) {
         if(account != null) {
-            val candidateDays = nearbyIndices.flatMap { (it - 2)..(it + 1) }
-                .distinct().filter { it in days.indices }
-            val nearbySourceIds = candidateDays.asSequence()
-                .flatMap { index -> days[index].activities.asSequence() }
-                .flatMap { group -> sequenceOf(group.primary.id) +
-                    group.additionalSources.asSequence().map { it.id } }
-                .distinct().filter { it in state.cachedDetailIds }
-                .take(48).toList()
-            nearbySourceIds.forEach { id ->
+            timelineThumbnailRequestIds(
+                days, nearbyIndices, state.cachedDetailIds
+            ).forEach { id ->
                 if(id !in state.gpsThumbnails) onEnsureCachedThumbnail(id)
             }
         }
