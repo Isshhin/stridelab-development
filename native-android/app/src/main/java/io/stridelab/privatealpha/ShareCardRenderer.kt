@@ -106,7 +106,7 @@ internal object ShareCardRenderer {
                 }
                 fields.drop(1).take(3).forEachIndexed { i,metric ->
                     val x=72f+i*310f
-                    val y=state.ratio.height*.925f
+                    val y=state.ratio.height*.895f
                     stat(metric,x,y,min(49f,state.ratio.height*.047f),
                         20f,290f)
                 }
