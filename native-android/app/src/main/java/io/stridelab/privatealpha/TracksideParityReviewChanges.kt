@@ -9,6 +9,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -140,7 +144,7 @@ internal fun TracksideParityReviewChanges(
             proposal.destination?.format(fmt) ?: "Not selected"
     }
 
-    Box(Modifier.fillMaxSize().background(Color(0xFF020508))
+    Box(Modifier.fillMaxSize().background(StrideWorkoutVisuals.black)
         .testTag("review-changes-screen")) {
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState())
@@ -150,20 +154,20 @@ internal fun TracksideParityReviewChanges(
             Spacer(Modifier.height(32.dp))
             Column(Modifier.fillMaxWidth().padding(horizontal = 19.dp),
                 verticalArrangement = Arrangement.spacedBy(15.dp)) {
-                Text("PLAN / DRAFT CHANGES", color = TracksidePalette.red,
+                Text("PLAN / DRAFT CHANGES", color = StrideWorkoutVisuals.lime,
                     fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 Text("Check before applying",
                     fontSize = 23.sp, lineHeight = 29.sp, color = Color.White,
                     fontWeight = FontWeight.Bold)
                 Text("Only future sessions may change. Completed workouts stay untouched.",
                     fontSize = 12.sp, lineHeight = 16.sp,
-                    color = Color(0xFFB7C5CF))
+                    color = StrideWorkoutVisuals.muted)
                 Spacer(Modifier.height(7.dp))
                 Surface(
                     modifier = Modifier.fillMaxWidth().heightIn(min = 185.dp)
                         .testTag("review-proposal-diff"),
-                    shape = RoundedCornerShape(14.dp), color = Color(0xFF0F2835),
-                    border = BorderStroke(1.dp, Color(0xFF658293))
+                    shape = RoundedCornerShape(14.dp), color = StrideWorkoutVisuals.card,
+                    border = BorderStroke(1.dp, StrideWorkoutVisuals.divider)
                 ) {
                     Column(Modifier.padding(13.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -172,7 +176,7 @@ internal fun TracksideParityReviewChanges(
                             Text(if (proposal.kind == TracksideChangeKind.MOVE)
                                 "WORKOUT MOVE" else "MISSED WORKOUT",
                                 fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                                color = Color(0xFFB7C5CF))
+                                color = StrideWorkoutVisuals.muted)
                             Text("NOT APPLIED", fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold, color = Color(0xFFFFB86F))
                         }
@@ -195,17 +199,17 @@ internal fun TracksideParityReviewChanges(
                                     "Other sessions stay on their original dates."
                             },
                             fontSize = 11.sp, lineHeight = 15.sp,
-                            color = Color(0xFFB7C5CF))
+                            color = StrideWorkoutVisuals.muted)
                     }
                 }
                 Spacer(Modifier.height(3.dp))
                 Text("COACHING CHECKS", fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold, color = Color(0xFFB7C5CF))
+                    fontWeight = FontWeight.Bold, color = StrideWorkoutVisuals.muted)
                 Surface(
                     modifier = Modifier.fillMaxWidth().heightIn(min = 169.dp)
                         .testTag("review-checks-card"),
-                    shape = RoundedCornerShape(14.dp), color = Color(0xFF0E2734),
-                    border = BorderStroke(1.dp, Color(0xFF688799))
+                    shape = RoundedCornerShape(14.dp), color = StrideWorkoutVisuals.card,
+                    border = BorderStroke(1.dp, StrideWorkoutVisuals.divider)
                 ) {
                     Column(Modifier.padding(horizontal = 13.dp)) {
                         TracksideParityCheckRow("Daily session capacity", check?.capacity)
@@ -219,45 +223,30 @@ internal fun TracksideParityReviewChanges(
                         color = if (check!!.accepted) Color(0xFF87BFB0) else Color(0xFFFFA3A8),
                         modifier = Modifier.testTag("review-check-result"))
                 }
-                Surface(
-                    onClick = onRegenerateDraft,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 73.dp)
-                        .testTag("review-regenerate-entry"),
-                    shape = RoundedCornerShape(14.dp), color = Color(0xFF0F2835),
-                    border = BorderStroke(1.dp, Color(0xFF688799))
-                ) {
-                    Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(13.dp)) {
-                        Box(Modifier.size(41.dp).background(Color(0xFF1D465B),
-                                RoundedCornerShape(9.dp)),
-                            contentAlignment = Alignment.Center) {
-                            Text("↻", fontSize = 27.sp, color = Color(0xFF92D5EB))
-                        }
-                        Column(Modifier.weight(1f)) {
-                            Text("Regenerate future weeks", fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold, color = Color.White)
-                            Text("Choose a start date and compare proposals",
-                                fontSize = 11.sp, color = Color(0xFFB7C5CF))
-                        }
-                    }
-                }
+                StridePlanActionRow(
+                    title="Regenerate future weeks",
+                    subtitle="Choose a start date and compare proposals",
+                    enabled=true,
+                    modifier=Modifier.testTag("review-regenerate-entry"),
+                    onClick=onRegenerateDraft
+                )
             }
         }
 
         Column(
             Modifier.fillMaxWidth().align(Alignment.BottomCenter)
-                .background(Color(0xFF081B26))
+                .background(StrideWorkoutVisuals.black)
                 .padding(horizontal = 18.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(15.dp)
         ) {
             Row(Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("PROPOSED ONLY", fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold, color = Color(0xFFB7C5CF))
+                    fontWeight = FontWeight.Bold, color = StrideWorkoutVisuals.muted)
                 Text(if (check == null) "Approval requires coaching checks"
                 else if (check!!.accepted) "Current engine checks complete"
                 else "Review the proposal",
-                    fontSize = 10.sp, color = Color(0xFFB7C5CF))
+                    fontSize = 10.sp, color = StrideWorkoutVisuals.muted)
             }
             Button(
                 modifier = Modifier.fillMaxWidth().height(51.dp)
@@ -277,20 +266,20 @@ internal fun TracksideParityReviewChanges(
                 },
                 shape = RoundedCornerShape(11.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFD12648),
-                    disabledContainerColor = Color(0xFF492B36))
+                    containerColor = StrideWorkoutVisuals.lime,
+                    disabledContainerColor = Color(0xFF343D2C))
             ) {
                 Text(if (check?.accepted == true) "Apply reviewed change"
                     else if (check != null) "Checks require review"
                     else "Run coaching checks",
                     fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                    color = Color.White)
+                    color = Color(0xFF10120D))
             }
             Text(if (check?.accepted == true)
                 "Only current-engine safeguards ran; Engine 2.0 is not connected."
             else "No plan changes have been applied.",
                 fontSize = 11.sp, textAlign = TextAlign.Center,
-                color = Color(0xFFB7C5CF), modifier = Modifier.fillMaxWidth())
+                color = StrideWorkoutVisuals.muted, modifier = Modifier.fillMaxWidth())
         }
     }
 }
@@ -313,7 +302,7 @@ private fun TracksideParityCheckRow(label: String, status: String?, last: Boolea
                 maxLines = 2, textAlign = TextAlign.End)
         }
         if (!last) Box(Modifier.fillMaxWidth().height(1.dp)
-            .background(Color(0xFF3D5664)))
+            .background(StrideWorkoutVisuals.divider))
     }
 }
 
@@ -322,11 +311,11 @@ private fun TracksideParityDateBlock(
     label: String, value: String, modifier: Modifier, active: Boolean
 ) {
     Surface(modifier.height(86.dp), shape = RoundedCornerShape(10.dp),
-        color = if (active) Color(0xFF2E4D60) else Color(0xFF223F4E),
-        border = BorderStroke(1.dp, Color(0xFF61859A))) {
+        color = if (active) Color(0xFF26381C) else Color(0xFF17191A),
+        border = BorderStroke(1.dp, StrideWorkoutVisuals.divider)) {
         Column(horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center) {
-            Text(label, fontSize = 10.sp, color = Color(0xFFB7C5CF))
+            Text(label, fontSize = 10.sp, color = StrideWorkoutVisuals.muted)
             Spacer(Modifier.height(9.dp))
             Text(value, fontSize = 16.sp, fontWeight = FontWeight.Bold,
                 color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -334,21 +323,23 @@ private fun TracksideParityDateBlock(
     }
 }
 
-/** Shared safe-area header for full-screen approved 25D/25E states. */
+/** Shared accessible header for native plan action flows. */
 @Composable
 internal fun TracksideParityPlanFlowHeader(title: String, onBack: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 17.dp)) {
-        Row(Modifier.fillMaxWidth().height(78.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            TextButton(onClick = onBack, modifier = Modifier.size(28.dp)
-                .testTag("plan-flow-back"),
-                contentPadding = PaddingValues(0.dp)) {
-                Text("‹", color = Color.White, fontSize = 27.sp)
+    Column(Modifier.fillMaxWidth().padding(horizontal=16.dp)) {
+        Row(Modifier.fillMaxWidth().heightIn(min=66.dp),
+            verticalAlignment=Alignment.CenterVertically,
+            horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+            IconButton(onClick=onBack,modifier=Modifier.size(48.dp)
+                .testTag("plan-flow-back")) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription="Back to Training",
+                    tint=StrideWorkoutVisuals.white)
             }
-            Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold,
-                color = Color.White)
+            Text(title,fontSize=18.sp,fontWeight=FontWeight.SemiBold,
+                color=StrideWorkoutVisuals.white)
         }
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF24333D)))
+        Box(Modifier.fillMaxWidth().height(1.dp)
+            .background(StrideWorkoutVisuals.divider))
     }
 }

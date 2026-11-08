@@ -1,6 +1,7 @@
 package io.stridelab.privatealpha
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
@@ -54,51 +55,52 @@ internal fun TracksideParityMoveWorkoutSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF111E28),
+        containerColor = StrideWorkoutVisuals.card,
+        contentColor = StrideWorkoutVisuals.white,
         shape = RoundedCornerShape(topStart = 27.dp, topEnd = 27.dp),
         dragHandle = { Box(
             Modifier.padding(top = 12.dp).width(44.dp).height(4.dp)
-                .background(Color(0xFF889AA6), RoundedCornerShape(3.dp))
+                .background(StrideWorkoutVisuals.muted, RoundedCornerShape(3.dp))
         ) }
     ) {
         Column(
-            Modifier.fillMaxWidth().heightIn(min = 620.dp)
+            Modifier.fillMaxWidth().heightIn(max = 590.dp)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 17.dp, vertical = 22.dp),
             verticalArrangement = Arrangement.spacedBy(15.dp)
         ) {
-            Text("MOVE WORKOUT", fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                color = TracksidePalette.textMuted)
+            Text("TRAINING  ·  PLANNED",fontSize=11.sp,fontWeight=FontWeight.Medium,
+                color=StrideWorkoutVisuals.lime)
             Text(if (review) "Review the proposed move" else "Choose a new day",
-                fontSize = 25.sp, color = TracksidePalette.text, fontWeight = FontWeight.Bold)
+                fontSize = 25.sp, color = StrideWorkoutVisuals.white, fontWeight = FontWeight.Bold)
             Text(session.effectiveTitle + " · " +
                 session.date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.getDefault())),
-                fontSize = 12.sp, color = TracksidePalette.textMuted)
+                fontSize = 12.sp, color = StrideWorkoutVisuals.muted)
             Text("AVAILABLE DAYS", fontSize = 11.sp,
-                color = TracksidePalette.textMuted, fontWeight = FontWeight.Bold)
+                color = StrideWorkoutVisuals.muted, fontWeight = FontWeight.Bold)
             Row(
-                Modifier.fillMaxWidth().height(64.dp),
-                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).height(64.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 destinations.forEach { day ->
                     val canSelect = day >= LocalDate.now() && day in plan.request.start..last &&
                         day.dayOfWeek.value in plan.request.days && day != session.date
                     Surface(
-                        modifier = Modifier.weight(1f).fillMaxHeight()
+                        modifier = Modifier.width(49.dp).fillMaxHeight()
                             .testTag("move-destination-" + day.toString()),
                         onClick = { proposed = day; review = false },
                         enabled = canSelect,
-                        color = if (day == proposed) Color(0xFF2F4655) else Color(0xFF162631),
+                        color = if (day == proposed) Color(0xFF273A1B) else Color(0xFF17191A),
                         shape = RoundedCornerShape(10.dp),
                         border = BorderStroke(1.dp,
-                            if (day == proposed) TracksidePalette.red else Color(0x665B7080))
+                            if (day == proposed) StrideWorkoutVisuals.lime else StrideWorkoutVisuals.divider)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center) {
                             Text(day.dayOfWeek.name.take(2),
-                                fontSize = 10.sp, color = TracksidePalette.textMuted)
+                                fontSize = 10.sp, color = StrideWorkoutVisuals.muted)
                             Text(day.dayOfMonth.toString(),
-                                fontSize = 16.sp, color = TracksidePalette.text,
+                                fontSize = 16.sp, color = StrideWorkoutVisuals.white,
                                 fontWeight = FontWeight.Bold)
                         }
                     }
@@ -106,39 +108,39 @@ internal fun TracksideParityMoveWorkoutSheet(
             }
             Surface(
                 modifier = Modifier.fillMaxWidth().heightIn(min = 177.dp),
-                color = Color(0xFF192A36),
+                color = StrideWorkoutVisuals.card,
                 shape = RoundedCornerShape(15.dp),
-                border = BorderStroke(1.dp, Color(0x665B7080))
+                border = BorderStroke(1.dp, StrideWorkoutVisuals.divider)
             ) {
                 Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("PLANNED WITH THIS MOVE", fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold, color = TracksidePalette.textMuted)
+                        fontWeight = FontWeight.Bold, color = StrideWorkoutVisuals.muted)
                     if (candidate == null) Text("Choose an available day to preview its existing sessions.",
-                        color = TracksidePalette.text)
+                        color = StrideWorkoutVisuals.white)
                     else {
                         targetRows.forEach { existing ->
                             Text(existing.effectiveTitle + " · existing",
-                                color = TracksidePalette.textMuted)
+                                color = StrideWorkoutVisuals.muted)
                         }
                         Text(session.effectiveTitle + " · proposed",
-                            color = tracksideDisciplineColor(session.discipline),
+                            color = if(session.discipline=="run") StrideWorkoutVisuals.lime else tracksideDisciplineColor(session.discipline),
                             fontWeight = FontWeight.Bold)
                         Text("Daily slots: " + (targetRows.size + 1) + " / 2",
-                            fontSize = 11.sp, color = TracksidePalette.textMuted)
+                            fontSize = 11.sp, color = StrideWorkoutVisuals.muted)
                     }
-                    HorizontalDivider(color = Color(0x665B7080))
+                    HorizontalDivider(color = StrideWorkoutVisuals.divider)
                     Text("RECOVERY PENDING · Load and workout compatibility",
-                        fontSize = 11.sp, color = TracksidePalette.textMuted)
+                        fontSize = 11.sp, color = StrideWorkoutVisuals.muted)
                     Text("An open session slot does not guarantee safe recovery.",
-                        style = MaterialTheme.typography.bodySmall, color = TracksidePalette.textMuted)
+                        style = MaterialTheme.typography.bodySmall, color = StrideWorkoutVisuals.muted)
                 }
             }
             if (review) Text(
                 "Not applied. The existing coaching engine will validate scheduling and revision conflicts when you confirm.",
-                color = TracksidePalette.textMuted, fontSize = 12.sp)
+                color = StrideWorkoutVisuals.muted, fontSize = 12.sp)
             else Text(
                 "Active plan stays unchanged until review and confirmation.",
-                color = TracksidePalette.textMuted, fontSize = 12.sp)
+                color = StrideWorkoutVisuals.muted, fontSize = 12.sp)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                 OutlinedButton(
                     onClick = onDismiss,
@@ -158,17 +160,18 @@ internal fun TracksideParityMoveWorkoutSheet(
                         } else review = true
                     },
                     enabled = available,
-                    colors = ButtonDefaults.buttonColors(containerColor = TracksidePalette.red),
+                    colors = ButtonDefaults.buttonColors(containerColor = StrideWorkoutVisuals.lime,
+                        contentColor=Color(0xFF10120D)),
                     modifier = Modifier.weight(1.7f).height(49.dp)
                         .testTag("move-review"),
                     shape = RoundedCornerShape(13.dp)
                 ) {
                     Text(if (review) "Confirm move" else "Review move",
-                        color = Color.White)
+                        color = Color(0xFF10120D))
                 }
             }
             Text("Pinned workouts must be explicitly unpinned before moving.",
-                fontSize = 11.sp, color = TracksidePalette.textMuted)
+                fontSize = 11.sp, color = StrideWorkoutVisuals.muted)
         }
     }
 }

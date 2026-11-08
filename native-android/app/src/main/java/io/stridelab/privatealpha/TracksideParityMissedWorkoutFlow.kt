@@ -12,6 +12,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -91,7 +93,7 @@ internal fun TracksideParityMissedWorkoutFlow(
         return
     }
 
-    Box(Modifier.fillMaxSize().background(Color(0xFF010305))
+    Box(Modifier.fillMaxSize().background(StrideWorkoutVisuals.black)
         .testTag("missed-workout-screen")) {
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState())
@@ -104,54 +106,35 @@ internal fun TracksideParityMissedWorkoutFlow(
                 verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
                 Text("PLAN / MISSED WORKOUT", fontSize = 10.sp,
-                    color = TracksidePalette.red, fontWeight = FontWeight.Bold)
+                    color = StrideWorkoutVisuals.lime, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(21.dp))
                 Text("What happens to\nthis workout?", fontSize = 23.sp, lineHeight = 29.sp,
-                    fontWeight = FontWeight.Bold, color = Color.White)
+                    fontWeight = FontWeight.Bold, color = StrideWorkoutVisuals.white)
                 Spacer(Modifier.height(10.dp))
                 Text("Choose how to handle the missed session.",
-                    fontSize = 12.sp, color = Color(0xFFB7C5CF))
+                    fontSize = 12.sp, color = StrideWorkoutVisuals.muted)
                 Spacer(Modifier.height(27.dp))
-                Surface(
-                    modifier = Modifier.fillMaxWidth().height(83.dp)
-                        .testTag("missed-session-context"),
-                    shape = RoundedCornerShape(14.dp), color = Color(0xFF102735),
-                    border = BorderStroke(1.dp, Color(0xFF547588))
+                Column(
+                    Modifier.fillMaxWidth().testTag("missed-session-context")
+                        .padding(vertical=10.dp),
+                    verticalArrangement=Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(Modifier.fillMaxWidth().padding(11.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(
-                            Modifier.size(width = 46.dp, height = 49.dp)
-                                .background(Color(0xFF492838), RoundedCornerShape(12.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            androidx.compose.material3.Icon(
-                                painterResource(R.drawable.trackside_figma_run), null,
-                                modifier = Modifier.size(27.dp),
-                                tint = Color(0xFFFF637E)
-                            )
+                    Text(session.effectiveTitle,fontSize=17.sp,
+                        color=StrideWorkoutVisuals.white,fontWeight=FontWeight.SemiBold)
+                    val summary=buildList {
+                        add(session.date.format(DateTimeFormatter.ofPattern(
+                            "EEE d MMM",Locale.getDefault())))
+                        session.distanceKm?.let {
+                            add(String.format(Locale.getDefault(),"%.1f km",it))
                         }
-                        Column(Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(session.effectiveTitle, fontSize = 14.sp,
-                                color = Color.White, fontWeight = FontWeight.Bold)
-                            val summary = buildList {
-                                add(session.date.format(
-                                    DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())))
-                                session.distanceKm?.let { add(
-                                    String.format(Locale.getDefault(), "%.1f km", it)) }
-                                add(if (session.status == "planned") "Not completed"
-                                    else "In progress")
-                            }.joinToString(" · ")
-                            Text(summary, fontSize = 11.sp,
-                                color = Color(0xFFB7C5CF))
-                        }
-                    }
+                        add(if(session.status=="planned") "Not completed" else "In progress")
+                    }.joinToString(" · ")
+                    Text(summary,fontSize=12.sp,color=StrideWorkoutVisuals.muted)
                 }
+                HorizontalDivider(color=StrideWorkoutVisuals.divider)
                 Spacer(Modifier.height(26.dp))
                 Text("CHOOSE WHAT HAPPENS NEXT", fontSize = 11.sp,
-                    color = Color(0xFFB7C5CF), fontWeight = FontWeight.Bold)
+                    color = StrideWorkoutVisuals.muted, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(11.dp))
                 TracksideMissedDecisionCard(
                     title = "Skip workout",
@@ -182,14 +165,14 @@ internal fun TracksideParityMissedWorkoutFlow(
                 if (!canEdit) {
                     Spacer(Modifier.height(12.dp))
                     Text("This saved workout is read-only, already completed or linked to a recording.",
-                        color = Color(0xFFFFA6AC),
+                        color = Color(0xFFFF9A97),
                         style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
         Column(
             Modifier.fillMaxWidth().align(Alignment.BottomCenter)
-                .background(Color(0xFF010305))
+                .background(StrideWorkoutVisuals.black)
                 .padding(start = 19.dp, end = 19.dp, bottom = 23.dp, top = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(13.dp)
@@ -203,16 +186,17 @@ internal fun TracksideParityMissedWorkoutFlow(
                     .testTag("missed-preview-adjustment"),
                 enabled = canEdit && !busy,
                 shape = RoundedCornerShape(11.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD12648))
+                colors = ButtonDefaults.buttonColors(containerColor = StrideWorkoutVisuals.lime,
+                    contentColor=Color(0xFF10120D))
             ) {
                 Text(when (decision) {
                     "skip" -> "Preview skip"
                     "move" -> "Choose destination"
                     else -> "Preview adjustment"
-                }, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }, color = Color(0xFF10120D), fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
             Text("No automatic catch-up or back-to-back hard workouts.",
-                fontSize = 11.sp, color = Color(0xFFB7C5CF),
+                fontSize = 11.sp, color = StrideWorkoutVisuals.muted,
                 modifier = Modifier.testTag("missed-safety-note"))
         }
     }
@@ -231,7 +215,9 @@ internal fun TracksideParityMissedWorkoutFlow(
                             Modifier.fillMaxWidth().clickable { reason = item },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            RadioButton(selected = reason == item, onClick = { reason = item })
+                            RadioButton(selected = reason == item, onClick = { reason = item },
+                                colors=RadioButtonDefaults.colors(selectedColor=StrideWorkoutVisuals.lime,
+                                    unselectedColor=StrideWorkoutVisuals.muted))
                             Text(item)
                         }
                     }
@@ -280,27 +266,27 @@ private fun TracksideMissedDecisionCard(
 ) {
     Surface(
         onClick = onClick, enabled = enabled,
-        modifier = Modifier.fillMaxWidth().height(91.dp).testTag(testTag),
+        modifier = Modifier.fillMaxWidth().heightIn(min=80.dp).testTag(testTag),
         shape = RoundedCornerShape(13.dp),
-        color = if (selected) Color(0xFF254354) else Color(0xFF102936),
+        color = if (selected) Color(0xFF25351A) else StrideWorkoutVisuals.card,
         border = BorderStroke(if (selected) 1.2f.dp else 1.dp,
-            if (selected) Color(0xFF94B8CA) else Color(0xFF527183))
+            if (selected) StrideWorkoutVisuals.lime else StrideWorkoutVisuals.divider)
     ) {
         Column(Modifier.padding(13.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                color = Color.White)
-            Text(subtitle, fontSize = 11.sp, lineHeight = 15.sp,
-                color = Color(0xFFB7C5CF))
+                color = StrideWorkoutVisuals.white)
+            Text(subtitle, fontSize = 12.sp, lineHeight = 17.sp,
+                color = StrideWorkoutVisuals.muted)
         }
     }
 }
 
 @Composable
 private fun TracksideParityUnavailableMissed(onBack: () -> Unit) {
-    Column(Modifier.fillMaxSize().background(Color(0xFF010305))) {
+    Column(Modifier.fillMaxSize().background(StrideWorkoutVisuals.black)) {
         TracksideParityPlanFlowHeader("Missed workout", onBack)
         Text("This workout is not available in the current saved plan.",
-            modifier = Modifier.padding(19.dp), color = Color.White)
+            modifier = Modifier.padding(19.dp), color = StrideWorkoutVisuals.white)
     }
 }
