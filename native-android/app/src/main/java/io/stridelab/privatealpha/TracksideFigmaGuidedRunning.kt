@@ -38,9 +38,10 @@ internal fun TracksideFigmaGuidedRunning(
         isEndurance -> listOf("Run longer", "Build mileage", "Long run")
         else -> listOf("Consistency", "Improve fitness", "Maintain")
     }
-    val outline = Color(0xFF3C5361)
-    val bg = Color(0xFF172630)
+    val outline = Color(0xFF383838)
+    val bg = Color(0xFF242424)
     TracksideFigmaBuilderFrame(
+        progressStep = 2,
         toolbarTitle = "Generate Training Plan",
         eyebrow = when {
             isSpeed -> "RUNNING / SPEED DEVELOPMENT"
@@ -78,10 +79,10 @@ internal fun TracksideFigmaGuidedRunning(
                     modifier = Modifier.weight(1f).height(44.dp)
                         .testTag("builder-focus-" + label.replace(' ', '-')),
                     shape = RoundedCornerShape(9.dp),
-                    color = if(selected) Color(0xFF562735) else bg,
+                    color = if (selected) PlanBuilderPalette.selected else bg,
                     border = BorderStroke(
                         1.dp,
-                        if(selected) Color(0xFFBC657B) else outline
+                        if(selected) Color(0xFFDBF351) else outline
                     )
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -138,9 +139,9 @@ private fun TracksideFigmaEditableInfo(
     Surface(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().height(72.dp).testTag(tag),
-        color = Color(0xFF192A35),
+        color = Color(0xFF242424),
         shape = RoundedCornerShape(13.dp),
-        border = BorderStroke(1.dp, Color(0xFF3C5665))
+        border = BorderStroke(1.dp, Color(0xFFDBF351))
     ) {
         Row(
             Modifier.padding(horizontal = 13.dp),

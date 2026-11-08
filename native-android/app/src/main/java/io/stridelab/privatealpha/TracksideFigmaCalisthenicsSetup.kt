@@ -28,9 +28,9 @@ import java.time.DayOfWeek
  * WeeklyPlacement and persist in PlanRequest. Focus types are NOT currently
  * enforced by Engine 1; they remain visually distinguishable advisory choices.
  */
-private val caliViolet=Color(0xFFC19CEA)
-private val caliInk=Color(0xFFF5F7F8)
-private val caliSubtle=Color(0xFFACBBC6)
+private val caliViolet=Color(0xFFDBF351)
+private val caliInk=Color(0xFFFFFFFF)
+private val caliSubtle=Color(0xFFC5C5C5)
 
 @Composable
 internal fun TracksideFigmaCalisthenicsSetup(
@@ -52,6 +52,7 @@ internal fun TracksideFigmaCalisthenicsSetup(
     var focusedDay by rememberSaveable { mutableIntStateOf(3) }
     var advisory by rememberSaveable { mutableStateOf("") }
     TracksideFigmaBuilderFrame(
+        progressStep = 3,
         toolbarTitle="Calisthenics Setup",
         eyebrow="CALISTHENICS / WEEKLY SCHEDULE",
         headline="Your calisthenics week",
@@ -61,7 +62,7 @@ internal fun TracksideFigmaCalisthenicsSetup(
     ) {
         Row(
             Modifier.fillMaxWidth().heightIn(min=48.dp)
-                .background(Color(0xFF151D29),RoundedCornerShape(12.dp))
+                .background(Color(0xFF242424),RoundedCornerShape(12.dp))
                 .padding(4.dp),
             horizontalArrangement=Arrangement.spacedBy(6.dp),
             verticalAlignment=Alignment.CenterVertically
@@ -72,10 +73,10 @@ internal fun TracksideFigmaCalisthenicsSetup(
                     onClick={onMode(selectedMode)},
                     modifier=Modifier.weight(1f).heightIn(min=40.dp)
                         .testTag(if(selectedMode)"builder-cali-customize" else "builder-cali-auto"),
-                    color=if(isSelected)Color(0xFF49345D) else Color(0xFF16232D),
+                    color=if(isSelected)Color(0xFF383838) else Color(0xFF242424),
                     shape=RoundedCornerShape(9.dp),
                     border=BorderStroke(1.dp,
-                        if(isSelected)Color(0xFFA284CA) else Color(0xFF344854))
+                        if(isSelected)Color(0xFFDBF351) else Color(0xFF383838))
                 ) {
                     Box(
                         Modifier.fillMaxWidth().padding(horizontal=5.dp,vertical=11.dp),
@@ -91,9 +92,9 @@ internal fun TracksideFigmaCalisthenicsSetup(
         Spacer(Modifier.height(10.dp))
         Surface(
             modifier=Modifier.fillMaxWidth().testTag("builder-cali-weekly"),
-            color=Color(0xFF261F34),
+            color=Color(0xFF303030),
             shape=RoundedCornerShape(15.dp),
-            border=BorderStroke(1.dp,Color(0xFF755E92))
+            border=BorderStroke(1.dp,Color(0xFFDBF351))
         ) {
             Column(Modifier.padding(13.dp)) {
                 Text("WEEKLY SESSIONS",color=caliSubtle,fontSize=10.5f.sp,
@@ -111,9 +112,9 @@ internal fun TracksideFigmaCalisthenicsSetup(
                             enabled=count+d in 1..4,
                             modifier=Modifier.padding(start=8.dp).size(44.dp)
                                 .testTag(if(d<0)"builder-cali-minus" else "builder-cali-plus"),
-                            color=Color(0xFF273A47),
+                            color=Color(0xFF303030),
                             shape=RoundedCornerShape(10.dp),
-                            border=BorderStroke(1.dp,Color(0xFF536778))
+                            border=BorderStroke(1.dp,Color(0xFFDBF351))
                         ) {
                             Box(contentAlignment=Alignment.Center) {
                                 Text(if(d<0)"−" else "+",color=caliInk,fontSize=22.sp)
@@ -123,7 +124,7 @@ internal fun TracksideFigmaCalisthenicsSetup(
                 }
                 Spacer(Modifier.height(13.dp))
                 Box(Modifier.fillMaxWidth().height(1.dp)
-                    .background(Color(0xFF344754)))
+                    .background(Color(0xFF383838)))
                 Spacer(Modifier.height(13.dp))
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)) {
                     (1..7).forEach { day ->
@@ -152,16 +153,16 @@ internal fun TracksideFigmaCalisthenicsSetup(
                             modifier=Modifier.weight(1f).height(49.dp)
                                 .testTag("builder-cali-day-"+day),
                             color=when {
-                                index>=0 -> Color(0xFF392A50)
-                                day !in request.days -> Color(0xFF151A21)
-                                else -> Color(0xFF0E161D)
+                                index>=0 -> Color(0xFF383838)
+                                day !in request.days -> Color(0xFF242424)
+                                else -> Color(0xFF171717)
                             },
                             shape=RoundedCornerShape(9.dp),
                             border=BorderStroke(if(selected)2.dp else 1.dp,
                                 when {
-                                    selected -> Color(0xFFEFF3F6)
-                                    index>=0 -> Color(0xFFA284CA)
-                                    else -> Color(0xFF3A4650)
+                                    selected -> Color(0xFFFFFFFF)
+                                    index>=0 -> Color(0xFFDBF351)
+                                    else -> Color(0xFF383838)
                                 })
                         ) {
                             Box(contentAlignment=Alignment.Center) {
@@ -171,7 +172,7 @@ internal fun TracksideFigmaCalisthenicsSetup(
                                     2 -> "C"
                                     else -> "SK"
                                 } else if(day !in request.days)"−" else ""
-                                Text(marker,color=if(index>=0)Color(0xFFE6D2FF)
+                                Text(marker,color=if(index>=0)Color(0xFFDBF351)
                                     else caliSubtle,
                                     fontSize=11.sp,fontWeight=FontWeight.Bold)
                             }
@@ -189,7 +190,7 @@ internal fun TracksideFigmaCalisthenicsSetup(
                 }
                 Spacer(Modifier.height(13.dp))
                 Box(Modifier.fillMaxWidth().height(1.dp)
-                    .background(Color(0xFF344754)))
+                    .background(Color(0xFF383838)))
                 Spacer(Modifier.height(12.dp))
                 Text(DayOfWeek.of(focusedDay).name+" / EDIT SESSION",
                     color=caliViolet,fontSize=10.5f.sp,
@@ -214,12 +215,12 @@ internal fun TracksideFigmaCalisthenicsSetup(
                             },
                             modifier=Modifier.weight(1f).height(52.dp)
                                 .testTag("builder-cali-session-type-"+label),
-                            color=if(chosen)Color(0xFF4B356C)
-                                else Color(0xFF21303B),
+                            color=if(chosen)Color(0xFFDBF351)
+                                else Color(0xFF303030),
                             shape=RoundedCornerShape(10.dp),
                             border=BorderStroke(1.dp,
-                                if(chosen)Color(0xFFC5A4EB)
-                                else Color(0xFF425561))
+                                if(chosen)Color(0xFFDBF351)
+                                else Color(0xFF383838))
                         ) {
                             Box(contentAlignment=Alignment.Center) {
                                 Text(label,color=if(chosen)caliInk else caliSubtle,
@@ -237,9 +238,9 @@ internal fun TracksideFigmaCalisthenicsSetup(
                         },
                         modifier=Modifier.weight(2f).height(48.dp)
                             .testTag("builder-cali-pin"),
-                        color=Color(0xFF26333D),
+                        color=Color(0xFF303030),
                         shape=RoundedCornerShape(10.dp),
-                        border=BorderStroke(1.dp,Color(0xFF755992))
+                        border=BorderStroke(1.dp,Color(0xFFDBF351))
                     ) {
                         Box(contentAlignment=Alignment.Center) {
                             Text("⌖  Pin this day",color=caliInk,fontSize=12.7f.sp,
@@ -251,12 +252,12 @@ internal fun TracksideFigmaCalisthenicsSetup(
                         enabled=custom,
                         modifier=Modifier.weight(1f).height(48.dp)
                             .testTag("builder-cali-unassign"),
-                        color=Color(0xFF39282D),
+                        color=Color(0xFF303030),
                         shape=RoundedCornerShape(10.dp),
-                        border=BorderStroke(1.dp,Color(0xFF74525B))
+                        border=BorderStroke(1.dp,Color(0xFF1D240B))
                     ) {
                         Box(contentAlignment=Alignment.Center) {
-                            Text("Remove",color=Color(0xFFF0B9C2),
+                            Text("Remove",color=Color(0xFFDBF351),
                                 fontSize=11.5f.sp,fontWeight=FontWeight.Bold)
                         }
                     }
@@ -270,9 +271,9 @@ internal fun TracksideFigmaCalisthenicsSetup(
         Surface(
             modifier=Modifier.fillMaxWidth().heightIn(min=86.dp)
                 .testTag("builder-cali-starting-levels"),
-            color=Color(0xFF241F33),
+            color=Color(0xFF242424),
             shape=RoundedCornerShape(15.dp),
-            border=BorderStroke(1.dp,Color(0xFF5D4A78))
+            border=BorderStroke(1.dp,Color(0xFFDBF351))
         ) {
             Column(Modifier.padding(horizontal=11.dp,vertical=6.dp)) {
                 Text("STARTING LEVELS",color=caliSubtle,fontSize=10.sp,
@@ -291,16 +292,16 @@ internal fun TracksideFigmaCalisthenicsSetup(
                                 },
                                 modifier=Modifier.weight(1f).height(23.dp)
                                     .testTag("builder-cali-level-"+key),
-                                color=Color(0xFF21303B),
+                                color=Color(0xFF303030),
                                 shape=RoundedCornerShape(6.dp),
-                                border=BorderStroke(1.dp,Color(0xFF425561))
+                                border=BorderStroke(1.dp,Color(0xFF383838))
                             ) {
                                 Row(Modifier.padding(horizontal=5.dp),
                                     verticalAlignment=Alignment.CenterVertically) {
                                     Text(key,color=caliInk,fontSize=9.5f.sp,
                                         modifier=Modifier.weight(1f))
                                     Text(when(value) {0->"Beginner";1->"Intermediate";else->"Advanced"},
-                                        color=Color(0xFFD3B8EC),fontSize=9.sp)
+                                        color=Color(0xFFDBF351),fontSize=9.sp)
                                 }
                             }
                         }
