@@ -137,6 +137,7 @@ internal object Engine1:PlanGenerationEngine {
         val slots=(0L..6L).map(start::plusDays).filter { it.dayOfWeek.value in p.days }
         val ordered=templates.sortedBy { when { it.kind=="long"->0;it.quality->1;it.lower->2;it.discipline=="str"->3;it.discipline=="cal"->4;else->5 } }
         val placed=mutableListOf<PlannedSession>();var attempts=0
+        var pinnedRecoveryConflict: Pair<PlannedSession, PlannedSession>? = null
         fun solve(index:Int):Boolean {
             if(index==ordered.size)return true
             if(++attempts>100000)return false
@@ -151,7 +152,14 @@ internal object Engine1:PlanGenerationEngine {
                 }
             }
             for(date in eligible) { val candidate=s.copy(date=date)
-                if((placed+prior.takeLast(7)).any { conflict(candidate,it) })continue
+                val blocker = (placed+prior.takeLast(7)).firstOrNull {
+                    conflict(candidate,it)
+                }
+                if (blocker != null) {
+                    if (pinnedDay != null && pinnedRecoveryConflict == null)
+                        pinnedRecoveryConflict = candidate to blocker
+                    continue
+                }
                 placed.add(candidate);if(solve(index+1))return true;placed.removeAt(placed.lastIndex)
             }
             return false
@@ -160,6 +168,9 @@ internal object Engine1:PlanGenerationEngine {
             if(p.weeklySlots.isEmpty())
                 "These days cannot fit all requested sessions with recovery spacing around quality running, lower-body work and your long run. Add days, reduce sessions or change quality/long-run preferences."
             else "The selected weekdays cannot fit all sessions with recovery spacing around quality, strength and your long run. Move a session or switch to automatic scheduling."
+                + pinnedRecoveryConflict?.let {
+                    ScheduleConflictExplanation.observed(it.first, it.second)
+                }.orEmpty()
         )
         return placed.sortedBy { it.date }
     }
