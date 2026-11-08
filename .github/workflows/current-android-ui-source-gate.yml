@@ -1,0 +1,35 @@
+name: Current Android UI source-of-truth gate
+
+on:
+  pull_request:
+    paths:
+      - 'native-android/**'
+      - 'AGENTS.md'
+      - '.agents/skills/stridelab-ui-safe-parity/**'
+      - 'docs/qa/permanent-ui-workspace.md'
+      - '.github/workflows/current-android-ui-source-gate.yml'
+  push:
+    branches:
+      - 'chore/retire-obsolete-ui-guidance-20261108'
+      - 'integration/modern-ui-*'
+    paths:
+      - 'native-android/**'
+      - 'AGENTS.md'
+      - '.github/workflows/current-android-ui-source-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  modern-ui-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reject legacy branch and obsolete Android UI
+        run: python3 native-android/tools/check_current_ui_baseline.py --require-ancestry
+      - name: Test the baseline guard
+        run: python3 -m unittest discover -s native-android/tools/tests -p 'test_current_ui_baseline_guard.py' -v
