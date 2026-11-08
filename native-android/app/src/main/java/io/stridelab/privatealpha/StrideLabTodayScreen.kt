@@ -1525,8 +1525,8 @@ private fun TodayCompactEmptyDay(online: Boolean) {
             .semantics {
                 contentDescription = "No saved activity or scheduled session for this date"
             }
-            .padding(horizontal = 15.dp, vertical = 13.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+            .padding(horizontal = 15.dp, vertical = 9.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -1537,14 +1537,14 @@ private fun TodayCompactEmptyDay(online: Boolean) {
                     .background(TodayLook.muted, CircleShape)
             )
             Text(
-                "Nothing scheduled or saved",
+                "Nothing planned or saved",
                 color = TodayLook.text, fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold
             )
         }
         Text(
             if (online) "No activity or workout for this date."
-            else "Offline · based on saved records and schedule.",
+            else "Offline · saved history/plan only.",
             color = TodayLook.muted, fontSize = 11.sp,
             modifier = Modifier.padding(start = 16.dp)
         )

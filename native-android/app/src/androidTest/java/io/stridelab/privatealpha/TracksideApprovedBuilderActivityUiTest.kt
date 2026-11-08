@@ -18,6 +18,13 @@ import java.time.Instant
 class TracksideApprovedBuilderActivityUiTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
 
+    private fun openRecordedActivityFromTraining(id: String) {
+        compose.onNodeWithTag("nav-training").performClick()
+        compose.onNodeWithTag("training-unified-timeline")
+            .performScrollToNode(hasTestTag("timeline-recorded-$id"))
+        compose.onNodeWithTag("timeline-recorded-$id").performClick()
+    }
+
     @Test fun runningBuilderUsesApprovedStagesNotLegacyChipPage() {
         val state = TrainingState(initializing = false, account = "synthetic-ui")
         compose.runOnUiThread {
@@ -206,8 +213,10 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("available-day-6").assertIsEnabled()
         compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
-        compose.onNodeWithTag("builder-enable-multi-session").performClick()
+        compose.onNodeWithTag("builder-enable-multi-session")
+            .performScrollTo().performClick()
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        compose.onNodeWithTag("builder-availability-daily-budget").assertExists()
         compose.onNodeWithText("Only compatible sessions can share a day",
             substring=true).assertExists()
         compose.onNodeWithTag("builder-other-discipline-editor").assertExists()
@@ -517,14 +526,11 @@ class TracksideApprovedBuilderActivityUiTest {
                 }
             }
         }
-        compose.onNodeWithTag("nav-activities").performClick()
-        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("activity-synthetic-run"))
-        compose.onNodeWithTag("activity-synthetic-run").performClick()
+        openRecordedActivityFromTraining("synthetic-run")
         compose.onNodeWithTag("activity-map-hero").assertIsDisplayed()
         compose.onNodeWithTag("activity-sheet-scroll").assertExists()
         compose.onNodeWithTag("activity-parity-overview").assertExists()
-        compose.onNodeWithTag("activity-change-glass-variant").performClick()
-        compose.onNodeWithTag("activity-matte-overview").assertExists()
+        compose.onNodeWithTag("activity-parity-overview").assertIsDisplayed()
     }
 
     @Test fun activitySheetDragSnapsAndKeepsMapAndTabState() {
@@ -547,10 +553,7 @@ class TracksideApprovedBuilderActivityUiTest {
                 }
             }
         }
-        compose.onNodeWithTag("nav-activities").performClick()
-        compose.onNodeWithTag("screen")
-            .performScrollToNode(hasTestTag("activity-synthetic-drag"))
-        compose.onNodeWithTag("activity-synthetic-drag").performClick()
+        openRecordedActivityFromTraining("synthetic-drag")
 
         val collapsedTop=compose.onNodeWithTag("activity-sheet-scroll")
             .getUnclippedBoundsInRoot().top
@@ -563,7 +566,7 @@ class TracksideApprovedBuilderActivityUiTest {
         val expandedTop=compose.onNodeWithTag("activity-sheet-scroll")
             .getUnclippedBoundsInRoot().top
         compose.onNodeWithTag("activity-map-hero").assertExists()
-        compose.onNodeWithTag("activity-tab-charts").performScrollTo().performClick()
+        compose.onNodeWithTag("activity-tab-charts").assertIsDisplayed().performClick()
         compose.onNodeWithTag("activity-tab-charts").assertIsSelected()
         assertTrue(
             "Switching tabs reset the expanded sheet",
@@ -600,10 +603,7 @@ class TracksideApprovedBuilderActivityUiTest {
                 }
             }
         }
-        compose.onNodeWithTag("nav-activities").performClick()
-        compose.onNodeWithTag("screen")
-            .performScrollToNode(hasTestTag("activity-synthetic-back"))
-        compose.onNodeWithTag("activity-synthetic-back").performClick()
+        openRecordedActivityFromTraining("synthetic-back")
         val collapsedTop=compose.onNodeWithTag("activity-sheet-scroll")
             .getUnclippedBoundsInRoot().top
 
@@ -620,6 +620,7 @@ class TracksideApprovedBuilderActivityUiTest {
         }
         compose.onNodeWithTag("activity-map-hero").assertExists()
         compose.onNodeWithTag("activity-map-back").performClick()
-        compose.onNodeWithTag("screen-title").assertTextEquals("Activities")
+        compose.onNodeWithTag("nav-training").assertIsSelected()
+        compose.onNodeWithTag("training-unified-timeline").assertExists()
     }
 }

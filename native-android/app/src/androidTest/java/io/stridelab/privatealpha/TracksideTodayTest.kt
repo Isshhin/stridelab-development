@@ -168,10 +168,11 @@ class TracksideTodayTest {
         compose.waitForIdle()
         compose.onNodeWithTag("today-compact-empty-day").assertExists()
         compose.onNodeWithTag("today-recorded-hero").assertDoesNotExist()
+        val compactStatusHeight = compose.onNodeWithTag("today-compact-empty-day")
+            .getUnclippedBoundsInRoot().height.value
         org.junit.Assert.assertTrue(
-            "Empty-day status is still oversized",
-            compose.onNodeWithTag("today-compact-empty-day")
-                .getUnclippedBoundsInRoot().height.value < 110f
+            "Empty-day status is still oversized: ${compactStatusHeight}dp",
+            compactStatusHeight < 110f
         )
         // Return to the current date; no historical empty state should persist.
         compose.onNodeWithTag("today-week-swipe").performTouchInput { swipeLeft() }
@@ -201,14 +202,16 @@ class TracksideTodayTest {
         compose.onNodeWithTag("today-hero").assertDoesNotExist()
 
         compose.onNodeWithTag("nav-settings").performClick()
-        compose.onNodeWithText("Not signed in").assertExists()
+        compose.onNodeWithText("Local training · no sign-in needed").assertExists()
+        compose.onNodeWithTag("more-sign-in").assertExists()
         compose.onNodeWithTag("today-hero").assertDoesNotExist()
         compose.onNodeWithTag("training-unified-timeline").assertDoesNotExist()
 
         compose.onNodeWithTag("nav-home").performClick()
         compose.onNodeWithTag("today-hero").assertExists()
         compose.onNodeWithTag("today-day-0").assertIsSelected()
-        compose.onNodeWithText("Not signed in").assertDoesNotExist()
+        compose.onNodeWithText("Local training · no sign-in needed").assertDoesNotExist()
+        compose.onNodeWithTag("more-sign-in").assertDoesNotExist()
     }
 
     @Test fun signedInTabsRetainTodayDateAndDoNotExposeInactiveControls() {
