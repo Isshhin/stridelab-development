@@ -647,7 +647,9 @@ private fun NavHostController.openActivity(id: String) {
                             { p, session -> nav.openWorkout(p, session) },
                             { id -> nav.openActivity(id) },
                             { nav.navigate("auth") },
-                            { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") }
+                            { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") },
+                            onEnsureCachedThumbnail = actions.loadGpsThumbnail,
+                            isVisible = visibleRoot == "training"
                         )
                     }
                     PersistentTabSurface(active = visibleRoot == "settings") {
@@ -727,7 +729,9 @@ private fun NavHostController.openActivity(id: String) {
                         { p, session -> nav.openWorkout(p, session) },
                         { id -> nav.openActivity(id) },
                         { nav.navigate("auth") },
-                        { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") }
+                        { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") },
+                        onEnsureCachedThumbnail = actions.loadGpsThumbnail,
+                        isVisible = visibleRoot == "training"
                     )
                 }
                 PersistentTabSurface(active = visibleRoot == "settings") {
