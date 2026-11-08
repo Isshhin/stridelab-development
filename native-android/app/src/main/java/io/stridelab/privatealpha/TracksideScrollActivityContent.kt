@@ -1220,8 +1220,14 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, account: S
         preferences.settings(account)
     }
     val sourceZones = recorded.sourceHeartRateZones
-    val zones = remember(recorded, settings) {
-        HeartRateZoneAnalysis.distribute(recorded.samples, settings)
+    // Zone distribution also walks the entire FIT stream. Keep that pass
+    // outside Compose composition and the draggable sheet's UI thread.
+    val zones by produceState<HeartRateZoneDistribution?>(
+        initialValue = null, recorded, settings
+    ) {
+        value = withContext(Dispatchers.Default) {
+            HeartRateZoneAnalysis.distribute(recorded.samples, settings)
+        }
     }
     val colors = listOf(
         Color(0xFF9FABBA), Color(0xFF79C9B3), activityLime,
