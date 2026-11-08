@@ -26,13 +26,10 @@ internal object ShareCardRenderer {
     private val numeric = ShareMetric.entries.filter { it !in setOf(ShareMetric.TITLE,ShareMetric.DATE,ShareMetric.LOCATION) }
     fun geometry(state:ShareStudioState):ShareCardGeometry {
         val h=state.ratio.height.toFloat()
-        val count=state.metrics.count { it in numeric }.coerceAtLeast(1)
-        val row=if(state.layout==ShareLayout.COMPACT) 138f else 158f
-        val statsHeight=ceil(count/2.0).toFloat()*row
         return when(state.template) {
-            ShareTemplate.STATS -> ShareCardGeometry(RectF(56f,280f+statsHeight,1024f,h-104f),250f,row)
-            ShareTemplate.ROUTE -> ShareCardGeometry(RectF(56f,246f,1024f,h-statsHeight-140f),h-statsHeight-102f,row)
-            ShareTemplate.MINIMAL -> ShareCardGeometry(RectF(120f,270f,960f,h-statsHeight-170f),h-statsHeight-112f,row)
+            ShareTemplate.ROUTE -> ShareCardGeometry(RectF(72f,max(260f,h*.21f),1008f,h*.68f),h*.71f,(h*.91f-h*.71f)/3f)
+            ShareTemplate.STATS -> ShareCardGeometry(RectF(565f,h*.65f,1008f,h*.89f),260f,(h*.61f-260f)/3f)
+            ShareTemplate.MINIMAL -> ShareCardGeometry(RectF(200f,h*.46f,880f,h*.70f),h*.73f,(h*.91f-h*.73f)/2f)
         }
     }
 
@@ -75,14 +72,28 @@ internal object ShareCardRenderer {
             canvas.restore()
         }
         val fields=numeric.filter { it in state.metrics && it in activity.metrics }
-        fields.forEachIndexed { i,metric ->
-            val x=56f+(i%2)*500f
-            val y=g.statsTop+(i/2)*g.rowHeight
-            val value=activity.metrics.getValue(metric)
-            val featured=state.template==ShareTemplate.STATS && i==0
-            text(value,x,y+68f,if(featured) 88f else 62f,
-                if(featured || (state.variant==ShareVariant.PERFORMANCE && i==0)) ShareCardPalette.LIME else ShareCardPalette.WHITE,true,456f)
-            text(metric.label.uppercase(java.util.Locale.getDefault()),x,y+110f,23f,ShareCardPalette.MUTED,maxWidth=456f)
+        fun stat(metric:ShareMetric,x:Float,y:Float,valueSize:Float,labelSize:Float,width:Float,accent:Boolean=false) {
+            text(activity.metrics.getValue(metric),x,y,valueSize,if(accent) ShareCardPalette.LIME else ShareCardPalette.WHITE,true,width)
+            text(metric.label.uppercase(java.util.Locale.getDefault()),x,y+labelSize*1.45f,labelSize,ShareCardPalette.MUTED,maxWidth=width)
+        }
+        when(state.template) {
+            ShareTemplate.ROUTE -> fields.forEachIndexed { i,metric ->
+                val row=if(i==0) 0 else 1+(i-1)/2
+                val x=if(i==0) 72f else 72f+((i-1)%2)*490f
+                val y=g.statsTop+row*g.rowHeight+g.rowHeight*.54f
+                stat(metric,x,y,g.rowHeight*(if(i==0) .65f else .48f),g.rowHeight*.16f,if(i==0) 920f else 440f,i==0)
+            }
+            ShareTemplate.STATS -> fields.forEachIndexed { i,metric ->
+                val x=72f+(i%2)*490f; val y=g.statsTop+(i/2)*g.rowHeight+g.rowHeight*.55f
+                stat(metric,x,y,g.rowHeight*(if(i==0) .60f else .46f),g.rowHeight*.15f,440f,i==0)
+            }
+            ShareTemplate.MINIMAL -> {
+                fields.firstOrNull()?.let { stat(it,100f,state.ratio.height*.36f,128f,24f,880f,true) }
+                fields.drop(1).forEachIndexed { i,metric ->
+                    val x=100f+(i%2)*470f; val y=g.statsTop+(i/2)*g.rowHeight+g.rowHeight*.48f
+                    stat(metric,x,y,g.rowHeight*.42f,g.rowHeight*.14f,420f)
+                }
+            }
         }
         text(if(state.routeMode==ShareRouteMode.HIDDEN) "ROUTE HIDDEN · FULL ACTIVITY STATS" else "ROUTE TRIMMED · FULL ACTIVITY STATS",56f,bitmap.height-80f,20f,ShareCardPalette.MUTED)
         val brandSize=when(state.branding) { ShareBranding.MINIMAL->22f; ShareBranding.SUBTLE->27f; ShareBranding.STANDARD->34f }

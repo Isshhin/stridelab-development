@@ -188,4 +188,19 @@ class ShareStudioUiTest {
             assertTrue(bytes.size()>0)
         } finally { bitmap.recycle() }
     }
+
+    @Test fun premiumTemplatesUseDistinctRouteLayoutsAcrossRatios() {
+        ShareRatio.entries.forEach { ratio ->
+            val route=ShareCardRenderer.geometry(ShareStudioState(ratio=ratio))
+            val performance=ShareCardRenderer.geometry(ShareStudioState(ratio=ratio).selectTemplate(ShareTemplate.STATS))
+            val minimal=ShareCardRenderer.geometry(ShareStudioState(ratio=ratio).selectTemplate(ShareTemplate.MINIMAL))
+            assertTrue(performance.route.width()<route.route.width())
+            assertTrue(minimal.route.width()<route.route.width())
+            listOf(route,performance,minimal).forEach { geometry ->
+                assertTrue(geometry.route.left>=0 && geometry.route.right<=1080)
+                assertTrue(geometry.route.top>=0 && geometry.route.bottom<=ratio.height)
+                assertTrue(geometry.route.width()>0 && geometry.route.height()>0)
+            }
+        }
+    }
 }
