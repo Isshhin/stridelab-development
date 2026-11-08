@@ -2,6 +2,22 @@
 
 This is the persistent default for work in this repository. Follow the user's **current task prompt** and the applicable, up-to-date branch documentation. Do not treat old handoffs, cached graph indexes, or historical green builds as proof of the live state.
 
+## Required handoff and implementation brief contract (owner preference, 2026-11-08)
+
+Every Codex prompt, Work handoff, or delegated implementation batch MUST be precise enough that an execution model can act without guessing what the owner meant. The initiating agent must explicitly document, and the executing agent must verify against the actual task:
+
+1. **Primary goal and user intent:** state *why* the change is needed and what successful user-facing behavior looks like, not merely the filenames or commands to run.
+2. **Current problem and reproduction:** describe the observed wrong behavior, how to reproduce it, and the relevant starting branch/commit or evidence. Distinguish verified facts from hypotheses.
+3. **Expected outcome with concrete examples:** give representative inputs and exact expected outputs, navigation paths, persistence and error states, including what must *not* happen. For example, a **Train Your Way** 80 km/week running target must create mileage-based running sessions aimed at the requested weekly total when safe, not silently turn into an **Improve 10K** race plan. Safety limits/deloads must be explicit.
+4. **Implementation scope and boundaries:** identify relevant screens, modules, interfaces, and permitted edits; explicitly name protected engines, data, workflows and UI elements. Do not treat a narrowly scoped request as authorization for unrelated redesigns or refactors.
+5. **Acceptance criteria:** provide objective, checkable conditions for success, including positive and negative regression scenarios and any data-integrity, offline, account-isolation or compatibility constraints that apply.
+6. **Verification plan and evidence:** identify the smallest useful unit/instrumentation/device checks, who is authorized to run them, and how results will be reported. Never equate a source edit, compilation or a mock test with verified device behavior.
+7. **Completion handoff:** report exact branch, starting and final commit, changed files, behavior delivered, checks actually run with PASS/FAIL/BLOCKED, known limitations, and the next required action.
+
+**Execution discipline:** Re-read the specific owner goal before edits; optimize for the intended result rather than literal but incomplete steps. Use concise, implementation-ready language and avoid ambiguous wording. If existing code or prior plans conflict with the requested outcome, flag the conflict and address it within authorized scope; do not silently inherit unrelated goals or invent behavior. Ask a question only when an essential unresolved choice would materially change the result. Do not expand scope, remove safety constraints, change the active engine, or claim completion without evidence.
+
+This contract governs **how tasks are specified and reported**, not permission to ignore the owner's current prompt, protected code, signing/data safety, Codex's default code-edit-only rule, or owner-run verification requirements.
+
 ## Owner-approved Today redesign (2026-11-06)
 
 - **AMOLED true black** Today screen, StrideLab branding, greeting, month/week navigation and seven-day tappable calendar.
