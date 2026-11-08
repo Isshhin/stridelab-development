@@ -57,9 +57,10 @@ def _instant(v: Any) -> datetime:
         raise ValueError("OFFSET_TIME_REQUIRED") from exc
 
 
-_FORBIDDEN = frozenset({"future_outcome", "target_outcome", "heldout_label", "held_out_label",
+_FORBIDDEN = frozenset({"outcome", "future_outcome", "target_outcome", "heldout_label", "held_out_label",
                         "next_session_result", "outcome_label", "predicted_performance",
-                        "performance_label", "training_benefit"})
+                        "performance_label", "training_benefit", "future_performance",
+                        "model_accuracy", "best_policy"})
 
 
 def _no_future_labels(value: Any) -> None:
@@ -220,8 +221,12 @@ def assess(bundle: dict[str, Any], manifest: dict[str, Any],
             event_id = record.get("event_id")
             if not _name(event_id):
                 raise ValueError("NATIVE_EVENT_ID_INVALID")
-            if event_id in index and index[event_id] != record:
-                raise ValueError("CONFLICTING_NATIVE_EVENT_ID")
+            if event_id in index:
+                if index[event_id] != record:
+                    raise ValueError("CONFLICTING_NATIVE_EVENT_ID")
+                # Even byte-identical duplicates make source multiplicity
+                # ambiguous. Deduplication belongs in a verified importer.
+                raise ValueError("DUPLICATE_IDENTICAL_NATIVE_EVENT_ID")
             index[event_id] = record
         native[track] = index
     seen = set()
@@ -333,6 +338,14 @@ def assess(bundle: dict[str, Any], manifest: dict[str, Any],
             raise ValueError("LEDGER_PROJECTION_CUTOFF_MISMATCH")
         if ledger_projection.get("ledger_tip") != manifest["ledger_tip"]:
             raise ValueError("LEDGER_TIP_MISMATCH")
+        # Missing a disposition list must not default to "no corrections".
+        # All lists exist in the DEV-1 synthetic projector's output.
+        for field in ("withdrawal_event_ids", "revoked_sources", "corrected_event_ids"):
+            changes = ledger_projection.get(field)
+            if (not isinstance(changes, list)
+                    or any(not _name(item) for item in changes)
+                    or len(set(changes)) != len(changes)):
+                raise ValueError("LEDGER_DISPOSITION_LIST_INVALID")
         active = ledger_projection.get("active_records")
         if not isinstance(active, list) or any(not isinstance(r, dict) for r in active):
             raise ValueError("LEDGER_ACTIVE_RECORDS_INVALID")
