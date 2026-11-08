@@ -57,6 +57,18 @@ class ShareStudioUiTest {
         compose.onNodeWithTag("activity-split-0").assert(hasContentDescription("selected on map",substring=true))
     }
 
+    @Test fun canvasRemainsVisibleAcrossEditingTools() {
+        mountDetail()
+        compose.onNodeWithTag("activity-share").performClick()
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("share-card-preview").fetchSemanticsNodes().isNotEmpty() }
+        listOf("LAYOUT","MAP","STATS","STYLE","EXPORT").forEach { tool ->
+            compose.onNodeWithTag("share-section-$tool").performClick()
+            compose.onNodeWithTag("share-card-preview").assertIsDisplayed()
+        }
+        compose.onNodeWithTag("share-save-image").assertIsDisplayed()
+        compose.onNodeWithTag("share-send").assertIsDisplayed()
+    }
+
     @Test fun presetsPersistUpdateAndDeleteOnDisk() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val file="share-test-${UUID.randomUUID()}"
