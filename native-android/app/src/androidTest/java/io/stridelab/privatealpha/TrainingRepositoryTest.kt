@@ -521,6 +521,46 @@ class TrainingRepositoryTest {
         assertEquals(102, repo.state.value.activities.count { it.source == "garmin" })
     }
 
+    @Test fun interruptedGarminFitSyncKeepsSavedSummaryWithoutClaimingSuccess() = runBlocking {
+        assertTrue(repo.signIn("fixture@example.invalid", "fixture"))
+        val credentials = object : GarminCredentialStore {
+            override fun read(accountId: String) = GarminCredentialRecord(
+                accountId, "fixture-key", "fixture-bearer", Instant.now().plusSeconds(86_400)
+            )
+            override fun save(record: GarminCredentialRecord) {}
+            override fun clear(accountId: String) {}
+        }
+        val api = object : GarminApi {
+            override fun exchange(apiKey: String) = GarminBearerToken(
+                "fixture-bearer", Instant.now().plusSeconds(86_400)
+            )
+            override fun activities(
+                token: GarminBearerToken, start: Int, limit: Int
+            ) = listOf(
+                GarminActivity(
+                    "interrupted-fit-original", "Recorded Garmin Run", "running",
+                    Instant.parse("2026-11-04T02:06:00Z"), 1800.0, 5000.0,
+                    1750.0, 140.0, numericActivityId = 123L
+                )
+            ).drop(start).take(limit)
+            override fun downloadActivity(
+                token: GarminBearerToken, numericId: Long
+            ): ByteArray {
+                throw GarminRateLimitException()
+            }
+        }
+        val source = GarminPersonalSource(account, credentials, api)
+        val result = repo.syncGarmin(source, detailLimit = 1)
+        assertEquals("connected", result.state) // The linked provider is still connected.
+        assertEquals(1, result.importedCount)
+        assertEquals(1, result.failedDetails)
+        assertNotNull(result.error)
+        assertNull(result.lastSuccessfulSync) // Partial FIT sync is not full completion.
+        assertEquals(1, repo.state.value.activities.count { it.source == "garmin" })
+        repo.close(); remote.offline = true; open()
+        assertEquals(1, repo.state.value.activities.count { it.source == "garmin" })
+    }
+
     @Test fun duplicateGarminIdsWithinOnePageDoNotPartiallyWriteHistory() = runBlocking {
         remote.rows=listOf(row())
         assertTrue(repo.signIn("fixture@example.invalid","fixture"))
