@@ -9,6 +9,44 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class GpsThumbnailCacheTest {
+    @Test fun preloadsAlreadySavedThumbnailsBeforeCardPublicationWithoutNewRouteRendering() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val account = java.util.UUID.randomUUID().toString()
+        val otherAccount = account + "-other"
+        val cache = GpsThumbnailCache(context)
+        val route = RecordedGpsRoute(listOf(listOf(
+            RecordedGpsPoint(14.6, 121.0, 0.0),
+            RecordedGpsPoint(14.601, 121.002, 10.0)
+        )))
+        cache.write(account, "newer", route)
+        cache.write(account, "older", route)
+        cache.write(otherAccount, "other-only", route)
+        try {
+            // Construct a fresh cache instance, as happens after process restart.
+            val restored = GpsThumbnailCache(context).preload(
+                account, listOf("missing", "newer", "older", "newer", "other-only"),
+                limit = 4
+            )
+            try {
+                assertEquals(listOf("newer", "older"), restored.keys.toList())
+                restored.values.forEach {
+                    assertEquals(198, it.width)
+                    assertEquals(192, it.height)
+                }
+                assertTrue(GpsThumbnailCache(context).preload(
+                    account, listOf("missing", "newer"), limit = 1
+                ).isEmpty())
+                assertNull(GpsThumbnailCache(context).read(account, "other-only"))
+            } finally {
+                restored.values.forEach { it.recycle() }
+            }
+        } finally {
+            cache.remove(account, "newer")
+            cache.remove(account, "older")
+            cache.remove(otherAccount, "other-only")
+        }
+    }
+
     @Test fun persistsAndIsolatesRealRoutes() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val cache = GpsThumbnailCache(context)
