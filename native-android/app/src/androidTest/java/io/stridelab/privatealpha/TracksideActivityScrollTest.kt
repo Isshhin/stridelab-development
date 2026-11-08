@@ -14,6 +14,18 @@ import java.time.Instant
  * Approved map preview -> expanded continuous activity details.
  * Synthetic offline-only records; no backend request or invented chart source.
  */
+// Compose getUnclippedBoundsInRoot() returns DpRect rather than a geometry
+// Rect. Derive dimensions and the (Dp-valued) center explicitly for QA.
+private val androidx.compose.ui.unit.DpRect.width: androidx.compose.ui.unit.Dp
+    get() = right - left
+private val androidx.compose.ui.unit.DpRect.height: androidx.compose.ui.unit.Dp
+    get() = bottom - top
+private val androidx.compose.ui.unit.DpRect.center: androidx.compose.ui.geometry.Offset
+    get() = androidx.compose.ui.geometry.Offset(
+        ((left + right) / 2f).value,
+        ((top + bottom) / 2f).value
+    )
+
 class TracksideActivityScrollTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
 
