@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -602,7 +603,8 @@ private fun ShareStudioOptionRow(
         shape=RoundedCornerShape(12.dp),
         border=BorderStroke(1.dp,if(selected) Color(ShareCardPalette.LIME)
             else Color(0xFF3D4540)),
-        modifier=Modifier.fillMaxWidth().heightIn(min=56.dp).testTag(tag)) {
+        modifier=Modifier.fillMaxWidth().heightIn(min=56.dp).testTag(tag)
+            .semantics { this.selected=selected }) {
         Row(Modifier.padding(horizontal=14.dp,vertical=11.dp),
             verticalAlignment=Alignment.CenterVertically) {
             Text(title,modifier=Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium,
