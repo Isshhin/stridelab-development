@@ -42,6 +42,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.Locale
 import kotlin.math.roundToInt
 import kotlin.math.abs
@@ -321,6 +323,30 @@ internal fun TracksideActivityContinuousSections(
         }
         SourceChartAvailability(pace >= 2, hr >= 2, altitude >= 2, cadence >= 2)
     }
+    // FIT streams may carry up to 20,000 samples. Prepare one chart at a time
+    // away from the main thread so the sheet, splits, map and dock stay responsive.
+    // The already-parsed saved detail is reused; no SQLite/provider request.
+    // Each finished chart is published independently. Recording changes cancel
+    // the previous producer instead of showing stale values from another run.
+    // Key the state holder itself, not just the coroutine. A new recording
+    // must never display prepared lines or values from the previous activity
+    // while its background producer is starting.
+    val preparedChartsState = key(recorded) {
+        produceState(
+            initialValue = emptyMap<String, PreparedActivityChart?>()
+        ) {
+            val source = recorded ?: return@produceState
+            for (title in ActivityChartPreparation.titles) {
+                val prepared = withContext(Dispatchers.Default) {
+                    ActivityChartPreparation.prepare(
+                        source.samples, title, source.pauseIntervals
+                    )
+                }
+                value = value + (title to prepared)
+            }
+        }
+    }
+    val preparedCharts by preparedChartsState
     val splitWindows = remember(laps, recorded) {
         var cumulative = 0.0
         val allowCumulativeFallback = recorded?.pauseIntervals.isNullOrEmpty()
@@ -475,7 +501,8 @@ internal fun TracksideActivityContinuousSections(
                 if (chartAvailability.pace)
                     item(key = "chart-pace") {
                         TracksideActivitySourceChart(
-                            "Pace", "/km", recorded.samples, { it.pace }, pace = true,
+                            "Pace", "/km", recorded.samples, preparedCharts["Pace"],
+                            "Pace" !in preparedCharts, { it.pace }, pace = true,
                             selectedSeconds = selectedSeconds,
                             onSelectSeconds = onSelectSeconds,
                             pauseIntervals = recorded.pauseIntervals
@@ -484,7 +511,8 @@ internal fun TracksideActivityContinuousSections(
                 if (chartAvailability.heartRate)
                     item(key = "chart-heart-rate") {
                         TracksideActivitySourceChart(
-                            "Heart rate", "bpm", recorded.samples, { it.hr },
+                            "Heart rate", "bpm", recorded.samples, preparedCharts["Heart rate"],
+                            "Heart rate" !in preparedCharts, { it.hr },
                             selectedSeconds = selectedSeconds,
                             onSelectSeconds = onSelectSeconds,
                             pauseIntervals = recorded.pauseIntervals
@@ -497,7 +525,8 @@ internal fun TracksideActivityContinuousSections(
                 if (chartAvailability.elevation)
                     item(key = "chart-elevation") {
                         TracksideActivitySourceChart(
-                            "Elevation", "m", recorded.samples, { it.altitude },
+                            "Elevation", "m", recorded.samples, preparedCharts["Elevation"],
+                            "Elevation" !in preparedCharts, { it.altitude },
                             selectedSeconds = selectedSeconds,
                             onSelectSeconds = onSelectSeconds,
                             pauseIntervals = recorded.pauseIntervals
@@ -506,7 +535,8 @@ internal fun TracksideActivityContinuousSections(
                 if (chartAvailability.cadence)
                     item(key = "chart-cadence") {
                         TracksideActivitySourceChart(
-                            "Cadence", "spm", recorded.samples, { it.cadenceSpm },
+                            "Cadence", "spm", recorded.samples, preparedCharts["Cadence"],
+                            "Cadence" !in preparedCharts, { it.cadenceSpm },
                             selectedSeconds = selectedSeconds,
                             onSelectSeconds = onSelectSeconds,
                             pauseIntervals = recorded.pauseIntervals
@@ -1195,9 +1225,16 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, account: S
         preferences.settings(account)
     }
     val sourceZones = recorded.sourceHeartRateZones
-    val zones = remember(recorded, settings) {
-        HeartRateZoneAnalysis.distribute(recorded.samples, settings)
+    // Zone distribution also walks the entire FIT stream. Keep that pass
+    // outside Compose composition and the draggable sheet's UI thread.
+    val zonesState = key(recorded, settings) {
+        produceState<HeartRateZoneDistribution?>(initialValue = null) {
+            value = withContext(Dispatchers.Default) {
+                HeartRateZoneAnalysis.distribute(recorded.samples, settings)
+            }
+        }
     }
+    val zones = zonesState.value
     val colors = listOf(
         Color(0xFF9FABBA), Color(0xFF79C9B3), activityLime,
         Color(0xFFFFBE7A), Color(0xFFFF8C87)
@@ -1354,109 +1391,46 @@ private fun TracksideActivitySourceChart(
     title: String,
     unit: String,
     samples: List<ActivitySample>,
+    prepared: PreparedActivityChart?,
+    preparing: Boolean,
     metric: (ActivitySample) -> Double?,
     pace: Boolean = false,
     selectedSeconds: Double? = null,
     onSelectSeconds: (Double) -> Unit = {},
     pauseIntervals: List<ActivityPauseInterval> = emptyList()
 ) {
-    // Segment by missing source values and timestamp gaps before drawing.
-    // A line never bridges a pause or interpolates an unrecorded measurement.
-    val segments = remember(samples, title, pauseIntervals) {
-        val result = mutableListOf<List<ActivitySample>>()
-        var current = mutableListOf<ActivitySample>()
-        var previous: ActivitySample? = null
-        fun flush() {
-            if(current.isNotEmpty()) result.add(current)
-            current = mutableListOf()
-            previous = null
-        }
-        fun crossesPause(from: Double, to: Double): Boolean =
-            pauseIntervals.any { pause ->
-                from < pause.endSeconds && to > pause.startSeconds
-            }
-        samples.forEach { sample ->
-            val value = metric(sample)
-            if (value == null || !value.isFinite() ||
-                (previous != null && (
-                    sample.seconds - previous!!.seconds > 120.0 ||
-                        crossesPause(previous!!.seconds, sample.seconds)
-                ))
-            ) flush()
-            if(value != null && value.isFinite()) {
-                current.add(sample)
-                previous = sample
+    if (prepared == null) {
+        if (preparing) {
+            Column(
+                Modifier.fillMaxWidth().padding(vertical = 6.dp)
+                    .heightIn(min = 226.dp)
+                    .background(activitySurface, RoundedCornerShape(14.dp))
+                    .padding(horizontal = 16.dp, vertical = 20.dp)
+                    .testTag("activity-chart-preparing-" + title.lowercase().replace(" ", "-"))
+            ) {
+                Text(title, color = activityText,
+                    style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(8.dp))
+                Text("Preparing recorded chart…", color = activityMuted,
+                    style = MaterialTheme.typography.bodySmall)
             }
         }
-        flush()
-        // Bound rendering and drag lookup to ~450 points, but compute summary
-        // values from ALL actual samples rather than the downsampled display.
-        val step = (samples.size / 450).coerceAtLeast(1)
-        result.map { section ->
-            section.filterIndexed { i, _ -> i % step == 0 || i == section.lastIndex }
-        }
+        return
     }
-    val validSamples = remember(samples, title) {
-        samples.mapNotNull { sample ->
-            metric(sample)?.takeIf { it.isFinite() }?.let { sample to it }
-        }
-    }
-    val pausedMetricSamples = remember(samples, pauseIntervals, title) {
-        if (pauseIntervals.isEmpty()) emptyList()
-        else samples.filter { sample ->
-            metric(sample)?.isFinite() == true &&
-                pauseIntervals.any { pause ->
-                    sample.seconds >= pause.startSeconds && sample.seconds <= pause.endSeconds
-                }
-        }
-    }
-    if (validSamples.size < 2 || samples.isEmpty()) return
-    // A shared chart cursor can update frequently while dragging. Cache
-    // full-stream statistics rather than scanning 20,000 FIT points on each
-    // touch event or each LazyColumn recomposition.
-    val stats = remember(validSamples) {
-        Triple(
-            validSamples.minOf { it.second },
-            validSamples.maxOf { it.second },
-            validSamples.sumOf { it.second } / validSamples.size
-        )
-    }
-    val (low, high, sampleAverage) = stats
-    val displayScale = remember(validSamples, title) {
-        ActivityChartDisplayScale.from(title, validSamples.map { it.second })
-            ?: ActivityChartDisplayScale(low, high, low, high)
-    }
+    val validSamples = prepared.validSamples
+    val pausedMetricSamples = prepared.pausedMetricSamples
+    val low = prepared.lowest
+    val high = prepared.highest
+    val sampleAverage = prepared.sampleAverage
+    val displayScale = prepared.displayScale
     val displayLow = displayScale.displayLow
     val displayHigh = displayScale.displayHigh
-    val displaySegments = remember(segments, displayScale, title) {
-        buildList {
-            segments.forEach { section ->
-                var current = mutableListOf<ActivitySample>()
-                fun flush() {
-                    if (current.isNotEmpty()) add(current.toList())
-                    current = mutableListOf()
-                }
-                section.forEach { sample ->
-                    val value = metric(sample)
-                    if (value == null || displayScale.isOutside(value)) flush()
-                    else current.add(sample)
-                }
-                flush()
-            }
-        }
-    }
-    val chartInsight = remember(validSamples, title) {
-        ActivityDetailSectionAnalysis.chart(title, validSamples)
-    }
-    val firstTime = samples.first().seconds
-    val lastTime = samples.last().seconds
-    if (lastTime <= firstTime) return
-    val renderedPoints = remember(segments) { segments.flatten() }
-    val displayedOutliers = remember(renderedPoints, displayScale, title) {
-        renderedPoints.filter { sample ->
-            metric(sample)?.let(displayScale::isOutside) == true
-        }
-    }
+    val displaySegments = prepared.displaySegments
+    val chartInsight = prepared.insight
+    val firstTime = prepared.firstTime
+    val lastTime = prepared.lastTime
+    val renderedPoints = prepared.renderedPoints
+    val displayedOutliers = prepared.displayedOutliers
     val selectedPoint = remember(selectedSeconds, renderedPoints, title) {
         selectedSeconds?.let { at ->
             renderedPoints.minByOrNull { abs(it.seconds - at) }
@@ -1648,7 +1622,7 @@ private fun TracksideActivitySourceChart(
             }
             // Real measurements saved while TIMER was stopped stay visible as
             // amber evidence points. They are never connected or interpolated.
-            pausedMetricSamples.forEach { sample ->
+            prepared.pausedDrawSamples.forEach { sample ->
                 val value = metric(sample)
                 if (value != null) {
                     drawCircle(
