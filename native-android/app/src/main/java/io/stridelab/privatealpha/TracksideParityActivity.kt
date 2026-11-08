@@ -243,27 +243,9 @@ internal fun TracksideParityActivityMapHero(
                 }
             }
         }
-        if (route.pointCount > 0) {
-            // Presentation-only connector across recorded endpoints. Pause
-            // and missing-sample facts stay in the underlying activity data.
-            Surface(
-                color = Color(0xDD080E0C),
-                border = BorderStroke(1.dp, Color(0x445A6B62)),
-                shape = RoundedCornerShape(11.dp),
-                modifier = Modifier.align(Alignment.TopStart)
-                    .padding(start = 12.dp, top = if (fullScreen) 116.dp else 68.dp)
-                    .testTag("activity-map-legend")
-            ) {
-                Text(
-                    "Recorded route",
-                    color = Color(0xFFD8FB70),
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)
-                        .testTag("activity-map-gps-continuity")
-                )
-            }
-        }
+        // No redundant route badge: the saved source route is already visible
+        // on the map. Preserve all recorded coordinates, including those from
+        // timer pauses, and keep source attribution in the moving sheet edge.
         if (route.pointCount == 0) {
             Text(
                 if (detail == null) "Recording not loaded yet" else "No recorded GPS track",
