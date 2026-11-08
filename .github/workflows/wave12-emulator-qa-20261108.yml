@@ -1,0 +1,142 @@
+name: StrideLab Wave 1-2 Windows emulator QA
+
+on:
+  push:
+    branches:
+      - fix/plan-builder-training-wave12-20261108
+    paths:
+      - '.github/workflows/wave12-emulator-qa-20261108.yml'
+      - 'native-android/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wave12-emulator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  targeted-emulator-qa:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 110
+    steps:
+      - name: Checkout the exact test branch revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify revision and Android SDK
+        shell: powershell
+        run: |
+          $Head = (git rev-parse HEAD).Trim()
+          if ($Head -ne $env:GITHUB_SHA) { throw "Wrong source revision: $Head" }
+          Write-Host "Exact Wave 1-2 QA revision: $Head"
+          $Sdk = if ($env:ANDROID_HOME -and (Test-Path "$env:ANDROID_HOME\emulator\emulator.exe")) {
+            $env:ANDROID_HOME
+          } else {
+            "$env:LOCALAPPDATA\Android\Sdk"
+          }
+          foreach ($Required in @(
+            "$Sdk\platform-tools\adb.exe",
+            "$Sdk\emulator\emulator.exe",
+            "$Sdk\platforms\android-36",
+            "$Sdk\build-tools\35.0.0"
+          )) {
+            if (!(Test-Path $Required)) { throw "Android SDK prerequisite missing: $Required" }
+          }
+          $Avds = & "$Sdk\emulator\emulator.exe" -list-avds
+          if ($Avds -notcontains 'Pixel_9') { throw "The previously verified Pixel_9 AVD is not installed" }
+          "ANDROID_HOME=$Sdk" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "ANDROID_SDK_ROOT=$Sdk" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "$Sdk\platform-tools" | Out-File $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Compile test and app APKs
+        shell: powershell
+        run: |
+          gradle --no-daemon --stacktrace -p native-android :app:assembleDebug :app:assembleDebugAndroidTest --console=plain
+          if ($LASTEXITCODE -ne 0) { throw "App or Android instrumentation APK compilation failed" }
+
+      - name: Boot isolated Pixel 9 and run targeted offline UI suites
+        shell: powershell
+        run: |
+          $Sdk = $env:ANDROID_HOME
+          $Adb = "$Sdk\platform-tools\adb.exe"
+          $Emulator = "$Sdk\emulator\emulator.exe"
+          $Serial = 'emulator-5556'
+          & $Adb start-server | Out-Host
+          $Existing = (& $Adb devices | Out-String)
+          if ($Existing -match "$Serial\s+(device|offline)") {
+            throw "Reserved test emulator slot $Serial is already occupied; refusing to terminate another process"
+          }
+          $StdOut = Join-Path $env:RUNNER_TEMP "wave12-emulator.stdout.log"
+          $StdErr = Join-Path $env:RUNNER_TEMP "wave12-emulator.stderr.log"
+          $Process = $null
+          try {
+            $Process = Start-Process -FilePath $Emulator -ArgumentList @(
+              '-avd','Pixel_9','-read-only','-port','5556','-no-window',
+              '-no-audio','-no-boot-anim','-no-snapshot','-gpu','swiftshader_indirect',
+              '-accel','on'
+            ) -WindowStyle Hidden -RedirectStandardOutput $StdOut -RedirectStandardError $StdErr -PassThru
+            $Ready = $false
+            for ($i = 0; $i -lt 150; $i++) {
+              if ($Process.HasExited) { throw "Emulator process exited during startup" }
+              $Devices = (& $Adb devices | Out-String)
+              if ($Devices -match "$Serial\s+device") {
+                $Boot = (& $Adb -s $Serial shell getprop sys.boot_completed | Out-String).Trim()
+                if ($Boot -eq '1') { $Ready = $true; break }
+              }
+              Start-Sleep -Seconds 2
+            }
+            if (!$Ready) { throw "Pixel_9 emulator did not boot within its readiness window" }
+            $Api = (& $Adb -s $Serial shell getprop ro.build.version.sdk | Out-String).Trim()
+            if ($Api -ne '35') { throw "Expected API 35 emulator, got API $Api" }
+            & $Adb -s $Serial shell settings put global window_animation_scale 0
+            & $Adb -s $Serial shell settings put global transition_animation_scale 0
+            & $Adb -s $Serial shell settings put global animator_duration_scale 0
+            $env:ANDROID_SERIAL = $Serial
+            $Classes = @(
+              'io.stridelab.privatealpha.TracksideApprovedBuilderActivityUiTest',
+              'io.stridelab.privatealpha.TracksideActivityScrollTest',
+              'io.stridelab.privatealpha.GpsThumbnailCacheTest',
+              'io.stridelab.privatealpha.TodayThumbnailRequestsTest',
+              'io.stridelab.privatealpha.TracksideTodayTest',
+              'io.stridelab.privatealpha.TracksideTrainingCalendarUiTest',
+              'io.stridelab.privatealpha.ActivityIntelligenceUiTest'
+            )
+            Write-Host "Running $($Classes.Count) targeted synthetic-data Android test classes on $Serial"
+            gradle --no-daemon --stacktrace -p native-android :app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=$($Classes -join ',')" --console=plain
+            if ($LASTEXITCODE -ne 0) { throw "Targeted emulator instrumentation tests failed" }
+          } finally {
+            if ($null -ne $Process -and !$Process.HasExited) {
+              Write-Host "Stopping isolated Wave 1-2 emulator"
+              & $Adb -s $Serial emu kill | Out-Host
+            }
+            if (Test-Path $StdErr) {
+              Write-Host "Emulator stderr (last 40 lines):"
+              Get-Content $StdErr -Tail 40 | Out-Host
+            }
+          }
+
+      - name: Retain emulator results and reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wave12-emulator-results-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            native-android/app/build/outputs/androidTest-results/
+            native-android/app/build/reports/androidTests/
+            native-android/app/build/test-results/
