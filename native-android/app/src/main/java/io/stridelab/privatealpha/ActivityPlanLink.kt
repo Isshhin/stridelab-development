@@ -3,6 +3,7 @@ package io.stridelab.privatealpha
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,6 +18,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -53,6 +56,7 @@ internal fun ActivityPlanLink(
 
     var choosing by remember(activity.id) { mutableStateOf(false) }
     var linkedDetails by remember(activity.id) { mutableStateOf(false) }
+    var selectedChoice by remember(activity.id) { mutableStateOf<Pair<String,String>?>(null) }
 
     // A grouped Garmin + Intervals activity can already be linked through
     // the secondary source. Keep the same lookup as before the redesign.
@@ -89,7 +93,7 @@ internal fun ActivityPlanLink(
         Row(
             modifier = Modifier.fillMaxWidth()
                 .clickable(enabled = enabled) {
-                    if (linked == null) choosing = true else linkedDetails = true
+                    if (linked == null) { selectedChoice=null; choosing = true } else linkedDetails = true
                 }
                 .semantics {
                     if (linked == null && choices.isEmpty())
@@ -154,39 +158,98 @@ internal fun ActivityPlanLink(
     }
 
     if (choosing) {
-        AlertDialog(
-            onDismissRequest = { choosing = false },
-            title = { Text("Choose the planned run") },
-            text = {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    item {
-                        Text(
-                            "Choose a workout to link manually. The source date may differ; " +
-                                "planned targets are never copied into recorded metrics."
-                        )
-                    }
+        ModalBottomSheet(
+            onDismissRequest = { choosing=false; selectedChoice=null },
+            containerColor = StrideWorkoutVisuals.card,
+            contentColor = StrideWorkoutVisuals.white,
+            shape = RoundedCornerShape(topStart=26.dp,topEnd=26.dp),
+            dragHandle = { BottomSheetDefaults.DragHandle(color=StrideWorkoutVisuals.muted) },
+            modifier = Modifier.testTag("activity-link-picker")
+        ) {
+            Column(
+                Modifier.fillMaxWidth().imePadding()
+                    .padding(horizontal=20.dp).padding(bottom=28.dp),
+                verticalArrangement=Arrangement.spacedBy(12.dp)
+            ) {
+                Text("Link to planned workout",fontSize=23.sp,fontWeight=FontWeight.SemiBold,
+                    color=StrideWorkoutVisuals.white)
+                Text(
+                    "Choose a planned run to associate with this recording. The source date may differ. Planned targets are never copied into recorded metrics.",
+                    color=StrideWorkoutVisuals.muted,style=MaterialTheme.typography.bodySmall
+                )
+                HorizontalDivider(color=StrideWorkoutVisuals.divider)
+                LazyColumn(
+                    modifier=Modifier.fillMaxWidth().weight(1f,fill=false),
+                    verticalArrangement=Arrangement.spacedBy(4.dp),
+                    contentPadding=PaddingValues(bottom=4.dp)
+                ) {
                     items(choices.size) { index ->
-                        val (plan, session) = choices[index]
-                        OutlinedButton(
-                            onClick = {
-                                actions.link(plan.id, plan.revision, session.id, activity.id)
-                                choosing = false
-                            },
-                            enabled = !state.busy,
-                            modifier = Modifier.fillMaxWidth()
+                        val (plan,session)=choices[index]
+                        val key=plan.id to session.id
+                        val selected=selectedChoice==key
+                        val shape=RoundedCornerShape(12.dp)
+                        Surface(
+                            color=if(selected) Color(0xFF25351A) else Color.Transparent,
+                            border=BorderStroke(1.dp,
+                                if(selected) StrideWorkoutVisuals.lime else Color.Transparent),
+                            shape=shape,
+                            onClick={ selectedChoice=key },
+                            enabled=!state.busy,
+                            modifier=Modifier.fillMaxWidth().heightIn(min=64.dp)
+                                .testTag("activity-link-choice-"+session.id)
+                                .semantics { this.selected=selected }
                         ) {
-                            Text(
-                                session.date.toString() + " · " + session.title +
-                                    " · " + session.effectiveMinutes + " planned min"
-                            )
+                            Row(
+                                Modifier.padding(horizontal=12.dp,vertical=10.dp),
+                                verticalAlignment=Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f),
+                                    verticalArrangement=Arrangement.spacedBy(3.dp)) {
+                                    Text(session.title,
+                                        color=StrideWorkoutVisuals.white,
+                                        fontWeight=FontWeight.Medium,fontSize=15.sp,
+                                        maxLines=1,overflow=TextOverflow.Ellipsis)
+                                    Text(
+                                        "${session.date}  ·  ${session.effectiveMinutes} planned min",
+                                        color=StrideWorkoutVisuals.muted,fontSize=12.sp,
+                                        maxLines=1,overflow=TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
                         }
+                        if(index<choices.lastIndex && !selected)
+                            HorizontalDivider(color=StrideWorkoutVisuals.divider.copy(alpha=.45f))
                     }
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = { choosing = false }) { Text("Cancel") }
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp),
+                    verticalAlignment=Alignment.CenterVertically) {
+                    TextButton(
+                        onClick={ choosing=false; selectedChoice=null },
+                        modifier=Modifier.heightIn(min=48.dp)
+                    ) { Text("Cancel",color=StrideWorkoutVisuals.muted) }
+                    val selected=choices.firstOrNull {
+                        selectedChoice== (it.first.id to it.second.id)
+                    }
+                    Button(
+                        onClick={
+                            selected?.let { (plan,session) ->
+                                actions.link(plan.id,plan.revision,session.id,activity.id)
+                                choosing=false
+                                selectedChoice=null
+                            }
+                        },
+                        enabled=selected!=null && !state.busy,
+                        modifier=Modifier.weight(1f).heightIn(min=52.dp)
+                            .testTag("activity-link-confirm"),
+                        colors=ButtonDefaults.buttonColors(
+                            containerColor=StrideWorkoutVisuals.lime,
+                            contentColor=Color(0xFF10120D)
+                        ),
+                        shape=RoundedCornerShape(26.dp)
+                    ) { Text("Link workout",fontWeight=FontWeight.SemiBold) }
+                }
             }
-        )
+        }
     }
 }
 
