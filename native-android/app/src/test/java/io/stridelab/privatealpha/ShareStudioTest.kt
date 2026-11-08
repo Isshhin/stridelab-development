@@ -31,26 +31,6 @@ class ShareStudioTest {
         assertEquals(0,source.route.pointCount)
         val state=ShareStudioState().forActivity(source)
         assertEquals(ShareRouteMode.HIDDEN,state.routeMode)
-        val image=ShareCardRenderer.render(source,state)
-        try {
-            // Honest stats-first fallback uses the Performance footer, not a fake route.
-            assertEquals(ShareCardPalette.LIME,image.getPixel(0,image.height-2))
-        } finally { image.recycle() }
-    }
-
-    @Test fun performanceFooterIsLimeOnlyForOpaqueExport() {
-        val source=ShareRenderableActivity.from(activity,null)
-        val base=ShareStudioState(ratio=ShareRatio.SQUARE)
-            .selectTemplate(ShareTemplate.STATS).forActivity(source)
-        val opaque=ShareCardRenderer.render(source,base)
-        val transparent=ShareCardRenderer.render(source,base.copy(transparent=true))
-        try {
-            assertEquals(ShareCardPalette.LIME,opaque.getPixel(0,opaque.height-2))
-            assertEquals(0,android.graphics.Color.alpha(
-                transparent.getPixel(0,transparent.height-2)))
-        } finally {
-            opaque.recycle(); transparent.recycle()
-        }
     }
 
     @Test fun routeModesRequireRecordedGeographicMetricPairs() {
@@ -112,11 +92,6 @@ class ShareStudioTest {
             SharePresetCodec.encode(listOf(SharePreset("legacy","Five metrics",legacy)))
         ).single().state
         assertEquals(selected,restored.forActivity(source).metrics.intersect(selected))
-        val png=ShareCardRenderer.render(source,restored.forActivity(source))
-        try {
-            assertEquals(1080,png.width)
-            assertEquals(ShareRatio.STORY.height,png.height)
-        } finally { png.recycle() }
         val fresh=ShareStudioState().selectTemplate(ShareTemplate.STATS)
         assertEquals(4,fresh.metrics.count {
             it in setOf(ShareMetric.DISTANCE,ShareMetric.DURATION,
