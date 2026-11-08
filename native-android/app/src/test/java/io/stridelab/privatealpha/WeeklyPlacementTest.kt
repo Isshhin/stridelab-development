@@ -141,6 +141,20 @@ class WeeklyPlacementTest {
         assertNull(WeeklyPlacement.validationError(changed))
     }
 
+    @Test fun pinnedSundayLongAndNextMondayQualityReportCrossWeekDates() {
+        val request = running().copy(
+            qualityDays = setOf(1),
+            weeklySlots = mapOf("run" to listOf(7,1,4,5))
+        )
+        val error = assertThrows(PlanConstraint::class.java) {
+            Engine1.generate(request, owner, "cross-week", now)
+        }
+        val detail = error.message.orEmpty()
+        assertTrue(detail.contains("One recovery conflict encountered"))
+        assertTrue(detail.contains("2026-11-08"))
+        assertTrue(detail.contains("2026-11-09"))
+    }
+
     @Test fun aWednesdayStartRetainsEverySessionAcrossWholePlanWeekWindows() {
         val start=LocalDate.parse("2026-11-04")
         val request=running().copy(start=start,weeks=3)
