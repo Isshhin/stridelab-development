@@ -47,24 +47,12 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle 8.13
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.13'
-
-      - name: Run all Android JVM tests and compile debug APK
+      - name: Run JVM tests and compile debug APK using installed Gradle
         shell: powershell
         run: |
-          gradle --no-daemon --stacktrace -p native-android :app:testDebugUnitTest :app:assembleDebug --console=plain
+          # The runner already has Gradle 8.13; avoid setup-gradle's
+          # redundant 137 MB extraction, which exhausted PowerShell memory.
+          $Gradle = Join-Path $env:USERPROFILE 'tools\gradle-8.13\bin\gradle.bat'
+          if (!(Test-Path $Gradle)) { throw "Existing Gradle 8.13 not found at $Gradle" }
+          & $Gradle --no-daemon --max-workers=2 --stacktrace -p native-android :app:testDebugUnitTest :app:assembleDebug --console=plain
           if ($LASTEXITCODE -ne 0) { throw "Gradle unit tests or debug APK compilation failed" }
-
-      - name: Retain regression test and build reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: stridelab-wave12-windows-reports-${{ github.sha }}
-          retention-days: 7
-          if-no-files-found: warn
-          path: |
-            native-android/app/build/test-results/testDebugUnitTest/
-            native-android/app/build/reports/tests/testDebugUnitTest/
