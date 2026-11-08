@@ -57,7 +57,7 @@ internal fun TracksideManagePlanScreen(
         Screen("Manage plan", "CURRENT TRAINING PLAN", compactTitle = true, dense = true) {
             item {
                 TextButton(onClick = onBack) { Text("‹ Back to Training") }
-                Text("This plan is no longer available here.", color = TracksidePalette.textMuted)
+                Text("This plan is no longer available here.", color = StrideWorkoutVisuals.muted)
             }
         }
         return
@@ -79,24 +79,23 @@ internal fun TracksideManagePlanScreen(
     var confirmPause by rememberSaveable(plan.id) { mutableStateOf(false) }
     var confirmArchive by rememberSaveable(plan.id) { mutableStateOf(false) }
 
-    Screen("Manage plan", "CURRENT TRAINING PLAN", compactTitle = true, dense = true) {
+    StridePlanScreen("Manage plan", "Training", onBack) {
         item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = onBack, modifier = Modifier.testTag("manage-back")) { Text("‹ Back to Training") }
-                Surface(shape = RoundedCornerShape(14.dp), color = TracksidePalette.surfaceRaised,
-                    border = BorderStroke(1.dp, TracksidePalette.outline)) {
-                    Text(plan.status.uppercase(Locale.getDefault()),
-                        Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                        style = MaterialTheme.typography.labelSmall, color = TracksidePalette.text)
-                }
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Text(plan.name ?: plan.request.goal,
+                    modifier=Modifier.weight(1f),
+                    style=MaterialTheme.typography.headlineSmall,
+                    color=StrideWorkoutVisuals.white,
+                    maxLines=2,overflow=TextOverflow.Ellipsis)
+                Text(plan.status.uppercase(Locale.getDefault()),
+                    style=MaterialTheme.typography.labelSmall,
+                    color=StrideWorkoutVisuals.lime,
+                    modifier=Modifier.padding(start=10.dp))
             }
-            Text(plan.name ?: plan.request.goal,
-                style = MaterialTheme.typography.titleSmall, color = TracksidePalette.text,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(first.format(DateTimeFormatter.ofPattern("d MMM yyyy")) + " – " +
+            Text(first.format(DateTimeFormatter.ofPattern("d MMM yyyy"))+" – "+
                 last.format(DateTimeFormatter.ofPattern("d MMM yyyy")),
-                color = TracksidePalette.textMuted, style = MaterialTheme.typography.bodySmall)
+                color=StrideWorkoutVisuals.muted,
+                style=MaterialTheme.typography.bodySmall)
         }
         item {
             TracksidePlanWeekOverview(plan, inRange)
@@ -110,29 +109,29 @@ internal fun TracksideManagePlanScreen(
             TracksideManageAction(
                 title = "Edit a workout",
                 subtitle = "Move, change or remove a future session",
-                iconRes = R.drawable.trackside_figma_edit, accent = Color(0xFFFB3955),
+                iconRes = R.drawable.trackside_figma_edit, accent = StrideWorkoutVisuals.lime,
                 enabled = canManage && future.isNotEmpty(),
                 modifier = Modifier.testTag("manage-edit-workout")
             ) { editExpanded = !editExpanded }
         }
         if (editExpanded) {
-            if (future.isEmpty()) item { Text("No future sessions to edit", color = TracksidePalette.textMuted) }
+            if (future.isEmpty()) item { Text("No future sessions to edit", color = StrideWorkoutVisuals.muted) }
             future.forEach { session ->
                 item(key = "manage-future-" + session.id) {
                     Surface(onClick = { onWorkout(session.id) },
                         modifier = Modifier.fillMaxWidth().testTag("manage-workout-" + session.id),
-                        color = TracksidePalette.surface,
+                        color = StrideWorkoutVisuals.card,
                         shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, TracksidePalette.outline)) {
+                        border = BorderStroke(1.dp, StrideWorkoutVisuals.divider)) {
                         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Box(Modifier.size(9.dp).background(
                                 tracksideDisciplineColor(session.discipline), RoundedCornerShape(5.dp)))
                             Column(Modifier.weight(1f)) {
                                 Text(session.effectiveTitle, style = MaterialTheme.typography.titleSmall,
-                                    color = TracksidePalette.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    color = StrideWorkoutVisuals.white, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                 Text(session.date.toString() + " · " + session.effectiveMinutes + " planned min",
-                                    style = MaterialTheme.typography.bodySmall, color = TracksidePalette.textMuted)
+                                    style = MaterialTheme.typography.bodySmall, color = StrideWorkoutVisuals.muted)
                             }
                             if (plan.engineVersion == ENGINE15_VERSION && session.status == "planned" && session.log == null && session.linkedActivityId == null) {
                                 val locked = session.id in plan.request.lockedSessionDays
@@ -143,7 +142,7 @@ internal fun TracksideManagePlanScreen(
                             TextButton(onClick = { movingWorkout = session }, enabled = session.id !in plan.request.lockedSessionDays,
                                 modifier = Modifier.testTag("manage-move-" + session.id)) {
                                 Text("Move ›", style = MaterialTheme.typography.labelMedium,
-                                    color = TracksidePalette.text)
+                                    color = StrideWorkoutVisuals.white)
                             }
                         }
                     }
@@ -154,7 +153,7 @@ internal fun TracksideManagePlanScreen(
             TracksideManageAction(
                 title = "Adjust future weeks",
                 subtitle = "Regenerate from a date you choose",
-                iconRes = R.drawable.trackside_figma_loop, accent = Color(0xFF8DBFE2),
+                iconRes = R.drawable.trackside_figma_loop, accent = StrideWorkoutVisuals.lime,
                 enabled = canManage, modifier = Modifier.testTag("manage-adjust-weeks")
             ) { confirmDraft = true }
         }
@@ -162,7 +161,7 @@ internal fun TracksideManagePlanScreen(
             TracksideManageAction(
                 title = "Pause training plan",
                 subtitle = "Keep your history and schedule",
-                iconRes = R.drawable.trackside_figma_pause, accent = Color(0xFF8DBFE2),
+                iconRes = R.drawable.trackside_figma_pause, accent = StrideWorkoutVisuals.lime,
                 enabled = canManage, modifier = Modifier.testTag("manage-pause")
             ) { confirmPause = true }
         }
@@ -170,18 +169,17 @@ internal fun TracksideManagePlanScreen(
             TracksideManageAction(
                 title = if (plan.status == "paused") "Resume training plan" else "Approve this draft",
                 subtitle = "Review the current plan before activating it",
-                iconRes = R.drawable.trackside_figma_loop, accent = Color(0xFF8DBFE2),
+                iconRes = R.drawable.trackside_figma_loop, accent = StrideWorkoutVisuals.lime,
                 enabled = canManage, modifier = Modifier.testTag("manage-resume")
             ) { actions.approve(plan.id, plan.revision) }
         }
         item {
-            TracksideGlassCard(compact = true) {
-                TracksideSectionHeader("Your history stays intact")
+            StrideWorkoutSection("Your history stays intact") {
                 Text("Completed workouts and recorded history are preserved. Any future plan change requires review.",
-                    color = TracksidePalette.text, style = MaterialTheme.typography.bodyMedium)
+                    color = StrideWorkoutVisuals.white, style = MaterialTheme.typography.bodyMedium)
                 if (!Engine1Engines.canManage(plan)) Text(
                     "This saved plan uses an unsupported engine or policy and is read-only here.",
-                    color = TracksidePalette.textMuted, style = MaterialTheme.typography.bodySmall)
+                    color = StrideWorkoutVisuals.muted, style = MaterialTheme.typography.bodySmall)
             }
         }
         item {
@@ -248,10 +246,10 @@ private fun TracksidePlanWeekOverview(plan: PlanSnapshot, selected: LocalDate) {
         verticalArrangement = Arrangement.spacedBy(9.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Week $week of $totalCalendarWeeks",
-                style = MaterialTheme.typography.labelMedium, color = TracksidePalette.textMuted,
+                style = MaterialTheme.typography.labelMedium, color = StrideWorkoutVisuals.muted,
                 modifier = Modifier.weight(1f))
             Text("$count sessions · $trainingDays days", style = MaterialTheme.typography.labelSmall,
-                color = TracksidePalette.textMuted)
+                color = StrideWorkoutVisuals.muted)
         }
         if (distribution.isNotEmpty()) {
             Row(Modifier.fillMaxWidth().height(8.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -269,10 +267,8 @@ private fun TracksidePlanWeekOverview(plan: PlanSnapshot, selected: LocalDate) {
                 }
             }
         }
-        TracksideGlassCard(compact = true) {
-            // The session/day counts already appear directly above this card.
-            // Repeating them here shrinks the title at 1.5× fonts and wraps it.
-            TracksideSectionHeader("Your training week")
+        StrideWorkoutSection("Your training week") {
+            // Session/day counts above remain visible without duplicating them.
             Row(Modifier.fillMaxWidth().height(116.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 days.forEach { day ->
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -284,7 +280,7 @@ private fun TracksidePlanWeekOverview(plan: PlanSnapshot, selected: LocalDate) {
                             }
                         }
                         Text(day.date.dayOfWeek.name.take(3), style = MaterialTheme.typography.labelSmall,
-                            color = TracksidePalette.textMuted, maxLines = 1)
+                            color = StrideWorkoutVisuals.muted, maxLines = 1)
                     }
                 }
             }
@@ -292,6 +288,7 @@ private fun TracksidePlanWeekOverview(plan: PlanSnapshot, selected: LocalDate) {
     }
 }
 
+@Suppress("UNUSED_PARAMETER")
 @Composable
 private fun TracksideManageAction(
     title: String,
@@ -302,28 +299,6 @@ private fun TracksideManageAction(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    Surface(onClick = onClick, enabled = enabled,
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = TracksidePalette.surface,
-        border = BorderStroke(1.dp, TracksidePalette.outline)
-    ) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 76.dp).padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.size(43.dp).background(accent.copy(alpha = .2f), RoundedCornerShape(11.dp)),
-                contentAlignment = Alignment.Center) {
-                Icon(painter = painterResource(id = iconRes), contentDescription = null,
-                    tint = accent, modifier = Modifier.size(25.dp))
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(title, style = MaterialTheme.typography.titleSmall,
-                    color = TracksidePalette.text, fontWeight = FontWeight.Bold,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall,
-                    color = TracksidePalette.textMuted, maxLines = 4)
-            }
-            Text("›", color = TracksidePalette.textMuted, style = MaterialTheme.typography.headlineSmall)
-        }
-    }
+    StridePlanActionRow(title=title,subtitle=subtitle,enabled=enabled,
+        modifier=modifier,onClick=onClick)
 }
