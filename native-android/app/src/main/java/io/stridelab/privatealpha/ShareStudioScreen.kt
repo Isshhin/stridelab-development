@@ -3,6 +3,7 @@ package io.stridelab.privatealpha
 import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -12,13 +13,32 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.role
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.sp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -60,6 +80,7 @@ private data class ShareCardResult(val source:ShareRenderableActivity, val state
 internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, online:Boolean, onBack:()->Unit) {
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
+    val reduceMotion=remember(context) { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)==0f }
     val store=remember(context) { SharePresetStore(context) }
     var configJson by rememberSaveable(activity.id) { mutableStateOf(SharePresetCodec.encode(listOf(SharePreset("draft","Draft",ShareStudioState())))) }
     val config=remember(configJson) { SharePresetCodec.decode(configJson).single().state }
@@ -181,7 +202,9 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
         secondaryContainer=Color(0xFF26381C),onSecondaryContainer=Color(ShareCardPalette.WHITE))) {
     Surface(color=Color.Black,contentColor=Color(ShareCardPalette.WHITE),modifier=Modifier.fillMaxSize()
         .testTag("share-studio").semantics { paneTitle="Share Studio" }) {
-        Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
+        BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
+        val sheetHeight=maxHeight * .4f
+        Column(Modifier.fillMaxSize()) {
             // Open directly on the completed Route Focus poster. A tool is optional.
             Row(Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=4.dp),
                 verticalAlignment=Alignment.CenterVertically) {
@@ -208,29 +231,27 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                     modifier=Modifier.heightIn(min=48.dp).testTag("share-export-open")) { Text("Export") }
             }
             BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)
-                .padding(horizontal=20.dp,vertical=8.dp),contentAlignment=Alignment.Center) {
+                .padding(horizontal=20.dp,vertical=4.dp),contentAlignment=Alignment.Center) {
                 val ratio=effective?.ratio ?: config.ratio
-                val width=minOf(maxWidth,maxHeight*(1080f/ratio.height))
-                Box(Modifier.width(width).aspectRatio(1080f/ratio.height)
-                    .background(Color(0xFF101A15),RoundedCornerShape(10.dp)),
-                    contentAlignment=Alignment.Center) {
-                    if(card!=null) Image(card.asImageBitmap(),
-                        contentDescription="Share card preview. "+source?.metrics
-                            ?.filterKeys { it in effective?.metrics.orEmpty() }?.values?.joinToString(". "),
-                        contentScale=ContentScale.Fit,
-                        modifier=Modifier.fillMaxSize().testTag("share-card-preview"))
-                    else CircularProgressIndicator(color=Color(ShareCardPalette.LIME))
-                    if(card!=null && source!=null && source.route.pointCount>=2 &&
-                        effective?.routeMode!=ShareRouteMode.HIDDEN) {
-                        Surface(color=Color(0xEF101713),shape=RoundedCornerShape(50),
-                            border=BorderStroke(1.dp,Color(ShareCardPalette.LIME)),
-                            modifier=Modifier.align(Alignment.BottomCenter).padding(8.dp)
-                                .testTag("share-privacy-indicator")) {
-                            Text("Route trimmed · "+config.privacy.label,
-                                style=MaterialTheme.typography.labelSmall,
-                                color=Color(ShareCardPalette.LIME),
-                                modifier=Modifier.padding(horizontal=10.dp,vertical=6.dp))
-                        }
+                val showPrivacy=card!=null && source!=null && source.route.pointCount>=2 &&
+                    effective?.routeMode!=ShareRouteMode.HIDDEN
+                val width=minOf(maxWidth,(maxHeight-(if(showPrivacy) 36.dp else 0.dp)).coerceAtLeast(0.dp)*(1080f/ratio.height))
+                Column(horizontalAlignment=Alignment.CenterHorizontally) {
+                    Box(Modifier.width(width).aspectRatio(1080f/ratio.height)
+                        .background(Color(0xFF111315),RoundedCornerShape(10.dp)),
+                        contentAlignment=Alignment.Center) {
+                        if(card!=null) Image(card.asImageBitmap(),
+                            contentDescription="Share card preview. "+source?.metrics
+                                ?.filterKeys { it in effective?.metrics.orEmpty() }?.values?.joinToString(". "),
+                            contentScale=ContentScale.Fit,
+                            modifier=Modifier.fillMaxSize().testTag("share-card-preview"))
+                        else CircularProgressIndicator(color=Color(ShareCardPalette.LIME))
+                    }
+                    if(showPrivacy) Surface(color=Color(0xFF17191A),shape=RoundedCornerShape(50),
+                        modifier=Modifier.padding(top=4.dp).testTag("share-privacy-indicator")) {
+                        Text("Route trimmed · "+config.privacy.label,
+                            style=MaterialTheme.typography.labelSmall,color=Color(ShareCardPalette.LIME),
+                            modifier=Modifier.padding(horizontal=10.dp,vertical=6.dp))
                     }
                 }
             }
@@ -238,14 +259,13 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                 source==null -> "Preparing privacy-safe preview…"
                 mapLoading -> "Loading Activity Dark map…"
                 source.route.pointCount<2 -> "No GPS route · Saved activity stats only"
-                effective?.routeMode==ShareRouteMode.HIDDEN -> "Route hidden · Full activity stats"
-                !config.transparent && config.background==ShareBackground.MAP && map==null ->
-                    "Street map unavailable · showing route only"
-                else -> "Route trimmed · "+config.privacy.label+" · Full activity stats"
+                !config.transparent && config.background==ShareBackground.MAP && map==null &&
+                    effective?.routeMode!=ShareRouteMode.HIDDEN -> "Street map unavailable · showing route only"
+                else -> null
             }
-            Text(status,style=MaterialTheme.typography.labelSmall,color=Color(ShareCardPalette.MUTED),
+            status?.let { Text(it,style=MaterialTheme.typography.labelSmall,color=Color(ShareCardPalette.MUTED),
                 modifier=Modifier.padding(horizontal=16.dp,vertical=4.dp)
-                    .semantics { liveRegion=LiveRegionMode.Polite }.testTag("share-preview-status"))
+                    .semantics { liveRegion=LiveRegionMode.Polite }.testTag("share-preview-status")) }
             if(presetsOpen) {
                 Surface(color=Color(0xFF141817),shape=RoundedCornerShape(topStart=20.dp,topEnd=20.dp),
                     modifier=Modifier.fillMaxWidth().testTag("share-presets-sheet")) {
@@ -320,17 +340,30 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                         }
                     }
                 }
-            } else if(sheetOpen) {
-                Surface(color=Color(0xFF141817),shape=RoundedCornerShape(topStart=20.dp,topEnd=20.dp),
-                    modifier=Modifier.fillMaxWidth().testTag("share-tool-sheet")) {
-                    Column(Modifier.fillMaxWidth().heightIn(max=300.dp)
+            }
+            AnimatedVisibility(visible=sheetOpen && !presetsOpen,
+                enter=expandVertically(tween(if(reduceMotion) 0 else 220)),
+                exit=shrinkVertically(tween(if(reduceMotion) 0 else 220))) {
+                Surface(color=Color(0xFF111315),shape=RoundedCornerShape(topStart=24.dp,topEnd=24.dp),
+                    modifier=Modifier.fillMaxWidth().animateContentSize(tween(if(reduceMotion) 0 else 220)).testTag("share-tool-sheet")) {
+                    Column(Modifier.fillMaxWidth().heightIn(max=sheetHeight)
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal=16.dp,vertical=12.dp),
                         verticalArrangement=Arrangement.spacedBy(9.dp)) {
+                        Box(Modifier.align(Alignment.CenterHorizontally).width(80.dp).height(24.dp)
+                            .pointerInput(Unit) {
+                                var drag=0f
+                                detectVerticalDragGestures(onDragStart={ drag=0f },
+                                    onVerticalDrag={ _, amount -> drag+=amount },
+                                    onDragEnd={ if(drag>48.dp.toPx()) sheetOpen=false })
+                            },contentAlignment=Alignment.Center) {
+                            Box(Modifier.width(36.dp).height(4.dp)
+                                .background(Color(0xFF303438),RoundedCornerShape(50)))
+                        }
                         Row(verticalAlignment=Alignment.CenterVertically) {
                             Text(section.label,style=MaterialTheme.typography.titleMedium,
                                 fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f))
-                            TextButton(onClick={ sheetOpen=false }) { Text("Close") }
+                            IconButton(onClick={ sheetOpen=false }) { Icon(Icons.Default.Close,"Close") }
                         }
                         when(section) {
                             ShareSection.TEMPLATE -> {
@@ -366,7 +399,7 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                                 }
                             }
                             ShareSection.MAP -> {
-                                ShareChoices(ShareRoutePanel.entries,routePanel,{it.label}) {
+                                ShareSegments(ShareRoutePanel.entries,routePanel,{it.label},reduceMotion) {
                                     routePanel=it
                                 }
                                 when(routePanel) {
@@ -546,23 +579,11 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                     modifier=Modifier.padding(horizontal=16.dp,vertical=4.dp)
                         .semantics { liveRegion=LiveRegionMode.Polite }.testTag("share-message"))
             }
-            // Always-visible editing entry points. Canvas taps are never required.
-            Row(Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=5.dp),
-                horizontalArrangement=Arrangement.spacedBy(3.dp)) {
-                ShareSection.entries.forEach { tool ->
-                    TextButton(onClick={ presetsOpen=false; section=tool; sheetOpen=true },
-                        modifier=Modifier.weight(1f).heightIn(min=52.dp)
-                            .testTag("share-section-"+tool.name),
-                        shape=RoundedCornerShape(10.dp),
-                        colors=ButtonDefaults.textButtonColors(
-                            containerColor=if(sheetOpen && section==tool) Color(0xFF2A371A) else Color.Transparent),
-                        contentPadding=PaddingValues(horizontal=2.dp)) {
-                        Text(tool.label,style=MaterialTheme.typography.labelSmall,
-                            color=if(sheetOpen && section==tool) Color(ShareCardPalette.LIME)
-                                else Color(ShareCardPalette.MUTED),maxLines=1)
-                    }
-                }
+            ShareToolDock(section.takeIf { sheetOpen },reduceMotion) { tool ->
+                presetsOpen=false; section=tool; sheetOpen=true
             }
+
+        }
         }
     }
     if(naming) AlertDialog(onDismissRequest={ if(!busy) naming=false },
@@ -640,6 +661,49 @@ private fun <T> ShareChoices(values:List<T>, selected:T?, label:(T)->String, onS
     FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
         values.forEach { value ->
             FilterChip(selected=value==selected,onClick={ onSelect(value) },label={ Text(label(value)) },modifier=Modifier.heightIn(min=48.dp))
+        }
+    }
+}
+
+
+@Composable
+private fun ShareToolDock(selected:ShareSection?, reduceMotion:Boolean, onSelect:(ShareSection)->Unit) {
+    val icons=listOf(R.drawable.trackside_figma_library,R.drawable.trackside_figma_edit,
+        R.drawable.trackside_figma_activity,R.drawable.trackside_figma_calendar,
+        R.drawable.trackside_figma_more,R.drawable.trackside_figma_play)
+    ShareSegments(ShareSection.entries,selected,{ it.label },reduceMotion,icons,onSelect)
+}
+
+@Composable
+private fun <T> ShareSegments(values:List<T>, selected:T?, label:(T)->String, reduceMotion:Boolean,
+    icons:List<Int>?=null, onSelect:(T)->Unit) {
+    val selectedIndex=values.indexOf(selected)
+    val offset=remember { Animatable(selectedIndex.coerceAtLeast(0).toFloat()) }
+    LaunchedEffect(selectedIndex,reduceMotion) {
+        if(reduceMotion) offset.snapTo(selectedIndex.coerceAtLeast(0).toFloat())
+        else offset.animateTo(selectedIndex.coerceAtLeast(0).toFloat(),tween(230,easing=FastOutSlowInEasing))
+    }
+    val shape=RoundedCornerShape(36.dp)
+    Box(Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=5.dp)
+        .height(if(icons==null) 52.dp else 68.dp).clip(shape)
+        .background(Color(0xFF17191A)).border(1.dp,Color(0xFF303438),shape).padding(4.dp)) {
+        if(selectedIndex>=0) Canvas(Modifier.fillMaxSize()) {
+            val cell=size.width/values.size
+            drawRoundRect(Color(ShareCardPalette.LIME),Offset(offset.value*cell+2.dp.toPx(),2.dp.toPx()),
+                Size(cell-4.dp.toPx(),size.height-4.dp.toPx()),CornerRadius(size.height/2))
+        }
+        Row(Modifier.fillMaxSize()) {
+            values.forEachIndexed { index,value ->
+                val active=value==selected
+                Column(Modifier.weight(1f).fillMaxHeight().clip(shape).clickable { onSelect(value) }
+                    .then(if(value is ShareSection) Modifier.testTag("share-section-"+value.name) else Modifier)
+                    .semantics { this.selected=active; role=Role.Tab },
+                    horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
+                    val ink=if(active) Color.Black else Color(0xFFC0C4C6)
+                    if(icons!=null) Icon(painterResource(icons[index]),null,tint=ink,modifier=Modifier.size(20.dp))
+                    Text(label(value),fontSize=12.sp,color=ink,maxLines=1,overflow=TextOverflow.Ellipsis)
+                }
+            }
         }
     }
 }

@@ -118,9 +118,10 @@ class ShareStudioUiTest {
         compose.onNodeWithTag("share-section-TEMPLATE").assertIsDisplayed()
         listOf("TEMPLATE","LAYOUT","MAP","STATS","STYLE","EXPORT").forEach { tool ->
             compose.onNodeWithTag("share-section-$tool").assertIsDisplayed().performClick()
+            compose.onNodeWithTag("share-section-$tool").assertIsSelected()
             compose.onNodeWithTag("share-card-preview").assertIsDisplayed()
         }
-        compose.onNodeWithTag("share-save-image").assertIsDisplayed()
+        compose.onNodeWithTag("share-save-image").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("share-send").assertIsDisplayed()
     }
 
@@ -322,12 +323,13 @@ class ShareStudioUiTest {
             compose.onAllNodesWithTag("share-privacy-indicator").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithTag("share-privacy-indicator").assertIsDisplayed()
+        compose.onNodeWithTag("share-preview-status").assertDoesNotExist()
         compose.onNodeWithTag("share-section-MAP").performClick()
         compose.onNodeWithText("200 m").assertIsDisplayed()
         compose.onNodeWithText("400 m").assertIsDisplayed()
         compose.onNodeWithText("800 m").assertIsDisplayed()
         compose.onNodeWithText("Off").assertDoesNotExist()
-        compose.onNodeWithText("Close").performClick()
+        compose.onNodeWithContentDescription("Close").performClick()
         compose.onNodeWithTag("share-presets-open").performClick()
         compose.onNodeWithTag("share-presets-sheet").assertIsDisplayed()
         compose.onNodeWithTag("share-save-preset").assertIsDisplayed()
