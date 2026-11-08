@@ -95,6 +95,15 @@ class TracksideActivityScrollTest {
         val spacing = metricPositions.zipWithNext().map { (a, b) -> b - a }
         assertTrue("Metric columns are not evenly distributed",
             spacing.all { kotlin.math.abs((it - spacing.first()).value) < 2.5f })
+        // Equal spacing alone also passes when every metric is vertically
+        // stacked at the same X coordinate. Assert real three-column layout
+        // at ordinary phone widths and supported readable font scales.
+        val viewportWidth = compose.onRoot().getUnclippedBoundsInRoot().width
+        if (viewportWidth >= 280.dp &&
+            compose.activity.resources.configuration.fontScale <= 1.8f) {
+            assertTrue("Collapsed summary must show horizontal metric columns",
+                spacing.all { it >= 40.dp })
+        }
         // Regression: the collapsed summary must finish near the bottom
         // edge, not leave a large unused sheet area below its metrics.
         val rootBounds = compose.onRoot().getUnclippedBoundsInRoot()
@@ -478,9 +487,16 @@ class TracksideActivityScrollTest {
                 }
             }
         }
-        compose.onNodeWithTag("activity-map-legend").assertExists()
-        compose.onNodeWithTag("activity-map-gps-continuity").assertExists()
-        compose.onNodeWithText("Continuous GPS").assertExists()
+        // The route badge was redundant and must not occupy map space.
+        // Source data and pause fixes must remain intact after removing it.
+        val route = RecordedGpsRoute.from(detail.samples, detail.pauseIntervals)
+        org.junit.Assert.assertEquals(5, route.pointCount)
+        org.junit.Assert.assertEquals(1, route.pausedPoints.size)
+        org.junit.Assert.assertEquals(1, route.displaySegments.size)
+        compose.onNodeWithTag("activity-map-hero").assertExists()
+        compose.onNodeWithTag("activity-map-legend").assertDoesNotExist()
+        compose.onNodeWithTag("activity-map-gps-continuity").assertDoesNotExist()
+        compose.onNodeWithText("Continuous GPS").assertDoesNotExist()
         compose.onNodeWithText("Recorded route").assertDoesNotExist()
         compose.onNodeWithText("Timer pause").assertDoesNotExist()
         compose.onNodeWithText("GPS recorded while paused").assertDoesNotExist()
