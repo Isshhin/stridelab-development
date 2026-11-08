@@ -1,13 +1,13 @@
 # StrideLab Share Studio 2.1 — editor refinement specification
 
-**Status:** design specification / implementation **BLOCKED** until the owner accepts the combined 2.0 build on a physical device.
+**Status:** owner explicitly authorized isolated Share Studio 2.1 implementation on 2026-11-08 (draft PR #56). **MERGE / RELEASE BLOCKED** until combined 2.0 physical-device acceptance and 2.1 verification.
 **Design authority:** actual Android StrideLab (AMOLED black, lime accent, current Compose components). The screenshot supplied 2026-11-08 is an *interaction inspiration*, not a pixel copy or design-system replacement.
 **Visual exploration:** Claude canvas `https://claude.ai/artifact/H4XJjYZ6HWPCxVZ1deFXSz`. The original multi-screen screenshots and the owner's/Claude's written corrections were reviewed in chat; the **final revised canvas has NOT been independently opened/rendered**, so a fresh visual audit remains pending.
 **Baseline:** `integration/modern-ui-lime-builder-share2-20261108`, commit `2c43bdcb01941b253658222a57b7ba8b9953ab20` (draft PR #53). This already includes Share Studio 2.0, Stage 1 GPS privacy, large SQLite record handling, current three-tab Today/Training/More UI and approved lime Plan Builder. Do not merge or overwrite unrelated app surfaces. The cleanup/guard PR #54 is separate and unmerged.
 
 ## 0. Release gate and non-goals
 
-**Do not begin 2.1 Kotlin/Compose implementation before the owner accepts the combined 2.0 build on their physical phone.** The reported isolated Stage 2 source results (393 JVM tests, 13 focused Android tests) have not been rerun on the combined integration. Full instrumentation compilation was previously blocked by unrelated tests; document those failures accurately and do not remove or disable tests.
+**The owner authorized beginning 2.1 code work before combined 2.0 physical-device acceptance, but only on a separate draft branch. Do not merge, install over data-bearing devices, or release the 2.1 build until the owner has accepted 2.0 on the physical phone and 2.1 passes its own checks.** The reported isolated Stage 2 source results (393 JVM tests, 13 focused Android tests) have not been rerun on the combined integration. Full instrumentation compilation was previously blocked by unrelated tests; document those failures accurately and do not remove or disable tests.
 
 This document freezes *design intent*, not release readiness or a verified final rendering.
 
@@ -103,13 +103,13 @@ The existing versioned local preset functionality must survive intact; 2.1 impro
 
 ## 5. Acceptance checklist (before any 2.1 merge)
 
-### Gate A — **2.0 physical-device acceptance** (precondition; not yet passed)
+### Gate A — **2.0 physical-device acceptance** (merge/release precondition; not yet passed)
 - [ ] Exact combined PR #53 build runs on the owner's Xiaomi using safe signer/version-compatible install, **without deleting app data**.
 - [ ] Current three-tab Today/Training/More UI is visually correct; Plan Builder works.
 - [ ] A real saved Garmin long activity opens offline (SQLite fix), and Share Studio 2.0 opens it.
 - [ ] Existing Stage 1 privacy (200/400/800), pausing/continuity and absence of cut endpoints verified; tests for genuine route and export.
 - [ ] All current preset configurations load/save and PNG save/share can target a real app.
-- [ ] Record failures and owner sign-off. If Gate A fails, fix 2.0 separately before starting 2.1.
+- [ ] Record failures and owner sign-off. If Gate A fails, fix 2.0 separately before merging, installing, or releasing 2.1; keep the in-progress 2.1 draft isolated.
 
 ### Gate B — **2.1 native layout / accessibility / behavior**
 - [ ] Actual Android Studio screenshots (360dp, 412dp; font scales 1.0, 1.3, 1.5) compare with the owner-approved current Android aesthetic and revised concept. Verify sheets, dock, preview and top bar **without clipping or horizontal scrolling**.
