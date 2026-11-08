@@ -29,7 +29,7 @@ internal object ShareCardRenderer {
         return when(state.template) {
             ShareTemplate.ROUTE -> ShareCardGeometry(RectF(72f,max(260f,h*.21f),1008f,h*.68f),h*.71f,(h*.91f-h*.71f)/3f)
             ShareTemplate.STATS -> ShareCardGeometry(
-                RectF(720f,max(275f,h*.19f),1008f,h*.36f),h*.41f,(h*.90f-h*.41f)/4f)
+                RectF(700f,max(260f,h*.15f),1008f,h*.38f),h*.41f,(h*.90f-h*.41f)/4f)
             ShareTemplate.MINIMAL -> ShareCardGeometry(
                 RectF(205f,h*.28f,875f,h*.61f),h*.82f,(h*.94f-h*.82f)/2f)
         }
