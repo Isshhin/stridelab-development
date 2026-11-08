@@ -466,9 +466,10 @@ class TracksideActivityScrollTest {
                 }
             }
         }
-        compose.onNodeWithTag("activity-map-legend").assertExists()
-        compose.onNodeWithTag("activity-map-gps-continuity").assertExists()
-        compose.onNodeWithText("Continuous GPS").assertExists()
+        compose.onNodeWithTag("activity-map-hero").assertExists()
+        compose.onNodeWithTag("activity-map-legend").assertDoesNotExist()
+        compose.onNodeWithTag("activity-map-gps-continuity").assertDoesNotExist()
+        compose.onNodeWithText("Continuous GPS").assertDoesNotExist()
         compose.onNodeWithText("Recorded route").assertDoesNotExist()
         compose.onNodeWithText("Timer pause").assertDoesNotExist()
         compose.onNodeWithText("GPS recorded while paused").assertDoesNotExist()
