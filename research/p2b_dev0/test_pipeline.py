@@ -12,7 +12,7 @@ class Dev0Tests(unittest.TestCase):
         self.assertEqual(first["athletes"]["healthy"]["final_pair_count"], 3)
         self.assertEqual(first["athletes"]["hr_mismatch"]["state"], AthleteState.INSUFFICIENT_HR_MATCHES.value)
         self.assertEqual(first["athletes"]["route_mismatch"]["state"], AthleteState.INSUFFICIENT_ROUTE_OVERLAP.value)
-        self.assertEqual(first["athletes"]["trace_bad"]["state"], AthleteState.INSUFFICIENT_TRACE_QUALITY.value)
+        self.assertEqual(first["athletes"]["trace_bad"]["state"], AthleteState.UNSUPPORTED_MEASUREMENT.value)
         self.assertEqual(first["athletes"]["unsupported"]["state"], AthleteState.UNSUPPORTED_MEASUREMENT.value)
 
     def test_endpoint_blinding_and_duplicate_isolation(self):
@@ -148,6 +148,57 @@ class Dev0Tests(unittest.TestCase):
         activities = tuple(type(base)("jitter", f"jitter-{i}", f"2026-01-{i+1:02d}T00:00:00+00:00", tuple(dict(s, lat=s["lat"] + i*.0002, lon=s["lon"] + i*.0001) for s in base.samples)) for i in range(6))
         result = run(activities)
         self.assertEqual(result["athletes"]["jitter"]["state"], AthleteState.ESTIMABLE.value)
+
+    def test_athlete_state_uses_furthest_surviving_stage(self):
+        base = build_synthetic_fixture()[0]
+
+        def activity(athlete, index, *, route=None, bad=None, hr=150):
+            samples = tuple(dict(s, hr=hr) for s in base.samples)
+            if bad == "qc":
+                samples = tuple(dict(s, hr=250) if s["t"] == 1220 else s for s in samples)
+            elif bad == "gps":
+                samples = tuple(dict(s, lat=None, lon=None) if 1120 <= s["t"] < 1220 else s for s in samples)
+            if route == "split":
+                samples = tuple(dict(s, lat=s["lat"] + index) for s in samples)
+            return type(base)(athlete, f"{athlete}-{index}", f"2026-01-{index+1:02d}T00:00:00+00:00", samples)
+
+        def state(activities, athlete):
+            return run(activities)["athletes"][athlete]["state"]
+
+        mixed_qc = [activity("mixed_qc", i) for i in range(5)] + [activity("mixed_qc", 5, bad="qc")]
+        result = run(mixed_qc)
+        self.assertEqual(result["athletes"]["mixed_qc"]["state"], AthleteState.INSUFFICIENT_REPEATS.value)
+        self.assertEqual(result["segments"]["synthetic-dev0|mixed_qc|mixed_qc-5"]["qc_status"], "REJECT")
+        self.assertEqual(result["athletes"]["mixed_qc"]["final_pair_count"], 2)
+
+        mixed_unsupported = [activity("mixed_unsupported", i) for i in range(5)] + [activity("mixed_unsupported", 5, bad="gps")]
+        result = run(mixed_unsupported)
+        unsupported = result["segments"]["synthetic-dev0|mixed_unsupported|mixed_unsupported-5"]
+        self.assertEqual(result["athletes"]["mixed_unsupported"]["state"], AthleteState.INSUFFICIENT_REPEATS.value)
+        self.assertEqual(unsupported["qc_status"], "PASS")
+        self.assertFalse(unsupported["supported_measurement"])
+        self.assertEqual(result["athletes"]["mixed_unsupported"]["supported_measurement_count"], 5)
+        self.assertEqual(result["athletes"]["mixed_unsupported"]["final_pair_count"], 2)
+
+        all_qc = [activity("all_qc", i, bad="qc") for i in range(3)]
+        self.assertEqual(state(all_qc, "all_qc"), AthleteState.INSUFFICIENT_TRACE_QUALITY.value)
+
+        all_unsupported = [activity("all_unsupported", i, bad="gps") for i in range(3)]
+        self.assertEqual(state(all_unsupported, "all_unsupported"), AthleteState.UNSUPPORTED_MEASUREMENT.value)
+
+        single = [activity("single", 0)]
+        self.assertEqual(state(single, "single"), AthleteState.INSUFFICIENT_REPEATS.value)
+
+        route_failure = [activity("route_failure", i, route="split") for i in range(2)]
+        self.assertEqual(state(route_failure, "route_failure"), AthleteState.INSUFFICIENT_ROUTE_OVERLAP.value)
+
+        hr_failure = [activity("hr_failure", i, hr=150 + i * 15) for i in range(2)]
+        result = run(hr_failure)
+        self.assertEqual(result["athletes"]["hr_failure"]["chronological_candidate_pair_count"], 1)
+        self.assertEqual(state(hr_failure, "hr_failure"), AthleteState.INSUFFICIENT_HR_MATCHES.value)
+
+        estimable = [activity("estimable", i) for i in range(6)]
+        self.assertEqual(state(estimable, "estimable"), AthleteState.ESTIMABLE.value)
 
 
 if __name__ == "__main__":
