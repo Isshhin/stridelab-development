@@ -72,7 +72,21 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val hotDetails = ArrayDeque<String>()
     private val hotDetailLimit = 4
+    // Keep a bounded window of decoded WebPs while the original disk cache
+    // remains permanent and reloadable across many Training timeline dates.
+    private val hotThumbnailLimit = 96
     private val recentPageSize = 40
+
+    private fun retainHotThumbnail(id: String, image: android.graphics.Bitmap):
+        Map<String,android.graphics.Bitmap> {
+        val hot = LinkedHashMap(mutable.value.gpsThumbnails)
+        hot.remove(id)
+        hot[id] = image
+        while (hot.size > hotThumbnailLimit) {
+            hot.remove(hot.keys.first())
+        }
+        return hot
+    }
 
     /** Chronological SQLite keyset cursor, never an activity's raw FIT payload. */
     private data class HistoryCursor(val startedAt: String, val id: String)
@@ -454,7 +468,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             if (id in mutable.value.gpsThumbnails) return@withLock true
             if (thumbnails.hasNoRoute(account, id)) return@withLock true
             val image = thumbnails.read(account, id) ?: return@withLock false
-            mutable.value = mutable.value.copy(gpsThumbnails = mutable.value.gpsThumbnails + (id to image))
+            mutable.value = mutable.value.copy(gpsThumbnails = retainHotThumbnail(id, image))
             true
         }
         if (lookup()) { traceCache("thumbnail_hit", started, 1); return@withContext }
@@ -475,7 +489,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 thumbnails.save(account, id, fingerprint, encoded)
                 val bitmap = thumbnails.read(account, id)
                 if (bitmap != null) {
-                    mutable.value = mutable.value.copy(gpsThumbnails = mutable.value.gpsThumbnails + (id to bitmap))
+                    mutable.value = mutable.value.copy(gpsThumbnails = retainHotThumbnail(id, bitmap))
                 }
             }
             traceCache("thumbnail_generation", generation, 1)
