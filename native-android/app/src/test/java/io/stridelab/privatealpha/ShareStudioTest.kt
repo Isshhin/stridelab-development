@@ -89,6 +89,29 @@ class ShareStudioTest {
         assertEquals(emptyList<SharePreset>(),SharePresetCodec.decode(SharePresetCodec.encode(listOf(preset).filterNot { it.id=="one" })))
     }
 
+    @Test fun legacyFiveRecordedMetricsRemainRenderableAfterTwoOneUpdate() {
+        val withMoreMetrics=activity.copy(averageHr=143.0,elevationM=25.0)
+        val source=ShareRenderableActivity.from(withMoreMetrics,null)
+        val selected=setOf(ShareMetric.DISTANCE,ShareMetric.DURATION,
+            ShareMetric.PACE,ShareMetric.HR,ShareMetric.ELEVATION)
+        val legacy=ShareStudioState().selectTemplate(ShareTemplate.STATS)
+            .copy(metrics=selected)
+        val restored=SharePresetCodec.decode(
+            SharePresetCodec.encode(listOf(SharePreset("legacy","Five metrics",legacy)))
+        ).single().state
+        assertEquals(selected,restored.forActivity(source).metrics.intersect(selected))
+        val png=ShareCardRenderer.render(source,restored.forActivity(source))
+        try {
+            assertEquals(1080,png.width)
+            assertEquals(ShareRatio.STORY.height,png.height)
+        } finally { png.recycle() }
+        val fresh=ShareStudioState().selectTemplate(ShareTemplate.STATS)
+        assertEquals(4,fresh.metrics.count {
+            it in setOf(ShareMetric.DISTANCE,ShareMetric.DURATION,
+                ShareMetric.PACE,ShareMetric.HR,ShareMetric.ELEVATION)
+        })
+    }
+
     @Test fun exportDimensionsPreserveEveryRatio() {
         assertEquals(1080 to 1920,ShareRatio.STORY.dimensions)
         assertEquals(1080 to 1350,ShareRatio.PORTRAIT.dimensions)
