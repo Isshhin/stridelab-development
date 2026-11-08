@@ -1,7 +1,6 @@
 package io.stridelab.privatealpha
 
 import androidx.activity.compose.setContent
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
