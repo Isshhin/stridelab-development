@@ -64,6 +64,8 @@ class WorkoutPlayerTest {
         val session=state.value.plans.single().sessions.first();assertEquals(5,session.log!!.sets.single().reps);assertEquals(12.5,session.log!!.sets.single().kg!!,0.0)
         assertEquals(8,session.exercises.first().reps)
         compose.onNodeWithTag("workout-review").performClick();compose.onNodeWithText("Return to guided workout").assertExists()
+        compose.onNodeWithText("Workout Details").assertExists()
+        compose.onNodeWithText("Workout prescription").assertExists()
         assertEquals("in_progress",state.value.plans.single().sessions.first().status)
     }
     @Test fun invalidActualInputDoesNotRecordOrBeginRest() {
