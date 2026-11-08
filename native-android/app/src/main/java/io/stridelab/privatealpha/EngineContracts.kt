@@ -27,7 +27,9 @@ internal data class PlanRequest(
     val preferredQuality:String = "Threshold",
     val allowedQualityTypes:Set<String> = emptySet(),
     val lockedSessionDays:Map<String,String> = emptyMap(),
-    val allowDoubleDays:Boolean = false
+    val allowDoubleDays:Boolean = false,
+    val targetWeeklyKm:Double? = null,
+    val trainYourWay:Boolean = false
 ) {
     fun encode():JSONObject {
         val encoded=JSONObject().put("goal",goal).put("secondaryGoal",secondaryGoal).put("experience",experience).put("start",start.toString()).put("weeks",weeks).put("minutes",minutes)
@@ -47,6 +49,7 @@ internal data class PlanRequest(
         if(preferredQuality!="Threshold")encoded.put("preferredQuality",preferredQuality)
         if(allowedQualityTypes.isNotEmpty())
             encoded.put("allowedQualityTypes",JSONArray(allowedQualityTypes.sorted()))
+        if(trainYourWay) encoded.put("trainYourWay",true).put("targetWeeklyKm",targetWeeklyKm)
         return encoded
     }
     companion object {
@@ -68,7 +71,8 @@ internal data class PlanRequest(
                 } ?: emptySet(),
                 j.optJSONObject("lockedSessionDays")?.let { locks ->
                     locks.keys().asSequence().associateWith { locks.getString(it) }
-                } ?: emptyMap(), j.has("allowDoubleDays") && j.getBoolean("allowDoubleDays"))
+                } ?: emptyMap(), j.has("allowDoubleDays") && j.getBoolean("allowDoubleDays"),
+                j.nullDouble("targetWeeklyKm"), j.optBoolean("trainYourWay",false))
         }
     }
 }

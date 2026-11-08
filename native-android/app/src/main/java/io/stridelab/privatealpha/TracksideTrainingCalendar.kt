@@ -117,12 +117,12 @@ internal fun TracksideTrainingWeekChart(
                 horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 byDiscipline.forEach { (discipline, count) ->
                     Box(Modifier.weight(count.toFloat()).height(8.dp)
-                        .background(tracksideDisciplineColor(discipline), RoundedCornerShape(4.dp)))
+                        .background(tracksideTrainingDisciplineColor(discipline), RoundedCornerShape(4.dp)))
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 byDiscipline.forEach { (discipline, count) ->
-                    Text("$count ${disciplineLabel(discipline)}", color = tracksideDisciplineColor(discipline),
+                    Text("$count ${disciplineLabel(discipline)}", color = tracksideTrainingDisciplineColor(discipline),
                         style = MaterialTheme.typography.labelSmall,
                         maxLines = 2, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(count.toFloat()))
@@ -181,9 +181,9 @@ internal fun TracksideTrainingWeekChart(
                     onClick = { onSelect(day.date) },
                     enabled = enabled,
                     shape = RoundedCornerShape(12.dp),
-                    color = if (active) Color(0xFF1A2C36) else Color.Transparent,
+                    color = if (active) TracksideTrainingPalette.calendarSelected else Color.Transparent,
                     border = BorderStroke(1.dp,
-                        if (active) Color(0xFFB2C5D0) else Color.Transparent),
+                        if (active) TracksideTrainingPalette.calendarSelectionBorder else Color.Transparent),
                     modifier = (if (compact) Modifier.width(49.dp) else Modifier.weight(1f))
                         .testTag("calendar-day-${day.date}")
                         .semantics { contentDescription = description }
@@ -202,7 +202,7 @@ internal fun TracksideTrainingWeekChart(
                             day.byDiscipline.reversed().forEach { (discipline, minutes) ->
                                 val barHeight = (minutes.toFloat() / maxDay * 68f).coerceAtLeast(3f)
                                 Box(Modifier.fillMaxWidth().height(barHeight.dp)
-                                    .background(tracksideDisciplineColor(discipline), RoundedCornerShape(5.dp)))
+                                    .background(tracksideTrainingDisciplineColor(discipline), RoundedCornerShape(5.dp)))
                             }
                         }
                         Text(if (compact) day.date.dayOfWeek.name.take(2) else

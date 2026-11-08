@@ -36,6 +36,28 @@ internal object TracksidePalette {
     val recovery = Color(0xFF75C3B8)
 }
 
+internal object TracksideTrainingPalette {
+    val background = Color.Black
+    val running = Color(0xFFDBF351)
+    val strength = Color(0xFFA0AD62)
+    val calisthenics = Color(0xFF71844D)
+    val surface = Color(0xFF151515)
+    val surfaceRaised = Color(0xFF1B1B1B)
+    val workoutSurface = Color(0xFF151515)
+    val border = Color(0xFF30352A)
+    val calendarSelected = Color(0xFF1D240B)
+    val calendarSelectionBorder = Color(0xFFDBF351)
+    val selectionControl = Color(0xFF1D240B)
+}
+
+internal fun tracksideTrainingDisciplineColor(discipline: String): Color = when (discipline.lowercase()) {
+    "run", "running" -> TracksideTrainingPalette.running
+    "str", "strength" -> TracksideTrainingPalette.strength
+    "cal", "calisthenics", "body", "bodyweight" -> TracksideTrainingPalette.calisthenics
+    "mob", "mobility", "recovery" -> TracksidePalette.recovery
+    else -> tracksideDisciplineColor(discipline)
+}
+
 /** Figma 551:6, 602:3, 732:3: presentation colors only, never training intensity. */
 internal fun tracksideDisciplineColor(discipline: String): Color = when (discipline.lowercase()) {
     "run", "running" -> TracksidePalette.running

@@ -69,9 +69,12 @@ internal fun TracksideFigmaWeekReview(
     TracksideFigmaBuilderFrame(
         progressStep = if (plan == null) 6 else 7,
         toolbarTitle = if (plan == null) "Training blueprint" else "Review plan",
-        eyebrow = "PLAN / WEEK PREVIEW",
-        headline = if (plan == null) "Your training blueprint" else "Review your training plan",
-        description = if (plan == null) "Review your setup before StrideLab creates your plan."
+        eyebrow = if (request.trainYourWay) "TRAIN YOUR WAY / WEEK PREVIEW" else "PLAN / WEEK PREVIEW",
+        headline = if (request.trainYourWay) "Train Your Way"
+            else if (plan == null) "Your training blueprint" else "Review your training plan",
+        description = if (request.trainYourWay)
+            "Review your target-based running plan before finalizing."
+            else if (plan == null) "Review your setup before StrideLab creates your plan."
             else "Your personalized plan. Review before finalizing.",
         onBack = onBack,
         ctaLabel = if(plan == null)"Generate My Plan" else "Finalize Plan",
@@ -95,7 +98,9 @@ internal fun TracksideFigmaWeekReview(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             val trainingDays = days.coerceIn(0,7)
             val targetDistance = if (request.runDays > 0) {
-                String.format(Locale.getDefault(), "%.0f", request.weeklyKm)
+                String.format(Locale.getDefault(), "%.0f",
+                    if (request.trainYourWay) request.targetWeeklyKm ?: 0.0
+                    else request.weeklyKm)
             } else "—"
             listOf(
                 targetDistance to if (request.runDays > 0) "km target" else "no running",

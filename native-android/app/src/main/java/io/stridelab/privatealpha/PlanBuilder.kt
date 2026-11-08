@@ -48,7 +48,7 @@ import org.json.JSONObject
     var step by rememberSaveable { mutableIntStateOf(0) }
     val input=PlanRequest.decode(JSONObject(encoded))
     fun edit(p:PlanRequest) { encoded=p.encode().toString() }
-    var km by rememberSaveable { mutableStateOf(initial.weeklyKm.toString()) };var longest by rememberSaveable { mutableStateOf(initial.longestKm.toString()) }
+    var km by rememberSaveable { mutableStateOf(initial.weeklyKm.toString()) };var targetKm by rememberSaveable { mutableStateOf((initial.targetWeeklyKm ?: initial.weeklyKm).toString()) };var longest by rememberSaveable { mutableStateOf(initial.longestKm.toString()) }
     var pace by rememberSaveable { mutableStateOf((initial.planningPace/60).toString()) };var start by rememberSaveable { mutableStateOf(maxOf(initial.start,LocalDate.now()).toString()) }
     var weeks by rememberSaveable { mutableStateOf(initial.weeks.toString()) };var minutes by rememberSaveable { mutableStateOf(initial.minutes.toString()) };var dailyMinutes by rememberSaveable { mutableStateOf(initial.dailyMinutes.toString()) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
@@ -83,7 +83,7 @@ import org.json.JSONObject
             }
         }
     }
-    fun request():PlanRequest=try { input.copy(start=LocalDate.parse(start),weeks=weeks.toInt(),minutes=minutes.toInt(),dailyMinutes=if(input.policyChoice=="multi-session")dailyMinutes.toInt() else input.dailyMinutes,weeklyKm=km.toDouble(),longestKm=longest.toDouble(),planningPace=pace.toDouble()*60) } catch(e:Exception) { throw PlanConstraint("Enter a valid YYYY-MM-DD date and numeric mileage, pace, weeks, minutes, and daily budget if enabled.") }
+    fun request():PlanRequest=try { input.copy(start=LocalDate.parse(start),weeks=weeks.toInt(),minutes=minutes.toInt(),dailyMinutes=if(input.policyChoice=="multi-session")dailyMinutes.toInt() else input.dailyMinutes,weeklyKm=km.toDouble(),targetWeeklyKm=if(input.trainYourWay)targetKm.toDouble() else null,longestKm=longest.toDouble(),planningPace=pace.toDouble()*60) } catch(e:Exception) { throw PlanConstraint("Enter a valid YYYY-MM-DD date and numeric mileage, pace, weeks, minutes, and daily budget if enabled.") }
     var previewWeek by rememberSaveable { mutableIntStateOf(0) }
     var runningSubPage by rememberSaveable { mutableIntStateOf(0) }
     var scheduleSubPage by rememberSaveable { mutableIntStateOf(0) }
@@ -213,6 +213,10 @@ import org.json.JSONObject
                 onSelect = { route ->
                     editingAbilityFromGuided = false
                     runningRoute = route
+                    edit(if (route == "custom") TracksideCoaching.trainYourWay(
+                        input, targetKm.toDoubleOrNull() ?: input.weeklyKm,
+                        advancedQualityTypes
+                    ) else input.copy(trainYourWay = false, targetWeeklyKm = null))
                     guidedFocus = when(route) {
                         "faster" -> "10K"
                         "endurance" -> "Run longer"
@@ -223,12 +227,12 @@ import org.json.JSONObject
                 onBack = { step = 0 },
                 onContinue = {
                     when (runningRoute) {
-                        "race" -> runningSubPage = 1
+                        "race" -> runningSubPage = TracksideCoaching.runningGoalNextPage(runningRoute)
                         "custom" -> {
                             advancedBackPage = 0
-                            runningSubPage = 3
+                            runningSubPage = TracksideCoaching.runningGoalNextPage(runningRoute)
                         }
-                        else -> runningSubPage = 5
+                        else -> runningSubPage = TracksideCoaching.runningGoalNextPage(runningRoute)
                     }
                 }
             )
@@ -279,23 +283,45 @@ import org.json.JSONObject
             )
             3 -> TracksideFigmaAdvancedRunning(
                 guided = advancedBackPage != 0,
-                weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0, 120.0) ?: 0.0,
+                trainYourWay = advancedBackPage == 0,
+                weeklyKm = (if (advancedBackPage == 0) targetKm else km)
+                    .toDoubleOrNull()?.coerceIn(0.0, 120.0) ?: 0.0,
                 qualityCount = input.qualityCount.coerceIn(0, 2),
                 maxQualityCount = minOf(
                     (input.runDays-2).coerceAtLeast(0),
-                    if(input.experience==2 && input.runDays>=4 &&
+                    if (advancedBackPage == 0) {
+                        val safeVolume = minOf(km.toDoubleOrNull() ?: 0.0,
+                            targetKm.toDoubleOrNull() ?: 0.0)
+                        when {
+                            input.experience == 0 || safeVolume < 20.0 -> 0
+                            input.experience == 2 && input.runDays >= 4 && safeVolume >= 40.0 -> 2
+                            else -> 1
+                        }
+                    } else if(input.experience==2 && input.runDays>=4 &&
                         (km.toDoubleOrNull() ?: 0.0)>=30.0) 2 else 1
                 ),
                 selectedQualityTypes = advancedQualityTypes,
                 onWeeklyKm = { value ->
-                    km=value.toInt().toString()
-                    edit(input.copy(weeklyKm=value))
+                    if (advancedBackPage == 0) {
+                        targetKm=value.toInt().toString()
+                        edit(input.copy(targetWeeklyKm=value))
+                    } else {
+                        km=value.toInt().toString()
+                        edit(input.copy(weeklyKm=value))
+                    }
                 },
                 onQualityCount = { n ->
+                    val weeklyVolume = if (advancedBackPage == 0)
+                        minOf(km.toDoubleOrNull() ?: 0.0, targetKm.toDoubleOrNull() ?: 0.0)
+                    else km.toDoubleOrNull() ?: 0.0
                     val allowed = minOf(
                         (input.runDays-2).coerceAtLeast(0),
-                        if(input.experience==2 && input.runDays>=4 &&
-                            (km.toDoubleOrNull() ?: 0.0)>=30.0) 2 else 1
+                        if (advancedBackPage == 0) when {
+                            input.experience == 0 || weeklyVolume < 20.0 -> 0
+                            input.experience == 2 && input.runDays >= 4 && weeklyVolume >= 40.0 -> 2
+                            else -> 1
+                        } else if(input.experience==2 && input.runDays>=4 &&
+                            weeklyVolume>=30.0) 2 else 1
                     )
                     edit(input.copy(qualityCount=n.coerceAtMost(allowed)))
                 },
@@ -304,7 +330,8 @@ import org.json.JSONObject
                         if (quality in advancedQualityTypes) advancedQualityTypes-quality
                         else advancedQualityTypes+quality
                     advancedQualityCsv = updated.sorted().joinToString("|")
-                    edit(input.copy(allowedQualityTypes=updated))
+                    edit(input.copy(allowedQualityTypes=updated,
+                        qualityCount=if(updated.isEmpty())0 else input.qualityCount))
                 },
                 onBack = { runningSubPage = advancedBackPage },
                 onContinue = {

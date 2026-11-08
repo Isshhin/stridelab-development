@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -30,10 +31,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-@Composable internal fun PlanOverview(plan:PlanSnapshot) {
+@Composable internal fun PlanOverview(plan:PlanSnapshot, trainingPalette:Boolean=false) {
     var expanded by rememberSaveable(plan.id) { mutableStateOf(false) }
     val firstWeek=plan.sessions.filter { it.date in plan.request.start..plan.request.start.plusDays(6) }
-    SignalCard {
+    SignalCard(trainingPalette=trainingPalette) {
         Text(plan.status.uppercase()+" · ENGINE ${plan.engineVersion}",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
         Text(plan.name ?: plan.request.goal,style=MaterialTheme.typography.headlineSmall)
         Text(if(!Engine1Engines.canManage(plan))"Saved engine/policy · read-only here" else when(plan.policyId) {ENGINE15_POLICY->"Engine 1.5 training plan";ENGINE15_MULTI_POLICY->"Engine 1.5 multi-session scheduling";ENGINE15_INTERFERENCE_POLICY->"Engine 1.5 interference-aware scheduling";CoordinatedEngine1.policyId->"Coordinated discipline goals";MultiSessionEngine1.policyId->"Multi-session scheduling";SessionTemplate.POLICY_ID->"User-reviewed session targets";else->"Verified baseline fallback"},style=MaterialTheme.typography.bodySmall)
@@ -92,7 +93,16 @@ import kotlinx.coroutines.withContext
     val date=LocalDate.parse(selectedDate).let { stored ->
         plan?.let { stored.coerceIn(it.request.start,it.request.start.plusWeeks(it.request.weeks.toLong()).minusDays(1)) } ?: stored
     }
-    Column(Modifier.fillMaxSize()) {
+    val trainingColors = MaterialTheme.colorScheme.copy(
+        primary = TracksideTrainingPalette.running,
+        onPrimary = Color.Black,
+        background = TracksideTrainingPalette.background,
+        surface = TracksideTrainingPalette.surface,
+        surfaceContainer = TracksideTrainingPalette.surface,
+        surfaceContainerHigh = TracksideTrainingPalette.surfaceRaised
+    )
+    MaterialTheme(colorScheme=trainingColors) {
+    Column(Modifier.fillMaxSize().background(TracksideTrainingPalette.background)) {
         Box(Modifier.weight(1f)) {
             Screen(
                 "Training", "YOUR SHARED CALENDAR", compactTitle = true, dense = true,
@@ -111,8 +121,8 @@ import kotlinx.coroutines.withContext
                         onSelectWeek = { selectedDate = it.toString() }
                     )
                 }
-                if(state.account==null) item { SignalCard { Text("Plan without a watch",style=MaterialTheme.typography.headlineSmall);Text("Setting up your private local training profile. No sign-in or watch is required.");Text("Your training is stored locally and will be available once initialization finishes.") } }
-                else if(plan==null) item { SignalCard { Text("Build your training around your life.",style=MaterialTheme.typography.headlineMedium);Text("Running, strength, calisthenics and conditioning share one calendar. Choose your goal, ability, days and equipment. Review real prescriptions before approving.");SignalButton("Create a plan",onBuild) } }
+                if(state.account==null) item { SignalCard(trainingPalette=true) { Text("Plan without a watch",style=MaterialTheme.typography.headlineSmall);Text("Setting up your private local training profile. No sign-in or watch is required.");Text("Your training is stored locally and will be available once initialization finishes.") } }
+                else if(plan==null) item { SignalCard(trainingPalette=true) { Text("Build your training around your life.",style=MaterialTheme.typography.headlineMedium);Text("Running, strength, calisthenics and conditioning share one calendar. Choose your goal, ability, days and equipment. Review real prescriptions before approving.");SignalButton("Create a plan",onBuild) } }
                 if(plans.size>1) item { Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) { plans.forEach { p -> SignalChip(p.id==plan?.id,{selectedId=p.id},label={Text((p.name ?: p.request.goal)+" · "+p.status)}) } } }
                 if(plan!=null) {
                     item {
@@ -125,7 +135,7 @@ import kotlinx.coroutines.withContext
                     }
                     if(agendaView && !monthView) {
                         val rows=tracksideTrainingWeek(plan,date)
-                        if(rows.all { it.sessions.isEmpty() }) item { SignalCard { Text("No sessions scheduled for this week",style=MaterialTheme.typography.titleLarge) } }
+                        if(rows.all { it.sessions.isEmpty() }) item { SignalCard(trainingPalette=true) { Text("No sessions scheduled for this week",style=MaterialTheme.typography.titleLarge) } }
                         val agendaRows = rows.filter { it.sessions.isNotEmpty() }
                         if (agendaRows.isNotEmpty()) {
                             item(key = "agenda-week-${agendaRows.first().date}") {
@@ -146,11 +156,11 @@ import kotlinx.coroutines.withContext
                         item { Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")).uppercase(),
                             style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant) }
                         val day=plan.sessions.filter { it.date==date && it.status!="unassigned" }.map(plan::cardPresentation)
-                        if(day.isEmpty()) item { SignalCard { Text("No workout scheduled",style=MaterialTheme.typography.titleLarge);Text("This calendar date has no prescribed session. No workout or completion is assumed.") } }
+                        if(day.isEmpty()) item { SignalCard(trainingPalette=true) { Text("No workout scheduled",style=MaterialTheme.typography.titleLarge);Text("This calendar date has no prescribed session. No workout or completion is assumed.") } }
                         day.forEach { session -> item { PlannedWorkoutCard(session,state.workoutDrafts.containsKey(plan.id to session.id),compact=true) { onOpen(plan.id,session.id) } } }
                     }
-                    item { PlanOverview(plan) }
-                    item { PlanFeedbackForm(plan,actions) }
+                    item { PlanOverview(plan,trainingPalette=true) }
+                    item { PlanFeedbackForm(plan,actions,trainingPalette=true) }
                     item { NativePlanExport(state.plans) }
                 }
                 if(state.account!=null) item { NativePlanImport(state,actions) }
@@ -166,6 +176,7 @@ import kotlinx.coroutines.withContext
                 modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp)
             )
         }
+    }
     }
 }
 @Composable internal fun TrainingCalendar(
@@ -195,17 +206,17 @@ import kotlinx.coroutines.withContext
             if(showWeekday) Text(dayName(date.dayOfWeek.value).take(2),style=MaterialTheme.typography.labelSmall,color=if(selected)MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
             Text("${date.dayOfMonth}",style=MaterialTheme.typography.titleMedium,color=if(!enabled)MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=.45f) else if(selected)MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
             if(sessions.isNotEmpty()) {
-                Box(Modifier.size(7.dp).background(if(sessions.all { it.status=="completed" }) MaterialTheme.colorScheme.primary else tracksideDisciplineColor(sessions.first().discipline),RoundedCornerShape(4.dp)))
+                Box(Modifier.size(7.dp).background(if(sessions.all { it.status=="completed" }) MaterialTheme.colorScheme.primary else tracksideTrainingDisciplineColor(sessions.first().discipline),RoundedCornerShape(4.dp)))
                 if(sessions.size>1) Text("${sessions.size} workouts",style=MaterialTheme.typography.labelSmall,color=if(selected)MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
 }
-@Composable internal fun PlanFeedbackForm(plan:PlanSnapshot,actions:PlanActions,sessionId:String?=null) {
+@Composable internal fun PlanFeedbackForm(plan:PlanSnapshot,actions:PlanActions,sessionId:String?=null,trainingPalette:Boolean=false) {
     var pendingCount by rememberSaveable(plan.id,sessionId) { mutableStateOf<Int?>(null) }
     var category by rememberSaveable(plan.id,sessionId) { mutableStateOf("Plan quality") };var text by rememberSaveable(plan.id,sessionId) { mutableStateOf("") }
     LaunchedEffect(plan.feedback.size) { if(pendingCount!=null && plan.feedback.size>pendingCount!!) { text="";pendingCount=null } }
-    SignalCard {
+    SignalCard(trainingPalette=trainingPalette) {
         Text("PRIVATE TESTING FEEDBACK",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
         FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) { listOf("Plan quality","Inappropriate prescription","Workout quality","Usability").forEach { c -> SignalChip(category==c,{category=c},label={Text(c)}) } }
         FormText("What worked, or what should change?",text,{text=it.take(2000)})

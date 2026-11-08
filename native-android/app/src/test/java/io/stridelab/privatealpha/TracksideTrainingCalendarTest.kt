@@ -46,4 +46,11 @@ class TracksideTrainingCalendarTest {
         assertEquals("planned", plan.sessions.single().status)
         assertEquals(monday, tracksideCalendarMonday(monday.plusDays(6)))
     }
+
+    @Test fun trainingPaletteUsesLimeRunningAccentAndNeutralSurfaces() {
+        assertEquals(TracksideTrainingPalette.running, tracksideTrainingDisciplineColor("run"))
+        assertEquals(TracksideTrainingPalette.surface, TracksideTrainingPalette.workoutSurface)
+        assertEquals(TracksideTrainingPalette.selectionControl, TracksideTrainingPalette.calendarSelected)
+        assertEquals(TracksideTrainingPalette.running, TracksideTrainingPalette.calendarSelectionBorder)
+    }
 }

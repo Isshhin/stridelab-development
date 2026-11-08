@@ -885,8 +885,9 @@ internal val LocalFloatingDockVisible=staticCompositionLocalOf { false }
     }
 }
 
-@Composable internal fun SignalCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    TracksideGlassCard(modifier = modifier, content = content)
+@Composable internal fun SignalCard(modifier: Modifier = Modifier,
+    trainingPalette: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
+    TracksideGlassCard(modifier = modifier, trainingPalette = trainingPalette, content = content)
 }
 @Composable private fun EmptyState(title: String, description: String) {
     SignalCard {

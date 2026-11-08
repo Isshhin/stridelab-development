@@ -114,7 +114,7 @@ private fun PreviewApprovedRunningSetup() {
 private fun PreviewApprovedAdvancedRunning() {
     StrideTheme {
         TracksideFigmaAdvancedRunning(
-            guided=true,weeklyKm=70.0,qualityCount=1,maxQualityCount=2,
+            guided=true,trainYourWay=false,weeklyKm=70.0,qualityCount=1,maxQualityCount=2,
             selectedQualityTypes=setOf("Threshold","Tempo"),
             onWeeklyKm={},onQualityCount={},onToggleQuality={},
             onBack={},onContinue={}

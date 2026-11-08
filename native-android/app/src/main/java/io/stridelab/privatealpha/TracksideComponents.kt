@@ -38,21 +38,23 @@ import androidx.compose.ui.unit.sp
 internal fun TracksideGlassCard(
     modifier: Modifier = Modifier,
     compact: Boolean = false,
+    trainingPalette: Boolean = false,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        color = TracksidePalette.surface,
+        color = if (trainingPalette) TracksideTrainingPalette.surface else TracksidePalette.surface,
         contentColor = TracksidePalette.text,
-        border = BorderStroke(1.dp, Color(0xFF4D6B7D))
+        border = BorderStroke(1.dp, if (trainingPalette)
+            TracksideTrainingPalette.border else Color(0xFF4D6B7D))
     ) {
         Column(
             modifier = Modifier
                 .background(
-                    Brush.horizontalGradient(
-                        listOf(Color(0xFF193544), Color(0xFF101F2A))
-                    )
+                    Brush.horizontalGradient(if (trainingPalette)
+                        listOf(TracksideTrainingPalette.surface, Color(0xFF191B15))
+                    else listOf(Color(0xFF193544), Color(0xFF101F2A)))
                 )
                 .padding(if (compact) 13.dp else 18.dp),
             verticalArrangement = Arrangement.spacedBy(if (compact) 9.dp else 12.dp),

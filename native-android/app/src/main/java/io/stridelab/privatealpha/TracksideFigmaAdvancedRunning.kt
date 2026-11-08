@@ -21,13 +21,13 @@ import java.util.Locale
 /**
  * Approved frames 551:665 (Train Your Way) and 614:1374 (Guided Advanced).
  *
- * Only weeklyKm and qualityCount map to current PlanRequest. Existing Engine 1
- * has no field for a quality-workout whitelist: selected types are displayed
- * as user preferences and never claimed to constrain the generated plan.
+ * Train Your Way stores a separate mileage target from current sustainable
+ * volume and enforces selected quality types in the active Engine 1.5 policy.
  */
 @Composable
 internal fun TracksideFigmaAdvancedRunning(
     guided: Boolean,
+    trainYourWay: Boolean,
     weeklyKm: Double,
     qualityCount: Int,
     maxQualityCount: Int,
@@ -183,7 +183,10 @@ internal fun TracksideFigmaAdvancedRunning(
         Spacer(Modifier.height(13.dp))
         if(maxQualityCount < 2) {
             Text(
-                "Two quality sessions require experienced running, at least " +
+                if (trainYourWay)
+                    "Two quality sessions require experienced running, at least " +
+                        "four runs per week and 40 km of target and current volume."
+                else "Two quality sessions require experienced running, at least " +
                     "four runs per week and 30 km of recent weekly volume.",
                 fontSize=10.sp,lineHeight=14.sp,
                 color=TracksidePalette.textMuted
@@ -191,8 +194,9 @@ internal fun TracksideFigmaAdvancedRunning(
             Spacer(Modifier.height(8.dp))
         }
         Text(
-            "Target mileage informs the saved plan. Quality-type choices are " +
-                "preferences until supported by the active coaching policy.",
+            if (guided) "Quality-type choices are preferences for guided plans."
+            else "Normal weeks build toward this target. Current sustainable " +
+                "volume and recovery weeks may reduce prescribed distance.",
             fontSize = 11.sp, lineHeight = 15.sp,
             color = TracksidePalette.textMuted
         )

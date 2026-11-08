@@ -21,6 +21,12 @@ internal object Engine15 : PlanGenerationEngine {
             throw PlanConstraint("Engine 1.5 must be selected explicitly.")
         if (request.disciplineGoals.any { (d, goal) -> goal !in Engine1Engines.goals[d].orEmpty() })
             throw PlanConstraint("Choose supported goals for each discipline.")
+        if (request.trainYourWay &&
+            (request.targetWeeklyKm == null || !request.targetWeeklyKm.isFinite() ||
+                request.targetWeeklyKm !in 0.0..120.0 || request.runDays == 0 ||
+                request.allowedQualityTypes.any { it !in TRAIN_YOUR_WAY_QUALITY_TYPES } ||
+                (request.qualityCount > 0 && request.allowedQualityTypes.isEmpty())))
+            throw PlanConstraint("Check the Train Your Way mileage target and running preferences.")
         Engine15SessionLocks.validateRequest(request)
         if (requiresMulti(request))
             MultiSessionEngine1.validate(request.copy(policyChoice = "multi-session"))
@@ -35,6 +41,10 @@ internal object Engine15 : PlanGenerationEngine {
 
     private data class QualityStructure(
         val title: String, val instructions: String, val requiredMinutes: Int
+    )
+
+    private val TRAIN_YOUR_WAY_QUALITY_TYPES = setOf(
+        "Threshold", "Tempo", "Intervals", "Hills", "Fartlek", "Progression"
     )
 
     private fun structure(goal: String): QualityStructure = when (goal) {
@@ -63,6 +73,21 @@ internal object Engine15 : PlanGenerationEngine {
             "2 × 6 min comfortably steady (effort 5–6/10); 3 min easy between repetitions",
             35
         )
+    }
+
+    private fun customStructure(type: String): QualityStructure = when (type) {
+        "Threshold" -> QualityStructure("Controlled threshold run",
+            "3 × 5 min controlled threshold effort (6–7/10); 2 min easy between repetitions", 35)
+        "Tempo" -> QualityStructure("Steady tempo run",
+            "15 min continuous steady tempo effort (about 6/10); stay controlled", 35)
+        "Intervals" -> QualityStructure("Controlled intervals",
+            "4 × 3 min comfortably hard (effort 6–7/10); 2 min easy between repetitions", 35)
+        "Hills" -> QualityStructure("Hill repeats",
+            "6 × 45 sec uphill at a strong controlled effort; walk or jog easily back down", 35)
+        "Fartlek" -> QualityStructure("Easy fartlek run",
+            "6 × 2 min brisk but controlled, with 2 min easy running between repetitions", 35)
+        else -> QualityStructure("Progression run",
+            "Finish the final third slightly quicker while remaining controlled; do not race", 35)
     }
 
     private fun qualitySteps(minutes: Int, spec: QualityStructure): List<String> = listOf(
@@ -101,9 +126,64 @@ internal object Engine15 : PlanGenerationEngine {
 
     private fun roundDownKm(km: Double) = floor(km * 10.0 + 1e-9) / 10.0
 
+    private fun trainYourWayDistances(
+        runs: List<PlannedSession>, target: Double, week: Int, request: PlanRequest
+    ): Map<String, Double> {
+        if (runs.isEmpty() || target <= 0.0) return emptyMap()
+        val increase = if (request.returning && week < 2) 0.0 else 1.0
+        val timeCap = roundDownKm(request.minutes * 60.0 / request.planningPace)
+        val longIndex = runs.indexOfFirst { it.kind == "long" }
+        val longCap = if (longIndex < 0) 0.0 else minOf(
+            timeCap,
+            if (request.longestKm > 0.0) request.longestKm + increase
+            else maxOf(1.0, request.weeklyKm / request.runDays) + increase,
+            if (request.runDays >= 3) target * 0.40 else target
+        )
+        val caps = runs.mapIndexed { index, _ ->
+            if (index == longIndex) roundDownKm(longCap) else timeCap
+        }
+        val weights = runs.mapIndexed { index, _ ->
+            if (index == longIndex) 1.4 else 1.0
+        }
+        val allocations = DoubleArray(runs.size)
+        val active = runs.indices.filter { caps[it] > 0.0 }.toMutableSet()
+        var remaining = minOf(target, caps.sum())
+        while (active.isNotEmpty() && remaining > 1e-8) {
+            val weightTotal = active.sumOf { weights[it] }
+            val capped = active.filter { remaining * weights[it] / weightTotal >= caps[it] - 1e-8 }
+            if (capped.isEmpty()) {
+                active.forEach { allocations[it] = remaining * weights[it] / weightTotal }
+                break
+            }
+            capped.forEach {
+                allocations[it] = caps[it]
+                remaining -= caps[it]
+                active.remove(it)
+            }
+        }
+        val rounded = allocations.map(::roundDownKm).toMutableList()
+        var tenthsRemaining = floor((minOf(target, caps.sum()) - rounded.sum()) * 10.0 + 1e-8).toInt()
+        for (index in runs.indices.filter { it != longIndex }) {
+            while (tenthsRemaining > 0 && rounded[index] + 0.1 <= caps[index] + 1e-8) {
+                rounded[index] = (rounded[index] * 10.0 + 1.0) / 10.0
+                tenthsRemaining--
+            }
+        }
+        if (request.runDays >= 3 && longIndex >= 0) {
+            val other = rounded.indices.filter { it != longIndex }.sumOf { rounded[it] }
+            rounded[longIndex] = minOf(rounded[longIndex], roundDownKm(other * 2.0 / 3.0))
+        }
+        return runs.mapIndexedNotNull { index, run ->
+            rounded[index].takeIf { it > 0.0 }?.let { run.id to it }
+        }.toMap()
+    }
+
     override fun generate(
-        request: PlanRequest, owner: String, id: String, now: Instant
+        rawRequest: PlanRequest, owner: String, id: String, now: Instant
     ): PlanSnapshot {
+        val request = if (rawRequest.trainYourWay) rawRequest.copy(
+            goal = "General fitness", disciplineGoals = rawRequest.disciplineGoals - "run"
+        ) else rawRequest
         validate(request)
         // Keep the original generator, calendar, multi-discipline recipes and
         // saved-plan contract unchanged; only refine proposed RUNNING sessions.
@@ -117,6 +197,18 @@ internal object Engine15 : PlanGenerationEngine {
             else -> Engine1.generate(request.copy(policyChoice = "baseline"), owner, id, now)
         }
         val weekly = baseline.sessions.groupBy { weekIndex(request, it) }
+        val customTargets = mutableMapOf<Int, Double>()
+        val customDistances = mutableMapOf<String, Double>()
+        if (request.trainYourWay) {
+            for (week in 0 until request.weeks) {
+                val runs = weekly[week].orEmpty().filter { it.discipline == "run" }
+                val sustainableCeiling = runningCeiling(week, request.weeklyKm)
+                val target = minOf(request.targetWeeklyKm!!, sustainableCeiling)
+                val distances = trainYourWayDistances(runs, target, week, request)
+                customTargets[week] = target
+                customDistances.putAll(distances)
+            }
+        }
         val adapted = baseline.sessions.map { original ->
             if (original.discipline != "run") return@map original
 
@@ -125,13 +217,18 @@ internal object Engine15 : PlanGenerationEngine {
             val originalKm = runs.sumOf { it.distanceKm ?: 0.0 }
             val ceiling = runningCeiling(week, request.weeklyKm)
             val scale = if (originalKm > 0.0) minOf(1.0, ceiling / originalKm) else 1.0
-            var distance = original.distanceKm?.times(scale)
+            val custom = request.trainYourWay
+            var distance = if (custom) customDistances[original.id]
+                else original.distanceKm?.times(scale)
 
             if (original.kind == "long" && distance != null && request.runDays >= 3) {
                 // Cap the long run against the FINAL, not the pre-adjusted,
                 // weekly total: long <= 2/3 of other run distances means <=40%.
                 val otherKm = runs.filter { it.id != original.id }
-                    .sumOf { roundDownKm((it.distanceKm ?: 0.0) * scale) }
+                    .sumOf {
+                        if (custom) customDistances[it.id] ?: 0.0
+                        else roundDownKm((it.distanceKm ?: 0.0) * scale)
+                    }
                 distance = minOf(distance, otherKm * (2.0 / 3.0))
                 if (request.longestKm > 0.0) {
                     val increase = if (request.returning && week < 2) 0.0 else 1.0
@@ -139,47 +236,75 @@ internal object Engine15 : PlanGenerationEngine {
                 }
             }
             distance = distance?.let(::roundDownKm)
-            val minutes = if (distance == null || original.distanceKm == null ||
+            val minutes = if (custom && distance != null) minOf(
+                request.minutes, maxOf(10, ceil(distance * request.planningPace / 60.0).toInt())
+            ) else if (distance == null || original.distanceKm == null ||
                 distance >= original.distanceKm
             ) original.minutes else minOf(
                 original.minutes,
                 maxOf(10, ceil(distance * request.planningPace / 60.0).toInt())
             )
 
-            val spec = structure(request.goal)
+            val qualityPosition = runs.filter { it.kind == "quality" }.sortedBy { it.id }
+                .indexOfFirst { it.id == original.id }
+            val customTypes = (request.allowedQualityTypes.ifEmpty { emptySet() })
+                .sorted().let { types ->
+                    if (request.preferredQuality in types)
+                        listOf(request.preferredQuality) + types.filter { it != request.preferredQuality }
+                    else types
+                }
+            val selectedType = if (custom && customTypes.isNotEmpty())
+                customTypes.getOrNull(qualityPosition.coerceAtLeast(0) % customTypes.size)
+            else null
+            val spec = if (custom) selectedType?.let(::customStructure)
+                ?: customStructure("Threshold") else structure(request.goal)
             val taper = request.goal in setOf("Half marathon", "Marathon") &&
                 request.weeks >= 8 && week >= request.weeks - 2
+            val qualityMileage = if (custom)
+                minOf(request.weeklyKm, request.targetWeeklyKm ?: 0.0)
+            else request.weeklyKm
             val allowedQuality = when {
-                request.experience == 0 || request.weeklyKm < 20.0 -> 0
+                request.experience == 0 || qualityMileage < 20.0 -> 0
                 request.returning && week < 3 -> 0
                 week % 4 == 3 || taper -> 0
-                request.weeklyKm < 40.0 -> minOf(1, request.qualityCount)
+                qualityMileage < 40.0 -> minOf(1, request.qualityCount)
                 else -> request.qualityCount
             }
             val position = runs.filter { it.kind == "quality" }.sortedBy { it.id }
                 .indexOfFirst { it.id == original.id }
             val quality = original.kind == "quality" && original.quality &&
-                position in 0 until allowedQuality && minutes >= spec.requiredMinutes
+                position in 0 until allowedQuality && minutes >= spec.requiredMinutes &&
+                (!custom || selectedType != null)
 
             when {
                 quality -> original.copy(
                     minutes = minutes, distanceKm = distance, title = spec.title,
+                    kind = if (custom) selectedType!!.lowercase() else original.kind,
                     quality = true, steps = qualitySteps(minutes, spec),
-                    reason = "Controlled goal-specific quality with easy recovery. " +
+                    reason = (if (custom) "Athlete-selected $selectedType workout. "
+                        else "Controlled goal-specific quality with easy recovery. ") +
                         "Effort is descriptive; no measured threshold or pace was inferred."
                 )
                 original.kind == "quality" -> original.copy(
                     kind = "easy", title = "Easy aerobic run", quality = false,
                     minutes = minutes, distanceKm = distance,
                     steps = easySteps(minutes, request.experience == 0 || request.weeklyKm == 0.0),
-                    reason = "Requested quality was replaced by an easier run because " +
+                    reason = if (custom && selectedType == null)
+                        "No allowed quality workout type was selected; this run stays easy."
+                    else "Requested quality was replaced by an easier run because " +
                         "mileage, time, a lighter week, a return or a taper did not support it."
                 )
                 else -> original.copy(
                     minutes = minutes, distanceKm = distance,
                     steps = if (minutes == original.minutes) original.steps
                         else easySteps(minutes, request.experience == 0 || request.weeklyKm == 0.0),
-                    reason = original.reason + if (distance != original.distanceKm)
+                    reason = (if (custom) {
+                        val assigned = customTargets[week] ?: 0.0
+                        val requested = request.targetWeeklyKm ?: assigned
+                        "Train Your Way target ${requested.toInt()} km/week; this " +
+                            "week is limited to ${assigned.toInt()} km by sustainable-volume, " +
+                            "recovery, time and long-run safeguards. "
+                    } else original.reason) + if (distance != original.distanceKm)
                         " Distance was bounded against the reported recent mileage; " +
                             "removed distance is not added to another workout." else ""
                 )
@@ -188,13 +313,35 @@ internal object Engine15 : PlanGenerationEngine {
         Engine15SessionLocks.validateOutput(request, adapted)
         check(adapted.map { it.id to it.date } == baseline.sessions.map { it.id to it.date })
         val originalById = baseline.sessions.associateBy { it.id }
-        check(adapted.all { s ->
+        check(if (request.trainYourWay) adapted.all { s ->
+            s.discipline != "run" || s.minutes <= request.minutes &&
+                (s.distanceKm == null || s.distanceKm <=
+                    request.minutes * 60.0 / request.planningPace + 1e-8) &&
+                (!s.quality || s.kind in request.allowedQualityTypes.map(String::lowercase))
+        } else adapted.all { s ->
             val previous = originalById.getValue(s.id)
             s.minutes <= previous.minutes &&
                 (s.distanceKm == null ||
                     (previous.distanceKm != null && s.distanceKm <= previous.distanceKm + 1e-8)) &&
                 (!s.quality || previous.quality)
         })
+        val customExplanations = if (request.trainYourWay) (0 until request.weeks).map { week ->
+            val runs = adapted.filter { it.discipline == "run" && weekIndex(request, it) == week }
+            val assigned = runs.sumOf { it.distanceKm ?: 0.0 }
+            val requested = request.targetWeeklyKm!!
+            val safe = runningCeiling(week, request.weeklyKm)
+            when {
+                week % 4 == 3 ->
+                    "Week ${week + 1} is a planned recovery reduction from the ${requested.toInt()} km/week target."
+                assigned + 0.05 < requested ->
+                    "Train Your Way targets ${requested.toInt()} km/week; week ${week + 1} is " +
+                        "limited to ${String.format(java.util.Locale.ROOT, "%.1f", assigned)} km " +
+                        "by current sustainable mileage, time and long-run protections."
+                safe + 0.05 < requested ->
+                    "Week ${week + 1} stays below the ${requested.toInt()} km/week target while mileage builds safely."
+                else -> "Week ${week + 1} distributes approximately ${requested.toInt()} km across the selected running days."
+            }
+        } else emptyList()
         return baseline.copy(
             engineVersion = version,
             policyId = when {
@@ -204,7 +351,8 @@ internal object Engine15 : PlanGenerationEngine {
             },
             request = request,
             sessions = adapted,
-            explanations = listOf(
+            name = if (request.trainYourWay) "Train Your Way" else baseline.name,
+            explanations = customExplanations + listOf(
                 "Engine 1.5 policy (${if (interference) ENGINE15_INTERFERENCE_POLICY else if (multi) ENGINE15_MULTI_POLICY else policyId}): the verified baseline " +
                     "still supplies scheduled days, disciplines and equipment prescriptions.",
                 "Running volume has staged loading ceilings and lighter fourth weeks " +
