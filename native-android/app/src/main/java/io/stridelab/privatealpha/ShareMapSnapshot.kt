@@ -55,7 +55,10 @@ internal suspend fun shareMapSnapshot(context:Context, activity:ShareRenderableA
                                     Expression.stop((low+high)/2,Expression.color(colors[1])),
                                     Expression.stop(high,Expression.color(colors[2]))))))
                     }
-                    val pad=if(state.zoom==ShareZoom.FIT) 70 else 10
+                    // Tight Performance and square route frames need proportionate
+                    // margins; 70px top and bottom can exceed a small snapshot.
+                    val safePad=(minOf(rect.width(),rect.height())*.18f).toInt().coerceAtLeast(8)
+                    val pad=minOf(if(state.zoom==ShareZoom.FIT) 70 else 10,safePad)
                     val shift=when(state.position) { SharePosition.LEFT -> -50; SharePosition.CENTER -> 0; SharePosition.RIGHT -> 50 }
                     val vertical=when(state.verticalPosition) { ShareVerticalPosition.UP -> -50; ShareVerticalPosition.CENTER -> 0; ShareVerticalPosition.DOWN -> 50 }
                     snapshotter=MapSnapshotter(context.applicationContext,MapSnapshotter.Options(rect.width().toInt(),rect.height().toInt())
