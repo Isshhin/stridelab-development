@@ -109,24 +109,24 @@ internal fun readCuratedLibrary(context: Context): List<LibraryEntry> {
         (level=="All levels" || it.text("level")==level) && (pattern=="All movements" || it.text("pattern")==pattern) && (equipment=="All equipment" || it.text("eq")==equipment) &&
         (view!="Saved" || if(collectionFilter=="All saved") it.id in state.shelf.favorites || state.shelf.collections.values.any { ids->it.id in ids } else if(collectionFilter=="Favorites")it.id in state.shelf.favorites else it.id in (state.shelf.collections[collectionFilter] ?: emptySet())) }
     val logged=state.plans.flatMap { p -> p.sessions.filter { it.log!=null || state.workoutDrafts.containsKey(p.id to it.id) }.map { p to it } }.sortedByDescending { it.second.log?.at }
-    Box(Modifier.fillMaxSize().testTag(if(entries.isNotEmpty())"library-ready" else "library-loading")) { Screen("Library","RUN, LIFT, MOVE") {
+    Box(Modifier.fillMaxSize().testTag(if(entries.isNotEmpty())"library-ready" else "library-loading")) { StrideLibraryFrame() {
         item { Text("Explore movements, equipment, technique and progressions offline.",style=MaterialTheme.typography.bodyLarge) }
-        item { SignalCard {
-            Text("EXERCISE LIBRARY 2.0",style=MaterialTheme.typography.labelMedium,color=TracksidePalette.textMuted)
-            Text(entries.count { !it.guide }.toString() + " exercises · " + entries.count { it.guide }.toString() + " guides",
-                style=MaterialTheme.typography.titleLarge,color=TracksidePalette.text)
+        item { StrideWorkoutSection("On-device catalog") {
+            Text(entries.count { !it.guide }.toString() + " exercises · " +
+                entries.count { it.guide }.toString() + " guides",
+                style=MaterialTheme.typography.titleLarge,color=StrideWorkoutVisuals.white)
             Text(if(legacyFallback) "V2 verification failed; showing preserved legacy entries." else
                 "Validated on-device catalog · educational only, not an automatic workout prescription.",
-                style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted)
+                style=MaterialTheme.typography.bodySmall,color=StrideWorkoutVisuals.muted)
         } }
         if(view !in setOf("Sessions","Templates")) {
         item { Text("${matches.size} ${if(view=="Saved") "saved entries" else if(guides) "educational references · not tracked workouts" else "curated entries"}",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        item { FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) { listOf("Exercises","Templates","Saved","Sessions","Movement guides").forEach { name -> SignalChip(view==name,{view=name},label={Text(name)}) } } }
+        item { FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) { listOf("Exercises","Templates","Saved","Sessions","Movement guides").forEach { name -> StrideLibraryChip(view==name,{view=name},name) } } }
         if(view=="Templates") {
             item { Text("Reusable session targets are separate from dated drafts and actual logs. Review ability and equipment before approving a session.");SignalButton("Create session template",{onTemplate("new")}) }
-            item { SignalCard { Text("Lower body strength",style=MaterialTheme.typography.headlineSmall);Text("Accepted Phase 4E template: back squat, Romanian deadlift and Bulgarian split squat. Configure targets and suitable equipment in the native session builder.");OutlinedButton(onClick={onTemplate("lower")}) { Text("Review lower-body template") } } }
-            items(state.templates,key={"template-${it.id}"}) { template -> SignalCard { Text(template.name,style=MaterialTheme.typography.headlineSmall);Text("${template.exercises.size} movements · ${template.minutes} planned minutes");Text(template.exercises.joinToString { it.name });OutlinedButton(onClick={onTemplate("saved-${template.id}")}) { Text("Prepare from saved template") } } }
+            item { StrideWorkoutSection("Lower body strength") {Text("Accepted Phase 4E template: back squat, Romanian deadlift and Bulgarian split squat. Configure targets and suitable equipment in the native session builder.");OutlinedButton(onClick={onTemplate("lower")}) { Text("Review lower-body template") } } }
+            items(state.templates,key={"template-${it.id}"}) { template -> StrideWorkoutSection(template.name) {Text("${template.exercises.size} movements · ${template.minutes} planned minutes");Text(template.exercises.joinToString { it.name });OutlinedButton(onClick={onTemplate("saved-${template.id}")}) { Text("Prepare from saved template") } } }
         } else if(view=="Sessions") {
             item { Text("Workout records and saved entry drafts. Only confirmed completions count as completed training.") }
             if(logged.isEmpty())item { Text("No workout logs saved for this account yet. Start with an approved training plan.") }
@@ -137,7 +137,7 @@ internal fun readCuratedLibrary(context: Context): List<LibraryEntry> {
             ShelfFilter("Collection",listOf("All saved","Favorites")+state.shelf.collections.keys.sorted(),collectionFilter) { collectionFilter=it }
         }
         item { OutlinedTextField(query,{query=it},label={Text("Search exercises")},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(18.dp),singleLine=true,keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(imeAction=androidx.compose.ui.text.input.ImeAction.Search),keyboardActions=androidx.compose.foundation.text.KeyboardActions(onSearch={focus.clearFocus();keyboard?.hide()})) }
-        item { FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) { listOf("all" to "All","run" to "Running","str" to "Strength","cal" to "Calisthenics","body" to "Bodyweight","cond" to "Conditioning","mob" to "Mobility").forEach { (id,label) -> SignalChip(selected=filter==id,onClick={filter=id},label={Text(label)}) } } }
+        item { FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) { listOf("all" to "All","run" to "Running","str" to "Strength","cal" to "Calisthenics","body" to "Bodyweight","cond" to "Conditioning","mob" to "Mobility").forEach { (id,label) -> StrideLibraryChip(selected=filter==id,onClick={filter=id},label=label) } } }
         item { FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             ShelfFilter("Level",listOf("All levels")+entries.filter { view=="Saved" || it.guide==guides }.map { it.text("level") }.distinct().sorted(),level) { level=it }
             ShelfFilter("Movement",listOf("All movements")+entries.filter { view=="Saved" || it.guide==guides }.map { it.text("pattern") }.filter { it.isNotBlank() }.distinct().sorted(),pattern) { pattern=it }
@@ -146,16 +146,53 @@ internal fun readCuratedLibrary(context: Context): List<LibraryEntry> {
         item { if(level!="All levels"||pattern!="All movements"||equipment!="All equipment"||filter!="all"||query.isNotEmpty())TextButton(onClick={level="All levels";pattern="All movements";equipment="All equipment";filter="all";query=""}) { Text("Clear search and filters") } }
         if(failure) item { Text("The offline library could not be opened. Original assets remain preserved in Settings.") }
         if(matches.isEmpty() && entries.isNotEmpty()) item { Text("No entries match. Try a broader search or another discipline.") }
-        items(matches,key={it.id}) { entry -> SignalCard(Modifier.testTag("library-entry-${entry.id}").clickable { focus.clearFocus();keyboard?.hide();selected=entry.id }) {
-            Text(disciplineLabel(entry.discipline)+" · "+entry.text("level"),style=MaterialTheme.typography.labelMedium,color=disciplineColor(entry.discipline))
-            Text(entry.title+if(entry.id in state.shelf.favorites) " ★" else "",style=MaterialTheme.typography.titleLarge)
-            Text(entry.text("eq"),color=MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(entry.text("purpose"),style=MaterialTheme.typography.bodyMedium)
-        } }
+        items(matches,key={it.id}) { entry ->
+            Surface(
+                onClick={ focus.clearFocus();keyboard?.hide();selected=entry.id },
+                color=Color.Transparent,
+                modifier=Modifier.fillMaxWidth().testTag("library-entry-${entry.id}")
+            ) {
+                Column(Modifier.fillMaxWidth().padding(vertical=10.dp),
+                    verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                    Text(disciplineLabel(entry.discipline)+"  ·  "+entry.text("level"),
+                        style=MaterialTheme.typography.labelSmall,
+                        color=if(entry.discipline=="run") StrideWorkoutVisuals.lime
+                            else disciplineColor(entry.discipline))
+                    Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
+                        Text(entry.title,style=MaterialTheme.typography.titleMedium,
+                            modifier=Modifier.weight(1f),color=StrideWorkoutVisuals.white)
+                        if(entry.id in state.shelf.favorites)
+                            Text("Saved",style=MaterialTheme.typography.labelSmall,
+                                color=StrideWorkoutVisuals.lime)
+                    }
+                    entry.text("eq").takeIf { it.isNotBlank() }?.let {
+                        Text(it,style=MaterialTheme.typography.bodySmall,
+                            color=StrideWorkoutVisuals.muted)
+                    }
+                    entry.text("purpose").takeIf { it.isNotBlank() }?.let {
+                        Text(it,style=MaterialTheme.typography.bodyMedium,
+                            color=StrideWorkoutVisuals.white)
+                    }
+                    HorizontalDivider(color=StrideWorkoutVisuals.divider,
+                        modifier=Modifier.padding(top=9.dp))
+                }
+            }
+        }
         }
     } }
     entries.firstOrNull { it.id==selected }?.let { entry ->
-        ModalBottomSheet(onDismissRequest={focus.clearFocus();keyboard?.hide();selected=null},sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),containerColor=MaterialTheme.colorScheme.surface) {
+        ModalBottomSheet(onDismissRequest={focus.clearFocus();keyboard?.hide();selected=null},
+            sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),
+            containerColor=StrideWorkoutVisuals.card,
+            contentColor=StrideWorkoutVisuals.white) {
+            MaterialTheme(colorScheme=MaterialTheme.colorScheme.copy(
+                primary=StrideWorkoutVisuals.lime,
+                onPrimary=Color(0xFF10120D),
+                surface=StrideWorkoutVisuals.card,
+                onSurface=StrideWorkoutVisuals.white,
+                onSurfaceVariant=StrideWorkoutVisuals.muted,
+                outline=StrideWorkoutVisuals.divider
+            )) {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal=22.dp).padding(bottom=32.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
                 Text(disciplineLabel(entry.discipline)+" · "+entry.text("level"),style=MaterialTheme.typography.labelMedium,color=disciplineColor(entry.discipline))
                 Text(entry.title,style=MaterialTheme.typography.headlineMedium)
@@ -163,13 +200,13 @@ internal fun readCuratedLibrary(context: Context): List<LibraryEntry> {
                 Text(entry.text("eq")+" · "+entry.text("pattern"),color=MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(entry.text("purpose"),style=MaterialTheme.typography.bodyLarge)
                 if(entry.text("secondaryMuscles").isNotBlank())
-                    Text("Secondary: "+entry.text("secondaryMuscles"),style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted)
+                    Text("Secondary: "+entry.text("secondaryMuscles"),style=MaterialTheme.typography.bodySmall,color=StrideWorkoutVisuals.muted)
                 if(entry.text("setupNotes").isNotBlank()) {
-                    Text("SETUP",style=MaterialTheme.typography.labelMedium,color=TracksidePalette.textMuted)
+                    Text("SETUP",style=MaterialTheme.typography.labelMedium,color=StrideWorkoutVisuals.muted)
                     Text(entry.text("setupNotes"),style=MaterialTheme.typography.bodyMedium)
                 }
                 if(entry.guide || entry.raw.optBoolean("educationalOnly",false))
-                    Text("Educational reference. Use reviewed training plans or session templates for executable workouts; this catalog does not automatically prescribe exercises.",style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted)
+                    Text("Educational reference. Use reviewed training plans or session templates for executable workouts; this catalog does not automatically prescribe exercises.",style=MaterialTheme.typography.bodySmall,color=StrideWorkoutVisuals.muted)
                 else SignalButton(if(entry.discipline=="run")"Build a running plan" else "Prepare practice session", { focus.clearFocus();keyboard?.hide();selected=null; onPractice(entry) })
                 if(state.account!=null) {
                     OutlinedButton(onClick={actions.shelf(entry.id,null,false)},enabled=!state.busy,modifier=Modifier.fillMaxWidth()) { Text(if(entry.id in state.shelf.favorites) "Remove favorite" else "Save favorite") }
@@ -179,21 +216,21 @@ internal fun readCuratedLibrary(context: Context): List<LibraryEntry> {
                 if(entry.text("mistake").isNotBlank())
                     Text(entry.text("mistake"),color=MaterialTheme.colorScheme.onSurfaceVariant)
                 if(entry.text("caveats").isNotBlank()) {
-                    Text("CAUTIONS",style=MaterialTheme.typography.labelMedium,color=TracksidePalette.textMuted)
+                    Text("CAUTIONS",style=MaterialTheme.typography.labelMedium,color=StrideWorkoutVisuals.muted)
                     Text(entry.text("caveats"),style=MaterialTheme.typography.bodySmall)
                 }
                 if(entry.text("prerequisiteNotes").isNotBlank())
-                    Text(entry.text("prerequisiteNotes"),style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted)
+                    Text(entry.text("prerequisiteNotes"),style=MaterialTheme.typography.bodySmall,color=StrideWorkoutVisuals.muted)
                 if(entry.text("prereq").isNotBlank()) {
-                    Text("PREREQUISITES",style=MaterialTheme.typography.labelMedium,color=TracksidePalette.calisthenics)
+                    Text("PREREQUISITES",style=MaterialTheme.typography.labelMedium,color=StrideWorkoutVisuals.lime)
                     Text(entry.text("prereq"),style=MaterialTheme.typography.bodyMedium)
                 }
                 if(entry.text("sources").isNotBlank()) {
-                    Text("SOURCE PROVENANCE",style=MaterialTheme.typography.labelMedium,color=TracksidePalette.textMuted)
+                    Text("SOURCE PROVENANCE",style=MaterialTheme.typography.labelMedium,color=StrideWorkoutVisuals.muted)
                     Text(entry.text("sources"),style=MaterialTheme.typography.bodySmall)
                 }
                 if(entry.text("mediaNote").isNotBlank())
-                    Text(entry.text("mediaNote"),style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted)
+                    Text(entry.text("mediaNote"),style=MaterialTheme.typography.bodySmall,color=StrideWorkoutVisuals.muted)
                 Text("MAKE IT EASIER",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary);Text(entry.text("reg"))
                 Text("PROGRESSION",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary);Text(entry.text("prog"))
                 Text("Advance only when the current option is controlled and repeatable. A completed workout does not automatically grant a skill stage.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -208,6 +245,7 @@ internal fun readCuratedLibrary(context: Context): List<LibraryEntry> {
                     state.shelf.collections.filterValues { entry.id in it }.keys.forEach { name -> TextButton(onClick={actions.shelf(entry.id,name,true)}) { Text("Remove from $name") } }
                 } else Text("Your local profile is still initializing.",style=MaterialTheme.typography.bodySmall)
                 TextButton(onClick={focus.clearFocus();keyboard?.hide();selected=null},modifier=Modifier.fillMaxWidth()) { Text("Close") }
+            }
             }
         }
     }
