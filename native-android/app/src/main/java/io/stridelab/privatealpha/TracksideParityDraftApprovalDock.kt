@@ -32,8 +32,8 @@ internal fun TracksideParityDraftApprovalDock(
     Surface(
         modifier.fillMaxWidth().heightIn(min = 64.dp)
             .testTag("training-draft-approval-dock"),
-        color = Color(0xFF0B1922),
-        border = BorderStroke(1.dp, Color(0xFF2A2C32)),
+        color = StrideWorkoutVisuals.card,
+        border = BorderStroke(1.dp, StrideWorkoutVisuals.divider),
         shape = RoundedCornerShape(12.dp)
     ) {
         Row(
@@ -43,24 +43,24 @@ internal fun TracksideParityDraftApprovalDock(
         ) {
             Column(Modifier.weight(1f)) {
                 Text(if (plan.status == "draft") "Draft plan" else "Paused plan",
-                    color = TracksidePalette.text,
+                    color = StrideWorkoutVisuals.white,
                     fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 Text(plan.sessions.size.toString() + " sessions · " +
                     (if (plan.status == "draft") "not active yet" else "currently paused"),
-                    color = TracksidePalette.textMuted, fontSize = 10.sp)
+                    color = StrideWorkoutVisuals.muted, fontSize = 10.sp)
             }
             Button(
                 enabled = enabled,
                 onClick = onApprove,
-                modifier = Modifier.height(44.dp).widthIn(min = 130.dp),
+                modifier = Modifier.heightIn(min = 48.dp).widthIn(min = 130.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = TracksidePalette.red,
-                    disabledContainerColor = Color(0xFF53313B)
+                    containerColor = StrideWorkoutVisuals.lime,
+                    disabledContainerColor = Color(0xFF343D2C)
                 )
             ) {
                 Text(if (plan.status == "draft") "Approve plan" else "Resume plan",
-                    fontSize = 13.sp, color = Color.White)
+                    fontSize = 13.sp, color = Color(0xFF10120D))
             }
         }
     }
