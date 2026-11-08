@@ -1,74 +1,72 @@
-# Permanent StrideLab UI workspace (Windows / Android Studio)
+# Permanent StrideLab Android Studio workspace (2026-11-08)
 
-Owner decision, 2026-11-06: **one existing UI worktree, one Android Studio project**, reused for all Today, Training, Activity and later UI work. Do **not** create per-screen Android Studio project folders. The main `stridelab-development` checkout, its staged/untracked changes and `stash@{0}` are separate and must remain untouched.
+Use the **existing** `C:\Users\marcs\StudioProjects\stridelab-ui\native-android`
+Android Studio project. Do not create a new IDE project for each UI task,
+delete or replace the owner's project, or touch another worktree's uncommitted
+changes. Keep the main `stridelab-development` checkout and its stashes intact.
 
-## Project baseline
+## Current source, not historical design
 
-- Remote UI integration branch: `ui/trackside-dev` (work in progress, not automatically accepted/merged).
-- Permanent folder: `C:\Users\marcs\StudioProjects\stridelab-ui`.
-- Android Studio project: `stridelab-ui\native-android`.
-- Pinned **Gradle wrapper: 8.13**, supplied in `native-android/gradlew.bat`, `native-android/gradlew`, and `native-android/gradle/wrapper`. These are versioned files; Android Studio should select **Wrapper** instead of the latest installed Gradle.
-- Gradle JDK: **Temurin 17**; select it once per persistent project in Android Studio. Local machine's installed JDK path need not be committed.
+- Current combined UI candidate: `integration/modern-ui-lime-builder-share2-20261108` at
+  `2c43bdcb01941b253658222a57b7ba8b9953ab20` (draft PR #53; still awaiting
+  owner acceptance for the combined build). This incorporates the modern
+  **three-tab** Android dock, approved lime Plan Builder, SQLite long-run fix,
+  and Share Studio Stage 1 and 2.
+- The previous workspace instruction to use `ui/trackside-dev` is **retired**.
+  Its work predates the combined SQLite/Share Studio/Plan Builder changes.
+- Do not use `fix/trackside-usability-garmin-20261105`, PR #50, the old
+  `TracksideFigma*` design snapshots, or an older merge base to generate a new
+  app. The `TracksideFigma*.kt` source filenames are historical names but the
+  implementations remain actively used by the current Plan Builder: **do not
+  delete these Kotlin files**.
+- Owner-approved device screenshots and the current Kotlin/Compose app—not
+  Figma—establish visual truth. Today has **Today, Training, More**, not four tabs.
 
-## One-time migration — REUSE, do not create a new checkout
+## Safe local checkout for the combined integration
 
-Close Android Studio for the old Today worktree, then run the PowerShell block below. The move preserves its existing ignored files and IDE data. Attach the permanent workspace to the tracking branch, not detached HEAD. It **does not delete** the original checkout or any stash.
-
-```powershell
-$repo = "C:\Users\marcs\StudioProjects\stridelab-development"
-$old = "C:\Users\marcs\StudioProjects\stridelab-today-redesign-20261106"
-$ui = "C:\Users\marcs\StudioProjects\stridelab-ui"
-
-if (-not (Test-Path $ui)) {
-    if (-not (Test-Path $old)) { throw "Neither the current UI worktree nor the permanent UI folder was found." }
-    git -C $repo worktree move $old $ui
-    if ($LASTEXITCODE -ne 0) { throw "Git worktree move failed; no further action taken." }
-}
-
-if (-not (Test-Path (Join-Path $ui "native-android\settings.gradle"))) {
-    throw "Permanent folder isn't the expected StrideLab UI worktree."
-}
-git -C $ui fetch origin ui/trackside-dev
-if ($LASTEXITCODE -ne 0) { throw "Fetch failed." }
-if ((git -C $ui status --porcelain --untracked-files=no)) {
-    throw "Tracked modifications exist in UI worktree; preserve/review them before switching."
-}
-if (git -C $ui branch --list ui/trackside-dev) {
-    git -C $ui switch ui/trackside-dev
-} else {
-    git -C $ui switch -c ui/trackside-dev --track origin/ui/trackside-dev
-}
-if ($LASTEXITCODE -ne 0) { throw "Cannot attach UI branch safely; existing files left intact." }
-git -C $ui rev-parse --short HEAD
-```
-
-Open `C:\Users\marcs\StudioProjects\stridelab-ui\native-android` **once** in Android Studio.
-
-Under Settings → Build Tools → Gradle:
-- Gradle distribution: **Wrapper** (Gradle 8.13, now tracked in repository)
-- Gradle JDK: **Temurin 17** (`C:\Users\marcs\.jdks\temurin-17.0.20.1` on this machine)
-
-Apply, sync, then perform all emulator debugging and builds *locally in Android Studio*.
-
-## All future updates
-
-ChatGPT/GitHub should place UI edits on `ui/trackside-dev`, not create a new folder. Owner can update **the same** UI workspace:
+Open a PowerShell terminal in the existing workspace, then run:
 
 ```powershell
 $ui = "C:\Users\marcs\StudioProjects\stridelab-ui"
-git -C $ui fetch origin ui/trackside-dev
-if ((git -C $ui status --porcelain --untracked-files=no)) {
-    throw "Tracked local edits present; preserve them before switching."
-}
-git -C $ui pull --ff-only origin ui/trackside-dev
+git -C $ui status --short
+git -C $ui fetch origin
+git -C $ui branch --show-current
+git -C $ui rev-parse HEAD
 ```
 
-After the update, use Android Studio **Sync** and **Run** in the existing project window. No need to configure Gradle again or reinstall Java.
+If the current workspace has tracked edits, stashes or another task's uncommitted
+work, **stop and preserve it**; do not switch or reset automatically. If clean
+and you explicitly intend to test the combined integration:
 
-## Safety and ownership
+```powershell
+git -C $ui switch -c test/modern-lime-share2 origin/integration/modern-ui-lime-builder-share2-20261108
+```
 
-- **Codex edits source only.** No Gradle builds, tests, APK assembly, emulator or ADB use, unless the owner explicitly requests an exception.
-- **Owner uses Android Studio** for compilation, tests, emulator and UI acceptance.
-- **ChatGPT documents** owner-confirmed outcomes; no unnecessary Codex reports.
-- Never use `git reset --hard`, `git clean`, delete/apply stashes or overwrite staged/untracked work as part of this process.
-- If the `stridelab-ui` folder already exists but is **not** a registered Git worktree, stop and investigate; do not replace it.
+If that testing branch already exists locally, use
+`git -C $ui switch test/modern-lime-share2` and check its HEAD. Never overwrite
+or force-reset a reused testing branch.
+
+In the IDE select the installed Gradle 8.13 wrapper if present, otherwise the
+known-working local Gradle 8.13 installation; use JDK 17. Verify build/test
+commands in Android Studio **after** checking the exact checkout.
+
+## Before making or accepting ANY UI change
+
+1. Verify repo, current branch, remote, clean working tree and exact HEAD.
+2. Run `python native-android/tools/check_current_ui_baseline.py --require-ancestry`
+   from the repository root. It rejects branches that do not descend from the
+   present combined integration. Run it on the intended source checkout before
+   editing; if the baseline is absent from a shallow clone, fetch the history
+   rather than bypass the guard.
+3. Compare the proposed change against the current Android UI, retaining
+   **exactly three dock tabs**. Use source-specific cherry-picks or narrow file
+   ports rather than merging an entire stale branch.
+4. Build and test using the owner's preferred Android Studio environment.
+   Reproduce actual UI screenshots and obtain owner acceptance. Passing
+   tests alone does not prove design parity.
+5. Do not uninstall the existing app, clear data, bypass signing/version checks,
+   delete stashes or run `git reset --hard`/`git clean`.
+
+Historical audit files should remain clearly marked historical; see
+`docs/qa/current-android-baseline.md` for the verified source composition
+and pending acceptance checks.
