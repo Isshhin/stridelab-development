@@ -48,7 +48,18 @@ internal fun StrideWorkoutDetailFrame(
     val ink = StrideWorkoutVisuals.white
     val subtle = StrideWorkoutVisuals.muted
     val lime = StrideWorkoutVisuals.lime
-    androidx.compose.material3.Surface(
+    MaterialTheme(
+        colorScheme=MaterialTheme.colorScheme.copy(
+            primary=lime,
+            onPrimary=Color(0xFF10120D),
+            surface=StrideWorkoutVisuals.card,
+            onSurface=ink,
+            onSurfaceVariant=subtle,
+            outline=StrideWorkoutVisuals.divider,
+            surfaceVariant=StrideWorkoutVisuals.card
+        )
+    ) {
+    Surface(
         modifier = Modifier.fillMaxSize(),
         color = StrideWorkoutVisuals.black,
         contentColor = ink
@@ -125,6 +136,7 @@ internal fun StrideWorkoutDetailFrame(
             content()
         }
     }
+    }
 }
 
 @Composable
@@ -151,16 +163,17 @@ internal fun StrideWorkoutSection(
 @Composable
 internal fun StrideWorkoutTimeline(steps: List<String>) {
     Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-        steps.filter { it.isNotBlank() }.forEachIndexed { i, step ->
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        val visible=steps.filter { it.isNotBlank() }
+        visible.forEachIndexed { i, step ->
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), verticalAlignment = Alignment.Top) {
                 Column(
                     modifier = Modifier.width(22.dp).padding(top = 7.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Box(Modifier.size(9.dp).background(
                         StrideWorkoutVisuals.lime, RoundedCornerShape(50)))
-                    if(i < steps.count { it.isNotBlank() } - 1)
-                        Box(Modifier.width(1.dp).height(45.dp).padding(top = 5.dp)
+                    if(i < visible.lastIndex)
+                        Box(Modifier.width(1.dp).weight(1f).padding(top = 5.dp)
                             .background(StrideWorkoutVisuals.lime.copy(alpha = 0.55f)))
                 }
                 Column(
