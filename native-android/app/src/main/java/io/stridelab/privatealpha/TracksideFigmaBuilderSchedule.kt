@@ -39,7 +39,7 @@ import java.util.Locale
 private fun PlanDatesIconTile(icon: Int, tag: String) {
     Box(
         modifier = Modifier.size(38.dp)
-            .background(Color(0xFF29495D), RoundedCornerShape(10.dp))
+            .background(Color(0xFF383838), RoundedCornerShape(10.dp))
             .testTag(tag),
         contentAlignment = Alignment.Center
     ) {
@@ -47,7 +47,7 @@ private fun PlanDatesIconTile(icon: Int, tag: String) {
             painter = painterResource(icon),
             contentDescription = null,
             modifier = Modifier.size(22.dp),
-            tint = Color.Unspecified
+            tint = PlanBuilderPalette.accent
         )
     }
 }
@@ -64,12 +64,13 @@ internal fun TracksideFigmaPlanDetailsScreen(
     onDailyBudget: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
-    val panelBrush = Brush.horizontalGradient(listOf(Color(0xFF233541), Color(0xFF111E27)))
+    val panelBrush = Brush.horizontalGradient(listOf(PlanBuilderPalette.surface, PlanBuilderPalette.surfaceRaised))
     var customWeeks by rememberSaveable { mutableStateOf(false) }
     var timeExpanded by rememberSaveable { mutableStateOf(false) }
     var goalDateInfo by rememberSaveable { mutableStateOf(false) }
     val date = runCatching { LocalDate.parse(start) }.getOrDefault(LocalDate.now())
     TracksideFigmaBuilderFrame(
+        progressStep = 4,
         eyebrow = "PLAN / DETAILS", toolbarTitle = "Plan details",
         headline = "Set your plan dates",
         description = "Choose when to start and how long to train.",
@@ -82,7 +83,7 @@ internal fun TracksideFigmaPlanDetailsScreen(
     ) {
         Surface(
             Modifier.fillMaxWidth(), shape=RoundedCornerShape(14.dp),
-            color=Color.Transparent, border=BorderStroke(1.dp,Color(0xFF496878))
+            color=Color.Transparent, border=BorderStroke(1.dp,Color(0xFFDBF351))
         ) {
             Column(Modifier.fillMaxWidth().background(panelBrush).padding(13.dp)) {
                 TracksideFigmaFormLabel("START DATE")
@@ -93,8 +94,8 @@ internal fun TracksideFigmaPlanDetailsScreen(
                 Surface(
                     modifier=Modifier.fillMaxWidth().heightIn(min=68.dp)
                         .testTag("builder-start-date"),
-                    color=Color(0xFF25485E),shape=RoundedCornerShape(11.dp),
-                    border=BorderStroke(1.dp,Color(0xFF698EAB)),
+                    color=Color(0xFF383838),shape=RoundedCornerShape(11.dp),
+                    border=BorderStroke(1.dp,Color(0xFFDBF351)),
                     onClick = {
                         DatePickerDialog(
                             context,
@@ -113,7 +114,7 @@ internal fun TracksideFigmaPlanDetailsScreen(
                                 color=Color.White,fontWeight=FontWeight.SemiBold)
                             Spacer(Modifier.height(5.dp))
                             Text("Tap to choose a date",fontSize=10.sp,
-                                color=Color(0xFFB6C0CA))
+                                color=Color(0xFFC5C5C5))
                         }
                         Text("›",color=Color.White,fontSize=20.sp)
                     }
@@ -123,7 +124,7 @@ internal fun TracksideFigmaPlanDetailsScreen(
         Spacer(Modifier.height(17.dp))
         Surface(
             Modifier.fillMaxWidth(),color=Color.Transparent,
-            shape=RoundedCornerShape(14.dp),border=BorderStroke(1.dp,Color(0xFF496878))
+            shape=RoundedCornerShape(14.dp),border=BorderStroke(1.dp,Color(0xFFDBF351))
         ) {
             Column(Modifier.fillMaxWidth().background(panelBrush).padding(13.dp)) {
                 TracksideFigmaFormLabel("PLAN LENGTH")
@@ -142,10 +143,10 @@ internal fun TracksideFigmaPlanDetailsScreen(
                             },
                             modifier=Modifier.weight(1f).height(47.dp)
                                 .testTag("builder-weeks-$option"),
-                            color=if(active)Color(0xFF29526B)else Color(0xFF1C3646),
+                            color=if(active)Color(0xFFDBF351)else Color(0xFF303030),
                             shape=RoundedCornerShape(10.dp),
                             border=BorderStroke(1.dp,
-                                if(active)Color(0xFF85B7D0)else Color(0xFF527387))
+                                if(active)Color(0xFFDBF351)else Color(0xFFDBF351))
                         ) { Box(contentAlignment=Alignment.Center) {
                             Text(if(option=="Custom")option else "$option weeks",
                                 fontSize=10.sp,color=Color.White)
@@ -163,10 +164,10 @@ internal fun TracksideFigmaPlanDetailsScreen(
                 }
                 Spacer(Modifier.height(17.dp))
                 Box(Modifier.fillMaxWidth().height(1.dp)
-                    .background(Color(0xFF4B697A)))
+                    .background(Color(0xFFDBF351)))
                 TextButton(onClick={goalDateInfo=true}) {
                     Text("Have a goal date? Use that instead  ›",
-                        fontSize=11.sp,color=Color(0xFFBDDDED))
+                        fontSize=11.sp,color=Color(0xFFDBF351))
                 }
             }
         }
@@ -176,7 +177,7 @@ internal fun TracksideFigmaPlanDetailsScreen(
                 .testTag("builder-time-limit"),
             onClick={timeExpanded=!timeExpanded},
             color=Color.Transparent,shape=RoundedCornerShape(14.dp),
-            border=BorderStroke(1.dp,Color(0xFF496878))
+            border=BorderStroke(1.dp,Color(0xFFDBF351))
         ) {
             Column(Modifier.fillMaxWidth().background(panelBrush)
                 .padding(horizontal=12.dp, vertical=20.dp)) {
@@ -188,7 +189,7 @@ internal fun TracksideFigmaPlanDetailsScreen(
                             fontWeight=FontWeight.SemiBold)
                         Spacer(Modifier.height(5.dp))
                         Text("Optional · Only if your time is limited",
-                            fontSize=10.sp,color=Color(0xFFB6C0CA))
+                            fontSize=10.sp,color=Color(0xFFC5C5C5))
                     }
                     Text("›",fontSize=21.sp,color=Color.White)
                 }
@@ -213,7 +214,7 @@ internal fun TracksideFigmaPlanDetailsScreen(
             )
             Spacer(Modifier.height(6.dp))
             Text("Compatible two-a-day sessions share this daily time budget.",
-                fontSize=10.sp,color=Color(0xFFB6C0CA))
+                fontSize=10.sp,color=Color(0xFFC5C5C5))
         }
     }
     if(goalDateInfo) AlertDialog(
@@ -247,9 +248,9 @@ internal fun TracksideFigmaAvailabilityScreen(
     onDailyBudget: (String) -> Unit = {}
 ) {
     var pendingRemovalDay by rememberSaveable { mutableIntStateOf(0) }
-    val daysBrush=Brush.horizontalGradient(listOf(Color(0xFF233541),Color(0xFF111E27)))
-    val capacityBrush=Brush.horizontalGradient(listOf(Color(0xFF162B33),Color(0xFF102029)))
-    val coachingBrush=Brush.horizontalGradient(listOf(Color(0xFF172730),Color(0xFF101B23)))
+    val daysBrush=Brush.horizontalGradient(listOf(PlanBuilderPalette.surface, PlanBuilderPalette.surfaceRaised))
+    val capacityBrush=Brush.horizontalGradient(listOf(PlanBuilderPalette.surface, PlanBuilderPalette.surfaceRaised))
+    val coachingBrush=Brush.horizontalGradient(listOf(PlanBuilderPalette.surface, PlanBuilderPalette.surfaceRaised))
     val chosen=request.days.size
     val total=request.runDays+request.strengthDays+request.calDays+request.conditioningDays
     val maxPerDay=if(request.policyChoice=="multi-session") 2 else 1
@@ -287,71 +288,91 @@ internal fun TracksideFigmaAvailabilityScreen(
         placementError==null && !unsupportedOverlap &&
         !invalidPair && !invalidBudget && !insufficientPairCapacity
     TracksideFigmaBuilderFrame(
+        progressStep = 5,
         eyebrow = "PLAN / AVAILABILITY",
         toolbarTitle = "Availability",
-        headline="Make room to train",
-        description="Your available days apply across all selected sports.",
+        headline="Your weekly availability",
+        description="Tell us which days you can train.",
         onBack=onBack,onContinue=onContinue,
         continueEnabled=capacityFits
     ) {
-        Surface(Modifier.fillMaxWidth().height(224.dp),
-            shape=RoundedCornerShape(14.dp),color=Color.Transparent,
-            border=BorderStroke(1.dp,Color(0xFF4F7487))) {
-            Column(Modifier.fillMaxSize().background(daysBrush).padding(13.dp)) {
-                TracksideFigmaFormLabel("YOUR TRAINING DAYS")
-                Spacer(Modifier.height(23.dp))
-                Row(verticalAlignment=Alignment.Bottom) {
-                    Text(chosen.toString(),fontSize=39.sp,color=Color.White,
-                        fontWeight=FontWeight.Bold)
-                    Spacer(Modifier.width(18.dp))
-                    Text("/ 7 DAYS",fontSize=11.sp,color=Color(0xFFB6C0CA),
-                        modifier=Modifier.padding(bottom=9.dp))
-                }
-                Spacer(Modifier.height(25.dp))
-                Row(
-                    Modifier.fillMaxWidth().height(51.dp),
-                    horizontalArrangement=Arrangement.spacedBy(4.dp)
-                ) {
-                    listOf("MON","TUE","WED","THU","FRI","SAT","SUN").forEachIndexed {
-                        index,label ->
-                        val day=index+1
-                        val selected=day in request.days
-                        Surface(
-                            onClick={
-                                if(selected && day in pinned) pendingRemovalDay=day
-                                else onDay(day)
+
+        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            listOf("Mon","Tue","Wed","Thu","Fri","Sat","Sun")
+                .forEachIndexed { index, label ->
+                    val day = index + 1
+                    val available = day in request.days
+                    val preferred = available && request.runDays > 0 && day == request.longDay
+                    val fixedSessions = byDay[day]?.size ?: 0
+                    Surface(
+                        onClick = {
+                            if (available && day in pinned) pendingRemovalDay = day
+                            else onDay(day)
+                        },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 46.dp)
+                            .testTag("available-day-$day")
+                            .semantics {
+                                stateDescription = when {
+                                    available && fixedSessions > 0 ->
+                                        "Available, $fixedSessions placed workouts. Tap to change."
+                                    available -> "Available. Tap to make unavailable."
+                                    else -> "Unavailable. Tap to make available."
+                                }
                             },
-                            modifier=Modifier.weight(1f)
-                                .fillMaxHeight().testTag("available-day-$day")
-                                .semantics {
-                                    stateDescription = when {
-                                        selected && day in pinned ->
-                                            "Available, ${byDay[day]?.size ?: 1} placed workouts. Tap to change."
-                                        selected -> "Available. Tap to make unavailable."
-                                        else -> "Unavailable. Tap to make available."
-                                    }
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (preferred) PlanBuilderPalette.selected
+                            else PlanBuilderPalette.surface,
+                        border = BorderStroke(1.dp,
+                            if (preferred) PlanBuilderPalette.accent
+                            else PlanBuilderPalette.border)
+                    ) {
+                        Row(Modifier.fillMaxWidth()
+                            .padding(horizontal = 11.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                            Text(label, color = PlanBuilderPalette.text,
+                                fontWeight = FontWeight.SemiBold, fontSize = 11.sp,
+                                modifier = Modifier.width(35.dp))
+                            Text("●", fontSize = 11.sp,
+                                color = when {
+                                    preferred -> PlanBuilderPalette.text
+                                    available -> PlanBuilderPalette.accent
+                                    else -> PlanBuilderPalette.disabled
+                                })
+                            Text(
+                                when {
+                                    preferred -> "Preferred · long run"
+                                    available && fixedSessions > 0 ->
+                                        "Available · $fixedSessions fixed"
+                                    available -> "Available"
+                                    else -> "Rest / unavailable"
                                 },
-                            color=if(selected)Color(0xFF202B34) else Color(0xFF18252F),
-                            shape=RoundedCornerShape(9.dp),
-                            border=BorderStroke(1.dp,
-                                if(selected)Color(0xFFCCD7DD) else Color(0xFF435966))
-                        ) {
-                            Column(horizontalAlignment=Alignment.CenterHorizontally,
-                                verticalArrangement=Arrangement.Center) {
-                                Text(label,fontSize=9.sp,color=if(selected) Color.White
-                                    else Color(0xFF8495A1),maxLines=1)
-                                if(!selected) Text("–",fontSize=12.sp,color=Color(0xFF8495A1))
-                                else if(day in pinned) Text("•",fontSize=12.sp,color=Color(0xFF91C8EA))
-                            }
+                                fontSize = 11.sp,
+                                color = PlanBuilderPalette.text,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text("Change", fontSize = 10.sp,
+                                color = PlanBuilderPalette.secondary)
                         }
                     }
                 }
+            Row(Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("● Available", fontSize = 9.sp,
+                    color = PlanBuilderPalette.accent)
+                Spacer(Modifier.width(12.dp))
+                Text("● Preferred", fontSize = 9.sp,
+                    color = PlanBuilderPalette.text)
+                Spacer(Modifier.width(12.dp))
+                Text("● Rest", fontSize = 9.sp,
+                    color = PlanBuilderPalette.disabled)
             }
         }
         Spacer(Modifier.height(23.dp))
         Surface(Modifier.fillMaxWidth().heightIn(min=125.dp),
             shape=RoundedCornerShape(14.dp),color=Color.Transparent,
-            border=BorderStroke(1.dp,Color(0xFF3A6A76))) {
+            border=BorderStroke(1.dp,PlanBuilderPalette.border)) {
             Column(Modifier.fillMaxWidth().background(capacityBrush).padding(13.dp)) {
                 TracksideFigmaFormLabel("AUTOMATIC CAPACITY CHECK")
                 Spacer(Modifier.height(17.dp))
@@ -376,7 +397,7 @@ internal fun TracksideFigmaAvailabilityScreen(
                     else -> "Additional available day capacity is needed before continuing"
                 },
                     fontSize=11.sp,color=if(capacityFits)
-                        Color(0xFF69D5B0) else Color(0xFFFF8D8D))
+                        PlanBuilderPalette.accent else Color(0xFFFF9DA7))
                 if(total>chosen || overlap || request.policyChoice=="multi-session") {
                     Spacer(Modifier.height(12.dp))
                     Surface(
@@ -386,11 +407,11 @@ internal fun TracksideFigmaAvailabilityScreen(
                         modifier=Modifier.fillMaxWidth().height(49.dp)
                             .testTag("builder-enable-multi-session"),
                         color=if(request.policyChoice=="multi-session")
-                            Color(0xFF21485C) else Color(0xFF1A313D),
+                            Color(0xFF383838) else Color(0xFF303030),
                         shape=RoundedCornerShape(8.dp),
                         border=BorderStroke(1.dp,
-                            if(request.policyChoice=="multi-session")Color(0xFF84AFC1)
-                            else Color(0xFF456C7E))
+                            if(request.policyChoice=="multi-session")Color(0xFFDBF351)
+                            else Color(0xFFDBF351))
                     ) {
                         Row(Modifier.padding(horizontal=10.dp),
                             verticalAlignment=Alignment.CenterVertically) {
@@ -404,7 +425,7 @@ internal fun TracksideFigmaAvailabilityScreen(
                     Spacer(Modifier.height(5.dp))
                     Text("Only compatible sessions can share a day; a successful slot count does not guarantee placement.",
                         fontSize=10.sp,lineHeight=13.sp,
-                        color=Color(0xFFB6C0CA))
+                        color=Color(0xFFC5C5C5))
                     if(request.policyChoice=="multi-session") {
                         Spacer(Modifier.height(11.dp))
                         OutlinedTextField(
@@ -434,7 +455,7 @@ internal fun TracksideFigmaAvailabilityScreen(
         Spacer(Modifier.height(18.dp))
         Surface(Modifier.fillMaxWidth().heightIn(min=131.dp),
             shape=RoundedCornerShape(14.dp),color=Color.Transparent,
-            border=BorderStroke(1.dp,Color(0xFF3E6474))) {
+            border=BorderStroke(1.dp,PlanBuilderPalette.border)) {
             Column(Modifier.fillMaxWidth().background(coachingBrush).padding(13.dp)) {
                 TracksideFigmaFormLabel("NEXT: COACHING CHECKS")
                 Spacer(Modifier.height(23.dp))
@@ -443,7 +464,7 @@ internal fun TracksideFigmaAvailabilityScreen(
                 Text("◷  Training load and progression",fontSize=11.sp,color=Color.White)
                 Spacer(Modifier.height(10.dp))
                 Text("Evaluated after plan generation",fontSize=10.sp,
-                    color=Color(0xFFB6C0CA))
+                    color=Color(0xFFC5C5C5))
             }
         }
         // Local scroll clearance keeps the final coaching label above the
@@ -479,5 +500,5 @@ internal fun TracksideFigmaAvailabilityScreen(
 @Composable
 private fun TracksideFigmaFormLabel(s: String) {
     Text(s,fontSize=10.sp,fontWeight=FontWeight.Bold,
-        color=Color(0xFFB6C0CA),letterSpacing=0.2f.sp)
+        color=Color(0xFFC5C5C5),letterSpacing=0.2f.sp)
 }
