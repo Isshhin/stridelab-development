@@ -26,35 +26,34 @@ internal object ShareCardRenderer {
     private val numeric = ShareMetric.entries.filter { it !in setOf(ShareMetric.TITLE,ShareMetric.DATE,ShareMetric.LOCATION) }
     fun geometry(state:ShareStudioState):ShareCardGeometry {
         val h=state.ratio.height.toFloat()
-        val count=state.metrics.count { it in numeric }.coerceAtLeast(1)
-        val row=if(state.layout==ShareLayout.COMPACT) 138f else 158f
-        val statsHeight=ceil(count/2.0).toFloat()*row
         return when(state.template) {
-            ShareTemplate.STATS -> ShareCardGeometry(RectF(56f,280f+statsHeight,1024f,h-104f),250f,row)
-            ShareTemplate.ROUTE -> ShareCardGeometry(RectF(56f,246f,1024f,h-statsHeight-140f),h-statsHeight-102f,row)
-            ShareTemplate.MINIMAL -> ShareCardGeometry(RectF(120f,270f,960f,h-statsHeight-170f),h-statsHeight-112f,row)
+            ShareTemplate.ROUTE -> ShareCardGeometry(RectF(72f,max(260f,h*.21f),1008f,h*.68f),h*.71f,(h*.91f-h*.71f)/3f)
+            ShareTemplate.STATS -> ShareCardGeometry(RectF(565f,h*.65f,1008f,h*.89f),260f,(h*.61f-260f)/3f)
+            ShareTemplate.MINIMAL -> ShareCardGeometry(RectF(200f,h*.46f,880f,h*.70f),h*.73f,(h*.91f-h*.73f)/2f)
         }
     }
 
-    fun render(activity:ShareRenderableActivity, state:ShareStudioState, map:Bitmap? = null):Bitmap {
-        val bitmap=Bitmap.createBitmap(1080,state.ratio.height,Bitmap.Config.ARGB_8888)
+    fun render(activity:ShareRenderableActivity, state:ShareStudioState, map:Bitmap? = null, width:Int = 1080):Bitmap {
+        require(width in 1..1080)
+        val bitmap=Bitmap.createBitmap(width,(state.ratio.height.toFloat()*width/1080f).toInt(),Bitmap.Config.ARGB_8888)
         val canvas=Canvas(bitmap)
+        canvas.scale(width/1080f,width/1080f)
         val paint=Paint(Paint.ANTI_ALIAS_FLAG)
-        canvas.drawColor(ShareCardPalette.BLACK)
-        if(state.background==ShareBackground.GRADIENT) {
-            paint.shader=LinearGradient(0f,0f,1080f,bitmap.height.toFloat(),
+        if(!state.transparent) canvas.drawColor(ShareCardPalette.BLACK)
+        if(!state.transparent && state.background==ShareBackground.GRADIENT) {
+            paint.shader=LinearGradient(0f,0f,1080f,state.ratio.height.toFloat(),
                 intArrayOf(0xFF1C2D28.toInt(),ShareCardPalette.BLACK,0xFF252032.toInt()),null,Shader.TileMode.CLAMP)
             canvas.drawPaint(paint); paint.shader=null
         }
         val g=geometry(state)
         fun text(value:String,x:Float,y:Float,size:Float,color:Int=ShareCardPalette.WHITE,bold:Boolean=false,maxWidth:Float=968f) {
-            paint.color=color; paint.typeface=Typeface.create("sans-serif",if(bold) Typeface.BOLD else Typeface.NORMAL)
+            paint.color=color; paint.typeface=Typeface.create(if(state.typography==ShareTypography.CONDENSED) "sans-serif-condensed" else "sans-serif",if(bold) Typeface.BOLD else Typeface.NORMAL)
             paint.textSize=size
             if(paint.measureText(value)>maxWidth) paint.textSize=(size*maxWidth/paint.measureText(value)).coerceAtLeast(22f)
             canvas.drawText(value,x,y,paint)
         }
-        text(activity.activityType.uppercase(java.util.Locale.getDefault()),56f,66f,24f,ShareCardPalette.LIME,true)
-        if(ShareMetric.TITLE in state.metrics) {
+        if(!state.transparent) text(activity.activityType.uppercase(java.util.Locale.getDefault()),56f,66f,24f,ShareCardPalette.LIME,true)
+        if(!state.transparent && ShareMetric.TITLE in state.metrics) {
             val title=activity.metrics[ShareMetric.TITLE].orEmpty()
             val tp=TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
                 color=ShareCardPalette.WHITE; textSize=58f; typeface=Typeface.create("sans-serif",Typeface.BOLD)
@@ -64,30 +63,45 @@ internal object ShareCardRenderer {
                 .setEllipsize(android.text.TextUtils.TruncateAt.END).setIncludePad(false).build()
             canvas.save(); canvas.translate(56f,88f); titleLayout.draw(canvas); canvas.restore()
         }
-        if(ShareMetric.DATE in state.metrics) text(activity.metrics[ShareMetric.DATE].orEmpty(),56f,232f,28f,ShareCardPalette.MUTED)
+        if(!state.transparent && ShareMetric.DATE in state.metrics) text(activity.metrics[ShareMetric.DATE].orEmpty(),56f,232f,28f,ShareCardPalette.MUTED)
 
         if(state.routeMode!=ShareRouteMode.HIDDEN && g.route.height()>0) {
             canvas.save()
             // Keep the snapshot's native logo and attribution fully visible at its edges.
             canvas.clipRect(g.route)
-            if(map!=null) canvas.drawBitmap(map,null,g.route,paint.apply { color=Color.WHITE; alpha=255 })
+            if(map!=null && !state.transparent) canvas.drawBitmap(map,null,g.route,paint.apply { color=Color.WHITE; alpha=255 })
             else drawCoordinateRoute(canvas,g.route,activity,state)
             canvas.restore()
         }
-        val fields=numeric.filter { it in state.metrics && it in activity.metrics }
-        fields.forEachIndexed { i,metric ->
-            val x=56f+(i%2)*500f
-            val y=g.statsTop+(i/2)*g.rowHeight
-            val value=activity.metrics.getValue(metric)
-            val featured=state.template==ShareTemplate.STATS && i==0
-            text(value,x,y+68f,if(featured) 88f else 62f,
-                if(featured || (state.variant==ShareVariant.PERFORMANCE && i==0)) ShareCardPalette.LIME else ShareCardPalette.WHITE,true,456f)
-            text(metric.label.uppercase(java.util.Locale.getDefault()),x,y+110f,23f,ShareCardPalette.MUTED,maxWidth=456f)
+        val selected=numeric.filter { it in state.metrics && it in activity.metrics }
+        val fields=state.featuredMetric?.takeIf { it in selected }?.let { listOf(it)+(selected-it) } ?: selected
+        fun stat(metric:ShareMetric,x:Float,y:Float,valueSize:Float,labelSize:Float,width:Float,accent:Boolean=false) {
+            text(activity.metrics.getValue(metric),x,y,valueSize,if(accent) ShareCardPalette.LIME else ShareCardPalette.WHITE,true,width)
+            text(metric.label.uppercase(java.util.Locale.getDefault()),x,y+labelSize*1.45f,labelSize,ShareCardPalette.MUTED,maxWidth=width)
         }
-        text(if(state.routeMode==ShareRouteMode.HIDDEN) "ROUTE HIDDEN · FULL ACTIVITY STATS" else "ROUTE TRIMMED · FULL ACTIVITY STATS",56f,bitmap.height-80f,20f,ShareCardPalette.MUTED)
+        when(state.template) {
+            ShareTemplate.ROUTE -> fields.forEachIndexed { i,metric ->
+                val row=if(i==0) 0 else 1+(i-1)/2
+                val x=if(i==0) 72f else 72f+((i-1)%2)*490f
+                val y=g.statsTop+row*g.rowHeight+g.rowHeight*.54f
+                stat(metric,x,y,g.rowHeight*(if(i==0) .65f else .48f),g.rowHeight*.16f,if(i==0) 920f else 440f,i==0)
+            }
+            ShareTemplate.STATS -> fields.forEachIndexed { i,metric ->
+                val x=72f+(i%2)*490f; val y=g.statsTop+(i/2)*g.rowHeight+g.rowHeight*.55f
+                stat(metric,x,y,g.rowHeight*(if(i==0) .60f else .46f),g.rowHeight*.15f,440f,i==0)
+            }
+            ShareTemplate.MINIMAL -> {
+                fields.firstOrNull()?.let { stat(it,100f,state.ratio.height*.36f,128f,24f,880f,true) }
+                fields.drop(1).forEachIndexed { i,metric ->
+                    val x=100f+(i%2)*470f; val y=g.statsTop+(i/2)*g.rowHeight+g.rowHeight*.48f
+                    stat(metric,x,y,g.rowHeight*.42f,g.rowHeight*.14f,420f)
+                }
+            }
+        }
+        if(!state.transparent) text(if(state.routeMode==ShareRouteMode.HIDDEN) "ROUTE HIDDEN · FULL ACTIVITY STATS" else "ROUTE TRIMMED · FULL ACTIVITY STATS",56f,state.ratio.height-80f,20f,ShareCardPalette.MUTED)
         val brandSize=when(state.branding) { ShareBranding.MINIMAL->22f; ShareBranding.SUBTLE->27f; ShareBranding.STANDARD->34f }
-        text("STRIDELAB",56f,bitmap.height-40f,brandSize,ShareCardPalette.MUTED,true)
-        if(state.branding==ShareBranding.STANDARD) text("EVERY STRIDE COUNTS",540f,bitmap.height-40f,22f,ShareCardPalette.MUTED,maxWidth=484f)
+        if(!state.transparent) text("STRIDELAB",56f,state.ratio.height-40f,brandSize,ShareCardPalette.MUTED,true)
+        if(!state.transparent && state.branding==ShareBranding.STANDARD) text("EVERY STRIDE COUNTS",540f,state.ratio.height-40f,22f,ShareCardPalette.MUTED,maxWidth=484f)
         return bitmap
     }
 
@@ -99,12 +113,12 @@ internal object ShareCardRenderer {
         fun my(p:RecordedGpsPoint)=(1.0-ln(tan(Math.PI/4+Math.toRadians(p.latitude)/2))/Math.PI)/2
         val minX=points.minOf(::mx); val maxX=points.maxOf(::mx)
         val minY=points.minOf(::my); val maxY=points.maxOf(::my)
-        val scale=min((rect.width()-100)/(maxX-minX).coerceAtLeast(.000001),
+        val scale=state.zoom.factor*min((rect.width()-100)/(maxX-minX).coerceAtLeast(.000001),
             (rect.height()-100)/(maxY-minY).coerceAtLeast(.000001))
-        fun position(p:RecordedGpsPoint)=PointF((rect.centerX()+(mx(p)-(minX+maxX)/2)*scale).toFloat(),
-            (rect.centerY()+(my(p)-(minY+maxY)/2)*scale).toFloat())
+        fun position(p:RecordedGpsPoint)=PointF((rect.centerX()+rect.width()*state.position.shift+(mx(p)-(minX+maxX)/2)*scale).toFloat(),
+            (rect.centerY()+rect.height()*state.verticalPosition.shift+(my(p)-(minY+maxY)/2)*scale).toFloat())
         val paint=Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color=ShareCardPalette.LIME; strokeWidth=9f; strokeCap=Paint.Cap.ROUND; strokeJoin=Paint.Join.ROUND; style=Paint.Style.STROKE
+            color=state.routeColor.color; strokeWidth=state.stroke.width; strokeCap=Paint.Cap.ROUND; strokeJoin=Paint.Join.ROUND; style=Paint.Style.STROKE
         }
         activity.route.segments.forEach { segment ->
             val path=Path()
