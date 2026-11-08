@@ -407,8 +407,17 @@ internal fun TracksideActivityContinuousSections(
             pendingSection = index
             onTab(index)
             scope.launch {
-                try { listState.animateScrollToItem(sectionOffset[index]) }
-                finally { pendingSection = null }
+                try {
+                    val target = sectionOffset[index]
+                    // Avoid animating through dozens of split rows and
+                    // composing every intermediate item just to reach Charts.
+                    // The lime section indicator still animates normally.
+                    if (abs(target - listState.firstVisibleItemIndex) > 8)
+                        listState.scrollToItem(target)
+                    else listState.animateScrollToItem(target)
+                } finally {
+                    pendingSection = null
+                }
             }
         }
         BoxWithConstraints(Modifier.weight(1f)) {
