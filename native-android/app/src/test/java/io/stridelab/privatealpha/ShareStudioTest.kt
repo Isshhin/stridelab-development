@@ -26,6 +26,18 @@ class ShareStudioTest {
         assertFalse(ShareStudioState().transparent)
     }
 
+    @Test fun routeFocusWithoutGpsUsesRecordedStatsNotInventedTrace() {
+        val source=ShareRenderableActivity.from(activity,null)
+        assertEquals(0,source.route.pointCount)
+        val state=ShareStudioState().forActivity(source)
+        assertEquals(ShareRouteMode.HIDDEN,state.routeMode)
+        val image=ShareCardRenderer.render(source,state)
+        try {
+            // Honest stats-first fallback uses the Performance footer, not a fake route.
+            assertEquals(ShareCardPalette.LIME,image.getPixel(0,image.height-2))
+        } finally { image.recycle() }
+    }
+
     @Test fun performanceFooterIsLimeOnlyForOpaqueExport() {
         val source=ShareRenderableActivity.from(activity,null)
         val base=ShareStudioState(ratio=ShareRatio.SQUARE)
