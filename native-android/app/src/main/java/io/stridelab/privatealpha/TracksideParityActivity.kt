@@ -200,7 +200,7 @@ internal fun TracksideParityActivityMapHero(
                             TracksideActivityMapMode.PACE -> "Recorded pace"
                             TracksideActivityMapMode.ELEVATION -> "Recorded elevation"
                             TracksideActivityMapMode.HEART_RATE -> "Recorded heart rate"
-                            TracksideActivityMapMode.ROUTE -> "Recorded route"
+                            TracksideActivityMapMode.ROUTE -> "Route"
                         },
                         color = Color(0xFFE5ECE8), fontSize = 9.sp,
                         fontWeight = FontWeight.SemiBold
@@ -243,27 +243,8 @@ internal fun TracksideParityActivityMapHero(
                 }
             }
         }
-        if (route.pointCount > 0) {
-            // Presentation-only connector across recorded endpoints. Pause
-            // and missing-sample facts stay in the underlying activity data.
-            Surface(
-                color = Color(0xDD080E0C),
-                border = BorderStroke(1.dp, Color(0x445A6B62)),
-                shape = RoundedCornerShape(11.dp),
-                modifier = Modifier.align(Alignment.TopStart)
-                    .padding(start = 12.dp, top = if (fullScreen) 116.dp else 68.dp)
-                    .testTag("activity-map-legend")
-            ) {
-                Text(
-                    "Recorded route",
-                    color = Color(0xFFD8FB70),
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)
-                        .testTag("activity-map-gps-continuity")
-                )
-            }
-        }
+        // The recorded GPS route is visible on the map: no redundant badge.
+        // Source coordinates and pause metadata remain untouched.
         if (route.pointCount == 0) {
             Text(
                 if (detail == null) "Recording not loaded yet" else "No recorded GPS track",
