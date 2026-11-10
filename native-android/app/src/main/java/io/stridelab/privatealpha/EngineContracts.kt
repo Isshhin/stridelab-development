@@ -27,7 +27,8 @@ internal data class PlanRequest(
     val preferredQuality:String = "Threshold",
     val allowedQualityTypes:Set<String> = emptySet(),
     val lockedSessionDays:Map<String,String> = emptyMap(),
-    val allowDoubleDays:Boolean = false
+    val allowDoubleDays:Boolean = false,
+    val timeBudgetEnabled:Boolean = true
 ) {
     fun encode():JSONObject {
         val encoded=JSONObject().put("goal",goal).put("secondaryGoal",secondaryGoal).put("experience",experience).put("start",start.toString()).put("weeks",weeks).put("minutes",minutes)
@@ -36,6 +37,7 @@ internal data class PlanRequest(
             .put("equipment",JSONObject(equipment)).put("calLevel",calLevel).put("returning",returning).put("excluded",JSONArray(excluded.sorted())).put("limitations",limitations).put("recoveryNotes",recoveryNotes).put("strengthExperience",strengthExperience).put("pullLevel",pullLevel).put("coreLevel",coreLevel).put("policyChoice",policyChoice).put("disciplineGoals",JSONObject(disciplineGoals))
         if(policyChoice=="engine15")encoded.put("lockedSessionDays",JSONObject(lockedSessionDays))
         if(policyChoice=="engine15" && allowDoubleDays)encoded.put("allowDoubleDays",true)
+        if(!timeBudgetEnabled)encoded.put("timeBudgetEnabled",false)
         if(policyChoice=="multi-session" || policyChoice=="engine15")encoded.put("dailyMinutes",dailyMinutes)
         if(weeklySlots.isNotEmpty()) {
             val assignments=JSONObject()
@@ -68,7 +70,8 @@ internal data class PlanRequest(
                 } ?: emptySet(),
                 j.optJSONObject("lockedSessionDays")?.let { locks ->
                     locks.keys().asSequence().associateWith { locks.getString(it) }
-                } ?: emptyMap(), j.has("allowDoubleDays") && j.getBoolean("allowDoubleDays"))
+                } ?: emptyMap(), j.has("allowDoubleDays") && j.getBoolean("allowDoubleDays"),
+                j.optBoolean("timeBudgetEnabled",true))
         }
     }
 }
