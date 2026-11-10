@@ -362,16 +362,6 @@ internal fun StrideLabTodayScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
-        if (state.account != null) {
-            item(key = "today-discipline-tabs") {
-                TodayDisciplineTabs(
-                    available = eligiblePages,
-                    selectedKey = selectedPage,
-                    reduceMotion = reduceMotion,
-                    onSelect = { chosenPage = it }
-                )
-            }
-        }
         item(key = "today-calendar") {
             TodayWeekCalendar(
                 date = date,
@@ -511,6 +501,16 @@ internal fun StrideLabTodayScreen(
                         )
                     }
                 }
+            }
+        }
+        if (state.account != null) {
+            item(key = "today-discipline-tabs") {
+                TodayDisciplineTabs(
+                    available = eligiblePages,
+                    selectedKey = selectedPage,
+                    reduceMotion = reduceMotion,
+                    onSelect = { chosenPage = it }
+                )
             }
         }
     }

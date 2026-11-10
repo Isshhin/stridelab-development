@@ -2,12 +2,16 @@ package io.stridelab.privatealpha
 
 import androidx.activity.compose.setContent
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Assert.assertTrue
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -53,16 +57,26 @@ class TodayDisciplinePagesTest {
                 }
             }
         }
+        val today = compose.onNodeWithTag("screen")
+        today.performScrollToNode(hasTestTag("today-discipline-pages"))
         compose.onNodeWithTag("today-page-all").assertExists().assertIsSelected()
         compose.onNodeWithTag("today-page-running").assertExists()
         compose.onNodeWithTag("today-page-strength").assertDoesNotExist()
+        val weeklyBottom = compose.onNodeWithTag("today-weekly-activity")
+            .getUnclippedBoundsInRoot().bottom
+        val tabsTop = compose.onNodeWithTag("today-discipline-pages")
+            .getUnclippedBoundsInRoot().top
+        assertTrue("Discipline tabs should follow the activity card", tabsTop >= weeklyBottom)
         compose.onNodeWithTag("today-page-running").performClick()
         compose.waitForIdle()
-        compose.onNodeWithTag("today-page-running").assertIsSelected()
         compose.onNodeWithTag("today-discipline-running").assertExists()
         compose.onNodeWithText("Training effort").assertExists()
         compose.onNodeWithTag("today-hero").assertDoesNotExist()
+        today.performScrollToNode(hasTestTag("today-discipline-pages"))
+        compose.onNodeWithTag("today-page-running").assertIsSelected()
         compose.onNodeWithTag("today-page-all").performClick()
+        compose.waitForIdle()
+        today.performScrollToNode(hasTestTag("today-discipline-pages"))
         compose.onNodeWithTag("today-page-all").assertIsSelected()
         compose.onNodeWithTag("today-discipline-running").assertDoesNotExist()
     }

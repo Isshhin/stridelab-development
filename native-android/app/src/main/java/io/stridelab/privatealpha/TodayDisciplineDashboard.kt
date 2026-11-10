@@ -69,58 +69,62 @@ internal fun TodayDisciplineTabs(
     onSelect: (String) -> Unit
 ) {
     val haptics = LocalHapticFeedback.current
-    Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-            .testTag("today-discipline-pages"),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("today-discipline-pages"),
+        color = DisciplineLook.panel,
+        shape = RoundedCornerShape(26.dp),
+        border = BorderStroke(1.dp, DisciplineLook.border)
     ) {
-        val options = listOf("all" to "All") + available.map { it.key to it.title }
-        options.forEach { (key, title) ->
-            val active = key == selectedKey
-            val tone = available.firstOrNull { it.key == key }
-                ?.let(DisciplineLook::accent) ?: DisciplineLook.lime
-            val background by animateColorAsState(
-                if (active) tone else DisciplineLook.panel,
-                animationSpec = tween(if (reduceMotion) 0 else 210),
-                label = "today-page-pill-$key"
-            )
-            val pillScale by animateFloatAsState(
-                if (active) 1f else .97f,
-                animationSpec = if (reduceMotion) snap() else spring(
-                    dampingRatio = TracksideLiquidMotion.DAMPING,
-                    stiffness = TracksideLiquidMotion.STIFFNESS
-                ),
-                label = "today-page-spring-$key"
-            )
-            val ink by animateColorAsState(
-                if (active) DisciplineLook.black else DisciplineLook.ink,
-                animationSpec = tween(if (reduceMotion) 0 else 210),
-                label = "today-page-label-$key"
-            )
-            Surface(
-                onClick = {
-                    if (key != selectedKey) {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onSelect(key)
-                    }
-                },
-                color = background,
-                shape = RoundedCornerShape(22.dp),
-                border = BorderStroke(1.dp, if (active) tone else DisciplineLook.border),
-                modifier = Modifier.height(38.dp)
-                    .graphicsLayer {
-                        scaleX = pillScale
-                        scaleY = pillScale
-                    }
-                    .testTag("today-page-$key")
-                    .semantics { selected = active }
-            ) {
-                Box(
-                    Modifier.padding(horizontal = 17.dp),
-                    contentAlignment = Alignment.Center
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()).padding(3.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val options = listOf("all" to "All") + available.map { it.key to it.title }
+            options.forEach { (key, title) ->
+                val active = key == selectedKey
+                val background by animateColorAsState(
+                    if (active) DisciplineLook.lime else Color.Transparent,
+                    animationSpec = tween(if (reduceMotion) 0 else 210),
+                    label = "today-page-pill-$key"
+                )
+                val pillScale by animateFloatAsState(
+                    if (active) 1f else .97f,
+                    animationSpec = if (reduceMotion) snap() else spring(
+                        dampingRatio = TracksideLiquidMotion.DAMPING,
+                        stiffness = TracksideLiquidMotion.STIFFNESS
+                    ),
+                    label = "today-page-spring-$key"
+                )
+                val ink by animateColorAsState(
+                    if (active) DisciplineLook.black else DisciplineLook.ink,
+                    animationSpec = tween(if (reduceMotion) 0 else 210),
+                    label = "today-page-label-$key"
+                )
+                Surface(
+                    onClick = {
+                        if (key != selectedKey) {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onSelect(key)
+                        }
+                    },
+                    color = background,
+                    shape = RoundedCornerShape(23.dp),
+                    modifier = Modifier.height(42.dp)
+                        .graphicsLayer {
+                            scaleX = pillScale
+                            scaleY = pillScale
+                        }
+                        .testTag("today-page-$key")
+                        .semantics { selected = active }
                 ) {
-                    Text(title, color = ink, fontSize = 12.sp,
-                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium)
+                    Box(
+                        Modifier.padding(horizontal = 17.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(title, color = ink, fontSize = 12.sp,
+                            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium)
+                    }
                 }
             }
         }
