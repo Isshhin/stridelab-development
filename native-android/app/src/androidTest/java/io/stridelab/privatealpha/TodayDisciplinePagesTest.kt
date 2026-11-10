@@ -1,8 +1,6 @@
 package io.stridelab.privatealpha
 
 import androidx.activity.compose.setContent
-import androidx.compose.ui.test.assertDoesNotExist
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag

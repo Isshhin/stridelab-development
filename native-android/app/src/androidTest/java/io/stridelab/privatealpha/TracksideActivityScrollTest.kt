@@ -89,17 +89,17 @@ class TracksideActivityScrollTest {
         val previewBottom = compose.onNodeWithTag("activity-preview-bottom")
             .getUnclippedBoundsInRoot()
         val previewHeight = compose.onNodeWithTag("activity-parity-overview")
-            .getUnclippedBoundsInRoot().height
+            .getUnclippedBoundsInRoot().let { it.bottom - it.top }
         val handleBounds = compose.onNodeWithTag("activity-sheet-handle")
             .getUnclippedBoundsInRoot()
         assertTrue(
             "Collapsed sheet leaves empty space after its metrics",
             rootBounds.bottom - previewBottom.bottom < 40.dp
         )
-        if (rootBounds.height >= 520.dp) {
+        if ((rootBounds.bottom - rootBounds.top) >= 520.dp) {
             assertTrue(
                 "Collapsed sheet should keep most of the map visible",
-                handleBounds.top > rootBounds.height * 0.58f
+                handleBounds.top > (rootBounds.bottom - rootBounds.top) * 0.58f
             )
         }
         compose.onNodeWithTag("activity-sticky-pill").assertExists().assertIsNotDisplayed()
@@ -115,7 +115,7 @@ class TracksideActivityScrollTest {
         org.junit.Assert.assertEquals(
             previewHeight,
             compose.onNodeWithTag("activity-parity-overview")
-                .getUnclippedBoundsInRoot().height
+                .getUnclippedBoundsInRoot().let { it.bottom - it.top }
         )
         // Compact Athlete Intelligence-inspired overview. Evidence remains
         // collapsed until explicitly requested and must stay within the
@@ -133,7 +133,7 @@ class TracksideActivityScrollTest {
             .getUnclippedBoundsInRoot()
         for (tag in listOf("activity-summary-heading", "activity-summary-subtitle")) {
             val bounds = compose.onNodeWithTag(tag).getUnclippedBoundsInRoot()
-            assertTrue(kotlin.math.abs(bounds.center.x - summaryBounds.center.x) < 2f)
+            assertTrue(kotlin.math.abs((((bounds.left + bounds.right) - (summaryBounds.left + summaryBounds.right)) / 2f).value) < 2f)
         }
         compose.onNodeWithTag("activity-continuous-scroll")
             .performScrollToNode(hasTestTag("activity-insights"))
@@ -164,7 +164,7 @@ class TracksideActivityScrollTest {
             .getUnclippedBoundsInRoot()
         val splitsHeadingBounds = compose.onNodeWithTag("activity-section-heading-splits")
             .getUnclippedBoundsInRoot()
-        assertTrue(kotlin.math.abs(splitsHeadingBounds.center.x - splitsBounds.center.x) < 2f)
+        assertTrue(kotlin.math.abs((((splitsHeadingBounds.left + splitsHeadingBounds.right) - (splitsBounds.left + splitsBounds.right)) / 2f).value) < 2f)
         compose.onNodeWithTag("activity-continuous-scroll")
             .performScrollToNode(hasTestTag("activity-splits-insights"))
         compose.onNodeWithTag("activity-splits-insights").assertExists()
@@ -180,7 +180,7 @@ class TracksideActivityScrollTest {
             .getUnclippedBoundsInRoot()
         val chartsHeadingBounds = compose.onNodeWithTag("activity-section-heading-charts")
             .getUnclippedBoundsInRoot()
-        assertTrue(kotlin.math.abs(chartsHeadingBounds.center.x - chartsBounds.center.x) < 2f)
+        assertTrue(kotlin.math.abs((((chartsHeadingBounds.left + chartsHeadingBounds.right) - (chartsBounds.left + chartsBounds.right)) / 2f).value) < 2f)
         compose.onNodeWithTag("activity-tab-charts").assertIsSelected()
         compose.onNodeWithTag("activity-continuous-scroll").assertExists()
         // HR zones use the athlete-level value saved in App preferences.
@@ -282,11 +282,11 @@ class TracksideActivityScrollTest {
             .getUnclippedBoundsInRoot()
         assertTrue(
             "The map-only grip must span the screen, not float as a black pill",
-            sheetLip.width >= mapOnlyRoot.width - 2.dp
+            (sheetLip.right - sheetLip.left) >= (mapOnlyRoot.right - mapOnlyRoot.left) - 2.dp
         )
         assertTrue(
             "Map-only should leave only a thin sheet edge visible",
-            sheetLip.height <= 26.dp
+            (sheetLip.bottom - sheetLip.top) <= 26.dp
         )
         assertTrue(
             "The sheet grip should sit flush with the bottom of the screen",

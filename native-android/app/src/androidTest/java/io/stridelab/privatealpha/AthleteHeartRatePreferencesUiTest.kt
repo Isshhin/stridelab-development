@@ -1,7 +1,6 @@
 package io.stridelab.privatealpha
 
 import androidx.activity.compose.setContent
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -28,7 +27,6 @@ class AthleteHeartRatePreferencesUiTest {
                         state = TrainingState(initializing = false, account = account),
                         onBack = {},
                         onSignIn = {},
-                        onLegacyBackups = {},
                         onSystemAppSettings = {},
                         syncGarmin = null
                     )

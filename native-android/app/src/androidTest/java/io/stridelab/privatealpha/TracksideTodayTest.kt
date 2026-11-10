@@ -9,8 +9,6 @@ import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.assertDoesNotExist
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -63,7 +61,7 @@ class TracksideTodayTest {
         compose.onNodeWithTag("today-hero").assertExists()
         compose.onNodeWithText("Train with StrideLab").assertExists()
         val originalHeight =
-            compose.onNodeWithTag("today-hero").getUnclippedBoundsInRoot().height.value
+            compose.onNodeWithTag("today-hero").getUnclippedBoundsInRoot().let { (it.bottom - it.top).value }
 
         // A previous week used to switch to a dark TRAINING HISTORY card.
         compose.onNodeWithTag("today-week-swipe").performTouchInput { swipeRight() }
@@ -73,7 +71,7 @@ class TracksideTodayTest {
         compose.onNodeWithText("TRAINING HISTORY").assertDoesNotExist()
         assertEquals(
             originalHeight,
-            compose.onNodeWithTag("today-hero").getUnclippedBoundsInRoot().height.value,
+            compose.onNodeWithTag("today-hero").getUnclippedBoundsInRoot().let { (it.bottom - it.top).value },
             0.5f
         )
 
@@ -85,7 +83,7 @@ class TracksideTodayTest {
         compose.onNodeWithText("TRAINING HISTORY").assertDoesNotExist()
         assertEquals(
             originalHeight,
-            compose.onNodeWithTag("today-hero").getUnclippedBoundsInRoot().height.value,
+            compose.onNodeWithTag("today-hero").getUnclippedBoundsInRoot().let { (it.bottom - it.top).value },
             0.5f
         )
         compose.onNodeWithTag("today-workout-action").performClick()
@@ -121,7 +119,7 @@ class TracksideTodayTest {
         org.junit.Assert.assertTrue(
             "Empty-day status is still oversized",
             compose.onNodeWithTag("today-compact-empty-day")
-                .getUnclippedBoundsInRoot().height.value < 110f
+                .getUnclippedBoundsInRoot().let { (it.bottom - it.top).value } < 110f
         )
         // Return to the current date; no historical empty state should persist.
         compose.onNodeWithTag("today-week-swipe").performTouchInput { swipeLeft() }
