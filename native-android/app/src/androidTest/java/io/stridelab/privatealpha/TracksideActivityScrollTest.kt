@@ -98,7 +98,9 @@ class TracksideActivityScrollTest {
         )
         if ((rootBounds.bottom - rootBounds.top) >= 520.dp) {
             assertTrue(
-                "Collapsed sheet should keep most of the map visible",
+                "Collapsed sheet should keep most of the map visible: " +
+                    "sheet top=${handleBounds.top}, viewport height=${rootBounds.bottom - rootBounds.top}, " +
+                    "peek preview height=$previewHeight",
                 handleBounds.top > (rootBounds.bottom - rootBounds.top) * 0.58f
             )
         }

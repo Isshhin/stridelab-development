@@ -36,7 +36,7 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("discipline-run").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-option-race").assertExists()
-        compose.onNodeWithText("running goal?", substring=true).assertExists()
+        compose.onNodeWithText("Your running goal").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-distance-10K").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
@@ -201,7 +201,15 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("available-day-6").assertIsEnabled()
         compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
         compose.onNodeWithTag("builder-enable-multi-session").performClick()
-        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        try {
+            compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        } catch (failure: AssertionError) {
+            throw AssertionError(
+                "Multi-session availability did not enable Continue. " +
+                    "Inspect the current capacity or placement warning below.\n" +
+                    compose.onRoot().printToString(), failure
+            )
+        }
         compose.onNodeWithText("Only compatible sessions can share a day",
             substring=true).assertExists()
         compose.onNodeWithTag("builder-other-discipline-editor").assertExists()
@@ -511,9 +519,10 @@ class TracksideApprovedBuilderActivityUiTest {
                 }
             }
         }
-        compose.onNodeWithTag("nav-activities").performClick()
-        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("activity-synthetic-run"))
-        compose.onNodeWithTag("activity-synthetic-run").performClick()
+        compose.onNodeWithTag("nav-training").performClick()
+        compose.onNodeWithTag("training-unified-timeline")
+            .performScrollToNode(hasTestTag("timeline-recorded-synthetic-run"))
+        compose.onNodeWithTag("timeline-recorded-synthetic-run").performClick()
         compose.onNodeWithTag("activity-map-hero").assertIsDisplayed()
         compose.onNodeWithTag("activity-sheet-scroll").assertExists()
         compose.onNodeWithTag("activity-parity-overview").assertExists()
@@ -541,10 +550,10 @@ class TracksideApprovedBuilderActivityUiTest {
                 }
             }
         }
-        compose.onNodeWithTag("nav-activities").performClick()
-        compose.onNodeWithTag("screen")
-            .performScrollToNode(hasTestTag("activity-synthetic-drag"))
-        compose.onNodeWithTag("activity-synthetic-drag").performClick()
+        compose.onNodeWithTag("nav-training").performClick()
+        compose.onNodeWithTag("training-unified-timeline")
+            .performScrollToNode(hasTestTag("timeline-recorded-synthetic-drag"))
+        compose.onNodeWithTag("timeline-recorded-synthetic-drag").performClick()
 
         val collapsedTop=compose.onNodeWithTag("activity-sheet-scroll")
             .getUnclippedBoundsInRoot().top
@@ -594,10 +603,10 @@ class TracksideApprovedBuilderActivityUiTest {
                 }
             }
         }
-        compose.onNodeWithTag("nav-activities").performClick()
-        compose.onNodeWithTag("screen")
-            .performScrollToNode(hasTestTag("activity-synthetic-back"))
-        compose.onNodeWithTag("activity-synthetic-back").performClick()
+        compose.onNodeWithTag("nav-training").performClick()
+        compose.onNodeWithTag("training-unified-timeline")
+            .performScrollToNode(hasTestTag("timeline-recorded-synthetic-back"))
+        compose.onNodeWithTag("timeline-recorded-synthetic-back").performClick()
         val collapsedTop=compose.onNodeWithTag("activity-sheet-scroll")
             .getUnclippedBoundsInRoot().top
 
@@ -614,6 +623,6 @@ class TracksideApprovedBuilderActivityUiTest {
         }
         compose.onNodeWithTag("activity-map-hero").assertExists()
         compose.onNodeWithTag("activity-map-back").performClick()
-        compose.onNodeWithTag("screen-title").assertTextEquals("Activities")
+        compose.onNodeWithTag("training-unified-timeline").assertExists()
     }
 }
