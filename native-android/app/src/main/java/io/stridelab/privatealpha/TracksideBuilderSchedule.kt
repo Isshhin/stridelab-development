@@ -143,10 +143,10 @@ internal fun TracksidePlanDetailsScreen(
                             },
                             modifier=Modifier.weight(1f).height(47.dp)
                                 .testTag("builder-weeks-$option"),
-                            color=if(active)PlanBuilderPalette.accentelse Color(0xFF303030),
+                            color=if(active)PlanBuilderPalette.accent else Color(0xFF303030),
                             shape=RoundedCornerShape(10.dp),
                             border=BorderStroke(1.dp,
-                                if(active)PlanBuilderPalette.accentelse PlanBuilderPalette.accent)
+                                if(active)PlanBuilderPalette.accent else PlanBuilderPalette.accent)
                         ) { Box(contentAlignment=Alignment.Center) {
                             Text(if(option=="Custom")option else "$option weeks",
                                 fontSize=10.sp,color=Color.White)
