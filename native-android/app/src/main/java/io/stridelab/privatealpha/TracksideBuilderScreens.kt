@@ -42,13 +42,13 @@ import java.util.Locale
  * No Figma demo mileage, fitness results, heart-rate values or PRs are inserted
  * into actual athlete plans. Screens modify the existing PlanRequest only.
  */
-private val black = Color(0xFF000000)
-private val outline = Color(0xFF344956)
-private val slate = Color(0xFF101922)
-private val darkWine = Color(0xFF54232F)
-private val fRed = Color(0xFFC6313C)
-private val white = Color(0xFFF7FAFF)
-private val muted = Color(0xFFB6C0CA)
+private val black = PlanBuilderPalette.background
+private val outline = PlanBuilderPalette.border
+private val slate = PlanBuilderPalette.surface
+private val darkWine = PlanBuilderPalette.selected
+private val fRed = PlanBuilderPalette.accent
+private val white = PlanBuilderPalette.text
+private val muted = PlanBuilderPalette.secondary
 
 @Composable
 internal fun TracksideBuilderFrame(
@@ -61,40 +61,37 @@ internal fun TracksideBuilderFrame(
     onContinue: () -> Unit,
     continueEnabled: Boolean = true,
     footer: (@Composable () -> Unit)? = null,
-    descriptionBottomGap: Int = 40,
-    descriptionFontSize: Float = 12.5f,
-    contentTopPadding: Int = 47,
-    headlineLineHeight: Int = 35,
+    descriptionBottomGap: Int = 18,
+    descriptionFontSize: Float = 11.5f,
+    contentTopPadding: Int = 14,
+    headlineLineHeight: Int = 30,
+    progressStep: Int = 2,
     body: @Composable ColumnScope.() -> Unit
 ) {
     Column(Modifier.fillMaxSize().background(black).testTag("figma-builder-frame")) {
         Row(
-            Modifier.fillMaxWidth().height(76.dp).padding(horizontal = 20.dp),
+            Modifier.fillMaxWidth().height(60.dp).padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(15.dp)
         ) {
             TextButton(
                 modifier = Modifier.size(28.dp).testTag("builder-figma-back"),
                 onClick = onBack,
                 contentPadding = PaddingValues(0.dp)
             ) {
-                Text("‹", color = white, fontSize = 30.sp, lineHeight = 32.sp)
+                Text("‹", color = white, fontSize = 29.sp, lineHeight = 30.sp)
             }
-            Text(toolbarTitle, fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold, color = white)
+            Box(Modifier.weight(1f)) {
+                PlanBuilderStageProgress(progressStep)
+            }
         }
-        Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(1.dp)
-            .background(Color(0xFF20303A)))
         Column(
             Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
                 .padding(start = 20.dp, end = 20.dp,
                     top = contentTopPadding.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            Text(eyebrow, fontSize = 11.sp, lineHeight = 14.sp,
-                fontWeight = FontWeight.Bold, color = Color(0xFFFF8E89))
-            Spacer(Modifier.height(19.dp))
-            Text(headline, fontSize = 30.sp, lineHeight = headlineLineHeight.sp,
+            Text(headline, fontSize = 23.sp, lineHeight = headlineLineHeight.sp,
                 fontWeight = FontWeight.Bold, color = white,
                 modifier = Modifier.fillMaxWidth())
             if(description.isNotBlank()) {
@@ -112,14 +109,14 @@ internal fun TracksideBuilderFrame(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
                 .height(55.dp).testTag("builder-figma-continue"),
             shape = RoundedCornerShape(10.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = fRed)
+            colors = ButtonDefaults.buttonColors(
+                containerColor = fRed,
+                contentColor = PlanBuilderPalette.accentOn,
+                disabledContainerColor = PlanBuilderPalette.border,
+                disabledContentColor = muted
+            )
         ) {
-            Box(Modifier.fillMaxSize()) {
-                Text(ctaLabel, fontSize = 15.sp, color = white,
-                    modifier = Modifier.align(Alignment.Center))
-                Text("→", fontSize = 25.sp, color = white,
-                    modifier = Modifier.align(Alignment.CenterEnd))
-            }
+            Text(ctaLabel, fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(15.dp))
     }
@@ -140,38 +137,16 @@ internal fun TracksideDisciplineScreen(
     )
     TracksideBuilderFrame(
         eyebrow = "BUILD YOUR PLAN",
-        headline = "Choose your\ndisciplines",
-        description = "Choose the disciplines you want to train.",
+        headline = "Choose your disciplines",
+        description = "Pick one or more. We'll build the plan around them.",
         onBack = onBack,
         onContinue = onContinue,
         continueEnabled = request.runDays + request.strengthDays +
             request.calDays + request.conditioningDays > 0,
-        footer = {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 17.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                repeat(4) { index ->
-                    Box(Modifier.padding(end = 6.dp).size(37.dp, 5.dp)
-                        .background(
-                            when(index) {
-                                0 -> Color(0xFFC6314A)
-                                1 -> Color(0xFF488BD0)
-                                else -> Color(0xFF334550)
-                            },
-                            RoundedCornerShape(5.dp)
-                        ))
-                }
-                Spacer(Modifier.weight(1f))
-                val chosen = listOf(request.runDays, request.strengthDays,
-                    request.calDays, request.conditioningDays).count { it > 0 }
-                Text("$chosen of 4", fontSize = 11.sp, color = muted)
-            }
-        }
+        progressStep = 1
     ) {
         // Figma 551:580 has a larger description-to-card gap than other
         // builder stages. Keep this adjustment local to discipline selection.
-        Spacer(Modifier.height(23.dp))
         entries.forEachIndexed { i, (discipline, name, desc) ->
             val selected = when(discipline) {
                 "run" -> request.runDays > 0
@@ -179,27 +154,22 @@ internal fun TracksideDisciplineScreen(
                 "cal" -> request.calDays > 0
                 else -> request.conditioningDays > 0
             }
-            val accent = when(discipline) {
-                "run" -> Color(0xFFF18B7E)
-                "str" -> Color(0xFF78AFFF)
-                "cal" -> Color(0xFFB394F0)
-                else -> Color(0xFFE5C478)
-            }
-            val selectedBg = if (discipline == "run") darkWine
-                else if (discipline == "str") Color(0xFF203E60)
-                else Color(0xFF332742)
+            val accent = PlanBuilderPalette.accent
+            val selectedBg = PlanBuilderPalette.selected
             Surface(
-                modifier = Modifier.fillMaxWidth().height(87.dp)
+                modifier = Modifier.fillMaxWidth().heightIn(min = 62.dp)
                     .testTag("discipline-$discipline"),
                 onClick = { onToggle(discipline) },
                 shape = RoundedCornerShape(13.dp),
                 color = if(selected) selectedBg else slate,
                 border = BorderStroke(1.dp, if(selected) accent else outline)
             ) {
-                Row(Modifier.padding(horizontal = 15.dp),
+                Row(Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(13.dp)) {
-                    Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Box(Modifier.size(30.dp)
+                        .background(PlanBuilderPalette.selected, RoundedCornerShape(7.dp)),
+                        contentAlignment = Alignment.Center) {
                         Icon(
                             painterResource(when(discipline) {
                                 "run" -> R.drawable.trackside_discipline_running
@@ -207,20 +177,25 @@ internal fun TracksideDisciplineScreen(
                                 "cal" -> R.drawable.trackside_discipline_calisthenics
                                 else -> R.drawable.trackside_discipline_conditioning
                             }),
-                            tint = Color.Unspecified, contentDescription = null,
-                            modifier = Modifier.size(24.dp)
+                            tint = PlanBuilderPalette.accent, contentDescription = null,
+                            modifier = Modifier.size(19.dp)
                                 .testTag("discipline-icon-"+discipline)
                         )
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text(name, color = white, fontSize = 17.sp,
+                        Text(name, color = white, fontSize = 14.sp,
                             fontWeight = FontWeight.Bold)
-                        Text(desc, color = muted, fontSize = 12.sp)
+                        Text(desc, color = muted, fontSize = 10.5f.sp)
                     }
                 }
             }
-            if (i < entries.lastIndex) Spacer(Modifier.height(12.dp))
+            if (i < entries.lastIndex) Spacer(Modifier.height(8.dp))
         }
+        val chosen = listOf(request.runDays, request.strengthDays,
+            request.calDays, request.conditioningDays).count { it > 0 }
+        Spacer(Modifier.height(13.dp))
+        Text("$chosen selected", Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center, color = muted, fontSize = 11.sp)
     }
 }
 
@@ -238,12 +213,12 @@ private fun TracksideOption(
         modifier = Modifier.fillMaxWidth().then(cardSize)
             .testTag("builder-option-$tag"),
         onClick = onClick,
-        color = if (selected && runningGoal) Color(0xFF51202E)
+        color = if (selected && runningGoal) Color(0xFF1D240B)
             else if (selected) darkWine else slate,
         shape = RoundedCornerShape(if (runningGoal) 14.dp else 13.dp),
         border = BorderStroke(1.dp,
-            if (selected && runningGoal) Color(0xFFF18B7E)
-            else if (selected) Color(0xFFE36676) else outline)
+            if (selected && runningGoal) Color(0xFFDBF351)
+            else if (selected) Color(0xFFDBF351) else outline)
     ) {
         Row(
             Modifier.padding(
@@ -256,16 +231,14 @@ private fun TracksideOption(
             Box(
                 Modifier.size(if (runningGoal) 41.dp else 43.dp)
                     .background(
-                        if (selected && runningGoal) Color(0xFF6B313F)
-                        else if (selected) Color(0xFF6B3645) else Color(0xFF243643),
+                        if (selected && runningGoal) Color(0xFF1D240B)
+                        else if (selected) Color(0xFF1D240B) else Color(0xFF1D240B),
                         RoundedCornerShape(11.dp)
                     ), contentAlignment = Alignment.Center
             ) {
                 Icon(
                     painterResource(icon), contentDescription = null,
-                    tint = if (runningGoal) Color.Unspecified
-                        else if (selected) Color(0xFFFFA7AD)
-                        else Color(0xFFA3BECE),
+                    tint = PlanBuilderPalette.accent,
                     modifier = Modifier.size(if (runningGoal) 25.dp else 24.dp)
                         .testTag("builder-goal-icon-$tag")
                 )
@@ -303,8 +276,8 @@ internal fun TracksideRunningGoalScreen(
         Triple("custom", "Train your way", "Set your mileage and workout preferences")
     )
     TracksideBuilderFrame(
-        eyebrow = "RUNNING SETUP", headline = "What's your\nrunning goal?",
-        description = "Your training plan starts with what you want to achieve.",
+        eyebrow = "RUNNING SETUP", headline = "Your running goal",
+        description = "What do you want to achieve?",
         onBack = onBack, onContinue = onContinue
     ) {
         // The 8dp stage-specific gap matches the approved choices' starting
@@ -337,10 +310,10 @@ private fun TracksideRaceOption(
         modifier = Modifier.fillMaxWidth().heightIn(min = 68.dp)
             .testTag("builder-option-$tag"),
         onClick = onClick,
-        color = if (selected) Color(0xFF532631) else Color(0xFF15212B),
+        color = if (selected) Color(0xFF1D240B) else Color(0xFF151515),
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp,
-            if (selected) Color(0xFFB86674) else Color(0xFF354652))
+            if (selected) Color(0xFFDBF351) else Color(0xFF2B2B2B))
     ) {
         Row(
             Modifier.padding(horizontal = 11.dp, vertical = 11.dp),
@@ -350,13 +323,13 @@ private fun TracksideRaceOption(
             Box(
                 Modifier.width(41.dp).height(43.dp)
                     .background(
-                        if (selected) Color(0xFF753E4C) else Color(0xFF243540),
+                        if (selected) Color(0xFF1D240B) else Color(0xFF1D240B),
                         RoundedCornerShape(9.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     painterResource(icon), contentDescription = null,
-                    tint = Color.Unspecified,
+                    tint = PlanBuilderPalette.accent,
                     modifier = Modifier.size(25.dp)
                         .testTag("builder-race-icon-$tag")
                 )
@@ -371,7 +344,7 @@ private fun TracksideRaceOption(
             }
             if (selected) Icon(
                 painterResource(R.drawable.trackside_race_goal_check),
-                contentDescription = null, tint = Color.Unspecified,
+                contentDescription = null, tint = PlanBuilderPalette.accent,
                 modifier = Modifier.size(18.dp)
                     .testTag("builder-race-selected-check")
             )
@@ -428,7 +401,7 @@ internal fun TracksideRaceGoalScreen(
                     modifier = Modifier.width(63.dp).height(38.dp)
                         .testTag("builder-distance-"+dist),
                     onClick={onDistance(dist)},
-                    color=if(distance==dist) Color(0xFF652735) else Color.Transparent,
+                    color=if(distance==dist) Color(0xFF1D240B) else Color.Transparent,
                     shape=RoundedCornerShape(22.dp)
                 ) {
                     Box(contentAlignment=Alignment.Center) {
@@ -444,8 +417,8 @@ internal fun TracksideRaceGoalScreen(
             "pr" -> Surface(
                 modifier=Modifier.fillMaxWidth().heightIn(min=116.dp)
                     .testTag("builder-race-pr-panel"),
-                color=Color(0xFF15232C), shape=RoundedCornerShape(13.dp),
-                border=BorderStroke(1.dp,Color(0xFF354A55))
+                color=Color(0xFF171717), shape=RoundedCornerShape(13.dp),
+                border=BorderStroke(1.dp,Color(0xFF2B2B2B))
             ) {
                 Column(Modifier.padding(11.dp),
                     verticalArrangement=Arrangement.spacedBy(5.dp)) {
@@ -462,7 +435,7 @@ internal fun TracksideRaceGoalScreen(
                         Surface(
                             onClick={unsupportedAction="PR entry"},
                             shape=RoundedCornerShape(9.dp),
-                            color=Color(0xFF293945),
+                            color=Color(0xFF171717),
                             border=BorderStroke(1.dp,Color(0xFF50606D)),
                             modifier=Modifier.heightIn(min=44.dp)
                                 .testTag("builder-race-add-pr")
@@ -479,7 +452,7 @@ internal fun TracksideRaceGoalScreen(
             }
             "time" -> Surface(
                 modifier=Modifier.fillMaxWidth().heightIn(min=143.dp),
-                color=Color(0xFF162A36), shape=RoundedCornerShape(13.dp),
+                color=Color(0xFF171717), shape=RoundedCornerShape(13.dp),
                 border=BorderStroke(1.dp,outline)
             ) {
                 Column(Modifier.padding(13.dp),
@@ -493,7 +466,7 @@ internal fun TracksideRaceGoalScreen(
                         listOf("HOURS","MINUTES","SECONDS").forEach { label ->
                             Surface(
                                 Modifier.weight(1f).height(55.dp),
-                                color=Color(0xFF203742),
+                                color=Color(0xFF171717),
                                 shape=RoundedCornerShape(9.dp),
                                 border=BorderStroke(1.dp,outline)
                             ) {
@@ -509,7 +482,7 @@ internal fun TracksideRaceGoalScreen(
             }
             else -> Surface(
                 Modifier.fillMaxWidth().heightIn(min=67.dp),
-                color=Color(0xFF162A36),shape=RoundedCornerShape(13.dp),
+                color=Color(0xFF171717),shape=RoundedCornerShape(13.dp),
                 border=BorderStroke(1.dp,outline)
             ) {
                 Box(Modifier.padding(13.dp),contentAlignment=Alignment.CenterStart) {
@@ -526,9 +499,9 @@ internal fun TracksideRaceGoalScreen(
             onClick={unsupportedAction="Target date"},
             modifier=Modifier.fillMaxWidth().heightIn(min=44.dp)
                 .testTag("builder-race-target-day"),
-            color=Color(0xFF080D12),
+            color=Color(0xFF0B0B0B),
             shape=RoundedCornerShape(13.dp),
-            border=BorderStroke(1.dp,Color(0xFF35444F))
+            border=BorderStroke(1.dp,Color(0xFF2B2B2B))
         ) {
             Row(Modifier.padding(horizontal=12.dp),
                 verticalAlignment=Alignment.CenterVertically) {
@@ -578,7 +551,7 @@ private fun TracksideAbilityRange(
     Spacer(Modifier.height(11.dp))
     Surface(Modifier.fillMaxWidth().heightIn(min=127.dp)
         .testTag("builder-ability-$tag-card"),
-        color=Color(0xFF1A2D38),shape=RoundedCornerShape(13.dp),
+        color=Color(0xFF171717),shape=RoundedCornerShape(13.dp),
         border=BorderStroke(1.dp,outline)) {
         // Keep the default accessible Material slider hit area while using
         // the compact interior inset from the approved 127dp Figma metric.
@@ -605,7 +578,7 @@ private fun TracksideAbilityRange(
                 // Draw only the 5dp track and 15dp circular thumb from Figma 551:865.
                 thumb={ _ ->
                     Box(Modifier.size(15.dp).background(
-                        Color(0xFFEE6E88),RoundedCornerShape(50)))
+                        Color(0xFFDBF351),RoundedCornerShape(50)))
                 },
                 track={ _ ->
                     Box(Modifier.fillMaxWidth().height(5.dp)
@@ -613,7 +586,7 @@ private fun TracksideAbilityRange(
                         Box(Modifier.fillMaxWidth(
                             (value.toFloat()/maxValue).coerceIn(0f,1f))
                             .height(5.dp).background(
-                                Color(0xFFCF475B),RoundedCornerShape(3.dp)))
+                                Color(0xFFDBF351),RoundedCornerShape(3.dp)))
                     }
                 }
             )
@@ -657,9 +630,9 @@ internal fun TracksideRunningAbilityScreen(
                     modifier=Modifier.weight(1f).height(45.dp)
                         .testTag("builder-experience-$i"),
                     onClick={onExperience(i)},
-                    color=if(experience==i) darkWine else Color(0xFF1A2B36),
+                    color=if(experience==i) darkWine else Color(0xFF171717),
                     border=BorderStroke(1.dp,
-                        if(experience==i) Color(0xFFB47686) else outline),
+                        if(experience==i) Color(0xFFDBF351) else outline),
                     shape=RoundedCornerShape(9.dp)
                 ) {
                     Box(contentAlignment=Alignment.Center) {
@@ -691,7 +664,7 @@ internal fun TracksideRunningAbilityScreen(
         Surface(
             modifier=Modifier.fillMaxWidth().heightIn(min=72.dp)
                 .testTag("builder-ability-optional-card"),
-            shape=RoundedCornerShape(12.dp),color=Color(0xFF172A36),
+            shape=RoundedCornerShape(12.dp),color=Color(0xFF171717),
             border=BorderStroke(1.dp,outline)
         ) {
             Row(Modifier.padding(10.dp),verticalAlignment=Alignment.CenterVertically) {

@@ -30,9 +30,9 @@ import androidx.compose.ui.unit.sp
  * cross-discipline preferences. Decorative icons are provisional, as
  * they are in the approved Figma source. No unsupported split is promised.
  */
-private val crossWhite = Color(0xFFF6F8FC)
-private val crossMuted = Color(0xFFB8C8D3)
-private val crossBlue = Color(0xFF84BFF0)
+private val crossWhite = Color(0xFFFFFFFF)
+private val crossMuted = Color(0xFFC5C5C5)
+private val crossBlue = Color(0xFFDBF351)
 
 private data class StrengthGoalChoice(val title: String, val detail: String,
     val policyGoal: String, val icon: Int)
@@ -64,6 +64,7 @@ internal fun TracksideStrengthGoalScreen(
     val active=strengthGoalChoices.firstOrNull { it.title==selected }
         ?: strengthGoalChoices.first()
     TracksideBuilderFrame(
+        progressStep = 2,
         toolbarTitle="Strength goal",
         eyebrow="STRENGTH / YOUR GOAL",
         headline="What are you\nworking toward?",
@@ -80,12 +81,12 @@ internal fun TracksideStrengthGoalScreen(
                 color=Color.Transparent,
                 shape=RoundedCornerShape(16.dp),
                 border=BorderStroke(1.dp,
-                    if(chosen)Color(0xFF9CC5E7) else Color(0xFF405E71))
+                    if(chosen)Color(0xFFDBF351) else Color(0xFFDBF351))
             ) {
                 Row(
                     Modifier.fillMaxSize().background(Brush.horizontalGradient(
-                        if(chosen) listOf(Color(0xFF315A78),Color(0xFF152B39))
-                        else listOf(Color(0xFF172F3E),Color(0xFF0C1D27))
+                        if(chosen) listOf(Color(0xFFDBF351),Color(0xFF303030))
+                        else listOf(Color(0xFF303030),Color(0xFF242424))
                     )).padding(11.dp),
                     verticalAlignment=Alignment.CenterVertically,
                     horizontalArrangement=Arrangement.spacedBy(13.dp)
@@ -93,15 +94,15 @@ internal fun TracksideStrengthGoalScreen(
                     Surface(
                         modifier=Modifier.size(84.dp,79.dp),
                         shape=RoundedCornerShape(12.dp),
-                        color=if(chosen)Color(0xFF2E526D) else Color(0xFF102633),
+                        color=if(chosen)Color(0xFFDBF351) else Color(0xFF242424),
                         border=BorderStroke(1.dp,
-                            if(chosen)Color(0xFF9CC5E7) else Color(0xFF405E71))
+                            if(chosen)Color(0xFFDBF351) else Color(0xFFDBF351))
                     ) {
                         Box(contentAlignment=Alignment.Center) {
                             Icon(
                                 painter=painterResource(choice.icon),
                                 contentDescription=null,
-                                tint=Color(0xFFB4D9F1),
+                                tint=Color(0xFFDBF351),
                                 modifier=Modifier.size(35.dp)
                             )
                         }
@@ -123,15 +124,15 @@ internal fun TracksideStrengthGoalScreen(
             onClick={muscleInfo=true},
             modifier=Modifier.fillMaxWidth().height(64.dp)
                 .testTag("builder-strength-muscle-emphasis"),
-            color=Color(0xFF122735),
+            color=Color(0xFF242424),
             shape=RoundedCornerShape(16.dp),
-            border=BorderStroke(1.dp,Color(0xFF405E71))
+            border=BorderStroke(1.dp,Color(0xFFDBF351))
         ) {
             Row(Modifier.padding(horizontal=12.dp),
                 verticalAlignment=Alignment.CenterVertically,
                 horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                 Box(
-                    Modifier.size(40.dp).background(Color(0xFF254D68),
+                    Modifier.size(40.dp).background(Color(0xFFDBF351),
                         RoundedCornerShape(12.dp)),
                     contentAlignment=Alignment.Center
                 ) { Text("◎",color=crossBlue,fontSize=25.sp) }
@@ -181,6 +182,7 @@ internal fun TracksideCrossTrainingGoalsScreen(
         WeeklyPlacement.count(request,it)>0
     }
     TracksideBuilderFrame(
+        progressStep = 3,
         toolbarTitle="Goals & ability",
         eyebrow="PLAN / GOALS & ABILITY",
         headline="Make it your plan",
@@ -202,9 +204,9 @@ internal fun TracksideCrossTrainingGoalsScreen(
                     onClick=onEditStrengthGoal,
                     modifier=Modifier.fillMaxWidth().heightIn(min=58.dp)
                         .testTag("builder-strength-edit-goal"),
-                    color=Color(0xFF1A3446),
+                    color=Color(0xFF303030),
                     shape=RoundedCornerShape(13.dp),
-                    border=BorderStroke(1.dp,Color(0xFF547FA1))
+                    border=BorderStroke(1.dp,Color(0xFFDBF351))
                 ) {
                     Row(Modifier.padding(14.dp),
                         verticalAlignment=Alignment.CenterVertically) {
@@ -225,10 +227,10 @@ internal fun TracksideCrossTrainingGoalsScreen(
                         modifier=Modifier.fillMaxWidth().padding(bottom=7.dp)
                             .heightIn(min=53.dp)
                             .testTag("builder-cross-goal-" + discipline + "-" + goal),
-                        color=if(chosen)Color(0xFF263D51) else Color(0xFF13232D),
+                        color=if(chosen)Color(0xFF383838) else Color(0xFF242424),
                         shape=RoundedCornerShape(11.dp),
                         border=BorderStroke(1.dp,
-                            if(chosen)accent else Color(0xFF405563))
+                            if(chosen)accent else Color(0xFFDBF351))
                     ) {
                         Row(Modifier.padding(horizontal=14.dp,vertical=13.dp),
                             verticalAlignment=Alignment.CenterVertically) {
@@ -243,9 +245,9 @@ internal fun TracksideCrossTrainingGoalsScreen(
             val count=WeeklyPlacement.count(request,discipline)
             Surface(
                 modifier=Modifier.fillMaxWidth(),
-                color=Color(0xFF142B3A),
+                color=Color(0xFF303030),
                 shape=RoundedCornerShape(13.dp),
-                border=BorderStroke(1.dp,Color(0xFF456A80))
+                border=BorderStroke(1.dp,Color(0xFFDBF351))
             ) {
                 Row(Modifier.padding(horizontal=13.dp,vertical=10.dp),
                     verticalAlignment=Alignment.CenterVertically) {
@@ -262,9 +264,9 @@ internal fun TracksideCrossTrainingGoalsScreen(
                             enabled=count+delta in 1..limit,
                             modifier=Modifier.padding(start=8.dp).size(44.dp)
                                 .testTag("builder-cross-count-" + discipline + "-" + delta),
-                            color=Color(0xFF294658),
+                            color=Color(0xFF383838),
                             shape=RoundedCornerShape(10.dp),
-                            border=BorderStroke(1.dp,Color(0xFF66849A))
+                            border=BorderStroke(1.dp,Color(0xFFDBF351))
                         ) {
                             Box(contentAlignment=Alignment.Center) {
                                 Text(if(delta<0)"−" else "+",
@@ -323,10 +325,10 @@ private fun TracksideCrossAbilityRow(
                 onClick={onSelect(index)},
                 modifier=Modifier.weight(1f).heightIn(min=48.dp)
                     .testTag("builder-cross-ability-" + tag + "-" + index),
-                color=if(selected)Color(0xFF27465C) else Color(0xFF14242D),
+                color=if (selected) PlanBuilderPalette.selected else Color(0xFF242424),
                 shape=RoundedCornerShape(9.dp),
                 border=BorderStroke(1.dp,
-                    if(selected)accent else Color(0xFF3D5666))
+                    if(selected)accent else Color(0xFFDBF351))
             ) {
                 Box(Modifier.padding(horizontal=3.dp,vertical=8.dp),
                     contentAlignment=Alignment.Center) {
