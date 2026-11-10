@@ -52,7 +52,7 @@ private val moreMuted = Color(0xFFAAB4AD)
 private val moreSecondary = Color(0xFF82918A)
 private val moreLime = Color(0xFFD8FB70)
 
-internal enum class MorePage { Garmin, Data, Preferences, About }
+internal enum class MorePage { Garmin, Preferences, About }
 
 /** Compact Trackside control centre. No placeholder toggles or fabricated account data. */
 @Composable
@@ -61,7 +61,7 @@ internal fun TracksideMoreScreen(
     onSignIn: () -> Unit,
     onLibrary: () -> Unit,
     onGarmin: () -> Unit,
-    onData: () -> Unit,
+    onOfflineMaps: () -> Unit,
     onPreferences: () -> Unit,
     onAbout: () -> Unit,
     onSignOut: () -> Unit
@@ -150,10 +150,10 @@ internal fun TracksideMoreScreen(
                 )
             }
         }
-        item(key = "more-data-title") { MoreSection("PREFERENCES & DATA") }
+        item(key = "more-data-title") { MoreSection("PREFERENCES") }
         item(key = "more-preferences") {
             MoreGroup {
-                MoreActionRow("Data & backups", MoreSymbol.Data, "data", onData)
+                MoreActionRow("Offline maps", MoreSymbol.Map, "offline-maps", onOfflineMaps)
                 MoreRule()
                 MoreActionRow("App preferences", MoreSymbol.Sliders, "preferences", onPreferences)
                 MoreRule()
@@ -188,13 +188,11 @@ internal fun TracksideMoreDetailScreen(
     state: TrainingState,
     onBack: () -> Unit,
     onSignIn: () -> Unit,
-    onLegacyBackups: () -> Unit,
     onSystemAppSettings: () -> Unit,
     syncGarmin: (suspend (GarminPersonalSource) -> GarminConnectionStatus)?
 ) {
     val title = when (page) {
         MorePage.Garmin -> "Garmin Connect"
-        MorePage.Data -> "Data & backups"
         MorePage.Preferences -> "App preferences"
         MorePage.About -> "About StrideLab"
     }
@@ -228,22 +226,6 @@ internal fun TracksideMoreDetailScreen(
                 } else {
                     // Preserve existing secure credential, sync and disconnect behaviour.
                     GarminSettingsCard(account, syncGarmin)
-                }
-            }
-            MorePage.Data -> {
-                item(key = "detail-data-caption") {
-                    MoreInfoCard(
-                        "Saved data",
-                        "Your existing offline records remain on this device."
-                    )
-                }
-                item(key = "detail-backups") {
-                    MoreGroup {
-                        MoreActionRow(
-                            "Legacy backup & restore", MoreSymbol.Data, "legacy-backups",
-                            onLegacyBackups
-                        )
-                    }
                 }
             }
             MorePage.Preferences -> {
@@ -563,7 +545,7 @@ private fun AthleteHeartRatePreferenceCard(account: String?) {
     }
 }
 
-private enum class MoreSymbol { Person, Dumbbell, Watch, Data, Sliders, Info, Chevron }
+private enum class MoreSymbol { Person, Dumbbell, Watch, Map, Sliders, Info, Chevron }
 
 /** Simple static vector glyphs; no dynamic resources or animated draw operations. */
 @Composable private fun MoreIcon(
@@ -599,14 +581,23 @@ private enum class MoreSymbol { Person, Dumbbell, Watch, Data, Sliders, Info, Ch
                 drawLine(color, Offset(w * .42f, h * .80f), Offset(w * .42f, h), stroke)
                 drawLine(color, Offset(w * .58f, h * .80f), Offset(w * .58f, h), stroke)
             }
-            MoreSymbol.Data -> {
-                drawOval(color, Offset(w * .12f, h * .12f), Size(w * .76f, h * .28f), style = Stroke(stroke))
-                drawArc(color, 0f, 180f, false, Offset(w * .12f, h * .39f),
-                    Size(w * .76f, h * .29f), style = Stroke(stroke))
-                drawArc(color, 0f, 180f, false, Offset(w * .12f, h * .60f),
-                    Size(w * .76f, h * .29f), style = Stroke(stroke))
-                drawLine(color, Offset(w * .12f, h * .26f), Offset(w * .12f, h * .75f), stroke)
-                drawLine(color, Offset(w * .88f, h * .26f), Offset(w * .88f, h * .75f), stroke)
+            MoreSymbol.Map -> {
+                val top = h * .20f
+                val bottom = h * .80f
+                val a = w * .12f
+                val b = w * .40f
+                val c = w * .68f
+                val d = w * .88f
+                drawLine(color, Offset(a, top), Offset(a, bottom), stroke)
+                drawLine(color, Offset(b, h * .12f), Offset(b, h * .70f), stroke)
+                drawLine(color, Offset(c, h * .30f), Offset(c, h * .88f), stroke)
+                drawLine(color, Offset(d, top), Offset(d, bottom), stroke)
+                drawLine(color, Offset(a, top), Offset(b, h * .12f), stroke)
+                drawLine(color, Offset(b, h * .12f), Offset(c, h * .30f), stroke)
+                drawLine(color, Offset(c, h * .30f), Offset(d, top), stroke)
+                drawLine(color, Offset(a, bottom), Offset(b, h * .70f), stroke)
+                drawLine(color, Offset(b, h * .70f), Offset(c, h * .88f), stroke)
+                drawLine(color, Offset(c, h * .88f), Offset(d, bottom), stroke)
             }
             MoreSymbol.Sliders -> {
                 for ((y, knob) in listOf(.25f to .32f, .50f to .67f, .75f to .42f)) {
