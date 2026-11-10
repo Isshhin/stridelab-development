@@ -118,11 +118,16 @@ private fun OfflineBoxMap(onSelection: (LatLngBounds?) -> Unit) {
                 val bounds = projectedBox(current)
                 onSelection(bounds)
                 val camera = current.cameraPosition
-                preferences.edit()
-                    .putFloat("lat", camera.target.latitude.toFloat())
-                    .putFloat("lon", camera.target.longitude.toFloat())
-                    .putFloat("zoom", camera.zoom.toFloat())
-                    .apply()
+                // MapLibre can return no camera target while the map initializes.
+                // Keep the last saved position rather than dereferencing null.
+                val target = camera.target
+                if (target != null) {
+                    preferences.edit()
+                        .putFloat("lat", target.latitude.toFloat())
+                        .putFloat("lon", target.longitude.toFloat())
+                        .putFloat("zoom", camera.zoom.toFloat())
+                        .apply()
+                }
             }
             current.addOnCameraIdleListener(update)
             mapView.post { update.onCameraIdle() }
