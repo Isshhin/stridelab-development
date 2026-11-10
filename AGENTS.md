@@ -2,6 +2,18 @@
 
 This is the persistent default for work in this repository. Follow the user's **current task prompt** and the applicable, up-to-date branch documentation. Do not treat old handoffs, cached graph indexes, or historical green builds as proof of the live state.
 
+## Active Android design authority (owner update, 2026-11-10)
+
+The **current running Kotlin/Jetpack Compose implementation** is the authoritative
+StrideLab visual system: AMOLED-black surfaces, lime branding, established
+discipline accents, existing motion springs, navigation, and live component
+states. Historical Figma/"parity" labels and preview artifacts are not design
+authority; do not regress live layouts to archived frames. Older references
+below apply only as historical context unless the owner explicitly reapproves
+them. Runtime components formerly prefixed `TracksideFigma` are now named
+`Trackside` to reflect their actual use, without changing their behavior.
+Do not reintroduce the retired synthetic Figma comparison preview gallery.
+
 ## Required handoff and implementation brief contract (owner preference, 2026-11-08)
 
 Every Codex prompt, Work handoff, or delegated implementation batch MUST be precise enough that an execution model can act without guessing what the owner meant. The initiating agent must explicitly document, and the executing agent must verify against the actual task:

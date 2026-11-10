@@ -96,7 +96,7 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaAvailabilityScreen(
+                    TracksideAvailabilityScreen(
                         request=selected.value,
                         onDay={ day ->
                             selected.value=selected.value.copy(
@@ -235,7 +235,7 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaRunningSetup(
+                    TracksideRunningSetup(
                         request=saved.value,
                         selectedSlot=selected.intValue,
                         onSelectSlot={ selected.intValue=it },
@@ -294,7 +294,7 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaRunningSetup(
+                    TracksideRunningSetup(
                         request=saved.value,
                         selectedSlot=selected.intValue,
                         onSelectSlot={ selected.intValue=it },
@@ -354,7 +354,7 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaRunningSetup(
+                    TracksideRunningSetup(
                         request=saved.value,selectedSlot=selected.intValue,
                         onSelectSlot={ selected.intValue=it },
                         custom=true,onCustom={},qualityPreference="Threshold",
@@ -398,7 +398,7 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaOtherDisciplineSlots(
+                    TracksideOtherDisciplineSlots(
                         request=saved.value,
                         selectedDiscipline=discipline.value,
                         selectedSlot=slot.intValue,

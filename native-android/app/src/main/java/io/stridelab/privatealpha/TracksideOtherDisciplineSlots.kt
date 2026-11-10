@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.sp
  * upper/lower or calisthenics push/pull templates until it actually does.
  */
 @Composable
-internal fun TracksideFigmaOtherDisciplineSlots(
+internal fun TracksideOtherDisciplineSlots(
     request: PlanRequest,
     selectedDiscipline: String,
     selectedSlot: Int,

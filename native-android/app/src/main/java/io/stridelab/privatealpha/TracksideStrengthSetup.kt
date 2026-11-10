@@ -38,7 +38,7 @@ private val strengthAccent=Color(0xFF82B6EA)
 private val strengthEdge=Color(0xFF547C99)
 
 @Composable
-internal fun TracksideFigmaStrengthSetup(
+internal fun TracksideStrengthSetup(
     request:PlanRequest,
     selectedSlot:Int,
     onSelectedSlot:(Int)->Unit,
@@ -59,13 +59,13 @@ internal fun TracksideFigmaStrengthSetup(
     var choosingEquipment by rememberSaveable { mutableStateOf(false) }
     var advisory by rememberSaveable { mutableStateOf("") }
     if(choosingEquipment) {
-        TracksideFigmaStrengthEquipment(
+        TracksideStrengthEquipment(
             request=request,onChoice=onEquipment,
             onBack={ choosingEquipment=false }
         )
         return
     }
-    TracksideFigmaBuilderFrame(
+    TracksideBuilderFrame(
         toolbarTitle="Strength Setup",
         eyebrow="STRENGTH / SETUP",
         headline="Your strength plan",
@@ -359,7 +359,7 @@ private fun StrengthPreferenceRow(
 }
 
 @Composable
-private fun TracksideFigmaStrengthEquipment(
+private fun TracksideStrengthEquipment(
     request:PlanRequest,
     onChoice:(String,Boolean)->Unit,
     onBack:()->Unit
@@ -370,7 +370,7 @@ private fun TracksideFigmaStrengthEquipment(
         "bar" to "Pull-up bar","rack" to "Rack",
         "anchor" to "Band anchors","support" to "Stable supports"
     )
-    TracksideFigmaBuilderFrame(
+    TracksideBuilderFrame(
         toolbarTitle="Equipment",eyebrow="STRENGTH / EQUIPMENT",
         headline="What equipment\ndo you have?",
         description="Choose the equipment available for your workouts.",

@@ -54,7 +54,7 @@ internal fun strengthChoicePolicy(title:String) =
         ?: "General strength"
 
 @Composable
-internal fun TracksideFigmaStrengthGoalScreen(
+internal fun TracksideStrengthGoalScreen(
     selected:String,
     onSelect:(String)->Unit,
     onBack:()->Unit,
@@ -63,7 +63,7 @@ internal fun TracksideFigmaStrengthGoalScreen(
     var muscleInfo by remember { mutableStateOf(false) }
     val active=strengthGoalChoices.firstOrNull { it.title==selected }
         ?: strengthGoalChoices.first()
-    TracksideFigmaBuilderFrame(
+    TracksideBuilderFrame(
         toolbarTitle="Strength goal",
         eyebrow="STRENGTH / YOUR GOAL",
         headline="What are you\nworking toward?",
@@ -168,7 +168,7 @@ internal fun TracksideFigmaStrengthGoalScreen(
  * disciplines; single-discipline athletes do not see the legacy builder.
  */
 @Composable
-internal fun TracksideFigmaCrossTrainingGoalsScreen(
+internal fun TracksideCrossTrainingGoalsScreen(
     request:PlanRequest,
     onBack:()->Unit,
     onContinue:()->Unit,
@@ -180,7 +180,7 @@ internal fun TracksideFigmaCrossTrainingGoalsScreen(
     val active=listOf("str","cal","cond").filter {
         WeeklyPlacement.count(request,it)>0
     }
-    TracksideFigmaBuilderFrame(
+    TracksideBuilderFrame(
         toolbarTitle="Goals & ability",
         eyebrow="PLAN / GOALS & ABILITY",
         headline="Make it your plan",

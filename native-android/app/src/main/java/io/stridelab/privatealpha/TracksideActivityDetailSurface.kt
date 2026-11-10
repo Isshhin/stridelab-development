@@ -50,7 +50,7 @@ import kotlinx.coroutines.launch
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun TracksideFigmaActivityDetailSurface(
+internal fun TracksideActivityDetailSurface(
     activity: ActivityRecord,
     recorded: ActivityDetail?,
     detailSource: ActivityRecord,

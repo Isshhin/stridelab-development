@@ -27,7 +27,7 @@ import java.util.Locale
  * Figma geometry displays actual dated prescriptions and requires approval.
  */
 @Composable
-internal fun TracksideFigmaWeekReview(
+internal fun TracksideWeekReview(
     request: PlanRequest,
     plan: PlanSnapshot?,
     busy: Boolean,
@@ -66,7 +66,7 @@ internal fun TracksideFigmaWeekReview(
         d to rows.count { it.discipline == d }
     }
 
-    TracksideFigmaBuilderFrame(
+    TracksideBuilderFrame(
         toolbarTitle = "Week Preview",
         eyebrow = "PLAN / WEEK PREVIEW",
         headline = "Your training week",

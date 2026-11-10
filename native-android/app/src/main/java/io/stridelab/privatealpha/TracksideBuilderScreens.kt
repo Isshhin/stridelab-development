@@ -51,7 +51,7 @@ private val white = Color(0xFFF7FAFF)
 private val muted = Color(0xFFB6C0CA)
 
 @Composable
-internal fun TracksideFigmaBuilderFrame(
+internal fun TracksideBuilderFrame(
     eyebrow: String,
     toolbarTitle: String = "Generate Training Plan",
     ctaLabel: String = "Continue",
@@ -126,7 +126,7 @@ internal fun TracksideFigmaBuilderFrame(
 }
 
 @Composable
-internal fun TracksideFigmaDisciplineScreen(
+internal fun TracksideDisciplineScreen(
     request: PlanRequest,
     onToggle: (String) -> Unit,
     onBack: () -> Unit,
@@ -138,7 +138,7 @@ internal fun TracksideFigmaDisciplineScreen(
         Triple("cal", "Calisthenics", "Bodyweight strength and skills"),
         Triple("cond", "Conditioning", "Fitness and work capacity")
     )
-    TracksideFigmaBuilderFrame(
+    TracksideBuilderFrame(
         eyebrow = "BUILD YOUR PLAN",
         headline = "Choose your\ndisciplines",
         description = "Choose the disciplines you want to train.",
@@ -225,7 +225,7 @@ internal fun TracksideFigmaDisciplineScreen(
 }
 
 @Composable
-private fun TracksideFigmaOption(
+private fun TracksideOption(
     label: String, description: String, selected: Boolean,
     icon: Int, onClick: () -> Unit, height: Int = 88,
     tag: String = label, runningGoal: Boolean = false
@@ -289,7 +289,7 @@ private fun TracksideFigmaOption(
 }
 
 @Composable
-internal fun TracksideFigmaRunningGoalScreen(
+internal fun TracksideRunningGoalScreen(
     selected: String,
     onSelect: (String) -> Unit,
     onBack: () -> Unit,
@@ -302,7 +302,7 @@ internal fun TracksideFigmaRunningGoalScreen(
         Triple("fitness", "General fitness", "Stay active and maintain consistency"),
         Triple("custom", "Train your way", "Set your mileage and workout preferences")
     )
-    TracksideFigmaBuilderFrame(
+    TracksideBuilderFrame(
         eyebrow = "RUNNING SETUP", headline = "What's your\nrunning goal?",
         description = "Your training plan starts with what you want to achieve.",
         onBack = onBack, onContinue = onContinue
@@ -311,7 +311,7 @@ internal fun TracksideFigmaRunningGoalScreen(
         // position without affecting Strength, Calisthenics, or other screens.
         Spacer(Modifier.height(8.dp))
         entries.forEachIndexed { i, (route, label, desc) ->
-            TracksideFigmaOption(label, desc, selected == route,
+            TracksideOption(label, desc, selected == route,
                 icon = when (route) {
                     "race" -> R.drawable.trackside_running_goal_race
                     "faster" -> R.drawable.trackside_running_goal_faster
@@ -327,7 +327,7 @@ internal fun TracksideFigmaRunningGoalScreen(
 }
 
 @Composable
-private fun TracksideFigmaRaceOption(
+private fun TracksideRaceOption(
     title: String, description: String, selected: Boolean, icon: Int,
     tag: String, onClick: () -> Unit
 ) {
@@ -380,7 +380,7 @@ private fun TracksideFigmaRaceOption(
 }
 
 @Composable
-internal fun TracksideFigmaRaceGoalScreen(
+internal fun TracksideRaceGoalScreen(
     intent: String, distance: String,
     onIntent: (String) -> Unit, onDistance: (String) -> Unit,
     onBack: () -> Unit, onContinue: () -> Unit
@@ -392,7 +392,7 @@ internal fun TracksideFigmaRaceGoalScreen(
         Triple("finish", "Finish confidently", "Prepare to complete the distance"),
         Triple("benchmark", "Set my first benchmark", "Establish a PR for a new distance")
     )
-    TracksideFigmaBuilderFrame(
+    TracksideBuilderFrame(
         eyebrow = "RUNNING / RACE & PERFORMANCE",
         headline = "What are you aiming\nfor?",
         description = "Choose what success looks like for you.",
@@ -405,7 +405,7 @@ internal fun TracksideFigmaRaceGoalScreen(
         continueEnabled = intent != "time"
     ) {
         intents.forEachIndexed { i,(id,title,desc) ->
-            TracksideFigmaRaceOption(title,desc,intent==id,
+            TracksideRaceOption(title,desc,intent==id,
                 icon=when(id) {
                     "pr" -> R.drawable.trackside_race_goal_pr
                     "time" -> R.drawable.trackside_race_goal_time
@@ -569,7 +569,7 @@ internal fun TracksideFigmaRaceGoalScreen(
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun TracksideFigmaAbilityRange(
+private fun TracksideAbilityRange(
     header: String, title: String, note: String,
     value: Double, maxValue: Float, unit: String, tag: String,
     onValue: (Double) -> Unit
@@ -629,7 +629,7 @@ private fun TracksideFigmaAbilityRange(
 }
 
 @Composable
-internal fun TracksideFigmaRunningAbilityScreen(
+internal fun TracksideRunningAbilityScreen(
     experience: Int, weeklyKm: Double, longestKm: Double,
     onExperience: (Int) -> Unit,
     onWeeklyKm: (Double) -> Unit,
@@ -639,7 +639,7 @@ internal fun TracksideFigmaRunningAbilityScreen(
     onAdvanced: () -> Unit
 ) {
     var resultInfoOpen by remember { mutableStateOf(false) }
-    TracksideFigmaBuilderFrame(
+    TracksideBuilderFrame(
         eyebrow="RUNNING / CURRENT ABILITY",
         headline="Where are you\nstarting?",
         description="Use your recent training, not the mileage you hope to reach.",
@@ -671,14 +671,14 @@ internal fun TracksideFigmaRunningAbilityScreen(
             }
         }
         Spacer(Modifier.height(13.dp))
-        TracksideFigmaAbilityRange(
+        TracksideAbilityRange(
             header="CURRENT WEEKLY DISTANCE",title="Typical weekly volume",
             note="Last 4–6 weeks",value=weeklyKm,maxValue=120f,unit="km / week",
             tag="weekly",
             onValue=onWeeklyKm
         )
         Spacer(Modifier.height(15.dp))
-        TracksideFigmaAbilityRange(
+        TracksideAbilityRange(
             header="LONGEST RECENT RUN",title="Longest run completed",
             note="Recent training",value=longestKm,maxValue=42f,unit="km",
             tag="longest",

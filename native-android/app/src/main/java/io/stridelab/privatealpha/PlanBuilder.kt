@@ -128,7 +128,7 @@ import org.json.JSONObject
     }) }
     val preview=state.plans.find { it.id==previewId }
     if (step == 4 && preview != null) {
-        TracksideFigmaWeekReview(
+        TracksideWeekReview(
             request = preview.request,
             plan = preview,
             busy = state.busy || pendingApprovalId != null,
@@ -148,7 +148,7 @@ import org.json.JSONObject
         return
     }
     if (step == 0) {
-        TracksideFigmaDisciplineScreen(
+        TracksideDisciplineScreen(
             request = input,
             onToggle = { d ->
                 val active = when(d) {
@@ -208,7 +208,7 @@ import org.json.JSONObject
     }
     if (step == 1 && input.runDays > 0 && !crossTrainingGoals) {
         when (runningSubPage) {
-            0 -> TracksideFigmaRunningGoalScreen(
+            0 -> TracksideRunningGoalScreen(
                 selected = runningRoute,
                 onSelect = { route ->
                     editingAbilityFromGuided = false
@@ -232,7 +232,7 @@ import org.json.JSONObject
                     }
                 }
             )
-            1 -> TracksideFigmaRaceGoalScreen(
+            1 -> TracksideRaceGoalScreen(
                 intent = raceIntent, distance = raceDistance,
                 onIntent = { raceIntent = it }, onDistance = { raceDistance = it },
                 onBack = { runningSubPage = 0 },
@@ -248,7 +248,7 @@ import org.json.JSONObject
                     runningSubPage = 2
                 }
             )
-            2 -> TracksideFigmaRunningAbilityScreen(
+            2 -> TracksideRunningAbilityScreen(
                 experience = input.experience,
                 weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0,120.0) ?: 0.0,
                 longestKm = longest.toDoubleOrNull()?.coerceIn(0.0,42.0) ?: 0.0,
@@ -277,7 +277,7 @@ import org.json.JSONObject
                     runningSubPage = 3
                 }
             )
-            3 -> TracksideFigmaAdvancedRunning(
+            3 -> TracksideAdvancedRunning(
                 guided = advancedBackPage != 0,
                 weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0, 120.0) ?: 0.0,
                 qualityCount = input.qualityCount.coerceIn(0, 2),
@@ -311,7 +311,7 @@ import org.json.JSONObject
                     runningSubPage = if (advancedBackPage == 5) 5 else 2
                 }
             )
-            5 -> TracksideFigmaGuidedRunning(
+            5 -> TracksideGuidedRunning(
                 route = runningRoute,
                 selectedFocus = guidedFocus,
                 onFocus = { guidedFocus = it },
@@ -347,7 +347,7 @@ import org.json.JSONObject
                     runningSubPage = 2
                 }
             )
-            4 -> TracksideFigmaRunningSetup(
+            4 -> TracksideRunningSetup(
                 request = input,
                 selectedSlot = runningSelectedSlot,
                 onSelectSlot = { runningSelectedSlot = it },
@@ -431,7 +431,7 @@ import org.json.JSONObject
     }
     if(step==1 && (input.runDays==0 || crossTrainingGoals)) {
         if(input.strengthDays>0 && !strengthGoalSaved) {
-            TracksideFigmaStrengthGoalScreen(
+            TracksideStrengthGoalScreen(
                 selected=strengthGoalLabel,
                 onSelect={ strengthGoalLabel=it },
                 onBack={
@@ -451,7 +451,7 @@ import org.json.JSONObject
                 }
             )
         } else if(input.strengthDays>0 && !strengthSetupSaved) {
-            TracksideFigmaStrengthSetup(
+            TracksideStrengthSetup(
                 request=input,
                 selectedSlot=strengthSelectedSlot,
                 onSelectedSlot={ strengthSelectedSlot=it },
@@ -483,7 +483,7 @@ import org.json.JSONObject
                 onContinue={ strengthSetupSaved=true }
             )
         } else if(input.calDays>0 && crossGoalsSaved) {
-            TracksideFigmaCalisthenicsSetup(
+            TracksideCalisthenicsSetup(
                 request=input,
                 selectedSlot=caliSelectedSlot,
                 onSelectedSlot={ caliSelectedSlot=it },
@@ -520,7 +520,7 @@ import org.json.JSONObject
                 }
             )
         } else {
-            TracksideFigmaCrossTrainingGoalsScreen(
+            TracksideCrossTrainingGoalsScreen(
                 request=input,
                 onBack={
                     if(input.strengthDays>0) strengthSetupSaved=false
@@ -572,7 +572,7 @@ import org.json.JSONObject
     }
     if (step == 2 && scheduleSubPage < 2) {
         if(scheduleSubPage == 0) {
-            TracksideFigmaPlanDetailsScreen(
+            TracksidePlanDetailsScreen(
                 start = start, weeks = weeks, minutes = minutes,
                 onStart = { start = it },
                 onWeeks = { weeks = it },
@@ -594,7 +594,7 @@ import org.json.JSONObject
                 onContinue = { scheduleSubPage = 1 }
             )
         } else {
-            TracksideFigmaAvailabilityScreen(
+            TracksideAvailabilityScreen(
                 request = input,
                 onMultiSessionToggle = { enabled ->
                     edit(input.copy(
@@ -652,7 +652,7 @@ import org.json.JSONObject
     }
     if (step == 3) {
         val previewInputs = runCatching { request() }.getOrDefault(input)
-        TracksideFigmaWeekReview(
+        TracksideWeekReview(
             request = previewInputs,
             plan = null,
             busy = state.busy || awaiting,
@@ -676,7 +676,7 @@ import org.json.JSONObject
     // An orphaned draft after process restore must never reveal the removed
     // legacy chip-based builder. Preserve all edited request inputs.
     val missingDraft = step == 4
-    TracksideFigmaBuilderFrame(
+    TracksideBuilderFrame(
         eyebrow = "PLAN / RECOVERY",
         toolbarTitle = if(missingDraft) "Restore draft" else "Plan setup",
         headline = if(missingDraft) "Draft unavailable" else "Resume plan setup",

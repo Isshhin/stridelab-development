@@ -330,7 +330,7 @@ private fun NavHostController.openActivity(id: String) {
                                 "This record is not in the current account's saved cache.") }
                         }
                     } else {
-                        TracksideFigmaActivityDetailSurface(
+                        TracksideActivityDetailSurface(
                             activity = activity,
                             recorded = detailSource?.let { state.details[it.id] },
                             detailSource = detailSource ?: activity,

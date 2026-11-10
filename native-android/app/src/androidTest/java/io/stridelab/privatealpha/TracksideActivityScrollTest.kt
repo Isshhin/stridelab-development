@@ -51,7 +51,7 @@ class TracksideActivityScrollTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaActivityDetailSurface(
+                    TracksideActivityDetailSurface(
                         activity = activity, recorded = recorded,
                         detailSource = activity,
                         matchedSourceIds = setOf(activity.id),
@@ -251,7 +251,7 @@ class TracksideActivityScrollTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaActivityDetailSurface(
+                    TracksideActivityDetailSurface(
                         activity = activity,
                         recorded = null,
                         detailSource = activity,
@@ -414,7 +414,7 @@ class TracksideActivityScrollTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaActivityDetailSurface(
+                    TracksideActivityDetailSurface(
                         activity = activity, recorded = recorded,
                         detailSource = activity, matchedSourceIds = setOf(activity.id),
                         history = listOf(activity),
@@ -583,7 +583,7 @@ class TracksideActivityScrollTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaActivityDetailSurface(
+                    TracksideActivityDetailSurface(
                         activity = activity, recorded = null,
                         detailSource = activity, matchedSourceIds = setOf(activity.id),
                         history = listOf(activity),

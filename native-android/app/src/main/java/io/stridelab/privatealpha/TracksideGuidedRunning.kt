@@ -20,7 +20,7 @@ import java.util.Locale
  * Focus remains a visual preference if no matching PlanRequest goal exists.
  */
 @Composable
-internal fun TracksideFigmaGuidedRunning(
+internal fun TracksideGuidedRunning(
     route: String,
     selectedFocus: String,
     onFocus: (String) -> Unit,
@@ -40,7 +40,7 @@ internal fun TracksideFigmaGuidedRunning(
     }
     val outline = Color(0xFF3C5361)
     val bg = Color(0xFF172630)
-    TracksideFigmaBuilderFrame(
+    TracksideBuilderFrame(
         toolbarTitle = "Generate Training Plan",
         eyebrow = when {
             isSpeed -> "RUNNING / SPEED DEVELOPMENT"
@@ -96,14 +96,14 @@ internal fun TracksideFigmaGuidedRunning(
         Text("CURRENT ABILITY", fontSize = 11.sp,
             color = TracksidePalette.textMuted, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
-        TracksideFigmaEditableInfo(
+        TracksideEditableInfo(
             title = "Current weekly distance",
             value = String.format(Locale.getDefault(), "%.0f km/week", weeklyKm),
             tag = "builder-guided-mileage",
             onClick = onEditAbility
         )
         Spacer(Modifier.height(14.dp))
-        TracksideFigmaEditableInfo(
+        TracksideEditableInfo(
             title = "Running experience",
             value = listOf("Beginner", "Intermediate", "Advanced")
                 .getOrElse(experience.coerceIn(0,2)) { "Beginner" },
@@ -114,7 +114,7 @@ internal fun TracksideFigmaGuidedRunning(
         Text("TRAINING PREFERENCES", fontSize = 11.sp,
             color = TracksidePalette.textMuted, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
-        TracksideFigmaEditableInfo(
+        TracksideEditableInfo(
             title = "Customize training",
             value = "Target mileage and allowed quality workouts",
             tag = "builder-guided-advanced",
@@ -129,7 +129,7 @@ internal fun TracksideFigmaGuidedRunning(
 }
 
 @Composable
-private fun TracksideFigmaEditableInfo(
+private fun TracksideEditableInfo(
     title: String,
     value: String,
     tag: String,

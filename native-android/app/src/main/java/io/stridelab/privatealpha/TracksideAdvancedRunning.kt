@@ -26,7 +26,7 @@ import java.util.Locale
  * as user preferences and never claimed to constrain the generated plan.
  */
 @Composable
-internal fun TracksideFigmaAdvancedRunning(
+internal fun TracksideAdvancedRunning(
     guided: Boolean,
     weeklyKm: Double,
     qualityCount: Int,
@@ -42,7 +42,7 @@ internal fun TracksideFigmaAdvancedRunning(
     val panel = Color(0xFF192D39)
     val inactive = Color(0xFF192833)
     val border = Color(0xFF3B5565)
-    TracksideFigmaBuilderFrame(
+    TracksideBuilderFrame(
         toolbarTitle = "Generate Training Plan",
         eyebrow = if (guided) "RUNNING / ADVANCED PREFERENCES"
                   else "RUNNING / TRAIN YOUR WAY",

@@ -138,7 +138,7 @@ class TracksideResponsiveQaTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaDisciplineScreen(
+                    TracksideDisciplineScreen(
                         request=request,onToggle={},onBack={},onContinue={}
                     )
                 }
@@ -177,7 +177,7 @@ class TracksideResponsiveQaTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaRunningGoalScreen(
+                    TracksideRunningGoalScreen(
                         selected=selected.value,
                         onSelect={ selected.value=it },onBack={},onContinue={}
                     )
@@ -218,7 +218,7 @@ class TracksideResponsiveQaTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaRaceGoalScreen(
+                    TracksideRaceGoalScreen(
                         intent=intent.value,distance=distance.value,
                         onIntent={ intent.value=it },onDistance={ distance.value=it },
                         onBack={},onContinue={}
@@ -284,7 +284,7 @@ class TracksideResponsiveQaTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaRunningAbilityScreen(
+                    TracksideRunningAbilityScreen(
                         experience=experience.value,
                         weeklyKm=weekly.value,longestKm=longest.value,
                         onExperience={ experience.value=it },
@@ -369,7 +369,7 @@ class TracksideResponsiveQaTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaRunningSetup(
+                    TracksideRunningSetup(
                         request=saved.value, selectedSlot=selected.value,
                         onSelectSlot={selected.value=it},
                         custom=custom.value,
@@ -551,7 +551,7 @@ class TracksideResponsiveQaTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaStrengthSetup(
+                    TracksideStrengthSetup(
                         request=request,
                         selectedSlot=0,onSelectedSlot={},
                         onChangeMode={},onCount={},onAssign={_,_->},
@@ -638,7 +638,7 @@ class TracksideResponsiveQaTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaCalisthenicsSetup(
+                    TracksideCalisthenicsSetup(
                         request=request,
                         selectedSlot=0,onSelectedSlot={},
                         onMode={},onCount={},onAssign={_,_->},
@@ -702,7 +702,7 @@ class TracksideResponsiveQaTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaActivityDetailSurface(
+                    TracksideActivityDetailSurface(
                         activity=recorded,recorded=null,detailSource=recorded,
                         matchedSourceIds=setOf(recorded.id),history=listOf(recorded),
                         state=state,
@@ -733,7 +733,7 @@ class TracksideResponsiveQaTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaPlanDetailsScreen(
+                    TracksidePlanDetailsScreen(
                         start=date.value,weeks=weeks.value,minutes=minutes.value,
                         onStart={ date.value=it },onWeeks={ weeks.value=it },
                         onMinutes={ minutes.value=it },
@@ -797,7 +797,7 @@ class TracksideResponsiveQaTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaAvailabilityScreen(
+                    TracksideAvailabilityScreen(
                         request=state.value,
                         onDay={ day ->
                             state.value=state.value.copy(
@@ -866,7 +866,7 @@ class TracksideResponsiveQaTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaAvailabilityScreen(
+                    TracksideAvailabilityScreen(
                         request=state.value,
                         onDay={ day ->
                             state.value=state.value.copy(
@@ -918,7 +918,7 @@ class TracksideResponsiveQaTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaAvailabilityScreen(
+                    TracksideAvailabilityScreen(
                         request=state.value,
                         onDay={ day ->
                             state.value=state.value.copy(
@@ -1010,7 +1010,7 @@ class TracksideResponsiveQaTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideFigmaWeekReview(
+                    TracksideWeekReview(
                         request = plan.request,
                         plan = displayed.value,
                         busy = false,

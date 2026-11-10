@@ -33,7 +33,7 @@ private val caliInk=Color(0xFFF5F7F8)
 private val caliSubtle=Color(0xFFACBBC6)
 
 @Composable
-internal fun TracksideFigmaCalisthenicsSetup(
+internal fun TracksideCalisthenicsSetup(
     request:PlanRequest,
     selectedSlot:Int,
     onSelectedSlot:(Int)->Unit,
@@ -51,7 +51,7 @@ internal fun TracksideFigmaCalisthenicsSetup(
     val assigned=if(custom)days.count { it in 1..7 } else 0
     var focusedDay by rememberSaveable { mutableIntStateOf(3) }
     var advisory by rememberSaveable { mutableStateOf("") }
-    TracksideFigmaBuilderFrame(
+    TracksideBuilderFrame(
         toolbarTitle="Calisthenics Setup",
         eyebrow="CALISTHENICS / WEEKLY SCHEDULE",
         headline="Your calisthenics week",

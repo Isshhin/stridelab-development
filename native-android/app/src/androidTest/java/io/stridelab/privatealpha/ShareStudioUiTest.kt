@@ -28,7 +28,7 @@ class ShareStudioUiTest {
     private fun mountDetail() {
         val tab=mutableIntStateOf(0)
         compose.runOnUiThread { compose.activity.setContent {
-            StrideTheme { TracksideFigmaActivityDetailSurface(activity,detail,activity,setOf(activity.id),listOf(activity),
+            StrideTheme { TracksideActivityDetailSurface(activity,detail,activity,setOf(activity.id),listOf(activity),
                 TrainingState(initializing=false,account="share-test",activities=listOf(activity)),
                 NativeActions({}, {}, {}, {}, { _, _ -> }),false,tab.intValue,{tab.intValue=it},false,{}, {}) }
         } }

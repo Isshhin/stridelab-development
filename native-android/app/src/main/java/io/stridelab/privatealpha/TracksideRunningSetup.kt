@@ -37,7 +37,7 @@ private val weekWhite = Color(0xFFF4F7F9)
  * remain authoritative, never a decorative or fake pin.
  */
 @Composable
-internal fun TracksideFigmaRunningSetup(
+internal fun TracksideRunningSetup(
     request: PlanRequest,
     selectedSlot: Int,
     onSelectSlot: (Int) -> Unit,
@@ -61,7 +61,7 @@ internal fun TracksideFigmaRunningSetup(
     val pinned = request.weeklySlots["run"]
     var editorOpen by remember { mutableStateOf(false) }
 
-    TracksideFigmaBuilderFrame(
+    TracksideBuilderFrame(
         toolbarTitle="Running Setup",
         eyebrow="RUNNING / WEEKLY SCHEDULE",
         headline="Your running week",

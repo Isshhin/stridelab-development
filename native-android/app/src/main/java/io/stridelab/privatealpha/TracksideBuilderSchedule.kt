@@ -54,7 +54,7 @@ private fun PlanDatesIconTile(icon: Int, tag: String) {
 
 /** Approved 720:546 Plan details, kept separate from the availability screen. */
 @Composable
-internal fun TracksideFigmaPlanDetailsScreen(
+internal fun TracksidePlanDetailsScreen(
     start: String, weeks: String, minutes: String,
     onStart: (String) -> Unit, onWeeks: (String) -> Unit,
     onMinutes: (String) -> Unit,
@@ -68,7 +68,7 @@ internal fun TracksideFigmaPlanDetailsScreen(
     var customWeeks by rememberSaveable { mutableStateOf(false) }
     var goalDateInfo by rememberSaveable { mutableStateOf(false) }
     val date = runCatching { LocalDate.parse(start) }.getOrDefault(LocalDate.now())
-    TracksideFigmaBuilderFrame(
+    TracksideBuilderFrame(
         eyebrow = "PLAN / DETAILS", toolbarTitle = "Plan details",
         headline = "Set your plan dates",
         description = "Choose when to start and how long to train.",
@@ -82,7 +82,7 @@ internal fun TracksideFigmaPlanDetailsScreen(
             color=Color.Transparent, border=BorderStroke(1.dp,Color(0xFF496878))
         ) {
             Column(Modifier.fillMaxWidth().background(panelBrush).padding(13.dp)) {
-                TracksideFigmaFormLabel("START DATE")
+                TracksideFormLabel("START DATE")
                 Spacer(Modifier.height(18.dp))
                 Text("When should the plan begin?",fontSize=13.sp,
                     fontWeight=FontWeight.SemiBold,color=Color.White)
@@ -123,7 +123,7 @@ internal fun TracksideFigmaPlanDetailsScreen(
             shape=RoundedCornerShape(14.dp),border=BorderStroke(1.dp,Color(0xFF496878))
         ) {
             Column(Modifier.fillMaxWidth().background(panelBrush).padding(13.dp)) {
-                TracksideFigmaFormLabel("PLAN LENGTH")
+                TracksideFormLabel("PLAN LENGTH")
                 Spacer(Modifier.height(18.dp))
                 Text("How many weeks?",color=Color.White,
                     fontSize=13.sp,fontWeight=FontWeight.SemiBold)
@@ -181,7 +181,7 @@ internal fun TracksideFigmaPlanDetailsScreen(
 
 /** Approved 614:88: availability cards and truthful pre-generation constraints. */
 @Composable
-internal fun TracksideFigmaAvailabilityScreen(
+internal fun TracksideAvailabilityScreen(
     request: PlanRequest,
     onDay: (Int) -> Unit,
     onRemovePinnedDay: (Int) -> Unit = {},
@@ -237,7 +237,7 @@ internal fun TracksideFigmaAvailabilityScreen(
     val capacityFits=chosen>0 && total<=capacity &&
         placementError==null && !unsupportedOverlap &&
         !invalidPair && !insufficientPairCapacity
-    TracksideFigmaBuilderFrame(
+    TracksideBuilderFrame(
         eyebrow = "PLAN / AVAILABILITY",
         toolbarTitle = "Availability",
         headline="Make room to train",
@@ -249,7 +249,7 @@ internal fun TracksideFigmaAvailabilityScreen(
             shape=RoundedCornerShape(14.dp),color=Color.Transparent,
             border=BorderStroke(1.dp,Color(0xFF4F7487))) {
             Column(Modifier.fillMaxSize().background(daysBrush).padding(13.dp)) {
-                TracksideFigmaFormLabel("YOUR TRAINING DAYS")
+                TracksideFormLabel("YOUR TRAINING DAYS")
                 Spacer(Modifier.height(23.dp))
                 Row(verticalAlignment=Alignment.Bottom) {
                     Text(chosen.toString(),fontSize=39.sp,color=Color.White,
@@ -304,7 +304,7 @@ internal fun TracksideFigmaAvailabilityScreen(
             shape=RoundedCornerShape(14.dp),color=Color.Transparent,
             border=BorderStroke(1.dp,Color(0xFF3A6A76))) {
             Column(Modifier.fillMaxWidth().background(capacityBrush).padding(13.dp)) {
-                TracksideFigmaFormLabel("AUTOMATIC CAPACITY CHECK")
+                TracksideFormLabel("AUTOMATIC CAPACITY CHECK")
                 Spacer(Modifier.height(17.dp))
                 Row(verticalAlignment=Alignment.CenterVertically) {
                     Text(total.toString(),fontSize=27.sp,color=Color.White,
@@ -359,7 +359,7 @@ internal fun TracksideFigmaAvailabilityScreen(
             }
         }
         Spacer(Modifier.height(18.dp))
-        TracksideFigmaOtherDisciplineSlots(
+        TracksideOtherDisciplineSlots(
             request=request,
             selectedDiscipline=selectedOtherDiscipline,
             selectedSlot=selectedOtherSlot,
@@ -375,7 +375,7 @@ internal fun TracksideFigmaAvailabilityScreen(
             shape=RoundedCornerShape(14.dp),color=Color.Transparent,
             border=BorderStroke(1.dp,Color(0xFF3E6474))) {
             Column(Modifier.fillMaxWidth().background(coachingBrush).padding(13.dp)) {
-                TracksideFigmaFormLabel("NEXT: COACHING CHECKS")
+                TracksideFormLabel("NEXT: COACHING CHECKS")
                 Spacer(Modifier.height(23.dp))
                 Text("◷  Recovery balance",fontSize=11.sp,color=Color.White)
                 Spacer(Modifier.height(19.dp))
@@ -416,7 +416,7 @@ internal fun TracksideFigmaAvailabilityScreen(
 }
 
 @Composable
-private fun TracksideFigmaFormLabel(s: String) {
+private fun TracksideFormLabel(s: String) {
     Text(s,fontSize=10.sp,fontWeight=FontWeight.Bold,
         color=Color(0xFFB6C0CA),letterSpacing=0.2f.sp)
 }
