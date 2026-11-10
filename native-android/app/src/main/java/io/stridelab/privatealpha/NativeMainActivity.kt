@@ -376,8 +376,6 @@ private fun NavHostController.openActivity(id: String) {
                     )
                 }
                 composable("builder/{discipline}") { builder -> PlanBuilder(state,actions.planning,builder.arguments?.getString("discipline") ?: "all",{nav.openTabRoot("training")},{nav.navigate("auth")},{p,s->nav.navigate("workout/${android.net.Uri.encode(p)}/${android.net.Uri.encode(s)}")}) }
-                composable("library") { LibraryScreen(state,actions.planning,{p,s->nav.openWorkout(p,s)},{key->nav.navigate("practice/$key")}) { entry -> if(entry.discipline=="run") {nav.openTabRoot("training");nav.navigate("builder/run")}else nav.navigate("practice/entry-${entry.id}") } }
-                composable("practice/{key}") { backStack -> PracticeBuilder(state,actions.planning,backStack.arguments?.getString("key") ?: "new",{nav.openTabRoot("library")},{p,s->nav.openWorkout(p,s)},{nav.openTabRoot("training")}) }
                 composable("move/{planId}/{sessionId}") { back ->
                     val planId = back.arguments?.getString("planId") ?: ""
                     val sessionId = back.arguments?.getString("sessionId") ?: ""
@@ -573,8 +571,7 @@ private fun NavHostController.openActivity(id: String) {
                             TracksideMoreScreen(
                                 state = state,
                                 onSignIn = { nav.navigate("auth") },
-                                onLibrary = { nav.openTabRoot("library") },
-                                onGarmin = { garminSheetOpen = true },
+                                        onGarmin = { garminSheetOpen = true },
                                 onOfflineMaps = { nav.navigate("more/offline-maps") },
                                 onPreferences = { nav.navigate("more/preferences") },
                                 onAbout = { nav.navigate("more/about") },
@@ -640,7 +637,6 @@ private fun NavHostController.openActivity(id: String) {
                     if (diagnosticTabs) TabDiagnosticPlaceholder("More") else TracksideMoreScreen(
                         state = state,
                         onSignIn = { nav.navigate("auth") },
-                        onLibrary = { nav.openTabRoot("library") },
                         onGarmin = { nav.navigate("auth") },
                         onOfflineMaps = { nav.navigate("more/offline-maps") },
                         onPreferences = { nav.navigate("more/preferences") },

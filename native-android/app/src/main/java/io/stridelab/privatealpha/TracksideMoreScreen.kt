@@ -59,7 +59,6 @@ internal enum class MorePage { Garmin, Preferences, About }
 internal fun TracksideMoreScreen(
     state: TrainingState,
     onSignIn: () -> Unit,
-    onLibrary: () -> Unit,
     onGarmin: () -> Unit,
     onOfflineMaps: () -> Unit,
     onPreferences: () -> Unit,
@@ -133,12 +132,6 @@ internal fun TracksideMoreScreen(
                         Text("Connected", color = moreLime, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     }
                 }
-            }
-        }
-        item(key = "more-training-title") { MoreSection("TRAINING") }
-        item(key = "more-training") {
-            MoreGroup {
-                MoreActionRow("Workout library", MoreSymbol.Dumbbell, "library", onLibrary)
             }
         }
         item(key = "more-connection-title") { MoreSection("CONNECTIONS") }

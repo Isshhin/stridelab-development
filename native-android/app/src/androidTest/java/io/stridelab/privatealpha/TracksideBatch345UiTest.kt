@@ -20,15 +20,6 @@ class TracksideBatch345UiTest {
         assertEquals(21, records.count { it.guide })
         assertTrue(records.any { it.discipline == "mob" })
         assertTrue(records.any { it.discipline == "cond" })
-        compose.runOnUiThread {
-            compose.activity.setContent {
-                StrideTheme { LibraryScreen(TrainingState(initializing = false)) }
-            }
-        }
-        compose.waitUntil(15_000L) {
-            runCatching { compose.onNodeWithTag("library-ready").assertExists(); true }.getOrDefault(false)
-        }
-        compose.onNodeWithText("45 exercises · 21 guides", substring = true).assertExists()
     }
 
     @Test fun savedHistoryDetailAndSettingsKeepExistingNavigation() {

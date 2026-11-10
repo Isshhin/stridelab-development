@@ -1,11 +1,13 @@
 package io.stridelab.privatealpha
 
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import org.junit.Rule
 import org.junit.Test
@@ -20,6 +22,9 @@ class TracksideTabTest {
         }
         compose.onNodeWithTag("nav-settings").performClick()
         compose.onNodeWithTag("screen-title").assertTextEquals("More")
+        // Library is deferred: no entry point or obsolete page on the live More screen.
+        compose.onNodeWithText("Workout library").assertDoesNotExist()
+        compose.onNodeWithTag("more-row-library").assertDoesNotExist()
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("more-row-about"))
         compose.onNodeWithTag("more-row-about").performClick()
         compose.onNodeWithTag("more-detail-title").assertTextEquals("About StrideLab")
