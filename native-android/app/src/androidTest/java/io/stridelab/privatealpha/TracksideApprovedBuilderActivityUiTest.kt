@@ -199,15 +199,26 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-start-date").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("available-day-6").assertIsEnabled()
+        // The wizard must preserve the intended 3 running + 2 strength + 2
+        // calisthenics sessions across its six default available weekdays.
+        compose.onNodeWithTag("builder-capacity-count").assertTextEquals("7")
+        compose.onNodeWithTag("builder-capacity-days").assertTextEquals("sessions across 6 days")
         compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
         compose.onNodeWithTag("builder-enable-multi-session").performClick()
+        compose.onNodeWithTag("builder-enable-multi-session").assert(
+            SemanticsMatcher.expectValue(
+                androidx.compose.ui.semantics.SemanticsProperties.StateDescription,
+                "Same-day sessions enabled"
+            )
+        )
         try {
             compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
         } catch (failure: AssertionError) {
             throw AssertionError(
                 "Multi-session availability did not enable Continue. " +
                     "Inspect the current capacity or placement warning below.\n" +
-                    compose.onNodeWithTag("builder-capacity-status").printToString(), failure
+                    compose.onNodeWithTag("builder-capacity-status").printToString() + "\n" +
+                    compose.onNodeWithTag("builder-enable-multi-session").printToString(), failure
             )
         }
         compose.onNodeWithText("Only compatible sessions can share a day",

@@ -328,10 +328,12 @@ internal fun TracksideAvailabilityScreen(
                 Spacer(Modifier.height(17.dp))
                 Row(verticalAlignment=Alignment.CenterVertically) {
                     Text(total.toString(),fontSize=27.sp,color=Color.White,
-                        fontWeight=FontWeight.Bold)
+                        fontWeight=FontWeight.Bold,
+                        modifier=Modifier.testTag("builder-capacity-count"))
                     Spacer(Modifier.width(14.dp))
                     Text("sessions across $chosen days",
-                        fontSize=11.sp,color=Color.White)
+                        fontSize=11.sp,color=Color.White,
+                        modifier=Modifier.testTag("builder-capacity-days"))
                 }
                 Spacer(Modifier.height(14.dp))
                 Text(when {
@@ -343,7 +345,10 @@ internal fun TracksideAvailabilityScreen(
                     insufficientPairCapacity -> "This request needs $requiredDoubleDays compatible double days, but these sessions allow at most $compatibleDoubleLimit easy-run pairs."
                     capacityFits && requiredDoubleDays>0 -> "Compatible double-day slots may fit; final recovery checks run on generation."
                     capacityFits -> "✓ Requested weekdays are recorded; recovery checks run on generation"
-                    else -> "Additional available day capacity is needed before continuing"
+                    chosen == 0 -> "Select at least one available training day."
+                    total > capacity -> "$total weekly sessions exceed $capacity available slots across $chosen days (" +
+                        (if (request.policyChoice == "multi-session") "same-day sessions enabled" else "one session per day") + ")."
+                    else -> "Capacity check is unresolved; review your weekly session assignments."
                 },
                     fontSize=11.sp,color=if(capacityFits)
                         PlanBuilderPalette.accent else Color(0xFFFF9DA7),
@@ -355,7 +360,11 @@ internal fun TracksideAvailabilityScreen(
                             onMultiSessionToggle(request.policyChoice!="multi-session")
                         },
                         modifier=Modifier.fillMaxWidth().height(49.dp)
-                            .testTag("builder-enable-multi-session"),
+                            .testTag("builder-enable-multi-session")
+                            .semantics {
+                                stateDescription = if(request.policyChoice=="multi-session")
+                                    "Same-day sessions enabled" else "Same-day sessions disabled"
+                            },
                         color=if(request.policyChoice=="multi-session")
                             Color(0xFF383838) else Color(0xFF303030),
                         shape=RoundedCornerShape(8.dp),
