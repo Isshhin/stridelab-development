@@ -146,7 +146,7 @@ private fun NavHostController.openTabRoot(path: String) {
     // tab is already visible. Repeated taps must not rebuild its destination
     // and interrupt the floating navigation pill's animation.
     if (currentDestination?.route == path) return
-    while(currentDestination?.route in setOf("activity/{id}", "auth", "auth/signup", "auth/reset", "more/garmin", "more/data", "more/preferences", "more/about", "builder/{discipline}", "workout/{planId}/{sessionId}", "practice/{key}", "manage/{planId}/{date}")) {
+    while(currentDestination?.route in setOf("activity/{id}", "auth", "auth/signup", "auth/reset", "more/garmin", "more/data", "more/offline-maps", "more/preferences", "more/about", "builder/{discipline}", "workout/{planId}/{sessionId}", "practice/{key}", "manage/{planId}/{date}")) {
         if(!popBackStack()) break
     }
     navigate(path) {
@@ -473,8 +473,12 @@ private fun NavHostController.openActivity(id: String) {
                 composable("more/garmin") {
                     LaunchedEffect(Unit) { nav.openTabRoot("settings") }
                 }
+                // Older installations can still restore the retired route safely.
                 composable("more/data") {
-                    TracksideMoreDetailDestination(MorePage.Data, nav, state, actions)
+                    LaunchedEffect(Unit) { nav.openTabRoot("settings") }
+                }
+                composable("more/offline-maps") {
+                    TracksideOfflineMapsScreen(onBack = { nav.popBackStack() })
                 }
                 composable("more/preferences") {
                     TracksideMoreDetailDestination(MorePage.Preferences, nav, state, actions)
@@ -571,7 +575,7 @@ private fun NavHostController.openActivity(id: String) {
                                 onSignIn = { nav.navigate("auth") },
                                 onLibrary = { nav.openTabRoot("library") },
                                 onGarmin = { garminSheetOpen = true },
-                                onData = { nav.navigate("more/data") },
+                                onOfflineMaps = { nav.navigate("more/offline-maps") },
                                 onPreferences = { nav.navigate("more/preferences") },
                                 onAbout = { nav.navigate("more/about") },
                                 onSignOut = { confirmSignOut = true }
@@ -638,7 +642,7 @@ private fun NavHostController.openActivity(id: String) {
                         onSignIn = { nav.navigate("auth") },
                         onLibrary = { nav.openTabRoot("library") },
                         onGarmin = { nav.navigate("auth") },
-                        onData = { nav.navigate("more/data") },
+                        onOfflineMaps = { nav.navigate("more/offline-maps") },
                         onPreferences = { nav.navigate("more/preferences") },
                         onAbout = { nav.navigate("more/about") },
                         onSignOut = {}
@@ -726,7 +730,6 @@ private fun TracksideMoreDetailDestination(
         state = state,
         onBack = { nav.popBackStack() },
         onSignIn = { nav.navigate("auth") },
-        onLegacyBackups = { context.startActivity(Intent(context, MainActivity::class.java)) },
         onSystemAppSettings = {
             context.startActivity(
                 Intent(
