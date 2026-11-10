@@ -204,7 +204,12 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-capacity-count").assertTextEquals("7")
         compose.onNodeWithTag("builder-capacity-days").assertTextEquals("sessions across 6 days")
         compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
-        compose.onNodeWithTag("builder-enable-multi-session").performClick()
+        // The policy control is below the capacity summary in a scrollable
+        // builder body. Clicking an off-screen node may miss the actual Surface.
+        compose.onNodeWithTag("builder-enable-multi-session")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .performClick()
         compose.onNodeWithTag("builder-enable-multi-session").assert(
             SemanticsMatcher.expectValue(
                 androidx.compose.ui.semantics.SemanticsProperties.StateDescription,
