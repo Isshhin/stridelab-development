@@ -112,11 +112,14 @@ internal fun TracksidePrimaryActivityMetrics(activity: ActivityRecord) {
             recordedHr.roundToInt().toString(), "bpm", ActivityMetricGlyph.Heart))
     }
     BoxWithConstraints(Modifier.fillMaxWidth().testTag("activity-primary-metrics")) {
-        // Three centered metrics at normal phone widths. Only the compact
-        // preview layout changes: the recorded duration remains in Overview.
-        // On narrow devices or with large text, preserve readable values by
-        // giving each metric its own full-width row rather than truncating.
-        val stacked = maxWidth < 280.dp || LocalDensity.current.fontScale > 1.35f
+        // Keep the map-dominant collapsed sheet compact on regular phones.
+        // A larger system font alone must not turn three metrics into a tall
+        // three-row sheet when the viewport can fit the compact metrics.
+        // Narrow devices and very large accessibility text may still stack.
+        val fontScale = LocalDensity.current.fontScale
+        val stacked = maxWidth < 300.dp ||
+            (fontScale > 1.8f && maxWidth < 420.dp)
+        val compactMetrics = fontScale > 1.35f
         if (stacked) {
             Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 metrics.forEachIndexed { index, item ->
@@ -130,7 +133,7 @@ internal fun TracksidePrimaryActivityMetrics(activity: ActivityRecord) {
                 }
             }
         } else {
-            CenteredActivityMetricSections(metrics, compact = false)
+            CenteredActivityMetricSections(metrics, compact = compactMetrics)
         }
     }
 }
