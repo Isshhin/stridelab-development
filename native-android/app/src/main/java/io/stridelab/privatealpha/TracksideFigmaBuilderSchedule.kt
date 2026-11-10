@@ -66,7 +66,6 @@ internal fun TracksideFigmaPlanDetailsScreen(
     val context = LocalContext.current
     val panelBrush = Brush.horizontalGradient(listOf(Color(0xFF233541), Color(0xFF111E27)))
     var customWeeks by rememberSaveable { mutableStateOf(false) }
-    var timeExpanded by rememberSaveable { mutableStateOf(false) }
     var goalDateInfo by rememberSaveable { mutableStateOf(false) }
     val date = runCatching { LocalDate.parse(start) }.getOrDefault(LocalDate.now())
     TracksideFigmaBuilderFrame(
@@ -76,8 +75,6 @@ internal fun TracksideFigmaPlanDetailsScreen(
         onBack = onBack,
         onContinue = onContinue,
         continueEnabled = weeks.toIntOrNull() in 1..16 &&
-            minutes.toIntOrNull() in 15..120 &&
-            (!multiSession || dailyBudget.toIntOrNull() in 15..240) &&
             !date.isBefore(LocalDate.now())
     ) {
         Surface(
@@ -170,51 +167,7 @@ internal fun TracksideFigmaPlanDetailsScreen(
                 }
             }
         }
-        Spacer(Modifier.height(18.dp))
-        Surface(
-            modifier=Modifier.fillMaxWidth().heightIn(min=99.dp)
-                .testTag("builder-time-limit"),
-            onClick={timeExpanded=!timeExpanded},
-            color=Color.Transparent,shape=RoundedCornerShape(14.dp),
-            border=BorderStroke(1.dp,Color(0xFF496878))
-        ) {
-            Column(Modifier.fillMaxWidth().background(panelBrush)
-                .padding(horizontal=12.dp, vertical=20.dp)) {
-                Row(verticalAlignment=Alignment.CenterVertically) {
-                    PlanDatesIconTile(R.drawable.trackside_plan_dates_clock, "builder-time-clock-vector")
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("Time limits",color=Color.White,fontSize=13.sp,
-                            fontWeight=FontWeight.SemiBold)
-                        Spacer(Modifier.height(5.dp))
-                        Text("Optional · Only if your time is limited",
-                            fontSize=10.sp,color=Color(0xFFB6C0CA))
-                    }
-                    Text("›",fontSize=21.sp,color=Color.White)
-                }
-            }
-        }
-        if(timeExpanded || multiSession) {
-            Spacer(Modifier.height(10.dp))
-            OutlinedTextField(
-                value=minutes,onValueChange={onMinutes(it.filter(Char::isDigit).take(3))},
-                label={Text("Minutes available per session (15–120)")},
-                modifier=Modifier.fillMaxWidth(),singleLine=true
-            )
-        }
-        if(multiSession) {
-            Spacer(Modifier.height(10.dp))
-            OutlinedTextField(
-                value=dailyBudget,
-                onValueChange={onDailyBudget(it.filter(Char::isDigit).take(3))},
-                label={Text("Combined minutes per day (15–240)")},
-                modifier=Modifier.fillMaxWidth()
-                    .testTag("builder-combined-daily-minutes"),singleLine=true
-            )
-            Spacer(Modifier.height(6.dp))
-            Text("Compatible two-a-day sessions share this daily time budget.",
-                fontSize=10.sp,color=Color(0xFFB6C0CA))
-        }
+
     }
     if(goalDateInfo) AlertDialog(
         onDismissRequest={goalDateInfo=false},
@@ -281,11 +234,9 @@ internal fun TracksideFigmaAvailabilityScreen(
         }
     }
     val placementError=WeeklyPlacement.validationError(request)
-    val invalidBudget=request.policyChoice=="multi-session" &&
-        dailyBudget.toIntOrNull() !in 15..240
     val capacityFits=chosen>0 && total<=capacity &&
         placementError==null && !unsupportedOverlap &&
-        !invalidPair && !invalidBudget && !insufficientPairCapacity
+        !invalidPair && !insufficientPairCapacity
     TracksideFigmaBuilderFrame(
         eyebrow = "PLAN / AVAILABILITY",
         toolbarTitle = "Availability",
@@ -369,7 +320,6 @@ internal fun TracksideFigmaAvailabilityScreen(
                     invalidPair -> if(upperStrengthSlots>0)
                         "This engine allows only easy running with calisthenics or upper-body strength on the same day."
                         else "This engine allows only easy running with calisthenics on the same day."
-                    invalidBudget -> "Enter a combined daily time budget between 15 and 240 minutes."
                     insufficientPairCapacity -> "This request needs $requiredDoubleDays compatible double days, but these sessions allow at most $compatibleDoubleLimit easy-run pairs."
                     capacityFits && requiredDoubleDays>0 -> "Compatible double-day slots may fit; final recovery checks run on generation."
                     capacityFits -> "✓ Requested weekdays are recorded; recovery checks run on generation"
@@ -405,17 +355,6 @@ internal fun TracksideFigmaAvailabilityScreen(
                     Text("Only compatible sessions can share a day; a successful slot count does not guarantee placement.",
                         fontSize=10.sp,lineHeight=13.sp,
                         color=Color(0xFFB6C0CA))
-                    if(request.policyChoice=="multi-session") {
-                        Spacer(Modifier.height(11.dp))
-                        OutlinedTextField(
-                            value=dailyBudget,
-                            onValueChange={onDailyBudget(it.filter(Char::isDigit).take(3))},
-                            label={Text("Combined minutes per training day (15–240)")},
-                            modifier=Modifier.fillMaxWidth()
-                                .testTag("builder-availability-daily-budget"),
-                            singleLine=true
-                        )
-                    }
                 }
             }
         }
