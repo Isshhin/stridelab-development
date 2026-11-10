@@ -16,11 +16,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -62,6 +68,7 @@ internal fun TodayDisciplineTabs(
     reduceMotion: Boolean,
     onSelect: (String) -> Unit
 ) {
+    val haptics = LocalHapticFeedback.current
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
             .testTag("today-discipline-pages"),
@@ -77,17 +84,34 @@ internal fun TodayDisciplineTabs(
                 animationSpec = tween(if (reduceMotion) 0 else 210),
                 label = "today-page-pill-$key"
             )
+            val pillScale by animateFloatAsState(
+                if (active) 1f else .97f,
+                animationSpec = if (reduceMotion) snap() else spring(
+                    dampingRatio = TracksideLiquidMotion.DAMPING,
+                    stiffness = TracksideLiquidMotion.STIFFNESS
+                ),
+                label = "today-page-spring-$key"
+            )
             val ink by animateColorAsState(
                 if (active) DisciplineLook.black else DisciplineLook.ink,
                 animationSpec = tween(if (reduceMotion) 0 else 210),
                 label = "today-page-label-$key"
             )
             Surface(
-                onClick = { onSelect(key) },
+                onClick = {
+                    if (key != selectedKey) {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onSelect(key)
+                    }
+                },
                 color = background,
                 shape = RoundedCornerShape(22.dp),
                 border = BorderStroke(1.dp, if (active) tone else DisciplineLook.border),
                 modifier = Modifier.height(38.dp)
+                    .graphicsLayer {
+                        scaleX = pillScale
+                        scaleY = pillScale
+                    }
                     .testTag("today-page-$key")
                     .semantics { selected = active }
             ) {
@@ -326,6 +350,8 @@ private fun DisciplineWeekBars(
     tint: Color,
     reduceMotion: Boolean
 ) {
+    var entered by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { entered = true }
     val maximum = (data.maxOrNull() ?: 0.0).coerceAtLeast(1.0)
     val labels = listOf("M", "T", "W", "T", "F", "S", "S")
     Row(
@@ -342,7 +368,7 @@ private fun DisciplineWeekBars(
                 else -> .025f
             }
             val height by animateFloatAsState(
-                fraction,
+                if (entered) fraction else 0f,
                 animationSpec = if (reduceMotion) snap() else spring(
                     dampingRatio = TracksideLiquidMotion.DAMPING,
                     stiffness = TracksideLiquidMotion.STIFFNESS
@@ -377,9 +403,11 @@ private fun DisciplineTrendLine(
     tint: Color,
     reduceMotion: Boolean
 ) {
+    var entered by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { entered = true }
     val peak = values.filterNotNull().maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
     val reveal by animateFloatAsState(
-        targetValue = 1f,
+        targetValue = if (entered) 1f else 0f,
         animationSpec = if (reduceMotion) snap() else tween(440),
         label = "today-trend-reveal"
     )
