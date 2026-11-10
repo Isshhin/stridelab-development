@@ -49,7 +49,7 @@ internal object MultiSessionEngine1 : PlanGenerationEngine {
         val explanations = listOf(
             "Engine 1.0 multi-session scheduling policy $policyId. The original verified Engine 1.0 generator and fallback policy are unchanged.",
             "Weekly session counts are independent of the number of available and actually scheduled training days. Compatible easy running and calisthenics may share a day.",
-            "Daily planned time is capped at ${p.dailyMinutes} minutes. Same-day and adjacent-day combinations are checked conservatively; impossible schedules are rejected rather than silently dropping sessions.",
+            if(p.timeBudgetEnabled) "Daily planned time is capped at ${p.dailyMinutes} minutes. Same-day and adjacent-day combinations are checked conservatively; impossible schedules are rejected rather than silently dropping sessions." else "Compatible same-day and adjacent-day combinations are checked for recovery conflicts; no user time budget is applied.",
             "Prescriptions remain saved snapshots. Approval, actual workout logs, and offline persistence retain the existing Engine 1.0 contract."
         )
         return PlanSnapshot(
@@ -74,7 +74,7 @@ internal object MultiSessionEngine1 : PlanGenerationEngine {
         if (listOf(request.runDays, request.strengthDays, request.calDays, request.conditioningDays)
                 .any { it > request.days.size }
         ) throw PlanConstraint("A discipline cannot schedule more than one session on the same day. Add available days or reduce that discipline's weekly count.")
-        if (request.dailyMinutes !in 15..240) throw PlanConstraint("Set a daily training time budget from 15 to 240 minutes.")
+        if (request.timeBudgetEnabled && request.dailyMinutes !in 15..240) throw PlanConstraint("Set a daily training time budget from 15 to 240 minutes.")
 
         val active = listOf(
             "run" to request.runDays,
@@ -133,7 +133,7 @@ internal object MultiSessionEngine1 : PlanGenerationEngine {
             for (date in eligible) {
                 val candidate = session.copy(date = date)
                 val sameDay = (prior + placed).filter { it.date == date }
-                if (sameDay.sumOf { it.effectiveMinutes } + candidate.effectiveMinutes > request.dailyMinutes) continue
+                if (request.timeBudgetEnabled && sameDay.sumOf { it.effectiveMinutes } + candidate.effectiveMinutes > request.dailyMinutes) continue
                 if ((prior + placed).any { MultiSessionScheduling.conflict(candidate, it) }) continue
                 placed += candidate
                 if (solve(index + 1)) return true
@@ -143,8 +143,8 @@ internal object MultiSessionEngine1 : PlanGenerationEngine {
         }
         if (!solve(0)) throw PlanConstraint(
             if(request.weeklySlots.isEmpty())
-                "These sessions cannot fit the available days, ${request.dailyMinutes}-minute daily budget and recovery constraints. Add days, reduce sessions or change long-run/quality preferences."
-            else "Selected weekdays cannot fit the available days, ${request.dailyMinutes}-minute budget and recovery constraints. Change placements or switch to automatic scheduling."
+                "These sessions cannot fit the available days and recovery constraints. Add days, reduce sessions or change long-run/quality preferences."
+            else "Selected weekdays cannot fit the recovery and availability constraints. Change placements or switch to automatic scheduling."
         )
         return placed
     }
