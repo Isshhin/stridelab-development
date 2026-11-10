@@ -151,10 +151,14 @@ class TracksideResponsiveQaTest {
                 useUnmergedTree=true)
             icon.assertExists()
             val bounds=card.getUnclippedBoundsInRoot()
+            // At larger accessibility fonts the card must be allowed to grow,
+            // while retaining the original compact-height contract at 1.0x.
+            val scale = compose.activity.resources.configuration.fontScale
+            val maxHeight = if (scale <= 1.01f) 90f else 90f * scale
             assertTrue("Discipline card too tall: "+discipline,
-                (bounds.bottom-bounds.top).value <= 90f)
+                (bounds.bottom-bounds.top).value <= maxHeight)
         }
-        compose.onNodeWithText("2 of 4").assertExists()
+        compose.onNodeWithText("2 selected").assertExists()
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
         screenshot("builder-disciplines-figma-reference")
         // At 360dp and enlarged fonts the fourth card is initially below the
@@ -751,24 +755,22 @@ class TracksideResponsiveQaTest {
         assertTrue("Plan Dates helper clips the date row at this font scale",
             dateHelper.bottom <= dateCard.bottom - 4.dp)
         compose.onNodeWithTag("builder-weeks-8").assertExists()
-        compose.onNodeWithTag("builder-time-limit").assertExists()
-        compose.onNodeWithTag("builder-time-clock-vector", useUnmergedTree=true).assertExists()
+        // The approved setup no longer imposes a per-session minutes limit.
+        compose.onNodeWithTag("builder-time-limit").assertDoesNotExist()
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
         screenshot("builder-plan-dates-figma-reference")
 
-        // Validate a real selectable weeks control and an expandable optional
-        // time budget through visible Compose UI, not direct state changes.
+        // Validate the selectable plan length and ensure the removed
+        // session-minute restriction does not reappear.
         compose.onNodeWithTag("builder-weeks-12").performScrollTo()
         compose.onNodeWithTag("builder-weeks-12").performClick()
         compose.runOnIdle {
             assertTrue("Plan length choice not reflected in builder state",
                 weeks.value=="12")
         }
-        compose.onNodeWithTag("builder-time-limit").performScrollTo()
-        compose.onNodeWithTag("builder-time-limit").assertIsDisplayed()
-        screenshot("builder-plan-dates-time-limit-reachable")
-        compose.onNodeWithTag("builder-time-limit").performClick()
-        compose.onNodeWithText("Minutes available per session (15–120)").assertExists()
+        compose.onNodeWithTag("builder-time-limit").assertDoesNotExist()
+        compose.onNodeWithText("Minutes available per session (15–120)")
+            .assertDoesNotExist()
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
     }
 
@@ -818,7 +820,13 @@ class TracksideResponsiveQaTest {
         }
         compose.onNodeWithText("9").assertExists()
         compose.onNodeWithText("sessions across 6 days").assertExists()
-        compose.onNodeWithText("/ 7 DAYS").assertExists()
+        // The new capacity summary gives actual selected days; retain the
+        // seven selectable weekday controls instead of a decorative ratio.
+        compose.onNodeWithTag("builder-capacity-days")
+            .assertTextEquals("sessions across 6 days")
+        (1..7).forEach { day ->
+            compose.onNodeWithTag("available-day-$day").assertExists()
+        }
         compose.onNodeWithTag("available-day-6").assertExists()
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
         screenshot("builder-availability-nine-session-matched")
@@ -1026,7 +1034,7 @@ class TracksideResponsiveQaTest {
         // manufacture the engine's eventual weekday prescriptions.
         compose.onNodeWithText("9").assertExists()
         compose.onNodeWithText("AVAILABLE DAYS").assertExists()
-        compose.onNodeWithText("Generate my plan").assertExists()
+        compose.onNodeWithText("Generate My Plan").assertExists()
         compose.onNodeWithText("MAX 2 / DAY").assertExists()
         compose.onNodeWithText(
             "Chosen weekdays are requests", substring = true
@@ -1042,7 +1050,7 @@ class TracksideResponsiveQaTest {
         // After the actual Engine 1 draft exists, every displayed prescription
         // comes from the saved draft and approval remains a separate action.
         compose.onNodeWithText("ACTIVE DAYS").assertExists()
-        compose.onNodeWithText("Approve plan").assertExists()
+        compose.onNodeWithText("Finalize Plan").assertExists()
         compose.onNodeWithText("MAX 2 / DAY").assertExists()
         compose.onNodeWithText("5 Running").assertExists()
         compose.onNodeWithText("4 Cali").assertExists()
@@ -1107,6 +1115,10 @@ class TracksideResponsiveQaTest {
         }
 
         compose.onNodeWithTag("nav-training").assertIsDisplayed().performClick()
+        // The unified timeline is the current Training landing screen;
+        // draft approval and legacy Agenda remain accessible via Plan tools.
+        compose.onNodeWithTag("training-unified-timeline").assertExists()
+        compose.onNodeWithTag("training-plan-tools").assertIsDisplayed().performClick()
         compose.onNodeWithTag("training-view-agenda")
             .assertIsDisplayed().performClick()
         compose.waitForIdle()
@@ -1259,6 +1271,8 @@ class TracksideResponsiveQaTest {
             }
         }
         compose.onNodeWithTag("nav-training").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("training-unified-timeline").assertExists()
+        compose.onNodeWithTag("training-plan-tools").assertIsDisplayed().performClick()
         compose.onNodeWithTag("screen-title").assertTextEquals("Training")
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("training-manage-plan"))
         compose.onNodeWithTag("nav-settings").assertIsDisplayed()
