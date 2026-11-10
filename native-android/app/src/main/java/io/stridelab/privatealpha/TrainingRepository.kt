@@ -76,6 +76,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             }
         }
         val orderedRecords=records.sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id })
+        // Summaries are independent of GPS streams, plans and secondary caches.
+        // Publish them first so a secondary read failure cannot erase history
+        // from the visible state. This never mutates any persisted record.
+        mutable.value=mutable.value.copy(activities=orderedRecords)
         val allowedIds=records.mapTo(HashSet<String>()) { it.id }
         val details = mutable.value.details.filterKeys { it in allowedIds }.toMutableMap()
         // The full recording cache can exceed tens of MB. Query IDs only:
