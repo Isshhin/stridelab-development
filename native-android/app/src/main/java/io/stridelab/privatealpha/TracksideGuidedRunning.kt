@@ -82,7 +82,7 @@ internal fun TracksideGuidedRunning(
                     color = if (selected) PlanBuilderPalette.selected else bg,
                     border = BorderStroke(
                         1.dp,
-                        if(selected) Color(0xFFDBF351) else outline
+                        if(selected) PlanBuilderPalette.accent else outline
                     )
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -141,7 +141,7 @@ private fun TracksideEditableInfo(
         modifier = Modifier.fillMaxWidth().height(72.dp).testTag(tag),
         color = Color(0xFF242424),
         shape = RoundedCornerShape(13.dp),
-        border = BorderStroke(1.dp, Color(0xFFDBF351))
+        border = BorderStroke(1.dp, PlanBuilderPalette.accent)
     ) {
         Row(
             Modifier.padding(horizontal = 13.dp),

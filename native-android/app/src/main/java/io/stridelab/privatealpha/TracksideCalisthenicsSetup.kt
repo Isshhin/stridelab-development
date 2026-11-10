@@ -28,7 +28,7 @@ import java.time.DayOfWeek
  * WeeklyPlacement and persist in PlanRequest. Focus types are NOT currently
  * enforced by Engine 1; they remain visually distinguishable advisory choices.
  */
-private val caliViolet=Color(0xFFDBF351)
+private val caliViolet=PlanBuilderPalette.accent
 private val caliInk=Color(0xFFFFFFFF)
 private val caliSubtle=Color(0xFFC5C5C5)
 
@@ -76,7 +76,7 @@ internal fun TracksideCalisthenicsSetup(
                     color=if(isSelected)Color(0xFF383838) else Color(0xFF242424),
                     shape=RoundedCornerShape(9.dp),
                     border=BorderStroke(1.dp,
-                        if(isSelected)Color(0xFFDBF351) else Color(0xFF383838))
+                        if(isSelected)PlanBuilderPalette.accent else Color(0xFF383838))
                 ) {
                     Box(
                         Modifier.fillMaxWidth().padding(horizontal=5.dp,vertical=11.dp),
@@ -94,7 +94,7 @@ internal fun TracksideCalisthenicsSetup(
             modifier=Modifier.fillMaxWidth().testTag("builder-cali-weekly"),
             color=Color(0xFF303030),
             shape=RoundedCornerShape(15.dp),
-            border=BorderStroke(1.dp,Color(0xFFDBF351))
+            border=BorderStroke(1.dp,PlanBuilderPalette.accent)
         ) {
             Column(Modifier.padding(13.dp)) {
                 Text("WEEKLY SESSIONS",color=caliSubtle,fontSize=10.5f.sp,
@@ -114,7 +114,7 @@ internal fun TracksideCalisthenicsSetup(
                                 .testTag(if(d<0)"builder-cali-minus" else "builder-cali-plus"),
                             color=Color(0xFF303030),
                             shape=RoundedCornerShape(10.dp),
-                            border=BorderStroke(1.dp,Color(0xFFDBF351))
+                            border=BorderStroke(1.dp,PlanBuilderPalette.accent)
                         ) {
                             Box(contentAlignment=Alignment.Center) {
                                 Text(if(d<0)"−" else "+",color=caliInk,fontSize=22.sp)
@@ -161,7 +161,7 @@ internal fun TracksideCalisthenicsSetup(
                             border=BorderStroke(if(selected)2.dp else 1.dp,
                                 when {
                                     selected -> Color(0xFFFFFFFF)
-                                    index>=0 -> Color(0xFFDBF351)
+                                    index>=0 -> PlanBuilderPalette.accent
                                     else -> Color(0xFF383838)
                                 })
                         ) {
@@ -172,7 +172,7 @@ internal fun TracksideCalisthenicsSetup(
                                     2 -> "C"
                                     else -> "SK"
                                 } else if(day !in request.days)"−" else ""
-                                Text(marker,color=if(index>=0)Color(0xFFDBF351)
+                                Text(marker,color=if(index>=0)PlanBuilderPalette.accent
                                     else caliSubtle,
                                     fontSize=11.sp,fontWeight=FontWeight.Bold)
                             }
@@ -215,11 +215,11 @@ internal fun TracksideCalisthenicsSetup(
                             },
                             modifier=Modifier.weight(1f).height(52.dp)
                                 .testTag("builder-cali-session-type-"+label),
-                            color=if(chosen)Color(0xFFDBF351)
+                            color=if(chosen)PlanBuilderPalette.accent
                                 else Color(0xFF303030),
                             shape=RoundedCornerShape(10.dp),
                             border=BorderStroke(1.dp,
-                                if(chosen)Color(0xFFDBF351)
+                                if(chosen)PlanBuilderPalette.accent
                                 else Color(0xFF383838))
                         ) {
                             Box(contentAlignment=Alignment.Center) {
@@ -240,7 +240,7 @@ internal fun TracksideCalisthenicsSetup(
                             .testTag("builder-cali-pin"),
                         color=Color(0xFF303030),
                         shape=RoundedCornerShape(10.dp),
-                        border=BorderStroke(1.dp,Color(0xFFDBF351))
+                        border=BorderStroke(1.dp,PlanBuilderPalette.accent)
                     ) {
                         Box(contentAlignment=Alignment.Center) {
                             Text("⌖  Pin this day",color=caliInk,fontSize=12.7f.sp,
@@ -257,7 +257,7 @@ internal fun TracksideCalisthenicsSetup(
                         border=BorderStroke(1.dp,Color(0xFF1D240B))
                     ) {
                         Box(contentAlignment=Alignment.Center) {
-                            Text("Remove",color=Color(0xFFDBF351),
+                            Text("Remove",color=PlanBuilderPalette.accent,
                                 fontSize=11.5f.sp,fontWeight=FontWeight.Bold)
                         }
                     }
@@ -273,7 +273,7 @@ internal fun TracksideCalisthenicsSetup(
                 .testTag("builder-cali-starting-levels"),
             color=Color(0xFF242424),
             shape=RoundedCornerShape(15.dp),
-            border=BorderStroke(1.dp,Color(0xFFDBF351))
+            border=BorderStroke(1.dp,PlanBuilderPalette.accent)
         ) {
             Column(Modifier.padding(horizontal=11.dp,vertical=6.dp)) {
                 Text("STARTING LEVELS",color=caliSubtle,fontSize=10.sp,
@@ -301,7 +301,7 @@ internal fun TracksideCalisthenicsSetup(
                                     Text(key,color=caliInk,fontSize=9.5f.sp,
                                         modifier=Modifier.weight(1f))
                                     Text(when(value) {0->"Beginner";1->"Intermediate";else->"Advanced"},
-                                        color=Color(0xFFDBF351),fontSize=9.sp)
+                                        color=PlanBuilderPalette.accent,fontSize=9.sp)
                                 }
                             }
                         }

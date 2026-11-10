@@ -29,7 +29,7 @@ internal object PlanBuilderPalette {
     val surfaceRaised = Color(0xFF171717)
     val input = Color(0xFF0F0F0F)
     val selected = Color(0xFF1D240B)
-    val accent = Color(0xFFDBF351)
+    val accent = TracksidePalette.lime
     val accentOn = Color(0xFF0B0B0B)
     val border = Color(0xFF2B2B2B)
     val borderStrong = Color(0xFF525252)

@@ -34,8 +34,8 @@ import java.time.DayOfWeek
  */
 private val strengthInk=Color(0xFFFFFFFF)
 private val strengthSubtle=Color(0xFFC5C5C5)
-private val strengthAccent=Color(0xFFDBF351)
-private val strengthEdge=Color(0xFFDBF351)
+private val strengthAccent=PlanBuilderPalette.accent
+private val strengthEdge=PlanBuilderPalette.accent
 
 @Composable
 internal fun TracksideStrengthSetup(
@@ -93,7 +93,7 @@ internal fun TracksideStrengthSetup(
                     color=if(selected)PlanBuilderPalette.selected else PlanBuilderPalette.surface,
                     shape=RoundedCornerShape(9.dp),
                     border=BorderStroke(1.dp,
-                        if(selected)Color(0xFFDBF351) else Color(0xFF383838))
+                        if(selected)PlanBuilderPalette.accent else Color(0xFF383838))
                 ) {
                     Box(
                         Modifier.fillMaxWidth().padding(horizontal=5.dp,vertical=11.dp),
@@ -162,7 +162,7 @@ internal fun TracksideStrengthSetup(
                                     else "builder-strength-plus"),
                             color=Color(0xFF303030),
                             shape=RoundedCornerShape(10.dp),
-                            border=BorderStroke(1.dp,Color(0xFFDBF351))
+                            border=BorderStroke(1.dp,PlanBuilderPalette.accent)
                         ) {
                             Box(contentAlignment=Alignment.Center) {
                                 Text(if(delta<0)"−" else "+",color=strengthInk,fontSize=22.sp)
@@ -207,7 +207,7 @@ internal fun TracksideStrengthSetup(
                             border=BorderStroke(if(selected)2.dp else 1.dp,
                                 when {
                                     selected -> Color(0xFFFFFFFF)
-                                    slot>=0 -> Color(0xFFDBF351)
+                                    slot>=0 -> PlanBuilderPalette.accent
                                     else -> Color(0xFF383838)
                                 })
                         ) {
@@ -217,7 +217,7 @@ internal fun TracksideStrengthSetup(
                                     1 -> "LB"
                                     else -> (slot+1).toString()
                                 } else if(day !in request.days)"−" else ""
-                                Text(label,color=if(slot>=0)Color(0xFFDBF351)
+                                Text(label,color=if(slot>=0)PlanBuilderPalette.accent
                                     else strengthSubtle,
                                     fontSize=11.sp,fontWeight=FontWeight.Bold)
                             }
@@ -257,7 +257,7 @@ internal fun TracksideStrengthSetup(
                         color=if(i==selectedSlot)PlanBuilderPalette.selected else PlanBuilderPalette.surface,
                         shape=RoundedCornerShape(8.dp),
                         border=BorderStroke(1.dp,if(i==selectedSlot)
-                            Color(0xFFDBF351) else Color(0xFFDBF351))
+                            PlanBuilderPalette.accent else PlanBuilderPalette.accent)
                     ) {
                         Box(contentAlignment=Alignment.Center) {
                             Text((i+1).toString(),color=strengthInk,fontSize=13.sp)
@@ -277,7 +277,7 @@ internal fun TracksideStrengthSetup(
                 .testTag("builder-strength-split"),
             color=Color(0xFF303030),
             shape=RoundedCornerShape(15.dp),
-            border=BorderStroke(1.dp,Color(0xFFDBF351))
+            border=BorderStroke(1.dp,PlanBuilderPalette.accent)
         ) {
             Column(Modifier.padding(horizontal=12.dp,vertical=9.dp)) {
                 StrengthSectionLabel("TRAINING SPLIT")
@@ -288,12 +288,12 @@ internal fun TracksideStrengthSetup(
                             onClick={ advisory="The current coaching engine does not accept or enforce a chosen strength split. The generated draft shows the actual prescribed exercises." },
                             modifier=Modifier.weight(if(index==0)1.3f else 1f)
                                 .height(42.dp).testTag("builder-strength-split-"+index),
-                            color=if(index==0)Color(0xFFDBF351)
+                            color=if(index==0)PlanBuilderPalette.accent
                                 else Color(0xFF303030),
                             shape=RoundedCornerShape(8.dp),
                             border=BorderStroke(1.dp,
-                                if(index==0)Color(0xFFDBF351)
-                                else Color(0xFFDBF351))
+                                if(index==0)PlanBuilderPalette.accent
+                                else PlanBuilderPalette.accent)
                         ) {
                             Box(contentAlignment=Alignment.Center) {
                                 Text(label,color=if(index==0)strengthInk
@@ -328,7 +328,7 @@ private fun StrengthPreferenceRow(
         modifier=Modifier.fillMaxWidth().heightIn(min=59.dp).testTag(tag),
         color=Color(0xFF303030),
         shape=RoundedCornerShape(13.dp),
-        border=BorderStroke(1.dp,Color(0xFFDBF351))
+        border=BorderStroke(1.dp,PlanBuilderPalette.accent)
     ) {
         // Intrinsic height grows when Android font scaling requires it.
         // 3dp vertical padding retains Figma's 59dp preference-row baseline.
@@ -336,7 +336,7 @@ private fun StrengthPreferenceRow(
             verticalAlignment=Alignment.CenterVertically,
             horizontalArrangement=Arrangement.spacedBy(12.dp)) {
             Box(
-                Modifier.size(37.dp).background(Color(0xFFDBF351),
+                Modifier.size(37.dp).background(PlanBuilderPalette.accent,
                     RoundedCornerShape(10.dp)),
                 contentAlignment=Alignment.Center
             ) {
@@ -354,7 +354,7 @@ private fun StrengthPreferenceRow(
                 Text(subtitle,color=strengthSubtle,fontSize=10.8f.sp,
                     maxLines=1)
             }
-            Text("›",color=Color(0xFFDBF351),fontSize=23.sp)
+            Text("›",color=PlanBuilderPalette.accent,fontSize=23.sp)
         }
     }
 }
@@ -393,7 +393,7 @@ private fun TracksideStrengthEquipment(
                         color=if(active)PlanBuilderPalette.selected else PlanBuilderPalette.surface,
                         shape=RoundedCornerShape(13.dp),
                         border=BorderStroke(1.dp,if(active)strengthAccent
-                            else Color(0xFFDBF351))
+                            else PlanBuilderPalette.accent)
                     ) {
                         Column(Modifier.padding(13.dp)) {
                             Text(if(active)"✓" else "◦",color=strengthAccent,

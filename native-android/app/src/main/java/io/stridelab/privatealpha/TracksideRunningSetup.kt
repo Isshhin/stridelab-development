@@ -131,15 +131,15 @@ internal fun TracksideRunningSetup(
                         }
                         val cellBg=when(code) {
                             "L" -> Color(0xFFFFFFFF)
-                            "Q" -> Color(0xFFDBF351)
+                            "Q" -> PlanBuilderPalette.accent
                             "E" -> Color(0xFF1D240B)
                             "−" -> Color(0xFF242424)
                             else -> Color(0xFF171717)
                         }
                         val cellBorder=when(code) {
                             "L" -> Color.White
-                            "Q" -> Color(0xFFDBF351)
-                            "E" -> Color(0xFFDBF351)
+                            "Q" -> PlanBuilderPalette.accent
+                            "E" -> PlanBuilderPalette.accent
                             "−" -> Color(0xFF383838)
                             else -> Color(0xFF383838)
                         }
@@ -169,13 +169,13 @@ internal fun TracksideRunningSetup(
                                 Box(contentAlignment=Alignment.Center) {
                                     if(code.isNotBlank()) Text(code,
                                         color=if(code=="L") Color(0xFF242424)
-                                            else if(code=="−") Color(0xFFDBF351)
+                                            else if(code=="−") PlanBuilderPalette.accent
                                             else weekWhite,
                                         fontSize=15.sp,fontWeight=FontWeight.Bold)
                                     if(isPinned) Text("◆",
                                         modifier=Modifier.align(Alignment.TopEnd)
                                             .padding(end=3.dp,top=1.dp),
-                                        color=Color(0xFFDBF351),fontSize=8.sp)
+                                        color=PlanBuilderPalette.accent,fontSize=8.sp)
                                 }
                             }
                         }
@@ -206,7 +206,7 @@ internal fun TracksideRunningSetup(
                     Color(0xFF1D240B),weekWhite)
                 RunningWeekLegendRow("Q","Quality",
                     "Threshold, tempo or selected categories",
-                    Color(0xFFDBF351),weekWhite)
+                    PlanBuilderPalette.accent,weekWhite)
                 RunningWeekLegendRow("L","Long run",
                     "Endurance session on one preferred day",
                     Color(0xFFFFFFFF),Color(0xFF242424))
@@ -251,8 +251,8 @@ internal fun TracksideRunningSetup(
                             else Color(0xFF303030),
                         shape=RoundedCornerShape(10.dp),
                         border=BorderStroke(1.dp,
-                            if(custom==mode)Color(0xFFDBF351)
-                            else Color(0xFFDBF351))
+                            if(custom==mode)PlanBuilderPalette.accent
+                            else PlanBuilderPalette.accent)
                     ) { Box(contentAlignment=Alignment.Center) {
                         Text(label,fontSize=12.sp,color=weekWhite,
                             fontWeight=FontWeight.Bold)
@@ -277,7 +277,7 @@ internal fun TracksideRunningSetup(
                                 else Color(0xFF303030),
                             shape=RoundedCornerShape(10.dp),
                             border=BorderStroke(if(active)2.dp else 1.dp,
-                                if(active)Color(0xFFDBF351) else weekOutline)
+                                if(active)PlanBuilderPalette.accent else weekOutline)
                         ) {
                             Column(Modifier.padding(horizontal=11.dp,vertical=7.dp),
                                 verticalArrangement=Arrangement.spacedBy(4.dp)) {
@@ -312,7 +312,7 @@ internal fun TracksideRunningSetup(
                             color=if(active) PlanBuilderPalette.selected else PlanBuilderPalette.surface,
                             shape=RoundedCornerShape(9.dp),
                             border=BorderStroke(1.dp,
-                                if(active)Color(0xFFDBF351) else weekOutline)
+                                if(active)PlanBuilderPalette.accent else weekOutline)
                         ) { Box(contentAlignment=Alignment.Center) {
                             Text(DayOfWeek.of(day).name.take(3),fontSize=10.sp,
                                 color=weekWhite,fontWeight=FontWeight.Bold)
@@ -322,7 +322,7 @@ internal fun TracksideRunningSetup(
                 TextButton(onClick=onClearSlot,
                     modifier=Modifier.testTag("builder-run-clear-selected")) {
                     Text("Remove selected session's day",
-                        fontSize=12.sp,color=Color(0xFFDBF351))
+                        fontSize=12.sp,color=PlanBuilderPalette.accent)
                 }
                 Text("Quality sessions",fontSize=11.sp,color=weekMuted)
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -334,7 +334,7 @@ internal fun TracksideRunningSetup(
                             onClick={onQualityCount(q)},enabled=eligible,
                             modifier=Modifier.size(48.dp)
                                 .testTag("builder-run-quality-count-"+q),
-                            color=if(q==request.qualityCount)Color(0xFFDBF351)
+                            color=if(q==request.qualityCount)PlanBuilderPalette.accent
                                 else Color(0xFF383838),
                             shape=RoundedCornerShape(9.dp)
                         ) { Box(contentAlignment=Alignment.Center) {
@@ -358,7 +358,7 @@ internal fun TracksideRunningSetup(
                                 else Color(0xFF303030),
                             shape=RoundedCornerShape(8.dp),
                             border=BorderStroke(1.dp,
-                                if(choice==qualityPreference)Color(0xFFDBF351)
+                                if(choice==qualityPreference)PlanBuilderPalette.accent
                                 else weekOutline)
                         ) { Box(contentAlignment=Alignment.Center) {
                             Text(choice,fontSize=11.sp,color=weekWhite)

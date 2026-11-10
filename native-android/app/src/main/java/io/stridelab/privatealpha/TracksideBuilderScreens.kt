@@ -217,8 +217,8 @@ private fun TracksideOption(
             else if (selected) darkWine else slate,
         shape = RoundedCornerShape(if (runningGoal) 14.dp else 13.dp),
         border = BorderStroke(1.dp,
-            if (selected && runningGoal) Color(0xFFDBF351)
-            else if (selected) Color(0xFFDBF351) else outline)
+            if (selected && runningGoal) PlanBuilderPalette.accent
+            else if (selected) PlanBuilderPalette.accent else outline)
     ) {
         Row(
             Modifier.padding(
@@ -313,7 +313,7 @@ private fun TracksideRaceOption(
         color = if (selected) Color(0xFF1D240B) else Color(0xFF151515),
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp,
-            if (selected) Color(0xFFDBF351) else Color(0xFF2B2B2B))
+            if (selected) PlanBuilderPalette.accent else Color(0xFF2B2B2B))
     ) {
         Row(
             Modifier.padding(horizontal = 11.dp, vertical = 11.dp),
@@ -578,7 +578,7 @@ private fun TracksideAbilityRange(
                 // Draw only the 5dp track and 15dp circular thumb from Figma 551:865.
                 thumb={ _ ->
                     Box(Modifier.size(15.dp).background(
-                        Color(0xFFDBF351),RoundedCornerShape(50)))
+                        PlanBuilderPalette.accent,RoundedCornerShape(50)))
                 },
                 track={ _ ->
                     Box(Modifier.fillMaxWidth().height(5.dp)
@@ -586,7 +586,7 @@ private fun TracksideAbilityRange(
                         Box(Modifier.fillMaxWidth(
                             (value.toFloat()/maxValue).coerceIn(0f,1f))
                             .height(5.dp).background(
-                                Color(0xFFDBF351),RoundedCornerShape(3.dp)))
+                                PlanBuilderPalette.accent,RoundedCornerShape(3.dp)))
                     }
                 }
             )
@@ -632,7 +632,7 @@ internal fun TracksideRunningAbilityScreen(
                     onClick={onExperience(i)},
                     color=if(experience==i) darkWine else Color(0xFF171717),
                     border=BorderStroke(1.dp,
-                        if(experience==i) Color(0xFFDBF351) else outline),
+                        if(experience==i) PlanBuilderPalette.accent else outline),
                     shape=RoundedCornerShape(9.dp)
                 ) {
                     Box(contentAlignment=Alignment.Center) {

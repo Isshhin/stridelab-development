@@ -44,7 +44,7 @@ internal fun TracksideOtherDisciplineSlots(
     val manual=discipline in request.weeklySlots
     val current=selectedSlot.coerceIn(0,n-1)
     val textMuted=Color(0xFFC5C5C5)
-    val border=Color(0xFFDBF351)
+    val border=PlanBuilderPalette.accent
     Surface(
         modifier=Modifier.fillMaxWidth().testTag("builder-other-discipline-editor"),
         color=Color(0xFF303030),
@@ -71,7 +71,7 @@ internal fun TracksideOtherDisciplineSlots(
                             else Color(0xFF303030),
                         shape=RoundedCornerShape(9.dp),
                         border=BorderStroke(1.dp,
-                            if(name==discipline)Color(0xFFDBF351) else border)
+                            if(name==discipline)PlanBuilderPalette.accent else border)
                     ) {
                         Box(contentAlignment=Alignment.Center) {
                             Text(when(name) {
@@ -121,7 +121,7 @@ internal fun TracksideOtherDisciplineSlots(
                         color=if(activeSlot)PlanBuilderPalette.selected
                             else Color(0xFF303030),
                         border=BorderStroke(if(activeSlot)2.dp else 1.dp,
-                            if(activeSlot)Color(0xFFDBF351) else border)
+                            if(activeSlot)PlanBuilderPalette.accent else border)
                     ) {
                         Column(Modifier.padding(horizontal=8.dp,vertical=6.dp),
                             verticalArrangement=Arrangement.spacedBy(3.dp)) {
@@ -173,7 +173,7 @@ internal fun TracksideOtherDisciplineSlots(
                 else slots.count { it in 1..7 }.toString()+" of "+n+
                     " sessions assigned. Tapping an occupied day swaps two sessions.",
                 color=if(manual && slots.all { it in 1..7 })
-                    Color(0xFFDBF351) else textMuted,
+                    PlanBuilderPalette.accent else textMuted,
                 fontSize=11.sp,lineHeight=15.sp,
                 modifier=Modifier.testTag("builder-other-assignment-progress")
             )
@@ -186,7 +186,7 @@ internal fun TracksideOtherDisciplineSlots(
                 TextButton(onClick={onAuto(discipline)},
                     enabled=manual) {
                     Text("Coach places these sessions",
-                        fontSize=11.sp,color=Color(0xFFDBF351))
+                        fontSize=11.sp,color=PlanBuilderPalette.accent)
                 }
             }
             Text("Same-day combinations and recovery spacing must pass the selected coaching policy. Unsupported exercise splits are not promised.",

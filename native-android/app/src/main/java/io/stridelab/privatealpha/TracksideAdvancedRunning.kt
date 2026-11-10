@@ -38,10 +38,10 @@ internal fun TracksideAdvancedRunning(
     onBack: () -> Unit,
     onContinue: () -> Unit
 ) {
-    val crimson = Color(0xFFDBF351)
+    val crimson = PlanBuilderPalette.accent
     val panel = Color(0xFF303030)
     val inactive = Color(0xFF242424)
-    val border = Color(0xFFDBF351)
+    val border = PlanBuilderPalette.accent
     TracksideBuilderFrame(
         progressStep = 2,
         toolbarTitle = "Generate Training Plan",
@@ -91,7 +91,7 @@ internal fun TracksideAdvancedRunning(
                     valueRange = 0f..120f,
                     colors = SliderDefaults.colors(
                         thumbColor = crimson, activeTrackColor = crimson,
-                        inactiveTrackColor = Color(0xFFDBF351)
+                        inactiveTrackColor = PlanBuilderPalette.accent
                     )
                 )
                 Row(
@@ -126,7 +126,7 @@ internal fun TracksideAdvancedRunning(
                         color = if (chosen) Color(0xFF1D240B) else inactive,
                         shape = RoundedCornerShape(10.dp),
                         border = BorderStroke(
-                            1.dp, if (chosen) Color(0xFFDBF351) else border
+                            1.dp, if (chosen) PlanBuilderPalette.accent else border
                         )
                     ) {
                         Row(
@@ -136,8 +136,8 @@ internal fun TracksideAdvancedRunning(
                         ) {
                             Box(
                                 Modifier.size(7.dp).background(
-                                    if (chosen) Color(0xFFDBF351)
-                                    else Color(0xFFDBF351),
+                                    if (chosen) PlanBuilderPalette.accent
+                                    else PlanBuilderPalette.accent,
                                     RoundedCornerShape(5.dp)
                                 )
                             )
@@ -167,7 +167,7 @@ internal fun TracksideAdvancedRunning(
                     color = if (chosen) Color(0xFF1D240B) else inactive,
                     shape = RoundedCornerShape(10.dp),
                     border = BorderStroke(
-                        1.dp, if (chosen) Color(0xFFDBF351) else border
+                        1.dp, if (chosen) PlanBuilderPalette.accent else border
                     )
                 ) {
                     Box(contentAlignment = Alignment.Center) {

@@ -83,7 +83,7 @@ internal fun TracksidePlanDetailsScreen(
     ) {
         Surface(
             Modifier.fillMaxWidth(), shape=RoundedCornerShape(14.dp),
-            color=Color.Transparent, border=BorderStroke(1.dp,Color(0xFFDBF351))
+            color=Color.Transparent, border=BorderStroke(1.dp,PlanBuilderPalette.accent)
         ) {
             Column(Modifier.fillMaxWidth().background(panelBrush).padding(13.dp)) {
                 TracksideFormLabel("START DATE")
@@ -95,7 +95,7 @@ internal fun TracksidePlanDetailsScreen(
                     modifier=Modifier.fillMaxWidth().heightIn(min=68.dp)
                         .testTag("builder-start-date"),
                     color=Color(0xFF383838),shape=RoundedCornerShape(11.dp),
-                    border=BorderStroke(1.dp,Color(0xFFDBF351)),
+                    border=BorderStroke(1.dp,PlanBuilderPalette.accent),
                     onClick = {
                         DatePickerDialog(
                             context,
@@ -124,7 +124,7 @@ internal fun TracksidePlanDetailsScreen(
         Spacer(Modifier.height(17.dp))
         Surface(
             Modifier.fillMaxWidth(),color=Color.Transparent,
-            shape=RoundedCornerShape(14.dp),border=BorderStroke(1.dp,Color(0xFFDBF351))
+            shape=RoundedCornerShape(14.dp),border=BorderStroke(1.dp,PlanBuilderPalette.accent)
         ) {
             Column(Modifier.fillMaxWidth().background(panelBrush).padding(13.dp)) {
                 TracksideFormLabel("PLAN LENGTH")
@@ -143,10 +143,10 @@ internal fun TracksidePlanDetailsScreen(
                             },
                             modifier=Modifier.weight(1f).height(47.dp)
                                 .testTag("builder-weeks-$option"),
-                            color=if(active)Color(0xFFDBF351)else Color(0xFF303030),
+                            color=if(active)PlanBuilderPalette.accentelse Color(0xFF303030),
                             shape=RoundedCornerShape(10.dp),
                             border=BorderStroke(1.dp,
-                                if(active)Color(0xFFDBF351)else Color(0xFFDBF351))
+                                if(active)PlanBuilderPalette.accentelse PlanBuilderPalette.accent)
                         ) { Box(contentAlignment=Alignment.Center) {
                             Text(if(option=="Custom")option else "$option weeks",
                                 fontSize=10.sp,color=Color.White)
@@ -164,10 +164,10 @@ internal fun TracksidePlanDetailsScreen(
                 }
                 Spacer(Modifier.height(17.dp))
                 Box(Modifier.fillMaxWidth().height(1.dp)
-                    .background(Color(0xFFDBF351)))
+                    .background(PlanBuilderPalette.accent))
                 TextButton(onClick={goalDateInfo=true}) {
                     Text("Have a goal date? Use that instead  ›",
-                        fontSize=11.sp,color=Color(0xFFDBF351))
+                        fontSize=11.sp,color=PlanBuilderPalette.accent)
                 }
             }
         }
@@ -177,7 +177,7 @@ internal fun TracksidePlanDetailsScreen(
                 .testTag("builder-time-limit"),
             onClick={timeExpanded=!timeExpanded},
             color=Color.Transparent,shape=RoundedCornerShape(14.dp),
-            border=BorderStroke(1.dp,Color(0xFFDBF351))
+            border=BorderStroke(1.dp,PlanBuilderPalette.accent)
         ) {
             Column(Modifier.fillMaxWidth().background(panelBrush)
                 .padding(horizontal=12.dp, vertical=20.dp)) {
@@ -410,8 +410,8 @@ internal fun TracksideAvailabilityScreen(
                             Color(0xFF383838) else Color(0xFF303030),
                         shape=RoundedCornerShape(8.dp),
                         border=BorderStroke(1.dp,
-                            if(request.policyChoice=="multi-session")Color(0xFFDBF351)
-                            else Color(0xFFDBF351))
+                            if(request.policyChoice=="multi-session")PlanBuilderPalette.accent
+                            else PlanBuilderPalette.accent)
                     ) {
                         Row(Modifier.padding(horizontal=10.dp),
                             verticalAlignment=Alignment.CenterVertically) {

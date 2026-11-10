@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.sp
  */
 private val crossWhite = Color(0xFFFFFFFF)
 private val crossMuted = Color(0xFFC5C5C5)
-private val crossBlue = Color(0xFFDBF351)
+private val crossBlue = PlanBuilderPalette.accent
 
 private data class StrengthGoalChoice(val title: String, val detail: String,
     val policyGoal: String, val icon: Int)
@@ -81,11 +81,11 @@ internal fun TracksideStrengthGoalScreen(
                 color=Color.Transparent,
                 shape=RoundedCornerShape(16.dp),
                 border=BorderStroke(1.dp,
-                    if(chosen)Color(0xFFDBF351) else Color(0xFFDBF351))
+                    if(chosen)PlanBuilderPalette.accent else PlanBuilderPalette.accent)
             ) {
                 Row(
                     Modifier.fillMaxSize().background(Brush.horizontalGradient(
-                        if(chosen) listOf(Color(0xFFDBF351),Color(0xFF303030))
+                        if(chosen) listOf(PlanBuilderPalette.accent,Color(0xFF303030))
                         else listOf(Color(0xFF303030),Color(0xFF242424))
                     )).padding(11.dp),
                     verticalAlignment=Alignment.CenterVertically,
@@ -94,15 +94,15 @@ internal fun TracksideStrengthGoalScreen(
                     Surface(
                         modifier=Modifier.size(84.dp,79.dp),
                         shape=RoundedCornerShape(12.dp),
-                        color=if(chosen)Color(0xFFDBF351) else Color(0xFF242424),
+                        color=if(chosen)PlanBuilderPalette.accent else Color(0xFF242424),
                         border=BorderStroke(1.dp,
-                            if(chosen)Color(0xFFDBF351) else Color(0xFFDBF351))
+                            if(chosen)PlanBuilderPalette.accent else PlanBuilderPalette.accent)
                     ) {
                         Box(contentAlignment=Alignment.Center) {
                             Icon(
                                 painter=painterResource(choice.icon),
                                 contentDescription=null,
-                                tint=Color(0xFFDBF351),
+                                tint=PlanBuilderPalette.accent,
                                 modifier=Modifier.size(35.dp)
                             )
                         }
@@ -126,13 +126,13 @@ internal fun TracksideStrengthGoalScreen(
                 .testTag("builder-strength-muscle-emphasis"),
             color=Color(0xFF242424),
             shape=RoundedCornerShape(16.dp),
-            border=BorderStroke(1.dp,Color(0xFFDBF351))
+            border=BorderStroke(1.dp,PlanBuilderPalette.accent)
         ) {
             Row(Modifier.padding(horizontal=12.dp),
                 verticalAlignment=Alignment.CenterVertically,
                 horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                 Box(
-                    Modifier.size(40.dp).background(Color(0xFFDBF351),
+                    Modifier.size(40.dp).background(PlanBuilderPalette.accent,
                         RoundedCornerShape(12.dp)),
                     contentAlignment=Alignment.Center
                 ) { Text("◎",color=crossBlue,fontSize=25.sp) }
@@ -206,7 +206,7 @@ internal fun TracksideCrossTrainingGoalsScreen(
                         .testTag("builder-strength-edit-goal"),
                     color=Color(0xFF303030),
                     shape=RoundedCornerShape(13.dp),
-                    border=BorderStroke(1.dp,Color(0xFFDBF351))
+                    border=BorderStroke(1.dp,PlanBuilderPalette.accent)
                 ) {
                     Row(Modifier.padding(14.dp),
                         verticalAlignment=Alignment.CenterVertically) {
@@ -230,7 +230,7 @@ internal fun TracksideCrossTrainingGoalsScreen(
                         color=if(chosen)Color(0xFF383838) else Color(0xFF242424),
                         shape=RoundedCornerShape(11.dp),
                         border=BorderStroke(1.dp,
-                            if(chosen)accent else Color(0xFFDBF351))
+                            if(chosen)accent else PlanBuilderPalette.accent)
                     ) {
                         Row(Modifier.padding(horizontal=14.dp,vertical=13.dp),
                             verticalAlignment=Alignment.CenterVertically) {
@@ -247,7 +247,7 @@ internal fun TracksideCrossTrainingGoalsScreen(
                 modifier=Modifier.fillMaxWidth(),
                 color=Color(0xFF303030),
                 shape=RoundedCornerShape(13.dp),
-                border=BorderStroke(1.dp,Color(0xFFDBF351))
+                border=BorderStroke(1.dp,PlanBuilderPalette.accent)
             ) {
                 Row(Modifier.padding(horizontal=13.dp,vertical=10.dp),
                     verticalAlignment=Alignment.CenterVertically) {
@@ -266,7 +266,7 @@ internal fun TracksideCrossTrainingGoalsScreen(
                                 .testTag("builder-cross-count-" + discipline + "-" + delta),
                             color=Color(0xFF383838),
                             shape=RoundedCornerShape(10.dp),
-                            border=BorderStroke(1.dp,Color(0xFFDBF351))
+                            border=BorderStroke(1.dp,PlanBuilderPalette.accent)
                         ) {
                             Box(contentAlignment=Alignment.Center) {
                                 Text(if(delta<0)"−" else "+",
@@ -328,7 +328,7 @@ private fun TracksideCrossAbilityRow(
                 color=if (selected) PlanBuilderPalette.selected else Color(0xFF242424),
                 shape=RoundedCornerShape(9.dp),
                 border=BorderStroke(1.dp,
-                    if(selected)accent else Color(0xFFDBF351))
+                    if(selected)accent else PlanBuilderPalette.accent)
             ) {
                 Box(Modifier.padding(horizontal=3.dp,vertical=8.dp),
                     contentAlignment=Alignment.Center) {
