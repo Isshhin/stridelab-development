@@ -134,7 +134,7 @@ internal class StrideOfflineMapStore private constructor(private val app: Contex
                         override fun onStatus(status: OfflineRegionStatus?) {
                             if (status == null) return
                             val info = ownMetadata(region) ?: return
-                            val b = region.definition.bounds
+                            val b = region.definition.bounds ?: return
                             val total = status.requiredResourceCount
                             val progress = if (status.isComplete) 100 else if (total > 0L)
                                 (status.completedResourceCount * 100L / total).toInt().coerceIn(0,99)
