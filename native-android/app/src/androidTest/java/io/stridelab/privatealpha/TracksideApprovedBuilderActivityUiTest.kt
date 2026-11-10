@@ -49,7 +49,7 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("available-day-6").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
-        compose.onNodeWithText("Your training week").assertExists()
+        compose.onNodeWithText("Your training blueprint").assertExists()
         compose.onNodeWithText("Chosen weekdays are requests",
             substring=true).assertExists()
         compose.onNodeWithTag("builder-figma-continue").assertExists()
@@ -207,7 +207,7 @@ class TracksideApprovedBuilderActivityUiTest {
             throw AssertionError(
                 "Multi-session availability did not enable Continue. " +
                     "Inspect the current capacity or placement warning below.\n" +
-                    compose.onRoot().printToString(), failure
+                    compose.onNodeWithTag("builder-capacity-status").printToString(), failure
             )
         }
         compose.onNodeWithText("Only compatible sessions can share a day",
@@ -527,7 +527,12 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("activity-sheet-scroll").assertExists()
         compose.onNodeWithTag("activity-parity-overview").assertExists()
         compose.onNodeWithTag("activity-change-glass-variant").performClick()
-        compose.onNodeWithTag("activity-matte-overview").assertExists()
+        compose.onNodeWithTag("activity-sheet-scroll").assert(
+            SemanticsMatcher.expectValue(
+                androidx.compose.ui.semantics.SemanticsProperties.StateDescription,
+                "Activity summary, matte appearance"
+            )
+        )
     }
 
     @Test fun activitySheetDragSnapsAndKeepsMapAndTabState() {
@@ -566,7 +571,7 @@ class TracksideApprovedBuilderActivityUiTest {
         val expandedTop=compose.onNodeWithTag("activity-sheet-scroll")
             .getUnclippedBoundsInRoot().top
         compose.onNodeWithTag("activity-map-hero").assertExists()
-        compose.onNodeWithTag("activity-tab-charts").performScrollTo().performClick()
+        compose.onNodeWithTag("activity-tab-charts").performClick()
         compose.onNodeWithTag("activity-tab-charts").assertIsSelected()
         assertTrue(
             "Switching tabs reset the expanded sheet",

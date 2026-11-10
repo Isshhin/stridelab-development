@@ -90,6 +90,10 @@ class TracksideActivityScrollTest {
             .getUnclippedBoundsInRoot()
         val previewHeight = compose.onNodeWithTag("activity-parity-overview")
             .getUnclippedBoundsInRoot().let { it.bottom - it.top }
+        val titleHeight = compose.onNodeWithTag("activity-preview-title")
+            .getUnclippedBoundsInRoot().let { it.bottom - it.top }
+        val metricsHeight = compose.onNodeWithTag("activity-primary-metrics")
+            .getUnclippedBoundsInRoot().let { it.bottom - it.top }
         val handleBounds = compose.onNodeWithTag("activity-sheet-handle")
             .getUnclippedBoundsInRoot()
         assertTrue(
@@ -100,7 +104,8 @@ class TracksideActivityScrollTest {
             assertTrue(
                 "Collapsed sheet should keep most of the map visible: " +
                     "sheet top=${handleBounds.top}, viewport height=${rootBounds.bottom - rootBounds.top}, " +
-                    "peek preview height=$previewHeight",
+                    "peek preview height=$previewHeight, title=$titleHeight, metrics=$metricsHeight, " +
+                    "viewport width=${rootBounds.right - rootBounds.left}",
                 handleBounds.top > (rootBounds.bottom - rootBounds.top) * 0.58f
             )
         }

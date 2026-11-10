@@ -187,11 +187,11 @@ internal fun TracksideActivityDetailSurface(
                     Modifier.fillMaxWidth().height(sheetHeight)
                         .testTag("activity-sheet-scroll")
                         .semantics {
-                            stateDescription = when {
+                            stateDescription = (when {
                                 expanded -> "Expanded activity details"
                                 mapOnly -> "Map only"
                                 else -> "Activity summary"
-                            }
+                            }) + if (matte) ", matte appearance" else ", glass appearance"
                             if (expanded) {
                                 collapse {
                                     scope.launch { settleSheet(SheetValue.PartiallyExpanded) }

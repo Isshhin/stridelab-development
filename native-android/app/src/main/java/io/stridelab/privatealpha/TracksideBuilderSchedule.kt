@@ -346,7 +346,8 @@ internal fun TracksideAvailabilityScreen(
                     else -> "Additional available day capacity is needed before continuing"
                 },
                     fontSize=11.sp,color=if(capacityFits)
-                        PlanBuilderPalette.accent else Color(0xFFFF9DA7))
+                        PlanBuilderPalette.accent else Color(0xFFFF9DA7),
+                    modifier=Modifier.testTag("builder-capacity-status"))
                 if(total>chosen || overlap || request.policyChoice=="multi-session") {
                     Spacer(Modifier.height(12.dp))
                     Surface(
