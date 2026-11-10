@@ -165,6 +165,12 @@ import kotlinx.coroutines.withContext
                 onApprove = { actions.approve(plan.id,plan.revision) },
                 modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp)
             )
+            // The floating navigation pill is an overlay, not Scaffold's
+            // bottom bar. Reserve the same clearance used by Screen lists
+            // so the draft approval action remains fully above the pill.
+            if (LocalFloatingDockVisible.current) {
+                Spacer(Modifier.height(110.dp))
+            }
         }
     }
 }
