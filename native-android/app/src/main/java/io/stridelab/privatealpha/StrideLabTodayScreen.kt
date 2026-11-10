@@ -319,6 +319,13 @@ internal fun StrideLabTodayScreen(
     // into the calculation, incorrectly enabling page dragging. Preserve a
     // scrollable fallback on short screens and at accessibility font scales.
     val listState = rememberLazyListState()
+    // A fresh page begins with its selector and chart rather than inheriting
+    // the All-page scroll offset. Rendering still uses the retained root.
+    LaunchedEffect(selectedPage) {
+        if (listState.firstVisibleItemIndex != 0 ||
+            listState.firstVisibleItemScrollOffset != 0
+        ) listState.scrollToItem(0)
+    }
     val signedOutFitsScreen = state.account == null &&
         LocalConfiguration.current.screenHeightDp >= 730 &&
         androidx.compose.ui.platform.LocalDensity.current.fontScale <= 1.15f
