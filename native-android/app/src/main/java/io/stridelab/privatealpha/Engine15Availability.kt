@@ -91,7 +91,7 @@ internal object Engine15Availability {
                     val localDay=current.filter { it.date==date }
                     val externalDay=approvedOthers.filter { it.second.date==date }
                     if(localDay.size+externalDay.size>=maxOnDay)continue
-                    if(localDay.sumOf { it.effectiveMinutes }+
+                    if(request.timeBudgetEnabled && localDay.sumOf { it.effectiveMinutes }+
                         proposed.effectiveMinutes>request.dailyMinutes)continue
                     if(current.any {
                         PlanScheduleValidation.conflict(
@@ -102,9 +102,9 @@ internal object Engine15Availability {
                             proposed,sessionInOther,plan.policyId,other.policyId)
                     })continue
                     if(externalDay.isNotEmpty()) {
-                        val budget=minOf(request.dailyMinutes,
-                            externalDay.minOf { it.first.request.dailyMinutes })
-                        if(localDay.sumOf { it.effectiveMinutes }+
+                        val budget=(listOfNotNull(request.dailyMinutes.takeIf { request.timeBudgetEnabled }) +
+                            externalDay.mapNotNull { (other, _) -> other.request.dailyMinutes.takeIf { other.request.timeBudgetEnabled } }).minOrNull()
+                        if(budget != null && localDay.sumOf { it.effectiveMinutes }+
                             externalDay.sumOf { it.second.effectiveMinutes }+
                             proposed.effectiveMinutes>budget)continue
                     }
