@@ -92,7 +92,7 @@ internal fun TracksideGeographicMap(
     var styleReady by remember(route,online) { mutableStateOf(false) }
     var recenterRequest by remember(route) { mutableIntStateOf(0) }
     Box(modifier.background(Color(0xFF2D343A)).testTag("activity-geographic-map")) {
-        if(online && route.pointCount > 0) {
+        if(route.pointCount > 0) {
             MapLibreRouteView(
                 route = route,
                 modifier = Modifier.fillMaxSize(),
@@ -105,12 +105,12 @@ internal fun TracksideGeographicMap(
                 onSelectRange = onSelectRange
             ) { styleReady=true }
         }
-        if(!online || !styleReady) {
+        if(!styleReady) {
             RecordedGpsFallback(
                 route, Modifier.fillMaxSize(), selectedSeconds
             )
         }
-        if (online && route.pointCount > 0 && styleReady) {
+        if (route.pointCount > 0 && styleReady) {
             Box(
                 Modifier.align(Alignment.TopEnd)
                     .padding(top = 68.dp, end = 14.dp)
