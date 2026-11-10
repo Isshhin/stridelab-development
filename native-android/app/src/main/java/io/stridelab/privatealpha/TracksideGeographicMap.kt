@@ -91,7 +91,7 @@ internal fun TracksideGeographicMap(
 ) {
     var styleReady by remember(route,online) { mutableStateOf(false) }
     var recenterRequest by remember(route) { mutableIntStateOf(0) }
-    Box(modifier.background(Color(0xFF2D343A)).testTag("activity-geographic-map")) {
+    Box(modifier.background(Color(0xFF111A16)).testTag("activity-geographic-map")) {
         if(route.pointCount > 0) {
             MapLibreRouteView(
                 route = route,
@@ -171,7 +171,7 @@ private fun MapLibreRouteView(
         )
             .apply { onCreate(null) }
     }
-    val geoJson=remember(route) { route.toGeoJson() }
+    val geoJson=remember(route) { route.displayGeoJson() }
     val isolatedJson=remember(route) { route.isolatedGeoJson() }
     val startPointJson=remember(route) { route.startPointGeoJson() }
     val finishPointJson=remember(route) { route.finishPointGeoJson() }
@@ -275,7 +275,7 @@ private fun MapLibreRouteView(
             map.setStyle(Style.Builder().fromUri(TracksideMapTiles.STYLE_URL)) { style ->
                 // A lone FIT fix has no line geometry; it is still rendered
                 // below as a recorded dot instead of an empty line source.
-                if(route.segments.any { it.size >= 2 }) {
+                if(route.renderSegments.any { it.size >= 2 }) {
                     style.addSource(GeoJsonSource("stride-actual-gps",geoJson))
                 }
                 if(route.unknownGaps.isNotEmpty()) {
@@ -290,7 +290,7 @@ private fun MapLibreRouteView(
                         )
                     )
                 }
-                if(route.segments.any { it.size >= 2 }) {
+                if(route.renderSegments.any { it.size >= 2 }) {
                     val routeWidth = Expression.interpolate(
                         Expression.linear(), Expression.zoom(),
                         Expression.stop(10f, 3.2f),
@@ -573,7 +573,7 @@ private fun RecordedGpsFallback(
             drawLine(Color(0xFFA5B4AE).copy(alpha = .7f), position(a), position(b),
                 1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f,7f)))
         }
-        route.segments.forEach { segment ->
+        route.renderSegments.forEach { segment ->
             segment.zipWithNext().forEach { (a,b) ->
                 drawLine(Color(0xFFD8FB70),position(a),position(b),3.dp.toPx())
             }

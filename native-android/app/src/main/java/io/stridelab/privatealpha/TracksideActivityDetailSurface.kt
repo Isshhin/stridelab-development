@@ -15,6 +15,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -102,6 +103,14 @@ internal fun TracksideActivityDetailSurface(
         val scaffoldState = rememberBottomSheetScaffoldState(sheetState)
         val scope = rememberCoroutineScope()
         val expanded = sheetState.currentValue == SheetValue.Expanded
+        val heavyRecording = (recorded?.samples?.size ?: 0) > 4_000
+        var detailsEverRequested by remember(activity.id, heavyRecording) {
+            androidx.compose.runtime.mutableStateOf(!heavyRecording)
+        }
+        val detailsRequested = expanded || sheetState.targetValue == SheetValue.Expanded
+        LaunchedEffect(detailsRequested) {
+            if (detailsRequested) detailsEverRequested = true
+        }
         val mapOnly = sheetState.currentValue == SheetValue.Hidden &&
             sheetState.targetValue == SheetValue.Hidden
         // FIT sample sets can be large. Cache this once for both attribution
@@ -253,51 +262,50 @@ internal fun TracksideActivityDetailSurface(
                         ) {
                             TracksideActivityInitialPreview(activity)
                         }
-                        // Keep details precomposed while the compact summary is
-                        // visible. Previously this subtree was inserted midway
-                        // through a drag, which could cause a perceptible hitch.
-                        // While fully transparent it is translated below the
-                        // sheet so it cannot steal compact-summary gestures.
+                        // Keep normal details precomposed for a smooth drag;
+                        // defer expensive analysis for recordings over 4,000 samples.
                         val detailsSemanticsVisible = expanded ||
                             sheetState.targetValue == SheetValue.Expanded
-                        Column(
-                            Modifier.fillMaxSize()
-                                .graphicsLayer {
-                                    val details = detailsAlpha()
-                                    alpha = details
-                                    translationY = if (details <= .001f) {
-                                        with(density) { sheetHeight.toPx() }
-                                    } else 0f
-                                }
-                                .semantics {
-                                    if (!detailsSemanticsVisible) invisibleToUser()
-                                }
-                        ) {
-                            TracksideActivityExpandedHeader(activity, collapseOrBack, onShare = { shareOpen = true })
-                            TracksideActivityContinuousSections(
-                                activity = activity,
-                                recorded = recorded,
-                                detailSource = detailSource,
-                                matchedSourceIds = matchedSourceIds,
-                                history = history,
-                                state = state,
-                                actions = actions,
-                                online = online,
-                                selectedTab = selectedTab,
-                                onTab = onTab,
-                                onLoadGarminGps = onLoadGarminGps,
-                                selectedSeconds = selectedActivitySeconds,
-                                onSelectSeconds = {
-                                    selectedActivitySeconds = it
-                                    selectedSplitRange = null
-                                },
-                                onSelectRange = { range ->
-                                    selectedSplitRange = range
-                                    selectedActivitySeconds = range?.let {
-                                        (it.first + it.second) / 2.0
+                        if (detailsEverRequested || detailsRequested) {
+                            Column(
+                                Modifier.fillMaxSize()
+                                    .graphicsLayer {
+                                        val details = detailsAlpha()
+                                        alpha = details
+                                        translationY = if (details <= .001f) {
+                                            with(density) { sheetHeight.toPx() }
+                                        } else 0f
                                     }
-                                }
-                            )
+                                    .semantics {
+                                        if (!detailsSemanticsVisible) invisibleToUser()
+                                    }
+                            ) {
+                                TracksideActivityExpandedHeader(activity, collapseOrBack, onShare = { shareOpen = true })
+                                TracksideActivityContinuousSections(
+                                    activity = activity,
+                                    recorded = recorded,
+                                    detailSource = detailSource,
+                                    matchedSourceIds = matchedSourceIds,
+                                    history = history,
+                                    state = state,
+                                    actions = actions,
+                                    online = online,
+                                    selectedTab = selectedTab,
+                                    onTab = onTab,
+                                    onLoadGarminGps = onLoadGarminGps,
+                                    selectedSeconds = selectedActivitySeconds,
+                                    onSelectSeconds = {
+                                        selectedActivitySeconds = it
+                                        selectedSplitRange = null
+                                    },
+                                    onSelectRange = { range ->
+                                        selectedSplitRange = range
+                                        selectedActivitySeconds = range?.let {
+                                            (it.first + it.second) / 2.0
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
                 }

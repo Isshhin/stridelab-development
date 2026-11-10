@@ -6,6 +6,7 @@ import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.roundToInt
 
 /** Only recorded GPS samples; no inferred locations or gap interpolation. */
 internal data class RecordedGpsPoint(
@@ -50,6 +51,40 @@ internal data class RecordedGpsRoute(
 
     /** Backward-compatible union for tests/legacy callers. */
     val gaps:List<Pair<RecordedGpsPoint,RecordedGpsPoint>> get()=segmentGaps
+
+    /**
+     * Map-only line groups: connect segment boundaries identified as timer
+     * pauses, but keep unexplained gaps and dateline cuts separate.
+     */
+    val displaySegments:List<List<RecordedGpsPoint>> get() {
+        val output=ArrayList<MutableList<RecordedGpsPoint>>()
+        segments.forEach { segment ->
+            val previous=output.lastOrNull()
+            val start=previous?.lastOrNull()
+            val end=segment.firstOrNull()
+            if(start != null && end != null &&
+                abs(start.longitude-end.longitude)<180.0 &&
+                crossesPause(start.elapsedSeconds,end.elapsedSeconds)) {
+                previous.addAll(segment)
+            } else {
+                output.add(segment.toMutableList())
+            }
+        }
+        return output.map { it.toList() }
+    }
+
+    /** Map rendering is bounded; recorded samples and analysis stay full resolution. */
+    val renderSegments:List<List<RecordedGpsPoint>> by lazy {
+        displaySegments.map { points ->
+            if(points.size <= MAX_RENDER_POINTS_PER_SEGMENT) points
+            else {
+                val scale=points.lastIndex.toDouble()/(MAX_RENDER_POINTS_PER_SEGMENT-1)
+                (0 until MAX_RENDER_POINTS_PER_SEGMENT).map { index ->
+                    points[(index*scale).roundToInt().coerceIn(0,points.lastIndex)]
+                }
+            }
+        }
+    }
 
     val gpsContinuityLabel:String get()=when {
         pointCount == 0 -> "No recorded GPS"
@@ -227,6 +262,19 @@ internal data class RecordedGpsRoute(
         return multiLineFeature(lines)
     }
 
+    /** Display-only route; raw segments continue to drive all analysis. */
+    fun displayGeoJson():String {
+        val lines=JSONArray()
+        renderSegments.filter { it.size >= 2 }.forEach { segment ->
+            val line=JSONArray()
+            segment.forEach { point ->
+                line.put(JSONArray().put(point.longitude).put(point.latitude))
+            }
+            lines.put(line)
+        }
+        return multiLineFeature(lines)
+    }
+
     fun selectedPoint(seconds:Double?):RecordedGpsPoint? {
         if(seconds == null || !seconds.isFinite())return null
         return allPoints.minByOrNull { abs(it.elapsedSeconds-seconds) }
@@ -260,6 +308,9 @@ internal data class RecordedGpsRoute(
     }
 
     companion object {
+        /** Rendering budget only; raw ActivityDetail remains full resolution. */
+        internal const val MAX_RENDER_POINTS_PER_SEGMENT=2_000
+
         fun from(
             samples:List<ActivitySample>,
             pauseIntervals:List<ActivityPauseInterval> = emptyList()

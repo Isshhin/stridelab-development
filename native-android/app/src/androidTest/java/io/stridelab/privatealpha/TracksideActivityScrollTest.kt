@@ -17,6 +17,52 @@ import java.time.Instant
 class TracksideActivityScrollTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
 
+    @Test fun longRecordingDefersExpandedAnalysisUntilSheetIsRequested() {
+        val activity = ActivityRecord(
+            "synthetic-long-activity", "Long Run Running", "run", "manual",
+            Instant.parse("2026-11-06T10:38:00Z"), 42000.0, 14400.0,
+            14380.0, 390.0, 148.0, 64.0
+        )
+        val recorded = ActivityDetail(
+            activity.id,
+            samples = List(4_001) { i ->
+                ActivitySample(i, i * 10.0, 400.0 + i % 20, 140.0, 12.0, null, null, 172.0)
+            },
+            laps = emptyList(),
+            fetchedAt = 0L
+        )
+        val state = TrainingState(
+            initializing = false, account = "synthetic-test-account",
+            activities = listOf(activity)
+        )
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideActivityDetailSurface(
+                        activity = activity, recorded = recorded,
+                        detailSource = activity, matchedSourceIds = setOf(activity.id),
+                        history = listOf(activity), state = state,
+                        actions = NativeActions({}, {}, {}, {}, { _, _ -> }),
+                        online = false, selectedTab = 0, onTab = {},
+                        matte = false, onToggleMatte = {}, onBack = {}
+                    )
+                }
+            }
+        }
+
+        compose.onNodeWithTag("activity-parity-overview").assertExists()
+        compose.onNodeWithTag("activity-expanded-back").assertDoesNotExist()
+        compose.onNodeWithTag("activity-chart-pace").assertDoesNotExist()
+        compose.onNodeWithTag("activity-sheet-handle").performClick()
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithTag("activity-expanded-back").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("activity-continuous-scroll").assertExists()
+        compose.onNodeWithTag("activity-continuous-scroll")
+            .performScrollToNode(hasTestTag("activity-chart-pace"))
+        compose.onNodeWithTag("activity-chart-pace").assertExists()
+    }
+
     @Test fun previewStartsWithoutPillThenExpandsIntoScrollDrivenSections() {
         val activity = ActivityRecord(
             "synthetic-scroll-activity", "Santa Mesa Running", "run", "manual",

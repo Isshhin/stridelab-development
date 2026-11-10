@@ -72,6 +72,47 @@ class RecordedGpsRouteTest {
         assertEquals(1,pauseJson.length())
     }
 
+    @Test fun displayRouteJoinsOnlyKnownPauseGapsAndKeepsRawSegments() {
+        val route=RecordedGpsRoute.from(
+            listOf(
+                sample(0,0.0,14.60,121.00),
+                sample(1,10.0,14.61,121.01),
+                sample(2,200.0,14.62,121.02),
+                sample(3,210.0,14.63,121.03),
+                sample(4,500.0,14.64,121.04),
+                sample(5,510.0,14.65,121.05)
+            ),
+            listOf(ActivityPauseInterval(20.0,190.0))
+        )
+
+        val raw=JSONObject(route.toGeoJson()).getJSONArray("features")
+            .getJSONObject(0).getJSONObject("geometry").getJSONArray("coordinates")
+        val display=JSONObject(route.displayGeoJson()).getJSONArray("features")
+            .getJSONObject(0).getJSONObject("geometry").getJSONArray("coordinates")
+
+        assertEquals(3,route.segments.size)
+        assertEquals(3,raw.length())
+        assertEquals(2,display.length())
+        assertEquals(4,display.getJSONArray(0).length())
+        assertEquals(2,display.getJSONArray(1).length())
+        assertEquals(6,route.pointCount)
+        assertEquals(1,route.pauseGaps.size)
+        assertEquals(1,route.unknownGaps.size)
+    }
+
+    @Test fun longRouteRenderingIsBoundedWithoutChangingRecordedGps() {
+        val route=RecordedGpsRoute.from(List(15_000) { i ->
+            sample(i,i * 10.0,14.6 + i * 0.000001,121.0 + i * 0.000001)
+        })
+        val rendered=route.renderSegments.single()
+
+        assertEquals(15_000,route.pointCount)
+        assertEquals(RecordedGpsRoute.MAX_RENDER_POINTS_PER_SEGMENT,rendered.size)
+        assertEquals(route.allPoints.first(),rendered.first())
+        assertEquals(route.allPoints.last(),rendered.last())
+        assertTrue(rendered.all { it in route.allPoints })
+    }
+
     @Test fun pausedGpsFixesRemainRecordedButAreSeparatedFromActiveRouteDots() {
         val route=RecordedGpsRoute.from(
             listOf(
@@ -221,6 +262,7 @@ class RecordedGpsRouteTest {
             sample(4,40.0,91.0,-179.7)
         ))
         assertEquals(2,route.segments.size)
+        assertEquals(2,route.displaySegments.size)
         assertEquals(4,route.pointCount)
         assertEquals(2,route.cameraPoints().size)
     }
