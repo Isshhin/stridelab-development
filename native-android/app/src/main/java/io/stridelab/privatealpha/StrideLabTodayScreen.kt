@@ -227,6 +227,25 @@ internal fun StrideLabTodayScreen(
     val selectedPage = chosenPage.takeIf { page ->
         page == "all" || eligiblePages.any { it.key == page }
     } ?: "all"
+    // The all-page remains unmodified. Discipline calendar markers describe
+    // only that discipline, including approved future workouts.
+    val calendarActivities = remember(selectedPage, safeActivities) {
+        if (selectedPage == "all") safeActivities else safeActivities.filter {
+            TodayDiscipline.fromActivity(it.type)?.key == selectedPage
+        }
+    }
+    val calendarHistory = remember(selectedPage, safeHistory) {
+        if (selectedPage == "all") safeHistory else safeHistory.filter {
+            TodayDiscipline.fromActivity(it.type)?.key == selectedPage
+        }
+    }
+    val calendarPlans = remember(selectedPage, safePlans) {
+        if (selectedPage == "all") safePlans else safePlans.map { plan ->
+            plan.copy(sessions = plan.sessions.filter {
+                TodayDiscipline.fromLog(it.discipline)?.key == selectedPage
+            })
+        }
+    }
     val recordedOnDate = remember(date, todayDate, safeActivities) {
         if (date.isAfter(todayDate)) emptyList() else safeActivities.filter {
             !it.startedAt.isAfter(Instant.now()) &&
@@ -265,7 +284,7 @@ internal fun StrideLabTodayScreen(
             (recordedOnDate.isNotEmpty() || confirmedOnDate.isNotEmpty())))
     val recordedKinds = recordedOnDate.map { todayRecordedKind(it.type) } +
         confirmedOnDate.map { todayHeroDiscipline(it.discipline) }
-    val tone = when {
+    val tone = if (selectedPage != "all") todayDisciplineColor(selectedPage) else when {
         mixedToday -> TodayLook.lime
         showRecorded && recordedKinds.distinct().size > 1 -> TodayLook.lilac
         showRecorded && recordedOnDate.isNotEmpty() -> todayRecordedColor(recordedOnDate.first().type)
@@ -352,9 +371,9 @@ internal fun StrideLabTodayScreen(
                 accent = animatedTone.value,
                 selectionFractionState = notchPosition,
                 signedOut = state.account == null,
-                visibleActivities = safeActivities,
-                rawHistory = safeHistory,
-                plans = safePlans,
+                visibleActivities = calendarActivities,
+                rawHistory = calendarHistory,
+                plans = calendarPlans,
                 reduceMotion = reduceMotion,
                 onSelect = { selectedDay = it.toEpochDay() },
                 onPrevious = { selectedDay = date.minusWeeks(1).toEpochDay() },
