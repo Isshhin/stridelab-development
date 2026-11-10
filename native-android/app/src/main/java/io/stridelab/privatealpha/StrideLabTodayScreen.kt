@@ -216,6 +216,17 @@ internal fun StrideLabTodayScreen(
     val safeActivities = if (state.account == null) emptyList() else visibleActivities
     val safeHistory = if (state.account == null) emptyList() else state.activities
     val safePlans = if (state.account == null) emptyList() else state.plans
+    // Tabs and charts remain presentation-only. Eligibility depends on actual
+    // distinct training dates, not prescriptions or daily login streaks.
+    var chosenPage by rememberSaveable(state.account) { mutableStateOf("all") }
+    val eligiblePages = remember(todayDate, safeHistory, safePlans) {
+        TodayDisciplineAnalytics.available(
+            safeHistory, safePlans, Instant.now(), ZoneId.systemDefault()
+        )
+    }
+    val selectedPage = chosenPage.takeIf { page ->
+        page == "all" || eligiblePages.any { it.key == page }
+    } ?: "all"
     val recordedOnDate = remember(date, todayDate, safeActivities) {
         if (date.isAfter(todayDate)) emptyList() else safeActivities.filter {
             !it.startedAt.isAfter(Instant.now()) &&
@@ -325,6 +336,16 @@ internal fun StrideLabTodayScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
+        if (state.account != null) {
+            item(key = "today-discipline-tabs") {
+                TodayDisciplineTabs(
+                    available = eligiblePages,
+                    selectedKey = selectedPage,
+                    reduceMotion = reduceMotion,
+                    onSelect = { chosenPage = it }
+                )
+            }
+        }
         item(key = "today-calendar") {
             TodayWeekCalendar(
                 date = date,
@@ -340,6 +361,7 @@ internal fun StrideLabTodayScreen(
                 onNext = { selectedDay = date.plusWeeks(1).toEpochDay() }
             )
         }
+        if (selectedPage == "all") {
         item(key = "today-hero") {
             if (state.account == null) {
                 // Stable, draw-only animated notch. Do not recompose a
@@ -435,6 +457,35 @@ internal fun StrideLabTodayScreen(
                 onOpenActivity = onOpenActivity,
                 signedOut = state.account == null
             )
+        }
+        } else {
+            item(key = "today-discipline-visuals") {
+                AnimatedContent(
+                    targetState = selectedPage,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(if (reduceMotion) 0 else 260)) togetherWith
+                            fadeOut(animationSpec = tween(if (reduceMotion) 0 else 150))
+                    },
+                    label = "today-discipline-flow"
+                ) { page ->
+                    val discipline = TodayDiscipline.entries.firstOrNull { it.key == page }
+                    if (discipline != null) {
+                        val recentWeeks = remember(weekStart, discipline, safeHistory, safePlans) {
+                            TodayDisciplineAnalytics.trend(
+                                safeHistory, safePlans, Instant.now(), ZoneId.systemDefault(),
+                                weekStart, discipline
+                            )
+                        }
+                        TodayDisciplineDashboard(
+                            discipline = discipline,
+                            trend = recentWeeks,
+                            reduceMotion = reduceMotion,
+                            onOpenActivity = onOpenActivityDetail,
+                            onOpenWorkout = onOpenWorkout
+                        )
+                    }
+                }
+            }
         }
     }
 }
