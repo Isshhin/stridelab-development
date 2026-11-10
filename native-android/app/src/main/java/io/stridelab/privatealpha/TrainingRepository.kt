@@ -75,15 +75,27 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 } catch (_: Exception) { rejected++ } // Retain invalid raw records; never invent replacement metrics.
             }
         }
+        val orderedRecords=records.sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id })
         val allowedIds=records.mapTo(HashSet<String>()) { it.id }
         val details = mutable.value.details.filterKeys { it in allowedIds }.toMutableMap()
-        store.readableDatabase.query("records",arrayOf("record_id","payload"),"account=? AND kind=?",arrayOf(account,"activity_detail"),null,null,null).use { c ->
-            while(c.moveToNext()) {
-                val id=c.getString(0)
-                if(id in allowedIds && !details.containsKey(id))
-                    runCatching { details[id]=ActivityDetail.parse(JSONObject(c.getString(1)),account,id) }
-            }
+        // The full recording cache can exceed tens of MB. Query IDs only:
+        // reading every large payload through one CursorWindow used to abort
+        // loadCache before the 201+ independent activity summaries appeared.
+        val cachedDetailIds=HashSet<String>()
+        store.readableDatabase.query("records",arrayOf("record_id"),"account=? AND kind=?",arrayOf(account,"activity_detail"),null,null,null).use { c ->
+            while(c.moveToNext())cachedDetailIds.add(c.getString(0))
         }
+        // Warm a small, recent set for cards. Older recordings stay on disk
+        // and are fetched in bounded chunks when their card/detail is viewed.
+        orderedRecords.asSequence().map { it.id }
+            .filter { it in cachedDetailIds && it !in details }
+            .take((6-details.size).coerceAtLeast(0))
+            .forEach { id ->
+                runCatching {
+                    store.getActivityDetailPayloadChunked(account,id)
+                        ?.let { ActivityDetail.parse(JSONObject(it),account,id) }
+                }.getOrNull()?.let { details[id]=it }
+            }
         val wellness=mutableListOf<WellnessRecord>()
         store.readableDatabase.query("records",arrayOf("payload"),"account=? AND kind=?",arrayOf(account,"wellness"),null,null,null).use { c ->
             while(c.moveToNext()) runCatching {
@@ -103,7 +115,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         store.readableDatabase.query("records",arrayOf("record_id","payload"),"account=? AND kind=? AND record_id LIKE ?",arrayOf(account,"workout","entry-draft-%"),null,null,null).use { c -> while(c.moveToNext())runCatching { WorkoutEntryDraft.decode(JSONObject(c.getString(1)),account).also { require(it.recordId==c.getString(0)) } }.onSuccess { if(validDraft(it,plans))drafts[it.key]=it } }
         val cursor = store.cursor(account, "activity")
         val last = cursor?.let { runCatching { JSONObject(it).getLong("completedAt") }.getOrNull() }
-        mutable.value = mutable.value.copy(activities = records.sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id }), lastSync = last, details = details, wellness = wellness, shelf=shelf, templates=templates, workoutDrafts=drafts, plans = plans.sortedByDescending { it.createdAt },
+        mutable.value = mutable.value.copy(activities = orderedRecords, lastSync = last, details = details, wellness = wellness, shelf=shelf, templates=templates, workoutDrafts=drafts, plans = plans.sortedByDescending { it.createdAt },
             message = if(unsupportedPlans>0) "$unsupportedPlans saved plans require a supported contract and were retained for review." else if(rejected > 0) "$rejected saved activities contain unsupported data and were retained for review." else mutable.value.message)
     }
     suspend fun restorePlans(raw:String)=operation("Restoring reviewed plan backup…") {
@@ -275,6 +287,25 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         store.applyRemotePage(account,"wellness",rows,null,System.currentTimeMillis())
         loadCache(account)
     }
+    /** Load an existing, account-owned FIT recording without any network call. */
+    internal suspend fun loadCachedDetail(id:String):Boolean = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val account=mutable.value.account ?: return@withLock false
+            if(mutable.value.activities.none { it.id==id })return@withLock false
+            if(id in mutable.value.details)return@withLock true
+            val cached=runCatching {
+                store.getActivityDetailPayloadChunked(account,id)
+                    ?.let { ActivityDetail.parse(JSONObject(it),account,id) }
+            }.getOrNull() ?: return@withLock false
+            val recent=LinkedHashMap(mutable.value.details)
+            recent.remove(id)
+            recent[id]=cached
+            while(recent.size>12)recent.remove(recent.keys.first())
+            mutable.value=mutable.value.copy(details=recent)
+            true
+        }
+    }
+
     suspend fun loadDetail(id: String) = operation("Loading recorded streams…") {
         val account = mutable.value.account ?: throw IllegalStateException("Sign in first")
         require(mutable.value.activities.any { it.id == id })
@@ -678,10 +709,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     ): ActivityDetail {
         require(activity.source == "garmin")
         val id = activity.id
-        val saved = store.get(account, "activity_detail", id)
-        val previous = if (saved != null) {
+        val savedPayload = store.getActivityDetailPayloadChunked(account,id)
+        val previous = if (savedPayload != null) {
             try {
-                ActivityDetail.parse(JSONObject(saved.payload), account, id)
+                ActivityDetail.parse(JSONObject(savedPayload), account, id)
             } catch (_: Exception) {
                 throw GarminProtocolException(
                     "Previously saved Garmin recording needs review; the original was retained")
@@ -731,10 +762,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         } catch (_: Exception) {
             throw GarminProtocolException("Garmin recording samples failed validation")
         }
-        val storedPayload = if (saved != null) {
+        val storedPayload = if (savedPayload != null) {
             // Only cadence may be added to an existing cache. If the FIT
             // sample identity or timestamps differ, keep the original intact.
-            val oldRaw = JSONObject(saved.payload)
+            val oldRaw = JSONObject(savedPayload)
             val merged = try {
                 GarminGpsDetail.mergeRecordedCadence(oldRaw, raw, account, id)
             } catch (_: Exception) {
@@ -749,7 +780,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             }
             merged
         } else raw
-        val checked = if (saved != null)
+        val checked = if (savedPayload != null)
             ActivityDetail.parse(storedPayload, account, id) else parsed
         store.applyRemotePage(
             account, "activity_detail",

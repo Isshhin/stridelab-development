@@ -212,6 +212,34 @@ class TrainingRepositoryTest {
         assertFalse(repo.refresh()); assertTrue(repo.state.value.needsSignIn)
         assertEquals(1,repo.state.value.activities.size); assertArrayEquals(damaged,file.readBytes())
     }
+    @Test fun largeSavedRecordingsDoNotHideOfflineGarminHistory() = runBlocking {
+        remote.rows=(0 until 8).map { row("garmin-$it",source="garmin") }
+        assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        val storage=TrainingStore(context,database)
+        try {
+            for(i in 0 until 8) {
+                val id="garmin-$i"
+                val sample=JSONObject().put("activity_id",id)
+                    .put("sample_index",0).put("elapsed_s",0.0)
+                val raw=JSONObject().put("user_id",account)
+                    .put("activity_id",id).put("fetched_at",1234)
+                    .put("samples",JSONArray().put(sample)).put("laps",JSONArray())
+                    // A source-faithful synthetic payload near CursorWindow size.
+                    .put("fixture_padding","x".repeat(1_800_000)).toString()
+                storage.applyRemotePage(account,"activity_detail",
+                    listOf(TrainingStore.RemoteRecord(id,raw,null)),
+                    null,System.currentTimeMillis())
+            }
+        } finally { storage.close() }
+        repo.close(); remote.offline=true; open()
+        assertEquals(8,repo.state.value.activities.size)
+        assertTrue(repo.state.value.activities.all { it.source=="garmin" })
+        assertTrue(repo.state.value.details.size<=6)
+        assertTrue(repo.loadCachedDetail("garmin-0"))
+        assertEquals(1,repo.state.value.details["garmin-0"]!!.samples.size)
+        assertFalse(repo.loadCachedDetail("not-a-saved-activity"))
+    }
+
     @Test fun detailsSurviveOfflineRecreationAndRejectCrossAccountReplacement() = runBlocking {
         remote.rows=listOf(row())
         assertTrue(repo.signIn("fixture@example.invalid","fixture"))

@@ -71,6 +71,39 @@ public final class TrainingStore extends SQLiteOpenHelper {
             return c.moveToFirst()?new CachedRecord(c):null;
         }
     }
+
+    /**
+     * Read a saved recording without placing its entire JSON payload in one
+     * Android CursorWindow. Only activity_detail is eligible. This is strictly
+     * read-only; missing, oversized or changed records must never be replaced.
+     */
+    public String getActivityDetailPayloadChunked(String account, String id) {
+        keyCheck(account,"activity_detail",id);
+        SQLiteDatabase db=getReadableDatabase();
+        final int chunkChars=32768;
+        final long maxChars=16L*1024*1024;
+        long chars;
+        try(Cursor c=db.rawQuery(
+                "SELECT length(payload) FROM records WHERE account=? AND kind='activity_detail' AND record_id=?",
+                new String[]{account,id})) {
+            if(!c.moveToFirst())return null;
+            chars=c.getLong(0);
+        }
+        if(chars<=0||chars>maxChars)
+            throw new IllegalStateException("Stored recording is outside the safe read limit; original data retained");
+        StringBuilder result=new StringBuilder((int)chars);
+        for(long start=1;start<=chars;start+=chunkChars) {
+            try(Cursor c=db.rawQuery(
+                    "SELECT substr(payload,?,?) FROM records WHERE account=? AND kind='activity_detail' AND record_id=?",
+                    new String[]{Long.toString(start),Integer.toString(chunkChars),account,id})) {
+                if(!c.moveToFirst()||c.isNull(0))
+                    throw new IllegalStateException("Stored recording changed during read; original data retained");
+                result.append(c.getString(0));
+            }
+        }
+        return result.toString();
+    }
+
     public CachedRecord get(String account,String kind,String id) {keyCheck(account,kind,id);return find(getReadableDatabase(),account,kind,id);}
     public List<CachedRecord> list(String account,String kind,int limit) {
         RecordPolicy.identifier(account);RecordPolicy.kind(kind);limit(limit);
