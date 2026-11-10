@@ -228,13 +228,18 @@ internal fun TodayDisciplineDashboard(
             DisciplineMetric("SESSIONS", "${week.sessions}", tint, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            DisciplineMetric("ACTIVE TIME",
+            DisciplineMetric("RECORDED TIME",
                 week.recordedSeconds?.let(::time) ?: "—", tint, Modifier.weight(1f))
             DisciplineMetric(
-                if (discipline == TodayDiscipline.RUNNING) "AVG RUN HR" else "DISTANCE",
+                if (discipline == TodayDiscipline.RUNNING) "AVG RUN HR" else "AVG SESSION",
                 if (discipline == TodayDiscipline.RUNNING)
                     week.averageRecordedHr?.let { "${it.toInt()} bpm" } ?: "—"
-                else week.recordedDistanceM?.let(::km) ?: "—",
+                else {
+                    val timedSessions = week.sessions - week.missingDuration
+                    if (timedSessions > 0 && week.recordedSeconds != null)
+                        time(week.recordedSeconds / timedSessions)
+                    else "—"
+                },
                 tint, Modifier.weight(1f)
             )
         }
