@@ -70,12 +70,12 @@ class NativeMainActivity: ComponentActivity() {
 }
 
 @Composable internal fun StrideTheme(content: @Composable () -> Unit) {
-    // Match the approved Trackside 3.0 review. Use the system sans-serif (Roboto on
+    // Match the current StrideLab Android app. Use the system sans-serif (Roboto on
     // Android) until the final licensed type assets are bundled and checked.
     val displayFont = FontFamily.SansSerif
     MaterialTheme(
         colorScheme = darkColorScheme(
-            primary = TracksidePalette.red, onPrimary = TracksidePalette.text,
+            primary = TracksidePalette.lime, onPrimary = Color.Black,
             background = TracksidePalette.backgroundBottom,
             surface = TracksidePalette.surface,
             surfaceVariant = TracksidePalette.surfaceVariant,
@@ -83,11 +83,11 @@ class NativeMainActivity: ComponentActivity() {
             onBackground = TracksidePalette.text,
             onSurfaceVariant = TracksidePalette.textMuted,
             secondary = TracksidePalette.strength,
-            secondaryContainer = Color(0xFF20394C),
+            secondaryContainer = Color(0xFF202324),
             onSecondaryContainer = TracksidePalette.text,
             tertiary = TracksidePalette.calisthenics,
             outline = TracksidePalette.outline,
-            outlineVariant = Color(0xFF3A5363),
+            outlineVariant = Color(0xFF303438),
             surfaceContainer = TracksidePalette.surface,
             surfaceContainerHigh = TracksidePalette.surfaceRaised
         ),

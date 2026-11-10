@@ -14,29 +14,32 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 
 /**
- * Trackside 3.0 foundation, derived from the approved native Figma review.
+ * StrideLab app-shell palette, based on the current native Android interface:
+ * AMOLED black, neutral charcoal surfaces, lime primary actions.
  *
- * Use a single palette for the app shell; workout domains retain their own accent colors.
- * This file contains presentation values only and must not change persisted plan data.
+ * Workout disciplines retain their own informational accents. Presentation
+ * tokens must never affect training, persistence, or recorded metrics.
  */
 internal object TracksidePalette {
-    val backgroundTop = Color(0xFF0B141B)
-    val backgroundBottom = Color(0xFF04080C)
-    val surface = Color(0xFF101B22)
-    val surfaceRaised = Color(0xFF25323D)
-    val surfaceLow = Color(0xFF081219)
-    val surfaceVariant = Color(0xFF1D303D)
-    val text = Color(0xFFF4F8FA)
-    val textMuted = Color(0xFFB7C5CF)
-    val red = Color(0xFFFF344E)
-    val outline = Color(0xFF677987)
-    val running = red
-    val strength = Color(0xFF5799F5)
-    val calisthenics = Color(0xFFAE66F0)
-    val recovery = Color(0xFF75C3B8)
+    val backgroundTop = Color(0xFF080B0A)
+    val backgroundBottom = Color(0xFF000000)
+    val surface = Color(0xFF111315)
+    val surfaceRaised = Color(0xFF202324)
+    val surfaceLow = Color(0xFF080B0A)
+    val surfaceVariant = Color(0xFF181B1A)
+    val text = Color(0xFFF7F7F5)
+    val textMuted = Color(0xFF9FA4AA)
+    val lime = Color(0xFFD8FB70)
+    // Compatibility alias for callers not yet renamed; its rendered color is lime.
+    val red = lime
+    val outline = Color(0xFF303438)
+    val running = lime
+    val strength = Color(0xFFFF8A77)
+    val calisthenics = Color(0xFFC8A8FF)
+    val recovery = Color(0xFF9CD6C5)
 }
 
-/** Figma 551:6, 602:3, 732:3: presentation colors only, never training intensity. */
+/** Presentation-only discipline accents; never interpreted as training intensity. */
 internal fun tracksideDisciplineColor(discipline: String): Color = when (discipline.lowercase()) {
     "run", "running" -> TracksidePalette.running
     "str", "strength" -> TracksidePalette.strength

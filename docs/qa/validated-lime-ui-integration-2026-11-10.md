@@ -8,6 +8,7 @@ The implementation ports the approved AMOLED/neutral-gray/lime Plan Builder pres
 - Adds the source branch's `PlanBuilderPalette` and stage progress component.
 - Replaces the visual implementations of ten Builder screens: Advanced Running, Builder Schedule, Builder Screens, Calisthenics Setup, Cross-Training Goals, Guided Running, Other Discipline Slots, Running Setup, Strength Setup, and Week Review.
 - Preserves `PlanBuilder.kt`, all engine sources, Garmin, Today discipline analytics, offline maps, saved activity handling, and the prior unit-test/UI-test fixes in the validation baseline.
+- Updates only app-wide presentation tokens in `TracksideUi.kt` and `StrideTheme`'s Material color scheme in `NativeMainActivity.kt`, replacing legacy red/blue accents with AMOLED black, neutral surfaces and lime primary actions.
 - Keeps existing Compose test tags and screen function signatures. Some tags retain historical strings for test compatibility.
 - Red/pink warning accents may remain for errors, not primary selection surfaces.
 
