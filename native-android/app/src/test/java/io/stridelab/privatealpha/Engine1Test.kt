@@ -76,7 +76,9 @@ class Engine1Test {
         assertEquals(done,PlanOperations.record(done,s.id,log,true));assertEquals(p.sessions.map { it.id },done.sessions.map { it.id })
     }
     @Test fun missedReasonCreatesOnlyPendingReductionAndPreservesOriginalPrescription() {
-        val p=PlanOperations.approve(generate(PlanRequest(start=start)),emptyList());val first=p.sessions.first()
+        // Use the current week: recovery suggestions apply only to recently missed work.
+        val thisMonday=LocalDate.now().with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+        val p=PlanOperations.approve(generate(PlanRequest(start=thisMonday)),emptyList());val first=p.sessions.first()
         val missed=PlanOperations.missed(p,first.id,"Fatigue",false)
         val suggested=missed.sessions.first { it.suggestion!=null }
         assertFalse(suggested.suggestion!!.accepted);assertEquals(p.sessions.find { it.id==suggested.id }!!.minutes,suggested.minutes)
