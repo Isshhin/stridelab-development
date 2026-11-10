@@ -25,11 +25,17 @@ class TracksideActivityScrollTest {
         )
         val recorded = ActivityDetail(
             activity.id,
+            // HR-zone estimates classify only adjacent recorded intervals
+            // lasting at most 30 seconds. Preserve the existing sparse
+            // samples for chart coverage but add two genuine short intervals
+            // so the zone presentation can be asserted without bypassing QC.
             samples = listOf(
                 ActivitySample(0, 0.0, 405.0, 130.0, 12.0, null, null, 172.0),
-                ActivitySample(1, 60.0, 390.0, 145.0, 18.0, null, null, 177.0),
-                ActivitySample(2, 120.0, 381.0, 152.0, 15.0, null, null, 180.0),
-                ActivitySample(3, 180.0, 395.0, 149.0, 19.0, null, null, 175.0)
+                ActivitySample(1, 10.0, 403.0, 133.0, 13.0, null, null, 173.0),
+                ActivitySample(2, 20.0, 400.0, 137.0, 14.0, null, null, 174.0),
+                ActivitySample(3, 60.0, 390.0, 145.0, 18.0, null, null, 177.0),
+                ActivitySample(4, 120.0, 381.0, 152.0, 15.0, null, null, 180.0),
+                ActivitySample(5, 180.0, 395.0, 149.0, 19.0, null, null, 175.0)
             ),
             laps = (0 until 8).map { i ->
                 ActivityLap(i, 1000.0, 390.0 + i, 390.0 + i, 140.0 + i)
