@@ -26,7 +26,7 @@ internal object Engine1:PlanGenerationEngine {
         if(p.returning) why.add("Return-from-break weeks start at 60% of reported mileage, with quality withheld for the first two weeks. Missed work is not added back automatically.")
         if(p.strengthDays>1 && p.runDays>0) why.add("Resistance sessions alternate lower/full-body and upper-body work to limit overlapping leg stress. Lower-body work is kept away from quality runs and the day before the long run, including week boundaries.")
         if(p.limitations.isNotBlank()) why.add("Your limitations are retained for review: ${p.limitations}. This baseline does not infer clinical accommodations; excluded exercises are never prescribed.")
-        if(p.secondaryGoal.isNotBlank()) why.add("Secondary goal recorded: ${p.secondaryGoal}. The selected disciplines, experience, equipment and time budget determine this baseline block; no outcome is guaranteed.")
+        if(p.secondaryGoal.isNotBlank()) why.add("Secondary goal recorded: ${p.secondaryGoal}. The selected disciplines, experience, equipment determine this baseline block; no outcome is guaranteed.")
         for(week in 0 until p.weeks) {
             val recovery=week%4==3
             val taper=p.goal in setOf("Half marathon","Marathon") && p.weeks>=8 && week>=p.weeks-2
@@ -38,14 +38,14 @@ internal object Engine1:PlanGenerationEngine {
                 val kind=when { i==0->"long";i<=q->"quality";else->"easy" }
                 val weight=if(kind=="long"&&p.runDays>1) 1.4 else 1.0
                 val share=weekKm*weight/(p.runDays+if(p.runDays>1) .4 else 0.0)
-                val maxDistance=p.minutes*60.0/p.planningPace
+                val maxDistance=if(p.timeBudgetEnabled) p.minutes*60.0/p.planningPace else Double.POSITIVE_INFINITY
                 val longestLimit=if(p.longestKm>0) p.longestKm+minOf(2.0,week*.5) else maxOf(1.0,p.weeklyKm/maxOf(1,p.runDays))
                 val distance=if(p.weeklyKm==0.0) null else round(minOf(share,maxDistance,if(kind=="long") longestLimit else share)*10)/10
-                val beginnerMinutes=minOf(p.minutes,(if(kind=="long") 20 else 15)+week/2*2)
-                val minutes=if(distance==null) beginnerMinutes else maxOf(10,ceil(distance*p.planningPace/60).toInt()).coerceAtMost(p.minutes)
+                val beginnerMinutes=if(p.timeBudgetEnabled) minOf(p.minutes,(if(kind=="long") 20 else 15)+week/2*2) else (if(kind=="long") 20 else 15)+week/2*2
+                val minutes=if(distance==null) beginnerMinutes else maxOf(10,ceil(distance*p.planningPace/60).toInt()).let { if(p.timeBudgetEnabled) it.coerceAtMost(p.minutes) else it }
                 val quality=kind=="quality" && minutes>=30 && !recovery
                 val title=when { quality->if(p.goal=="Improve 5K") "Controlled intervals" else "Controlled tempo intervals";p.experience==0||p.weeklyKm==0.0->if(kind=="long") "Longer easy run/walk" else "Easy run/walk";kind=="long"->"Long easy run";else->"Easy run" }
-                val steps=if(quality) listOf("10 min easy warm-up","3 × 2 min controlled hard, with 2 min easy between; never sprint","${minutes-20} min easy finish and additional easy running; stop when your time budget is reached")
+                val steps=if(quality) listOf("10 min easy warm-up","3 × 2 min controlled hard, with 2 min easy between; never sprint","${minutes-20} min easy finish and additional easy running; finish at the planned duration")
                     else listOf("${minOf(5,minutes/3)} min comfortable walk or easy jog",if(p.experience==0||p.weeklyKm==0.0) "Alternate 1 min easy running with 1 min walking; shorten the run intervals if needed" else "Keep the main portion conversational; no fixed effort derived from missing sensors","Finish with a comfortable walk; total session $minutes min")
                 templates.add(PlannedSession("$id-w$week-run$i",p.start.plusWeeks(week.toLong()),"run",title,minutes,distance,kind,quality=quality,steps=steps,reason=if(kind=="long") "On your single preferred long-run day, kept easy and bounded by recent distance/time." else if(quality) "Your requested quality work, with recovery spacing." else "Easy aerobic practice within the selected time and distance limits."))
             }
@@ -60,19 +60,19 @@ internal object Engine1:PlanGenerationEngine {
                 templates.add(PlannedSession("$id-w$week-cal$i",p.start.plusWeeks(week.toLong()),"cal",if(p.calLevel==0) "Calisthenics foundations" else "Controlled skill practice",resistanceMinutes(ex),null,"calisthenics",exercises=ex,
                     steps=listOf("5 min comfortable warm-up","Use the current controllable variation; no automatic stage promotion","3 min easy finish"),reason="Practice the selected current ability with several repetitions in reserve; progress by demonstrated control, not calendar time."))
             }
-            for(i in 0 until p.conditioningDays) templates.add(PlannedSession("$id-w$week-cond$i",p.start.plusWeeks(week.toLong()),"cond","Low-impact conditioning",minOf(p.minutes,25),null,"conditioning",steps=listOf("5 min easy walking","10–15 min comfortable brisk walking or low-impact marching, with easy breaks","5 min easy walking; shorten the middle portion to stay within the total"),reason="Comfortable conditioning without adding another hard lower-body day."))
+            for(i in 0 until p.conditioningDays) templates.add(PlannedSession("$id-w$week-cond$i",p.start.plusWeeks(week.toLong()),"cond","Low-impact conditioning",if(p.timeBudgetEnabled) minOf(p.minutes,25) else 25,null,"conditioning",steps=listOf("5 min easy walking","10–15 min comfortable brisk walking or low-impact marching, with easy breaks","5 min easy walking; shorten the middle portion to stay within the total"),reason="Comfortable conditioning without adding another hard lower-body day."))
             val scheduled=schedule(p,p.start.plusWeeks(week.toLong()),templates,all)
             all.addAll(scheduled)
         }
         require(all.size==(p.runDays+p.strengthDays+p.calDays+p.conditioningDays)*p.weeks)
-        why.add("Every fourth week is lighter. The modest fixed running build is capped at 20% above the starting reference, subject to time limits; it is not a learned response or a promise of readiness.")
+        why.add("Every fourth week is lighter. The modest fixed running build is capped at 20% above the starting reference, based on the recorded training baseline; it is not a learned response or a promise of readiness.")
         why.add("Plan goals do not establish race readiness. Review the actual dated prescriptions before approval; you can pause, move or reduce sessions without deleting historical records.")
         return PlanSnapshot(id,owner,version,policyId,now,p,all.sortedBy { it.date },why)
     }
     fun validate(p:PlanRequest) {
         fun check(condition:Boolean,message:String) { if(!condition)throw PlanConstraint(message) }
         check(p.goal in ENGINE1_GOALS,"Choose a supported goal.")
-        check(p.weeks in 1..16 && p.minutes in 15..120,"Choose 1–16 weeks and 15–120 available minutes per session.")
+        check(p.weeks in 1..16 && (!p.timeBudgetEnabled || p.minutes in 15..120),"Choose 1–16 weeks and a valid session duration for legacy time-budgeted plans.")
         check(p.experience in 0..2 && p.strengthExperience in 0..2 && p.calLevel in 0..2 && p.pullLevel in 0..2 && p.coreLevel in 0..2,"Choose your current ability level.")
         check(p.days.isNotEmpty() && p.days.all { it in 1..7 },"Choose available training days.")
         WeeklyPlacement.validationError(p)?.let { throw PlanConstraint(it) }
@@ -118,9 +118,9 @@ internal object Engine1:PlanGenerationEngine {
     private fun fitTime(p:PlanRequest,list:List<ExercisePrescription>):List<ExercisePrescription> {
         var ex=list.filter { it.id !in p.excluded }
         if(ex.size<2)throw PlanConstraint("Too many exercises are excluded for this template. Review your preferences before generating.")
-        while(resistanceMinutes(ex)>p.minutes && ex.size>2) ex=ex.dropLast(1)
-        if(resistanceMinutes(ex)>p.minutes) ex=ex.map { it.copy(sets=1) }
-        if(resistanceMinutes(ex)>p.minutes)throw PlanConstraint("The selected resistance prescription does not fit your time budget. Increase available time.")
+        while(p.timeBudgetEnabled && resistanceMinutes(ex)>p.minutes && ex.size>2) ex=ex.dropLast(1)
+        if(p.timeBudgetEnabled && resistanceMinutes(ex)>p.minutes) ex=ex.map { it.copy(sets=1) }
+        if(p.timeBudgetEnabled && resistanceMinutes(ex)>p.minutes)throw PlanConstraint("The selected resistance prescription does not fit your time budget. Increase available time.")
         return ex
     }
     private fun resistanceMinutes(ex:List<ExercisePrescription>)=ceil(8+ex.sumOf { (it.sets*(it.seconds ?: ((it.reps?:0)*3))+(it.sets-1)*it.rest)/60.0+1 }).toInt()
