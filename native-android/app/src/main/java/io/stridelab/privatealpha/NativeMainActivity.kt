@@ -116,7 +116,8 @@ class NativeMainActivity: ComponentActivity() {
     }
     val actions = remember(model) { NativeActions(model::refresh, {}, {}, model::signOut, model::signIn, model::loadDetail, model::refreshWellness, model.planActions(), syncGarmin=model::syncGarmin, loadGarminGps=model::loadGarminGps,
         backupGarminCloud=model::backupGarminCloud, restoreGarminCloud=model::restoreGarminCloud,
-        signUp=model::signUp, requestPasswordReset=model::requestPasswordReset) }
+        signUp=model::signUp, requestPasswordReset=model::requestPasswordReset,
+        loadCachedDetail=model::loadCachedDetail) }
     NativeStrideContent(state, online, actions)
 }
 
@@ -130,7 +131,8 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
     val signUp: (String, String, String) -> Unit = { _, _, _ -> },
     val requestPasswordReset: (String) -> Unit = {},
     val backupGarminCloud: (suspend () -> Int)? = null,
-    val restoreGarminCloud: (suspend () -> Int)? = null)
+    val restoreGarminCloud: (suspend () -> Int)? = null,
+    val loadCachedDetail: (suspend (String) -> Boolean)? = null)
 
 /** Primary destinations switch immediately; the legacy Activity history route remains available.
  * retain the existing Navigation Compose transitions.
@@ -302,13 +304,21 @@ private fun NavHostController.openActivity(id: String) {
                         else null
                     }
                     var automaticDetailAttempted by rememberSaveable(detailSource?.id) { mutableStateOf(false) }
+                    var localRecordingChecked by remember(detailSource?.id) { mutableStateOf(false) }
+                    LaunchedEffect(detailSource?.id, state.account) {
+                        if(detailSource != null && state.account != null &&
+                            detailSource.id !in state.details) {
+                            actions.loadCachedDetail?.invoke(detailSource.id)
+                        }
+                        localRecordingChecked=true
+                    }
                     var activityTab by rememberSaveable(activity?.id) { mutableIntStateOf(0) }
                     var matteStyle by rememberSaveable(activity?.id) { mutableStateOf(false) }
-                    LaunchedEffect(detailSource?.id, online, state.busy, state.needsSignIn) {
+                    LaunchedEffect(detailSource?.id, online, state.busy, state.needsSignIn, localRecordingChecked, state.details) {
                         // Load real supplementary Intervals.icu streams when
                         // Garmin is the canonical summary. Never use the Garmin
                         // local summary ID as a remote stream endpoint.
-                        if (!automaticDetailAttempted && detailSource != null &&
+                        if (localRecordingChecked && !automaticDetailAttempted && detailSource != null &&
                             detailSource.supportsPace &&
                             state.account != null && online && !state.busy && !state.needsSignIn &&
                             !state.details.containsKey(detailSource.id)) {
@@ -560,7 +570,8 @@ private fun NavHostController.openActivity(id: String) {
                             { p, session -> nav.openWorkout(p, session) },
                             { id -> nav.openActivity(id) },
                             { nav.navigate("auth") },
-                            { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") }
+                            { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") },
+                            onLoadCachedDetail = actions.loadCachedDetail
                         )
                     }
                     PersistentTabSurface(active = visibleRoot == "settings") {
@@ -630,7 +641,8 @@ private fun NavHostController.openActivity(id: String) {
                         { p, session -> nav.openWorkout(p, session) },
                         { id -> nav.openActivity(id) },
                         { nav.navigate("auth") },
-                        { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") }
+                        { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") },
+                        onLoadCachedDetail = actions.loadCachedDetail
                     )
                 }
                 PersistentTabSurface(active = visibleRoot == "settings") {

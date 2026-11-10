@@ -134,7 +134,8 @@ internal fun StrideLabUnifiedTrainingTimeline(
     onOpenWorkout: (String, String) -> Unit,
     onOpenActivity: (String) -> Unit,
     onSignIn: () -> Unit,
-    onManage: (String, LocalDate) -> Unit
+    onManage: (String, LocalDate) -> Unit,
+    onLoadCachedDetail: (suspend (String) -> Boolean)? = null
 ) {
     val account = state.account
     val plans = if (account == null) emptyList() else state.plans
@@ -295,6 +296,11 @@ internal fun StrideLabUnifiedTrainingTimeline(
                                     ?: group.additionalSources.firstNotNullOfOrNull {
                                         state.details[it.id]
                                     }
+                                if(cached == null && onLoadCachedDetail != null) {
+                                    LaunchedEffect(group.primary.id) {
+                                        onLoadCachedDetail(group.primary.id)
+                                    }
+                                }
                                 TimelineRecordedCard(
                                     activity = group.primary,
                                     cachedDetail = cached,
