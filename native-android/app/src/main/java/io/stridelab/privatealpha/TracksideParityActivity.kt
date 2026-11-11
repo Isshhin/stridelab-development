@@ -313,7 +313,7 @@ internal fun TracksideParityActivityOverview(activity: ActivityRecord) {
     Column(
         Modifier.fillMaxWidth()
             .background(
-                Brush.verticalGradient(listOf(Color(0xFF253644), Color(0xFF0B1924))),
+                Brush.verticalGradient(listOf(TracksidePalette.surfaceVariant, TracksidePalette.surfaceLow)),
                 RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
             .padding(horizontal = 17.dp, vertical = 16.dp)
             .testTag("activity-parity-overview"),
@@ -321,7 +321,7 @@ internal fun TracksideParityActivityOverview(activity: ActivityRecord) {
     ) {
         Box(Modifier.align(Alignment.CenterHorizontally)
             .size(width = 48.dp, height = 5.dp)
-            .background(Color(0xFF778C9B), RoundedCornerShape(4.dp)))
+            .background(TracksidePalette.textMuted, RoundedCornerShape(4.dp)))
         Spacer(Modifier.height(12.dp))
         Text(activity.title, fontSize = 27.sp, lineHeight = 32.sp,
             color = TracksidePalette.text, fontWeight = FontWeight.Bold,
@@ -335,22 +335,22 @@ internal fun TracksideParityActivityOverview(activity: ActivityRecord) {
         Surface(
             shape = RoundedCornerShape(19.dp),
             color = TracksidePalette.surface,
-            border = BorderStroke(0.9f.dp, Color(0x99677987)),
+            border = BorderStroke(0.9f.dp, TracksidePalette.outline.copy(alpha = .65f)),
             modifier = Modifier.fillMaxWidth().height(130.dp)
         ) {
             Row(
                 Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(
-                    Color(0xFF35232D), Color(0xFF142534), Color(0xFF0A1620)
+                    TracksidePalette.surfaceVariant, TracksidePalette.surface, TracksidePalette.surfaceLow
                 ))).padding(vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TracksideActivityMetric("DISTANCE", activity.distanceM?.let { activity.distanceLabel } ?: "—",
                     Modifier.weight(1f))
-                Box(Modifier.width(1.dp).height(76.dp).background(Color(0x667F929E)))
+                Box(Modifier.width(1.dp).height(76.dp).background(TracksidePalette.outline.copy(alpha = .65f)))
                 TracksideActivityMetric("MOVING TIME",
                     activity.movingTimeS?.let { ActivityRecord.duration(it) } ?: "—",
                     Modifier.weight(1f))
-                Box(Modifier.width(1.dp).height(76.dp).background(Color(0x667F929E)))
+                Box(Modifier.width(1.dp).height(76.dp).background(TracksidePalette.outline.copy(alpha = .65f)))
                 TracksideActivityMetric(activity.detailPaceHeading,
                     if (activity.supportsPace) activity.detailPaceLabel else "—",
                     Modifier.weight(1f))
@@ -361,8 +361,8 @@ internal fun TracksideParityActivityOverview(activity: ActivityRecord) {
 
 @Composable
 private fun TracksideActivityTag(text: String) {
-    Surface(color = Color(0xFF1A2D39), shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, Color(0x665B778A))) {
+    Surface(color = TracksidePalette.surfaceVariant, shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, TracksidePalette.outline.copy(alpha = .65f))) {
         Text(text, Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
             fontSize = 11.sp, color = TracksidePalette.text, maxLines = 1)
     }
@@ -387,7 +387,7 @@ private fun TracksideActivityMetric(label: String, value: String, modifier: Modi
 internal fun TracksideParityActivityTabs(selected: Int, onSelect: (Int) -> Unit) {
     Row(
         Modifier.fillMaxWidth().height(57.dp)
-            .background(Color(0xFF13222D), RoundedCornerShape(18.dp))
+            .background(TracksidePalette.surface, RoundedCornerShape(18.dp))
             .padding(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -400,13 +400,13 @@ internal fun TracksideParityActivityTabs(selected: Int, onSelect: (Int) -> Unit)
                         role = Role.Tab
                         this.selected = selected == index
                     },
-                color = if (selected == index) Color(0xFF314351) else Color.Transparent,
+                color = if (selected == index) TracksidePalette.lime else Color.Transparent,
                 shape = RoundedCornerShape(14.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(title, fontSize = 13.sp,
                         fontWeight = if (selected == index) FontWeight.Bold else FontWeight.Normal,
-                        color = if (selected == index) TracksidePalette.text else TracksidePalette.textMuted)
+                        color = if (selected == index) Color.Black else TracksidePalette.textMuted)
                 }
             }
         }

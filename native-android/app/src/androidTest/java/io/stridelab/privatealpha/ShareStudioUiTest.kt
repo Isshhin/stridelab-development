@@ -57,6 +57,17 @@ class ShareStudioUiTest {
         compose.onNodeWithTag("activity-split-0").assert(hasContentDescription("selected on map",substring=true))
     }
 
+    @Test fun presetNameDialogRetainsItsSaveActions() {
+        mountDetail()
+        compose.onNodeWithTag("activity-share").performClick()
+        compose.onNodeWithTag("share-section-PRESETS").performClick()
+        compose.onNodeWithTag("share-studio-scroll").performScrollToNode(hasTestTag("share-save-preset"))
+        compose.onNodeWithTag("share-save-preset").performClick()
+        compose.onNodeWithTag("share-preset-name").assertIsDisplayed()
+        compose.onNodeWithText("Save new").assertIsDisplayed()
+        compose.onNodeWithText("Cancel").assertIsDisplayed()
+    }
+
     @Test fun presetsPersistUpdateAndDeleteOnDisk() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val file="share-test-${UUID.randomUUID()}"

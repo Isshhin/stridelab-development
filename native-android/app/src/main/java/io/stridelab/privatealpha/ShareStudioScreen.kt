@@ -295,21 +295,28 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
             }
         }
     }
-    if(naming) AlertDialog(onDismissRequest={ if(!busy) naming=false },title={ Text("Save Preset") },
+    if(naming) AlertDialog(onDismissRequest={ if(!busy) naming=false },
+        shape=RoundedCornerShape(24.dp),
+        containerColor=Color(0xFF080B0A),titleContentColor=TracksidePalette.text,textContentColor=TracksidePalette.text,
+        title={ Text("Save Preset",style=MaterialTheme.typography.titleLarge) },
         text={ OutlinedTextField(value=name,onValueChange={ if(it.length<=60) name=it },label={ Text("Preset name") },
-            supportingText={ Text(message ?: "${name.length}/60") },singleLine=true,modifier=Modifier.testTag("share-preset-name")) },
+            supportingText={ Text(message ?: "${name.length}/60") },singleLine=true,
+            colors=OutlinedTextFieldDefaults.colors(focusedTextColor=TracksidePalette.text,unfocusedTextColor=TracksidePalette.text,
+                focusedBorderColor=TracksidePalette.lime,unfocusedBorderColor=TracksidePalette.outline,
+                focusedLabelColor=TracksidePalette.lime,unfocusedLabelColor=TracksidePalette.textMuted,cursorColor=TracksidePalette.lime),
+            modifier=Modifier.testTag("share-preset-name")) },
         confirmButton={
-            Column {
-                TextButton(enabled=name.isNotBlank() && !busy && presets.size<100,onClick={
+            Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically) {
+                Button(enabled=name.isNotBlank() && !busy && presets.size<100,onClick={
                     val preset=SharePreset(UUID.randomUUID().toString(),name.trim(),config)
                     savePresets(presets+preset) { activePreset=preset.id; naming=false }
-                }) { Text("Save new") }
+                },shape=RoundedCornerShape(50),colors=ButtonDefaults.buttonColors(containerColor=TracksidePalette.lime,contentColor=Color.Black)) { Text("Save new",style=MaterialTheme.typography.labelLarge) }
                 if(activePreset!=null) TextButton(enabled=name.isNotBlank() && !busy,onClick={
                     val selected=activePreset
                     savePresets(presets.map { if(it.id==selected) it.copy(name=name.trim(),state=config) else it }) { naming=false }
-                }) { Text("Update selected") }
+                },colors=ButtonDefaults.textButtonColors(contentColor=TracksidePalette.lime)) { Text("Update selected") }
             }
-        },dismissButton={ TextButton(enabled=!busy,onClick={ naming=false }) { Text("Cancel") } })
+        },dismissButton={ TextButton(enabled=!busy,onClick={ naming=false },colors=ButtonDefaults.textButtonColors(contentColor=TracksidePalette.textMuted)) { Text("Cancel") } })
     deleting?.let { selected -> AlertDialog(onDismissRequest={ if(!busy) deleting=null },
         title={ Text("Delete preset?") },text={ Column { Text(selected.name); message?.let { Text(it) } } },
         confirmButton={ TextButton(enabled=!busy,onClick={

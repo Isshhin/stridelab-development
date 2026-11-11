@@ -11,7 +11,7 @@ internal data class SessionTemplate(val id:String,val name:String,val discipline
     fun encode(owner:String)=JSONObject().put("schemaVersion",1).put("type","session-template").put("user_id",owner).put("id",id).put("name",name).put("discipline",discipline).put("minutes",minutes).put("source",source).put("exercises",JSONArray(exercises.map { it.encode() }))
     fun validate() {
         RecordPolicy.identifier(id)
-        if(name.trim().length !in 3..80 || discipline !in setOf("str","cal") || minutes !in 15..120 || exercises.size !in 1..8 || exercises.map { it.id }.distinct().size!=exercises.size)throw PlanConstraint("Choose a name, 15–120 minutes and one to eight distinct resistance movements.")
+        if(name.trim().length !in 3..80 || discipline !in setOf("str","cal") || minutes<=0 || exercises.size !in 1..8 || exercises.map { it.id }.distinct().size!=exercises.size)throw PlanConstraint("Choose a name, positive available minutes and one to eight distinct resistance movements.")
         if(source.length>500 || exercises.any { it.name.length>120 || it.equipment.length>200 || it.cue.length>1000 })throw PlanConstraint("Shorten the template metadata.")
         if(exercises.any { it.sets !in 1..10 || it.reps==null || it.reps !in 1..100 || it.seconds!=null || it.rest !in 15..300 })throw PlanConstraint("Use 1–10 sets, 1–100 target reps and 15–300 seconds rest for each selected movement.")
     }
@@ -34,7 +34,7 @@ internal data class SessionTemplate(val id:String,val name:String,val discipline
         }
         val estimated=8+exercises.sumOf { kotlin.math.ceil((it.sets*it.reps!!*3+(it.sets-1)*it.rest)/60.0+1).toInt() }
         if(estimated>minutes)throw PlanConstraint("These targets need about $estimated minutes including an easy warm-up/finish. Reduce sets/reps or allow more time.")
-        val p=request.copy(goal=if(discipline=="str")"General strength" else "Calisthenics foundation",secondaryGoal="User-reviewed practice: $name",start=date,weeks=1,minutes=minutes,days=(1..7).toSet(),runDays=0,strengthDays=if(discipline=="str")1 else 0,calDays=if(discipline=="cal")1 else 0,conditioningDays=0,qualityCount=0,qualityDays=emptySet())
+        val p=request.copy(goal=if(discipline=="str")"General strength" else "Calisthenics foundation",secondaryGoal="User-reviewed practice: $name",start=date,weeks=1,minutes=minutes,days=(1..7).toSet(),runDays=0,strengthDays=if(discipline=="str")1 else 0,calDays=if(discipline=="cal")1 else 0,conditioningDays=0,qualityCount=0,qualityDays=emptySet(),timeBudgetEnabled=false)
         Engine1.validate(p)
         val lower=exercises.any { it.id in setOf("e1","e3","e6","gs","dh","rl","sq","hg") }
         val session=PlannedSession("$id-practice",date,discipline,name.trim(),minutes,null,"practice",lower=lower,exercises=exercises,steps=listOf("5 min comfortable general warm-up","Use the reviewed targets and stop before form breaks","3 min easy finish"),reason="Your selected session targets. Review ability, equipment and recovery before approving; no automatic progression is applied.")

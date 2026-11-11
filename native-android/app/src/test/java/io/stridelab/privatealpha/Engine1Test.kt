@@ -163,6 +163,10 @@ class Engine1Test {
         assertThrows(PlanConstraint::class.java) { pull.draft("synthetic-owner",PlanRequest(equipment=mapOf("bar" to 1)),date) }
         assertEquals(1,pull.draft("synthetic-owner",PlanRequest(equipment=mapOf("bar" to 1),pullLevel=2),date).sessions.size)
         assertThrows(PlanConstraint::class.java) { pull.copy(minutes=15,exercises=listOf(ExercisePrescription("e2","Pull-up",10,100))).draft("synthetic-owner",PlanRequest(equipment=mapOf("bar" to 1),pullLevel=2),date) }
+        val extended=pull.copy(minutes=240).draft("synthetic-owner",PlanRequest(equipment=mapOf("bar" to 1),pullLevel=2),date)
+        assertEquals(240,extended.sessions.single().minutes)
+        assertEquals(pull.exercises,extended.sessions.single().exercises)
+        assertThrows(PlanConstraint::class.java) { pull.copy(minutes=0).validate() }
     }
     @Test fun historicalMissReasonDoesNotRetroactivelyAdaptOldOrCurrentWorkouts() {
         val plan=PlanOperations.approve(generate(PlanRequest(start=LocalDate.now().minusWeeks(3),weeks=5)),emptyList())

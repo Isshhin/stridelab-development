@@ -187,6 +187,8 @@ class TracksideActivityScrollTest {
         compose.onNodeWithText("Key stats from your run at Santa Mesa.").assertExists()
         compose.onNodeWithText("13.11 km").assertExists()
         compose.onNodeWithText("1:24:59").assertExists()
+        compose.onNodeWithText("Moving time").assertExists()
+        compose.onNodeWithText("Duration").assertDoesNotExist()
         compose.onNodeWithText("Elapsed time").assertDoesNotExist()
         val summaryBounds = compose.onNodeWithTag("activity-summary-redesign")
             .getUnclippedBoundsInRoot()
@@ -194,6 +196,10 @@ class TracksideActivityScrollTest {
             val bounds = compose.onNodeWithTag(tag).getUnclippedBoundsInRoot()
             assertTrue(kotlin.math.abs((((bounds.left + bounds.right) - (summaryBounds.left + summaryBounds.right)) / 2f).value) < 2f)
         }
+        val finalMetricBounds = compose.onNodeWithTag("activity-summary-metric-elevation-gain")
+            .getUnclippedBoundsInRoot()
+        assertTrue(kotlin.math.abs((((finalMetricBounds.left + finalMetricBounds.right) -
+            (summaryBounds.left + summaryBounds.right)) / 2f).value) < 2f)
         compose.onNodeWithTag("activity-continuous-scroll")
             .performScrollToNode(hasTestTag("activity-insights"))
         compose.onNodeWithTag("activity-insights-headline").assertExists()

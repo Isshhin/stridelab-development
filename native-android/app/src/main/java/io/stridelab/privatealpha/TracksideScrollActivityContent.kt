@@ -770,7 +770,7 @@ private fun TracksideActivitySummary(activity: ActivityRecord) {
             add(ActivitySummaryMetric("Distance", activity.distanceLabel, ActivitySummaryGlyph.Distance))
         }
         activity.movingTimeS?.let {
-            add(ActivitySummaryMetric("Duration", ActivityRecord.duration(it), ActivitySummaryGlyph.Duration))
+            add(ActivitySummaryMetric("Moving time", ActivityRecord.duration(it), ActivitySummaryGlyph.Duration))
         }
         if (activity.supportsPace && activity.detailPaceLabel != "Not recorded") {
             add(ActivitySummaryMetric("Average pace", activity.detailPaceLabel, ActivitySummaryGlyph.Pace))
@@ -829,15 +829,17 @@ private fun TracksideActivitySummary(activity: ActivityRecord) {
                     .padding(vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                SummaryMetricCell(pair[0], Modifier.weight(1f))
                 if (pair.size > 1) {
+                    SummaryMetricCell(pair[0], Modifier.weight(1f))
                     Box(
                         Modifier.width(1.dp).height(42.dp)
                             .background(activityBorder.copy(alpha = .62f))
                     )
                     SummaryMetricCell(pair[1], Modifier.weight(1f))
                 } else {
-                    Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.weight(.5f))
+                    SummaryMetricCell(pair[0], Modifier.weight(1f))
+                    Spacer(Modifier.weight(.5f))
                 }
             }
         }
@@ -863,7 +865,7 @@ private fun TracksideActivitySummary(activity: ActivityRecord) {
 @Composable
 private fun SummaryMetricCell(metric: ActivitySummaryMetric, modifier: Modifier = Modifier) {
     Row(
-        modifier.padding(horizontal = 4.dp),
+        modifier.padding(horizontal = 4.dp).testTag("activity-summary-metric-${metric.label.lowercase().replace(' ', '-') }"),
         verticalAlignment = Alignment.CenterVertically
     ) {
         SummaryMetricGlyph(metric.glyph)
