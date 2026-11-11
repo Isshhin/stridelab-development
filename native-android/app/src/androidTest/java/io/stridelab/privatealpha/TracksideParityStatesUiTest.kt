@@ -94,7 +94,7 @@ class TracksideParityStatesUiTest {
                         state, false,
                         NativeActions({}, {}, {}, {}, { _, _ -> },
                             renameActivity = { id, title ->
-                                renamed.set("$"+"id:$"+"title")
+                                renamed.set(id + ":" + title)
                                 true
                             })
                     )
