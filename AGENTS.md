@@ -1,5 +1,10 @@
 # StrideLab agent workflow (Codex and other repository agents)
 
+## Mandatory release branch policy (owner decision, 2026-11-11)
+
+**`main` is the last owner-approved stable release and the source of truth for release builds; `dev` is the only ongoing Android implementation/integration branch.** Implement and test all feature/UI/fix changes on `dev` (or a short-lived branch merging into `dev`). Do not make or push changes to `main` directly. Promotion requires a reviewed `dev → main` PR, relevant passing automated tests, manual visual/device acceptance, and the owner's explicit approval of the exact dev HEAD. Never force-push, reset or overwrite `main`. The existing main history diverges from the modern Android integration; do not silently replace its README/history. See `docs/qa/main-dev-release-policy-20261111.md` for the exact gate and bootstrap status. A green build is not approval, and the pending Activity Detail Edit/map-control fix must remain on `dev` until validated.
+
+
 This is the persistent default for work in this repository. Follow the user's **current task prompt** and the applicable, up-to-date branch documentation. Do not treat old handoffs, cached graph indexes, or historical green builds as proof of the live state.
 
 ## Active Android design authority (owner update, 2026-11-10)
