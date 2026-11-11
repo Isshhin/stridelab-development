@@ -882,7 +882,7 @@ private fun localActivityTitleKey(activityId:String):String {
 private fun validatedActivityTitle(input:String):String {
     val title = input.trim()
     require(title.isNotBlank() && title.length <= 100 &&
-        title.none { it.isISOControl() }) {
+        title.none { Character.isISOControl(it) }) {
         "Activity title must contain 1–100 printable characters."
     }
     return title
