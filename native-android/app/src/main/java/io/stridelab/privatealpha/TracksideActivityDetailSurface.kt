@@ -511,7 +511,7 @@ internal fun TracksideActivityDetailSurface(
                     Button(
                         enabled = !renameSaving && renameDraft.trim().isNotEmpty() &&
                             renameDraft.trim().length <= 100 &&
-                            renameDraft.trim().none { it.isISOControl() },
+                            renameDraft.trim().none { Character.isISOControl(it) },
                         onClick = {
                             val rename = actions.renameActivity ?: return@Button
                             renameSaving = true
