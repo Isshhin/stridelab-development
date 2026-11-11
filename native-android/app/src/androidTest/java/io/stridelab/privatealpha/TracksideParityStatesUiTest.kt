@@ -76,7 +76,7 @@ class TracksideParityStatesUiTest {
         compose.runOnIdle { assertEquals(1, writes) }
     }
 
-    @Test fun userCanSwitchBetweenApprovedAtmosphericAndMatteActivityPresentations() {
+    @Test fun activityEditIsAvailableWithoutTheRetiredMapAppearanceButton() {
         val activity = ActivityRecord(
             "source-run", "Recorded tempo", "run", "manual",
             Instant.parse("2026-10-29T10:00:00Z"),
@@ -86,12 +86,17 @@ class TracksideParityStatesUiTest {
             initializing = false, account = "synthetic-ui",
             activities = listOf(activity)
         )
+        val renamed = java.util.concurrent.atomic.AtomicReference<String?>(null)
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
                     NativeStrideContent(
                         state, false,
-                        NativeActions({}, {}, {}, {}, { _, _ -> })
+                        NativeActions({}, {}, {}, {}, { _, _ -> },
+                            renameActivity = { id, title ->
+                                renamed.set("$"+"id:$"+"title")
+                                true
+                            })
                     )
                 }
             }
@@ -100,16 +105,15 @@ class TracksideParityStatesUiTest {
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("activity-source-run"))
         compose.onNodeWithTag("activity-source-run").performClick()
         compose.onNodeWithTag("activity-map-hero").assertExists()
-        compose.onNodeWithTag("activity-change-glass-variant").performClick()
-        compose.onNodeWithTag("activity-matte-overview").assertExists()
-        compose.onNodeWithTag("activity-matte-tabs").assertExists()
-        compose.onNodeWithTag("activity-tab-splits").performClick()
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("SOURCE SPLITS / LAPS"))
-        compose.onNodeWithText("SOURCE SPLITS / LAPS").assertExists()
-        // Activity backdrop is intentionally fixed behind the independently
-        // scrolling sheet, so it is not a descendant of the root scroll list.
-        compose.onNodeWithTag("activity-map-hero").assertIsDisplayed()
-        compose.onNodeWithTag("activity-change-glass-variant").performClick()
-        compose.onNodeWithTag("activity-parity-overview").assertExists()
+        compose.onNodeWithTag("activity-map-fullscreen").assertExists()
+        compose.onNodeWithTag("activity-change-glass-variant").assertDoesNotExist()
+        compose.onNodeWithTag("activity-edit").assertExists().performClick()
+        compose.onNodeWithTag("activity-rename-field").assertExists()
+            .performTextReplacement("Renamed tempo")
+        compose.onNodeWithTag("activity-rename-save").performClick()
+        compose.waitUntil(timeoutMillis = 5_000) {
+            renamed.get() == "source-run:Renamed tempo"
+        }
+        compose.onNodeWithTag("activity-rename-field").assertDoesNotExist()
     }
 }
