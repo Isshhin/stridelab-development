@@ -9,6 +9,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -68,6 +73,17 @@ internal fun TracksideActivityDetailSurface(
     onLoadGarminGps: (() -> Unit)? = null
 ) {
     var shareOpen by rememberSaveable(activity.id) { androidx.compose.runtime.mutableStateOf(false) }
+    var renameOpen by rememberSaveable(activity.id) { androidx.compose.runtime.mutableStateOf(false) }
+    var renameDraft by rememberSaveable(activity.id) { androidx.compose.runtime.mutableStateOf(activity.title) }
+    var renameSaving by remember(activity.id) { androidx.compose.runtime.mutableStateOf(false) }
+    var renameError by remember(activity.id) { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    val onEdit: (() -> Unit)? = if (actions.renameActivity != null) {
+        {
+            renameDraft = activity.title
+            renameError = null
+            renameOpen = true
+        }
+    } else null
     BoxWithConstraints(
         Modifier.fillMaxSize().background(Color.Black)
             .testTag("screen")
@@ -280,7 +296,7 @@ internal fun TracksideActivityDetailSurface(
                                         if (!detailsSemanticsVisible) invisibleToUser()
                                     }
                             ) {
-                                TracksideActivityExpandedHeader(activity, collapseOrBack, onShare = { shareOpen = true })
+                                TracksideActivityExpandedHeader(activity, collapseOrBack, onShare = { shareOpen = true }, onEdit = onEdit)
                                 TracksideActivityContinuousSections(
                                     activity = activity,
                                     recorded = recorded,
@@ -316,8 +332,8 @@ internal fun TracksideActivityDetailSurface(
                 gpsSourceLabel = detailSource.sourceLabel,
                 onBack = collapseOrBack,
                 onShare = { shareOpen = true },
+                onEdit = onEdit,
                 heightDp = maxHeight,
-                onChangeStyle = onToggleMatte,
                 online = online,
                 fullScreen = mapOnly,
                 mapMode = mapMode,
@@ -460,6 +476,67 @@ internal fun TracksideActivityDetailSurface(
                 containerColor = Color(0xFF101A15),
                 titleContentColor = Color(0xFFF0F7F1),
                 textContentColor = Color(0xFFBFCFC4)
+            )
+        }
+        if (renameOpen) {
+            AlertDialog(
+                onDismissRequest = { if (!renameSaving) renameOpen = false },
+                shape = RoundedCornerShape(24.dp),
+                containerColor = Color(0xFF080B0A),
+                titleContentColor = TracksidePalette.text,
+                textContentColor = TracksidePalette.text,
+                title = { Text("Rename activity", style = MaterialTheme.typography.titleLarge) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = renameDraft,
+                            onValueChange = { if (it.length <= 100) renameDraft = it },
+                            singleLine = true,
+                            label = { Text("Activity name") },
+                            modifier = Modifier.fillMaxWidth().testTag("activity-rename-field"),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = TracksidePalette.text,
+                                unfocusedTextColor = TracksidePalette.text,
+                                focusedBorderColor = TracksidePalette.lime,
+                                unfocusedBorderColor = TracksidePalette.outline,
+                                focusedLabelColor = TracksidePalette.lime,
+                                unfocusedLabelColor = TracksidePalette.textMuted,
+                                cursorColor = TracksidePalette.lime
+                            )
+                        )
+                        renameError?.let { Text(it, color = Color(0xFFFF9B91)) }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        enabled = !renameSaving && renameDraft.trim().isNotEmpty() &&
+                            renameDraft.trim().length <= 100 &&
+                            renameDraft.trim().none { it.isISOControl() },
+                        onClick = {
+                            val rename = actions.renameActivity ?: return@Button
+                            renameSaving = true
+                            renameError = null
+                            scope.launch {
+                                val saved = runCatching {
+                                    rename(activity.id, renameDraft.trim())
+                                }.getOrDefault(false)
+                                renameSaving = false
+                                if (saved) renameOpen = false
+                                else renameError = "Could not save the activity name. Try again."
+                            }
+                        },
+                        modifier = Modifier.testTag("activity-rename-save"),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = TracksidePalette.lime,
+                            contentColor = Color.Black
+                        )
+                    ) { Text(if (renameSaving) "Saving…" else "Save") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { renameOpen = false }, enabled = !renameSaving) {
+                        Text("Cancel", color = TracksidePalette.textMuted)
+                    }
+                }
             )
         }
         if (shareOpen) {
