@@ -78,6 +78,7 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
         repo.syncGarmin(source)
     fun refreshWellness() { viewModelScope.launch { repo.refreshWellness() } }
     fun loadDetail(id: String) { viewModelScope.launch { repo.loadDetail(id) } }
+    internal suspend fun renameActivity(id:String,title:String):Boolean = repo.renameActivity(id,title)
     internal suspend fun loadCachedDetail(id:String):Boolean = repo.loadCachedDetail(id)
     /** Foreground, account-scoped FIT GPS import, never bulk or scheduled. */
     internal fun loadGarminGps(id:String,source:GarminPersonalSource) {
