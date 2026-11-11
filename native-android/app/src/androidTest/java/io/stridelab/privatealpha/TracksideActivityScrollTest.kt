@@ -42,7 +42,8 @@ class TracksideActivityScrollTest {
                         activity = activity, recorded = recorded,
                         detailSource = activity, matchedSourceIds = setOf(activity.id),
                         history = listOf(activity), state = state,
-                        actions = NativeActions({}, {}, {}, {}, { _, _ -> }),
+                        actions = NativeActions({}, {}, {}, {}, { _, _ -> },
+                            renameActivity = { _, _ -> true }),
                         online = false, selectedTab = 0, onTab = {},
                         matte = false, onToggleMatte = {}, onBack = {}
                     )
@@ -51,12 +52,15 @@ class TracksideActivityScrollTest {
         }
 
         compose.onNodeWithTag("activity-parity-overview").assertExists()
+        compose.onNodeWithTag("activity-edit").assertExists()
+        compose.onNodeWithTag("activity-change-glass-variant").assertDoesNotExist()
         compose.onNodeWithTag("activity-expanded-back").assertDoesNotExist()
         compose.onNodeWithTag("activity-chart-pace").assertDoesNotExist()
         compose.onNodeWithTag("activity-sheet-handle").performClick()
         compose.waitUntil(timeoutMillis = 5_000) {
             compose.onAllNodesWithTag("activity-expanded-back").fetchSemanticsNodes().isNotEmpty()
         }
+        compose.onNodeWithTag("activity-edit-expanded").assertExists()
         compose.onNodeWithTag("activity-continuous-scroll").assertExists()
         compose.onNodeWithTag("activity-continuous-scroll")
             .performScrollToNode(hasTestTag("activity-chart-pace"))
