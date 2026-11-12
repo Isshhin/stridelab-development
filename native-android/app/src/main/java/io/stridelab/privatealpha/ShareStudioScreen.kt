@@ -154,6 +154,23 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
         }
     }
 
+    // Export a real PNG via the Android document picker (any supported API level).
+    // Cache the rendered preview first so the exact image survives picker navigation.
+    fun exportPngDocument(image:Bitmap) {
+        busy=true; message=null
+        scope.launch {
+            try {
+                val file=withContext(Dispatchers.IO) { ShareImageExport.cachePng(context,image) }
+                pendingDocumentName=file.name
+                documentLauncher.launch(file.name)
+            } catch(error:Exception) {
+                if(error is CancellationException) throw error
+                pendingDocumentName?.let { File(File(context.cacheDir,"share-studio"),it).delete() }
+                busy=false; pendingDocumentName=null; message="Could not open PNG export. Try again."
+            }
+        }
+    }
+
     MaterialTheme(colorScheme=MaterialTheme.colorScheme.copy(primary=Color(ShareCardPalette.LIME),onPrimary=Color.Black,
         secondaryContainer=Color(0xFF26381C),onSecondaryContainer=Color(ShareCardPalette.WHITE))) {
     Surface(color=Color.Black,contentColor=Color(ShareCardPalette.WHITE),modifier=Modifier.fillMaxSize().testTag("share-studio").semantics { paneTitle="Share Studio" }) {
@@ -187,6 +204,8 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                     val status=when {
                         mapLoading -> "Loading Activity Dark map…"
                         effective?.routeMode==ShareRouteMode.HIDDEN -> "Route hidden or too short to trim · Full activity stats · ${config.ratio.label} PNG"
+                        config.privacy==SharePrivacy.OFF && map==null -> "Full GPS route · trimming off · no basemap · ${config.ratio.label} PNG"
+                        config.privacy==SharePrivacy.OFF -> "Full GPS route · trimming off · map · ${config.ratio.label} PNG"
                         map==null -> "Route trimmed · Full activity stats · no basemap · ${config.ratio.label} PNG"
                         else -> "Route trimmed · Full activity stats · map · ${config.ratio.label} PNG"
                     }
@@ -208,9 +227,16 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                                 ShareSection.VARIANT -> ShareChoices(config.template.variants,config.variant,{it.label}) { configure(config.selectVariant(it)) }
                                 ShareSection.RATIO -> ShareChoices(ShareRatio.entries,config.ratio,{it.label}) { configure(config.copy(ratio=it)) }
                                 ShareSection.ROUTE -> {
-                                    Text("Route endpoints are trimmed. Stats cover the full activity. Trimming does not guarantee location anonymity.",style=MaterialTheme.typography.bodyMedium,color=Color(ShareCardPalette.MUTED))
+                                    Text("Trim route endpoints before exporting. Stats always cover the full activity.",style=MaterialTheme.typography.bodyMedium,color=Color(ShareCardPalette.MUTED))
                                     Text("Trim distance from each endpoint",style=MaterialTheme.typography.labelLarge)
                                     ShareChoices(SharePrivacy.entries,config.privacy,{it.label}) { configure(config.copy(privacy=it)) }
+                                    if(config.privacy==SharePrivacy.OFF) {
+                                        Text("Privacy warning: the full GPS route, including your exact start and finish, will appear in saved and shared PNG images.",
+                                            style=MaterialTheme.typography.bodyMedium,color=Color(0xFFFFBE7A),modifier=Modifier.testTag("share-trim-off-warning"))
+                                    } else {
+                                        Text("Trimming reduces endpoint exposure but does not guarantee location anonymity.",
+                                            style=MaterialTheme.typography.bodySmall,color=Color(ShareCardPalette.MUTED))
+                                    }
                                     ShareChoices(source?.availableModes?.toList().orEmpty(),effective?.routeMode,{it.label}) { configure(config.copy(routeMode=it)) }
                                     if(config.routeMode!=effective?.routeMode) Text("This activity cannot provide ${config.routeMode.label}; using ${effective?.routeMode?.label ?: "Hidden"}.",style=MaterialTheme.typography.bodySmall)
                                 }
@@ -262,25 +288,21 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
             FlowRow(Modifier.fillMaxWidth().padding(16.dp),horizontalArrangement=Arrangement.spacedBy(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(enabled=exportReady,onClick={
                     val image=card ?: return@OutlinedButton
-                    busy=true; message=null
                     if(Build.VERSION.SDK_INT<Build.VERSION_CODES.Q) {
+                        exportPngDocument(image)
+                    } else {
+                        busy=true; message=null
                         scope.launch {
-                            try {
-                                val file=withContext(Dispatchers.IO) { ShareImageExport.cachePng(context,image) }
-                                pendingDocumentName=file.name
-                                documentLauncher.launch(file.name)
-                            } catch(error:Exception) {
-                                if(error is CancellationException) throw error
-                                pendingDocumentName?.let { File(File(context.cacheDir,"share-studio"),it).delete() }
-                                busy=false; pendingDocumentName=null; message="Could not open image storage."
-                            }
-                        }
-                    } else scope.launch {
                         try { withContext(Dispatchers.IO) { ShareImageExport.saveToGallery(context,image) }; message="Saved to Pictures / StrideLab" }
                         catch(error:Exception) { if(error is CancellationException) throw error; message="Could not save image. Check storage and try again." }
                         finally { busy=false }
+                        }
                     }
                 },modifier=Modifier.heightIn(min=48.dp).testTag("share-save-image")) { Text("Save Image") }
+                OutlinedButton(enabled=exportReady,onClick={
+                    val image=card ?: return@OutlinedButton
+                    exportPngDocument(image)
+                },modifier=Modifier.heightIn(min=48.dp).testTag("share-export-png")) { Text("Export PNG") }
                 Button(enabled=exportReady,onClick={
                     val image=card ?: return@Button
                     busy=true; message=null
