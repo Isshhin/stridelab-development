@@ -184,6 +184,8 @@ private fun NavHostController.openActivity(id: String) {
     // still owns the back stack, restoration and child destination lifecycle;
     // the dock's animation never gates which retained root is laid out.
     var requestedTab by remember { mutableStateOf<String?>(null) }
+    var garminSheetOpen by remember { mutableStateOf(false) }
+    var garminBusy by remember { mutableStateOf(false) }
     LaunchedEffect(route, state.account) {
         if (requestedTab == route || route !in mainTabRoutes) requestedTab = null
     }
@@ -268,12 +270,12 @@ private fun NavHostController.openActivity(id: String) {
                 composable("activities") {
                     Screen("Activities", "YOUR HISTORY") {
                         item { SyncStatus(state) }
-                        if(state.account != null && visibleActivities.isNotEmpty())
+                        if(visibleActivities.isNotEmpty())
                             item { HistoryOverview(visibleActivities) }
-                        if(state.account == null) item { EmptyState("Sign in to view your history", "Only records belonging to your signed-in account are displayed."); Button(onClick = { nav.navigate("auth") }) { Text("Sign in") } }
-                        else {
-                            item { OutlinedButton(onClick = actions.refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh history") } }
-                            if(visibleActivities.isEmpty()) item { EmptyState("No active activities cached", "Garmin activities will appear after syncing from Connections.") }
+                        run {
+                            if(state.account != null)
+                                item { OutlinedButton(onClick = actions.refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh cloud history") } }
+                            if(visibleActivities.isEmpty()) item { EmptyState("No activities saved yet", "Connect Garmin in More to import activities without signing in.") }
                             val logged=state.plans.flatMap { p -> p.sessions.filter { it.status=="completed" && (it.linkedActivityId==null || state.activities.none { a->a.id==it.linkedActivityId }) }.map { p to it } }.sortedByDescending { it.second.log?.at }
                             if(logged.isNotEmpty()) item { Text("WORKOUT LOGS · ON THIS DEVICE",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary) }
                             logged.forEach { (p,s) -> item(key="logged-${s.id}") { PlannedWorkoutCard(s) { nav.openWorkout(p.id,s.id) } } }
@@ -294,9 +296,11 @@ private fun NavHostController.openActivity(id: String) {
                     val matchedGroup = groupedActivities.firstOrNull { it.primary.id == activity?.id }
                     val detailSource = matchedGroup?.detailedSource ?: activity
                     val context=LocalContext.current
-                    val garminSource=remember(state.account,context) {
-                        state.account?.let { account ->
-                            GarminPersonalSource(account,GarminCredentialVault(context.applicationContext),
+                    val garminOwner = if(activity?.id?.let { it in state.localGarminIds } == true)
+                        state.localGarminOwner else state.account
+                    val garminSource=remember(garminOwner,context) {
+                        garminOwner?.let { owner ->
+                            GarminPersonalSource(owner,GarminCredentialVault(context.applicationContext),
                                 GarminPersonalClient())
                         }
                     }
@@ -308,7 +312,8 @@ private fun NavHostController.openActivity(id: String) {
                     var automaticDetailAttempted by rememberSaveable(detailSource?.id) { mutableStateOf(false) }
                     var localRecordingChecked by remember(detailSource?.id) { mutableStateOf(false) }
                     LaunchedEffect(detailSource?.id, state.account) {
-                        if(detailSource != null && state.account != null &&
+                        if(detailSource != null &&
+                            (state.account != null || detailSource.id in state.localGarminIds) &&
                             detailSource.id !in state.details) {
                             actions.loadCachedDetail?.invoke(detailSource.id)
                         }
@@ -322,11 +327,13 @@ private fun NavHostController.openActivity(id: String) {
                         // local summary ID as a remote stream endpoint.
                         if (localRecordingChecked && !automaticDetailAttempted && detailSource != null &&
                             detailSource.supportsPace &&
-                            state.account != null && online && !state.busy && !state.needsSignIn &&
+                            online && !state.busy &&
                             !state.details.containsKey(detailSource.id)) {
                             if(detailSource.source!="garmin") {
-                                automaticDetailAttempted=true
-                                actions.loadDetail(detailSource.id)
+                                if(state.account != null && !state.needsSignIn) {
+                                    automaticDetailAttempted=true
+                                    actions.loadDetail(detailSource.id)
+                                }
                             } else if(onLoadGarminGps!=null) {
                                 automaticDetailAttempted=true
                                 onLoadGarminGps()
@@ -579,8 +586,6 @@ private fun NavHostController.openActivity(id: String) {
                     PersistentTabSurface(active = visibleRoot == "settings") {
                         if (diagnosticTabs) TabDiagnosticPlaceholder("More") else {
                             var confirmSignOut by remember { mutableStateOf(false) }
-                            var garminSheetOpen by remember { mutableStateOf(false) }
-                            var garminBusy by remember { mutableStateOf(false) }
                             TracksideMoreScreen(
                                 state = state,
                                 onSignIn = { nav.navigate("auth") },
@@ -590,17 +595,6 @@ private fun NavHostController.openActivity(id: String) {
                                 onAbout = { nav.navigate("more/about") },
                                 onSignOut = { confirmSignOut = true }
                             )
-                            if (garminSheetOpen) {
-                                TracksideGarminConnectionSheet(
-                                    accountId = state.account!!,
-                                    syncGarmin = actions.syncGarmin,
-                                    backupGarminCloud = actions.backupGarminCloud,
-                                    restoreGarminCloud = actions.restoreGarminCloud,
-                                    busy = garminBusy,
-                                    onBusyChange = { garminBusy = it },
-                                    onDismiss = { if (!garminBusy) garminSheetOpen = false }
-                                )
-                            }
                             if (confirmSignOut) {
                                 AlertDialog(
                                     onDismissRequest = { confirmSignOut = false },
@@ -651,7 +645,7 @@ private fun NavHostController.openActivity(id: String) {
                     if (diagnosticTabs) TabDiagnosticPlaceholder("More") else TracksideMoreScreen(
                         state = state,
                         onSignIn = { nav.navigate("auth") },
-                        onGarmin = { nav.navigate("auth") },
+                        onGarmin = { garminSheetOpen = true },
                         onOfflineMaps = { nav.navigate("more/offline-maps") },
                         onPreferences = { nav.navigate("more/preferences") },
                         onAbout = { nav.navigate("more/about") },
@@ -683,6 +677,21 @@ private fun NavHostController.openActivity(id: String) {
                 .testTag("floating-navigation-overlay")
         ) {
             TracksideFloatingNavigation(visibleRoot, onDockTab)
+        }
+    }
+    if (garminSheetOpen) {
+        val localOwner = state.localGarminOwner ?: state.account
+        if (localOwner != null) {
+            TracksideGarminConnectionSheet(
+                accountId = localOwner,
+                syncGarmin = actions.syncGarmin,
+                backupGarminCloud = actions.backupGarminCloud,
+                restoreGarminCloud = actions.restoreGarminCloud,
+                allowCloudBackup = state.account != null && !state.needsSignIn,
+                busy = garminBusy,
+                onBusyChange = { garminBusy = it },
+                onDismiss = { if (!garminBusy) garminSheetOpen = false }
+            )
         }
     }
     }
