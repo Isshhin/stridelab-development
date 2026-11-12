@@ -63,7 +63,9 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 loadCache(account)
                 // Retired Intervals.icu connection settings remain untouched on
                 // disk but can no longer trigger a provider connection.
-                if(vault.read(account) == null) mutable.value = mutable.value.copy(needsSignIn = true,
+                val session = runCatching { vault.read(account) }.getOrNull()
+                if(session != null) copyLegacyGarminConnection(account)
+                else mutable.value = mutable.value.copy(needsSignIn = true,
                     message = "Sign in again for cloud features. Saved Garmin activities remain available.")
             } else {
                 loadLocalGarminCache()
@@ -76,6 +78,19 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             runCatching { loadLocalGarminCache() }
         }
     } } }
+
+    /** One-way encrypted on-device migration, never removes the legacy vault. */
+    private fun copyLegacyGarminConnection(cloudAccount:String) {
+        runCatching {
+            val credentials=GarminCredentialVault(appContext)
+            if(credentials.read(localGarminOwner)==null) {
+                credentials.read(cloudAccount)?.let {
+                    credentials.save(it.copy(accountId=localGarminOwner))
+                }
+            }
+        }
+        // Keystore failure must never block offline history or cloud sign-out.
+    }
 
     private fun loadCache(account: String) {
         val records = mutableListOf<ActivityRecord>()
@@ -486,6 +501,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             throw ServiceFailure(e.status, e.message ?: "Sign-in was not accepted", requiresSignIn = false)
         }
         vault.save(session) // No account activation unless encryption succeeds.
+        copyLegacyGarminConnection(session.account)
         check(preferences.edit().putString("active", session.account).commit())
         mutable.value = TrainingState(initializing = false, account = session.account, busy = true, loginGeneration = mutable.value.loginGeneration + 1)
         loadCache(session.account)
@@ -939,7 +955,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     suspend fun signOut() = operation("Signing out…") {
         val account = mutable.value.account ?: return@operation
         val saved = runCatching { vault.read(account) }.getOrNull()
-        // End local access before waiting for an unavailable network to revoke the server session.
+        // Preserve a previously linked Garmin connection in this device's
+        // separate local namespace without retaining cloud authentication.
+        copyLegacyGarminConnection(account)
+        // End cloud access before waiting for server session revocation.
         vault.clear(account)
         check(preferences.edit().remove("active").commit())
         mutable.value = TrainingState(initializing = false,busy = true,
