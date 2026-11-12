@@ -5,35 +5,45 @@ from p2a_shadow import summarize
 
 
 class P2AShadowTests(unittest.TestCase):
+    lineage = {"athlete_id": "synthetic-athlete", "discipline": "running",
+               "event_at": "2026-01-01T08:00:00Z", "source": "generated",
+               "source_version": "fixture-v1", "protocol": "synthetic-v1",
+               "device": "synthetic-device", "rights": "synthetic-only",
+               "plan_revision": "plan-v1"}
+
     def setUp(self):
         self.history = [
             {"id": "h1", "observed_at": "2026-01-01T08:00:00Z",
              "available_at": "2026-01-01T09:00:00Z", "value": 10.0,
-             "unit": "min", "quality": "valid"},
+             "unit": "min", "quality": "valid", **self.lineage},
             {"id": "h2", "observed_at": "2026-01-02T08:00:00Z",
              "available_at": "2026-01-02T09:00:00Z", "value": 12.0,
-             "unit": "min", "quality": "valid"},
+             "unit": "min", "quality": "valid", **self.lineage},
             {"id": "future", "observed_at": "2026-01-03T08:00:00Z",
              "available_at": "2026-01-04T09:00:00Z", "value": 99.0,
-             "unit": "min", "quality": "valid"},
+             "unit": "min", "quality": "valid", **self.lineage},
         ]
 
     def test_future_arrival_excluded_and_checkin_ablation_is_separate(self):
         result = summarize(self.history, "2026-01-03T12:00:00Z", {
             "id": "c1", "observed_at": "2026-01-03T10:00:00Z",
             "available_at": "2026-01-03T11:00:00Z", "value": 4.0,
-            "unit": "score", "quality": "reported",
+            "unit": "score", "quality": "reported", **self.lineage,
         })
         self.assertEqual(["h1", "h2"], result["history_only"]["input_ids"])
         self.assertEqual(["h1", "h2", "c1"], result["history_plus_checkin"]["input_ids"])
         self.assertEqual(11.0, result["history_only"]["descriptive_median"])
+        self.assertEqual(27 * 3600, result["history_only"]["newest_input_age_seconds"])
+        self.assertEqual(self.lineage, result["history_only"]["provenance"][0]["lineage"])
         self.assertEqual("ABSTAIN_UNCALIBRATED", result["history_plus_checkin"]["status"])
+        self.assertIsNone(result["history_plus_checkin"]["descriptive_median"])
+        self.assertIsNone(result["history_plus_checkin"]["unit"])
         self.assertNotIn("action", result)
 
     def test_unavailable_checkin_is_not_added(self):
         checkin = {"id": "late", "observed_at": "2026-01-03T10:00:00Z",
                    "available_at": "2026-01-04T11:00:00Z", "value": 4.0,
-                   "unit": "score", "quality": "reported"}
+                   "unit": "score", "quality": "reported", **self.lineage}
         result = summarize(self.history, "2026-01-03T12:00:00Z", checkin)
         self.assertEqual(result["history_only"], result["history_plus_checkin"])
         self.assertEqual("CHECKIN_NOT_AVAILABLE_AS_OF_DECISION", result["checkin_status"])
@@ -54,6 +64,12 @@ class P2AShadowTests(unittest.TestCase):
         mixed = [self.history[0], dict(self.history[1], unit="km")]
         with self.assertRaises(ValueError):
             summarize(mixed, "2026-01-03T12:00:00Z")
+
+    def test_missing_lineage_fails_closed(self):
+        missing = dict(self.history[0])
+        del missing["rights"]
+        with self.assertRaises(ValueError):
+            summarize([missing], "2026-01-02T00:00:00Z")
 
 
 if __name__ == "__main__":
