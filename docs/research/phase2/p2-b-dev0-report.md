@@ -31,3 +31,9 @@ Adversarial coverage includes deleted HR, 30-second gap/pause, reversed timestam
 The independent final re-review recorded `P2B_DEV0_SYNTHETIC_PIPELINE_ACCEPTABLE_PENDING_EXACT_HEAD_CI` at `a1da6287ba6159dd64dd8f25a63b88dad0f3e1e1` in the prior [StrideLab Engine Planning conversation](chatgpt-conversation://6aeee02e-9d50-83ec-b12d-b1b1eb1cbc8e); this was a conversational review, not a GitHub PR review or a separately identified human audit. GitHub records no PR reviews. Subsequently [research validation run 42457192727](https://github.com/Isshhin/stridelab-development/actions/runs/42457192727) completed successfully, attempt 1, on that exact commit. This closes DEV-0 under the synthetic-only verdict above.
 
 This documentation-only closure does not change the tested implementation. The successful run applies to `a1da6287ba6159dd64dd8f25a63b88dad0f3e1e1`, not to the later documentation commit.
+
+## Synthetic pair-spacing boundary correction — 2026-11-13
+
+The synthetic pairing helper previously used `timedelta.days`, which truncates elapsed time and admitted a pair 7 days plus 1 second apart. The protocol requires each scheduled pair to be 24 hours through 7 days apart. Pair eligibility now compares the full elapsed duration against inclusive 1-day and 7-day bounds. Regression coverage checks both exact boundaries and rejects 24 hours minus 1 second and 7 days plus 1 second.
+
+This is a synthetic software-correctness correction only. Local Python 3.12 P2-B tests passed; no observations were collected or analyzed, and the DEV-0 scientific/real-data and Gate 2 limits are unchanged. The research workflow now runs `research.p2b_dev0.test_pipeline` and triggers for changes under `research/p2b_dev0/**`.

@@ -1,6 +1,7 @@
 import unittest
+from datetime import datetime, timedelta
 
-from .pipeline import AthleteState, build_synthetic_fixture, report, run, speed_blinded, AnalysisConfig, _segment, _route_compatible
+from .pipeline import AthleteState, build_synthetic_fixture, report, run, speed_blinded, AnalysisConfig, _segment, _route_compatible, _pairs
 
 
 class Dev0Tests(unittest.TestCase):
@@ -56,6 +57,19 @@ class Dev0Tests(unittest.TestCase):
         self.assertEqual(set(result["analysis"]["sensitivities"]), {"window_900s", "hr_2bpm", "hr_5bpm", "route_MODERATE", "route_LOOSE"})
         self.assertIn("path_length", result["segments"]["synthetic-dev0|healthy|healthy-01"]["route_features"])
         self.assertIn("shape", result["segments"]["synthetic-dev0|healthy|healthy-01"]["route_features"])
+
+    def test_pair_spacing_uses_exact_elapsed_bounds(self):
+        def pair_at(seconds):
+            later = (datetime.fromisoformat("2026-01-01T00:00:00+00:00") + timedelta(seconds=seconds)).isoformat()
+            return _pairs((
+                {"identity": "a", "start_time": "2026-01-01T00:00:00+00:00", "mean_hr_bpm": 150, "mean_speed_mps": 3},
+                {"identity": "b", "start_time": later, "mean_hr_bpm": 150, "mean_speed_mps": 3},
+            ), 3)
+
+        self.assertEqual(pair_at(24 * 60 * 60)[0]["later"], "b")
+        self.assertEqual(pair_at(7 * 24 * 60 * 60)[0]["later"], "b")
+        self.assertEqual(pair_at(24 * 60 * 60 - 1), [])
+        self.assertEqual(pair_at(7 * 24 * 60 * 60 + 1), [])
 
     def test_nonzero_te_fixture(self):
         activities = list(build_synthetic_fixture())[:0]

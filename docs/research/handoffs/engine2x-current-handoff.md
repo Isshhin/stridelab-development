@@ -1,5 +1,9 @@
 # Engine 2.x current handoff
 
+## P2-B synthetic pairing correction — 2026-11-13
+
+Fixed an elapsed-time boundary bug in the synthetic DEV-0 pair funnel: `timedelta.days` had accepted pairs up to nearly 8 elapsed days. The helper now enforces inclusive 24-hour to 7-day bounds, with regression checks immediately inside and outside both limits. The 15-test P2-B module passes locally under Python 3.12. Its test module is now included in the research workflow trigger and validation steps. This changes no real-data status: DEV-1, source admission, P2-B activation and Gate 2 remain blocked. No athlete data was accessed, and no efficacy claim follows.
+
 ## P2-B DEV-0 closure and DEV-1 preparation (2026-11-08)
 
 DEV-0 is CLOSED: `P2B_DEV0_PUBLIC_REPEATABILITY_PIPELINE_FEASIBLE`, synthetic pipeline/software validation only. The prior [conversational independent final re-review](chatgpt-conversation://6aeee02e-9d50-83ec-b12d-b1b1eb1cbc8e) recorded `P2B_DEV0_SYNTHETIC_PIPELINE_ACCEPTABLE_PENDING_EXACT_HEAD_CI` at `a1da6287ba6159dd64dd8f25a63b88dad0f3e1e1`; it was not a GitHub PR review or identified human audit. [Run 42457192727](https://github.com/Isshhin/stridelab-development/actions/runs/42457192727), attempt 1, subsequently completed SUCCESS at that exact SHA. This documentation-only change does not alter the tested implementation; its later commit is not the CI-tested head. See [DEV-0 report](../phase2/p2-b-dev0-report.md). No real-world repeatability, source admission, P2-B activation, or Gate 2 approval follows.

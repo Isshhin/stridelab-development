@@ -6,6 +6,7 @@ on:
       - research/runna-garmin-coaching-20261102
     paths:
       - 'research/validation/**'
+      - 'research/p2b_dev0/**'
       - 'docs/research/experiments/experiment-003-load-policy-counterfactuals.csv'
       - 'docs/research/experiments/experiment-004-multidiscipline-coordination.csv'
       - 'docs/research/experiments/experiment-005-adaptation-state-and-load-metrics.csv'
@@ -15,6 +16,7 @@ on:
       - main
     paths:
       - 'research/validation/**'
+      - 'research/p2b_dev0/**'
       - 'docs/research/experiments/experiment-003-load-policy-counterfactuals.csv'
       - 'docs/research/experiments/experiment-004-multidiscipline-coordination.csv'
       - 'docs/research/experiments/experiment-005-adaptation-state-and-load-metrics.csv'
@@ -40,6 +42,8 @@ jobs:
           python-version: '3.12'
       - name: Negative-control unit tests and registry drift audit
         run: python -m unittest discover -s research/validation -p 'test_*.py' -v
+      - name: P2-B synthetic repeatability pipeline tests
+        run: python -m unittest research.p2b_dev0.test_pipeline -v
       - name: Test research registry and synthetic contract model
         run: python research/validation/runner.py --output research-validation.json
       - name: Record Runna matched-frequency capture readiness (not observed Runna output)

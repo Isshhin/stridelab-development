@@ -66,8 +66,8 @@ def _groups(rows,tolerance):
 def _pairs(rows,caliper):
     rows=sorted(rows,key=lambda x:(x["start_time"],x["identity"]));out=[]
     for left,right in zip(rows[::2],rows[1::2]):
-        days=(datetime.fromisoformat(right["start_time"])-datetime.fromisoformat(left["start_time"])).days
-        if 1<=days<=7:out.append({"earlier":left["identity"],"later":right["identity"],"hr_diff":round(abs(right["mean_hr_bpm"]-left["mean_hr_bpm"]),6),"d":round(right["mean_speed_mps"]-left["mean_speed_mps"],6),"hr_compatible":abs(right["mean_hr_bpm"]-left["mean_hr_bpm"])<=caliper})
+        spacing=datetime.fromisoformat(right["start_time"])-datetime.fromisoformat(left["start_time"])
+        if timedelta(days=1)<=spacing<=timedelta(days=7):out.append({"earlier":left["identity"],"later":right["identity"],"hr_diff":round(abs(right["mean_hr_bpm"]-left["mean_hr_bpm"]),6),"d":round(right["mean_speed_mps"]-left["mean_speed_mps"],6),"hr_compatible":abs(right["mean_hr_bpm"]-left["mean_hr_bpm"])<=caliper})
     return out
 def _canonical(activities):
     unique={};duplicates=0
