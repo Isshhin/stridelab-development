@@ -390,8 +390,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
      */
     internal suspend fun renameActivity(id:String, requestedTitle:String):Boolean =
         operation("Saving activity title…") {
-            val account = mutable.value.account
-                ?: throw PlanConstraint("An active athlete account is required to rename this activity.")
+            val account = if(id in mutable.value.localGarminIds) localGarminOwner else mutable.value.account
+                ?: throw PlanConstraint("This activity is not in the current local or cloud history.")
             if(mutable.value.activities.none { it.id==id })
                 throw PlanConstraint("This activity is not in the current account's saved history.")
             val title = validatedActivityTitle(requestedTitle)
@@ -417,7 +417,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     /** Load an existing, account-owned FIT recording without any network call. */
     internal suspend fun loadCachedDetail(id:String):Boolean = withContext(Dispatchers.IO) {
         mutex.withLock {
-            val account=mutable.value.account ?: return@withLock false
+            val account=if(id in mutable.value.localGarminIds) localGarminOwner
+                else mutable.value.account ?: return@withLock false
             if(mutable.value.activities.none { it.id==id })return@withLock false
             if(id in mutable.value.details)return@withLock true
             val cached=runCatching {
@@ -562,8 +563,11 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     ): GarminConnectionStatus = withContext(Dispatchers.IO) {
         require(pageLimit in 1..100 && detailLimit in 0..24)
         mutex.withLock {
-            val account=mutable.value.account
-                ?: throw GarminAuthenticationException("Sign in to StrideLab before importing Garmin activity")
+            // The source must use this installation's local Garmin owner or
+            // the currently signed-in legacy owner. Never accept another ID.
+            val account=source.accountId
+            if(account!=localGarminOwner && account!=mutable.value.account)
+                throw GarminAuthenticationException("Garmin connection does not belong to this local profile")
             var cursor:String?=null
             var pages=0
             var imported=0
@@ -599,7 +603,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 }
                 store.applyRemotePage(account,"activity",rows,null,System.currentTimeMillis())
                 imported+=rows.size
-                loadCache(account) // Durable, offline-accessible after each completed page.
+                if(account==localGarminOwner) loadLocalGarminCache()
+                else loadCache(account) // Durable, offline-accessible after each completed page.
                 pages++
                 val next=page.nextCursor
                 if(next!=null && (next==cursor || next.toIntOrNull()==null))
@@ -611,6 +616,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             // details; no previously saved source summary is modified.
             val pending = mutable.value.activities.filter { activity ->
                 activity.source == "garmin" && DashboardSummary.isRun(activity) &&
+                    (activity.id in mutable.value.localGarminIds)==(account==localGarminOwner) &&
                     activity.id.startsWith("garmin-") &&
                     !mutable.value.details.containsKey(activity.id)
             }
@@ -676,8 +682,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     internal suspend fun automaticGarminAndBackup(foreground: Boolean): Boolean =
         withContext(Dispatchers.IO) {
             val ready = state.first { !it.initializing }
-            val account = ready.account ?: return@withContext true
-            if (ready.needsSignIn) return@withContext true
+            val account = localGarminOwner
             var success = true
             val interval = if (foreground) 30L * 60_000 else 6L * 60 * 60_000
             if (garminSyncPreferences.automatic(account)) {
@@ -701,7 +706,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                     }
                 }
             }
-            if (garminSyncPreferences.cloudBackup(account) &&
+            if (ready.account != null && !ready.needsSignIn &&
+                garminSyncPreferences.cloudBackup(account) &&
                 garminSyncPreferences.claim(account, "cloud", interval)) {
                 try {
                     backupGarminCloud(maxRecords = 6)
@@ -820,11 +826,13 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
      */
     internal suspend fun loadGarminGps(id:String,source:GarminPersonalSource) =
         operation("Loading recorded Garmin activity…") {
-            val account = mutable.value.account
-                ?: throw GarminAuthenticationException("Sign in before loading Garmin details")
+            val account = source.accountId
+            if(account != localGarminOwner && account != mutable.value.account)
+                throw GarminAuthenticationException("Garmin source does not belong to this profile")
             val activity = mutable.value.activities.firstOrNull {
-                it.id == id && it.source == "garmin"
-            } ?: throw GarminProtocolException("Garmin source is not saved for this account")
+                it.id == id && it.source == "garmin" &&
+                    ((it.id in mutable.value.localGarminIds)==(account==localGarminOwner))
+            } ?: throw GarminProtocolException("Garmin source is not saved for this profile")
             cacheGarminRecording(account, activity, source, upgradeCadence = true)
         }
 
@@ -926,7 +934,9 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         // End local access before waiting for an unavailable network to revoke the server session.
         vault.clear(account)
         check(preferences.edit().remove("active").commit())
-        mutable.value = TrainingState(initializing = false,busy = true,task = "Finishing sign-out…")
+        mutable.value = TrainingState(initializing = false,busy = true,
+            localGarminOwner=localGarminOwner,task = "Finishing sign-out…")
+        loadLocalGarminCache() // Hide cloud records, retain local Garmin history.
         val revoked = saved != null && runCatching { gateway.signOut(saved); true }.getOrDefault(false)
         mutable.value = mutable.value.copy(message = if(revoked) null else "Signed out on this device. Server session revocation was unavailable; saved files were retained.")
     }
