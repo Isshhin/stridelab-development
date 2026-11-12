@@ -39,9 +39,6 @@ internal suspend fun shareMapSnapshot(context:Context, activity:ShareRenderableA
                         .withSource(GeoJsonSource("share-isolated",activity.route.isolatedGeoJson()))
                         .withLayer(CircleLayer("share-isolated-points","share-isolated").withProperties(
                             PropertyFactory.circleRadius(4f),PropertyFactory.circleColor(ShareCardPalette.LIME)))
-                        .withSource(GeoJsonSource("share-paused",activity.route.pausedPointsGeoJson()))
-                        .withLayer(CircleLayer("share-paused-points","share-paused").withProperties(
-                            PropertyFactory.circleRadius(3f),PropertyFactory.circleColor(ShareCardPalette.MUTED)))
                     val analysis=activity.analysis[state.routeMode]
                     if(analysis?.minimum!=null && analysis.maximum!=null) {
                         val low=analysis.minimum
