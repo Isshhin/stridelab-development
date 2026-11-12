@@ -1,5 +1,11 @@
 # Engine 2.x current handoff
 
+## P2-A synthetic shadow preparation — 2026-11-13
+
+Added an isolated, invented-data-only descriptive shadow helper in `research/validation/p2a_shadow.py`; it does not alter Session G or B0/H1. It filters by decision-time availability, tracks valid/excluded inputs and freshness, separates history-only from history-plus-check-in, and abstains on sparse history or an uncalibrated check-in scale. Four focused regression tests pass. Python 3.12.10 full validation: **448 tests passed, 1 existing skip**; contract runner **58 PASS, 0 FAIL, 58 real-engine BLOCKED** (E003 18, E004 22, E005 18); policy comparisons **55 PASS, 0 FAIL, 3 forecast BLOCKED**; seeded adversarial cohort **288 PASS, 0 FAIL**; multiweek **4 profiles PASS, 32 synthetic weeks**. Session-row and prospective Run Coach readiness remain blocked with zero observations. This establishes code behavior only, not a calibrated state estimate or coaching benefit. P2-A remains shadow-only pending authorized decision-time inputs and independent follow-up. Existing C/D/E cases were inspected and not duplicated. PR #34 remains open, draft and unmerged.
+
+Full details: [P2-A shadow preparation](../phase2/p2-a-shadow-preparation-2026-11-13.md).
+
 ## P2-B synthetic pairing correction — 2026-11-13
 
 Fixed an elapsed-time boundary bug in the synthetic DEV-0 pair funnel: `timedelta.days` had accepted pairs up to nearly 8 elapsed days. The helper now enforces inclusive 24-hour to 7-day bounds, with regression checks immediately inside and outside both limits. The 15-test P2-B module passes locally under Python 3.12. Its test module is now included in the research workflow trigger and validation steps. This changes no real-data status: DEV-1, source admission, P2-B activation and Gate 2 remain blocked. No athlete data was accessed, and no efficacy claim follows.
