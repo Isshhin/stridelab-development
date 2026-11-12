@@ -62,7 +62,7 @@ internal data class GarminConnectionStatus(
 
 /** Token lifecycle and source paging only; activity history remains owned by TrainingRepository. */
 internal class GarminPersonalSource(
-    private val accountId:String,
+    internal val accountId:String,
     private val credentials:GarminCredentialStore,
     private val api:GarminApi,
     private val clock:()->Instant={Instant.now()}
