@@ -1486,7 +1486,8 @@ private fun TracksideActivitySourceChart(
         if (selectedSeconds != null) {
             Spacer(Modifier.height(4.dp))
             Text(
-                ActivityRecord.duration(selectedSeconds) + " · " +
+                ActivityRecord.duration(movingAxis.position(selectedSeconds)) +
+                    " moving · " +
                     (selectedValue?.let { valueText(it) } ?: "No measurement at this point"),
                 color = lineColor, fontSize = 11.sp,
                 modifier = Modifier.testTag("activity-chart-cursor-" + title.lowercase().replace(" ", "-"))
