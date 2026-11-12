@@ -707,8 +707,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 }
             }
             if (ready.account != null && !ready.needsSignIn &&
-                garminSyncPreferences.cloudBackup(account) &&
-                garminSyncPreferences.claim(account, "cloud", interval)) {
+                garminSyncPreferences.cloudBackup(ready.account) &&
+                garminSyncPreferences.claim(ready.account, "cloud", interval)) {
                 try {
                     backupGarminCloud(maxRecords = 6)
                 } catch (error: CancellationException) {
@@ -727,7 +727,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             mutex.withLock {
                 val cloudAccount = mutable.value.account
                     ?: throw GarminAuthenticationException("Sign in to StrideLab to use cloud backup")
-                require(garminSyncPreferences.cloudBackup(localGarminOwner)) {
+                require(garminSyncPreferences.cloudBackup(cloudAccount)) {
                     "Enable optional Garmin cloud backup before uploading records"
                 }
                 // Local Garmin history is never rewritten just to create a
@@ -782,7 +782,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         mutex.withLock {
             val cloudAccount = mutable.value.account
                 ?: throw GarminAuthenticationException("Sign in to StrideLab to restore cloud backup")
-            require(garminSyncPreferences.cloudBackup(localGarminOwner)) {
+            require(garminSyncPreferences.cloudBackup(cloudAccount)) {
                 "Enable optional Garmin cloud backup before restoring"
             }
             // A different cloud login must never resume another user's offsets.
