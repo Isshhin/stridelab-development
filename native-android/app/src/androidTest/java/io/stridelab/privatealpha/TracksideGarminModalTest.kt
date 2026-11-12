@@ -67,6 +67,34 @@ class TracksideGarminModalTest {
         compose.onNodeWithTag("more-sign-in").assertExists()
     }
 
+    @Test fun signedOutGarminHistoryIsVisibleInTrainingAndActivityDetail() {
+        val started=java.time.LocalDate.now().atStartOfDay(
+            java.time.ZoneId.systemDefault()).toInstant()
+        val activity=ActivityRecord(
+            "garmin-local-guest-run","Guest Garmin Run","running","garmin",
+            started,5000.0,1800.0,1750.0,350.0,143.0,10.0
+        )
+        val state=TrainingState(
+            initializing=false, localGarminOwner="local-garmin-synthetic-guest",
+            localGarminIds=setOf(activity.id), activities=listOf(activity)
+        )
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    NativeStrideContent(state, false,
+                        NativeActions({}, {}, {}, {}, { _, _ -> }))
+                }
+            }
+        }
+        compose.onNodeWithTag("nav-training").performClick()
+        compose.onNodeWithTag("training-unified-timeline")
+            .performScrollToNode(hasTestTag("timeline-recorded-garmin-local-guest-run"))
+        compose.onNodeWithTag("timeline-recorded-garmin-local-guest-run")
+            .assertExists().performClick()
+        compose.onNodeWithTag("activity-map-hero").assertExists()
+        compose.onNodeWithText("Guest Garmin Run").assertExists()
+    }
+
     @Test fun garminOpensAboveMoreAndClosesWithoutCreatingAnotherPage() {
         val state = TrainingState(initializing = false,
             account = "synthetic-modal-account")
