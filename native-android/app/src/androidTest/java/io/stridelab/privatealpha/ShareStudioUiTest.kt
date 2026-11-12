@@ -80,6 +80,14 @@ class ShareStudioUiTest {
         compose.onNodeWithText("200 m").assertExists().assertIsSelected()
         compose.onNodeWithText("400 m").assertExists().assertIsNotSelected()
         compose.onNodeWithText("800 m").assertExists().assertIsNotSelected()
+        compose.onNodeWithText("Off (full route)").assertExists().assertIsNotSelected()
+    }
+
+    @Test fun exportPngActionAvailableForOfflineActivity() {
+        mountDetail()
+        compose.onNodeWithTag("activity-share").performClick()
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("share-card-preview").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("share-export-png").assertExists().assertIsEnabled()
     }
 
     @Test fun presetsPersistUpdateAndDeleteOnDisk() {
