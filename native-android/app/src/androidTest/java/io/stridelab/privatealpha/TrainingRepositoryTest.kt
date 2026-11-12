@@ -328,6 +328,28 @@ class TrainingRepositoryTest {
         assertFalse(repo.state.value.activities.any { it.id=="separate-cloud-history" })
     }
 
+    @Test fun signingOutPreservesLegacyEncryptedGarminConnectionLocally() = runBlocking {
+        remote.rows=listOf(row())
+        assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        val credentials=GarminCredentialVault(context)
+        val owner=repo.state.value.localGarminOwner!!
+        try {
+            credentials.save(GarminCredentialRecord(
+                account,"synthetic-legacy-garmin-key","synthetic-legacy-token",
+                Instant.now().plusSeconds(3600)))
+            assertTrue(repo.signOut())
+            assertNull(repo.state.value.account)
+            val copied=credentials.read(owner)
+            assertNotNull(copied)
+            assertEquals(owner,copied!!.accountId)
+            assertEquals("synthetic-legacy-garmin-key",copied.apiKey)
+            assertEquals("synthetic-legacy-token",copied.bearerToken)
+        } finally {
+            runCatching { credentials.clear(owner) }
+            runCatching { credentials.clear(account) }
+        }
+    }
+
     @Test fun guestGarminSyncRejectsUnrelatedSourceOwner() = runBlocking {
         val credentials=object:GarminCredentialStore {
             override fun read(accountId:String):GarminCredentialRecord?=null
