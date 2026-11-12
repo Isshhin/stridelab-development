@@ -249,36 +249,38 @@ private fun PrimaryActivityMetric(
 
 /** Compact header used only after the user expands the details sheet. */
 @Composable
-internal fun TracksideActivityExpandedHeader(activity: ActivityRecord, onBack: () -> Unit, onShare: (() -> Unit)? = null, onEdit: (() -> Unit)? = null) {
+internal fun TracksideActivityExpandedHeader(
+    activity: ActivityRecord,
+    onBack: () -> Unit,
+    onShare: (() -> Unit)? = null,
+    onEdit: (() -> Unit)? = null
+) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
             .heightIn(min = 51.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         TextButton(
             onClick = onBack,
             contentPadding = PaddingValues(0.dp),
             modifier = Modifier.size(42.dp).testTag("activity-expanded-back")
         ) { Text("‹", fontSize = 28.sp, color = activityText) }
-        Box(
-            Modifier.size(32.dp).background(Color(0xFF1D2B20), RoundedCornerShape(10.dp)),
-            contentAlignment = Alignment.Center
-        ) { Text("↗", color = activityLime, fontSize = 22.sp, fontWeight = FontWeight.Bold) }
         Column(Modifier.weight(1f)) {
-            Text(activityDisplayName(activity.title), color = activityText, fontSize = 16.sp,
-                lineHeight = 19.sp, fontWeight = FontWeight.SemiBold,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                activityDisplayName(activity.title), color = activityText,
+                fontSize = 16.sp, lineHeight = 19.sp, fontWeight = FontWeight.SemiBold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis
+            )
             Text(activity.dateLabel, color = activityMuted, fontSize = 10.sp, maxLines = 1)
         }
-        if (onEdit != null) TextButton(onClick = onEdit,
-            modifier = Modifier.heightIn(min = 48.dp).testTag("activity-edit-expanded")) {
-            Text("✎ Edit", color = activityText)
-        }
-        if (onShare != null) TextButton(onClick = onShare,
-            modifier = Modifier.heightIn(min = 48.dp).testTag("activity-share-expanded")) {
-            Text("Share", color = activityText)
-        }
+        if (onEdit != null) ActivityMapHeaderAction(
+            label = "Edit", tag = "activity-edit-expanded", onClick = onEdit
+        )
+        if (onShare != null) ActivityMapHeaderAction(
+            label = "Share", tag = "activity-share-expanded",
+            onClick = onShare, shareIcon = true
+        )
     }
 }
 
