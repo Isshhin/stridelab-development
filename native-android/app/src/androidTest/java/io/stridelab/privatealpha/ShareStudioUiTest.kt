@@ -75,9 +75,11 @@ class ShareStudioUiTest {
         compose.onNodeWithTag("share-section-ROUTE").performClick()
         compose.onNodeWithTag("share-studio-scroll").performScrollToNode(hasText("Trim distance from each endpoint"))
         compose.onNodeWithText("Trim distance from each endpoint").assertIsDisplayed()
-        compose.onNodeWithText("200 m").assertIsDisplayed()
-        compose.onNodeWithText("400 m").assertIsDisplayed()
-        compose.onNodeWithText("800 m").assertIsDisplayed()
+        // The LazyColumn may clip choices below the viewport on a smaller emulator.
+        // Verify the options and default selection via semantics, not pixel visibility.
+        compose.onNodeWithText("200 m").assertExists().assertIsSelected()
+        compose.onNodeWithText("400 m").assertExists().assertIsNotSelected()
+        compose.onNodeWithText("800 m").assertExists().assertIsNotSelected()
     }
 
     @Test fun presetsPersistUpdateAndDeleteOnDisk() {
