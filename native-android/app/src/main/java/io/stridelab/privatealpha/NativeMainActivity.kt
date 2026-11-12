@@ -688,6 +688,7 @@ private fun NavHostController.openActivity(id: String) {
                 backupGarminCloud = actions.backupGarminCloud,
                 restoreGarminCloud = actions.restoreGarminCloud,
                 allowCloudBackup = state.account != null && !state.needsSignIn,
+                cloudPreferenceAccount = state.account,
                 busy = garminBusy,
                 onBusyChange = { garminBusy = it },
                 onDismiss = { if (!garminBusy) garminSheetOpen = false }
