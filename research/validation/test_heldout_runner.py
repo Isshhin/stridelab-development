@@ -47,6 +47,38 @@ class SeededAdversarialTests(unittest.TestCase):
         output = heldout_runner.run_policy("H1", state)
         self.assertIsNone(output["observation"]["hr_bpm"])
 
+    def test_strength_only_changes_cannot_change_running_observation(self):
+        state = heldout_runner.sample(0, "CROSS_DOMAIN",
+                                      __import__("random").Random(82603))
+        changed = __import__("copy").deepcopy(state)
+        changed["strength"].update(actual_sets=state["strength"]["actual_sets"] + 5,
+                                   load_kg=state["strength"]["load_kg"] + 20)
+        for policy in ("B0", "H1"):
+            before = heldout_runner.run_policy(policy, state)
+            after = heldout_runner.run_policy(policy, changed)
+            self.assertEqual(before["observation"]["actual_run"],
+                             after["observation"]["actual_run"])
+            self.assertEqual(before["action"], after["action"])
+
+    def test_return_from_break_always_defers_independent_of_strength(self):
+        import copy
+        import random
+
+        for seed in range(10):
+            state = heldout_runner.sample(seed, "RETURN_FROM_BREAK",
+                                          random.Random(82603 + seed))
+            state["return_from_break"] = True
+            state["request_adaptation"] = True
+            results = []
+            for sets in (0, 3, 12):
+                candidate = copy.deepcopy(state)
+                candidate["strength"]["actual_sets"] = sets
+                results.append(heldout_runner.run_policy("H1", candidate))
+            for output in results:
+                self.assertEqual("DEFER_UNKNOWN", output["action"])
+                self.assertEqual("RETURN_CAPACITY_UNVERIFIED", output["reason"])
+                self.assertFalse(output["revision"]["applied"])
+
     def test_no_raw_private_athlete_inputs_required(self):
         result = heldout_runner.run_suite(per_cohort=1)
         self.assertIn("not_longitudinal_outcome_evidence", result)
