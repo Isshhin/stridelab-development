@@ -13,7 +13,7 @@ class ShareStudioTest {
         ActivityDetail(activity.id, samples, emptyList(), 0, pauses)
 
     @Test fun routeModesRequireRecordedGeographicMetricPairs() {
-        val render = ShareRenderableActivity.from(activity, detail(listOf(sample(0,0.0),sample(1,10.0))))
+        val render = ShareRenderableActivity.from(activity, detail((0..8).map { sample(it,it*10.0) }))
         assertEquals(setOf(ShareRouteMode.ROUTE, ShareRouteMode.PACE, ShareRouteMode.ELEVATION, ShareRouteMode.HIDDEN), render.availableModes)
         assertFalse(render.metrics.containsKey(ShareMetric.HR))
         assertEquals(setOf(ShareRouteMode.HIDDEN), ShareRenderableActivity.from(activity,null).availableModes)
@@ -41,15 +41,27 @@ class ShareStudioTest {
     }
 
     @Test fun sourceDataRemainsUnchangedAndRouteBreaksAtPausesAndGaps() {
-        val samples = listOf(sample(0,0.0,120.0),sample(1,10.0,125.0),sample(2,30.0,130.0),sample(3,200.0,140.0),sample(4,210.0,145.0))
-        val source = detail(samples,listOf(ActivityPauseInterval(15.0,25.0)))
+        val samples = (0..12).filter { it!=4 }.map { sample(it, it*10.0 + if(it>=8) 200.0 else 0.0,120.0+it) }
+        val source = detail(samples,listOf(ActivityPauseInterval(35.0,45.0)))
         val before = source.copy(samples=source.samples.toList())
         val render = ShareRenderableActivity.from(activity,source)
         assertEquals(before,source)
-        assertEquals(3,render.route.segments.size)
+        assertEquals(2,render.route.segments.size)
+        assertTrue(render.route.segments.first().zipWithNext().any { (a,b) -> a.elapsedSeconds==30.0 && b.elapsedSeconds==50.0 })
         val edges = render.analysis.getValue(ShareRouteMode.HR).edges
-        assertEquals(listOf(0.0 to 10.0,200.0 to 210.0),edges.map { it.start.elapsedSeconds to it.end.elapsedSeconds })
+        assertTrue(edges.none { it.start.elapsedSeconds==30.0 && it.end.elapsedSeconds==50.0 })
         assertFalse(render.metrics.containsKey(ShareMetric.HR)) // samples do not invent a summary average
+    }
+
+    @Test fun defaultSharePrivacySurvivesLegacyPresets() {
+        assertEquals(SharePrivacy.STANDARD,ShareStudioState().privacy)
+        assertEquals(ShareBackground.DARK,ShareStudioState().background)
+        val original=SharePreset("one","Original",ShareStudioState(background=ShareBackground.MAP))
+        val json=org.json.JSONObject(SharePresetCodec.encode(listOf(original)))
+        json.getJSONArray("presets").getJSONObject(0).remove("privacy")
+        val decoded=SharePresetCodec.decode(json.toString()).single()
+        assertEquals(SharePrivacy.STANDARD,decoded.state.privacy)
+        assertEquals(ShareBackground.MAP,decoded.state.background)
     }
 
     @Test fun presetCodecRoundTripAndDeletion() {
@@ -73,7 +85,7 @@ class ShareStudioTest {
     }
 
     @Test fun hrRouteRequiresRecordedPairsAndDoesNotCreateSummaryHr() {
-        val render=ShareRenderableActivity.from(activity,detail(listOf(sample(0,0.0,120.0),sample(1,10.0,130.0))))
+        val render=ShareRenderableActivity.from(activity,detail((0..8).map { sample(it,it*10.0,120.0+it) }))
         assertTrue(ShareRouteMode.HR in render.availableModes)
         assertFalse(ShareMetric.HR in render.metrics)
     }
