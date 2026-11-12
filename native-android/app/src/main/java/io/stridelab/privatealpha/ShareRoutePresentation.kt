@@ -8,7 +8,7 @@ internal data class ShareRoutePresentation(val route:RecordedGpsRoute, val analy
 
 /** Filter first; no source samples or pause intervals are changed. */
 internal fun shareRoutePresentation(samples:List<ActivitySample>, pauses:List<ActivityPauseInterval>, trimMeters:Double, supportsPace:Boolean):ShareRoutePresentation {
-    require(trimMeters.isFinite() && trimMeters > 0)
+    require(trimMeters.isFinite() && trimMeters >= 0) // Zero is an explicit privacy opt-out; default remains 200 m.
     val recorded=RecordedGpsRoute.from(samples,pauses)
     val original=recorded.segments
     val all=recorded.allPoints
