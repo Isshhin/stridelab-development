@@ -720,49 +720,54 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             success
         }
 
-    /** Cloud upload is opt-in. Every uploaded row first exists in local SQLite. */
+    /** Cloud backup requires StrideLab sign-in; Garmin itself remains local. */
     internal suspend fun backupGarminCloud(maxRecords: Int = 12): Int =
         withContext(Dispatchers.IO) {
             require(maxRecords in 1..24)
             mutex.withLock {
-                val account = mutable.value.account
-                    ?: throw GarminAuthenticationException("Sign in before backing up Garmin")
-                require(garminSyncPreferences.cloudBackup(account)) {
-                    "Enable Garmin cloud backup before uploading records"
+                val cloudAccount = mutable.value.account
+                    ?: throw GarminAuthenticationException("Sign in to StrideLab to use cloud backup")
+                require(garminSyncPreferences.cloudBackup(localGarminOwner)) {
+                    "Enable optional Garmin cloud backup before uploading records"
                 }
+                // Local Garmin history is never rewritten just to create a
+                // cloud snapshot. Translate only a copy of the payload to the
+                // authenticated cloud owner before gateway validation/RLS.
                 val candidates = mutableListOf<Triple<String, String, String>>()
-                val database = store.readableDatabase
-                database.query(
-                    "records", arrayOf("kind", "record_id", "payload"),
-                    "account=? AND kind IN (?,?)",
-                    arrayOf(account, "activity", "activity_detail"),
-                    null, null, "kind ASC,record_id ASC"
-                ).use { cursor ->
-                    while (cursor.moveToNext() && candidates.size < maxRecords) {
-                        val kind = cursor.getString(0)
-                        val id = cursor.getString(1)
-                        val payload = cursor.getString(2)
-                        if (kind == "activity") {
-                            if (runCatching { JSONObject(payload).optString("source") }
-                                    .getOrNull() != "garmin") continue
-                        } else {
-                            val summary = store.get(account, "activity", id) ?: continue
-                            if (runCatching { JSONObject(summary.payload).optString("source") }
-                                    .getOrNull() != "garmin") continue
+                val db = store.readableDatabase
+                for(owner in listOf(localGarminOwner,cloudAccount).distinct()) {
+                    db.query("records", arrayOf("kind", "record_id", "payload"),
+                        "account=? AND kind IN (?,?)",
+                        arrayOf(owner, "activity", "activity_detail"),
+                        null, null, "kind ASC,record_id ASC").use { cursor ->
+                        while(cursor.moveToNext() && candidates.size < maxRecords) {
+                            val kind=cursor.getString(0)
+                            val id=cursor.getString(1)
+                            val payload=cursor.getString(2)
+                            if(kind=="activity") {
+                                if(runCatching { JSONObject(payload).optString("source") }
+                                        .getOrNull()!="garmin") continue
+                            } else {
+                                val summary=store.get(owner,"activity",id) ?: continue
+                                if(runCatching { JSONObject(summary.payload).optString("source") }
+                                        .getOrNull()!="garmin") continue
+                            }
+                            val cloudPayload = if(owner==cloudAccount) payload else
+                                JSONObject(payload).put("user_id",cloudAccount).toString()
+                            // Large FIT streams are retained locally, not truncated.
+                            if(!GarminCloudBackupGateway.fitsUpload(cloudPayload)) continue
+                            if(garminSyncPreferences.needsCloudUpload(
+                                cloudAccount,kind,id,cloudPayload)) {
+                                candidates.add(Triple(kind,id,cloudPayload))
+                            }
                         }
-                        // Large FIT streams stay local; they must not block
-                        // backup of other activities or be falsely marked uploaded.
-                        if (!GarminCloudBackupGateway.fitsUpload(payload)) continue
-                        if (garminSyncPreferences.needsCloudUpload(account, kind, id, payload))
-                            candidates.add(Triple(kind, id, payload))
                     }
+                    if(candidates.size>=maxRecords) break
                 }
-                var uploaded = 0
-                for ((kind, id, payload) in candidates) {
-                    // Resolve a verified, renewable StrideLab session for each
-                    // request. No Garmin credential ever leaves this device.
-                    authenticated { session -> garminCloud.upload(session, kind, id, payload) }
-                    garminSyncPreferences.acknowledgeCloudUpload(account, kind, id, payload)
+                var uploaded=0
+                for((kind,id,payload) in candidates) {
+                    authenticated { session -> garminCloud.upload(session,kind,id,payload) }
+                    garminSyncPreferences.acknowledgeCloudUpload(cloudAccount,kind,id,payload)
                     uploaded++
                 }
                 uploaded
@@ -770,51 +775,54 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         }
 
     /**
-     * Explicit, insert-only cloud recovery. Validates owner, kind, IDs and
-     * source measurements before adding rows. Never replaces existing records.
-     * Bounded pages and durable offsets let later taps resume recovery.
+     * Insert-only cloud recovery, translated into the local Garmin namespace.
+     * Never overwrites a local original, cloud account history or FIT recording.
      */
     internal suspend fun restoreGarminCloud(): Int = withContext(Dispatchers.IO) {
         mutex.withLock {
-            val account = mutable.value.account
-                ?: throw GarminAuthenticationException("Sign in before restoring Garmin")
-            require(garminSyncPreferences.cloudBackup(account)) {
-                "Enable Garmin cloud backup before restoring"
+            val cloudAccount = mutable.value.account
+                ?: throw GarminAuthenticationException("Sign in to StrideLab to restore cloud backup")
+            require(garminSyncPreferences.cloudBackup(localGarminOwner)) {
+                "Enable optional Garmin cloud backup before restoring"
             }
-            var restored = 0
-            for (kind in listOf("activity", "activity_detail")) {
-                val size = if (kind == "activity") 25 else 1
-                var offset = garminSyncPreferences.restoreOffset(account, kind)
-                val batches = if (kind == "activity") 2 else 10
-                for (batch in 0 until batches) {
-                    val page = authenticated { session ->
-                        garminCloud.readPage(session, kind, offset, size)
+            // A different cloud login must never resume another user's offsets.
+            val restoreKey = "garmin-restore:" + cloudAccount
+            var restored=0
+            for(kind in listOf("activity","activity_detail")) {
+                val size=if(kind=="activity") 25 else 1
+                var offset=garminSyncPreferences.restoreOffset(restoreKey,kind)
+                val batches=if(kind=="activity") 2 else 10
+                for(batch in 0 until batches) {
+                    val page=authenticated { session ->
+                        garminCloud.readPage(session,kind,offset,size)
                     }
-                    for (row in page) {
-                        if (store.get(account, kind, row.recordId) != null) continue
-                        if (kind == "activity_detail" &&
-                            store.get(account, "activity", row.recordId) == null) continue
-                        // Each source is added durably without overwriting any
-                        // other local version or touching the original server tables.
-                        store.applyRemotePage(
-                            account, kind,
+                    for(row in page) {
+                        if(store.get(localGarminOwner,kind,row.recordId)!=null) continue
+                        if(kind=="activity_detail" &&
+                            store.get(localGarminOwner,"activity",row.recordId)==null) continue
+                        val localPayload = JSONObject(row.payload)
+                            .put("user_id",localGarminOwner).toString()
+                        // Recheck the translated local identity, source and ID.
+                        if(kind=="activity") {
+                            val activity=ActivityRecord.parse(localPayload,localGarminOwner)
+                            require(activity.id==row.recordId && activity.source=="garmin")
+                        } else ActivityDetail.parse(
+                            JSONObject(localPayload),localGarminOwner,row.recordId)
+                        store.applyRemotePage(localGarminOwner,kind,
                             listOf(TrainingStore.RemoteRecord(
-                                row.recordId, row.payload, null)),
-                            null, System.currentTimeMillis()
-                        )
+                                row.recordId,localPayload,null)),
+                            null,System.currentTimeMillis())
                         restored++
                     }
-                    offset += page.size
-                    garminSyncPreferences.setRestoreOffset(account, kind, offset)
-                    if (page.size < size) {
-                        // A completed scan will start at the beginning next
-                        // time, allowing newly created cloud rows to be seen.
-                        garminSyncPreferences.setRestoreOffset(account, kind, 0)
+                    offset+=page.size
+                    garminSyncPreferences.setRestoreOffset(restoreKey,kind,offset)
+                    if(page.size<size) {
+                        garminSyncPreferences.setRestoreOffset(restoreKey,kind,0)
                         break
                     }
                 }
             }
-            if (restored > 0) loadCache(account)
+            if(restored>0)loadLocalGarminCache()
             restored
         }
     }
