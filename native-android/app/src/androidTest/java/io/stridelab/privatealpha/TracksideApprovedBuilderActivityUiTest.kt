@@ -543,7 +543,7 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("activity-sheet-scroll").assertExists()
         compose.onNodeWithTag("activity-parity-overview").assertExists()
         compose.onNodeWithTag("activity-change-glass-variant").assertDoesNotExist()
-        compose.onNodeWithTag("activity-map-fullscreen").assertExists()
+        compose.onNodeWithTag("activity-map-fullscreen").assertDoesNotExist()
         compose.onNodeWithTag("activity-sheet-scroll").assert(
             SemanticsMatcher.expectValue(
                 androidx.compose.ui.semantics.SemanticsProperties.StateDescription,
