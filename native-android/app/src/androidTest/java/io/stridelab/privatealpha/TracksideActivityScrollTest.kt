@@ -535,9 +535,10 @@ class TracksideActivityScrollTest {
                 }
             }
         }
-        compose.onNodeWithTag("activity-map-legend").assertExists()
-        compose.onNodeWithTag("activity-map-gps-continuity").assertExists()
-        compose.onNodeWithText("Continuous GPS").assertExists()
+        compose.onNodeWithTag("activity-map-legend").assertDoesNotExist()
+        compose.onNodeWithTag("activity-map-gps-continuity").assertDoesNotExist()
+        compose.onNodeWithText("Continuous GPS").assertDoesNotExist()
+        compose.onNodeWithText("GPS gap").assertDoesNotExist()
         compose.onNodeWithText("Recorded route").assertDoesNotExist()
         compose.onNodeWithText("Timer pause").assertDoesNotExist()
         compose.onNodeWithText("GPS recorded while paused").assertDoesNotExist()
@@ -567,7 +568,7 @@ class TracksideActivityScrollTest {
                 }
             }
         }
-        compose.onNodeWithTag("activity-map-fullscreen").assertExists()
+        compose.onNodeWithTag("activity-map-fullscreen").assertDoesNotExist()
         compose.onNodeWithTag("activity-map-mode-selector").assertExists()
         compose.onNodeWithTag("activity-map-mode-route").assertExists()
         compose.onNodeWithTag("activity-map-mode-pace").assertExists()
