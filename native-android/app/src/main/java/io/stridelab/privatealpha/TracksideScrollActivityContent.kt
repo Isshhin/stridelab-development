@@ -1371,55 +1371,25 @@ private fun TracksideActivitySourceChart(
     onSelectSeconds: (Double) -> Unit = {},
     pauseIntervals: List<ActivityPauseInterval> = emptyList()
 ) {
-    // Segment by missing source values and timestamp gaps before drawing.
-    // A line never bridges a pause or interpolates an unrecorded measurement.
-    val segments = remember(samples, title, pauseIntervals) {
-        val result = mutableListOf<List<ActivitySample>>()
-        var current = mutableListOf<ActivitySample>()
-        var previous: ActivitySample? = null
-        fun flush() {
-            if(current.isNotEmpty()) result.add(current)
-            current = mutableListOf()
-            previous = null
-        }
-        fun crossesPause(from: Double, to: Double): Boolean =
-            pauseIntervals.any { pause ->
-                from < pause.endSeconds && to > pause.startSeconds
-            }
-        samples.forEach { sample ->
-            val value = metric(sample)
-            if (value == null || !value.isFinite() ||
-                (previous != null && (
-                    sample.seconds - previous!!.seconds > 120.0 ||
-                        crossesPause(previous!!.seconds, sample.seconds)
-                ))
-            ) flush()
-            if(value != null && value.isFinite()) {
-                current.add(sample)
-                previous = sample
-            }
-        }
-        flush()
-        // Bound rendering and drag lookup to ~450 points, but compute summary
-        // values from ALL actual samples rather than the downsampled display.
-        val step = (samples.size / 450).coerceAtLeast(1)
-        result.map { section ->
-            section.filterIndexed { i, _ -> i % step == 0 || i == section.lastIndex }
-        }
+    // The x-axis uses moving time: timer pauses have zero horizontal width.
+    // Plot only actual recorded measurements outside paused intervals, joining
+    // successive available points without fabricating readings or altering FIT.
+    val movingAxis = remember(samples, pauseIntervals) {
+        ActivityChartMovingTimeAxis.from(samples, pauseIntervals)
     }
-    val validSamples = remember(samples, title) {
+    val validSamples = remember(samples, pauseIntervals, title) {
         samples.mapNotNull { sample ->
-            metric(sample)?.takeIf { it.isFinite() }?.let { sample to it }
+            if (movingAxis.isPaused(sample.seconds)) null
+            else metric(sample)?.takeIf { it.isFinite() }?.let { sample to it }
         }
     }
-    val pausedMetricSamples = remember(samples, pauseIntervals, title) {
-        if (pauseIntervals.isEmpty()) emptyList()
-        else samples.filter { sample ->
-            metric(sample)?.isFinite() == true &&
-                pauseIntervals.any { pause ->
-                    sample.seconds >= pause.startSeconds && sample.seconds <= pause.endSeconds
-                }
-        }
+    // Keep rendering bounded while preserving genuine endpoints and full-stream
+    // statistics. A missing metric does not introduce an artificial line break.
+    val renderedPoints = remember(validSamples) {
+        val stride = ((validSamples.size + 449) / 450).coerceAtLeast(1)
+        validSamples.filterIndexed { index, _ ->
+            index % stride == 0 || index == validSamples.lastIndex
+        }.map { it.first }
     }
     if (validSamples.size < 2 || samples.isEmpty()) return
     // A shared chart cursor can update frequently while dragging. Cache
@@ -1439,39 +1409,22 @@ private fun TracksideActivitySourceChart(
     }
     val displayLow = displayScale.displayLow
     val displayHigh = displayScale.displayHigh
-    val displaySegments = remember(segments, displayScale, title) {
-        buildList {
-            segments.forEach { section ->
-                var current = mutableListOf<ActivitySample>()
-                fun flush() {
-                    if (current.isNotEmpty()) add(current.toList())
-                    current = mutableListOf()
-                }
-                section.forEach { sample ->
-                    val value = metric(sample)
-                    if (value == null || displayScale.isOutside(value)) flush()
-                    else current.add(sample)
-                }
-                flush()
-            }
-        }
-    }
     val chartInsight = remember(validSamples, title) {
         ActivityDetailSectionAnalysis.chart(title, validSamples)
     }
-    val firstTime = samples.first().seconds
-    val lastTime = samples.last().seconds
-    if (lastTime <= firstTime) return
-    val renderedPoints = remember(segments) { segments.flatten() }
+    // All points may belong to a paused interval; in that case no moving
+    // chart exists, even though the original FIT samples remain available.
+    if (movingAxis.durationSeconds <= 0.0) return
     val displayedOutliers = remember(renderedPoints, displayScale, title) {
         renderedPoints.filter { sample ->
             metric(sample)?.let(displayScale::isOutside) == true
         }
     }
-    val selectedPoint = remember(selectedSeconds, renderedPoints, title) {
+    val selectedPoint = remember(selectedSeconds, renderedPoints, movingAxis, title) {
         selectedSeconds?.let { at ->
-            renderedPoints.minByOrNull { abs(it.seconds - at) }
-                ?.takeIf { abs(it.seconds - at) <= 60.0 }
+            val movingAt = movingAxis.position(at)
+            renderedPoints.minByOrNull { abs(movingAxis.position(it.seconds) - movingAt) }
+                ?.takeIf { abs(movingAxis.position(it.seconds) - movingAt) <= 60.0 }
         }
     }
     val selectedValue = selectedPoint?.let(metric)
@@ -1484,10 +1437,12 @@ private fun TracksideActivitySourceChart(
     fun selectAt(x: Float) {
         if(chartWidthPx <= 0f) return
         val fraction = (x / chartWidthPx).coerceIn(0f, 1f)
-        val target = firstTime + (lastTime - firstTime) * fraction
-        // Select a REAL recorded sample, never a timestamp invented between
-        // points. Other charts can report missing data at this same time.
-        val nearest = renderedPoints.minByOrNull { abs(it.seconds - target) }
+        val target = movingAxis.durationSeconds * fraction
+        // Select a REAL recorded sample on the moving timeline. The callback
+        // still receives its original elapsed timestamp for cross-chart sync.
+        val nearest = renderedPoints.minByOrNull {
+            abs(movingAxis.position(it.seconds) - target)
+        }
         if(nearest != null) onSelectSeconds(nearest.seconds)
     }
     val lineColor = when(title) {
@@ -1516,18 +1471,6 @@ private fun TracksideActivitySourceChart(
             color = activityMuted, fontSize = 10.sp, maxLines = 2,
             modifier = Modifier.testTag("activity-chart-summary-" + title.lowercase().replace(" ", "-"))
         )
-        if (pauseIntervals.isNotEmpty()) {
-            Spacer(Modifier.height(3.dp))
-            Text(
-                "Recorded timer pauses are shown as amber bands.",
-                color = Color(0xFFFFBE7A).copy(alpha = .85f),
-                fontSize = 9.sp, lineHeight = 12.sp,
-                modifier = Modifier.testTag(
-                    "activity-chart-pause-note-" +
-                        title.lowercase(Locale.ROOT).replace(" ", "-")
-                )
-            )
-        }
         if (displayScale.trimmed) {
             Spacer(Modifier.height(3.dp))
             Text(
@@ -1587,40 +1530,14 @@ private fun TracksideActivitySourceChart(
                 .testTag("stream-" + title)
                 .semantics {
                     contentDescription = title + " recorded chart, " +
-                        validSamples.size + " measured points. " +
+                        validSamples.size + " moving-time measurements. " +
                         "Average " + valueText(sampleAverage) +
-                        (if (pausedMetricSamples.isNotEmpty())
-                            ". " + pausedMetricSamples.size +
-                                " measurements were recorded during timer pauses"
-                        else "") +
-                        ". Drag to inspect values."
+                        ". Drag to inspect recorded values."
                 }
         ) {
             val span = (displayHigh - displayLow).coerceAtLeast(1.0)
-            val timeSpan = lastTime - firstTime
-            pauseIntervals.forEach { pause ->
-                val startX = (((pause.startSeconds - firstTime) / timeSpan)
-                    .coerceIn(0.0,1.0) * size.width).toFloat()
-                val endX = (((pause.endSeconds - firstTime) / timeSpan)
-                    .coerceIn(0.0,1.0) * size.width).toFloat()
-                if (endX > startX) {
-                    drawRect(
-                        Color(0xFFFFBE7A).copy(alpha = .08f),
-                        topLeft = Offset(startX,0f),
-                        size = androidx.compose.ui.geometry.Size(endX-startX,size.height)
-                    )
-                    drawLine(
-                        Color(0xFFFFBE7A).copy(alpha = .38f),
-                        Offset(startX,0f),Offset(startX,size.height),1.dp.toPx()
-                    )
-                    drawLine(
-                        Color(0xFFFFBE7A).copy(alpha = .38f),
-                        Offset(endX,0f),Offset(endX,size.height),1.dp.toPx()
-                    )
-                }
-            }
             fun position(sample: ActivitySample, value: Double): Offset {
-                val x = ((sample.seconds - firstTime) / timeSpan * size.width).toFloat()
+                val x = (movingAxis.position(sample.seconds) / movingAxis.durationSeconds * size.width).toFloat()
                 val displayed = value.coerceIn(displayLow, displayHigh)
                 val norm = ((displayed - displayLow) / span).toFloat().coerceIn(0f, 1f)
                 val y = if (pace) norm * (size.height - 8f) + 4f
@@ -1647,28 +1564,17 @@ private fun TracksideActivitySourceChart(
                     floatArrayOf(6.dp.toPx(), 5.dp.toPx())
                 )
             )
-            displaySegments.forEach { section ->
-                section.zipWithNext().forEach { (a,b) ->
-                    val av=metric(a)
-                    val bv=metric(b)
-                    if(av != null && bv != null) {
-                        drawLine(lineColor,position(a,av),position(b,bv),
-                            strokeWidth=2.dp.toPx(),cap=StrokeCap.Round)
-                    }
-                }
-            }
-            // Real measurements saved while TIMER was stopped stay visible as
-            // amber evidence points. They are never connected or interpolated.
-            pausedMetricSamples.forEach { sample ->
-                val value = metric(sample)
-                if (value != null) {
-                    drawCircle(
-                        Color(0xFFFFBE7A).copy(alpha = .92f),
-                        2.6.dp.toPx(),
-                        position(sample, value)
+            renderedPoints.zipWithNext().forEach { (a, b) ->
+                val av = metric(a)
+                val bv = metric(b)
+                if (av != null && bv != null) {
+                    drawLine(
+                        lineColor, position(a, av), position(b, bv),
+                        strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round
                     )
                 }
             }
+            // Highlight clipped real outliers without breaking the line.
             displayedOutliers.forEach { sample ->
                 val value = metric(sample)
                 if (value != null) {
@@ -1690,8 +1596,14 @@ private fun TracksideActivitySourceChart(
         }
         Row(Modifier.fillMaxWidth().padding(start = 48.dp),
             horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(ActivityRecord.duration(firstTime), color = activityMuted, fontSize = 10.sp)
-            Text(ActivityRecord.duration(lastTime), color = activityMuted, fontSize = 10.sp)
+            Text("0:00", color = activityMuted, fontSize = 10.sp)
+            Text(
+                ActivityRecord.duration(movingAxis.durationSeconds),
+                color = activityMuted, fontSize = 10.sp,
+                modifier = Modifier.testTag(
+                    "activity-chart-moving-axis-" + title.lowercase(Locale.ROOT).replace(" ", "-")
+                )
+            )
         }
         }
         if (chartInsight != null) {
