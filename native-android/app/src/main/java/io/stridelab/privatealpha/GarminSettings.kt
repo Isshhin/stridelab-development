@@ -27,6 +27,7 @@ internal fun GarminSettingsCard(
     syncGarmin: (suspend (GarminPersonalSource) -> GarminConnectionStatus)? = null,
     backupGarminCloud: (suspend () -> Int)? = null,
     restoreGarminCloud: (suspend () -> Int)? = null,
+    allowCloudBackup: Boolean = true,
     onBusyChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -58,7 +59,7 @@ internal fun GarminSettingsCard(
                 status = withContext(Dispatchers.IO) { action() }
                 // A manual sync first commits the Garmin source to SQLite.
                 // Only then may opt-in cloud backup attempt a separate upload.
-                if (status.lastSuccessfulSync != null && cloudEnabled &&
+                if (status.lastSuccessfulSync != null && allowCloudBackup && cloudEnabled &&
                     backupGarminCloud != null) {
                     try {
                         val uploaded = withContext(Dispatchers.IO) { backupGarminCloud() }
@@ -81,7 +82,7 @@ internal fun GarminSettingsCard(
         }
     }
     fun cloudOperation(action: suspend () -> Int, verb: String) {
-        if (busy || !cloudEnabled) return
+        if (busy || !allowCloudBackup || !cloudEnabled) return
         busy = true
         onBusyChange(true)
         cloudMessage = null
@@ -198,6 +199,7 @@ internal fun GarminSettingsCard(
                 )
             )
         }
+        if (allowCloudBackup) {
         Row(
             Modifier.fillMaxWidth().testTag("garmin-cloud-setting"),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -248,6 +250,11 @@ internal fun GarminSettingsCard(
                 ) { Text("Restore", color = garminLime, fontSize = 12.sp) }
             }
         }
+        } else {
+            Text("StrideLab sign-in is optional and is only needed for cloud backup.",
+                color = garminMuted, fontSize = 12.sp, lineHeight = 18.sp,
+                modifier = Modifier.testTag("garmin-cloud-sign-in-optional"))
+        }
         cloudMessage?.let { message ->
             Text(message, color = garminMuted, fontSize = 12.sp,
                 modifier = Modifier.testTag("garmin-cloud-result"))
@@ -255,7 +262,7 @@ internal fun GarminSettingsCard(
         Text("Credentials are encrypted on this device. Sync preserves existing activities and caches available run recordings for offline analysis.",
             color = garminMuted, fontSize = 12.sp, lineHeight = 18.sp)
     }
-    if (confirmEnableCloud) AlertDialog(
+    if (confirmEnableCloud && allowCloudBackup) AlertDialog(
         onDismissRequest = { confirmEnableCloud = false },
         title = { Text("Enable Garmin cloud backup?") },
         text = { Text(
