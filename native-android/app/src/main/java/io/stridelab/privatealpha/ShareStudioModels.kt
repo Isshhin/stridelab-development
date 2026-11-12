@@ -29,6 +29,7 @@ internal enum class ShareMetric(val label:String) {
 }
 internal enum class ShareBackground(val label:String) { MAP("Activity Dark Map"), DARK("Clean Dark"), GRADIENT("Soft Gradient") }
 internal enum class ShareBranding(val label:String) { SUBTLE("Subtle"), STANDARD("Standard"), MINIMAL("Minimal") }
+internal enum class SharePrivacy(val label:String, val meters:Double) { STANDARD("200 m",200.0), EXTRA("400 m",400.0), MAXIMUM("800 m",800.0) }
 internal enum class ShareLayout(val label:String) { AIRY("Airy"), COMPACT("Compact") }
 
 internal data class ShareStudioState(
@@ -37,9 +38,10 @@ internal data class ShareStudioState(
     val ratio:ShareRatio = ShareRatio.STORY,
     val routeMode:ShareRouteMode = ShareRouteMode.ROUTE,
     val metrics:Set<ShareMetric> = setOf(ShareMetric.TITLE,ShareMetric.DATE,ShareMetric.DISTANCE,ShareMetric.DURATION,ShareMetric.PACE,ShareMetric.HR),
-    val background:ShareBackground = ShareBackground.MAP,
+    val background:ShareBackground = ShareBackground.DARK,
     val branding:ShareBranding = ShareBranding.SUBTLE,
-    val layout:ShareLayout = ShareLayout.AIRY
+    val layout:ShareLayout = ShareLayout.AIRY,
+    val privacy:SharePrivacy = SharePrivacy.STANDARD
 ) {
     fun selectTemplate(value:ShareTemplate):ShareStudioState = copy(template=value).selectVariant(value.variants.first())
     fun selectVariant(value:ShareVariant):ShareStudioState {
@@ -50,7 +52,7 @@ internal data class ShareStudioState(
             metrics=if(value==ShareVariant.SILHOUETTE) setOf(ShareMetric.DISTANCE)
                 else if(sparse) setOf(ShareMetric.TITLE,ShareMetric.DISTANCE,ShareMetric.PACE)
                 else ShareStudioState().metrics + if(template==ShareTemplate.STATS) setOf(ShareMetric.ELEVATION) else emptySet(),
-            background=if(template==ShareTemplate.MINIMAL) ShareBackground.DARK else ShareBackground.MAP,
+            background=ShareBackground.DARK,
             layout=if(value==ShareVariant.RUN_RECAP || value==ShareVariant.DARK_CLEAN) ShareLayout.COMPACT else ShareLayout.AIRY)
     }
 
@@ -73,10 +75,11 @@ internal data class ShareRenderableActivity(
     val metrics:Map<ShareMetric,String>,
     val route:RecordedGpsRoute,
     val analysis:Map<ShareRouteMode,TracksideAnalysisRoute>,
-    val availableModes:Set<ShareRouteMode>
+    val availableModes:Set<ShareRouteMode>,
+    val privacy:SharePrivacy
 ) {
     companion object {
-        fun from(activity:ActivityRecord, detail:ActivityDetail?):ShareRenderableActivity {
+        fun from(activity:ActivityRecord, detail:ActivityDetail?, privacy:SharePrivacy=SharePrivacy.STANDARD):ShareRenderableActivity {
             val values=linkedMapOf(ShareMetric.TITLE to activity.title,ShareMetric.DATE to activity.dateLabel)
             fun add(metric:ShareMetric, value:Double?, positive:Boolean=false, format:(Double)->String) {
                 value?.takeIf { it.isFinite() && if(positive) it>0 else it>=0 }?.let { values[metric]=format(it) }
@@ -89,16 +92,15 @@ internal data class ShareRenderableActivity(
             // No location field exists in the source contract; do not geocode or infer one.
             val samples=detail?.samples.orEmpty()
             val pauses=detail?.pauseIntervals.orEmpty()
-            val route=RecordedGpsRoute.from(samples,pauses)
-            val analysis=ShareRouteMode.entries.filter { it.mapMode!=null && it!=ShareRouteMode.ROUTE &&
-                (it!=ShareRouteMode.PACE || activity.supportsPace) }.associateWith {
-                activityAnalysisRoute(samples,pauses,it.mapMode!!)
-            }
+            // Render/export only privacy-filtered coordinates. Never modify the FIT source.
+            val presentation=shareRoutePresentation(samples,pauses,privacy.meters,activity.supportsPace)
+            val route=presentation.route
+            val analysis=presentation.analysis
             val modes=linkedSetOf<ShareRouteMode>()
             if(route.pointCount>0) modes.add(ShareRouteMode.ROUTE)
             modes.addAll(analysis.filterValues { it.edges.isNotEmpty() }.keys)
             modes.add(ShareRouteMode.HIDDEN)
-            return ShareRenderableActivity(activity.id,activity.type,values,route,analysis,modes)
+            return ShareRenderableActivity(activity.id,activity.type,values,route,analysis,modes,privacy)
         }
     }
 }
@@ -112,7 +114,7 @@ internal object SharePresetCodec {
             val s=preset.state
             put("template",s.template.name); put("variant",s.variant.name); put("ratio",s.ratio.name)
             put("route",s.routeMode.name); put("metrics",JSONArray(s.metrics.map { it.name }))
-            put("background",s.background.name); put("branding",s.branding.name); put("layout",s.layout.name)
+            put("background",s.background.name); put("branding",s.branding.name); put("layout",s.layout.name); put("privacy",s.privacy.name)
         }) }
     }).toString()
 
@@ -132,7 +134,8 @@ internal object SharePresetCodec {
             require(id.isNotBlank() && id.length<=100 && name.isNotBlank() && name.length<=60)
             SharePreset(id,name,ShareStudioState(template,variant,ShareRatio.valueOf(row.getString("ratio")),
                 ShareRouteMode.valueOf(row.getString("route")),metrics,ShareBackground.valueOf(row.getString("background")),
-                ShareBranding.valueOf(row.getString("branding")),ShareLayout.valueOf(row.getString("layout"))))
+                ShareBranding.valueOf(row.getString("branding")),ShareLayout.valueOf(row.getString("layout")),
+                SharePrivacy.valueOf(row.optString("privacy",SharePrivacy.STANDARD.name))))
         }
         require(result.map { it.id }.distinct().size==result.size)
         return result
