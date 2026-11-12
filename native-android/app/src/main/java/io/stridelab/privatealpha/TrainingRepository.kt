@@ -19,6 +19,9 @@ import java.security.MessageDigest
 internal data class TrainingState(
     val initializing: Boolean = true,
     val account: String? = null,
+    /** Persistent on-device Garmin namespace, independent of cloud sign-in. */
+    val localGarminOwner: String? = null,
+    val localGarminIds: Set<String> = emptySet(),
     val activities: List<ActivityRecord> = emptyList(),
     val busy: Boolean = false,
     val message: String? = null,
@@ -43,6 +46,11 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     internal val garminSyncPreferences = GarminSyncPreferences(context)
     private val garminCloud = GarminCloudBackupGateway()
     private val preferences = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
+    private val localGarminOwner: String = preferences.getString("local-garmin-owner-v1", null)
+        ?.takeIf { runCatching { RecordPolicy.identifier(it); it.startsWith("local-garmin-") }.getOrDefault(false) }
+        ?: ("local-garmin-" + java.util.UUID.randomUUID().toString()).also {
+            check(preferences.edit().putString("local-garmin-owner-v1", it).commit())
+        }
     private val mutex = Mutex()
     private val mutable = MutableStateFlow(TrainingState())
     val state = mutable.asStateFlow()
@@ -50,16 +58,22 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     init { scope.launch { mutex.withLock {
         val account = preferences.getString("active", null)
         try {
-            mutable.value = TrainingState(initializing = true, account = account)
+            mutable.value = TrainingState(initializing = true, account = account, localGarminOwner = localGarminOwner)
             if (account != null) {
                 loadCache(account)
                 // Retired Intervals.icu connection settings remain untouched on
                 // disk but can no longer trigger a provider connection.
-                if(vault.read(account) == null) mutable.value = mutable.value.copy(needsSignIn = true, message = "Sign in again to synchronize. Your saved activities remain available.")
+                if(vault.read(account) == null) mutable.value = mutable.value.copy(needsSignIn = true,
+                    message = "Sign in again for cloud features. Saved Garmin activities remain available.")
+            } else {
+                loadLocalGarminCache()
             }
             mutable.value = mutable.value.copy(initializing = false)
         } catch (_: Exception) {
-            mutable.value = mutable.value.copy(initializing = false, needsSignIn = true, message = "Saved data could not be fully loaded. Existing files were retained. Try signing in again.")
+            mutable.value = mutable.value.copy(initializing = false, localGarminOwner = localGarminOwner,
+                needsSignIn = account != null,
+                message = "Some saved data could not be loaded. Existing files were retained.")
+            runCatching { loadLocalGarminCache() }
         }
     } } }
 
@@ -150,6 +164,55 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         val last = cursor?.let { runCatching { JSONObject(it).getLong("completedAt") }.getOrNull() }
         mutable.value = mutable.value.copy(activities = titledRecords, lastSync = last, details = details, wellness = wellness, shelf=shelf, templates=templates, workoutDrafts=drafts, plans = plans.sortedByDescending { it.createdAt },
             message = if(unsupportedPlans>0) "$unsupportedPlans saved plans require a supported contract and were retained for review." else if(rejected > 0) "$rejected saved activities contain unsupported data and were retained for review." else mutable.value.message)
+        loadLocalGarminCache()
+    }
+
+    /** Reads only on-device Garmin history. Cloud-user records remain isolated. */
+    private fun loadLocalGarminCache() {
+        val local = mutableListOf<ActivityRecord>()
+        store.readableDatabase.query("records", arrayOf("payload"),
+            "account=? AND kind=?", arrayOf(localGarminOwner, "activity"),
+            null, null, null).use { cursor ->
+            while(cursor.moveToNext()) runCatching {
+                ActivityRecord.parse(cursor.getString(0), localGarminOwner)
+                    .takeIf { it.source == "garmin" }?.let(local::add)
+            }
+        }
+        val titles = HashMap<String,String>()
+        store.readableDatabase.query("records", arrayOf("record_id","payload"),
+            "account=? AND kind=? AND record_id LIKE ?",
+            arrayOf(localGarminOwner,"exercise","local-activity-title-%"),
+            null,null,null).use { cursor ->
+            while(cursor.moveToNext()) runCatching {
+                val j=JSONObject(cursor.getString(1))
+                val id=j.getString("activity_id")
+                if(j.optString("user_id")==localGarminOwner &&
+                    j.optString("kind")=="local_activity_title" &&
+                    cursor.getString(0)==localActivityTitleKey(id)) {
+                    titles[id]=validatedActivityTitle(j.getString("title"))
+                }
+            }
+        }
+        val titled = local.map { record ->
+            titles[record.id]?.let { record.copy(title=it) } ?: record
+        }
+        val ids = titled.mapTo(HashSet<String>()) { it.id }
+        val previous = mutable.value
+        val activities = (previous.activities.filterNot {
+            it.id in previous.localGarminIds || it.id in ids
+        } + titled).sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenByDescending { it.id })
+        val details = previous.details.filterKeys { id ->
+            id !in ids || id in previous.localGarminIds
+        }.toMutableMap()
+        // Only recent details are warmed. Huge FIT payloads are read in chunks.
+        val recent = titled.sortedByDescending { it.startedAt }.map { it.id }
+            .filter { it !in details }.take(6)
+        for (id in recent) runCatching {
+            store.getActivityDetailPayloadChunked(localGarminOwner,id)
+                ?.let { ActivityDetail.parse(JSONObject(it),localGarminOwner,id) }
+        }.getOrNull()?.let { details[id] = it }
+        mutable.value = previous.copy(activities=activities, details=details,
+            localGarminOwner=localGarminOwner, localGarminIds=ids)
     }
     suspend fun restorePlans(raw:String)=operation("Restoring reviewed plan backup…") {
         val account=mutable.value.account ?: throw PlanConstraint("Sign in to the backup's original account before restoring.")
