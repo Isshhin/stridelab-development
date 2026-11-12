@@ -210,15 +210,18 @@ internal fun StrideLabTodayScreen(
         ) == 0f
     }
     val weekStart = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-    // A signed-out device must never expose another account's cached training.
+    // Only the local Garmin namespace is visible without StrideLab sign-in.
+    // Cloud plans and records remain hidden after sign-out.
+    val hasLocalGarmin = state.localGarminIds.isNotEmpty()
+    val hasHistory = state.account != null || hasLocalGarmin
     val plan = if (state.account == null) null else
         state.plans.firstOrNull { it.status == "approved" }
-    val safeActivities = if (state.account == null) emptyList() else visibleActivities
-    val safeHistory = if (state.account == null) emptyList() else state.activities
+    val safeActivities = if (hasHistory) visibleActivities else emptyList()
+    val safeHistory = if (hasHistory) state.activities else emptyList()
     val safePlans = if (state.account == null) emptyList() else state.plans
     // Tabs and charts remain presentation-only. Eligibility depends on actual
     // distinct training dates, not prescriptions or daily login streaks.
-    var chosenPage by rememberSaveable(state.account) { mutableStateOf("all") }
+    var chosenPage by rememberSaveable(state.account,hasHistory) { mutableStateOf("all") }
     val eligiblePages = remember(todayDate, safeHistory, safePlans) {
         TodayDisciplineAnalytics.available(
             safeHistory, safePlans, Instant.now(), ZoneId.systemDefault()
@@ -279,7 +282,7 @@ internal fun StrideLabTodayScreen(
         (recordedOnDate.isNotEmpty() || confirmedOnDate.isNotEmpty())
     // Historical/recorded styles belong only to authenticated data. A
     // signed-out athlete must see the same sign-in hero on every date.
-    val showRecorded = state.account != null && (isPastDate ||
+    val showRecorded = hasHistory && (isPastDate ||
         (date == todayDate && !hasUnfinishedWorkout &&
             (recordedOnDate.isNotEmpty() || confirmedOnDate.isNotEmpty())))
     val recordedKinds = recordedOnDate.map { todayRecordedKind(it.type) } +
@@ -326,13 +329,13 @@ internal fun StrideLabTodayScreen(
             listState.firstVisibleItemScrollOffset != 0
         ) listState.scrollToItem(0)
     }
-    val signedOutFitsScreen = state.account == null &&
+    val signedOutFitsScreen = !hasHistory &&
         LocalConfiguration.current.screenHeightDp >= 730 &&
         androidx.compose.ui.platform.LocalDensity.current.fontScale <= 1.15f
     // A sign-out can reuse the previous account's list position; start the
     // signed-out dashboard from its date strip instead.
-    LaunchedEffect(state.account) {
-        if (state.account == null &&
+    LaunchedEffect(state.account,hasHistory) {
+        if (!hasHistory &&
             (listState.firstVisibleItemIndex != 0 ||
                 listState.firstVisibleItemScrollOffset != 0)
         ) {
@@ -367,7 +370,7 @@ internal fun StrideLabTodayScreen(
                 date = date,
                 accent = animatedTone.value,
                 selectionFractionState = notchPosition,
-                signedOut = state.account == null,
+                signedOut = !hasHistory,
                 visibleActivities = calendarActivities,
                 rawHistory = calendarHistory,
                 plans = calendarPlans,
@@ -379,7 +382,7 @@ internal fun StrideLabTodayScreen(
         }
         if (selectedPage == "all") {
         item(key = "today-hero") {
-            if (state.account == null) {
+            if (!hasHistory) {
                 // Stable, draw-only animated notch. Do not recompose a
                 // complex hero card for every spring animation frame.
                 TodaySignedOutHero(notchPosition, onSignIn)
@@ -421,7 +424,7 @@ internal fun StrideLabTodayScreen(
             } else if (showRecorded) {
                 TodayRecordedTraining(
                     selectedDate = date,
-                    signedOut = state.account == null,
+                    signedOut = !hasHistory,
                     loading = state.initializing,
                     online = online,
                     accent = animatedTone.value,
@@ -441,7 +444,7 @@ internal fun StrideLabTodayScreen(
                     date = date,
                     scheduled = schedule,
                     planAvailable = plan != null,
-                    signedOut = state.account == null,
+                    signedOut = !hasHistory,
                     onOpen = { session ->
                         if (plan != null) onOpenWorkout(plan.id, session.id) else onOpenTraining()
                     },
@@ -454,11 +457,11 @@ internal fun StrideLabTodayScreen(
             TodayNextSession(
                 next = future,
                 plan = plan,
-                signedOut = state.account == null,
+                signedOut = !hasHistory,
                 completed = todayCompleted,
                 total = todaySchedule.size,
                 onOpen = {
-                    if (state.account == null) onSignIn()
+                    if (!hasHistory) onSignIn()
                     else if (plan != null && future != null) onOpenWorkout(plan.id, future.id)
                     else onOpenTraining()
                 }
@@ -471,7 +474,7 @@ internal fun StrideLabTodayScreen(
                 selectedDayIndex = date.dayOfWeek.value - 1,
                 reduceMotion = reduceMotion,
                 onOpenActivity = onOpenActivity,
-                signedOut = state.account == null
+                signedOut = !hasHistory
             )
         }
         } else {
@@ -503,7 +506,7 @@ internal fun StrideLabTodayScreen(
                 }
             }
         }
-        if (state.account != null) {
+        if (hasHistory) {
             item(key = "today-discipline-tabs") {
                 TodayDisciplineTabs(
                     available = eligiblePages,
