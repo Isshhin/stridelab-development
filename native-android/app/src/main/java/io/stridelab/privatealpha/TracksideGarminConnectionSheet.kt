@@ -26,6 +26,7 @@ internal fun TracksideGarminConnectionSheet(
     syncGarmin: (suspend (GarminPersonalSource) -> GarminConnectionStatus)?,
     backupGarminCloud: (suspend () -> Int)? = null,
     restoreGarminCloud: (suspend () -> Int)? = null,
+    allowCloudBackup: Boolean = true,
     busy: Boolean,
     onBusyChange: (Boolean) -> Unit,
     onDismiss: () -> Unit
@@ -75,6 +76,7 @@ internal fun TracksideGarminConnectionSheet(
                 syncGarmin = syncGarmin,
                 backupGarminCloud = backupGarminCloud,
                 restoreGarminCloud = restoreGarminCloud,
+                allowCloudBackup = allowCloudBackup,
                 onBusyChange = onBusyChange
             )
         }
