@@ -218,7 +218,7 @@ internal fun TracksideMoreDetailScreen(
                     MoreGroup { MoreActionRow("Garmin unavailable", MoreSymbol.Watch, "connect-unavailable", onBack) }
                 } else {
                     // Preserve existing secure credential, sync and disconnect behaviour.
-                    GarminSettingsCard(account, syncGarmin, allowCloudBackup = state.account != null && !state.needsSignIn)
+                    GarminSettingsCard(account, syncGarmin, allowCloudBackup = state.account != null && !state.needsSignIn, cloudPreferenceAccount = state.account)
                 }
             }
             MorePage.Preferences -> {
