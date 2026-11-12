@@ -52,6 +52,19 @@ class TrainingRepositoryTest {
         assertFalse(repo.refresh())
         assertEquals(1, repo.state.value.activities.size)
     }
+    @Test fun localActivityRenameSurvivesRefreshAndRejectsMissingHistory() = runBlocking {
+        remote.rows = listOf(row())
+        assertFalse(repo.renameActivity("activity-1", "Before login"))
+        assertTrue(repo.signIn("fixture@example.invalid", "fixture"))
+        assertFalse(repo.renameActivity("not-saved", "Unknown"))
+        assertTrue(repo.renameActivity("activity-1", "  Evening Session  "))
+        assertEquals("Evening Session", repo.state.value.activities.single().title)
+        assertTrue(repo.refresh())
+        assertEquals("Evening Session", repo.state.value.activities.single().title)
+        repo.close(); remote.offline = true; open()
+        assertEquals("Evening Session", repo.state.value.activities.single().title)
+    }
+
     @Test fun repeatedRefreshDeduplicatesAndRetainsMissingMetrics() = runBlocking {
         remote.rows = listOf(row())
         assertTrue(repo.signIn("fixture@example.invalid", "fixture"))
@@ -299,13 +312,25 @@ class TrainingRepositoryTest {
         assertTrue(run.id.startsWith("garmin-"))
         assertEquals(9560.0,run.distanceM!!,0.0)
         assertEquals(138.0,run.averageHr!!,0.0)
+        // Rename the display title locally without modifying the Garmin record.
+        assertFalse(repo.renameActivity(run.id, "  "))
+        assertTrue(repo.renameActivity(run.id, "Morning Progression"))
+        assertEquals("Morning Progression", repo.state.value.activities.single().title)
+        val original = TrainingStore(context,database)
+        try {
+            val payload = JSONObject(original.get(account,"activity",run.id)!!.payload)
+            assertEquals("Garmin Run",payload.getString("title"))
+            assertEquals("garmin",payload.getString("source"))
+        } finally { original.close() }
         assertEquals(0,repo.syncGarmin(source).importedCount)
         assertEquals(1,repo.state.value.activities.size)
+        assertEquals("Morning Progression",repo.state.value.activities.single().title)
         assertNull(repo.state.value.activities.find { it.id=="intervals-saved" })
 
         repo.close();remote.offline=true;open()
         assertEquals(1,repo.state.value.activities.size)
-        assertNotNull(repo.state.value.activities.find { it.id==run.id && it.source=="garmin" })
+        assertEquals("Morning Progression",
+            repo.state.value.activities.single { it.id==run.id && it.source=="garmin" }.title)
         assertNull(repo.state.value.activities.find { it.id=="intervals-saved" })
     }
 

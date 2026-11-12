@@ -36,7 +36,6 @@ internal fun TracksideParityActivityMapHero(
     detail: ActivityDetail?,
     onBack: () -> Unit,
     heightDp: Dp = 425.dp,
-    onChangeStyle: (() -> Unit)? = null,
     online:Boolean = true,
     gpsSourceLabel:String? = null,
     fullScreen:Boolean = false,
@@ -46,7 +45,8 @@ internal fun TracksideParityActivityMapHero(
     selectedSeconds:Double? = null,
     selectedRange:Pair<Double,Double>? = null,
     onSelectRange:(Pair<Double,Double>?) -> Unit = {},
-    onShare:(() -> Unit)? = null
+    onShare:(() -> Unit)? = null,
+    onEdit:(() -> Unit)? = null
 ) {
     val route=remember(detail) {
         RecordedGpsRoute.from(
@@ -89,6 +89,15 @@ internal fun TracksideParityActivityMapHero(
                 Text("‹", fontSize = 25.sp, color = TracksidePalette.text)
             } }
             Spacer(Modifier.weight(1f))
+            if (onEdit != null) {
+                androidx.compose.material3.TextButton(
+                    onClick = onEdit,
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("activity-edit")
+                ) {
+                    Text("✎ Edit", color = TracksidePalette.text)
+                }
+                Spacer(Modifier.width(4.dp))
+            }
             if (onShare != null) {
                 androidx.compose.material3.TextButton(onClick = onShare,
                     modifier = Modifier.heightIn(min = 48.dp).testTag("activity-share")) {
@@ -118,22 +127,8 @@ internal fun TracksideParityActivityMapHero(
                     )
                 }
             }
-            Spacer(Modifier.width(8.dp))
-            if (onChangeStyle != null) {
-                Surface(
-                    onClick = onChangeStyle,
-                    modifier = Modifier.size(44.dp)
-                        .testTag("activity-change-glass-variant")
-                        .semantics { contentDescription = "Switch approved Activity appearance" },
-                    shape = RoundedCornerShape(25.dp),
-                    color = Color(0xDD080E0C),
-                    border = BorderStroke(1.dp, Color(0x5546574F))
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text("•••", fontSize = 15.sp, color = TracksidePalette.text)
-                    }
-                }
-            } else Box(Modifier.size(44.dp))
+            // No appearance/three-dot button: the full-screen GPS control is the
+            // only map action after Edit and Share.
         }
         if (fullScreen && route.pointCount > 0) {
             val samples=detail?.samples.orEmpty()

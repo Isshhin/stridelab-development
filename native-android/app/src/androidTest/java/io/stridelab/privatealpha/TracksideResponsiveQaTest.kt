@@ -721,8 +721,8 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("activity-map-hero").assertIsDisplayed()
         compose.onNodeWithTag("activity-sheet-scroll").assertExists()
         screenshot("activity-atmospheric")
-        compose.onNodeWithTag("activity-change-glass-variant").performClick()
-        screenshot("activity-matte")
+        compose.onNodeWithTag("activity-change-glass-variant").assertDoesNotExist()
+        compose.onNodeWithTag("activity-map-fullscreen").assertExists()
         compose.onNodeWithTag("activity-sheet-scroll").performTouchInput { swipeUp() }
         compose.onNodeWithTag("activity-map-hero").assertIsDisplayed()
         screenshot("activity-map-persistent")

@@ -14,6 +14,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.security.MessageDigest
 
 internal data class TrainingState(
     val initializing: Boolean = true,
@@ -80,6 +81,34 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         // Publish them first so a secondary read failure cannot erase history
         // from the visible state. This never mutates any persisted record.
         mutable.value=mutable.value.copy(activities=orderedRecords)
+        // Local title edits are stored separately from provider-owned measurements.
+        // Failure to read this small optional index must never hide Garmin history.
+        val localTitles = HashMap<String, String>()
+        runCatching {
+            store.readableDatabase.query(
+                "records", arrayOf("record_id", "payload"),
+                "account=? AND kind=? AND record_id LIKE ?",
+                arrayOf(account, "exercise", "local-activity-title-%"),
+                null, null, null
+            ).use { cursor ->
+                while(cursor.moveToNext()) {
+                    runCatching {
+                        val metadata = JSONObject(cursor.getString(1))
+                        val id = metadata.getString("activity_id")
+                        val title = validatedActivityTitle(metadata.getString("title"))
+                        if(metadata.optString("user_id")==account &&
+                            metadata.optString("kind")=="local_activity_title" &&
+                            cursor.getString(0)==localActivityTitleKey(id)) {
+                            localTitles[id]=title
+                        }
+                    }
+                }
+            }
+        }
+        val titledRecords = orderedRecords.map { record ->
+            localTitles[record.id]?.let { record.copy(title=it) } ?: record
+        }
+        mutable.value=mutable.value.copy(activities=titledRecords)
         val allowedIds=records.mapTo(HashSet<String>()) { it.id }
         val details = mutable.value.details.filterKeys { it in allowedIds }.toMutableMap()
         // The full recording cache can exceed tens of MB. Query IDs only:
@@ -119,7 +148,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         store.readableDatabase.query("records",arrayOf("record_id","payload"),"account=? AND kind=? AND record_id LIKE ?",arrayOf(account,"workout","entry-draft-%"),null,null,null).use { c -> while(c.moveToNext())runCatching { WorkoutEntryDraft.decode(JSONObject(c.getString(1)),account).also { require(it.recordId==c.getString(0)) } }.onSuccess { if(validDraft(it,plans))drafts[it.key]=it } }
         val cursor = store.cursor(account, "activity")
         val last = cursor?.let { runCatching { JSONObject(it).getLong("completedAt") }.getOrNull() }
-        mutable.value = mutable.value.copy(activities = orderedRecords, lastSync = last, details = details, wellness = wellness, shelf=shelf, templates=templates, workoutDrafts=drafts, plans = plans.sortedByDescending { it.createdAt },
+        mutable.value = mutable.value.copy(activities = titledRecords, lastSync = last, details = details, wellness = wellness, shelf=shelf, templates=templates, workoutDrafts=drafts, plans = plans.sortedByDescending { it.createdAt },
             message = if(unsupportedPlans>0) "$unsupportedPlans saved plans require a supported contract and were retained for review." else if(rejected > 0) "$rejected saved activities contain unsupported data and were retained for review." else mutable.value.message)
     }
     suspend fun restorePlans(raw:String)=operation("Restoring reviewed plan backup…") {
@@ -291,6 +320,37 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         store.applyRemotePage(account,"wellness",rows,null,System.currentTimeMillis())
         loadCache(account)
     }
+    /**
+     * Persist a local display-name override without modifying the original
+     * provider activity, FIT measurements, or cloud backup payload.
+     * This record is account-scoped, and Garmin sync cannot overwrite it.
+     */
+    internal suspend fun renameActivity(id:String, requestedTitle:String):Boolean =
+        operation("Saving activity title…") {
+            val account = mutable.value.account
+                ?: throw PlanConstraint("An active athlete account is required to rename this activity.")
+            if(mutable.value.activities.none { it.id==id })
+                throw PlanConstraint("This activity is not in the current account's saved history.")
+            val title = validatedActivityTitle(requestedTitle)
+            val payload = JSONObject()
+                .put("kind", "local_activity_title")
+                .put("user_id", account)
+                .put("activity_id", id)
+                .put("title", title)
+            store.applyRemotePage(
+                account, "exercise",
+                listOf(TrainingStore.RemoteRecord(
+                    localActivityTitleKey(id), payload.toString(), null
+                )),
+                null, System.currentTimeMillis()
+            )
+            mutable.value = mutable.value.copy(
+                activities = mutable.value.activities.map { activity ->
+                    if(activity.id==id) activity.copy(title=title) else activity
+                }
+            )
+        }
+
     /** Load an existing, account-owned FIT recording without any network call. */
     internal suspend fun loadCachedDetail(id:String):Boolean = withContext(Dispatchers.IO) {
         mutex.withLock {
@@ -807,4 +867,23 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         val revoked = saved != null && runCatching { gateway.signOut(saved); true }.getOrDefault(false)
         mutable.value = mutable.value.copy(message = if(revoked) null else "Signed out on this device. Server session revocation was unavailable; saved files were retained.")
     }
+}
+
+/** Stable, bounded local metadata key; never changes the Garmin source ID. */
+private fun localActivityTitleKey(activityId:String):String {
+    RecordPolicy.identifier(activityId)
+    val digest = MessageDigest.getInstance("SHA-256")
+        .digest(activityId.toByteArray(Charsets.UTF_8))
+    return "local-activity-title-" + digest.joinToString("") {
+        "%02x".format(it.toInt() and 0xff)
+    }
+}
+
+private fun validatedActivityTitle(input:String):String {
+    val title = input.trim()
+    require(title.isNotBlank() && title.length <= 100 &&
+        title.none { Character.isISOControl(it) }) {
+        "Activity title must contain 1–100 printable characters."
+    }
+    return title
 }

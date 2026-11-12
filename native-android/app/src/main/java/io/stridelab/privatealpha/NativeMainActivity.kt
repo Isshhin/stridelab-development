@@ -117,7 +117,8 @@ class NativeMainActivity: ComponentActivity() {
     val actions = remember(model) { NativeActions(model::refresh, {}, {}, model::signOut, model::signIn, model::loadDetail, model::refreshWellness, model.planActions(), syncGarmin=model::syncGarmin, loadGarminGps=model::loadGarminGps,
         backupGarminCloud=model::backupGarminCloud, restoreGarminCloud=model::restoreGarminCloud,
         signUp=model::signUp, requestPasswordReset=model::requestPasswordReset,
-        loadCachedDetail=model::loadCachedDetail) }
+        loadCachedDetail=model::loadCachedDetail,
+        renameActivity=model::renameActivity) }
     NativeStrideContent(state, online, actions)
 }
 
@@ -132,7 +133,8 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
     val requestPasswordReset: (String) -> Unit = {},
     val backupGarminCloud: (suspend () -> Int)? = null,
     val restoreGarminCloud: (suspend () -> Int)? = null,
-    val loadCachedDetail: (suspend (String) -> Boolean)? = null)
+    val loadCachedDetail: (suspend (String) -> Boolean)? = null,
+    val renameActivity: (suspend (String, String) -> Boolean)? = null)
 
 /** Primary destinations switch immediately; the legacy Activity history route remains available.
  * retain the existing Navigation Compose transitions.
