@@ -66,8 +66,8 @@ class ShareRoutePresentationTest {
         val full=shareRoutePresentation(samples,pauses,0.0,true)
         val trimmed=shareRoutePresentation(samples,pauses,200.0,true)
         assertEquals(original,samples)
-        assertEquals(samples.first().latitude,full.route.allPoints.first().latitude,0.0)
-        assertEquals(samples.last().latitude,full.route.allPoints.last().latitude,0.0)
+        assertEquals(samples.first().latitude!!,full.route.allPoints.first().latitude,0.0)
+        assertEquals(samples.last().latitude!!,full.route.allPoints.last().latitude,0.0)
         assertEquals(2,full.route.segments.size) // The unexplained long GPS gap remains a break.
         assertTrue(full.route.segments.first().zipWithNext().any { (a,b) ->
             a.elapsedSeconds==40.0 && b.elapsedSeconds==60.0
