@@ -139,7 +139,7 @@ internal fun TracksideMoreScreen(
             MoreGroup {
                 MoreActionRow(
                     "Garmin Connect", MoreSymbol.Watch, "garmin",
-                    onClick = if (signedIn) onGarmin else onSignIn
+                    onClick = onGarmin
                 )
             }
         }
@@ -213,12 +213,12 @@ internal fun TracksideMoreDetailScreen(
         }
         when (page) {
             MorePage.Garmin -> item(key = "detail-garmin") {
-                val account = state.account
+                val account = state.localGarminOwner ?: state.account
                 if (account == null) {
-                    MoreGroup { MoreActionRow("Sign in to connect Garmin", MoreSymbol.Person, "connect-sign-in", onSignIn) }
+                    MoreGroup { MoreActionRow("Garmin unavailable", MoreSymbol.Watch, "connect-unavailable", onBack) }
                 } else {
                     // Preserve existing secure credential, sync and disconnect behaviour.
-                    GarminSettingsCard(account, syncGarmin)
+                    GarminSettingsCard(account, syncGarmin, allowCloudBackup = state.account != null && !state.needsSignIn)
                 }
             }
             MorePage.Preferences -> {
