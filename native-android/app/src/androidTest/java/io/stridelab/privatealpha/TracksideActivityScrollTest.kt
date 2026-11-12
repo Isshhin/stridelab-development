@@ -516,8 +516,7 @@ class TracksideActivityScrollTest {
             .performScrollToNode(hasTestTag("activity-chart-pace"))
         compose.onNodeWithTag("activity-chart-pace").assertExists()
         compose.onNodeWithTag("activity-chart-pause-note-pace").assertDoesNotExist()
-        compose.onNodeWithTag("activity-chart-moving-axis-pace").assertExists()
-        compose.onNodeWithText("0:25").assertExists()
+        compose.onNodeWithTag("activity-chart-moving-axis-pace").assertTextEquals("0:25")
     }
 
     @Test fun mapKeepsRecordedPauseFixesWithoutSpecialDotLegend() {
