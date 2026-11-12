@@ -1,6 +1,7 @@
 package io.stridelab.privatealpha
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,6 +13,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -90,45 +93,24 @@ internal fun TracksideParityActivityMapHero(
             } }
             Spacer(Modifier.weight(1f))
             if (onEdit != null) {
-                androidx.compose.material3.TextButton(
-                    onClick = onEdit,
-                    modifier = Modifier.heightIn(min = 48.dp).testTag("activity-edit")
-                ) {
-                    Text("✎ Edit", color = TracksidePalette.text)
-                }
-                Spacer(Modifier.width(4.dp))
-            }
-            if (onShare != null) {
-                androidx.compose.material3.TextButton(onClick = onShare,
-                    modifier = Modifier.heightIn(min = 48.dp).testTag("activity-share")) {
-                    Text("Share", color = TracksidePalette.text)
-                }
+                ActivityMapHeaderAction(
+                    label = "Edit",
+                    tag = "activity-edit",
+                    onClick = onEdit
+                )
                 Spacer(Modifier.width(8.dp))
             }
-            Surface(
-                onClick = onToggleFullScreen,
-                modifier = Modifier.size(44.dp)
-                    .testTag("activity-map-fullscreen")
-                    .semantics {
-                        contentDescription = if (fullScreen)
-                            "Exit full-screen activity map"
-                        else
-                            "Open full-screen activity map"
-                    },
-                shape = RoundedCornerShape(25.dp),
-                color = Color(0xDD080E0C),
-                border = BorderStroke(1.dp, Color(0x5546574F))
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        if (fullScreen) "⌄" else "⛶",
-                        fontSize = if (fullScreen) 20.sp else 17.sp,
-                        color = TracksidePalette.text
-                    )
-                }
+            if (onShare != null) {
+                ActivityMapHeaderAction(
+                    label = "Share",
+                    tag = "activity-share",
+                    onClick = onShare,
+                    shareIcon = true
+                )
             }
-            // No appearance/three-dot button: the full-screen GPS control is the
-            // only map action after Edit and Share.
+            // Full-screen map is entered by dragging the activity sheet down.
+            // The bottom map-only grip restores the summary; a second top-right
+            // exit button crowded the header and duplicated that control.
         }
         if (fullScreen && route.pointCount > 0) {
             val samples=detail?.samples.orEmpty()
@@ -238,43 +220,8 @@ internal fun TracksideParityActivityMapHero(
                 }
             }
         }
-        if (route.pointCount > 0) {
-            // The map presents pause-time fixes as normal recorded GPS.
-            // Pause details stay in Activity Overview, not a dotted legend.
-            val hasSpecialGpsState = route.unknownGaps.isNotEmpty()
-            Surface(
-                color = Color(0xDD080E0C),
-                border = BorderStroke(
-                    1.dp,
-                    if (route.gaps.isEmpty()) Color(0x445A6B62)
-                    else Color(0x667A8781)
-                ),
-                shape = RoundedCornerShape(11.dp),
-                modifier = Modifier.align(Alignment.TopStart)
-                    .padding(start = 12.dp, top = if (fullScreen) 116.dp else 68.dp)
-                    .testTag("activity-map-legend")
-            ) {
-                Column(
-                    Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
-                    Text(
-                        route.gpsContinuityLabel,
-                        color = if (route.gaps.isEmpty())
-                            Color(0xFFD8FB70) else Color(0xFFC5D0CB),
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.testTag("activity-map-gps-continuity")
-                    )
-                    if (hasSpecialGpsState) {
-                        MapLegendRow(Color(0xFFD8FB70), "Recorded route")
-                        if (route.unknownGaps.isNotEmpty()) {
-                            MapLegendRow(Color(0xFFA5B4AE), "GPS gap")
-                        }
-                    }
-                }
-            }
-        }
+        // GPS continuity remains available in Activity Overview. Do not render
+        // an overlay on the map: pause fixes and source GPS remain unchanged.
         if (route.pointCount == 0) {
             Text(
                 "No recorded GPS track",
@@ -288,17 +235,51 @@ internal fun TracksideParityActivityMapHero(
     }
 }
 
+/** Consistent AMOLED activity actions, independent of the map sheet state. */
 @Composable
-private fun MapLegendRow(color: Color, label: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+private fun ActivityMapHeaderAction(
+    label: String,
+    tag: String,
+    onClick: () -> Unit,
+    shareIcon: Boolean = false
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(24.dp),
+        color = Color(0xEF080E0C),
+        border = BorderStroke(1.dp, Color(0x66536A5B)),
+        modifier = Modifier.height(44.dp).testTag(tag)
+            .semantics { contentDescription = if (shareIcon) "Share activity" else "Edit activity" }
     ) {
-        Box(
-            Modifier.size(width = 12.dp, height = 2.dp)
-                .background(color, RoundedCornerShape(2.dp))
-        )
-        Text(label, color = Color(0xFFCED8D3), fontSize = 8.sp, lineHeight = 10.sp)
+        Row(
+            Modifier.padding(horizontal = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (shareIcon) {
+                Canvas(Modifier.size(18.dp)) {
+                    val lime = Color(0xFFD8FB70)
+                    val stroke = 2.dp.toPx()
+                    val w = size.width
+                    val h = size.height
+                    drawLine(lime, Offset(w * .5f, h * .08f), Offset(w * .5f, h * .60f), stroke, cap = StrokeCap.Round)
+                    drawLine(lime, Offset(w * .30f, h * .29f), Offset(w * .5f, h * .08f), stroke, cap = StrokeCap.Round)
+                    drawLine(lime, Offset(w * .70f, h * .29f), Offset(w * .5f, h * .08f), stroke, cap = StrokeCap.Round)
+                    drawLine(lime, Offset(w * .18f, h * .50f), Offset(w * .18f, h * .88f), stroke, cap = StrokeCap.Round)
+                    drawLine(lime, Offset(w * .18f, h * .88f), Offset(w * .82f, h * .88f), stroke, cap = StrokeCap.Round)
+                    drawLine(lime, Offset(w * .82f, h * .88f), Offset(w * .82f, h * .50f), stroke, cap = StrokeCap.Round)
+                }
+            } else {
+                Text("✎", color = Color(0xFFD8FB70), fontSize = 20.sp, lineHeight = 20.sp)
+            }
+            Text(
+                label,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TracksidePalette.text,
+                maxLines = 1
+            )
+        }
     }
 }
 
