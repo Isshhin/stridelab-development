@@ -237,7 +237,7 @@ internal fun TracksideParityActivityMapHero(
 
 /** Consistent AMOLED activity actions, independent of the map sheet state. */
 @Composable
-private fun ActivityMapHeaderAction(
+internal fun ActivityMapHeaderAction(
     label: String,
     tag: String,
     onClick: () -> Unit,
