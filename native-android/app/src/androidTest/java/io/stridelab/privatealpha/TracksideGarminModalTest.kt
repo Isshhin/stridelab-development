@@ -41,6 +41,32 @@ class TracksideGarminModalTest {
         }
     }
 
+    @Test fun guestCanOpenGarminWithoutStrideLabSignInAndCloudControlsStayHidden() {
+        val state=TrainingState(initializing=false,
+            localGarminOwner="local-garmin-synthetic-guest")
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    NativeStrideContent(
+                        state=state,online=false,
+                        actions=NativeActions({}, {}, {}, {}, { _, _ -> })
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("nav-settings").performClick()
+        compose.onNodeWithTag("screen")
+            .performScrollToNode(hasTestTag("more-row-garmin"))
+        compose.onNodeWithTag("more-row-garmin").performClick()
+        compose.onNodeWithTag("garmin-modal-sheet").assertExists()
+        compose.onNodeWithTag("garmin-connection-card").assertExists()
+        compose.onNodeWithTag("garmin-cloud-toggle").assertDoesNotExist()
+        compose.onNodeWithTag("garmin-cloud-sign-in-optional").assertExists()
+        compose.onNodeWithTag("garmin-modal-close").performClick()
+        compose.onNodeWithTag("garmin-modal-sheet").assertDoesNotExist()
+        compose.onNodeWithTag("more-sign-in").assertExists()
+    }
+
     @Test fun garminOpensAboveMoreAndClosesWithoutCreatingAnotherPage() {
         val state = TrainingState(initializing = false,
             account = "synthetic-modal-account")
