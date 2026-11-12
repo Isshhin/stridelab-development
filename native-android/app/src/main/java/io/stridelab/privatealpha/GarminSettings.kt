@@ -28,6 +28,7 @@ internal fun GarminSettingsCard(
     backupGarminCloud: (suspend () -> Int)? = null,
     restoreGarminCloud: (suspend () -> Int)? = null,
     allowCloudBackup: Boolean = true,
+    cloudPreferenceAccount: String? = null,
     onBusyChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -41,11 +42,12 @@ internal fun GarminSettingsCard(
     var busy by remember(accountId) { mutableStateOf(false) }
     var confirmDisconnect by remember(accountId) { mutableStateOf(false) }
     val syncPreferences = remember(accountId) { GarminSyncPreferences(context) }
+    val cloudKey = cloudPreferenceAccount ?: accountId
     var automaticEnabled by remember(accountId) {
         mutableStateOf(syncPreferences.automatic(accountId))
     }
-    var cloudEnabled by remember(accountId) {
-        mutableStateOf(syncPreferences.cloudBackup(accountId))
+    var cloudEnabled by remember(cloudKey) {
+        mutableStateOf(syncPreferences.cloudBackup(cloudKey))
     }
     var confirmEnableCloud by remember(accountId) { mutableStateOf(false) }
     var cloudMessage by remember(accountId) { mutableStateOf<String?>(null) }
@@ -215,7 +217,7 @@ internal fun GarminSettingsCard(
                 onCheckedChange = { checked ->
                     if (checked) confirmEnableCloud = true
                     else {
-                        syncPreferences.setCloudBackup(accountId, false)
+                        syncPreferences.setCloudBackup(cloudKey, false)
                         cloudEnabled = false
                     }
                 },
@@ -273,7 +275,7 @@ internal fun GarminSettingsCard(
         ) },
         confirmButton = {
             TextButton(onClick = {
-                syncPreferences.setCloudBackup(accountId, true)
+                syncPreferences.setCloudBackup(cloudKey, true)
                 cloudEnabled = true
                 confirmEnableCloud = false
             }, colors = ButtonDefaults.textButtonColors(contentColor = garminLime)) {
