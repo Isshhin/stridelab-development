@@ -60,7 +60,9 @@ class TracksideActivityScrollTest {
         compose.waitUntil(timeoutMillis = 5_000) {
             compose.onAllNodesWithTag("activity-expanded-back").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithTag("activity-edit-expanded").assertExists()
+        compose.onNodeWithTag("activity-edit-expanded").assertExists().assertHasClickAction()
+        compose.onNodeWithTag("activity-share-expanded").assertExists().assertHasClickAction()
+        compose.onNodeWithText("↗").assertDoesNotExist()
         compose.onNodeWithTag("activity-continuous-scroll").assertExists()
         compose.onNodeWithTag("activity-continuous-scroll")
             .performScrollToNode(hasTestTag("activity-chart-pace"))
@@ -508,6 +510,14 @@ class TracksideActivityScrollTest {
         compose.onNodeWithText(
             "Only source-recorded values are shown. Missing paused data is not reconstructed."
         ).assertExists()
+        // The source pause evidence remains in Overview, but the chart has a
+        // continuous moving-time axis with no amber pause overlay or marker.
+        compose.onNodeWithTag("activity-continuous-scroll")
+            .performScrollToNode(hasTestTag("activity-chart-pace"))
+        compose.onNodeWithTag("activity-chart-pace").assertExists()
+        compose.onNodeWithTag("activity-chart-pause-note-pace").assertDoesNotExist()
+        compose.onNodeWithTag("activity-chart-moving-axis-pace").assertExists()
+        compose.onNodeWithText("0:25").assertExists()
     }
 
     @Test fun mapKeepsRecordedPauseFixesWithoutSpecialDotLegend() {
