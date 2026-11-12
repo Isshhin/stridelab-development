@@ -71,7 +71,9 @@ class ShareStudioUiTest {
     @Test fun privacyTrimControlShowsApprovedDefaults() {
         mountDetail()
         compose.onNodeWithTag("activity-share").performClick()
+        compose.onNodeWithTag("share-studio-scroll").performScrollToNode(hasTestTag("share-section-ROUTE"))
         compose.onNodeWithTag("share-section-ROUTE").performClick()
+        compose.onNodeWithTag("share-studio-scroll").performScrollToNode(hasText("Trim distance from each endpoint"))
         compose.onNodeWithText("Trim distance from each endpoint").assertIsDisplayed()
         compose.onNodeWithText("200 m").assertIsDisplayed()
         compose.onNodeWithText("400 m").assertIsDisplayed()
