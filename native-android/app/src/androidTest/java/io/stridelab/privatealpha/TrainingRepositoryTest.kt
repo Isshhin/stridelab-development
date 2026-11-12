@@ -283,6 +283,69 @@ class TrainingRepositoryTest {
         assertEquals(0,remote.syncCount)
     }
 
+    @Test fun guestGarminSyncRenameAndHistorySurviveOfflineAndCloudTransitions() = runBlocking {
+        assertNull(repo.state.value.account)
+        val localOwner=repo.state.value.localGarminOwner!!
+        val credentials=object:GarminCredentialStore {
+            private var saved:GarminCredentialRecord?=null
+            override fun read(accountId:String)=saved?.takeIf { it.accountId==accountId }
+            override fun save(record:GarminCredentialRecord) { saved=record }
+            override fun clear(accountId:String) { saved=null }
+        }
+        val api=object:GarminApi {
+            override fun exchange(apiKey:String)=GarminBearerToken("guest-fixture-bearer",
+                Instant.now().plusSeconds(86_400))
+            override fun activities(token:GarminBearerToken,start:Int,limit:Int)=
+                listOf(GarminActivity("guest-run-1","Guest Garmin Run","running",
+                    Instant.parse("2026-11-11T07:20:00Z"),5000.0,1780.0,1750.0,145.0))
+                    .drop(start).take(limit)
+        }
+        val source=GarminPersonalSource(localOwner,credentials,api)
+        assertEquals("connected",source.connect("guest-only-test-key").state)
+        assertEquals(1,repo.syncGarmin(source,detailLimit=0).importedCount)
+        val id=repo.state.value.activities.single().id
+        assertTrue(id in repo.state.value.localGarminIds)
+        assertEquals("Guest Garmin Run",repo.state.value.activities.single().title)
+        assertTrue(repo.renameActivity(id,"Guest Evening Run"))
+        assertEquals(0,repo.syncGarmin(source,detailLimit=0).importedCount)
+        assertEquals("Guest Evening Run",repo.state.value.activities.single().title)
+        repo.close();remote.offline=true;open()
+        assertNull(repo.state.value.account)
+        assertEquals(localOwner,repo.state.value.localGarminOwner)
+        assertEquals("Guest Evening Run",repo.state.value.activities.single().title)
+        // Authenticated cloud history can coexist without rewriting local data.
+        remote.offline=false
+        remote.rows=listOf(row("separate-cloud-history"))
+        assertTrue(repo.signIn("fixture@example.invalid","fixture"))
+        assertEquals(account,repo.state.value.account)
+        assertTrue(repo.state.value.activities.any { it.id==id && it.title=="Guest Evening Run" })
+        assertTrue(repo.state.value.activities.any { it.id=="separate-cloud-history" })
+        assertTrue(repo.signOut())
+        assertNull(repo.state.value.account)
+        assertEquals(localOwner,repo.state.value.localGarminOwner)
+        assertEquals(1,repo.state.value.activities.size)
+        assertEquals("Guest Evening Run",repo.state.value.activities.single().title)
+        assertFalse(repo.state.value.activities.any { it.id=="separate-cloud-history" })
+    }
+
+    @Test fun guestGarminSyncRejectsUnrelatedSourceOwner() = runBlocking {
+        val credentials=object:GarminCredentialStore {
+            override fun read(accountId:String):GarminCredentialRecord?=null
+            override fun save(record:GarminCredentialRecord) {}
+            override fun clear(accountId:String) {}
+        }
+        val api=object:GarminApi {
+            override fun exchange(apiKey:String)=GarminBearerToken("unrelated",Instant.now().plusSeconds(3600))
+            override fun activities(token:GarminBearerToken,start:Int,limit:Int)=emptyList<GarminActivity>()
+        }
+        val foreign=GarminPersonalSource("unrelated-athlete",credentials,api)
+        try {
+            repo.syncGarmin(foreign,detailLimit=0)
+            fail("A foreign Garmin source must never be able to write local history")
+        } catch (_: GarminAuthenticationException) { }
+        assertTrue(repo.state.value.activities.isEmpty())
+    }
+
     @Test fun garminSummarySyncAppearsInActivityTabAndSurvivesOfflineReopen() = runBlocking {
         remote.rows=listOf(row("intervals-saved",source="intervals"))
         assertTrue(repo.signIn("fixture@example.invalid","fixture"))
