@@ -57,6 +57,28 @@ class ShareRoutePresentationTest {
         assertTrue(result.analysis.values.all { it.edges.size<=1999 })
     }
 
+    @Test fun disablingTrimKeepsExactEndpointsAndStillRespectsUnknownGpsGaps() {
+        val samples=(0..12).filter { it!=5 }.map { i ->
+            sample(i,14.0+i*.001,if(i>=9) i*10.0+200.0 else i*10.0)
+        }
+        val original=samples.toList()
+        val pauses=listOf(ActivityPauseInterval(45.0,55.0))
+        val full=shareRoutePresentation(samples,pauses,0.0,true)
+        val trimmed=shareRoutePresentation(samples,pauses,200.0,true)
+        assertEquals(original,samples)
+        assertEquals(samples.first().latitude,full.route.allPoints.first().latitude,0.0)
+        assertEquals(samples.last().latitude,full.route.allPoints.last().latitude,0.0)
+        assertEquals(2,full.route.segments.size) // The unexplained long GPS gap remains a break.
+        assertTrue(full.route.segments.first().zipWithNext().any { (a,b) ->
+            a.elapsedSeconds==40.0 && b.elapsedSeconds==60.0
+        })
+        assertTrue(full.analysis.values.flatMap { it.edges }.none { e ->
+            e.start.elapsedSeconds==40.0 && e.end.elapsedSeconds==60.0
+        }) // No invented pace/HR/elevation across the pause.
+        assertTrue(trimmed.route.allPoints.first().latitude>samples.first().latitude!!)
+        assertTrue(trimmed.route.allPoints.last().latitude<samples.last().latitude!!)
+    }
+
     @Test fun defaultPrivacyAndLegacyPresetCompatibility() {
         val state=ShareStudioState()
         assertEquals(ShareBackground.DARK,state.background)
@@ -67,8 +89,10 @@ class ShareRoutePresentationTest {
         val restored=SharePresetCodec.decode(old.toString()).single().state
         assertEquals(SharePrivacy.STANDARD,restored.privacy)
         assertEquals(ShareBackground.MAP,restored.background)
-        val changed=state.copy(privacy=SharePrivacy.MAXIMUM)
-        assertEquals(changed,SharePresetCodec.decode(SharePresetCodec.encode(listOf(SharePreset("new","New",changed)))).single().state)
+        listOf(SharePrivacy.MAXIMUM,SharePrivacy.OFF).forEach { selection ->
+            val changed=state.copy(privacy=selection)
+            assertEquals(changed,SharePresetCodec.decode(SharePresetCodec.encode(listOf(SharePreset("new","New",changed)))).single().state)
+        }
     }
 
     @Test fun loopEdgeCrossingHiddenEndpointIsCutEvenWhenBothFixesAreOutside() {
