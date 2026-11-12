@@ -68,6 +68,16 @@ class ShareStudioUiTest {
         compose.onNodeWithText("Cancel").assertIsDisplayed()
     }
 
+    @Test fun privacyTrimControlShowsApprovedDefaults() {
+        mountDetail()
+        compose.onNodeWithTag("activity-share").performClick()
+        compose.onNodeWithTag("share-section-ROUTE").performClick()
+        compose.onNodeWithText("Trim distance from each endpoint").assertIsDisplayed()
+        compose.onNodeWithText("200 m").assertIsDisplayed()
+        compose.onNodeWithText("400 m").assertIsDisplayed()
+        compose.onNodeWithText("800 m").assertIsDisplayed()
+    }
+
     @Test fun presetsPersistUpdateAndDeleteOnDisk() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val file="share-test-${UUID.randomUUID()}"
