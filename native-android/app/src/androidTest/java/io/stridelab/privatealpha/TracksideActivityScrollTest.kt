@@ -498,18 +498,10 @@ class TracksideActivityScrollTest {
         }
         compose.onNodeWithTag("activity-sheet-handle").performClick()
         compose.waitUntil(timeoutMillis = 5000) {
-            compose.onAllNodesWithTag("activity-pause-summary")
+            compose.onAllNodesWithTag("activity-expanded-back")
                 .fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithTag("activity-pause-summary").assertExists()
-        compose.onNodeWithText("Paused time").assertExists()
-        compose.onNodeWithText("1 timer pause").assertExists()
-        compose.onNodeWithText(
-            "2 source samples were still recorded during pauses · 2 GPS · 2 HR · 2 cadence."
-        ).assertExists()
-        compose.onNodeWithText(
-            "Only source-recorded values are shown. Missing paused data is not reconstructed."
-        ).assertExists()
+        compose.onNodeWithTag("activity-pause-summary").assertDoesNotExist()
         // The source pause evidence remains in Overview, but the chart has a
         // continuous moving-time axis with no amber pause overlay or marker.
         compose.onNodeWithTag("activity-continuous-scroll")
