@@ -25,7 +25,7 @@ class StrideApplication: Application() {
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "native-history-refresh-v1", ExistingPeriodicWorkPolicy.KEEP, request)
         // Separate from backend refresh; 6-hour periodic Garmin/backup checks
-        // are only active for signed-in accounts with matching user settings.
+        // also work for a signed-out local Garmin profile; cloud backup stays gated.
         val garminWork = PeriodicWorkRequestBuilder<GarminAutoSyncWorker>(
             6, TimeUnit.HOURS
         ).setConstraints(
@@ -49,7 +49,7 @@ class GarminAutoSyncWorker(context: Context, params: WorkerParameters): Coroutin
     override suspend fun doWork(): Result {
         val repo = (applicationContext as StrideApplication).repository
         val ready = repo.state.first { !it.initializing }
-        if (ready.account == null || ready.needsSignIn) return Result.success()
+        if (ready.localGarminOwner == null) return Result.success()
         // On failure the local cache stays unchanged and the next scheduled
         // check retries. Never enter an aggressive request loop.
         repo.automaticGarminAndBackup(foreground = false)
