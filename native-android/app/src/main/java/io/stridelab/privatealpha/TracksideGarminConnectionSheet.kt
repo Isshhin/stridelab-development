@@ -27,6 +27,7 @@ internal fun TracksideGarminConnectionSheet(
     backupGarminCloud: (suspend () -> Int)? = null,
     restoreGarminCloud: (suspend () -> Int)? = null,
     allowCloudBackup: Boolean = true,
+    cloudPreferenceAccount: String? = null,
     busy: Boolean,
     onBusyChange: (Boolean) -> Unit,
     onDismiss: () -> Unit
@@ -77,6 +78,7 @@ internal fun TracksideGarminConnectionSheet(
                 backupGarminCloud = backupGarminCloud,
                 restoreGarminCloud = restoreGarminCloud,
                 allowCloudBackup = allowCloudBackup,
+                cloudPreferenceAccount = cloudPreferenceAccount,
                 onBusyChange = onBusyChange
             )
         }
