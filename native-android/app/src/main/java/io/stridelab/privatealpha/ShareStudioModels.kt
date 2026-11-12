@@ -29,7 +29,10 @@ internal enum class ShareMetric(val label:String) {
 }
 internal enum class ShareBackground(val label:String) { MAP("Activity Dark Map"), DARK("Clean Dark"), GRADIENT("Soft Gradient") }
 internal enum class ShareBranding(val label:String) { SUBTLE("Subtle"), STANDARD("Standard"), MINIMAL("Minimal") }
-internal enum class SharePrivacy(val label:String, val meters:Double) { STANDARD("200 m",200.0), EXTRA("400 m",400.0), MAXIMUM("800 m",800.0) }
+internal enum class SharePrivacy(val label:String, val meters:Double) {
+    STANDARD("200 m",200.0), EXTRA("400 m",400.0), MAXIMUM("800 m",800.0),
+    OFF("Off (full route)",0.0)
+}
 internal enum class ShareLayout(val label:String) { AIRY("Airy"), COMPACT("Compact") }
 
 internal data class ShareStudioState(
