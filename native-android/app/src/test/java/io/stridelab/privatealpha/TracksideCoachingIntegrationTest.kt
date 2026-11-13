@@ -12,11 +12,11 @@ class TracksideCoachingIntegrationTest {
         Engine1Engines.resolve(p).generate(p, "athlete", "draft", now)
 
     @Test fun packagedDefaultSelectsTheConfiguredPolicy() {
-        assertFalse("Engine 1.5 must not be enabled by the packaged default", BuildConfig.ENGINE15_ACTIVE)
+        assertTrue("Engine 1.5 is the packaged default for new plans", BuildConfig.ENGINE15_ACTIVE)
         val setup = PlanRequest(policyChoice="coordinated", start=start)
         val plan = generate(TracksideCoaching.request(setup))
-        assertEquals(ENGINE1_VERSION, plan.engineVersion)
-        assertEquals(CoordinatedEngine1.policyId, plan.policyId)
+        assertEquals(ENGINE15_VERSION, plan.engineVersion)
+        assertEquals(ENGINE15_POLICY, plan.policyId)
         assertEquals("approved", PlanOperations.approve(plan, emptyList()).status)
     }
 
