@@ -184,15 +184,14 @@ internal fun TracksideAdvancedRunning(
         if(maxQualityCount < 2) {
             Text(
                 "Two quality sessions require experienced running, at least " +
-                    "four runs per week and 30 km of recent weekly volume.",
+                    "four runs per week and 40 km of recent weekly volume.",
                 fontSize=10.sp,lineHeight=14.sp,
                 color=TracksidePalette.textMuted
             )
             Spacer(Modifier.height(8.dp))
         }
         Text(
-            "Target mileage informs the saved plan. Quality-type choices are " +
-                "preferences until supported by the active coaching policy.",
+            "Target mileage is kept separate from recent training. Selected quality styles are used when eligible.",
             fontSize = 11.sp, lineHeight = 15.sp,
             color = TracksidePalette.textMuted
         )

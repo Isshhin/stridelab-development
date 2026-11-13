@@ -29,7 +29,7 @@ internal data class PlanRequest(
     val lockedSessionDays:Map<String,String> = emptyMap(),
     val allowDoubleDays:Boolean = false,
     val timeBudgetEnabled:Boolean = true,
-    val targetWeeklyKm:Double = weeklyKm
+    val targetWeeklyKm:Double? = null
 ) {
     fun encode():JSONObject {
         val encoded=JSONObject().put("goal",goal).put("secondaryGoal",secondaryGoal).put("experience",experience).put("start",start.toString()).put("weeks",weeks).put("minutes",minutes)
@@ -73,7 +73,7 @@ internal data class PlanRequest(
                 j.optJSONObject("lockedSessionDays")?.let { locks ->
                     locks.keys().asSequence().associateWith { locks.getString(it) }
                 } ?: emptyMap(), j.has("allowDoubleDays") && j.getBoolean("allowDoubleDays"),
-                j.optBoolean("timeBudgetEnabled",true),j.optDouble("targetWeeklyKm",j.getDouble("weeklyKm")))
+                j.optBoolean("timeBudgetEnabled",true),j.optDouble("targetWeeklyKm").takeIf { j.has("targetWeeklyKm") })
         }
     }
 }

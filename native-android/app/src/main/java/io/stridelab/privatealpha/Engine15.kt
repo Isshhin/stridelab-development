@@ -19,7 +19,8 @@ internal object Engine15 : PlanGenerationEngine {
     internal fun validate(request: PlanRequest) {
         if (request.policyChoice != "engine15")
             throw PlanConstraint("Engine 1.5 must be selected explicitly.")
-        if (!request.targetWeeklyKm.isFinite() || request.targetWeeklyKm !in 0.0..120.0)
+        if (request.targetWeeklyKm != null &&
+            (!request.targetWeeklyKm.isFinite() || request.targetWeeklyKm !in 0.0..120.0))
             throw PlanConstraint("Target weekly mileage must be between 0 and 120 km.")
         if (request.disciplineGoals.any { (d, goal) -> goal !in Engine1Engines.goals[d].orEmpty() })
             throw PlanConstraint("Choose supported goals for each discipline.")
@@ -99,11 +100,16 @@ internal object Engine15 : PlanGenerationEngine {
      * Three staged loading weeks followed by a lighter fourth week.
      * No catch-up mileage is added after deload weeks.
      */
-    internal fun runningCeiling(week: Int, recentKm: Double, targetKm: Double = recentKm): Double {
+    internal fun runningCeiling(week: Int, recentKm: Double, targetKm: Double? = null): Double {
         require(week >= 0 && recentKm.isFinite() && recentKm >= 0.0 &&
-            targetKm.isFinite() && targetKm >= 0.0)
+            (targetKm == null || targetKm.isFinite() && targetKm >= 0.0))
         val block = week / 4
         val part = week % 4
+        if(targetKm==null) {
+            val factor=if(part==3) minOf(0.90,0.76+block*0.04)
+                else minOf(1.10,0.90+part*0.05+block*0.045)
+            return recentKm*factor
+        }
         val peak = minOf(targetKm, recentKm * (1.0 + block * 0.05))
         return if (part == 3) peak * 0.80
             else minOf(targetKm, recentKm * (0.90 + part * 0.05 + block * 0.05))

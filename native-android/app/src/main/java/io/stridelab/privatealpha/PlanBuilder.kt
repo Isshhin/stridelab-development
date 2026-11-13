@@ -48,7 +48,7 @@ import org.json.JSONObject
     var step by rememberSaveable { mutableIntStateOf(0) }
     val input=PlanRequest.decode(JSONObject(encoded))
     fun edit(p:PlanRequest) { encoded=p.encode().toString() }
-    var km by rememberSaveable { mutableStateOf(initial.weeklyKm.toString()) };var targetKm by rememberSaveable { mutableStateOf(initial.targetWeeklyKm.toString()) };var longest by rememberSaveable { mutableStateOf(initial.longestKm.toString()) }
+    var km by rememberSaveable { mutableStateOf(initial.weeklyKm.toString()) };var targetKm by rememberSaveable { mutableStateOf((initial.targetWeeklyKm ?: initial.weeklyKm).toString()) };var longest by rememberSaveable { mutableStateOf(initial.longestKm.toString()) }
     var pace by rememberSaveable { mutableStateOf((initial.planningPace/60).toString()) };var start by rememberSaveable { mutableStateOf(maxOf(initial.start,LocalDate.now()).toString()) }
     var weeks by rememberSaveable { mutableStateOf(initial.weeks.toString()) };var minutes by rememberSaveable { mutableStateOf(initial.minutes.toString()) };var dailyMinutes by rememberSaveable { mutableStateOf(initial.dailyMinutes.toString()) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
@@ -284,7 +284,7 @@ import org.json.JSONObject
                 maxQualityCount = minOf(
                     (input.runDays-2).coerceAtLeast(0),
                     if(input.experience==2 && input.runDays>=4 &&
-                        (km.toDoubleOrNull() ?: 0.0)>=30.0) 2 else 1
+                        (km.toDoubleOrNull() ?: 0.0)>=40.0) 2 else 1
                 ),
                 selectedQualityTypes = advancedQualityTypes,
                 onWeeklyKm = { value ->
@@ -295,7 +295,7 @@ import org.json.JSONObject
                     val allowed = minOf(
                         (input.runDays-2).coerceAtLeast(0),
                         if(input.experience==2 && input.runDays>=4 &&
-                            (km.toDoubleOrNull() ?: 0.0)>=30.0) 2 else 1
+                            (km.toDoubleOrNull() ?: 0.0)>=40.0) 2 else 1
                     )
                     edit(input.copy(qualityCount=n.coerceAtMost(allowed)))
                 },
@@ -368,7 +368,7 @@ import org.json.JSONObject
                 onQualityCount = { n ->
                     val allowed = minOf((input.runDays-2).coerceAtLeast(0),
                         if(input.experience==2 && input.runDays>=4 &&
-                            input.weeklyKm>=30.0) 2 else 1)
+                            input.weeklyKm>=40.0) 2 else 1)
                     if(n<=allowed) {
                         val slots=WeeklyPlacement.days(input,"run")
                         edit(input.copy(
@@ -388,7 +388,7 @@ import org.json.JSONObject
                     )
                     val allowed=minOf((n-2).coerceAtLeast(0),
                         if(changed.experience==2 && n>=4 &&
-                            changed.weeklyKm>=30.0) 2 else 1)
+                            changed.weeklyKm>=40.0) 2 else 1)
                     val q=changed.qualityCount.coerceAtMost(allowed)
                     val slots=WeeklyPlacement.days(changed,"run")
                     edit(changed.copy(

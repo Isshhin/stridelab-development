@@ -66,7 +66,7 @@ class Engine15CoachingTest {
         val plan = Engine15.generate(req, owner, "target-ramp", now)
         val weekly = (0 until req.weeks).map { volume(plan, it) }
         assertTrue(weekly.any { it > weekly.first() })
-        assertTrue(weekly.all { it <= req.targetWeeklyKm + 1e-6 })
+        assertTrue(weekly.all { it <= req.targetWeeklyKm!! + 1e-6 })
         assertTrue(weekly[3] < weekly[2])
         assertTrue(weekly[4] > weekly[3])
         assertEquals(req, PlanSnapshot.decode(plan.encode(), owner).request)
@@ -74,6 +74,13 @@ class Engine15CoachingTest {
         val unknown = Engine15.generate(req.copy(weeklyKm = 0.0), owner, "no-base", now)
         assertTrue(unknown.sessions.filter { it.discipline == "run" }.all { it.distanceKm == null })
         assertTrue(unknown.sessions.filter { it.discipline == "run" }.all { !it.quality })
+    }
+
+    @Test fun absentTargetRetainsLegacyMileageCeilingWhileExplicitTargetUsesRamp() {
+        assertEquals(18.81, Engine15.runningCeiling(6, 18.0), 0.001)
+        assertTrue(Engine15.runningCeiling(6, 18.0, 70.0) > 18.0)
+        val legacy = Engine15.generate(request(weekly=18.0, quality=0).copy(weeks=8), owner, "legacy-ramp", now)
+        assertTrue(volume(legacy, 6) <= Engine15.runningCeiling(6, 18.0) + 1e-6)
     }
 
     @Test fun distinctGoalsHaveDifferentControlledQualitySessions() {
@@ -130,6 +137,9 @@ class Engine15CoachingTest {
         val limited = Engine15.generate(request(weekly = 35.0, quality = 2, weeks = 4),
             owner, "limited", now)
         assertEquals(1, week(limited, 0).count { it.quality })
+        val boundary = Engine15.generate(request(weekly = 39.9, quality = 2, weeks = 4),
+            owner, "boundary", now)
+        assertEquals(1, week(boundary, 0).count { it.quality })
         assertEquals(0, week(limited, 3).count { it.quality })
         val experienced = Engine15.generate(request(weekly = 45.0, quality = 2, weeks = 4),
             owner, "experienced", now)

@@ -329,7 +329,7 @@ internal fun TracksideRunningSetup(
                     (0..2).forEach { q ->
                         val eligible=q<=(count-2).coerceAtLeast(0) &&
                             (q<=1 || (request.experience==2 &&
-                                request.weeklyKm>=30.0 && count>=4))
+                                request.weeklyKm>=40.0 && count>=4))
                         Surface(
                             onClick={onQualityCount(q)},enabled=eligible,
                             modifier=Modifier.size(48.dp)
@@ -366,7 +366,7 @@ internal fun TracksideRunningSetup(
                     }
                 }
                 Spacer(Modifier.height(8.dp))
-                Text("Quality style is advisory until supported by the active coaching engine. Exact pinned weekdays are enforced.",
+                Text("Your selected quality style is used when eligible. Exact pinned weekdays are enforced.",
                     fontSize=10.sp,lineHeight=14.sp,color=weekMuted)
             } else {
                 Text("The coach will schedule sessions on your available days. Choose my days to pin an exact day.",
