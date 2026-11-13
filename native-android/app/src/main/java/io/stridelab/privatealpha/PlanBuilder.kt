@@ -48,7 +48,7 @@ import org.json.JSONObject
     var step by rememberSaveable { mutableIntStateOf(0) }
     val input=PlanRequest.decode(JSONObject(encoded))
     fun edit(p:PlanRequest) { encoded=p.encode().toString() }
-    var km by rememberSaveable { mutableStateOf(initial.weeklyKm.toString()) };var targetKm by rememberSaveable { mutableStateOf((initial.targetWeeklyKm ?: initial.weeklyKm).toString()) };var longest by rememberSaveable { mutableStateOf(initial.longestKm.toString()) }
+    var km by rememberSaveable { mutableStateOf(initial.weeklyKm.toString()) };var targetKm by rememberSaveable { mutableStateOf((initial.targetWeeklyKm ?: initial.weeklyKm).toString()) };var targetSupplied by rememberSaveable { mutableStateOf(initial.targetWeeklyKm != null) };var longest by rememberSaveable { mutableStateOf(initial.longestKm.toString()) }
     var pace by rememberSaveable { mutableStateOf((initial.planningPace/60).toString()) };var start by rememberSaveable { mutableStateOf(maxOf(initial.start,LocalDate.now()).toString()) }
     var weeks by rememberSaveable { mutableStateOf(initial.weeks.toString()) };var minutes by rememberSaveable { mutableStateOf(initial.minutes.toString()) };var dailyMinutes by rememberSaveable { mutableStateOf(initial.dailyMinutes.toString()) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
@@ -83,7 +83,7 @@ import org.json.JSONObject
             }
         }
     }
-    fun request():PlanRequest=try { input.copy(start=LocalDate.parse(start),weeks=weeks.toInt(),minutes=minutes.toInt(),dailyMinutes=if(input.policyChoice=="multi-session")dailyMinutes.toInt() else input.dailyMinutes,weeklyKm=km.toDouble(),targetWeeklyKm=targetKm.toDouble(),longestKm=longest.toDouble(),planningPace=pace.toDouble()*60,timeBudgetEnabled=false) } catch(e:Exception) { throw PlanConstraint("Enter a valid YYYY-MM-DD date and numeric recent and target mileage, pace, weeks, and daily budget if enabled.") }
+    fun request():PlanRequest=try { input.copy(start=LocalDate.parse(start),weeks=weeks.toInt(),minutes=minutes.toInt(),dailyMinutes=if(input.policyChoice=="multi-session")dailyMinutes.toInt() else input.dailyMinutes,weeklyKm=km.toDouble(),targetWeeklyKm=if(targetSupplied) targetKm.toDouble() else null,longestKm=longest.toDouble(),planningPace=pace.toDouble()*60,timeBudgetEnabled=false) } catch(e:Exception) { throw PlanConstraint("Enter a valid YYYY-MM-DD date and numeric recent and target mileage, pace, weeks, and daily budget if enabled.") }
     var previewWeek by rememberSaveable { mutableIntStateOf(0) }
     var runningSubPage by rememberSaveable { mutableIntStateOf(0) }
     var scheduleSubPage by rememberSaveable { mutableIntStateOf(0) }
@@ -254,8 +254,8 @@ import org.json.JSONObject
                 longestKm = longest.toDoubleOrNull()?.coerceIn(0.0,42.0) ?: 0.0,
                 onExperience = { edit(input.copy(experience=it)) },
                 onWeeklyKm = { value ->
-                    targetKm=value.toInt().toString()
-                    edit(input.copy(targetWeeklyKm=value))
+                    km=value.toInt().toString()
+                    edit(input.copy(weeklyKm=value))
                 },
                 onLongestKm = { value ->
                     longest=value.toInt().toString()
@@ -284,18 +284,19 @@ import org.json.JSONObject
                 maxQualityCount = minOf(
                     (input.runDays-2).coerceAtLeast(0),
                     if(input.experience==2 && input.runDays>=4 &&
-                        (km.toDoubleOrNull() ?: 0.0)>=40.0) 2 else 1
+                        (targetKm.toDoubleOrNull() ?: km.toDoubleOrNull() ?: 0.0)>=40.0) 2 else 1
                 ),
                 selectedQualityTypes = advancedQualityTypes,
                 onWeeklyKm = { value ->
                     targetKm=value.toInt().toString()
+                    targetSupplied=true
                     edit(input.copy(targetWeeklyKm=value))
                 },
                 onQualityCount = { n ->
                     val allowed = minOf(
                         (input.runDays-2).coerceAtLeast(0),
                         if(input.experience==2 && input.runDays>=4 &&
-                            (km.toDoubleOrNull() ?: 0.0)>=40.0) 2 else 1
+                            (targetKm.toDoubleOrNull() ?: km.toDoubleOrNull() ?: 0.0)>=40.0) 2 else 1
                     )
                     edit(input.copy(qualityCount=n.coerceAtMost(allowed)))
                 },
@@ -368,7 +369,7 @@ import org.json.JSONObject
                 onQualityCount = { n ->
                     val allowed = minOf((input.runDays-2).coerceAtLeast(0),
                         if(input.experience==2 && input.runDays>=4 &&
-                            input.weeklyKm>=40.0) 2 else 1)
+                            (targetKm.toDoubleOrNull() ?: input.weeklyKm)>=40.0) 2 else 1)
                     if(n<=allowed) {
                         val slots=WeeklyPlacement.days(input,"run")
                         edit(input.copy(
@@ -388,7 +389,7 @@ import org.json.JSONObject
                     )
                     val allowed=minOf((n-2).coerceAtLeast(0),
                         if(changed.experience==2 && n>=4 &&
-                            changed.weeklyKm>=40.0) 2 else 1)
+                            (targetKm.toDoubleOrNull() ?: changed.weeklyKm)>=40.0) 2 else 1)
                     val q=changed.qualityCount.coerceAtMost(allowed)
                     val slots=WeeklyPlacement.days(changed,"run")
                     edit(changed.copy(

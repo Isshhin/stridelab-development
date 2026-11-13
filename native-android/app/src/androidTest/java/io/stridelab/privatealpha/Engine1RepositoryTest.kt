@@ -21,7 +21,7 @@ class Engine1RepositoryTest {
     private fun open()=runBlocking { repo=TrainingRepository(context,gateway,databaseName,prefs);repo.state.first { !it.initializing } }
     @Before fun setup() { context.deleteDatabase(databaseName);context.getSharedPreferences(prefs,0).edit().clear().commit();SessionVault(context).clear(owner);gateway.owner=owner;gateway.offline=false;gateway.rows=JSONArray();open() }
     @After fun cleanup() { repo.close();context.deleteDatabase(databaseName);context.getSharedPreferences(prefs,0).edit().clear().commit();SessionVault(context).clear(owner);SessionVault(context).clear("synthetic-engine1-other") }
-    private fun request()=PlanRequest(start=LocalDate.parse("2026-11-02"),runDays=0,strengthDays=2,weeks=4,equipment=mapOf("db" to 1))
+    private fun request()=PlanRequest(start=LocalDate.now().minusDays(8),runDays=0,strengthDays=2,weeks=4,equipment=mapOf("db" to 1))
     private fun actualLog(session:PlannedSession,minutes:Double=20.0,effort:Int?=null):WorkoutLog {
         val ex=session.effectiveExercises.first()
         return WorkoutLog(Instant.now(),minutes=minutes,effort=effort,sets=listOf(SetRecord(ex.id,1,reps=if(ex.seconds==null)5 else null,seconds=if(ex.seconds!=null)5 else null)))
@@ -115,7 +115,7 @@ class Engine1RepositoryTest {
         assertFalse(repo.moveSession(accepted.id,accepted.revision,first.id,second.date));assertEquals(accepted,repo.state.value.plans.find { it.id==accepted.id })
     }
     @Test fun missReasonSuggestionsAndFeedbackStayDurableWithoutNetwork()=runBlocking {
-        assertTrue(repo.signIn("synthetic@example.invalid","fixture"));assertTrue(repo.generatePlan(request()));var p=repo.state.value.plans.single()
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"));assertTrue(repo.generatePlan(request().copy(policyChoice="baseline",start=LocalDate.now(),runDays=3,strengthDays=0,weeklyKm=30.0,experience=2,qualityCount=0)));var p=repo.state.value.plans.single()
         assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single();gateway.offline=true
         assertTrue(repo.markMissed(p.id,p.revision,p.sessions.first().id,"Fatigue",false));p=repo.state.value.plans.single()
         val next=p.sessions.first { it.suggestion!=null };assertFalse(next.suggestion!!.accepted)
@@ -140,7 +140,7 @@ class Engine1RepositoryTest {
         gateway.offline=false;gateway.owner="synthetic-engine1-other";assertTrue(repo.signIn("other@example.invalid","fixture"));assertTrue(repo.state.value.shelf.favorites.isEmpty());assertTrue(repo.state.value.plans.isEmpty())
     }
     @Test fun manualSourceRunLinksAreUniqueAndReversibleWithoutLosingOfflineRecords()=runBlocking {
-        gateway.rows=JSONArray().put(JSONObject().put("id","synthetic-source-run").put("user_id",owner).put("title","Source run fixture").put("source","intervals").put("activity_type","run").put("started_at","2026-10-24T00:00:00Z").put("distance_m",3000).put("duration_s",1200))
+        gateway.rows=JSONArray().put(JSONObject().put("id","synthetic-source-run").put("user_id",owner).put("title","Source run fixture").put("source","garmin").put("activity_type","run").put("started_at",LocalDate.now().minusDays(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toString()).put("distance_m",3000).put("duration_s",1200))
         assertTrue(repo.signIn("synthetic@example.invalid","fixture"));assertEquals(1,repo.state.value.activities.size)
         assertTrue(repo.generatePlan(PlanRequest(start=request().start)));var p=repo.state.value.plans.single()
         assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single();val first=p.sessions.first().id;val second=p.sessions[1].id
@@ -154,9 +154,9 @@ class Engine1RepositoryTest {
     }
     @Test fun linkedRunCannotBeSilentlyReplacedAndOriginalSurvivesOfflineReopen()=runBlocking {
         val first=JSONObject().put("id","source-run-first").put("user_id",owner).put("title","First actual run")
-            .put("source","intervals").put("activity_type","run").put("started_at","2026-10-24T00:00:00Z").put("distance_m",3000).put("duration_s",1200)
+            .put("source","garmin").put("activity_type","run").put("started_at",LocalDate.now().minusDays(2).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toString()).put("distance_m",3000).put("duration_s",1200)
         val other=JSONObject().put("id","source-run-other").put("user_id",owner).put("title","Other actual run")
-            .put("source","intervals").put("activity_type","run").put("started_at","2026-10-25T00:00:00Z").put("distance_m",5000).put("duration_s",1800)
+            .put("source","garmin").put("activity_type","run").put("started_at",LocalDate.now().minusDays(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toString()).put("distance_m",5000).put("duration_s",1800)
         // The production history boundary requires newest-first cursor order.
         gateway.rows=JSONArray().put(other).put(first)
         assertTrue(repo.signIn("synthetic@example.invalid","fixture"))

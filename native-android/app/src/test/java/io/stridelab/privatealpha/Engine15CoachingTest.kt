@@ -83,6 +83,14 @@ class Engine15CoachingTest {
         assertTrue(volume(legacy, 6) <= Engine15.runningCeiling(6, 18.0) + 1e-6)
     }
 
+    @Test fun zeroTargetExplicitlyDisablesMileageWhileLegacyNullTargetDoesNot() {
+        val baseline=request(weekly=24.0,quality=0).copy(weeks=8)
+        val legacy=Engine15.generate(baseline,owner,"legacy-target",now)
+        val noTarget=Engine15.generate(baseline.copy(targetWeeklyKm=0.0),owner,"zero-target",now)
+        assertTrue(volume(legacy,0)>0.0)
+        assertTrue((0 until 8).all { volume(noTarget,it)==0.0 })
+    }
+
     @Test fun distinctGoalsHaveDifferentControlledQualitySessions() {
         val variants = listOf(
             "Improve 5K" to "3 × 3 min",
