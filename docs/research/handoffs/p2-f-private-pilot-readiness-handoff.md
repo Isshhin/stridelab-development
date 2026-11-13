@@ -1,6 +1,14 @@
 # P2-F private pilot readiness and operator handoff
 
-**PRIVATE_PILOT_READY_AWAITING_EXPLICIT_PARTICIPANT_APPROVAL.** The blank package and synthetic engineering path are ready. Private deployment, assignment of named people, participant approval and the actual device audit have not occurred. The technically supported pilot is one narrow TCX original and one separately authored diary. The data steward must verify the actual storage, access, suppression and deletion controls before intake.
+## Current disposition — 2026-11-13
+
+**`PRIVATE_PILOT_NOT_READY`; HUMAN/PROVIDER DATA ADMISSION NO.** This current status supersedes the prior `PRIVATE_PILOT_READY_AWAITING_EXPLICIT_PARTICIPANT_APPROVAL` heading and older handoff copies. The blank forms and synthetic code are preparation only. Do not transfer, receive, or process a human/provider record under this handoff. S1 remains `QUARANTINE_PENDING_PERMISSION`.
+
+No source/device format is qualified for a real pilot. The TCX path has synthetic parser tests only; no real TCX dialect, firmware or device has passed reconciliation. Direct FIT remains a candidate requiring a fixed device/firmware, decoder and dependency freeze, rights review, and an independently authored offline reference. Neither candidate is an approval.
+
+Before any admission, the independent authority/custody review and actual environment/operator qualification in the [qualification register](../phase2/p2-f-private-pilot-qualification-register-2026-11-07.md) and [reviewer brief](../phase2/p2-f-custody-authority-qualification-brief-2026-11-07.md) remain outstanding. The controller must also document the applicable privacy/legal basis and ethics determination; this repository does not make that determination. The separate v7 read-only preflight packet is ready only for a new independent authorization review. Its collector was never executed, and this handoff grants no execution or target-access permission.
+
+The [pilot runbook](../phase2/p2-f-pilot-runbook.md) below is a procedure for a later separately admitted study, not a readiness decision.
 
 ## Operator sequence
 
@@ -22,7 +30,7 @@
 
 | Field | Disposition |
 | --- | --- |
-| PRIVATE_PILOT_READINESS | READY_AWAITING_EXPLICIT_PARTICIPANT_APPROVAL |
+| PRIVATE_PILOT_READINESS | NOT_READY |
 | S1_ADMISSION | NOT_ADMITTED |
 | REAL_DEVICE_RECONCILIATION | NOT_RUN |
 | P2_F_GATE_2 | NOT_READY |
