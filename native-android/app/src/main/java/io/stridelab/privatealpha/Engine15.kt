@@ -19,6 +19,8 @@ internal object Engine15 : PlanGenerationEngine {
     internal fun validate(request: PlanRequest) {
         if (request.policyChoice != "engine15")
             throw PlanConstraint("Engine 1.5 must be selected explicitly.")
+        if (!request.targetWeeklyKm.isFinite() || request.targetWeeklyKm !in 0.0..120.0)
+            throw PlanConstraint("Target weekly mileage must be between 0 and 120 km.")
         if (request.disciplineGoals.any { (d, goal) -> goal !in Engine1Engines.goals[d].orEmpty() })
             throw PlanConstraint("Choose supported goals for each discipline.")
         Engine15SessionLocks.validateRequest(request)
@@ -37,7 +39,17 @@ internal object Engine15 : PlanGenerationEngine {
         val title: String, val instructions: String, val requiredMinutes: Int
     )
 
-    private fun structure(goal: String): QualityStructure = when (goal) {
+    private fun structure(goal: String, type: String): QualityStructure = when (type) {
+        "Tempo" -> QualityStructure("Controlled tempo run", "12 min at a comfortably steady effort (5–6/10); slow down if effort rises; never race", 35)
+        "Hills" -> QualityStructure("Controlled hill repetitions", "4 × 45 sec uphill at a controlled effort (6/10); walk or jog easily back down; never sprint", 35)
+        "Threshold" -> QualityStructure("Controlled threshold intervals", "3 × 4 min at a comfortably hard effort (6–7/10); 2 min easy between repetitions; never sprint", 35)
+        "Fartlek" -> QualityStructure("Controlled fartlek run", "6 × 1 min lively but controlled (6/10); 2 min easy between repetitions; never sprint", 35)
+        "Progression" -> QualityStructure("Easy progression run", "Begin conversationally and gradually finish at a steady effort (5/10); no fast finish or racing", 35)
+        "Intervals" -> structureForGoal(goal)
+        else -> structureForGoal(goal)
+    }
+
+    private fun structureForGoal(goal: String): QualityStructure = when (goal) {
         "Improve 5K" -> QualityStructure(
             "Controlled 5K intervals",
             "3 × 3 min comfortably hard (effort 6–7/10); 2 min easy between repetitions; never sprint",
@@ -87,13 +99,14 @@ internal object Engine15 : PlanGenerationEngine {
      * Three staged loading weeks followed by a lighter fourth week.
      * No catch-up mileage is added after deload weeks.
      */
-    internal fun runningCeiling(week: Int, recentKm: Double): Double {
-        require(week >= 0 && recentKm.isFinite() && recentKm >= 0.0)
+    internal fun runningCeiling(week: Int, recentKm: Double, targetKm: Double = recentKm): Double {
+        require(week >= 0 && recentKm.isFinite() && recentKm >= 0.0 &&
+            targetKm.isFinite() && targetKm >= 0.0)
         val block = week / 4
         val part = week % 4
-        val factor = if (part == 3) minOf(0.90, 0.76 + block * 0.04)
-            else minOf(1.10, 0.90 + part * 0.05 + block * 0.045)
-        return recentKm * factor
+        val peak = minOf(targetKm, recentKm * (1.0 + block * 0.05))
+        return if (part == 3) peak * 0.80
+            else minOf(targetKm, recentKm * (0.90 + part * 0.05 + block * 0.05))
     }
 
     private fun weekIndex(request: PlanRequest, session: PlannedSession) =
@@ -123,7 +136,7 @@ internal object Engine15 : PlanGenerationEngine {
             val week = weekIndex(request, original)
             val runs = weekly.getValue(week).filter { it.discipline == "run" }
             val originalKm = runs.sumOf { it.distanceKm ?: 0.0 }
-            val ceiling = runningCeiling(week, request.weeklyKm)
+            val ceiling = runningCeiling(week, request.weeklyKm, request.targetWeeklyKm)
             val scale = if (originalKm > 0.0) minOf(1.0, ceiling / originalKm) else 1.0
             var distance = original.distanceKm?.times(scale)
 
@@ -146,7 +159,6 @@ internal object Engine15 : PlanGenerationEngine {
                 maxOf(10, ceil(distance * request.planningPace / 60.0).toInt())
             )
 
-            val spec = structure(request.goal)
             val taper = request.goal in setOf("Half marathon", "Marathon") &&
                 request.weeks >= 8 && week >= request.weeks - 2
             val allowedQuality = when {
@@ -156,6 +168,10 @@ internal object Engine15 : PlanGenerationEngine {
                 request.weeklyKm < 40.0 -> minOf(1, request.qualityCount)
                 else -> request.qualityCount
             }
+            val allowedTypes = request.allowedQualityTypes
+            val spec = if(allowedTypes.isEmpty()) structureForGoal(request.goal) else
+                structure(request.goal, request.preferredQuality.takeIf { it in allowedTypes }
+                    ?: allowedTypes.sorted().first())
             val position = runs.filter { it.kind == "quality" }.sortedBy { it.id }
                 .indexOfFirst { it.id == original.id }
             val quality = original.kind == "quality" && original.quality &&
@@ -212,9 +228,10 @@ internal object Engine15 : PlanGenerationEngine {
                     "redistributed or made up after a missed workout.",
                 "With at least three weekly runs, long-run distance is capped to 40% " +
                     "of final planned weekly distance. Missing mileage remains time-based.",
-                "Quality running is limited by supplied mileage, experience, return " +
+                "Quality running is limited by recent mileage, experience, return " +
                     "status, lighter weeks, race taper and available time. Effort " +
                     "descriptions are not measured thresholds, zones or target paces.",
+                "Target weekly mileage is a capped goal; progression remains bounded by the reported recent mileage and includes a fourth-week recovery reduction.",
                 if(multi) "Multi-session days use the existing conservative easy-run + calisthenics pairing and daily budget. Incompatible schedules are rejected." else "Single-session Engine 1.0 calendar rules remain unchanged.",
                 "Review every workout before approval; no existing saved plan, " +
                     "completed activity or athlete record has been changed."

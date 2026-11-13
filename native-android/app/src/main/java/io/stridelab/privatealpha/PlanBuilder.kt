@@ -48,7 +48,7 @@ import org.json.JSONObject
     var step by rememberSaveable { mutableIntStateOf(0) }
     val input=PlanRequest.decode(JSONObject(encoded))
     fun edit(p:PlanRequest) { encoded=p.encode().toString() }
-    var km by rememberSaveable { mutableStateOf(initial.weeklyKm.toString()) };var longest by rememberSaveable { mutableStateOf(initial.longestKm.toString()) }
+    var km by rememberSaveable { mutableStateOf(initial.weeklyKm.toString()) };var targetKm by rememberSaveable { mutableStateOf(initial.targetWeeklyKm.toString()) };var longest by rememberSaveable { mutableStateOf(initial.longestKm.toString()) }
     var pace by rememberSaveable { mutableStateOf((initial.planningPace/60).toString()) };var start by rememberSaveable { mutableStateOf(maxOf(initial.start,LocalDate.now()).toString()) }
     var weeks by rememberSaveable { mutableStateOf(initial.weeks.toString()) };var minutes by rememberSaveable { mutableStateOf(initial.minutes.toString()) };var dailyMinutes by rememberSaveable { mutableStateOf(initial.dailyMinutes.toString()) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
@@ -83,7 +83,7 @@ import org.json.JSONObject
             }
         }
     }
-    fun request():PlanRequest=try { input.copy(start=LocalDate.parse(start),weeks=weeks.toInt(),minutes=minutes.toInt(),dailyMinutes=if(input.policyChoice=="multi-session")dailyMinutes.toInt() else input.dailyMinutes,weeklyKm=km.toDouble(),longestKm=longest.toDouble(),planningPace=pace.toDouble()*60,timeBudgetEnabled=false) } catch(e:Exception) { throw PlanConstraint("Enter a valid YYYY-MM-DD date and numeric mileage, pace, weeks, minutes, and daily budget if enabled.") }
+    fun request():PlanRequest=try { input.copy(start=LocalDate.parse(start),weeks=weeks.toInt(),minutes=minutes.toInt(),dailyMinutes=if(input.policyChoice=="multi-session")dailyMinutes.toInt() else input.dailyMinutes,weeklyKm=km.toDouble(),targetWeeklyKm=targetKm.toDouble(),longestKm=longest.toDouble(),planningPace=pace.toDouble()*60,timeBudgetEnabled=false) } catch(e:Exception) { throw PlanConstraint("Enter a valid YYYY-MM-DD date and numeric recent and target mileage, pace, weeks, and daily budget if enabled.") }
     var previewWeek by rememberSaveable { mutableIntStateOf(0) }
     var runningSubPage by rememberSaveable { mutableIntStateOf(0) }
     var scheduleSubPage by rememberSaveable { mutableIntStateOf(0) }
@@ -254,8 +254,8 @@ import org.json.JSONObject
                 longestKm = longest.toDoubleOrNull()?.coerceIn(0.0,42.0) ?: 0.0,
                 onExperience = { edit(input.copy(experience=it)) },
                 onWeeklyKm = { value ->
-                    km=value.toInt().toString()
-                    edit(input.copy(weeklyKm=value))
+                    targetKm=value.toInt().toString()
+                    edit(input.copy(targetWeeklyKm=value))
                 },
                 onLongestKm = { value ->
                     longest=value.toInt().toString()
@@ -279,7 +279,7 @@ import org.json.JSONObject
             )
             3 -> TracksideAdvancedRunning(
                 guided = advancedBackPage != 0,
-                weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0, 120.0) ?: 0.0,
+                weeklyKm = targetKm.toDoubleOrNull()?.coerceIn(0.0, 120.0) ?: 0.0,
                 qualityCount = input.qualityCount.coerceIn(0, 2),
                 maxQualityCount = minOf(
                     (input.runDays-2).coerceAtLeast(0),
@@ -288,8 +288,8 @@ import org.json.JSONObject
                 ),
                 selectedQualityTypes = advancedQualityTypes,
                 onWeeklyKm = { value ->
-                    km=value.toInt().toString()
-                    edit(input.copy(weeklyKm=value))
+                    targetKm=value.toInt().toString()
+                    edit(input.copy(targetWeeklyKm=value))
                 },
                 onQualityCount = { n ->
                     val allowed = minOf(
@@ -315,7 +315,7 @@ import org.json.JSONObject
                 route = runningRoute,
                 selectedFocus = guidedFocus,
                 onFocus = { guidedFocus = it },
-                weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0,120.0) ?: 0.0,
+                weeklyKm = targetKm.toDoubleOrNull()?.coerceIn(0.0,120.0) ?: 0.0,
                 experience = input.experience,
                 onEditAbility = {
                     editingAbilityFromGuided = true

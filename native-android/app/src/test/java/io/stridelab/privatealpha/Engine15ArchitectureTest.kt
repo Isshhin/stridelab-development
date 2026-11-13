@@ -41,6 +41,13 @@ class Engine15ArchitectureTest {
         }
     }
 
+    @Test fun targetMileageRoundTripsAndLegacyRequestsUseRecentMileageAsTarget() {
+        val request = request().copy(weeklyKm = 42.0, targetWeeklyKm = 65.0)
+        assertEquals(request, PlanRequest.decode(request.encode()))
+        val legacy = request.encode().apply { remove("targetWeeklyKm") }
+        assertEquals(42.0, PlanRequest.decode(legacy).targetWeeklyKm, 0.0)
+    }
+
     @Test fun tracksidePreferencesAndExactSessionLocksSurviveTheSameSnapshot() {
         val original = request().copy(
             dailyMinutes = 85,

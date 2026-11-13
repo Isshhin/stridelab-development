@@ -59,6 +59,23 @@ class Engine15CoachingTest {
         })
     }
 
+    @Test fun targetMileageIsASeparateCappedGoalAndMissingBaselineStaysTimeBased() {
+        val req = request(weekly = 40.0, quality = 0).copy(
+            weeks = 12, targetWeeklyKm = 70.0, minutes = 120, planningPace = 360.0
+        )
+        val plan = Engine15.generate(req, owner, "target-ramp", now)
+        val weekly = (0 until req.weeks).map { volume(plan, it) }
+        assertTrue(weekly.any { it > weekly.first() })
+        assertTrue(weekly.all { it <= req.targetWeeklyKm + 1e-6 })
+        assertTrue(weekly[3] < weekly[2])
+        assertTrue(weekly[4] > weekly[3])
+        assertEquals(req, PlanSnapshot.decode(plan.encode(), owner).request)
+
+        val unknown = Engine15.generate(req.copy(weeklyKm = 0.0), owner, "no-base", now)
+        assertTrue(unknown.sessions.filter { it.discipline == "run" }.all { it.distanceKm == null })
+        assertTrue(unknown.sessions.filter { it.discipline == "run" }.all { !it.quality })
+    }
+
     @Test fun distinctGoalsHaveDifferentControlledQualitySessions() {
         val variants = listOf(
             "Improve 5K" to "3 × 3 min",
@@ -78,6 +95,23 @@ class Engine15CoachingTest {
             assertTrue(q.minutes <= p.request.minutes)
         }
         assertEquals(4, titles.size)
+    }
+
+    @Test fun sixSelectedQualityStylesGenerateMatchingPrescriptions() {
+        val expected = mapOf(
+            "Threshold" to "Controlled threshold intervals", "Tempo" to "Controlled tempo run",
+            "Intervals" to "Controlled 5K intervals", "Hills" to "Controlled hill repetitions",
+            "Fartlek" to "Controlled fartlek run", "Progression" to "Easy progression run"
+        )
+        expected.forEach { (style, title) ->
+            val p = Engine15.generate(request(weeks=4).copy(
+                preferredQuality=style, allowedQualityTypes=setOf(style)
+            ), owner, style, now)
+            val quality = week(p, 0).single { it.quality }
+            assertEquals(style, title, quality.title)
+            assertTrue(quality.steps.any { it.contains("warm-up") })
+            assertTrue(quality.steps.any { it.contains("cool-down") })
+        }
     }
 
     @Test fun limitedMileageTurnsRequestedQualityIntoEasy() {
