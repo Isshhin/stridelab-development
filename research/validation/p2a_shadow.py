@@ -55,8 +55,10 @@ def summarize(history, decision_at, checkin=None):
                 or row.get("value") < 0):
             excluded += 1
             continue
+        if not isinstance(row.get("unit"), str) or not row["unit"]:
+            raise ValueError("visible observations must use one explicit unit")
         visible.append(row)
-        units.add(row.get("unit"))
+        units.add(row["unit"])
     if visible and any(row["athlete_id"] != visible[0]["athlete_id"]
                        or row["discipline"] != visible[0]["discipline"]
                        for row in visible):

@@ -65,6 +65,13 @@ class P2AShadowTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             summarize(mixed, "2026-01-03T12:00:00Z")
 
+    def test_units_must_be_nonempty_strings(self):
+        for unit in (42, [], ""):
+            with self.subTest(unit=unit):
+                rows = [dict(row, unit=unit) for row in self.history[:2]]
+                with self.assertRaises(ValueError):
+                    summarize(rows, "2026-01-03T12:00:00Z")
+
     def test_missing_lineage_fails_closed(self):
         missing = dict(self.history[0])
         del missing["rights"]
