@@ -1,0 +1,19 @@
+# P2-F feasibility implementation
+
+**REAL_DEVICE_PILOT_TECHNICALLY_READY_AWAITING_ADMISSION** applies to a supervised, development-only comparison of one original against a private reference. It means the operator can exercise the narrow path and record a quarantine when evidence is missing. It does not designate any real device as supported or give permission to receive a file.
+
+| Question | Finding | Evidence |
+| --- | --- | --- |
+| Can a human source enter? | The blank S1 package is ready for participant approval. Zero participants or exports admitted. A steward must establish the actual private environment, receipt, grant and deletion controls before intake. | [Admission instrument](p2-f4-human-feasibility-admission.md) |
+| Can a plan and activity be linked? | A scoped research ledger reconstructs one development opportunity from trusted events, as observed by one deciding view. It checks revision delivery, source identity, duplicate evidence and withdrawal before replay. Trust in the actual operator, account mapping and journal requires a separate pilot. | [F2 implementation and limitations](p2-f5-linkage-implementation.md) |
+| Can it reconstruct a trace? | A single supported TCX dialect plus independent, source-bound reference evidence can produce private 20-minute quality measurements. The FIT reader probes native samples and timer events separately. GPX and FIT-to-B0 release remain blocked. No format has passed a real-device audit. | [TCX and GPX matrix](p2-trace-acquisition.md) and [FIT subset](p2-fit-trace.md) |
+| Does the integrated path run? | `inspect_linked_tcx` replays current access at the specified cutoff, selects one verified edge and source event, checks original digest, reference binding and performed interval, then decodes and measures. Synthetic controls exercise duplicate import, late upload, missing link, wrong bytes, wrong reference, cross-account access and withdrawal. | [Probe](../../../research/validation/p2_pilot_probe.py) and [integrated tests](../../../research/validation/test_p2_pilot_probe.py) |
+| Has a real device been reconciled? | No. A named private operator must freeze the independent reference and compare the actual original, session/lap, timing, measurement and delivered revision. Raw/private data stay outside Git, GitHub Actions, this chat and trackers. | [Private pilot procedure](p2-f-pilot-runbook.md) |
+| Can Gate 2 go to review? | **P2_F_GATE_2_MANIFEST_NOT_READY.** No supported device, human linkage rate, audit burden or development-based margin exists. A future reviewer needs the development audit, versioned scope and remaining decisions first. | [Unsigned manifest](p2-f-gate2-manifest-draft.md) |
+| Can P2-B collect registered repeats? | **P2_B_PROTOCOL_READY_DATA_NOT_READY.** No authorized repeats, independently audited acquisition configuration or eligible segments. No repeatability analysis was run. | [B0 protocol](p2-b0-repeatability-protocol.md) |
+
+## Reproduce and interpret
+
+Run `python -m unittest discover -s research/validation -p "test_p2*.py" -v` with Python 3.12 from repository root. This exercises the new synthetic fixtures only. Earlier F3 summary fixtures have their own optional lab dependency and separate verification procedure. The [handoff](../handoffs/p2-f-feasibility-implementation-handoff.md) records the local run. GitHub Actions is independent of the local result.
+
+The schema and parser versions are pinned by the immutable Git commit containing this report. No access to human records, sealed outcomes, production Engine 1.5 or Trackside was required. No Session G baseline challenge arose. Retention, backup suppression, independent account/identity verification, and destruction of already returned private values are operational controls. In-memory revocation alone cannot prove those controls.

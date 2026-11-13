@@ -1,0 +1,157 @@
+name: Research Engine 2.0 contract and adversarial validation
+
+on:
+  push:
+    branches:
+      - research/runna-garmin-coaching-20261102
+    paths:
+      - 'research/validation/**'
+      - 'research/p2b_dev0/**'
+      - 'docs/research/experiments/experiment-003-load-policy-counterfactuals.csv'
+      - 'docs/research/experiments/experiment-004-multidiscipline-coordination.csv'
+      - 'docs/research/experiments/experiment-005-adaptation-state-and-load-metrics.csv'
+      - '.github/workflows/research-engine2-contract-validation.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'research/validation/**'
+      - 'research/p2b_dev0/**'
+      - 'docs/research/experiments/experiment-003-load-policy-counterfactuals.csv'
+      - 'docs/research/experiments/experiment-004-multidiscipline-coordination.csv'
+      - 'docs/research/experiments/experiment-005-adaptation-state-and-load-metrics.csv'
+      - '.github/workflows/research-engine2-contract-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: research-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  synthetic-contracts:
+    name: Research-only policies, SQLite recovery and adversarial checks
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Negative-control unit tests and registry drift audit
+        run: python -m unittest discover -s research/validation -p 'test_*.py' -v
+      - name: P2-B synthetic repeatability pipeline tests
+        run: python -m unittest research.p2b_dev0.test_pipeline -v
+      - name: Test research registry and synthetic contract model
+        run: python research/validation/runner.py --output research-validation.json
+      - name: Record Runna matched-frequency capture readiness (not observed Runna output)
+        run: python research/validation/runna_frequency_comparison.py --output research-runna-frequency-readiness.json
+      - name: Audit Runna planned sessions against weekly captures (no vendor output)
+        run: python research/validation/runna_session_integrity.py --output research-runna-session-readiness.json
+      - name: Audit prospective Garmin Run Coach evidence pairing (no athlete data)
+        run: python research/validation/garmin_run_coach_prospective_gate.py --output research-garmin-run-coach-readiness.json
+      - name: Execute B0/H1 frozen policy comparisons
+        run: python research/validation/policy_runner.py --output research-policy-comparison.json
+      - name: Execute seeded adversarial cohorts (unseen by 8B frozen comparisons)
+        run: python research/validation/heldout_runner.py --seed 82603 --per-cohort 12 --output research-heldout-results.json
+      - name: Record all B0-H1 disagreements for independent review
+        run: python research/validation/difference_review.py --output research-decision-differences.json
+      - name: Execute eight-week synthetic plan and activity lifecycle
+        run: python research/validation/multiweek_runner.py --output research-multiweek-results.json
+      - name: Report original-lab adapter access and research prototype scope
+        run: python research/validation/adapter_probe.py
+      - name: Audit availability of the original independent lab source
+        run: python research/validation/original_lab_admission.py --output research-original-lab-admission.json
+      - name: Audit real-world field outcome eligibility
+        run: python research/validation/field_outcome_gate.py --output research-field-outcome-readiness.json
+      - name: Publish scope-aware summary
+        if: always()
+        shell: powershell
+        run: |
+          $lines = [System.Collections.Generic.List[string]]::new()
+          $lines.Add('## StrideLab research-only validation')
+          $lines.Add('')
+          $lines.Add('**Structural research tests only. No real coaching engine or athlete benefit established.**')
+          $lines.Add('')
+          if (Test-Path 'research-validation.json') {
+            $j = Get-Content 'research-validation.json' -Raw | ConvertFrom-Json
+            $lines.Add('### Synthetic contract checks')
+            foreach ($item in $j.contract_by_experiment.PSObject.Properties) {
+              $lines.Add("- $($item.Name): $($item.Value.PASS) PASS, $($item.Value.FAIL) FAIL")
+            }
+            $lines.Add("- Actual Engine 2.0: $($j.engine_results.BLOCKED) BLOCKED, zero executed")
+          } else {
+            $lines.Add('Validation report unavailable; inspect job logs.')
+          }
+          if (Test-Path 'research-policy-comparison.json') {
+            $r = Get-Content 'research-policy-comparison.json' -Raw | ConvertFrom-Json
+            $lines.Add('### New B0/H1 research candidate policies (not production or original local lab)')
+            $lines.Add("- Frozen synthetic cases: $($r.counts.PASS) PASS, $($r.counts.FAIL) FAIL, $($r.counts.BLOCKED_UNCALIBRATED_PREDICTION) forecast BLOCKED")
+            $lines.Add("- B0/H1 differing actions: $($r.cases_with_B0_H1_action_difference)")
+          }
+          if (Test-Path 'research-heldout-results.json') {
+            $r = Get-Content 'research-heldout-results.json' -Raw | ConvertFrom-Json
+            $lines.Add("- Synthetic adversarial checks: $($r.counts.PASS) PASS, $($r.counts.FAIL) FAIL of $($r.counts.TOTAL); seed $($r.seed)")
+          }
+          if (Test-Path 'research-decision-differences.json') {
+            $r = Get-Content 'research-decision-differences.json' -Raw | ConvertFrom-Json
+            $lines.Add("- Action disagreements audited: $($r.scenarios_with_difference); not proven clinically useful")
+          }
+          if (Test-Path 'research-multiweek-results.json') {
+            $r = Get-Content 'research-multiweek-results.json' -Raw | ConvertFrom-Json
+            $lines.Add("- Synthetic multiweek profiles: $($r.counts.PASS) PASS, $($r.counts.FAIL) FAIL; $($r.total_week_scenarios) simulated athlete-weeks")
+          }
+          if (Test-Path 'research-adapter-status.json') {
+            $r = Get-Content 'research-adapter-status.json' -Raw | ConvertFrom-Json
+            foreach ($adapter in $r.adapters) { $lines.Add("- Adapter $($adapter.adapter_id): $($adapter.status)") }
+          }
+          if (Test-Path 'research-original-lab-admission.json') {
+            $r = Get-Content 'research-original-lab-admission.json' -Raw | ConvertFrom-Json
+            $lines.Add("- Original lab: $($r.original_lab_status); source executed $($r.execution), origin independently verified $($r.origin_verified)")
+          }
+          if (Test-Path 'research-field-outcome-readiness.json') {
+            $r = Get-Content 'research-field-outcome-readiness.json' -Raw | ConvertFrom-Json
+            $lines.Add("- Athlete field outcome readiness: $($r.status); real performance effect demonstrated $($r.actual_performance_effect_demonstrated)")
+          }
+          $lines.Add('')
+          $lines.Add('- Runna Experiment 002: zero of 16 authenticated cases run.')
+          if (Test-Path 'research-runna-frequency-readiness.json') {
+            $e007 = Get-Content 'research-runna-frequency-readiness.json' -Raw | ConvertFrom-Json
+            $lines.Add("- Runna Experiment 007 registered capture gate: $($e007.status)")
+          } else {
+            $lines.Add('- Runna Experiment 007 capture-gate report missing. Check logs.')
+          }
+          if (Test-Path 'research-runna-session-readiness.json') {
+            $e007sessions = Get-Content 'research-runna-session-readiness.json' -Raw | ConvertFrom-Json
+            $lines.Add("- Runna Experiment 007 session reconciliation: $($e007sessions.status)")
+          } else {
+            $lines.Add('- Runna Experiment 007 session audit report missing. Check logs.')
+          }
+          if (Test-Path 'research-garmin-run-coach-readiness.json') {
+            $e008 = Get-Content 'research-garmin-run-coach-readiness.json' -Raw | ConvertFrom-Json
+            $lines.Add("- Garmin Run Coach Experiment 008 prospective evidence gate: $($e008.status)")
+          } else {
+            $lines.Add('- Garmin Run Coach Experiment 008 gate report missing. Check logs.')
+          }
+          $lines.Add('- Structural passing results do not establish safety, efficacy, calibrated forecasts or proprietary generator behavior.')
+          $lines | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: research-validation-results
+          path: |
+            research-validation.json
+            research-policy-comparison.json
+            research-heldout-results.json
+            research-decision-differences.json
+            research-multiweek-results.json
+            research-adapter-status.json
+            research-original-lab-admission.json
+            research-field-outcome-readiness.json
+            research-runna-frequency-readiness.json
+            research-runna-session-readiness.json
+            research-garmin-run-coach-readiness.json
+          if-no-files-found: warn
+          retention-days: 30

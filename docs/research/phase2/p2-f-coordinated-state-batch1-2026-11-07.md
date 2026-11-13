@@ -1,0 +1,25 @@
+# Coordinated synthetic state: Batch 1
+
+Starting head `a6b0ecdc510efcb8ba6a51b8b1489e401a6d5ee8`; implementation `46981678123dd709c7cb8641ade808dcc2a7d370`. Final pushed head is the documentation commit containing this record, resolvable through Git. This is a cooperative in-process synthetic model; private-field access, monkeypatching and real custody are outside its boundary.
+
+`StateCoordinator` in `p2f_private_authority.py` owns one `RLock` and an exact integer epoch. `mutate` increments the epoch under the lock before invoking a supported mutation, including failed and no-op attempts. An anchor starts a coordinator by default; the ledger joins an unbound issuer to it, and the broker joins an unbound inventory and creates `Versions` with that coordinator. Explicitly mixed coordinators are rejected. Unbound issuer/inventory mutation is not supported until they are attached or explicitly constructed with a coordinator. A new coordinator starts at zero; restore uses the existing coordinator rather than resetting its epoch.
+
+Stored model values are copied into owned synthetic primitives/containers; benign string and integer subclasses are normalized for storage, and unsupported custom state objects are rejected. Accessors for nested maps and records return copies; private backing fields are not supported mutation paths. The existing callback-capable read inputs remain accepted. The following inventory distinguishes Batch 1 from later work:
+
+| State and owner | Mutation path and epoch | Alias protection / Batch 1 coverage |
+| --- | --- | --- |
+| Anchor identity, generation, fault | `set_identity`, `set_generation`, `set_fault`, `advance`; shared epoch before attempt, including ambiguous advance | Copy-out identity/fault/generation; covered. |
+| Issuer availability/forks | `set_fault`; shared epoch before attempt | Read-only properties; covered. |
+| Issuer commitments and intents | `issue`, `set_commitment`, `delete_commitment`, `set_intent`, `delete_intent`; shared epoch before attempt | Owned backing maps and copy-out views; covered. |
+| Ledger anchor/issuer, head, intent, operations | `set_anchor`, `set_issuer`, `set_head`, `set_intent`, `set_operation`, `delete_operation`, `commit`; epoch per supported operation; commit also invokes issuer issuance | Read-only references/properties and owned copy-out maps; covered. Recovery writes use these paths. |
+| Ledger audit | `AuditLog.append`; shared epoch before attempt | Owned records and copy-out iteration/indexing; covered. Audit writes now advance epoch, including read audit; Batch 2 must explicitly account for these internal writes. |
+| Inventory generation, fault, objects | `set_generation`, `set_fault`, `set_object`, `delete_object`, `suppress`; shared epoch before attempt | Owned objects and copy-out map; covered. Recovery/suppression use these paths. |
+| Modeled versions | `Versions` set/delete/`replace`; restore calls `replace`; shared epoch before attempt | Private owned backing map, defensive item/snapshot copies; covered. |
+| Broker withdrawal, closed/enrolled state, scope, restored head and invalidation | Existing broker paths, not yet consistently coordinator-mediated | Not covered in Batch 1; required for Batch 2 before a publication guarantee. |
+| Broker owner/busy/gate; fake key faults/effects; iterator/time/hooks and output/escape state | Existing broker and fake-key paths | Not covered in Batch 1. Batch 2 must define which affect admission, mediate them, and make the final effect boundary callback-free. |
+
+The existing focused fixtures were migrated from direct anchor, ledger, issuer and inventory edits to explicit mutation methods. Three executable review scripts were similarly migrated; historical review records remain unchanged. The state-ordering script's inventory mutation now uses `set_object`, retaining its semantic reproduction. Batch 1 intentionally does **not** add an epoch check to `Broker.read`: the state-ordering review still has two failures and one passing cleanup control.
+
+Python 3.12 results: coordinator 15 passed; authority/custody 81 passed; prior review scripts 6/8/11/6 passed; durable 54 passed; P2 244 passed; full research 408 run, 407 passed, one Windows symlink skip. The final exact-head CI result was not available at documentation time. Prior synthetic journal `PASS_FOR_SYNTHETIC_DURABILITY` remains scoped to that journal. Private pilot remains blocked, human/provider admission NO, `P2_F_GATE_2_NOT_READY` and `P2_B_PROTOCOL_READY_DATA_NOT_READY`.
+
+Batch 2 boundary: mediate the remaining broker/admission and relevant fake-effect state, capture and compare the shared epoch across callback-capable validation and effects, account for the coordinator-mediated internal audit writes, and enforce a callback-free final check-to-append interval. Preserve partial exposure, withdrawal receipt, unrelated-reader and recovery semantics; migrate the two state-ordering cases into passing regressions and obtain independent review. This Batch 1 record does not claim the publication defect fixed or private-pilot readiness.

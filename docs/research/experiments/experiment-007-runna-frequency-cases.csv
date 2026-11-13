@@ -1,0 +1,7 @@
+case_id,runs_per_week,replicate,baseline_km,recent_long_km,ability,current_5k,plan_type,target_date,plan_weeks,difficulty,volume,strength_sessions,availability_days,status,app_version,generated_at,source_ref,warning
+F5A,5,A,65,18,advanced,27:00,5K race,2027-01-31,12,balanced,steady,0,Tue Wed Thu Fri Sun,NOT_RUN,,,,
+F5B,5,B,65,18,advanced,27:00,5K race,2027-01-31,12,balanced,steady,0,Tue Wed Thu Fri Sun,NOT_RUN,,,,
+F6A,6,A,65,18,advanced,27:00,5K race,2027-01-31,12,balanced,steady,0,Tue Wed Thu Fri Sat Sun,NOT_RUN,,,,
+F6B,6,B,65,18,advanced,27:00,5K race,2027-01-31,12,balanced,steady,0,Tue Wed Thu Fri Sat Sun,NOT_RUN,,,,
+F7A,7,A,65,18,advanced,27:00,5K race,2027-01-31,12,balanced,steady,0,Mon Tue Wed Thu Fri Sat Sun,NOT_RUN,,,,
+F7B,7,B,65,18,advanced,27:00,5K race,2027-01-31,12,balanced,steady,0,Mon Tue Wed Thu Fri Sat Sun,NOT_RUN,,,,

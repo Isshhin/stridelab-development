@@ -1,0 +1,2149 @@
+{
+  "schema": "stride-research-8b-frozen-v1",
+  "authoring": "independent numeric counterfactuals synthetic only; no athlete data",
+  "base_state": {
+    "athlete": {
+      "verified_capacity_km": 70,
+      "phase": "build"
+    },
+    "weekly": {
+      "planned_km": 60
+    },
+    "day": {
+      "durations_m": [
+        35
+      ],
+      "minutes_available": 90,
+      "max_sessions": 2
+    },
+    "session": {
+      "status": "completed",
+      "planned_steps": [
+        {
+          "kind": "easy",
+          "seconds": 3600,
+          "km": 10
+        }
+      ],
+      "actual_steps": [
+        {
+          "kind": "easy",
+          "seconds": 3600,
+          "km": 10
+        }
+      ],
+      "hr_bpm": 143,
+      "hr_quality": "good",
+      "timer_seconds": 3600,
+      "elapsed_seconds": 3600
+    },
+    "environment": {
+      "temperature_c": 28,
+      "descent_m": 5,
+      "route_class": "road"
+    },
+    "capabilities": {
+      "supported": true
+    },
+    "next": {
+      "kind": "easy"
+    },
+    "recent": [],
+    "request_adaptation": false,
+    "strength": {
+      "status": "completed",
+      "actual_sets": 3,
+      "planned_sets": 3,
+      "rir": 3,
+      "load_kg": 30,
+      "reps": 8
+    },
+    "conditioning": {
+      "status": "completed",
+      "actual_rounds": 5,
+      "planned_rounds": 5,
+      "impacts": 0
+    },
+    "equipment": {
+      "required": [],
+      "available": []
+    },
+    "skill": {
+      "required": [],
+      "mastered": [],
+      "form_quality": "good"
+    },
+    "feedback": {
+      "pain": false
+    },
+    "stress": {
+      "method": "generic_hr",
+      "score": 70,
+      "calibration_version": "hr-v1",
+      "threshold_verified": true,
+      "gps_verified": true,
+      "grade_verified": true
+    },
+    "forecast": {
+      "workout_level": 5,
+      "athlete_history": "A",
+      "source_version": "2026"
+    },
+    "temporal": {
+      "yesterday_ctl": 50,
+      "yesterday_atl": 55,
+      "today_score": 70
+    },
+    "muscle_sets": {
+      "total": 10,
+      "weights": [
+        7,
+        3
+      ]
+    }
+  },
+  "cases": [
+    {
+      "id": "E003:L01",
+      "base_patch": {
+        "session": {
+          "planned_steps": [
+            {
+              "kind": "easy",
+              "seconds": 3600,
+              "km": 10
+            }
+          ],
+          "actual_steps": [
+            {
+              "kind": "easy",
+              "seconds": 3600,
+              "km": 10
+            }
+          ]
+        }
+      },
+      "variant_patch": {
+        "session": {
+          "planned_steps": [
+            {
+              "kind": "easy",
+              "seconds": 2400,
+              "km": 7
+            },
+            {
+              "kind": "hard",
+              "seconds": 1200,
+              "km": 3
+            }
+          ],
+          "actual_steps": [
+            {
+              "kind": "easy",
+              "seconds": 2400,
+              "km": 7
+            },
+            {
+              "kind": "hard",
+              "seconds": 1200,
+              "km": 3
+            }
+          ]
+        }
+      },
+      "checks": [
+        [
+          "H1.base.observation.actual_run.km",
+          "eq",
+          10
+        ],
+        [
+          "H1.variant.observation.actual_run.hard_s",
+          "eq",
+          1200
+        ],
+        [
+          "H1.variant.observation.actual_run.km",
+          "eq_ref",
+          "H1.base.observation.actual_run.km"
+        ]
+      ]
+    },
+    {
+      "id": "E003:L02",
+      "base_patch": {
+        "session": {
+          "planned_steps": [
+            {
+              "kind": "easy",
+              "seconds": 3600,
+              "km": 10
+            }
+          ],
+          "actual_steps": [
+            {
+              "kind": "easy",
+              "seconds": 3600,
+              "km": 10
+            }
+          ]
+        },
+        "stress": {
+          "score": 100
+        }
+      },
+      "variant_patch": {
+        "session": {
+          "planned_steps": [
+            {
+              "kind": "easy",
+              "seconds": 2400,
+              "km": 7
+            },
+            {
+              "kind": "hard",
+              "seconds": 1200,
+              "km": 3
+            }
+          ],
+          "actual_steps": [
+            {
+              "kind": "easy",
+              "seconds": 2400,
+              "km": 7
+            },
+            {
+              "kind": "hard",
+              "seconds": 1200,
+              "km": 3
+            }
+          ]
+        }
+      },
+      "checks": [
+        [
+          "H1.variant.monitor.value",
+          "eq_ref",
+          "H1.base.monitor.value"
+        ],
+        [
+          "H1.variant.observation.actual_run.hard_s",
+          "gt_ref",
+          "H1.base.observation.actual_run.hard_s"
+        ]
+      ]
+    },
+    {
+      "id": "E003:L03",
+      "base_patch": {
+        "environment": {
+          "temperature_c": 23
+        }
+      },
+      "variant_patch": {
+        "environment": {
+          "temperature_c": 37
+        }
+      },
+      "checks": [
+        [
+          "H1.base.action",
+          "eq_ref",
+          "H1.variant.action"
+        ],
+        [
+          "H1.variant.observation.temperature_c",
+          "eq",
+          37
+        ]
+      ]
+    },
+    {
+      "id": "E003:L04",
+      "base_patch": {
+        "environment": {
+          "descent_m": 5
+        }
+      },
+      "variant_patch": {
+        "environment": {
+          "descent_m": 250
+        }
+      },
+      "checks": [
+        [
+          "H1.variant.observation.descent_m",
+          "eq",
+          250
+        ],
+        [
+          "H1.variant.observation.actual_run.km",
+          "eq_ref",
+          "H1.base.observation.actual_run.km"
+        ]
+      ]
+    },
+    {
+      "id": "E003:L05",
+      "base_patch": {
+        "session": {
+          "status": "completed",
+          "actual_steps": [
+            {
+              "kind": "easy",
+              "seconds": 2400,
+              "km": 7
+            },
+            {
+              "kind": "hard",
+              "seconds": 1200,
+              "km": 3
+            }
+          ],
+          "planned_steps": [
+            {
+              "kind": "easy",
+              "seconds": 2400,
+              "km": 7
+            },
+            {
+              "kind": "hard",
+              "seconds": 1200,
+              "km": 3
+            }
+          ]
+        }
+      },
+      "variant_patch": {
+        "session": {
+          "status": "skipped",
+          "actual_steps": null
+        }
+      },
+      "checks": [
+        [
+          "H1.base.observation.actual_run.hard_s",
+          "eq",
+          1200
+        ],
+        [
+          "H1.variant.observation.actual_run.hard_s",
+          "eq",
+          0
+        ],
+        [
+          "H1.variant.action",
+          "eq",
+          "KEEP"
+        ]
+      ]
+    },
+    {
+      "id": "E003:L06",
+      "base_patch": {
+        "next": {
+          "kind": "threshold"
+        },
+        "recent_unplanned_hard": false
+      },
+      "variant_patch": {
+        "recent_unplanned_hard": true
+      },
+      "checks": [
+        [
+          "H1.base.action",
+          "eq",
+          "KEEP"
+        ],
+        [
+          "H1.variant.action",
+          "eq",
+          "PROPOSE_MOVE_SESSION"
+        ],
+        [
+          "H1.variant.revision.requires_approval",
+          "eq",
+          true
+        ]
+      ]
+    },
+    {
+      "id": "E003:L07",
+      "base_patch": {
+        "session": {
+          "hr_bpm": 143
+        }
+      },
+      "variant_patch": {
+        "session": {
+          "hr_bpm": null
+        }
+      },
+      "checks": [
+        [
+          "H1.base.observation.hr_bpm",
+          "eq",
+          143
+        ],
+        [
+          "H1.variant.observation.hr_bpm",
+          "eq",
+          null
+        ],
+        [
+          "H1.variant.observation.actual_run.km",
+          "eq",
+          10
+        ]
+      ]
+    },
+    {
+      "id": "E003:L08",
+      "base_patch": {
+        "stress": {
+          "method": "generic_pace",
+          "score": 65,
+          "threshold_verified": true,
+          "gps_verified": true,
+          "grade_verified": true
+        }
+      },
+      "variant_patch": {
+        "stress": {
+          "gps_verified": false
+        },
+        "environment": {
+          "route_class": "tight_loop"
+        }
+      },
+      "checks": [
+        [
+          "H1.base.monitor.value",
+          "eq",
+          65
+        ],
+        [
+          "H1.variant.monitor.value",
+          "eq",
+          null
+        ],
+        [
+          "H1.variant.monitor.reason",
+          "eq",
+          "NOT_COMPUTABLE"
+        ]
+      ]
+    },
+    {
+      "id": "E003:L09",
+      "base_patch": {
+        "weekly": {
+          "planned_km": 60
+        },
+        "athlete": {
+          "verified_capacity_km": 70
+        }
+      },
+      "variant_patch": {
+        "weekly": {
+          "planned_km": 70
+        },
+        "athlete": {
+          "verified_capacity_km": 65
+        }
+      },
+      "checks": [
+        [
+          "H1.base.action",
+          "eq",
+          "KEEP"
+        ],
+        [
+          "H1.variant.action",
+          "eq",
+          "PROPOSE_WEEK_REDUCTION"
+        ],
+        [
+          "H1.variant.revision.candidate_week_km",
+          "eq",
+          65
+        ],
+        [
+          "H1.variant.revision.applied",
+          "eq",
+          false
+        ]
+      ]
+    },
+    {
+      "id": "E003:L10",
+      "base_patch": {
+        "athlete": {
+          "phase": "build"
+        },
+        "session": {
+          "status": "skipped"
+        }
+      },
+      "variant_patch": {
+        "athlete": {
+          "phase": "taper"
+        }
+      },
+      "checks": [
+        [
+          "H1.variant.action",
+          "eq",
+          "KEEP"
+        ],
+        [
+          "H1.variant.revision.applied",
+          "eq",
+          false
+        ],
+        [
+          "H1.base.action",
+          "eq_ref",
+          "H1.variant.action"
+        ]
+      ]
+    },
+    {
+      "id": "E003:L11",
+      "base_patch": {
+        "day": {
+          "durations_m": [
+            45
+          ],
+          "minutes_available": 90
+        }
+      },
+      "variant_patch": {
+        "day": {
+          "durations_m": [
+            180
+          ],
+          "minutes_available": 90
+        }
+      },
+      "checks": [
+        [
+          "H1.base.indicators.time_feasible",
+          "eq",
+          true
+        ],
+        [
+          "H1.variant.indicators.time_feasible",
+          "eq",
+          false
+        ],
+        [
+          "H1.variant.action",
+          "eq",
+          "PROPOSE_SESSION_ADJUSTMENT"
+        ]
+      ]
+    },
+    {
+      "id": "E003:L12",
+      "base_patch": {
+        "athlete": {
+          "verified_capacity_km": 70
+        },
+        "request_adaptation": true
+      },
+      "variant_patch": {
+        "athlete": {
+          "verified_capacity_km": null
+        }
+      },
+      "checks": [
+        [
+          "H1.base.action",
+          "eq",
+          "KEEP"
+        ],
+        [
+          "H1.variant.action",
+          "eq",
+          "DEFER_UNKNOWN"
+        ],
+        [
+          "H1.variant.reason",
+          "eq",
+          "UNVERIFIED_CAPACITY"
+        ]
+      ]
+    },
+    {
+      "id": "E003:L13",
+      "base_patch": {
+        "session": {
+          "status": "completed",
+          "planned_steps": [
+            {
+              "kind": "hard",
+              "seconds": 2400,
+              "km": 7
+            }
+          ],
+          "actual_steps": [
+            {
+              "kind": "hard",
+              "seconds": 2400,
+              "km": 7
+            }
+          ]
+        }
+      },
+      "variant_patch": {
+        "session": {
+          "status": "partial",
+          "actual_steps": [
+            {
+              "kind": "hard",
+              "seconds": 1200,
+              "km": 3.5
+            }
+          ]
+        }
+      },
+      "checks": [
+        [
+          "H1.base.observation.actual_run.hard_s",
+          "eq",
+          2400
+        ],
+        [
+          "H1.variant.observation.actual_run.hard_s",
+          "eq",
+          1200
+        ],
+        [
+          "H1.variant.observation.planned_run.hard_s",
+          "eq",
+          2400
+        ]
+      ]
+    },
+    {
+      "id": "E003:L14",
+      "base_patch": {
+        "strength": {
+          "status": "skipped",
+          "actual_sets": 0
+        }
+      },
+      "variant_patch": {
+        "strength": {
+          "status": "completed",
+          "actual_sets": 3
+        }
+      },
+      "checks": [
+        [
+          "H1.variant.observation.actual_run.km",
+          "eq_ref",
+          "H1.base.observation.actual_run.km"
+        ],
+        [
+          "H1.base.observation.strength_actual_sets",
+          "eq",
+          0
+        ],
+        [
+          "H1.variant.observation.strength_actual_sets",
+          "eq",
+          3
+        ]
+      ]
+    },
+    {
+      "id": "E003:L15",
+      "base_patch": {
+        "session": {
+          "timer_seconds": 3600,
+          "elapsed_seconds": 3600
+        }
+      },
+      "variant_patch": {
+        "session": {
+          "timer_seconds": 3600,
+          "elapsed_seconds": 4200
+        }
+      },
+      "checks": [
+        [
+          "H1.variant.observation.timer_seconds",
+          "eq_ref",
+          "H1.base.observation.timer_seconds"
+        ],
+        [
+          "H1.variant.observation.elapsed_seconds",
+          "gt_ref",
+          "H1.base.observation.elapsed_seconds"
+        ],
+        [
+          "H1.variant.observation.actual_run.km",
+          "eq_ref",
+          "H1.base.observation.actual_run.km"
+        ]
+      ]
+    },
+    {
+      "id": "E003:L16",
+      "base_patch": {
+        "weekly": {
+          "planned_km": 60
+        }
+      },
+      "variant_patch": {},
+      "checks": [
+        [
+          "H1.base.action",
+          "eq_ref",
+          "H1.variant.action"
+        ],
+        [
+          "H1.base.reason",
+          "eq_ref",
+          "H1.variant.reason"
+        ],
+        [
+          "H1.base.revision",
+          "eq_ref",
+          "H1.variant.revision"
+        ]
+      ]
+    },
+    {
+      "id": "E003:L17",
+      "base_patch": {
+        "session": {
+          "status": "skipped",
+          "actual_steps": null
+        },
+        "request_adaptation": true
+      },
+      "variant_patch": {
+        "session": {
+          "status": "unknown",
+          "actual_steps": null
+        }
+      },
+      "checks": [
+        [
+          "H1.base.observation.actual_run.km",
+          "eq",
+          0
+        ],
+        [
+          "H1.variant.observation.actual_run",
+          "eq",
+          null
+        ],
+        [
+          "H1.variant.action",
+          "eq",
+          "DEFER_UNKNOWN"
+        ]
+      ]
+    },
+    {
+      "id": "E003:L18",
+      "base_patch": {
+        "recent": [
+          {
+            "movement": "upper_body_strength",
+            "status": "completed"
+          }
+        ],
+        "next": {
+          "kind": "threshold"
+        }
+      },
+      "variant_patch": {
+        "recent": [
+          {
+            "movement": "lower_body_strength",
+            "status": "completed"
+          }
+        ]
+      },
+      "checks": [
+        [
+          "H1.base.indicators.overlap_review",
+          "eq",
+          false
+        ],
+        [
+          "H1.variant.indicators.overlap_review",
+          "eq",
+          true
+        ],
+        [
+          "H1.variant.action",
+          "eq",
+          "PROPOSE_MOVE_SESSION"
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD01",
+      "base_patch": {
+        "recent": [
+          {
+            "movement": "upper_body_strength",
+            "status": "completed"
+          }
+        ],
+        "next": {
+          "kind": "threshold"
+        }
+      },
+      "variant_patch": {
+        "recent": [
+          {
+            "movement": "lower_body_strength",
+            "status": "completed"
+          }
+        ]
+      },
+      "checks": [
+        [
+          "H1.base.action",
+          "eq",
+          "KEEP"
+        ],
+        [
+          "H1.variant.action",
+          "eq",
+          "PROPOSE_MOVE_SESSION"
+        ],
+        [
+          "H1.variant.revision.applied",
+          "eq",
+          false
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD02",
+      "base_patch": {
+        "recent": [
+          {
+            "movement": "rest",
+            "status": "completed"
+          }
+        ],
+        "next": {
+          "kind": "long_run"
+        }
+      },
+      "variant_patch": {
+        "recent": [
+          {
+            "movement": "jump_heavy",
+            "status": "completed"
+          }
+        ]
+      },
+      "checks": [
+        [
+          "H1.base.indicators.overlap_review",
+          "eq",
+          false
+        ],
+        [
+          "H1.variant.indicators.overlap_review",
+          "eq",
+          true
+        ],
+        [
+          "H1.variant.reason",
+          "eq",
+          "LOWER_BODY_OVERLAP_REVIEW"
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD03",
+      "base_patch": {
+        "day": {
+          "durations_m": [
+            35
+          ],
+          "minutes_available": 75
+        }
+      },
+      "variant_patch": {
+        "day": {
+          "durations_m": [
+            35,
+            30
+          ]
+        }
+      },
+      "checks": [
+        [
+          "H1.base.indicators.session_count",
+          "eq",
+          1
+        ],
+        [
+          "H1.variant.indicators.session_count",
+          "eq",
+          2
+        ],
+        [
+          "H1.variant.indicators.time_feasible",
+          "eq",
+          true
+        ],
+        [
+          "H1.variant.action",
+          "eq",
+          "KEEP"
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD04",
+      "base_patch": {
+        "day": {
+          "durations_m": [
+            40,
+            30
+          ],
+          "minutes_available": 90
+        }
+      },
+      "variant_patch": {
+        "day": {
+          "minutes_available": 45
+        }
+      },
+      "checks": [
+        [
+          "H1.base.indicators.time_feasible",
+          "eq",
+          true
+        ],
+        [
+          "H1.variant.indicators.time_feasible",
+          "eq",
+          false
+        ],
+        [
+          "H1.variant.action",
+          "eq",
+          "PROPOSE_SESSION_ADJUSTMENT"
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD05",
+      "base_patch": {
+        "strength": {
+          "rir": 3,
+          "actual_sets": 3,
+          "reps": 8,
+          "load_kg": 40
+        }
+      },
+      "variant_patch": {
+        "strength": {
+          "rir": 0
+        }
+      },
+      "checks": [
+        [
+          "H1.base.observation.strength_rir",
+          "eq",
+          3
+        ],
+        [
+          "H1.variant.observation.strength_rir",
+          "eq",
+          0
+        ],
+        [
+          "H1.variant.observation.strength_actual_sets",
+          "eq_ref",
+          "H1.base.observation.strength_actual_sets"
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD06",
+      "base_patch": {
+        "strength": {
+          "rir": 3
+        }
+      },
+      "variant_patch": {
+        "strength": {
+          "rir": null
+        }
+      },
+      "checks": [
+        [
+          "H1.base.observation.strength_rir",
+          "eq",
+          3
+        ],
+        [
+          "H1.variant.observation.strength_rir",
+          "eq",
+          null
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD07",
+      "base_patch": {
+        "equipment": {
+          "required": [
+            "dumbbell"
+          ],
+          "available": [
+            "dumbbell",
+            "mat"
+          ]
+        }
+      },
+      "variant_patch": {
+        "equipment": {
+          "available": [
+            "mat"
+          ]
+        }
+      },
+      "checks": [
+        [
+          "H1.base.indicators.equipment_missing",
+          "eq",
+          false
+        ],
+        [
+          "H1.variant.indicators.equipment_missing",
+          "eq",
+          true
+        ],
+        [
+          "H1.variant.action",
+          "eq",
+          "PROPOSE_EXERCISE_SUBSTITUTION"
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD08",
+      "base_patch": {
+        "strength": {
+          "status": "completed",
+          "actual_sets": 3,
+          "planned_sets": 3
+        }
+      },
+      "variant_patch": {
+        "strength": {
+          "status": "partial",
+          "actual_sets": 2
+        }
+      },
+      "checks": [
+        [
+          "H1.base.observation.strength_actual_sets",
+          "eq",
+          3
+        ],
+        [
+          "H1.variant.observation.strength_actual_sets",
+          "eq",
+          2
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD09",
+      "base_patch": {
+        "request_adaptation": true,
+        "return_from_break": false
+      },
+      "variant_patch": {
+        "return_from_break": true
+      },
+      "checks": [
+        [
+          "H1.base.action",
+          "eq",
+          "KEEP"
+        ],
+        [
+          "H1.variant.action",
+          "eq",
+          "DEFER_UNKNOWN"
+        ],
+        [
+          "H1.variant.reason",
+          "eq",
+          "RETURN_CAPACITY_UNVERIFIED"
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD10",
+      "base_patch": {
+        "capabilities": {
+          "supported": true
+        }
+      },
+      "variant_patch": {
+        "capabilities": {
+          "supported": false
+        }
+      },
+      "checks": [
+        [
+          "H1.base.observation.ability_known",
+          "eq",
+          true
+        ],
+        [
+          "H1.variant.observation.ability_known",
+          "eq",
+          false
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD11",
+      "base_patch": {
+        "skill": {
+          "required": [
+            "assisted_pullup"
+          ],
+          "mastered": [
+            "assisted_pullup"
+          ],
+          "form_quality": "good"
+        }
+      },
+      "variant_patch": {
+        "skill": {
+          "form_quality": "poor"
+        }
+      },
+      "checks": [
+        [
+          "H1.base.indicators.skill_unverified",
+          "eq",
+          false
+        ],
+        [
+          "H1.variant.indicators.skill_unverified",
+          "eq",
+          true
+        ],
+        [
+          "H1.variant.action",
+          "eq",
+          "DEFER_UNKNOWN"
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD12",
+      "base_patch": {
+        "skill": {
+          "required": [
+            "handstand_20s"
+          ],
+          "mastered": [
+            "handstand_20s"
+          ],
+          "form_quality": "good"
+        }
+      },
+      "variant_patch": {
+        "skill": {
+          "mastered": [],
+          "form_quality": "poor"
+        }
+      },
+      "checks": [
+        [
+          "H1.base.action",
+          "eq",
+          "KEEP"
+        ],
+        [
+          "H1.variant.indicators.skill_unverified",
+          "eq",
+          true
+        ],
+        [
+          "H1.variant.action",
+          "eq",
+          "DEFER_UNKNOWN"
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD13",
+      "base_patch": {
+        "skill": {
+          "required": [
+            "weighted_pullup",
+            "one_arm_negative"
+          ],
+          "mastered": [
+            "weighted_pullup",
+            "one_arm_negative"
+          ],
+          "form_quality": "good"
+        }
+      },
+      "variant_patch": {
+        "skill": {
+          "mastered": [
+            "weighted_pullup"
+          ]
+        }
+      },
+      "checks": [
+        [
+          "H1.base.indicators.skill_unverified",
+          "eq",
+          false
+        ],
+        [
+          "H1.variant.indicators.skill_unverified",
+          "eq",
+          true
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD14",
+      "base_patch": {
+        "equipment": {
+          "required": [
+            "parallettes"
+          ],
+          "available": [
+            "parallettes",
+            "mat"
+          ]
+        }
+      },
+      "variant_patch": {
+        "equipment": {
+          "available": [
+            "mat"
+          ]
+        }
+      },
+      "checks": [
+        [
+          "H1.base.action",
+          "eq",
+          "KEEP"
+        ],
+        [
+          "H1.variant.action",
+          "eq",
+          "PROPOSE_EXERCISE_SUBSTITUTION"
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD15",
+      "base_patch": {
+        "strength": {
+          "actual_sets": 3,
+          "reps": 5,
+          "load_kg": 0
+        }
+      },
+      "variant_patch": {
+        "strength": {
+          "load_kg": 10
+        }
+      },
+      "checks": [
+        [
+          "H1.base.observation.strength_reps",
+          "eq_ref",
+          "H1.variant.observation.strength_reps"
+        ],
+        [
+          "H1.variant.observation.strength_load_kg",
+          "gt_ref",
+          "H1.base.observation.strength_load_kg"
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD16",
+      "base_patch": {
+        "conditioning": {
+          "status": "completed",
+          "actual_rounds": 5,
+          "impacts": 0
+        }
+      },
+      "variant_patch": {
+        "conditioning": {
+          "impacts": 140
+        }
+      },
+      "checks": [
+        [
+          "H1.variant.observation.conditioning_impact",
+          "eq",
+          140
+        ],
+        [
+          "H1.base.observation.conditioning_actual_rounds",
+          "eq_ref",
+          "H1.variant.observation.conditioning_actual_rounds"
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD17",
+      "base_patch": {
+        "conditioning": {
+          "status": "completed",
+          "actual_rounds": 5
+        }
+      },
+      "variant_patch": {
+        "conditioning": {
+          "status": "partial",
+          "actual_rounds": 3
+        }
+      },
+      "checks": [
+        [
+          "H1.base.observation.conditioning_actual_rounds",
+          "eq",
+          5
+        ],
+        [
+          "H1.variant.observation.conditioning_actual_rounds",
+          "eq",
+          3
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD18",
+      "base_patch": {
+        "day": {
+          "durations_m": [
+            45
+          ],
+          "minutes_available": 60
+        }
+      },
+      "variant_patch": {
+        "day": {
+          "minutes_available": 20
+        }
+      },
+      "checks": [
+        [
+          "H1.base.action",
+          "eq",
+          "KEEP"
+        ],
+        [
+          "H1.variant.action",
+          "eq",
+          "PROPOSE_SESSION_ADJUSTMENT"
+        ],
+        [
+          "H1.variant.revision.applied",
+          "eq",
+          false
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD19",
+      "base_patch": {
+        "session": {
+          "status": "skipped",
+          "actual_steps": null
+        }
+      },
+      "variant_patch": {
+        "session": {
+          "status": "unknown"
+        }
+      },
+      "checks": [
+        [
+          "H1.base.observation.actual_run.km",
+          "eq",
+          0
+        ],
+        [
+          "H1.variant.observation.actual_run",
+          "eq",
+          null
+        ],
+        [
+          "H1.base.observation.status",
+          "ne_ref",
+          "H1.variant.observation.status"
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD20",
+      "base_patch": {
+        "feedback": {
+          "pain": false
+        }
+      },
+      "variant_patch": {
+        "feedback": {
+          "pain": true
+        }
+      },
+      "checks": [
+        [
+          "H1.base.action",
+          "eq",
+          "KEEP"
+        ],
+        [
+          "H1.variant.action",
+          "eq",
+          "DEFER_UNKNOWN"
+        ],
+        [
+          "H1.variant.reason",
+          "eq",
+          "PAIN_NEEDS_HUMAN_REVIEW"
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD21",
+      "base_patch": {
+        "day": {
+          "durations_m": [
+            30,
+            35
+          ],
+          "minutes_available": 90,
+          "max_sessions": 2
+        }
+      },
+      "variant_patch": {
+        "day": {
+          "durations_m": [
+            30,
+            35,
+            10
+          ]
+        }
+      },
+      "checks": [
+        [
+          "H1.base.indicators.session_count",
+          "eq",
+          2
+        ],
+        [
+          "H1.variant.indicators.session_count",
+          "eq",
+          3
+        ],
+        [
+          "H1.variant.action",
+          "eq",
+          "PROPOSE_SESSION_ADJUSTMENT"
+        ]
+      ]
+    },
+    {
+      "id": "E004:MD22",
+      "base_patch": {},
+      "variant_patch": {},
+      "checks": [
+        [
+          "H1.base.action",
+          "eq_ref",
+          "H1.variant.action"
+        ],
+        [
+          "H1.base.revision",
+          "eq_ref",
+          "H1.variant.revision"
+        ],
+        [
+          "B0.base.reason",
+          "eq_ref",
+          "B0.variant.reason"
+        ]
+      ]
+    },
+    {
+      "id": "E005:AL01",
+      "base_patch": {
+        "session": {
+          "planned_steps": [
+            {
+              "kind": "easy",
+              "seconds": 3600,
+              "km": 10
+            }
+          ],
+          "actual_steps": [
+            {
+              "kind": "easy",
+              "seconds": 3600,
+              "km": 10
+            }
+          ]
+        }
+      },
+      "variant_patch": {
+        "session": {
+          "planned_steps": [
+            {
+              "kind": "easy",
+              "seconds": 2400,
+              "km": 7
+            },
+            {
+              "kind": "hard",
+              "seconds": 1200,
+              "km": 3
+            }
+          ],
+          "actual_steps": [
+            {
+              "kind": "easy",
+              "seconds": 2400,
+              "km": 7
+            },
+            {
+              "kind": "hard",
+              "seconds": 1200,
+              "km": 3
+            }
+          ]
+        }
+      },
+      "checks": [
+        [
+          "H1.base.observation.actual_run.km",
+          "eq_ref",
+          "H1.variant.observation.actual_run.km"
+        ],
+        [
+          "H1.variant.observation.actual_run.hard_s",
+          "gt_ref",
+          "H1.base.observation.actual_run.hard_s"
+        ]
+      ]
+    },
+    {
+      "id": "E005:AL02",
+      "base_patch": {
+        "forecast": {
+          "athlete_history": "athlete_A",
+          "workout_level": 5
+        }
+      },
+      "variant_patch": {
+        "forecast": {
+          "athlete_history": "athlete_B"
+        }
+      },
+      "checks": [
+        [
+          "H1.base.forecast.workout_level",
+          "eq_ref",
+          "H1.variant.forecast.workout_level"
+        ],
+        [
+          "H1.base.forecast.athlete_history",
+          "ne_ref",
+          "H1.variant.forecast.athlete_history"
+        ],
+        [
+          "H1.variant.forecast.predicted_difficulty",
+          "eq",
+          null
+        ]
+      ],
+      "blocked_reason": "NO_CALIBRATED_PERSONAL_PREDICTOR"
+    },
+    {
+      "id": "E005:AL03",
+      "base_patch": {
+        "recent": [
+          {
+            "movement": "rest",
+            "status": "completed"
+          }
+        ]
+      },
+      "variant_patch": {
+        "recent": [
+          {
+            "movement": "hard_ride",
+            "status": "completed"
+          }
+        ]
+      },
+      "checks": [
+        [
+          "H1.base.forecast.prediction_status",
+          "eq",
+          "NOT_VALIDATED_NO_MODEL"
+        ],
+        [
+          "H1.variant.forecast.actual_outcome",
+          "eq",
+          null
+        ]
+      ],
+      "blocked_reason": "NO_CALIBRATED_PERSONAL_PREDICTOR"
+    },
+    {
+      "id": "E005:AL04",
+      "base_patch": {
+        "session": {
+          "status": "planned",
+          "actual_steps": null
+        }
+      },
+      "variant_patch": {
+        "session": {
+          "status": "completed",
+          "actual_steps": [
+            {
+              "kind": "easy",
+              "seconds": 3600,
+              "km": 10
+            }
+          ]
+        }
+      },
+      "checks": [
+        [
+          "H1.base.observation.actual_run",
+          "eq",
+          null
+        ],
+        [
+          "H1.variant.observation.actual_run.km",
+          "eq",
+          10
+        ],
+        [
+          "H1.base.observation.status",
+          "eq",
+          "planned"
+        ]
+      ]
+    },
+    {
+      "id": "E005:AL05",
+      "base_patch": {
+        "session": {
+          "status": "completed",
+          "actual_steps": [
+            {
+              "kind": "easy",
+              "seconds": 2400,
+              "km": 7
+            },
+            {
+              "kind": "hard",
+              "seconds": 1200,
+              "km": 3
+            }
+          ],
+          "planned_steps": [
+            {
+              "kind": "easy",
+              "seconds": 2400,
+              "km": 7
+            },
+            {
+              "kind": "hard",
+              "seconds": 1200,
+              "km": 3
+            }
+          ]
+        }
+      },
+      "variant_patch": {
+        "session": {
+          "status": "skipped",
+          "actual_steps": null
+        }
+      },
+      "checks": [
+        [
+          "H1.base.observation.actual_run.hard_s",
+          "eq",
+          1200
+        ],
+        [
+          "H1.variant.observation.actual_run.hard_s",
+          "eq",
+          0
+        ]
+      ]
+    },
+    {
+      "id": "E005:AL06",
+      "base_patch": {
+        "stress": {
+          "method": "generic_power",
+          "score": 90,
+          "calibration_version": "ftp-v1"
+        }
+      },
+      "variant_patch": {
+        "stress": {
+          "calibration_version": "ftp-v2"
+        }
+      },
+      "checks": [
+        [
+          "H1.base.monitor.calibration_version",
+          "eq",
+          "ftp-v1"
+        ],
+        [
+          "H1.variant.monitor.calibration_version",
+          "eq",
+          "ftp-v2"
+        ],
+        [
+          "H1.variant.monitor.value",
+          "eq_ref",
+          "H1.base.monitor.value"
+        ]
+      ]
+    },
+    {
+      "id": "E005:AL07",
+      "base_patch": {
+        "forecast": {
+          "source_version": "old_levels"
+        }
+      },
+      "variant_patch": {
+        "forecast": {
+          "source_version": "2026_AI"
+        }
+      },
+      "checks": [
+        [
+          "H1.base.forecast.source_version",
+          "eq",
+          "old_levels"
+        ],
+        [
+          "H1.variant.forecast.source_version",
+          "eq",
+          "2026_AI"
+        ],
+        [
+          "H1.variant.forecast.predicted_difficulty",
+          "eq",
+          null
+        ]
+      ],
+      "blocked_reason": "NO_VALIDATED_WORKOUT_SELECTION_FORECAST"
+    },
+    {
+      "id": "E005:AL08",
+      "base_patch": {
+        "muscle_sets": {
+          "total": 10,
+          "weights": [
+            10
+          ]
+        }
+      },
+      "variant_patch": {
+        "muscle_sets": {
+          "total": 10,
+          "weights": [
+            7,
+            3
+          ]
+        }
+      },
+      "checks": [
+        [
+          "H1.base.strength_allocation.group_sets",
+          "eq_ref",
+          "H1.variant.strength_allocation.group_sets"
+        ],
+        [
+          "H1.variant.strength_allocation.exercise_sets",
+          "eq",
+          [
+            7,
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "id": "E005:AL09",
+      "base_patch": {
+        "muscle_sets": {
+          "total": 10,
+          "weights": [
+            7,
+            3
+          ]
+        }
+      },
+      "variant_patch": {
+        "muscle_sets": {
+          "total": 12
+        }
+      },
+      "checks": [
+        [
+          "H1.base.strength_allocation.group_sets",
+          "eq",
+          10
+        ],
+        [
+          "H1.variant.strength_allocation.group_sets",
+          "eq",
+          12
+        ],
+        [
+          "H1.variant.strength_allocation.exercise_sets",
+          "eq",
+          [
+            8,
+            4
+          ]
+        ]
+      ]
+    },
+    {
+      "id": "E005:AL10",
+      "base_patch": {
+        "strength": {
+          "rir": 1,
+          "actual_sets": 3
+        }
+      },
+      "variant_patch": {
+        "strength": {
+          "rir": 4
+        }
+      },
+      "checks": [
+        [
+          "H1.base.observation.strength_rir",
+          "eq",
+          1
+        ],
+        [
+          "H1.variant.observation.strength_rir",
+          "eq",
+          4
+        ],
+        [
+          "H1.variant.observation.strength_actual_sets",
+          "eq_ref",
+          "H1.base.observation.strength_actual_sets"
+        ]
+      ]
+    },
+    {
+      "id": "E005:AL11",
+      "base_patch": {
+        "feedback": {
+          "pain": false
+        }
+      },
+      "variant_patch": {
+        "feedback": {
+          "pain": true
+        }
+      },
+      "checks": [
+        [
+          "H1.base.action",
+          "eq",
+          "KEEP"
+        ],
+        [
+          "H1.variant.action",
+          "eq",
+          "DEFER_UNKNOWN"
+        ]
+      ]
+    },
+    {
+      "id": "E005:AL12",
+      "base_patch": {
+        "session": {
+          "status": "skipped",
+          "actual_steps": null
+        }
+      },
+      "variant_patch": {
+        "session": {
+          "status": "unknown"
+        }
+      },
+      "checks": [
+        [
+          "H1.base.observation.actual_run.hard_s",
+          "eq",
+          0
+        ],
+        [
+          "H1.variant.observation.actual_run",
+          "eq",
+          null
+        ]
+      ]
+    },
+    {
+      "id": "E005:AL13",
+      "base_patch": {
+        "session": {
+          "actual_steps": [
+            {
+              "kind": "easy",
+              "seconds": 3600,
+              "km": 10
+            }
+          ],
+          "planned_steps": [
+            {
+              "kind": "easy",
+              "seconds": 3600,
+              "km": 10
+            }
+          ]
+        },
+        "stress": {
+          "score": 100
+        }
+      },
+      "variant_patch": {
+        "session": {
+          "actual_steps": [
+            {
+              "kind": "easy",
+              "seconds": 2400,
+              "km": 7
+            },
+            {
+              "kind": "hard",
+              "seconds": 1200,
+              "km": 3
+            }
+          ],
+          "planned_steps": [
+            {
+              "kind": "easy",
+              "seconds": 2400,
+              "km": 7
+            },
+            {
+              "kind": "hard",
+              "seconds": 1200,
+              "km": 3
+            }
+          ]
+        }
+      },
+      "checks": [
+        [
+          "H1.variant.monitor.value",
+          "eq_ref",
+          "H1.base.monitor.value"
+        ],
+        [
+          "H1.variant.observation.actual_run.hard_s",
+          "gt_ref",
+          "H1.base.observation.actual_run.hard_s"
+        ]
+      ]
+    },
+    {
+      "id": "E005:AL14",
+      "base_patch": {
+        "stress": {
+          "method": "generic_pace",
+          "score": 65,
+          "threshold_verified": true,
+          "gps_verified": true,
+          "grade_verified": true
+        }
+      },
+      "variant_patch": {
+        "stress": {
+          "threshold_verified": false,
+          "gps_verified": false
+        }
+      },
+      "checks": [
+        [
+          "H1.base.monitor.value",
+          "eq",
+          65
+        ],
+        [
+          "H1.variant.monitor.value",
+          "eq",
+          null
+        ],
+        [
+          "H1.variant.monitor.reason",
+          "eq",
+          "NOT_COMPUTABLE"
+        ]
+      ]
+    },
+    {
+      "id": "E005:AL15",
+      "base_patch": {
+        "stress": {
+          "method": "generic_pace",
+          "score": 60
+        }
+      },
+      "variant_patch": {
+        "stress": {
+          "method": "generic_hr",
+          "score": 60
+        }
+      },
+      "checks": [
+        [
+          "H1.variant.monitor.method",
+          "ne_ref",
+          "H1.base.monitor.method"
+        ],
+        [
+          "H1.variant.monitor.value",
+          "eq_ref",
+          "H1.base.monitor.value"
+        ]
+      ]
+    },
+    {
+      "id": "E005:AL16",
+      "base_patch": {
+        "temporal": {
+          "yesterday_ctl": 50,
+          "yesterday_atl": 55,
+          "today_score": 70
+        }
+      },
+      "variant_patch": {
+        "temporal": {
+          "today_score": 100
+        }
+      },
+      "checks": [
+        [
+          "H1.base.temporal.today_tsb",
+          "approx",
+          -5
+        ],
+        [
+          "H1.base.temporal.ctl_after_today",
+          "approx",
+          50.47619047619
+        ],
+        [
+          "H1.base.temporal.tomorrow_tsb",
+          "approx",
+          -6.66666666667
+        ],
+        [
+          "H1.variant.temporal.today_tsb",
+          "eq_ref",
+          "H1.base.temporal.today_tsb"
+        ]
+      ]
+    },
+    {
+      "id": "E005:AL17",
+      "base_patch": {
+        "session": {
+          "status": "skipped",
+          "actual_steps": null
+        }
+      },
+      "variant_patch": {
+        "session": {
+          "status": "unknown"
+        }
+      },
+      "checks": [
+        [
+          "H1.base.observation.actual_run.km",
+          "eq",
+          0
+        ],
+        [
+          "H1.variant.observation.actual_run",
+          "eq",
+          null
+        ]
+      ]
+    },
+    {
+      "id": "E005:AL18",
+      "base_patch": {
+        "stress": {
+          "method": "generic_pace",
+          "calibration_version": "pace-v1",
+          "score": 60
+        }
+      },
+      "variant_patch": {
+        "stress": {
+          "calibration_version": "pace-v2"
+        }
+      },
+      "checks": [
+        [
+          "H1.base.monitor.calibration_version",
+          "eq",
+          "pace-v1"
+        ],
+        [
+          "H1.variant.monitor.calibration_version",
+          "eq",
+          "pace-v2"
+        ],
+        [
+          "H1.variant.monitor.value",
+          "eq_ref",
+          "H1.base.monitor.value"
+        ]
+      ]
+    }
+  ]
+}
