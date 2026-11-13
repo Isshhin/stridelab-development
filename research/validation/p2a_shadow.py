@@ -100,7 +100,9 @@ def summarize(history, decision_at, checkin=None):
             raise ValueError("check-in cannot be available before it is observed")
         if event > observed:
             raise ValueError("check-in cannot precede its event")
-        if checkin.get("id") in ids:
+        if not isinstance(checkin.get("id"), str) or not checkin["id"]:
+            raise ValueError("check-in ID must be nonempty")
+        if checkin["id"] in ids:
             raise ValueError("check-in ID must be unique")
         if available > cutoff:
             checkin_status = "CHECKIN_NOT_AVAILABLE_AS_OF_DECISION"
@@ -108,7 +110,9 @@ def summarize(history, decision_at, checkin=None):
               or not isinstance(checkin.get("value"), (int, float))
               or isinstance(checkin.get("value"), bool)
               or not _finite(checkin.get("value"))
-              or checkin.get("value") < 0):
+              or checkin.get("value") < 0
+              or not isinstance(checkin.get("unit"), str)
+              or not checkin["unit"]):
             checkin_status = "CHECKIN_INVALID_OR_UNAVAILABLE"
         else:
             if visible and (checkin["athlete_id"] != visible[0]["athlete_id"]

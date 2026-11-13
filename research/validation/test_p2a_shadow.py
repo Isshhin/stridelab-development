@@ -72,6 +72,24 @@ class P2AShadowTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     summarize(rows, "2026-01-03T12:00:00Z")
 
+    def test_checkin_requires_nonempty_unit_and_identity(self):
+        for unit in (42, [], ""):
+            with self.subTest(unit=unit):
+                checkin = {"id": "checkin", "observed_at": "2026-01-03T10:00:00Z",
+                           "available_at": "2026-01-03T11:00:00Z", "value": 4.0,
+                           "unit": unit, "quality": "reported", **self.lineage}
+                result = summarize(self.history[:2], "2026-01-03T12:00:00Z", checkin)
+                self.assertEqual("CHECKIN_INVALID_OR_UNAVAILABLE", result["checkin_status"])
+                self.assertEqual(result["history_only"], result["history_plus_checkin"])
+
+        for identifier in (None, "", 42):
+            with self.subTest(identifier=identifier):
+                checkin = {"id": identifier, "observed_at": "2026-01-03T10:00:00Z",
+                           "available_at": "2026-01-03T11:00:00Z", "value": 4.0,
+                           "unit": "score", "quality": "reported", **self.lineage}
+                with self.assertRaises(ValueError):
+                    summarize(self.history[:2], "2026-01-03T12:00:00Z", checkin)
+
     def test_missing_lineage_fails_closed(self):
         missing = dict(self.history[0])
         del missing["rights"]
