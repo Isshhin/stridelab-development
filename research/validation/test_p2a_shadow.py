@@ -71,6 +71,20 @@ class P2AShadowTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             summarize([missing], "2026-01-02T00:00:00Z")
 
+    def test_non_finite_values_are_excluded_or_abstained(self):
+        for value in (float("nan"), float("inf"), float("-inf"), 10 ** 1000):
+            with self.subTest(value=value):
+                history = summarize([dict(self.history[0], value=value)],
+                                    "2026-01-02T00:00:00Z")
+                self.assertEqual(1, history["history_only"]["excluded_count"])
+                self.assertEqual([], history["history_only"]["input_ids"])
+                checkin = {"id": "bad", "observed_at": "2026-01-03T10:00:00Z",
+                           "available_at": "2026-01-03T11:00:00Z", "value": value,
+                           "unit": "score", "quality": "reported", **self.lineage}
+                result = summarize(self.history[:2], "2026-01-03T12:00:00Z", checkin)
+                self.assertEqual("CHECKIN_INVALID_OR_UNAVAILABLE", result["checkin_status"])
+                self.assertEqual(result["history_only"], result["history_plus_checkin"])
+
 
 if __name__ == "__main__":
     unittest.main()

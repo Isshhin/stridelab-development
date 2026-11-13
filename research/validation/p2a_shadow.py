@@ -1,10 +1,18 @@
 """Decision-time descriptive shadow summaries for invented P2-A fixtures only."""
 from datetime import datetime, timezone
+from math import isfinite
 from statistics import median
 
 LINEAGE_FIELDS = ("athlete_id", "discipline", "event_at", "source",
                   "source_version", "protocol", "device", "rights",
                   "plan_revision")
+
+
+def _finite(value):
+    try:
+        return isfinite(value)
+    except OverflowError:
+        return False
 
 
 def _time(value):
@@ -43,6 +51,7 @@ def summarize(history, decision_at, checkin=None):
         if (row.get("quality") != "valid"
                 or not isinstance(row.get("value"), (int, float))
                 or isinstance(row.get("value"), bool)
+                or not _finite(row.get("value"))
                 or row.get("value") < 0):
             excluded += 1
             continue
@@ -96,6 +105,7 @@ def summarize(history, decision_at, checkin=None):
         elif (checkin.get("quality") != "reported"
               or not isinstance(checkin.get("value"), (int, float))
               or isinstance(checkin.get("value"), bool)
+              or not _finite(checkin.get("value"))
               or checkin.get("value") < 0):
             checkin_status = "CHECKIN_INVALID_OR_UNAVAILABLE"
         else:
