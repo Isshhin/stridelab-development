@@ -72,11 +72,16 @@ internal object Engine15Feedback {
         val minutes = log.minutes
         val durationSpike = minutes != null && minutes.isFinite() &&
             minutes > session.minutes * 1.35 && effort >= 7
-        if (effort >= 8 || durationSpike)
+        if (effort >= 8 || durationSpike) {
+            val partial = minutes != null && minutes.isFinite() &&
+                minutes < session.minutes * 0.75
             return Evidence(session, performed, "High reported effort",
-                if (durationSpike)
+                if (partial)
+                    "Partial workout (${minutes!!.toInt()} of ${session.minutes} planned minutes) with recorded effort $effort/10"
+                else if (durationSpike)
                     "Recorded effort $effort/10 and duration ${minutes!!.toInt()} min vs planned ${session.minutes} min"
                 else "Recorded effort $effort/10")
+        }
         return null
     }
 
