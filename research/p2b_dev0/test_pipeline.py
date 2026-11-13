@@ -51,6 +51,18 @@ class Dev0Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             run(activities + [type(duplicate)(duplicate.athlete_id, duplicate.activity_id, duplicate.date, tuple(dict(s, speed=4) for s in duplicate.samples))])
 
+    def test_scoped_identity_labels_do_not_collide_on_delimiter(self):
+        base = build_synthetic_fixture()[0]
+        activities = (
+            type(base)("c", "activity", base.date, base.samples, "a|b"),
+            type(base)("b|c", "activity", base.date, base.samples, "a"),
+        )
+        result = run(activities)
+        self.assertEqual(2, result["canonical_candidate_count"])
+        self.assertEqual(2, len(result["segments"]))
+        identities = {row["identity"] for row in result["segments"].values()}
+        self.assertEqual({"a%7Cb|c|activity", "a|b%7Cc|activity"}, identities)
+
     def test_named_sensitivities_and_route_features(self):
         result = run(build_synthetic_fixture())
         self.assertEqual(result["analysis"]["primary"]["config"], {"window_s": 1200, "start_s": 720, "hr_caliper_bpm": 3, "route_tolerance": "STRICT"})

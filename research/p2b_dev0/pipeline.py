@@ -22,7 +22,8 @@ class AnalysisConfig:
     window_s: int=1200; start_s: int=720; hr_caliper_bpm: int=3; route_tolerance: str="STRICT"
 
 def _key(a): return (a.source_dataset,a.athlete_id,a.activity_id)
-def _label(k): return "|".join(k)
+def _label(k):
+    return "|".join(part.replace("%", "%25").replace("|", "%7C") for part in k)
 def _window(a,c): return tuple(dict(s,t=s["t"]-c.start_s) for s in a.samples if c.start_s<=s["t"]<=c.start_s+c.window_s)
 def _qc(samples,duration):
     if any(b["t"]<=a["t"] for a,b in zip(samples,samples[1:])):return False,("NON_MONOTONIC_TIMESTAMP",)
