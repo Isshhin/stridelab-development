@@ -104,13 +104,18 @@ internal fun TracksideWeekReview(
 
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             val trainingDays = days.coerceIn(0,7)
+            // A disabled running discipline should remain "no running" even
+            // after a generated non-running plan is supplied. If saved rows
+            // unexpectedly contain runs, display their actual planned distance
+            // rather than concealing them behind the request toggle.
+            val noRunning = request.runDays == 0 && rows.none { it.discipline == "run" }
             val distance = when {
+                noRunning -> null
                 plan != null -> weekReviewDistance(rows)
-                request.runDays == 0 -> null
                 else -> request.targetWeeklyKm ?: request.weeklyKm
             }
             val distanceLabel = when {
-                plan == null && request.runDays == 0 -> "no running"
+                noRunning -> "no running"
                 plan != null && distance == null -> "distance unknown"
                 plan != null -> "planned km"
                 request.targetWeeklyKm != null -> "target km / week"

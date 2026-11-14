@@ -1038,6 +1038,9 @@ class TracksideResponsiveQaTest {
         show { TracksideWeekReview(plan.request,if(generated.value) plan else null,false,{}, {}) }
         compose.onNodeWithText("no running").assertExists()
         compose.runOnIdle { generated.value=true }
+        // Generated non-running plans must not advertise "0.0 planned km".
+        compose.onNodeWithText("no running").assertExists()
+        compose.onNodeWithText("planned km").assertDoesNotExist()
         compose.onNodeWithText("Requested target:",substring=true).assertDoesNotExist()
     }
 
