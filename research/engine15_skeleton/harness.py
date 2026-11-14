@@ -182,8 +182,10 @@ def evaluate(case, cfg):
             long_km = min(step, share, hard_share)
             if step <= min(share, hard_share):
                 fired.append("LONG_RUN_STEP_BINDS")
-            if hard_share < step and hard_share <= share:
-                fired.append("LONG_RUN_SHARE_BINDS")
+            elif share <= min(step, hard_share):
+                fired.append("LONG_RUN_TARGET_SHARE_BINDS")
+            else:
+                fired.append("LONG_RUN_MAX_SHARE_BINDS")
             prior_long = long_km
         if long_km is not None:
             long_km = round(long_km, 3)

@@ -59,6 +59,16 @@ class SkeletonTests(unittest.TestCase):
         self.assertTrue(all(w["long_run_km"] <= w["weekly_km"] * self.policy["long_run_max_fraction"] + .001
                             for w in out["weeks"] if w["long_run_km"] is not None))
 
+    def test_every_nonrecovery_long_run_has_a_binding_rule(self):
+        # Trace completeness: the configured target share often binds, not just the step cap.
+        for specimen in CASES:
+            out = evaluate(specimen, self.policy)
+            for week in out["weeks"]:
+                if week["long_run_km"] is None or "RECOVERY_WEEK" in week["rule_ids"]:
+                    continue
+                reasons = {"LONG_RUN_STEP_BINDS", "LONG_RUN_TARGET_SHARE_BINDS", "LONG_RUN_MAX_SHARE_BINDS"}
+                self.assertTrue(reasons.intersection(week["rule_ids"]), (specimen["id"], week))
+
     def test_infeasible_days_reported(self):
         out = evaluate(case("R14"), self.policy)
         self.assertEqual(out["conflicts"][0]["rule"], "INSUFFICIENT_DAYS")
