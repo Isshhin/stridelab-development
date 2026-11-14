@@ -43,3 +43,18 @@ No broad app audit, screenshot acceptance, live Garmin/map verification or signe
 ## Follow-up review correction (2026-11-15)
 
 The generated Week Preview previously displayed `0.0 planned km` for a plan with no running and a retained target. The metric now preserves `no running` whenever running is deselected and no saved running prescription exists, in both blueprint and generated states. If saved rows actually contain running sessions despite a disabled request, the preview reports their real saved-distance status rather than hiding conflicting data. The new Compose assertions cover the generated no-running state. **This additional Compose case is compiled-only until an emulator executes it**; no device evidence is claimed.
+
+## Owner-controlled physical phone QA setup (isolated application ID)
+
+**Goal:** Test the Week Preview UI before any merge, without replacing the owner's currently installed `io.stridelab.privatealpha` app or its database. The optional Gradle property `-PstridePhoneQaIsolation=true` builds a distinct debug package **`io.stridelab.privatealpha.qa`** while the default build identity remains unchanged. The isolated QA app has separate storage and may require separate sign-in or provider setup. Do not assume its Garmin OAuth behavior represents the production installation. Neither plugin push nor PR creation installs anything on a device.
+
+### Local safety/validation sequence (PowerShell 5.1)
+
+1. In the local StrideLab validation clone, check `git status --short`; **preserve uncommitted work**. Fetch this UI candidate and switch to an isolated validation branch from `origin/ui/week-review-clarity-20261115`. Do not merge the research PR stack to obtain a Week Preview UI change.
+2. From `native-android`, run `.\\gradlew.bat :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest -PstridePhoneQaIsolation=true`. This assembles `app/build/outputs/apk/debug/app-debug.apk` (APK file name stays the same).
+3. Inspect APK package ID using SDK build-tools `aapt.exe dump badging ...`. **Verify the APK says `io.stridelab.privatealpha.qa` before installation**. Never proceed if it says `io.stridelab.privatealpha` or anything unexpected.
+4. Enable USB debugging on the phone, connect and authorize it, inspect `adb devices -l`, and select the exact phone serial with `adb -s SERIAL` if multiple devices appear. Install with `adb -s SERIAL install -r ...` only after the package ID verification and owner's approval. No uninstall of the main package; no clearing production data.
+5. In the QA app, verify signed-out entry, navigation and Today/Training/More; test Plan Builder's Week Preview before/after generating a draft, 0-running scenario, valid/unknown mileage, next/previous week, two sessions/day, long titles, 1.3/1.5 system font scale, approval scrolling, back navigation, sheet/map opening, share/export controls. **The existing PlanBuilder sign-in gate may prevent signed-out plan generation and is an open functional issue, not fixed by this UI PR.**
+6. Capture screenshots and `adb logcat -d` snippets of errors with private identifiers removed. Confirm the original installed StrideLab app is still present and its data unchanged. Note that the QA app cannot prove cross-account backup/restore or production Garmin integration equivalence.
+
+No connected phone, emulator instrumentation or manual screenshot validation was executed during this GitHub-only preparation. Compile/packaging is still pending the owner's local Gradle run.

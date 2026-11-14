@@ -41,6 +41,15 @@ android {
         }
     }
     buildTypes {
+        // Optional physical-phone QA variant: separate installed package and
+        // app sandbox from io.stridelab.privatealpha. Ordinary debug and release
+        // builds are unchanged unless the explicit property is supplied.
+        debug {
+            if ((project.findProperty('stridePhoneQaIsolation') ?: 'false').toString().toBoolean()) {
+                applicationIdSuffix '.qa'
+                versionNameSuffix '-qa'
+            }
+        }
         release {
             minifyEnabled false
             if (System.getenv('STRIDELAB_KEYSTORE_FILE')) signingConfig signingConfigs.privateAlpha
