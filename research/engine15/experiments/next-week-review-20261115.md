@@ -87,3 +87,31 @@ No connected devices and no configured AVD (`adb devices -l`, `emulator -list-av
 5. Audit signed-out plan ownership end-to-end and run Compose/navigation/persistence checks on an isolated emulator. Review targeted UI changes separately.
 
 This delivery establishes a comparative experimental foundation and a constraint repair, not the complete adaptive coaching system requested as the long-term objective.
+
+
+## Follow-up: multiweek intent-aware recovery and rebuild experiment (2026-11-15)
+
+Branch: `research/engine15-multiweek-response-trajectories-20261115` (stacked on coaching PR #77). New files `IndependentMultiweekResponse.kt`, `IndependentMultiweekResponseTest.kt`, and `IndependentMultiweekTrajectoryComparisonTest.kt` introduce **17 focused test methods** (14 component + 3 trajectory). **NOT YET EXECUTED** in the GitHub-connected session; owner needs to fetch and run the tests on Windows before these findings can be called validated.
+
+This isolated synthetic-only candidate labels each completed week as BUILD, PLANNED_RECOVERY, or UNKNOWN, preserving separately reported complete-week mileage, tolerance and explicitly reviewed recovery intent. It rejects stale/partial/unknown-source weeks, ambiguous intent, difficult/unknown responses, and unreviewed or excessive work. After a reviewed recovery week it may propose repeating the last fully completed build reference **without the recovery week's lower mileage being interpreted as reduced capacity**. Two consistently missed build weeks propose a lower repeat-only volume, while mixed/partially completed weeks defer. Upward movement requires two successful build weeks **and an explicitly approved nonzero increment and reference**. This is no medical or coaching safety authorization: all evidence and approvals are caller assertions and outputs retain hard `sourceEvidenceVerified=false` / `authorizedForProduction=false`. It calls the original M4 approval checks first, then the constraint-aware single-week allocator; it never mutates stored plans or production Engine 1.5.
+
+Synthetic trajectory examples (expected by new tests; not independently executed):
+
+| Scenario | Previous next-week repeat-only experiment | New intent-aware experiment | Status |
+|---|---:|---:|---|
+| Planned recovery: fully completed 60 km build then reviewed 40 km deload | 40 km (mistaken underload) | 60 km repeat of reviewed build | Research hypothesis |
+| Repeated missed builds: two 30/60 km weeks | 30 km | 30 km | Research hypothesis |
+| Subsequent two fully completed 30 km build weeks | 30 km | 30 km; no jump to old 60 km start | Research hypothesis |
+| Same rebuild with separately approved +2 km increment | n/a | 32 km | Research hypothesis |
+| A single unplanned 40/60 km week after completed 60/60 | Earlier two-week minimum can underload | Explicit review/deferral | Research hypothesis |
+
+The 95% completed/75% markedly missed/105% excess cutoffs are exploratory **classification heuristics**, not injury thresholds or proven valid athlete feedback. The intent labels require externally trustworthy provenance before runtime admission. The current algorithm cannot decide whether a newly recovered athlete is safe to resume a former build level, and cannot infer a valid approved increment from heart rate, training pace or incomplete history. It intentionally plans just one next week; any real adaptive plan needs reviewed ownership, training-density constraints, quality/distance reconciliation, recovery/illness state, and sequential policy evaluation.
+
+**Focused Gradle validation** from `native-android` after checking out the new research branch:
+
+```powershell
+.\gradlew.bat :app:testDebugUnitTest --tests '*IndependentMultiweekResponseTest' --tests '*IndependentMultiweekTrajectoryComparisonTest'
+.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug
+```
+
+**Review gate:** Results are synthetic comparators, not evidence that this proposal is fit for production. Keep this draft stacked research branch isolated. Phone QA should use a separately reviewed UI integration candidate; it must not activate this research policy or merge the entire research stack merely to test Week Preview.
