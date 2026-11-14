@@ -12,6 +12,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -19,6 +22,13 @@ import androidx.compose.ui.unit.sp
 import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
+
+/** Saved planned distances only; a timed/unknown run prevents a misleading partial total. */
+internal fun weekReviewDistance(rows: List<PlannedSession>): Double? {
+    val distances = rows.filter { it.discipline == "run" }.map { it.distanceKm }
+    if (distances.any { it == null || !it.isFinite() || it < 0.0 }) return null
+    return distances.filterNotNull().sum().takeIf { it.isFinite() }
+}
 
 /**
  * Approved 614:412 Week Preview / 653:471 first plan approval.
@@ -92,31 +102,53 @@ internal fun TracksideWeekReview(
         }
     ) {
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             val trainingDays = days.coerceIn(0,7)
-            val targetDistance = if (request.runDays > 0) {
-                String.format(Locale.getDefault(), "%.0f", request.weeklyKm)
-            } else "—"
+            // A disabled running discipline should remain "no running" even
+            // after a generated non-running plan is supplied. If saved rows
+            // unexpectedly contain runs, display their actual planned distance
+            // rather than concealing them behind the request toggle.
+            val noRunning = request.runDays == 0 && rows.none { it.discipline == "run" }
+            val distance = when {
+                noRunning -> null
+                plan != null -> weekReviewDistance(rows)
+                else -> request.targetWeeklyKm ?: request.weeklyKm
+            }
+            val distanceLabel = when {
+                noRunning -> "no running"
+                plan != null && distance == null -> "distance unknown"
+                plan != null -> "planned km"
+                request.targetWeeklyKm != null -> "target km / week"
+                else -> "recent km / week"
+            }
             listOf(
-                targetDistance to if (request.runDays > 0) "km target" else "no running",
+                (distance?.let { String.format(Locale.getDefault(), "%.1f", it) } ?: "—") to distanceLabel,
                 total.toString() to "sessions",
                 trainingDays.toString() to if (plan == null) "AVAILABLE DAYS" else "ACTIVE DAYS",
                 (7-trainingDays).toString() to "rest days"
-            ).forEach { (value, caption) ->
-                Surface(Modifier.weight(1f).heightIn(min = 62.dp),
-                    color = PlanBuilderPalette.surface,
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, PlanBuilderPalette.border)) {
-                    Column(Modifier.padding(horizontal = 5.dp, vertical = 10.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(value, color = PlanBuilderPalette.text,
-                            fontSize = 21.sp, fontWeight = FontWeight.Bold)
-                        Text(caption, color = PlanBuilderPalette.secondary,
-                            fontSize = 9.sp, maxLines = 2,
-                            overflow = TextOverflow.Ellipsis)
+            ).chunked(2).forEach { metrics ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    metrics.forEach { (value, caption) ->
+                        Surface(Modifier.weight(1f).heightIn(min = 62.dp),
+                            color = PlanBuilderPalette.surface,
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, PlanBuilderPalette.border)) {
+                            Column(Modifier.semantics(mergeDescendants = true) {}
+                                .padding(horizontal = 10.dp, vertical = 10.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(value, color = PlanBuilderPalette.text,
+                                    fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                                Text(caption, color = PlanBuilderPalette.secondary, fontSize = 12.sp)
+                            }
+                        }
                     }
                 }
             }
+        }
+        if (plan != null && request.runDays > 0 && request.targetWeeklyKm != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(String.format(Locale.getDefault(), "Requested target: %.1f km / week", request.targetWeeklyKm),
+                color=PlanBuilderPalette.secondary,fontSize=12.sp)
         }
         Spacer(Modifier.height(9.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -133,19 +165,19 @@ internal fun TracksideWeekReview(
         }
         Spacer(Modifier.height(12.dp))
         if(plan != null) {
-            Row(Modifier.fillMaxWidth().height(36.dp),
+            Row(Modifier.fillMaxWidth().heightIn(min=48.dp),
                 verticalAlignment=Alignment.CenterVertically,
                 horizontalArrangement=Arrangement.SpaceBetween) {
                 TextButton(onClick={onWeekChange(weekIndex-1)},
                     enabled=weekIndex>0,modifier=Modifier.testTag("builder-previous-week")) {
-                    Text("‹ Previous",color=Color.White,fontSize=11.sp)
+                    Text("‹ Previous",fontSize=12.sp)
                 }
                 Text("Week ${weekIndex+1} of ${request.weeks}",fontSize=11.sp,
                     color=Color(0xFFC5C5C5))
                 TextButton(onClick={onWeekChange(weekIndex+1)},
                     enabled=weekIndex<request.weeks-1,
                     modifier=Modifier.testTag("builder-next-week")) {
-                    Text("Next ›",color=Color.White,fontSize=11.sp)
+                    Text("Next ›",fontSize=12.sp)
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -209,7 +241,7 @@ internal fun TracksideWeekReview(
                         } else {
                             assigned.take(2).forEach { session ->
                                 Surface(
-                                    modifier=Modifier.weight(1f).heightIn(min=31.dp)
+                                    modifier=Modifier.weight(1f).heightIn(min=48.dp)
                                         .testTag("builder-preview-session-" + session.id),
                                     onClick={onOpenSession(session.id)},
                                     color=PlanBuilderPalette.selected,
@@ -219,9 +251,8 @@ internal fun TracksideWeekReview(
                                 ) {
                                     Box(contentAlignment=Alignment.Center) {
                                         Text(session.effectiveTitle,
-                                            fontSize=10.sp,color=Color.White,
-                                            maxLines=1,overflow=TextOverflow.Ellipsis,
-                                            modifier=Modifier.padding(horizontal=5.dp))
+                                            fontSize=12.sp,color=Color.White,
+                                            modifier=Modifier.padding(horizontal=7.dp,vertical=8.dp))
                                     }
                                 }
                             }
@@ -239,7 +270,7 @@ internal fun TracksideWeekReview(
         error?.let {
             Spacer(Modifier.height(8.dp))
             Text(it,color=Color(0xFFFF9DA7),fontSize=12.sp,
-                modifier=Modifier.testTag("plan-form-error"))
+                modifier=Modifier.testTag("plan-form-error").semantics { liveRegion = LiveRegionMode.Polite })
         }
     }
 }

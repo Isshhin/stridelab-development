@@ -1010,6 +1010,40 @@ class TracksideResponsiveQaTest {
 
     @Test fun engine15WeekPreviewSeparatesRequestedStateFromGeneratedNineSessionDraft() = verifyWeekPreview(engine15 = true)
 
+    @Test fun weekPreviewShowsSelectedWeekDistanceAndPreservesNavigation() {
+        val base = snapshot()
+        val plan = base.copy(request=base.request.copy(weeklyKm=40.0,targetWeeklyKm=80.0),
+            sessions=base.sessions + base.sessions.first().copy(id="week-two",date=start.plusWeeks(1),distanceKm=null))
+        val week = mutableStateOf(0)
+        show {
+            TracksideWeekReview(plan.request,plan,false,{}, {},weekIndex=week.value,
+                onWeekChange={week.value=it})
+        }
+        compose.onNodeWithText("planned km").assertExists()
+        compose.onNodeWithText(String.format(java.util.Locale.getDefault(),"%.1f",10.0)).assertExists()
+        compose.onNodeWithText("Requested target:",substring=true).assertExists()
+        compose.onNodeWithTag("builder-previous-week").performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithTag("builder-next-week").performClick()
+        compose.onNodeWithText("distance unknown").assertExists()
+        compose.onNodeWithTag("builder-next-week").assertIsNotEnabled()
+        compose.onNodeWithTag("builder-previous-week").performClick()
+        compose.onNodeWithText("planned km").assertExists()
+    }
+
+    @Test fun weekPreviewHidesRetainedRunningTargetAfterDeselectingRunning() {
+        val base = snapshot()
+        val plan = base.copy(request=base.request.copy(runDays=0,targetWeeklyKm=80.0),
+            sessions=base.sessions.filter { it.discipline != "run" })
+        val generated = mutableStateOf(false)
+        show { TracksideWeekReview(plan.request,if(generated.value) plan else null,false,{}, {}) }
+        compose.onNodeWithText("no running").assertExists()
+        compose.runOnIdle { generated.value=true }
+        // Generated non-running plans must not advertise "0.0 planned km".
+        compose.onNodeWithText("no running").assertExists()
+        compose.onNodeWithText("planned km").assertDoesNotExist()
+        compose.onNodeWithText("Requested target:",substring=true).assertDoesNotExist()
+    }
+
     private fun verifyWeekPreview(engine15: Boolean) {
         val plan = matchedNineSessionDraft("week-preview-matched", engine15)
         val prefix = if (engine15) "engine15-" else ""
