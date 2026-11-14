@@ -121,6 +121,30 @@ class SkeletonTests(unittest.TestCase):
         for w in out["weeks"]:
             self.assertLessEqual(w["long_run_km"], w["weekly_km"] * self.policy["long_run_max_fraction"])
 
+    def test_target_weekly_mileage_is_never_silently_exceeded(self):
+        source = case("R04")
+        for policy in POLICIES:
+            out = evaluate(source, policy)
+            self.assertEqual(len(out["weeks"]), source["weeks"])
+            self.assertTrue(all(w["weekly_km"] <= source["target_km"] for w in out["weeks"]))
+            if policy["name"] == "relative_cap_comparator":
+                self.assertTrue(any("REQUESTED_TARGET_MILEAGE_BINDS" in w["rule_ids"] for w in out["weeks"]))
+
+    def test_goal_below_recorded_baseline_requires_explicit_decrease_policy(self):
+        source = case("R05")
+        source["target_km"] = 50
+        out = evaluate(source, self.policy)
+        self.assertEqual(out["status"], "conflict")
+        self.assertEqual(out["weeks"], [])
+        self.assertEqual(out["conflicts"][0]["rule"], "TARGET_BELOW_BASELINE_UNSUPPORTED")
+
+    def test_fractional_target_respects_precision_without_overshoot(self):
+        source = case("R05")
+        source["target_km"] = 93.0006
+        out = evaluate(source, self.policy)
+        self.assertTrue(all(w["weekly_km"] <= source["target_km"] for w in out["weeks"]))
+        self.assertIn(out["feasibility"], ("later", "within_window"))
+
     def test_missing_baseline_blocks_output(self):
         out = evaluate(case("R16"), self.policy)
         self.assertEqual(out["status"], "insufficient_baseline")

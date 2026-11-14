@@ -124,6 +124,13 @@ def evaluate(case, cfg):
         result["status"] = "insufficient_baseline"
         trace.append({"rule": "BASELINE_UNKNOWN_OR_ZERO", "detail": "No percentage progression from an unknown or zero baseline"})
         return result
+    if target < baseline:
+        result["status"] = "conflict"
+        conflicts.append({"rule": "TARGET_BELOW_BASELINE_UNSUPPORTED",
+                          "target_km": target, "starting_baseline_km": baseline})
+        trace.append({"rule": "TARGET_BELOW_BASELINE_UNSUPPORTED",
+                      "detail": "This growth-only research comparator cannot prescribe a mileage reduction path."})
+        return result
     if ceiling is not None and ceiling < baseline:
         result["status"] = "conflict"
         conflicts.append({"rule": "BASELINE_OVER_CONFIGURED_CEILING", "baseline_km": baseline, "ceiling_km": ceiling})
@@ -164,6 +171,9 @@ def evaluate(case, cfg):
             if ceiling is not None and volume > ceiling:
                 volume = ceiling
                 fired.append("CONFIGURED_CEILING_BINDS")
+            if volume > target:
+                volume = target
+                fired.append("REQUESTED_TARGET_MILEAGE_BINDS")
             last_build = volume
         volume = round(volume, 3)
         # Never round a capped workload above its configured ceiling.
@@ -172,6 +182,11 @@ def evaluate(case, cfg):
             fired.append("FINAL_ROUNDING_CEILING")
         if ceiling is not None and volume > ceiling:
             raise AssertionError("final capacity constraint violated")
+        if volume > target:
+            volume = math.floor(target * 1000) / 1000
+            fired.append("FINAL_ROUNDING_TARGET")
+        if volume > target:
+            raise AssertionError("final target mileage constraint violated")
         if not recovering:
             last_build = volume  # Subsequent increments use the actual emitted workload.
         if prior_long is None:
@@ -207,7 +222,8 @@ def evaluate(case, cfg):
             weeks.append({"week": week, "starts": str(date_start + timedelta(weeks=i)),
                           "weekly_km": volume, "long_run_km": long_km,
                           "rule_ids": fired, "target_weekly_km": target})
-        if attainment is None and not recovering and volume >= target - 1e-7:
+        # A ceiling quantized to 0.001 km can be slightly below a fractional target.
+        if attainment is None and not recovering and volume >= target - 0.001:
             attainment = week
     if attainment is not None:
         result["feasibility"] = "within_window" if attainment <= length else "later"

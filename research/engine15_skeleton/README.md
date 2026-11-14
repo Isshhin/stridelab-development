@@ -31,3 +31,12 @@ The Gate B rubric was separately committed **before** these candidate policies:
 docs/qa/engine15-gate-b-rubric-v1.md. The documented software tests are not Gate B
 acceptance; a human must inspect exported full scenarios and sign off separately.
 Evidence and provenance: docs/engine15-long-term-roadmap-v0.2-20261114.md.
+
+## Goal-mileage contract (research comparator)
+
+The requested weekly target is a **bound**, not a license to overshoot; the
+increment path plateaus at the target (apart from scheduled recovery weeks).
+A target below the confirmed starting baseline is explicitly unsupported by
+this growth-only comparator and requires a separately designed reduction path.
+Fractional target/cap values are rounded down when needed so emitted distances
+do not exceed the declared bounds. Future training-effect review remains open.
