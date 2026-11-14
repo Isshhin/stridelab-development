@@ -471,6 +471,20 @@
     "minimum_long_run_km": 30
   },
   {
+    "id": "R17",
+    "origin": "synthetic",
+    "start_date": "2026-11-16",
+    "weeks": 12,
+    "run_days": 4,
+    "history": [
+      {"complete": true, "km": 48, "long_km": 16},
+      {"complete": true, "km": 50, "long_km": 17},
+      {"complete": true, "km": 52, "long_km": 18},
+      {"complete": true, "km": 50, "long_km": 17}
+    ],
+    "target_km": 35
+  },
+  {
     "id": "R16",
     "origin": "synthetic",
     "start_date": "2026-11-16",

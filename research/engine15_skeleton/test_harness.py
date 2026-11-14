@@ -131,12 +131,11 @@ class SkeletonTests(unittest.TestCase):
                 self.assertTrue(any("REQUESTED_TARGET_MILEAGE_BINDS" in w["rule_ids"] for w in out["weeks"]))
 
     def test_goal_below_recorded_baseline_requires_explicit_decrease_policy(self):
-        source = case("R05")
-        source["target_km"] = 50
-        out = evaluate(source, self.policy)
-        self.assertEqual(out["status"], "conflict")
-        self.assertEqual(out["weeks"], [])
-        self.assertEqual(out["conflicts"][0]["rule"], "TARGET_BELOW_BASELINE_UNSUPPORTED")
+        for policy in POLICIES:
+            out = evaluate(case("R17"), policy)
+            self.assertEqual(out["status"], "conflict")
+            self.assertEqual(out["weeks"], [])
+            self.assertEqual(out["conflicts"][0]["rule"], "TARGET_BELOW_BASELINE_UNSUPPORTED")
 
     def test_fractional_target_respects_precision_without_overshoot(self):
         source = case("R05")
@@ -169,6 +168,21 @@ class SkeletonTests(unittest.TestCase):
         self.assertEqual(len(report["results"]), len(CASES) * len(POLICIES))
         self.assertEqual({r["scenario"] for r in report["results"]},
                          {r["id"] for r in CASES})
+
+    def test_all_emitted_build_weeks_respect_configured_growth(self):
+        for source in CASES:
+            for policy in POLICIES:
+                out = evaluate(source, policy)
+                factor = policy["low_confidence_multiplier"] if out["confidence"] == "low" else 1.0
+                last_build = None
+                for week in out["weeks"]:
+                    if last_build is not None and "RECOVERY_WEEK" not in week["rule_ids"]:
+                        limit = last_build + min(last_build * policy["growth_fraction"] * factor,
+                                                 policy["growth_absolute_km"] * factor)
+                        self.assertLessEqual(week["weekly_km"], limit + 0.0005,
+                                             (source["id"], policy["name"], week))
+                    if "RECOVERY_WEEK" not in week["rule_ids"]:
+                        last_build = week["weekly_km"]
 
 if __name__ == "__main__":
     unittest.main()

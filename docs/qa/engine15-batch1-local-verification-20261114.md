@@ -1,5 +1,15 @@
 # Engine 1.5 Batch 1 — Local Verification Record (2026-11-14)
 
+## Follow-up verification at PR #65 head d0de8401
+
+The original 16-case export did not contain the requested below-baseline target as a named scenario, although a unit test exercised that behavior. Follow-up adds synthetic R17 to the fixture and checks both configurations reject the unsupported reduction path without emitting weeks. It also adds a matrix-wide check that each emitted build week respects configured relative and absolute growth, with 0.0005 km reporting-rounding tolerance. No training policy or Android production code changes.
+
+On Python 3.12, the resulting working tree passed **22/22 tests**. Two exports of all **34 results** (17 cases × 2 policies) matched byte for byte, SHA-256 `488b258086c7b7313d012e4b32db707473aa6b5e3a04e2e8818f1525901955bf`. The complete [synthetic trace](engine15-batch1-synthetic-traces-20261114.json) includes all inputs' hashes, weeks, rule IDs, conflicts and unmodeled feedback. An independent arithmetic check of emitted weeks found no negative/nonfinite weekly volume, requested-target overrun, configured ceiling overrun, long-run share overrun, or missing week rule IDs. The growth matrix test checks the two growth caps separately; other configured behavior is covered by focused tests, not exhaustive proof across every possible input.
+
+Results: 22 `ok`, 8 `conflict`, 2 `needs_human_review`, 2 `insufficient_baseline`. Both policies report R03 and R15 long-run conflicts, R14 insufficient days, and R17 below-baseline targets. R12 requires human review; R16 lacks baseline. R04's dual-cap target is forecast after the plan window while its comparator reaches it within the window. Forecasts are arithmetic and do not establish achievable fitness or safety. Missed-session and difficult-feedback inputs remain explicitly unmodeled, rather than automatically interpreted as recovery or adaptation.
+
+GitHub Actions run 43583954267 has no runner steps. Its check-run annotation says the job did not start because account payments failed or the spending limit needs increasing. This is a billing/runner-allocation blocker, not a confirmed workflow syntax defect. Owner-authorized local Python 3.12 execution supplies exact-source technical evidence, but hosted CI is **NOT RUN**. Gate B remains pending independent full-output review and owner sign-off. Physical-device testing remains owner-only. Roll back this fixture/test/export increment by reverting its commit; no saved-plan schema or production policy is changed.
+
 **Status:** Local software checks pass; GitHub Actions execution and independent Gate B coaching review remain **unverified**. This is research-only; no Android production engine changes or owner approval to merge.
 
 ## Exact implementation and provenance
