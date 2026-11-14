@@ -1,5 +1,9 @@
 # StrideLab agent workflow (Codex and other repository agents)
 
+## Engine 1.5 long-term coaching research and implementation (owner decision, 2026-11-14)
+
+Follow [Engine 1.5 long-term roadmap v0.2](docs/engine15-long-term-roadmap-v0.2-20261114.md) and its [precommitted Gate B rubric](docs/qa/engine15-gate-b-rubric-v1.md). There is no November 21/30 deadline. Limit implementation to two active workstreams: Android reliability and isolated coaching research, one primary deliverable each. Batch 1 is research-only; do not import prototype Python policies into Android or claim synthetic tests establish coaching effectiveness. M-X signed-out identity begins only after M0 frees the Android workstream, and before outside testers. Keep dev/main promotion rules below. For existing Engine 1.5 stabilization tests and the builder hang see [execution tracker](ENGINE15_EXECUTION.md); it is historical implementation evidence, not a substitute for roadmap gates.
+
 ## Activity Detail header and continuous charts (2026-11-12)
 
 On the modern Kotlin Activity Detail sheet, retain the approved expanded-header layout: a normal back control, title/date, and **styled, tappable AMOLED pill actions** for Edit and Share. Do not restore the decorative lime diagonal-arrow tile, loose text-only Edit/Share controls, the map GPS-gap overlay, or the redundant top-right full-screen chevron. The map-only bottom grip and sheet gestures remain accessible.
