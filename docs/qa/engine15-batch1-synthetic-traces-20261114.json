@@ -1,0 +1,4958 @@
+{
+  "interpretation": "Synthetic conformance only; human Gate B review not performed",
+  "results": [
+    {
+      "baseline_km": 13.5,
+      "confidence": "high",
+      "config_hash": "89932a719575d39086df12385f506fb8274b2df7e0eb8788c73a88d9ba4992b3",
+      "conflicts": [],
+      "decision_trace": [],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 13.5,
+        "last_two_complete_mean_km": 14.5,
+        "observed_longest_km": 6.0
+      },
+      "feasibility": "later",
+      "input_hash": "5eb213327e63b8a4ee89100dd054e0c04325a4c3aa43a03f18dd84f2b18611c2",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "dual_cap_illustrative",
+      "scenario": "R01",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2027-03-15",
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 4.725,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 25.0,
+          "week": 1,
+          "weekly_km": 13.5
+        },
+        {
+          "long_run_km": 4.961,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 25.0,
+          "week": 2,
+          "weekly_km": 14.175
+        },
+        {
+          "long_run_km": 5.209,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 25.0,
+          "week": 3,
+          "weekly_km": 14.884
+        },
+        {
+          "long_run_km": 4.167,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 25.0,
+          "week": 4,
+          "weekly_km": 11.907
+        },
+        {
+          "long_run_km": 5.469,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 25.0,
+          "week": 5,
+          "weekly_km": 15.628
+        },
+        {
+          "long_run_km": 5.743,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 25.0,
+          "week": 6,
+          "weekly_km": 16.409
+        },
+        {
+          "long_run_km": 6.03,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 25.0,
+          "week": 7,
+          "weekly_km": 17.229
+        },
+        {
+          "long_run_km": 4.824,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 25.0,
+          "week": 8,
+          "weekly_km": 13.783
+        },
+        {
+          "long_run_km": 6.331,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 25.0,
+          "week": 9,
+          "weekly_km": 18.09
+        },
+        {
+          "long_run_km": 6.647,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 25.0,
+          "week": 10,
+          "weekly_km": 18.994
+        },
+        {
+          "long_run_km": 6.98,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 25.0,
+          "week": 11,
+          "weekly_km": 19.944
+        },
+        {
+          "long_run_km": 5.584,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 25.0,
+          "week": 12,
+          "weekly_km": 15.955
+        }
+      ]
+    },
+    {
+      "baseline_km": 13.5,
+      "confidence": "high",
+      "config_hash": "cd70dcf8a04bb979e8e63751471c4088c867cad226385fa3e5ef1e44adecbc4d",
+      "conflicts": [],
+      "decision_trace": [],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 13.5,
+        "last_two_complete_mean_km": 14.5,
+        "observed_longest_km": 6.0
+      },
+      "feasibility": "later",
+      "input_hash": "5eb213327e63b8a4ee89100dd054e0c04325a4c3aa43a03f18dd84f2b18611c2",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "relative_cap_comparator",
+      "scenario": "R01",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2027-03-15",
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 4.725,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 25.0,
+          "week": 1,
+          "weekly_km": 13.5
+        },
+        {
+          "long_run_km": 4.961,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 25.0,
+          "week": 2,
+          "weekly_km": 14.175
+        },
+        {
+          "long_run_km": 5.209,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 25.0,
+          "week": 3,
+          "weekly_km": 14.884
+        },
+        {
+          "long_run_km": 4.167,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 25.0,
+          "week": 4,
+          "weekly_km": 11.907
+        },
+        {
+          "long_run_km": 5.469,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 25.0,
+          "week": 5,
+          "weekly_km": 15.628
+        },
+        {
+          "long_run_km": 5.743,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 25.0,
+          "week": 6,
+          "weekly_km": 16.409
+        },
+        {
+          "long_run_km": 6.03,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 25.0,
+          "week": 7,
+          "weekly_km": 17.229
+        },
+        {
+          "long_run_km": 4.824,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 25.0,
+          "week": 8,
+          "weekly_km": 13.783
+        },
+        {
+          "long_run_km": 6.331,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 25.0,
+          "week": 9,
+          "weekly_km": 18.09
+        },
+        {
+          "long_run_km": 6.647,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 25.0,
+          "week": 10,
+          "weekly_km": 18.994
+        },
+        {
+          "long_run_km": 6.98,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 25.0,
+          "week": 11,
+          "weekly_km": 19.944
+        },
+        {
+          "long_run_km": 5.584,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 25.0,
+          "week": 12,
+          "weekly_km": 15.955
+        }
+      ]
+    },
+    {
+      "baseline_km": 28.5,
+      "confidence": "high",
+      "config_hash": "89932a719575d39086df12385f506fb8274b2df7e0eb8788c73a88d9ba4992b3",
+      "conflicts": [],
+      "decision_trace": [],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 28.5,
+        "last_two_complete_mean_km": 29.5,
+        "observed_longest_km": 12.0
+      },
+      "feasibility": "within_window",
+      "input_hash": "38241bc9238624490ce16443674fec3a73466acc655bb86a975a9ca62ca0d564",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "dual_cap_illustrative",
+      "scenario": "R02",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2027-01-18",
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 9.975,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 40.0,
+          "week": 1,
+          "weekly_km": 28.5
+        },
+        {
+          "long_run_km": 10.473,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 40.0,
+          "week": 2,
+          "weekly_km": 29.925
+        },
+        {
+          "long_run_km": 10.997,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 40.0,
+          "week": 3,
+          "weekly_km": 31.421
+        },
+        {
+          "long_run_km": 8.797,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 40.0,
+          "week": 4,
+          "weekly_km": 25.137
+        },
+        {
+          "long_run_km": 11.547,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 40.0,
+          "week": 5,
+          "weekly_km": 32.992
+        },
+        {
+          "long_run_km": 12.124,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 40.0,
+          "week": 6,
+          "weekly_km": 34.642
+        },
+        {
+          "long_run_km": 12.73,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 40.0,
+          "week": 7,
+          "weekly_km": 36.374
+        },
+        {
+          "long_run_km": 10.184,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 40.0,
+          "week": 8,
+          "weekly_km": 29.099
+        },
+        {
+          "long_run_km": 13.367,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 40.0,
+          "week": 9,
+          "weekly_km": 38.193
+        },
+        {
+          "long_run_km": 14.0,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 40.0,
+          "week": 10,
+          "weekly_km": 40.0
+        },
+        {
+          "long_run_km": 14.0,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 40.0,
+          "week": 11,
+          "weekly_km": 40.0
+        },
+        {
+          "long_run_km": 11.2,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 40.0,
+          "week": 12,
+          "weekly_km": 32.0
+        }
+      ]
+    },
+    {
+      "baseline_km": 28.5,
+      "confidence": "high",
+      "config_hash": "cd70dcf8a04bb979e8e63751471c4088c867cad226385fa3e5ef1e44adecbc4d",
+      "conflicts": [],
+      "decision_trace": [],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 28.5,
+        "last_two_complete_mean_km": 29.5,
+        "observed_longest_km": 12.0
+      },
+      "feasibility": "within_window",
+      "input_hash": "38241bc9238624490ce16443674fec3a73466acc655bb86a975a9ca62ca0d564",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "relative_cap_comparator",
+      "scenario": "R02",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2027-01-18",
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 9.975,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 40.0,
+          "week": 1,
+          "weekly_km": 28.5
+        },
+        {
+          "long_run_km": 10.473,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 40.0,
+          "week": 2,
+          "weekly_km": 29.925
+        },
+        {
+          "long_run_km": 10.997,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 40.0,
+          "week": 3,
+          "weekly_km": 31.421
+        },
+        {
+          "long_run_km": 8.797,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 40.0,
+          "week": 4,
+          "weekly_km": 25.137
+        },
+        {
+          "long_run_km": 11.547,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 40.0,
+          "week": 5,
+          "weekly_km": 32.992
+        },
+        {
+          "long_run_km": 12.124,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 40.0,
+          "week": 6,
+          "weekly_km": 34.642
+        },
+        {
+          "long_run_km": 12.73,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 40.0,
+          "week": 7,
+          "weekly_km": 36.374
+        },
+        {
+          "long_run_km": 10.184,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 40.0,
+          "week": 8,
+          "weekly_km": 29.099
+        },
+        {
+          "long_run_km": 13.367,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 40.0,
+          "week": 9,
+          "weekly_km": 38.193
+        },
+        {
+          "long_run_km": 14.0,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 40.0,
+          "week": 10,
+          "weekly_km": 40.0
+        },
+        {
+          "long_run_km": 14.0,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 40.0,
+          "week": 11,
+          "weekly_km": 40.0
+        },
+        {
+          "long_run_km": 11.2,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 40.0,
+          "week": 12,
+          "weekly_km": 32.0
+        }
+      ]
+    },
+    {
+      "baseline_km": 36.0,
+      "confidence": "high",
+      "config_hash": "89932a719575d39086df12385f506fb8274b2df7e0eb8788c73a88d9ba4992b3",
+      "conflicts": [
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 12.6,
+          "week": 1
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 13.229,
+          "week": 2
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 13.891,
+          "week": 3
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 11.113,
+          "week": 4
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 14.585,
+          "week": 5
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 15.285,
+          "week": 6
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 15.985,
+          "week": 7
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 12.788,
+          "week": 8
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 16.685,
+          "week": 9
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 17.385,
+          "week": 10
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 18.085,
+          "week": 11
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 14.468,
+          "week": 12
+        }
+      ],
+      "decision_trace": [],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 36.0,
+        "last_two_complete_mean_km": 36.5,
+        "observed_longest_km": 17.0
+      },
+      "feasibility": "later",
+      "input_hash": "95dccf12356c8598f844aa095b9eb2e9193621d6a05e8369d795cd7dd780cdf9",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "dual_cap_illustrative",
+      "scenario": "R03",
+      "source_origin": "synthetic",
+      "status": "conflict",
+      "target_date_forecast": "2027-04-05",
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 12.6,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 65.0,
+          "week": 1,
+          "weekly_km": 36.0
+        },
+        {
+          "long_run_km": 13.229,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 65.0,
+          "week": 2,
+          "weekly_km": 37.8
+        },
+        {
+          "long_run_km": 13.891,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 65.0,
+          "week": 3,
+          "weekly_km": 39.69
+        },
+        {
+          "long_run_km": 11.113,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 65.0,
+          "week": 4,
+          "weekly_km": 31.752
+        },
+        {
+          "long_run_km": 14.585,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 65.0,
+          "week": 5,
+          "weekly_km": 41.674
+        },
+        {
+          "long_run_km": 15.285,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 65.0,
+          "week": 6,
+          "weekly_km": 43.674
+        },
+        {
+          "long_run_km": 15.985,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 65.0,
+          "week": 7,
+          "weekly_km": 45.674
+        },
+        {
+          "long_run_km": 12.788,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 65.0,
+          "week": 8,
+          "weekly_km": 36.539
+        },
+        {
+          "long_run_km": 16.685,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 65.0,
+          "week": 9,
+          "weekly_km": 47.674
+        },
+        {
+          "long_run_km": 17.385,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 65.0,
+          "week": 10,
+          "weekly_km": 49.674
+        },
+        {
+          "long_run_km": 18.085,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 65.0,
+          "week": 11,
+          "weekly_km": 51.674
+        },
+        {
+          "long_run_km": 14.468,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 65.0,
+          "week": 12,
+          "weekly_km": 41.339
+        }
+      ]
+    },
+    {
+      "baseline_km": 36.0,
+      "confidence": "high",
+      "config_hash": "cd70dcf8a04bb979e8e63751471c4088c867cad226385fa3e5ef1e44adecbc4d",
+      "conflicts": [
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 12.6,
+          "week": 1
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 13.229,
+          "week": 2
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 13.891,
+          "week": 3
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 11.113,
+          "week": 4
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 14.585,
+          "week": 5
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 15.315,
+          "week": 6
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 16.081,
+          "week": 7
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 12.864,
+          "week": 8
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 16.885,
+          "week": 9
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 17.729,
+          "week": 10
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 18.615,
+          "week": 11
+        },
+        {
+          "requested_km": 25.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 14.892,
+          "week": 12
+        }
+      ],
+      "decision_trace": [],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 36.0,
+        "last_two_complete_mean_km": 36.5,
+        "observed_longest_km": 17.0
+      },
+      "feasibility": "later",
+      "input_hash": "95dccf12356c8598f844aa095b9eb2e9193621d6a05e8369d795cd7dd780cdf9",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "relative_cap_comparator",
+      "scenario": "R03",
+      "source_origin": "synthetic",
+      "status": "conflict",
+      "target_date_forecast": "2027-03-15",
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 12.6,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 65.0,
+          "week": 1,
+          "weekly_km": 36.0
+        },
+        {
+          "long_run_km": 13.229,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 65.0,
+          "week": 2,
+          "weekly_km": 37.8
+        },
+        {
+          "long_run_km": 13.891,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 65.0,
+          "week": 3,
+          "weekly_km": 39.69
+        },
+        {
+          "long_run_km": 11.113,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 65.0,
+          "week": 4,
+          "weekly_km": 31.752
+        },
+        {
+          "long_run_km": 14.585,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 65.0,
+          "week": 5,
+          "weekly_km": 41.674
+        },
+        {
+          "long_run_km": 15.315,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 65.0,
+          "week": 6,
+          "weekly_km": 43.758
+        },
+        {
+          "long_run_km": 16.081,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 65.0,
+          "week": 7,
+          "weekly_km": 45.946
+        },
+        {
+          "long_run_km": 12.864,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 65.0,
+          "week": 8,
+          "weekly_km": 36.757
+        },
+        {
+          "long_run_km": 16.885,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 65.0,
+          "week": 9,
+          "weekly_km": 48.243
+        },
+        {
+          "long_run_km": 17.729,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 65.0,
+          "week": 10,
+          "weekly_km": 50.655
+        },
+        {
+          "long_run_km": 18.615,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 65.0,
+          "week": 11,
+          "weekly_km": 53.188
+        },
+        {
+          "long_run_km": 14.892,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 65.0,
+          "week": 12,
+          "weekly_km": 42.55
+        }
+      ]
+    },
+    {
+      "baseline_km": 60.5,
+      "confidence": "medium",
+      "config_hash": "89932a719575d39086df12385f506fb8274b2df7e0eb8788c73a88d9ba4992b3",
+      "conflicts": [],
+      "decision_trace": [
+        {
+          "detail": "Use lower mean of last two complete weeks",
+          "rule": "RECENT_DOWNWARD_TREND"
+        }
+      ],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 60.75,
+        "last_two_complete_mean_km": 60.5,
+        "observed_longest_km": 20.0
+      },
+      "feasibility": "later",
+      "input_hash": "d972beffab1105bc51b886118f2d4392e537ff99ec2507f7e3370b41380657ab",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "dual_cap_illustrative",
+      "scenario": "R04",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2027-02-15",
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 21.174,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 80.0,
+          "week": 1,
+          "weekly_km": 60.5
+        },
+        {
+          "long_run_km": 21.875,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 80.0,
+          "week": 2,
+          "weekly_km": 62.5
+        },
+        {
+          "long_run_km": 22.575,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 80.0,
+          "week": 3,
+          "weekly_km": 64.5
+        },
+        {
+          "long_run_km": 18.06,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 80.0,
+          "week": 4,
+          "weekly_km": 51.6
+        },
+        {
+          "long_run_km": 23.275,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 80.0,
+          "week": 5,
+          "weekly_km": 66.5
+        },
+        {
+          "long_run_km": 23.974,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 80.0,
+          "week": 6,
+          "weekly_km": 68.5
+        },
+        {
+          "long_run_km": 24.674,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 80.0,
+          "week": 7,
+          "weekly_km": 70.5
+        },
+        {
+          "long_run_km": 19.74,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 80.0,
+          "week": 8,
+          "weekly_km": 56.4
+        },
+        {
+          "long_run_km": 25.375,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 80.0,
+          "week": 9,
+          "weekly_km": 72.5
+        },
+        {
+          "long_run_km": 26.075,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 80.0,
+          "week": 10,
+          "weekly_km": 74.5
+        },
+        {
+          "long_run_km": 26.775,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 80.0,
+          "week": 11,
+          "weekly_km": 76.5
+        },
+        {
+          "long_run_km": 21.419,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 80.0,
+          "week": 12,
+          "weekly_km": 61.2
+        }
+      ]
+    },
+    {
+      "baseline_km": 60.5,
+      "confidence": "medium",
+      "config_hash": "cd70dcf8a04bb979e8e63751471c4088c867cad226385fa3e5ef1e44adecbc4d",
+      "conflicts": [],
+      "decision_trace": [
+        {
+          "detail": "Use lower mean of last two complete weeks",
+          "rule": "RECENT_DOWNWARD_TREND"
+        }
+      ],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 60.75,
+        "last_two_complete_mean_km": 60.5,
+        "observed_longest_km": 20.0
+      },
+      "feasibility": "within_window",
+      "input_hash": "d972beffab1105bc51b886118f2d4392e537ff99ec2507f7e3370b41380657ab",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "relative_cap_comparator",
+      "scenario": "R04",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2027-01-11",
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 21.174,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 80.0,
+          "week": 1,
+          "weekly_km": 60.5
+        },
+        {
+          "long_run_km": 22.233,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 80.0,
+          "week": 2,
+          "weekly_km": 63.525
+        },
+        {
+          "long_run_km": 23.345,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 80.0,
+          "week": 3,
+          "weekly_km": 66.701
+        },
+        {
+          "long_run_km": 18.676,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 80.0,
+          "week": 4,
+          "weekly_km": 53.361
+        },
+        {
+          "long_run_km": 24.512,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 80.0,
+          "week": 5,
+          "weekly_km": 70.036
+        },
+        {
+          "long_run_km": 25.738,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 80.0,
+          "week": 6,
+          "weekly_km": 73.538
+        },
+        {
+          "long_run_km": 27.025,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 80.0,
+          "week": 7,
+          "weekly_km": 77.215
+        },
+        {
+          "long_run_km": 21.62,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 80.0,
+          "week": 8,
+          "weekly_km": 61.772
+        },
+        {
+          "long_run_km": 28.0,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 80.0,
+          "week": 9,
+          "weekly_km": 80.0
+        },
+        {
+          "long_run_km": 28.0,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 80.0,
+          "week": 10,
+          "weekly_km": 80.0
+        },
+        {
+          "long_run_km": 28.0,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 80.0,
+          "week": 11,
+          "weekly_km": 80.0
+        },
+        {
+          "long_run_km": 22.4,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 80.0,
+          "week": 12,
+          "weekly_km": 64.0
+        }
+      ]
+    },
+    {
+      "baseline_km": 89.25,
+      "confidence": "high",
+      "config_hash": "89932a719575d39086df12385f506fb8274b2df7e0eb8788c73a88d9ba4992b3",
+      "conflicts": [],
+      "decision_trace": [],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 89.25,
+        "last_two_complete_mean_km": 90.0,
+        "observed_longest_km": 27.0
+      },
+      "feasibility": "within_window",
+      "input_hash": "53150ebbe26785e70932e0826953f1d6fd7580944dcea456dfa75cf6d5656e96",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "dual_cap_illustrative",
+      "scenario": "R05",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2027-01-11",
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 28.5,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_STEP_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 100.0,
+          "week": 1,
+          "weekly_km": 89.25
+        },
+        {
+          "long_run_km": 30.0,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_STEP_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 100.0,
+          "week": 2,
+          "weekly_km": 91.25
+        },
+        {
+          "long_run_km": 31.5,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_STEP_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 100.0,
+          "week": 3,
+          "weekly_km": 93.25
+        },
+        {
+          "long_run_km": 25.2,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 100.0,
+          "week": 4,
+          "weekly_km": 74.6
+        },
+        {
+          "long_run_km": 33.0,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_STEP_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 100.0,
+          "week": 5,
+          "weekly_km": 95.25
+        },
+        {
+          "long_run_km": 34.037,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 100.0,
+          "week": 6,
+          "weekly_km": 97.25
+        },
+        {
+          "long_run_km": 34.737,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 100.0,
+          "week": 7,
+          "weekly_km": 99.25
+        },
+        {
+          "long_run_km": 27.79,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 100.0,
+          "week": 8,
+          "weekly_km": 79.4
+        },
+        {
+          "long_run_km": 35.0,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 100.0,
+          "week": 9,
+          "weekly_km": 100.0
+        },
+        {
+          "long_run_km": 35.0,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 100.0,
+          "week": 10,
+          "weekly_km": 100.0
+        },
+        {
+          "long_run_km": 35.0,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 100.0,
+          "week": 11,
+          "weekly_km": 100.0
+        },
+        {
+          "long_run_km": 28.0,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 100.0,
+          "week": 12,
+          "weekly_km": 80.0
+        }
+      ]
+    },
+    {
+      "baseline_km": 89.25,
+      "confidence": "high",
+      "config_hash": "cd70dcf8a04bb979e8e63751471c4088c867cad226385fa3e5ef1e44adecbc4d",
+      "conflicts": [],
+      "decision_trace": [],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 89.25,
+        "last_two_complete_mean_km": 90.0,
+        "observed_longest_km": 27.0
+      },
+      "feasibility": "within_window",
+      "input_hash": "53150ebbe26785e70932e0826953f1d6fd7580944dcea456dfa75cf6d5656e96",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "relative_cap_comparator",
+      "scenario": "R05",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2026-12-14",
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 28.5,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_STEP_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 100.0,
+          "week": 1,
+          "weekly_km": 89.25
+        },
+        {
+          "long_run_km": 30.0,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_STEP_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 100.0,
+          "week": 2,
+          "weekly_km": 93.713
+        },
+        {
+          "long_run_km": 31.5,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_STEP_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 100.0,
+          "week": 3,
+          "weekly_km": 98.399
+        },
+        {
+          "long_run_km": 25.2,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 100.0,
+          "week": 4,
+          "weekly_km": 78.719
+        },
+        {
+          "long_run_km": 33.0,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_STEP_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 100.0,
+          "week": 5,
+          "weekly_km": 100.0
+        },
+        {
+          "long_run_km": 34.5,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_STEP_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 100.0,
+          "week": 6,
+          "weekly_km": 100.0
+        },
+        {
+          "long_run_km": 35.0,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 100.0,
+          "week": 7,
+          "weekly_km": 100.0
+        },
+        {
+          "long_run_km": 28.0,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 100.0,
+          "week": 8,
+          "weekly_km": 80.0
+        },
+        {
+          "long_run_km": 35.0,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 100.0,
+          "week": 9,
+          "weekly_km": 100.0
+        },
+        {
+          "long_run_km": 35.0,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 100.0,
+          "week": 10,
+          "weekly_km": 100.0
+        },
+        {
+          "long_run_km": 35.0,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 100.0,
+          "week": 11,
+          "weekly_km": 100.0
+        },
+        {
+          "long_run_km": 28.0,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 100.0,
+          "week": 12,
+          "weekly_km": 80.0
+        }
+      ]
+    },
+    {
+      "baseline_km": 10.0,
+      "confidence": "medium",
+      "config_hash": "89932a719575d39086df12385f506fb8274b2df7e0eb8788c73a88d9ba4992b3",
+      "conflicts": [],
+      "decision_trace": [
+        {
+          "detail": "Use lower mean of last two complete weeks",
+          "rule": "RECENT_DOWNWARD_TREND"
+        }
+      ],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 15.0,
+        "last_two_complete_mean_km": 10.0,
+        "observed_longest_km": 18.0
+      },
+      "feasibility": "later",
+      "input_hash": "9ecfdcc7089ab0273d9b7b3335591a1419796750134c3af483504d4051e84733",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "dual_cap_illustrative",
+      "scenario": "R06",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2027-06-14",
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 3.5,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 30.0,
+          "week": 1,
+          "weekly_km": 10.0
+        },
+        {
+          "long_run_km": 3.675,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 30.0,
+          "week": 2,
+          "weekly_km": 10.5
+        },
+        {
+          "long_run_km": 3.858,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 30.0,
+          "week": 3,
+          "weekly_km": 11.025
+        },
+        {
+          "long_run_km": 3.086,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 30.0,
+          "week": 4,
+          "weekly_km": 8.82
+        },
+        {
+          "long_run_km": 4.051,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 30.0,
+          "week": 5,
+          "weekly_km": 11.576
+        },
+        {
+          "long_run_km": 4.254,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 30.0,
+          "week": 6,
+          "weekly_km": 12.155
+        },
+        {
+          "long_run_km": 4.467,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 30.0,
+          "week": 7,
+          "weekly_km": 12.763
+        },
+        {
+          "long_run_km": 3.573,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 30.0,
+          "week": 8,
+          "weekly_km": 10.21
+        },
+        {
+          "long_run_km": 4.69,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 30.0,
+          "week": 9,
+          "weekly_km": 13.401
+        },
+        {
+          "long_run_km": 4.924,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 30.0,
+          "week": 10,
+          "weekly_km": 14.071
+        },
+        {
+          "long_run_km": 5.171,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 30.0,
+          "week": 11,
+          "weekly_km": 14.775
+        },
+        {
+          "long_run_km": 4.137,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 30.0,
+          "week": 12,
+          "weekly_km": 11.82
+        }
+      ]
+    },
+    {
+      "baseline_km": 10.0,
+      "confidence": "medium",
+      "config_hash": "cd70dcf8a04bb979e8e63751471c4088c867cad226385fa3e5ef1e44adecbc4d",
+      "conflicts": [],
+      "decision_trace": [
+        {
+          "detail": "Use lower mean of last two complete weeks",
+          "rule": "RECENT_DOWNWARD_TREND"
+        }
+      ],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 15.0,
+        "last_two_complete_mean_km": 10.0,
+        "observed_longest_km": 18.0
+      },
+      "feasibility": "later",
+      "input_hash": "9ecfdcc7089ab0273d9b7b3335591a1419796750134c3af483504d4051e84733",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "relative_cap_comparator",
+      "scenario": "R06",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2027-06-14",
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 3.5,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 30.0,
+          "week": 1,
+          "weekly_km": 10.0
+        },
+        {
+          "long_run_km": 3.675,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 30.0,
+          "week": 2,
+          "weekly_km": 10.5
+        },
+        {
+          "long_run_km": 3.858,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 30.0,
+          "week": 3,
+          "weekly_km": 11.025
+        },
+        {
+          "long_run_km": 3.086,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 30.0,
+          "week": 4,
+          "weekly_km": 8.82
+        },
+        {
+          "long_run_km": 4.051,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 30.0,
+          "week": 5,
+          "weekly_km": 11.576
+        },
+        {
+          "long_run_km": 4.254,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 30.0,
+          "week": 6,
+          "weekly_km": 12.155
+        },
+        {
+          "long_run_km": 4.467,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 30.0,
+          "week": 7,
+          "weekly_km": 12.763
+        },
+        {
+          "long_run_km": 3.573,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 30.0,
+          "week": 8,
+          "weekly_km": 10.21
+        },
+        {
+          "long_run_km": 4.69,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 30.0,
+          "week": 9,
+          "weekly_km": 13.401
+        },
+        {
+          "long_run_km": 4.924,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 30.0,
+          "week": 10,
+          "weekly_km": 14.071
+        },
+        {
+          "long_run_km": 5.171,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 30.0,
+          "week": 11,
+          "weekly_km": 14.775
+        },
+        {
+          "long_run_km": 4.137,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 30.0,
+          "week": 12,
+          "weekly_km": 11.82
+        }
+      ]
+    },
+    {
+      "baseline_km": 27.0,
+      "confidence": "medium",
+      "config_hash": "89932a719575d39086df12385f506fb8274b2df7e0eb8788c73a88d9ba4992b3",
+      "conflicts": [],
+      "decision_trace": [
+        {
+          "detail": "Use lower mean of last two complete weeks",
+          "rule": "RECENT_DOWNWARD_TREND"
+        }
+      ],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 40.25,
+        "last_two_complete_mean_km": 27.0,
+        "observed_longest_km": 18.0
+      },
+      "feasibility": "later",
+      "input_hash": "336691d2e2b44e9ab3c6eaeb506a2bca606e2a64abf4b55275478e5db10679e8",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "dual_cap_illustrative",
+      "scenario": "R07",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2027-05-10",
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 9.45,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 60.0,
+          "week": 1,
+          "weekly_km": 27.0
+        },
+        {
+          "long_run_km": 9.922,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 60.0,
+          "week": 2,
+          "weekly_km": 28.35
+        },
+        {
+          "long_run_km": 10.418,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 60.0,
+          "week": 3,
+          "weekly_km": 29.768
+        },
+        {
+          "long_run_km": 8.334,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 60.0,
+          "week": 4,
+          "weekly_km": 23.814
+        },
+        {
+          "long_run_km": 10.939,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 60.0,
+          "week": 5,
+          "weekly_km": 31.256
+        },
+        {
+          "long_run_km": 11.486,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 60.0,
+          "week": 6,
+          "weekly_km": 32.819
+        },
+        {
+          "long_run_km": 12.061,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 60.0,
+          "week": 7,
+          "weekly_km": 34.46
+        },
+        {
+          "long_run_km": 9.648,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 60.0,
+          "week": 8,
+          "weekly_km": 27.568
+        },
+        {
+          "long_run_km": 12.664,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 60.0,
+          "week": 9,
+          "weekly_km": 36.183
+        },
+        {
+          "long_run_km": 13.297,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 60.0,
+          "week": 10,
+          "weekly_km": 37.992
+        },
+        {
+          "long_run_km": 13.962,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 60.0,
+          "week": 11,
+          "weekly_km": 39.892
+        },
+        {
+          "long_run_km": 11.169,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 60.0,
+          "week": 12,
+          "weekly_km": 31.914
+        }
+      ]
+    },
+    {
+      "baseline_km": 27.0,
+      "confidence": "medium",
+      "config_hash": "cd70dcf8a04bb979e8e63751471c4088c867cad226385fa3e5ef1e44adecbc4d",
+      "conflicts": [],
+      "decision_trace": [
+        {
+          "detail": "Use lower mean of last two complete weeks",
+          "rule": "RECENT_DOWNWARD_TREND"
+        }
+      ],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 40.25,
+        "last_two_complete_mean_km": 27.0,
+        "observed_longest_km": 18.0
+      },
+      "feasibility": "later",
+      "input_hash": "336691d2e2b44e9ab3c6eaeb506a2bca606e2a64abf4b55275478e5db10679e8",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "relative_cap_comparator",
+      "scenario": "R07",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2027-04-19",
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 9.45,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 60.0,
+          "week": 1,
+          "weekly_km": 27.0
+        },
+        {
+          "long_run_km": 9.922,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 60.0,
+          "week": 2,
+          "weekly_km": 28.35
+        },
+        {
+          "long_run_km": 10.418,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 60.0,
+          "week": 3,
+          "weekly_km": 29.768
+        },
+        {
+          "long_run_km": 8.334,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 60.0,
+          "week": 4,
+          "weekly_km": 23.814
+        },
+        {
+          "long_run_km": 10.939,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 60.0,
+          "week": 5,
+          "weekly_km": 31.256
+        },
+        {
+          "long_run_km": 11.486,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 60.0,
+          "week": 6,
+          "weekly_km": 32.819
+        },
+        {
+          "long_run_km": 12.061,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 60.0,
+          "week": 7,
+          "weekly_km": 34.46
+        },
+        {
+          "long_run_km": 9.648,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 60.0,
+          "week": 8,
+          "weekly_km": 27.568
+        },
+        {
+          "long_run_km": 12.664,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 60.0,
+          "week": 9,
+          "weekly_km": 36.183
+        },
+        {
+          "long_run_km": 13.297,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 60.0,
+          "week": 10,
+          "weekly_km": 37.992
+        },
+        {
+          "long_run_km": 13.962,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 60.0,
+          "week": 11,
+          "weekly_km": 39.892
+        },
+        {
+          "long_run_km": 11.169,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 60.0,
+          "week": 12,
+          "weekly_km": 31.914
+        }
+      ]
+    },
+    {
+      "baseline_km": 26.5,
+      "confidence": "low",
+      "config_hash": "89932a719575d39086df12385f506fb8274b2df7e0eb8788c73a88d9ba4992b3",
+      "conflicts": [],
+      "decision_trace": [
+        {
+          "detail": "Unknown weekly distance excluded, not treated as zero",
+          "rule": "INCOMPLETE_HISTORY"
+        },
+        {
+          "detail": "Use lower value pending athlete confirmation",
+          "rule": "UNRESOLVED_DECLARATION"
+        },
+        {
+          "detail": "Narrow hypothetical progression constraints",
+          "rule": "LOW_CONFIDENCE_ENVELOPE"
+        }
+      ],
+      "evidence": {
+        "complete_weeks": 2,
+        "declared_km": 48.0,
+        "four_week_observed_mean_km": 26.5,
+        "last_two_complete_mean_km": null,
+        "observed_longest_km": 10.0
+      },
+      "feasibility": "later",
+      "input_hash": "fb31d8e8ac15ea0484e95cc118c0939eb90efb3fd7a57c773bf182b97d143f75",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "dual_cap_illustrative",
+      "scenario": "R08",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2027-07-26",
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 9.274,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 50.0,
+          "week": 1,
+          "weekly_km": 26.5
+        },
+        {
+          "long_run_km": 9.507,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 50.0,
+          "week": 2,
+          "weekly_km": 27.163
+        },
+        {
+          "long_run_km": 9.744,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 50.0,
+          "week": 3,
+          "weekly_km": 27.842
+        },
+        {
+          "long_run_km": 7.795,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 50.0,
+          "week": 4,
+          "weekly_km": 22.274
+        },
+        {
+          "long_run_km": 9.988,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 50.0,
+          "week": 5,
+          "weekly_km": 28.538
+        },
+        {
+          "long_run_km": 10.237,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 50.0,
+          "week": 6,
+          "weekly_km": 29.251
+        },
+        {
+          "long_run_km": 10.493,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 50.0,
+          "week": 7,
+          "weekly_km": 29.982
+        },
+        {
+          "long_run_km": 8.394,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 50.0,
+          "week": 8,
+          "weekly_km": 23.986
+        },
+        {
+          "long_run_km": 10.756,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 50.0,
+          "week": 9,
+          "weekly_km": 30.732
+        },
+        {
+          "long_run_km": 11.024,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 50.0,
+          "week": 10,
+          "weekly_km": 31.5
+        },
+        {
+          "long_run_km": 11.3,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 50.0,
+          "week": 11,
+          "weekly_km": 32.288
+        },
+        {
+          "long_run_km": 9.04,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 50.0,
+          "week": 12,
+          "weekly_km": 25.83
+        }
+      ]
+    },
+    {
+      "baseline_km": 26.5,
+      "confidence": "low",
+      "config_hash": "cd70dcf8a04bb979e8e63751471c4088c867cad226385fa3e5ef1e44adecbc4d",
+      "conflicts": [],
+      "decision_trace": [
+        {
+          "detail": "Unknown weekly distance excluded, not treated as zero",
+          "rule": "INCOMPLETE_HISTORY"
+        },
+        {
+          "detail": "Use lower value pending athlete confirmation",
+          "rule": "UNRESOLVED_DECLARATION"
+        },
+        {
+          "detail": "Narrow hypothetical progression constraints",
+          "rule": "LOW_CONFIDENCE_ENVELOPE"
+        }
+      ],
+      "evidence": {
+        "complete_weeks": 2,
+        "declared_km": 48.0,
+        "four_week_observed_mean_km": 26.5,
+        "last_two_complete_mean_km": null,
+        "observed_longest_km": 10.0
+      },
+      "feasibility": "later",
+      "input_hash": "fb31d8e8ac15ea0484e95cc118c0939eb90efb3fd7a57c773bf182b97d143f75",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "relative_cap_comparator",
+      "scenario": "R08",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2027-07-12",
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 9.274,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 50.0,
+          "week": 1,
+          "weekly_km": 26.5
+        },
+        {
+          "long_run_km": 9.507,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 50.0,
+          "week": 2,
+          "weekly_km": 27.163
+        },
+        {
+          "long_run_km": 9.744,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 50.0,
+          "week": 3,
+          "weekly_km": 27.842
+        },
+        {
+          "long_run_km": 7.795,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 50.0,
+          "week": 4,
+          "weekly_km": 22.274
+        },
+        {
+          "long_run_km": 9.988,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 50.0,
+          "week": 5,
+          "weekly_km": 28.538
+        },
+        {
+          "long_run_km": 10.237,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 50.0,
+          "week": 6,
+          "weekly_km": 29.251
+        },
+        {
+          "long_run_km": 10.493,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 50.0,
+          "week": 7,
+          "weekly_km": 29.982
+        },
+        {
+          "long_run_km": 8.394,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 50.0,
+          "week": 8,
+          "weekly_km": 23.986
+        },
+        {
+          "long_run_km": 10.756,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 50.0,
+          "week": 9,
+          "weekly_km": 30.732
+        },
+        {
+          "long_run_km": 11.024,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 50.0,
+          "week": 10,
+          "weekly_km": 31.5
+        },
+        {
+          "long_run_km": 11.3,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 50.0,
+          "week": 11,
+          "weekly_km": 32.288
+        },
+        {
+          "long_run_km": 9.04,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 50.0,
+          "week": 12,
+          "weekly_km": 25.83
+        }
+      ]
+    },
+    {
+      "baseline_km": 45.0,
+      "confidence": "high",
+      "config_hash": "89932a719575d39086df12385f506fb8274b2df7e0eb8788c73a88d9ba4992b3",
+      "conflicts": [],
+      "decision_trace": [],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 45.0,
+        "last_two_complete_mean_km": 45.5,
+        "observed_longest_km": 16.0
+      },
+      "feasibility": "within_window",
+      "input_hash": "81f9f13048f70affae788b68801ac8db044586eb3e7e5319b8550b041453da54",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "dual_cap_illustrative",
+      "scenario": "R09",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2027-01-18",
+      "unmodeled": [
+        "post_run_feedback"
+      ],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 15.749,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 58.0,
+          "week": 1,
+          "weekly_km": 45.0
+        },
+        {
+          "long_run_km": 16.45,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 58.0,
+          "week": 2,
+          "weekly_km": 47.0
+        },
+        {
+          "long_run_km": 17.15,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 58.0,
+          "week": 3,
+          "weekly_km": 49.0
+        },
+        {
+          "long_run_km": 13.719,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 58.0,
+          "week": 4,
+          "weekly_km": 39.2
+        },
+        {
+          "long_run_km": 17.849,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 58.0,
+          "week": 5,
+          "weekly_km": 51.0
+        },
+        {
+          "long_run_km": 18.549,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 58.0,
+          "week": 6,
+          "weekly_km": 53.0
+        },
+        {
+          "long_run_km": 19.25,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 58.0,
+          "week": 7,
+          "weekly_km": 55.0
+        },
+        {
+          "long_run_km": 15.399,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 58.0,
+          "week": 8,
+          "weekly_km": 44.0
+        },
+        {
+          "long_run_km": 19.95,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 58.0,
+          "week": 9,
+          "weekly_km": 57.0
+        },
+        {
+          "long_run_km": 20.299,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 58.0,
+          "week": 10,
+          "weekly_km": 58.0
+        },
+        {
+          "long_run_km": 20.299,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 58.0,
+          "week": 11,
+          "weekly_km": 58.0
+        },
+        {
+          "long_run_km": 16.239,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 58.0,
+          "week": 12,
+          "weekly_km": 46.4
+        }
+      ]
+    },
+    {
+      "baseline_km": 45.0,
+      "confidence": "high",
+      "config_hash": "cd70dcf8a04bb979e8e63751471c4088c867cad226385fa3e5ef1e44adecbc4d",
+      "conflicts": [],
+      "decision_trace": [],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 45.0,
+        "last_two_complete_mean_km": 45.5,
+        "observed_longest_km": 16.0
+      },
+      "feasibility": "within_window",
+      "input_hash": "81f9f13048f70affae788b68801ac8db044586eb3e7e5319b8550b041453da54",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "relative_cap_comparator",
+      "scenario": "R09",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2027-01-11",
+      "unmodeled": [
+        "post_run_feedback"
+      ],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 15.749,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 58.0,
+          "week": 1,
+          "weekly_km": 45.0
+        },
+        {
+          "long_run_km": 16.537,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 58.0,
+          "week": 2,
+          "weekly_km": 47.25
+        },
+        {
+          "long_run_km": 17.364,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 58.0,
+          "week": 3,
+          "weekly_km": 49.612
+        },
+        {
+          "long_run_km": 13.891,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 58.0,
+          "week": 4,
+          "weekly_km": 39.69
+        },
+        {
+          "long_run_km": 18.232,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 58.0,
+          "week": 5,
+          "weekly_km": 52.093
+        },
+        {
+          "long_run_km": 19.144,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 58.0,
+          "week": 6,
+          "weekly_km": 54.698
+        },
+        {
+          "long_run_km": 20.101,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 58.0,
+          "week": 7,
+          "weekly_km": 57.433
+        },
+        {
+          "long_run_km": 16.081,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 58.0,
+          "week": 8,
+          "weekly_km": 45.946
+        },
+        {
+          "long_run_km": 20.299,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 58.0,
+          "week": 9,
+          "weekly_km": 58.0
+        },
+        {
+          "long_run_km": 20.299,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 58.0,
+          "week": 10,
+          "weekly_km": 58.0
+        },
+        {
+          "long_run_km": 20.299,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 58.0,
+          "week": 11,
+          "weekly_km": 58.0
+        },
+        {
+          "long_run_km": 16.239,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 58.0,
+          "week": 12,
+          "weekly_km": 46.4
+        }
+      ]
+    },
+    {
+      "baseline_km": 35.0,
+      "confidence": "high",
+      "config_hash": "89932a719575d39086df12385f506fb8274b2df7e0eb8788c73a88d9ba4992b3",
+      "conflicts": [],
+      "decision_trace": [],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 35.0,
+        "last_two_complete_mean_km": 35.5,
+        "observed_longest_km": 14.0
+      },
+      "feasibility": "within_window",
+      "input_hash": "1cdbce94582b80d4199ec2a1f95b39624a16ddfc66f6a786a95e93102cafe5c5",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "dual_cap_illustrative",
+      "scenario": "R10",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2027-01-25",
+      "unmodeled": [
+        "post_run_feedback"
+      ],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 12.25,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 50.0,
+          "week": 1,
+          "weekly_km": 35.0
+        },
+        {
+          "long_run_km": 12.862,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 50.0,
+          "week": 2,
+          "weekly_km": 36.75
+        },
+        {
+          "long_run_km": 13.505,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 50.0,
+          "week": 3,
+          "weekly_km": 38.587
+        },
+        {
+          "long_run_km": 10.804,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 50.0,
+          "week": 4,
+          "weekly_km": 30.87
+        },
+        {
+          "long_run_km": 14.18,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 50.0,
+          "week": 5,
+          "weekly_km": 40.516
+        },
+        {
+          "long_run_km": 14.88,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 50.0,
+          "week": 6,
+          "weekly_km": 42.516
+        },
+        {
+          "long_run_km": 15.58,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 50.0,
+          "week": 7,
+          "weekly_km": 44.516
+        },
+        {
+          "long_run_km": 12.464,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 50.0,
+          "week": 8,
+          "weekly_km": 35.613
+        },
+        {
+          "long_run_km": 16.28,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 50.0,
+          "week": 9,
+          "weekly_km": 46.516
+        },
+        {
+          "long_run_km": 16.98,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 50.0,
+          "week": 10,
+          "weekly_km": 48.516
+        },
+        {
+          "long_run_km": 17.5,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 50.0,
+          "week": 11,
+          "weekly_km": 50.0
+        },
+        {
+          "long_run_km": 14.0,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 50.0,
+          "week": 12,
+          "weekly_km": 40.0
+        }
+      ]
+    },
+    {
+      "baseline_km": 35.0,
+      "confidence": "high",
+      "config_hash": "cd70dcf8a04bb979e8e63751471c4088c867cad226385fa3e5ef1e44adecbc4d",
+      "conflicts": [],
+      "decision_trace": [],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 35.0,
+        "last_two_complete_mean_km": 35.5,
+        "observed_longest_km": 14.0
+      },
+      "feasibility": "within_window",
+      "input_hash": "1cdbce94582b80d4199ec2a1f95b39624a16ddfc66f6a786a95e93102cafe5c5",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "relative_cap_comparator",
+      "scenario": "R10",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2027-01-25",
+      "unmodeled": [
+        "post_run_feedback"
+      ],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 12.25,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 50.0,
+          "week": 1,
+          "weekly_km": 35.0
+        },
+        {
+          "long_run_km": 12.862,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 50.0,
+          "week": 2,
+          "weekly_km": 36.75
+        },
+        {
+          "long_run_km": 13.505,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 50.0,
+          "week": 3,
+          "weekly_km": 38.587
+        },
+        {
+          "long_run_km": 10.804,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 50.0,
+          "week": 4,
+          "weekly_km": 30.87
+        },
+        {
+          "long_run_km": 14.18,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 50.0,
+          "week": 5,
+          "weekly_km": 40.516
+        },
+        {
+          "long_run_km": 14.889,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 50.0,
+          "week": 6,
+          "weekly_km": 42.542
+        },
+        {
+          "long_run_km": 15.634,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 50.0,
+          "week": 7,
+          "weekly_km": 44.669
+        },
+        {
+          "long_run_km": 12.507,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 50.0,
+          "week": 8,
+          "weekly_km": 35.735
+        },
+        {
+          "long_run_km": 16.415,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 50.0,
+          "week": 9,
+          "weekly_km": 46.902
+        },
+        {
+          "long_run_km": 17.236,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 50.0,
+          "week": 10,
+          "weekly_km": 49.247
+        },
+        {
+          "long_run_km": 17.5,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 50.0,
+          "week": 11,
+          "weekly_km": 50.0
+        },
+        {
+          "long_run_km": 14.0,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 50.0,
+          "week": 12,
+          "weekly_km": 40.0
+        }
+      ]
+    },
+    {
+      "baseline_km": 61.0,
+      "confidence": "high",
+      "config_hash": "89932a719575d39086df12385f506fb8274b2df7e0eb8788c73a88d9ba4992b3",
+      "conflicts": [],
+      "decision_trace": [],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 61.0,
+        "last_two_complete_mean_km": 61.5,
+        "observed_longest_km": 21.0
+      },
+      "feasibility": "later",
+      "input_hash": "946621c7e1930711764d5ccf9f4d9a03cbbd59afd68297bd9f5a385992c5f6e8",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "dual_cap_illustrative",
+      "scenario": "R11",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2027-02-15",
+      "unmodeled": [
+        "post_run_feedback"
+      ],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 21.349,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 80.0,
+          "week": 1,
+          "weekly_km": 61.0
+        },
+        {
+          "long_run_km": 22.049,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 80.0,
+          "week": 2,
+          "weekly_km": 63.0
+        },
+        {
+          "long_run_km": 22.75,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 80.0,
+          "week": 3,
+          "weekly_km": 65.0
+        },
+        {
+          "long_run_km": 18.2,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 80.0,
+          "week": 4,
+          "weekly_km": 52.0
+        },
+        {
+          "long_run_km": 23.45,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 80.0,
+          "week": 5,
+          "weekly_km": 67.0
+        },
+        {
+          "long_run_km": 24.15,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 80.0,
+          "week": 6,
+          "weekly_km": 69.0
+        },
+        {
+          "long_run_km": 24.849,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 80.0,
+          "week": 7,
+          "weekly_km": 71.0
+        },
+        {
+          "long_run_km": 19.88,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 80.0,
+          "week": 8,
+          "weekly_km": 56.8
+        },
+        {
+          "long_run_km": 25.549,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 80.0,
+          "week": 9,
+          "weekly_km": 73.0
+        },
+        {
+          "long_run_km": 26.25,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 80.0,
+          "week": 10,
+          "weekly_km": 75.0
+        },
+        {
+          "long_run_km": 26.95,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 80.0,
+          "week": 11,
+          "weekly_km": 77.0
+        },
+        {
+          "long_run_km": 21.56,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 80.0,
+          "week": 12,
+          "weekly_km": 61.6
+        }
+      ]
+    },
+    {
+      "baseline_km": 61.0,
+      "confidence": "high",
+      "config_hash": "cd70dcf8a04bb979e8e63751471c4088c867cad226385fa3e5ef1e44adecbc4d",
+      "conflicts": [],
+      "decision_trace": [],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 61.0,
+        "last_two_complete_mean_km": 61.5,
+        "observed_longest_km": 21.0
+      },
+      "feasibility": "within_window",
+      "input_hash": "946621c7e1930711764d5ccf9f4d9a03cbbd59afd68297bd9f5a385992c5f6e8",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "relative_cap_comparator",
+      "scenario": "R11",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2027-01-11",
+      "unmodeled": [
+        "post_run_feedback"
+      ],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 21.349,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 80.0,
+          "week": 1,
+          "weekly_km": 61.0
+        },
+        {
+          "long_run_km": 22.417,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 80.0,
+          "week": 2,
+          "weekly_km": 64.05
+        },
+        {
+          "long_run_km": 23.538,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 80.0,
+          "week": 3,
+          "weekly_km": 67.252
+        },
+        {
+          "long_run_km": 18.83,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 80.0,
+          "week": 4,
+          "weekly_km": 53.802
+        },
+        {
+          "long_run_km": 24.715,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 80.0,
+          "week": 5,
+          "weekly_km": 70.615
+        },
+        {
+          "long_run_km": 25.951,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 80.0,
+          "week": 6,
+          "weekly_km": 74.146
+        },
+        {
+          "long_run_km": 27.248,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 80.0,
+          "week": 7,
+          "weekly_km": 77.853
+        },
+        {
+          "long_run_km": 21.798,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 80.0,
+          "week": 8,
+          "weekly_km": 62.282
+        },
+        {
+          "long_run_km": 28.0,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 80.0,
+          "week": 9,
+          "weekly_km": 80.0
+        },
+        {
+          "long_run_km": 28.0,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 80.0,
+          "week": 10,
+          "weekly_km": 80.0
+        },
+        {
+          "long_run_km": 28.0,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 80.0,
+          "week": 11,
+          "weekly_km": 80.0
+        },
+        {
+          "long_run_km": 22.4,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 80.0,
+          "week": 12,
+          "weekly_km": 64.0
+        }
+      ]
+    },
+    {
+      "baseline_km": 33.5,
+      "confidence": "high",
+      "config_hash": "89932a719575d39086df12385f506fb8274b2df7e0eb8788c73a88d9ba4992b3",
+      "conflicts": [],
+      "decision_trace": [
+        {
+          "detail": "No automatic medical clearance or progression",
+          "rule": "PAIN_ILLNESS_HOLD"
+        }
+      ],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 33.5,
+        "last_two_complete_mean_km": 34.0,
+        "observed_longest_km": 13.0
+      },
+      "feasibility": "unsupported",
+      "input_hash": "bd75b1f1ffa3960dfc78b1edabed43396c7a7f419d63a6d0beff1b0d2c6350ae",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "dual_cap_illustrative",
+      "scenario": "R12",
+      "source_origin": "synthetic",
+      "status": "needs_human_review",
+      "target_date_forecast": null,
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": []
+    },
+    {
+      "baseline_km": 33.5,
+      "confidence": "high",
+      "config_hash": "cd70dcf8a04bb979e8e63751471c4088c867cad226385fa3e5ef1e44adecbc4d",
+      "conflicts": [],
+      "decision_trace": [
+        {
+          "detail": "No automatic medical clearance or progression",
+          "rule": "PAIN_ILLNESS_HOLD"
+        }
+      ],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 33.5,
+        "last_two_complete_mean_km": 34.0,
+        "observed_longest_km": 13.0
+      },
+      "feasibility": "unsupported",
+      "input_hash": "bd75b1f1ffa3960dfc78b1edabed43396c7a7f419d63a6d0beff1b0d2c6350ae",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "relative_cap_comparator",
+      "scenario": "R12",
+      "source_origin": "synthetic",
+      "status": "needs_human_review",
+      "target_date_forecast": null,
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": []
+    },
+    {
+      "baseline_km": 42.5,
+      "confidence": "high",
+      "config_hash": "89932a719575d39086df12385f506fb8274b2df7e0eb8788c73a88d9ba4992b3",
+      "conflicts": [],
+      "decision_trace": [],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 42.5,
+        "last_two_complete_mean_km": 43.0,
+        "observed_longest_km": 15.0
+      },
+      "feasibility": "within_window",
+      "input_hash": "36815d5e79355255eb866580f33af3ef601ffe0235bed7a78c5c1dd8c6113dee",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "dual_cap_illustrative",
+      "scenario": "R13",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2027-01-18",
+      "unmodeled": [
+        "post_run_feedback"
+      ],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 14.874,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 55.0,
+          "week": 1,
+          "weekly_km": 42.5
+        },
+        {
+          "long_run_km": 15.575,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 55.0,
+          "week": 2,
+          "weekly_km": 44.5
+        },
+        {
+          "long_run_km": 16.274,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 55.0,
+          "week": 3,
+          "weekly_km": 46.5
+        },
+        {
+          "long_run_km": 13.02,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 55.0,
+          "week": 4,
+          "weekly_km": 37.2
+        },
+        {
+          "long_run_km": 16.974,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 55.0,
+          "week": 5,
+          "weekly_km": 48.5
+        },
+        {
+          "long_run_km": 17.674,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 55.0,
+          "week": 6,
+          "weekly_km": 50.5
+        },
+        {
+          "long_run_km": 18.375,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 55.0,
+          "week": 7,
+          "weekly_km": 52.5
+        },
+        {
+          "long_run_km": 14.7,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 55.0,
+          "week": 8,
+          "weekly_km": 42.0
+        },
+        {
+          "long_run_km": 19.075,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 55.0,
+          "week": 9,
+          "weekly_km": 54.5
+        },
+        {
+          "long_run_km": 19.25,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 55.0,
+          "week": 10,
+          "weekly_km": 55.0
+        },
+        {
+          "long_run_km": 19.25,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 55.0,
+          "week": 11,
+          "weekly_km": 55.0
+        },
+        {
+          "long_run_km": 15.399,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 55.0,
+          "week": 12,
+          "weekly_km": 44.0
+        }
+      ]
+    },
+    {
+      "baseline_km": 42.5,
+      "confidence": "high",
+      "config_hash": "cd70dcf8a04bb979e8e63751471c4088c867cad226385fa3e5ef1e44adecbc4d",
+      "conflicts": [],
+      "decision_trace": [],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 42.5,
+        "last_two_complete_mean_km": 43.0,
+        "observed_longest_km": 15.0
+      },
+      "feasibility": "within_window",
+      "input_hash": "36815d5e79355255eb866580f33af3ef601ffe0235bed7a78c5c1dd8c6113dee",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "relative_cap_comparator",
+      "scenario": "R13",
+      "source_origin": "synthetic",
+      "status": "ok",
+      "target_date_forecast": "2027-01-11",
+      "unmodeled": [
+        "post_run_feedback"
+      ],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 14.874,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 55.0,
+          "week": 1,
+          "weekly_km": 42.5
+        },
+        {
+          "long_run_km": 15.618,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 55.0,
+          "week": 2,
+          "weekly_km": 44.625
+        },
+        {
+          "long_run_km": 16.399,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 55.0,
+          "week": 3,
+          "weekly_km": 46.856
+        },
+        {
+          "long_run_km": 13.119,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 55.0,
+          "week": 4,
+          "weekly_km": 37.485
+        },
+        {
+          "long_run_km": 17.219,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 55.0,
+          "week": 5,
+          "weekly_km": 49.199
+        },
+        {
+          "long_run_km": 18.08,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 55.0,
+          "week": 6,
+          "weekly_km": 51.659
+        },
+        {
+          "long_run_km": 18.984,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 55.0,
+          "week": 7,
+          "weekly_km": 54.242
+        },
+        {
+          "long_run_km": 15.187,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 55.0,
+          "week": 8,
+          "weekly_km": 43.394
+        },
+        {
+          "long_run_km": 19.25,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 55.0,
+          "week": 9,
+          "weekly_km": 55.0
+        },
+        {
+          "long_run_km": 19.25,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 55.0,
+          "week": 10,
+          "weekly_km": 55.0
+        },
+        {
+          "long_run_km": 19.25,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 55.0,
+          "week": 11,
+          "weekly_km": 55.0
+        },
+        {
+          "long_run_km": 15.399,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 55.0,
+          "week": 12,
+          "weekly_km": 44.0
+        }
+      ]
+    },
+    {
+      "baseline_km": 21.5,
+      "confidence": "high",
+      "config_hash": "89932a719575d39086df12385f506fb8274b2df7e0eb8788c73a88d9ba4992b3",
+      "conflicts": [
+        {
+          "available": 2,
+          "required": 3,
+          "rule": "INSUFFICIENT_DAYS"
+        }
+      ],
+      "decision_trace": [],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 21.5,
+        "last_two_complete_mean_km": 22.5,
+        "observed_longest_km": 8.0
+      },
+      "feasibility": "unsupported",
+      "input_hash": "5197e56e829fde57a47bce509763619b208fbaf436c00503d2f467cd95a24f93",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "dual_cap_illustrative",
+      "scenario": "R14",
+      "source_origin": "synthetic",
+      "status": "conflict",
+      "target_date_forecast": null,
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": []
+    },
+    {
+      "baseline_km": 21.5,
+      "confidence": "high",
+      "config_hash": "cd70dcf8a04bb979e8e63751471c4088c867cad226385fa3e5ef1e44adecbc4d",
+      "conflicts": [
+        {
+          "available": 2,
+          "required": 3,
+          "rule": "INSUFFICIENT_DAYS"
+        }
+      ],
+      "decision_trace": [],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 21.5,
+        "last_two_complete_mean_km": 22.5,
+        "observed_longest_km": 8.0
+      },
+      "feasibility": "unsupported",
+      "input_hash": "5197e56e829fde57a47bce509763619b208fbaf436c00503d2f467cd95a24f93",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "relative_cap_comparator",
+      "scenario": "R14",
+      "source_origin": "synthetic",
+      "status": "conflict",
+      "target_date_forecast": null,
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": []
+    },
+    {
+      "baseline_km": 50.75,
+      "confidence": "high",
+      "config_hash": "89932a719575d39086df12385f506fb8274b2df7e0eb8788c73a88d9ba4992b3",
+      "conflicts": [
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 17.762,
+          "week": 1
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 18.462,
+          "week": 2
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 19.162,
+          "week": 3
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 15.329,
+          "week": 4
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 19.862,
+          "week": 5
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 20.562,
+          "week": 6
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 21.262,
+          "week": 7
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 17.009,
+          "week": 8
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 21.962,
+          "week": 9
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 22.662,
+          "week": 10
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 23.362,
+          "week": 11
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 18.689,
+          "week": 12
+        }
+      ],
+      "decision_trace": [],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 50.75,
+        "last_two_complete_mean_km": 51.5,
+        "observed_longest_km": 18.0
+      },
+      "feasibility": "later",
+      "input_hash": "1695eacacc779189a1b7dcd30ffaff536ba9cfec79ffbaece49b08a9864db097",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "dual_cap_illustrative",
+      "scenario": "R15",
+      "source_origin": "synthetic",
+      "status": "conflict",
+      "target_date_forecast": "2027-02-15",
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 17.762,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 70.0,
+          "week": 1,
+          "weekly_km": 50.75
+        },
+        {
+          "long_run_km": 18.462,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 70.0,
+          "week": 2,
+          "weekly_km": 52.75
+        },
+        {
+          "long_run_km": 19.162,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 70.0,
+          "week": 3,
+          "weekly_km": 54.75
+        },
+        {
+          "long_run_km": 15.329,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 70.0,
+          "week": 4,
+          "weekly_km": 43.8
+        },
+        {
+          "long_run_km": 19.862,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 70.0,
+          "week": 5,
+          "weekly_km": 56.75
+        },
+        {
+          "long_run_km": 20.562,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 70.0,
+          "week": 6,
+          "weekly_km": 58.75
+        },
+        {
+          "long_run_km": 21.262,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 70.0,
+          "week": 7,
+          "weekly_km": 60.75
+        },
+        {
+          "long_run_km": 17.009,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 70.0,
+          "week": 8,
+          "weekly_km": 48.6
+        },
+        {
+          "long_run_km": 21.962,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 70.0,
+          "week": 9,
+          "weekly_km": 62.75
+        },
+        {
+          "long_run_km": 22.662,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 70.0,
+          "week": 10,
+          "weekly_km": 64.75
+        },
+        {
+          "long_run_km": 23.362,
+          "rule_ids": [
+            "ABSOLUTE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 70.0,
+          "week": 11,
+          "weekly_km": 66.75
+        },
+        {
+          "long_run_km": 18.689,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 70.0,
+          "week": 12,
+          "weekly_km": 53.4
+        }
+      ]
+    },
+    {
+      "baseline_km": 50.75,
+      "confidence": "high",
+      "config_hash": "cd70dcf8a04bb979e8e63751471c4088c867cad226385fa3e5ef1e44adecbc4d",
+      "conflicts": [
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 17.762,
+          "week": 1
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 18.65,
+          "week": 2
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 19.583,
+          "week": 3
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 15.666,
+          "week": 4
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 20.562,
+          "week": 5
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 21.59,
+          "week": 6
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 22.67,
+          "week": 7
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 18.136,
+          "week": 8
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 23.803,
+          "week": 9
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 24.5,
+          "week": 10
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 24.5,
+          "week": 11
+        },
+        {
+          "requested_km": 30.0,
+          "rule": "REQUESTED_LONG_RUN_CONFLICT",
+          "supported_km": 19.599,
+          "week": 12
+        }
+      ],
+      "decision_trace": [],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 50.75,
+        "last_two_complete_mean_km": 51.5,
+        "observed_longest_km": 18.0
+      },
+      "feasibility": "within_window",
+      "input_hash": "1695eacacc779189a1b7dcd30ffaff536ba9cfec79ffbaece49b08a9864db097",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "relative_cap_comparator",
+      "scenario": "R15",
+      "source_origin": "synthetic",
+      "status": "conflict",
+      "target_date_forecast": "2027-01-18",
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": [
+        {
+          "long_run_km": 17.762,
+          "rule_ids": [
+            "INITIAL_BASELINE",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-11-16",
+          "target_weekly_km": 70.0,
+          "week": 1,
+          "weekly_km": 50.75
+        },
+        {
+          "long_run_km": 18.65,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-11-23",
+          "target_weekly_km": 70.0,
+          "week": 2,
+          "weekly_km": 53.288
+        },
+        {
+          "long_run_km": 19.583,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-11-30",
+          "target_weekly_km": 70.0,
+          "week": 3,
+          "weekly_km": 55.952
+        },
+        {
+          "long_run_km": 15.666,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-12-07",
+          "target_weekly_km": 70.0,
+          "week": 4,
+          "weekly_km": 44.762
+        },
+        {
+          "long_run_km": 20.562,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-12-14",
+          "target_weekly_km": 70.0,
+          "week": 5,
+          "weekly_km": 58.75
+        },
+        {
+          "long_run_km": 21.59,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-12-21",
+          "target_weekly_km": 70.0,
+          "week": 6,
+          "weekly_km": 61.688
+        },
+        {
+          "long_run_km": 22.67,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2026-12-28",
+          "target_weekly_km": 70.0,
+          "week": 7,
+          "weekly_km": 64.772
+        },
+        {
+          "long_run_km": 18.136,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2027-01-04",
+          "target_weekly_km": 70.0,
+          "week": 8,
+          "weekly_km": 51.818
+        },
+        {
+          "long_run_km": 23.803,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2027-01-11",
+          "target_weekly_km": 70.0,
+          "week": 9,
+          "weekly_km": 68.011
+        },
+        {
+          "long_run_km": 24.5,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2027-01-18",
+          "target_weekly_km": 70.0,
+          "week": 10,
+          "weekly_km": 70.0
+        },
+        {
+          "long_run_km": 24.5,
+          "rule_ids": [
+            "RELATIVE_LIMIT_BINDS",
+            "REQUESTED_TARGET_MILEAGE_BINDS",
+            "LONG_RUN_TARGET_SHARE_BINDS",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2027-01-25",
+          "target_weekly_km": 70.0,
+          "week": 11,
+          "weekly_km": 70.0
+        },
+        {
+          "long_run_km": 19.599,
+          "rule_ids": [
+            "RECOVERY_WEEK",
+            "LONG_RUN_RECOVERY",
+            "REQUESTED_LONG_RUN_CONFLICT"
+          ],
+          "starts": "2027-02-01",
+          "target_weekly_km": 70.0,
+          "week": 12,
+          "weekly_km": 56.0
+        }
+      ]
+    },
+    {
+      "baseline_km": 50.0,
+      "confidence": "high",
+      "config_hash": "89932a719575d39086df12385f506fb8274b2df7e0eb8788c73a88d9ba4992b3",
+      "conflicts": [
+        {
+          "rule": "TARGET_BELOW_BASELINE_UNSUPPORTED",
+          "starting_baseline_km": 50.0,
+          "target_km": 35.0
+        }
+      ],
+      "decision_trace": [
+        {
+          "detail": "This growth-only research comparator cannot prescribe a mileage reduction path.",
+          "rule": "TARGET_BELOW_BASELINE_UNSUPPORTED"
+        }
+      ],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 50.0,
+        "last_two_complete_mean_km": 51.0,
+        "observed_longest_km": 18.0
+      },
+      "feasibility": "unsupported",
+      "input_hash": "6c4259adff1ed22ecf29bcf8f7d60116f07f706d8a0b188f734665db249e2027",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "dual_cap_illustrative",
+      "scenario": "R17",
+      "source_origin": "synthetic",
+      "status": "conflict",
+      "target_date_forecast": null,
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": []
+    },
+    {
+      "baseline_km": 50.0,
+      "confidence": "high",
+      "config_hash": "cd70dcf8a04bb979e8e63751471c4088c867cad226385fa3e5ef1e44adecbc4d",
+      "conflicts": [
+        {
+          "rule": "TARGET_BELOW_BASELINE_UNSUPPORTED",
+          "starting_baseline_km": 50.0,
+          "target_km": 35.0
+        }
+      ],
+      "decision_trace": [
+        {
+          "detail": "This growth-only research comparator cannot prescribe a mileage reduction path.",
+          "rule": "TARGET_BELOW_BASELINE_UNSUPPORTED"
+        }
+      ],
+      "evidence": {
+        "complete_weeks": 4,
+        "declared_km": null,
+        "four_week_observed_mean_km": 50.0,
+        "last_two_complete_mean_km": 51.0,
+        "observed_longest_km": 18.0
+      },
+      "feasibility": "unsupported",
+      "input_hash": "6c4259adff1ed22ecf29bcf8f7d60116f07f706d8a0b188f734665db249e2027",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "relative_cap_comparator",
+      "scenario": "R17",
+      "source_origin": "synthetic",
+      "status": "conflict",
+      "target_date_forecast": null,
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": []
+    },
+    {
+      "baseline_km": null,
+      "confidence": "low",
+      "config_hash": "89932a719575d39086df12385f506fb8274b2df7e0eb8788c73a88d9ba4992b3",
+      "conflicts": [],
+      "decision_trace": [
+        {
+          "detail": "Unknown weekly distance excluded, not treated as zero",
+          "rule": "INCOMPLETE_HISTORY"
+        },
+        {
+          "detail": "No percentage progression from an unknown or zero baseline",
+          "rule": "BASELINE_UNKNOWN_OR_ZERO"
+        }
+      ],
+      "evidence": {
+        "complete_weeks": 0,
+        "declared_km": null,
+        "four_week_observed_mean_km": null,
+        "last_two_complete_mean_km": null,
+        "observed_longest_km": null
+      },
+      "feasibility": "unsupported",
+      "input_hash": "c99381f4e6144bbcf0ae6096954e5cc06212bbdf12708114d9dcb62198ab625e",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "dual_cap_illustrative",
+      "scenario": "R16",
+      "source_origin": "synthetic",
+      "status": "insufficient_baseline",
+      "target_date_forecast": null,
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": []
+    },
+    {
+      "baseline_km": null,
+      "confidence": "low",
+      "config_hash": "cd70dcf8a04bb979e8e63751471c4088c867cad226385fa3e5ef1e44adecbc4d",
+      "conflicts": [],
+      "decision_trace": [
+        {
+          "detail": "Unknown weekly distance excluded, not treated as zero",
+          "rule": "INCOMPLETE_HISTORY"
+        },
+        {
+          "detail": "No percentage progression from an unknown or zero baseline",
+          "rule": "BASELINE_UNKNOWN_OR_ZERO"
+        }
+      ],
+      "evidence": {
+        "complete_weeks": 0,
+        "declared_km": null,
+        "four_week_observed_mean_km": null,
+        "last_two_complete_mean_km": null,
+        "observed_longest_km": null
+      },
+      "feasibility": "unsupported",
+      "input_hash": "c99381f4e6144bbcf0ae6096954e5cc06212bbdf12708114d9dcb62198ab625e",
+      "limitations": [
+        "Synthetic/software arithmetic only: no physiological safety, injury prevention or effectiveness claim.",
+        "No actual workout steps, quality-dose budget, Android player or full schedule allocation.",
+        "Recent longest recorded run is not confirmed repeatable capacity."
+      ],
+      "policy_name": "relative_cap_comparator",
+      "scenario": "R16",
+      "source_origin": "synthetic",
+      "status": "insufficient_baseline",
+      "target_date_forecast": null,
+      "unmodeled": [],
+      "version": "skeleton-research-0.1",
+      "weeks": []
+    }
+  ],
+  "rubric": "docs/qa/engine15-gate-b-rubric-v1.md",
+  "version": "skeleton-research-0.1"
+}

@@ -1,0 +1,30 @@
+name: Engine 1.5 research skeleton
+
+on:
+  push:
+    paths:
+      - 'research/engine15_skeleton/**'
+      - '.github/workflows/engine15-volume-skeleton.yml'
+  pull_request:
+    paths:
+      - 'research/engine15_skeleton/**'
+      - '.github/workflows/engine15-volume-skeleton.yml'
+
+jobs:
+  research-synthetic-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run deterministic contract tests
+        run: python -m unittest discover -s research/engine15_skeleton -p 'test_*.py' -v
+      - name: Export all synthetic candidate traces
+        run: python -m research.engine15_skeleton.cli --cases research/engine15_skeleton/fixtures/cases.json --policies research/engine15_skeleton/candidate_policies.json --output reports/engine15-skeleton.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: engine15-skeleton-synthetic-traces
+          path: reports/engine15-skeleton.json

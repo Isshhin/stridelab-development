@@ -1,0 +1,517 @@
+[
+  {
+    "id": "R01",
+    "origin": "synthetic",
+    "start_date": "2026-11-16",
+    "weeks": 12,
+    "run_days": 3,
+    "history": [
+      {
+        "complete": true,
+        "km": 12,
+        "long_km": 5
+      },
+      {
+        "complete": true,
+        "km": 13,
+        "long_km": 5
+      },
+      {
+        "complete": true,
+        "km": 14,
+        "long_km": 6
+      },
+      {
+        "complete": true,
+        "km": 15,
+        "long_km": 6
+      }
+    ],
+    "target_km": 25
+  },
+  {
+    "id": "R02",
+    "origin": "synthetic",
+    "start_date": "2026-11-16",
+    "weeks": 12,
+    "run_days": 4,
+    "history": [
+      {
+        "complete": true,
+        "km": 27,
+        "long_km": 11
+      },
+      {
+        "complete": true,
+        "km": 28,
+        "long_km": 11
+      },
+      {
+        "complete": true,
+        "km": 29,
+        "long_km": 12
+      },
+      {
+        "complete": true,
+        "km": 30,
+        "long_km": 12
+      }
+    ],
+    "target_km": 40
+  },
+  {
+    "id": "R03",
+    "origin": "synthetic",
+    "start_date": "2026-11-16",
+    "weeks": 12,
+    "run_days": 3,
+    "history": [
+      {
+        "complete": true,
+        "km": 35,
+        "long_km": 15
+      },
+      {
+        "complete": true,
+        "km": 36,
+        "long_km": 16
+      },
+      {
+        "complete": true,
+        "km": 36,
+        "long_km": 16
+      },
+      {
+        "complete": true,
+        "km": 37,
+        "long_km": 17
+      }
+    ],
+    "target_km": 65,
+    "minimum_long_run_km": 25
+  },
+  {
+    "id": "R04",
+    "origin": "synthetic",
+    "start_date": "2026-11-16",
+    "weeks": 12,
+    "run_days": 6,
+    "history": [
+      {
+        "complete": true,
+        "km": 60,
+        "long_km": 19
+      },
+      {
+        "complete": true,
+        "km": 62,
+        "long_km": 20
+      },
+      {
+        "complete": true,
+        "km": 61,
+        "long_km": 20
+      },
+      {
+        "complete": true,
+        "km": 60,
+        "long_km": 20
+      }
+    ],
+    "target_km": 80
+  },
+  {
+    "id": "R05",
+    "origin": "synthetic",
+    "start_date": "2026-11-16",
+    "weeks": 12,
+    "run_days": 7,
+    "history": [
+      {
+        "complete": true,
+        "km": 88,
+        "long_km": 26
+      },
+      {
+        "complete": true,
+        "km": 89,
+        "long_km": 26
+      },
+      {
+        "complete": true,
+        "km": 90,
+        "long_km": 27
+      },
+      {
+        "complete": true,
+        "km": 90,
+        "long_km": 27
+      }
+    ],
+    "target_km": 100
+  },
+  {
+    "id": "R06",
+    "origin": "synthetic",
+    "start_date": "2026-11-16",
+    "weeks": 12,
+    "run_days": 4,
+    "history": [
+      {
+        "complete": true,
+        "km": 40,
+        "long_km": 18
+      },
+      {
+        "complete": true,
+        "km": 0,
+        "long_km": 0
+      },
+      {
+        "complete": true,
+        "km": 8,
+        "long_km": 5
+      },
+      {
+        "complete": true,
+        "km": 12,
+        "long_km": 6
+      }
+    ],
+    "target_km": 30
+  },
+  {
+    "id": "R07",
+    "origin": "synthetic",
+    "start_date": "2026-11-16",
+    "weeks": 12,
+    "run_days": 5,
+    "history": [
+      {
+        "complete": true,
+        "km": 55,
+        "long_km": 18
+      },
+      {
+        "complete": true,
+        "km": 52,
+        "long_km": 18
+      },
+      {
+        "complete": true,
+        "km": 30,
+        "long_km": 12
+      },
+      {
+        "complete": true,
+        "km": 24,
+        "long_km": 10
+      }
+    ],
+    "target_km": 60
+  },
+  {
+    "id": "R08",
+    "origin": "synthetic",
+    "start_date": "2026-11-16",
+    "weeks": 12,
+    "run_days": 4,
+    "history": [
+      {
+        "complete": true,
+        "km": 25,
+        "long_km": 9
+      },
+      {
+        "complete": true,
+        "km": 28,
+        "long_km": 10
+      },
+      {
+        "complete": false,
+        "km": null,
+        "long_km": null
+      },
+      {
+        "complete": false,
+        "km": null,
+        "long_km": null
+      }
+    ],
+    "target_km": 50,
+    "declared_km": 48
+  },
+  {
+    "id": "R09",
+    "origin": "synthetic",
+    "start_date": "2026-11-16",
+    "weeks": 12,
+    "run_days": 4,
+    "history": [
+      {
+        "complete": true,
+        "km": 44,
+        "long_km": 15
+      },
+      {
+        "complete": true,
+        "km": 45,
+        "long_km": 16
+      },
+      {
+        "complete": true,
+        "km": 45,
+        "long_km": 16
+      },
+      {
+        "complete": true,
+        "km": 46,
+        "long_km": 16
+      }
+    ],
+    "target_km": 58,
+    "post_run_feedback": {
+      "missed_long": true
+    }
+  },
+  {
+    "id": "R10",
+    "origin": "synthetic",
+    "start_date": "2026-11-16",
+    "weeks": 12,
+    "run_days": 4,
+    "history": [
+      {
+        "complete": true,
+        "km": 34,
+        "long_km": 13
+      },
+      {
+        "complete": true,
+        "km": 35,
+        "long_km": 14
+      },
+      {
+        "complete": true,
+        "km": 35,
+        "long_km": 14
+      },
+      {
+        "complete": true,
+        "km": 36,
+        "long_km": 14
+      }
+    ],
+    "target_km": 50,
+    "post_run_feedback": {
+      "too_hard_easy": 3,
+      "tags": [
+        "heat",
+        "stress"
+      ]
+    }
+  },
+  {
+    "id": "R11",
+    "origin": "synthetic",
+    "start_date": "2026-11-16",
+    "weeks": 12,
+    "run_days": 6,
+    "history": [
+      {
+        "complete": true,
+        "km": 60,
+        "long_km": 20
+      },
+      {
+        "complete": true,
+        "km": 61,
+        "long_km": 21
+      },
+      {
+        "complete": true,
+        "km": 61,
+        "long_km": 21
+      },
+      {
+        "complete": true,
+        "km": 62,
+        "long_km": 21
+      }
+    ],
+    "target_km": 80,
+    "post_run_feedback": {
+      "comparison": "easier"
+    }
+  },
+  {
+    "id": "R12",
+    "origin": "synthetic",
+    "start_date": "2026-11-16",
+    "weeks": 12,
+    "run_days": 4,
+    "history": [
+      {
+        "complete": true,
+        "km": 33,
+        "long_km": 12
+      },
+      {
+        "complete": true,
+        "km": 33,
+        "long_km": 12
+      },
+      {
+        "complete": true,
+        "km": 34,
+        "long_km": 13
+      },
+      {
+        "complete": true,
+        "km": 34,
+        "long_km": 13
+      }
+    ],
+    "target_km": 50,
+    "safety_flag": "illness"
+  },
+  {
+    "id": "R13",
+    "origin": "synthetic",
+    "start_date": "2026-11-16",
+    "weeks": 12,
+    "run_days": 4,
+    "history": [
+      {
+        "complete": true,
+        "km": 42,
+        "long_km": 14
+      },
+      {
+        "complete": true,
+        "km": 42,
+        "long_km": 14
+      },
+      {
+        "complete": true,
+        "km": 43,
+        "long_km": 14
+      },
+      {
+        "complete": true,
+        "km": 43,
+        "long_km": 15
+      }
+    ],
+    "target_km": 55,
+    "post_run_feedback": {
+      "quality": "too_hard"
+    }
+  },
+  {
+    "id": "R14",
+    "origin": "synthetic",
+    "start_date": "2026-11-16",
+    "weeks": 12,
+    "run_days": 2,
+    "history": [
+      {
+        "complete": true,
+        "km": 20,
+        "long_km": 7
+      },
+      {
+        "complete": true,
+        "km": 21,
+        "long_km": 7
+      },
+      {
+        "complete": true,
+        "km": 22,
+        "long_km": 8
+      },
+      {
+        "complete": true,
+        "km": 23,
+        "long_km": 8
+      }
+    ],
+    "target_km": 40,
+    "minimum_days": 3
+  },
+  {
+    "id": "R15",
+    "origin": "synthetic",
+    "start_date": "2026-11-16",
+    "weeks": 12,
+    "run_days": 3,
+    "history": [
+      {
+        "complete": true,
+        "km": 50,
+        "long_km": 18
+      },
+      {
+        "complete": true,
+        "km": 50,
+        "long_km": 18
+      },
+      {
+        "complete": true,
+        "km": 51,
+        "long_km": 18
+      },
+      {
+        "complete": true,
+        "km": 52,
+        "long_km": 18
+      }
+    ],
+    "target_km": 70,
+    "minimum_long_run_km": 30
+  },
+  {
+    "id": "R17",
+    "origin": "synthetic",
+    "start_date": "2026-11-16",
+    "weeks": 12,
+    "run_days": 4,
+    "history": [
+      {"complete": true, "km": 48, "long_km": 16},
+      {"complete": true, "km": 50, "long_km": 17},
+      {"complete": true, "km": 52, "long_km": 18},
+      {"complete": true, "km": 50, "long_km": 17}
+    ],
+    "target_km": 35
+  },
+  {
+    "id": "R16",
+    "origin": "synthetic",
+    "start_date": "2026-11-16",
+    "weeks": 12,
+    "run_days": 3,
+    "history": [
+      {
+        "complete": false,
+        "km": null,
+        "long_km": null
+      },
+      {
+        "complete": false,
+        "km": null,
+        "long_km": null
+      },
+      {
+        "complete": false,
+        "km": null,
+        "long_km": null
+      },
+      {
+        "complete": false,
+        "km": null,
+        "long_km": null
+      }
+    ],
+    "target_km": 25
+  }
+]

@@ -1,3 +1,9 @@
+# StrideLab master roadmap index
+
+**Current long-term Engine 1.5 coaching development roadmap (2026-11-14):** [Engine 1.5 roadmap v0.2](engine15-long-term-roadmap-v0.2-20261114.md). No date-based release target applies. [Gate B review rubric](qa/engine15-gate-b-rubric-v1.md) is frozen before research-harness output; implementation status remains distinct from this plan. The historical 2026-10-26 roadmap is preserved below for provenance.
+
+---
+
 # Active master milestone — native reconstruction and Engine 1.0
 
 Updated 2026-10-26. This section supersedes the historical sequence below. Complete the accepted Phase 4E functionality in native Compose, including a functional **StrideLab Engine 1.0** baseline, before substantial Advanced Unified Coaching Engine 2.0 development or benchmarking. Follow [the live parity inventory](NATIVE-PHASE1-PARITY.md) and [Engine 1.0 contract](ENGINE1-BASELINE.md). Keep the same master branch `feature/native-reconstruction-1-20261026`, package `io.stridelab.privatealpha`, all checkpoint branches, accepted assets and native security/cache architecture.
