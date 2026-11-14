@@ -126,12 +126,29 @@ internal object IndependentMultiweekResponse {
         if (input.completedWeeks.any { it.response == IndependentWeekResponse.UNKNOWN })
             return defer("TOLERANCE_RESPONSE_UNKNOWN",
                 "Completed kilometers do not establish workout tolerance.")
+        // Recovery overages are NOT ordinary build-week spikes. Review
+        // intent and recovery-specific adherence first, for every supplied
+        // recovery week (not only the most recent). Otherwise >5% recovery
+        // overages are incorrectly reported as generic build over-completion.
         if (input.completedWeeks.any {
-                requireNotNull(it.observedKilometers) >
-                    it.plannedKilometers * EXCESS_RATIO + 0.001
+                it.intent == IndependentObservedWeekIntent.PLANNED_RECOVERY &&
+                    !it.intentExplicitlyReviewed
+            })
+            return defer("RECOVERY_INTENT_UNREVIEWED",
+                "A claimed recovery week needs an explicit original planning decision.")
+        if (input.completedWeeks.any {
+                it.intent == IndependentObservedWeekIntent.PLANNED_RECOVERY &&
+                    requireNotNull(it.observedKilometers) > it.plannedKilometers + 0.01
+            })
+            return defer("RECOVERY_OVER_TARGET_REVIEW",
+                "Recovery week exceeded its declared reduced training load.")
+        if (input.completedWeeks.any {
+                it.intent == IndependentObservedWeekIntent.BUILD &&
+                    requireNotNull(it.observedKilometers) >
+                        it.plannedKilometers * EXCESS_RATIO + 0.001
             })
             return defer("UNREVIEWED_OVER_COMPLETION",
-                "Above-plan running requires review before treating this as a progression signal.")
+                "Above-plan build running requires review before treating this as a progression signal.")
         if (input.explicitlyApprovedIncreaseKm > 0.0 &&
             input.increaseApprovalReference.isNullOrBlank())
             return defer("INCREMENT_APPROVAL_REFERENCE_MISSING",
@@ -143,9 +160,6 @@ internal object IndependentMultiweekResponse {
         val compared: Int
 
         if (last.intent == IndependentObservedWeekIntent.PLANNED_RECOVERY) {
-            if (!last.intentExplicitlyReviewed)
-                return defer("RECOVERY_INTENT_UNREVIEWED",
-                    "A claimed recovery week needs an explicit original planning decision.")
             val prior = input.completedWeeks.dropLast(1).lastOrNull {
                 it.intent == IndependentObservedWeekIntent.BUILD
             } ?: return defer("PRE_RECOVERY_BUILD_MISSING",
@@ -154,9 +168,6 @@ internal object IndependentMultiweekResponse {
                 return defer("RECOVERY_NOT_A_REDUCTION",
                     "The asserted recovery week was not planned below its prior build week.")
             val completedRecovery = requireNotNull(last.observedKilometers)
-            if (completedRecovery > last.plannedKilometers + 0.01)
-                return defer("RECOVERY_OVER_TARGET_REVIEW",
-                    "Recovery week exceeded its declared reduced training load.")
             if (completedRecovery < last.plannedKilometers * MARKEDLY_MISSED_RATIO)
                 return defer("RECOVERY_NOT_COMPLETED_REVIEW",
                     "A substantially missed recovery plan needs a separate rebuilding decision.")

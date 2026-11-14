@@ -139,6 +139,31 @@ class IndependentMultiweekResponseTest {
         )))
     }
 
+    @Test fun recoveryOverTargetUsesSpecificRuleBelowAndAboveGenericThreshold() {
+        for (observed in listOf(40.5, 45.0)) {
+            reject("RECOVERY_OVER_TARGET_REVIEW", input(listOf(
+                week(2, 60.0),
+                week(1, 40.0, observed,
+                    IndependentObservedWeekIntent.PLANNED_RECOVERY, reviewed = true)
+            )))
+        }
+    }
+
+    @Test fun buildWeekOverCompletionStillUsesGenericReview() {
+        reject("UNREVIEWED_OVER_COMPLETION", input(listOf(
+            week(2, 60.0), week(1, 60.0, 66.0)
+        )))
+    }
+
+    @Test fun earlierRecoveryOverTargetIsNotHiddenByLaterBuild() {
+        reject("RECOVERY_OVER_TARGET_REVIEW", input(listOf(
+            week(3, 60.0),
+            week(2, 40.0, 41.0,
+                IndependentObservedWeekIntent.PLANNED_RECOVERY, reviewed = true),
+            week(1, 60.0)
+        )))
+    }
+
     @Test fun difficultOrUnknownResponseBlocksSyntheticProgression() {
         reject("DIFFICULT_RESPONSE_REVIEW", input(listOf(
             week(2, 60.0), week(1, 60.0, response = IndependentWeekResponse.DIFFICULT)
