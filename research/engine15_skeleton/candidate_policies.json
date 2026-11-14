@@ -1,0 +1,32 @@
+[
+  {
+    "name": "dual_cap_illustrative",
+    "evidence": "HEURISTIC_SYNTHETIC",
+    "growth_fraction": 0.05,
+    "growth_absolute_km": 2,
+    "long_run_step_km": 1.5,
+    "long_run_fraction": 0.35,
+    "long_run_max_fraction": 0.4,
+    "deload_fraction": 0.8,
+    "deload_long_fraction": 0.8,
+    "deload_every": 4,
+    "low_confidence_multiplier": 0.5,
+    "disagreement_km": 5,
+    "forecast_horizon": 52
+  },
+  {
+    "name": "relative_cap_comparator",
+    "evidence": "HEURISTIC_SYNTHETIC",
+    "growth_fraction": 0.05,
+    "growth_absolute_km": 100,
+    "long_run_step_km": 1.5,
+    "long_run_fraction": 0.35,
+    "long_run_max_fraction": 0.4,
+    "deload_fraction": 0.8,
+    "deload_long_fraction": 0.8,
+    "deload_every": 4,
+    "low_confidence_multiplier": 0.5,
+    "disagreement_km": 5,
+    "forecast_horizon": 52
+  }
+]
