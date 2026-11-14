@@ -130,8 +130,13 @@ internal object IndependentQualityFitnessAdapter {
         val total = requireNotNull(selected.first.total(WorkoutUnit.SECONDS)).toInt()
         check(selected.second <= permitted && total <= input.availableSessionSeconds)
         check(requireNotNull(selected.first.dose(WorkoutUnit.SECONDS, WorkoutPurpose.WORK)).toInt() == selected.second)
+        val structureId = when (val middle = selected.first.elements[1]) {
+            is IndependentWorkoutElement.Step -> "${selected.second}s-continuous"
+            is IndependentWorkoutElement.Intervals ->
+                "${middle.value.repetitions}x${middle.value.work.amount.toInt()}s-${middle.value.recovery.amount.toInt()}s-recovery"
+        }
         return IndependentQualityFitnessDecision.Candidate(
-            id = "engine15-${family.name.lowercase()}-fitness-candidate-v1",
+            id = "engine15-${family.name.lowercase()}-${structureId}-fitness-v1",
             family = family,
             workout = selected.first,
             workSeconds = selected.second,

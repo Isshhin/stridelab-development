@@ -53,6 +53,8 @@ class IndependentQualityFitnessAdapterTest {
         assertEquals(1200, developed.workSeconds)
         assertEquals(360, developed.recoverySeconds)
         assertEquals(2760, developed.totalSeconds)
+        assertNotEquals(intro.id, developed.id)
+        assertTrue(intro.id.startsWith("engine15-threshold-"))
     }
 
     @Test fun tempoChangesContinuousDoseWithConfirmedFitnessExposure() {
