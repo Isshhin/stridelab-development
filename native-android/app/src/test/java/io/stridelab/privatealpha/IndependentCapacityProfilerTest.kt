@@ -89,6 +89,18 @@ class IndependentCapacityProfilerTest {
         assertFalse(declared.sourceCoverageVerified)
     }
 
+    @Test fun oldWeeksWithoutRecentCoverageCannotEstablishCurrentBaseline() {
+        val h = history(listOf(50.0, 48.0, 10.0, 10.0), complete = setOf(0, 1))
+        val assessment = IndependentCapacityProfiler.assess(h)
+        assertEquals(2, assessment.completeWeekCount)
+        assertNull(assessment.observedFourWeekMeanKm)
+        assertNull(assessment.observedRecentTwoWeekMeanKm)
+        assertNull(assessment.proposedStartingKm)
+        assertEquals(IndependentCapacityConfidence.UNAVAILABLE, assessment.confidence)
+        assertEquals(IndependentCapacityTrend.UNKNOWN, assessment.trend)
+        assertFalse(assessment.sourceCoverageVerified)
+    }
+
     @Test fun explicitlyConfirmedZeroWeekStaysZeroInsteadOfUnknown() {
         val result = IndependentCapacityProfiler.assess(history(listOf(0.0, 0.0, 0.0, 0.0)))
         assertEquals(0.0, result.proposedStartingKm!!, 0.0)
