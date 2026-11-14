@@ -166,8 +166,14 @@ def evaluate(case, cfg):
                 fired.append("CONFIGURED_CEILING_BINDS")
             last_build = volume
         volume = round(volume, 3)
-        if ceiling is not None and volume > ceiling + 1e-7:
+        # Never round a capped workload above its configured ceiling.
+        if ceiling is not None and volume > ceiling:
+            volume = math.floor(ceiling * 1000) / 1000
+            fired.append("FINAL_ROUNDING_CEILING")
+        if ceiling is not None and volume > ceiling:
             raise AssertionError("final capacity constraint violated")
+        if not recovering:
+            last_build = volume  # Subsequent increments use the actual emitted workload.
         if prior_long is None:
             long_km = None
             fired.append("LONG_RUN_HISTORY_UNKNOWN")
@@ -188,8 +194,9 @@ def evaluate(case, cfg):
                 fired.append("LONG_RUN_MAX_SHARE_BINDS")
             prior_long = long_km
         if long_km is not None:
-            long_km = round(long_km, 3)
-            if long_km > volume * cfg["long_run_max_fraction"] + 0.001:
+            # Floor long-run output at reporting precision: rounding up can exceed a share cap.
+            long_km = math.floor(long_km * 1000) / 1000
+            if long_km > volume * cfg["long_run_max_fraction"]:
                 raise AssertionError("final long run constraint violated")
         if requested_long is not None and (long_km is None or requested_long > long_km + 1e-7):
             fired.append("REQUESTED_LONG_RUN_CONFLICT")

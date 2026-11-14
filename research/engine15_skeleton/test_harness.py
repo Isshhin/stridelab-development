@@ -99,6 +99,28 @@ class SkeletonTests(unittest.TestCase):
         self.assertIn("TARGET_ABOVE_CONFIGURED_CEILING", [t["rule"] for t in out["decision_trace"]])
         self.assertTrue(all(w["weekly_km"] <= 93 for w in out["weeks"]))
 
+    def test_fractional_ceiling_never_rounds_above_configured_maximum(self):
+        source = case("R05")
+        source["configured_ceiling_km"] = 93.0006
+        source["target_km"] = 130
+        out = evaluate(source, self.policy)
+        self.assertEqual(out["status"], "conflict")
+        self.assertEqual(len(out["weeks"]), source["weeks"])
+        self.assertTrue(all(w["weekly_km"] <= 93.0006 for w in out["weeks"]))
+        self.assertTrue(any("FINAL_ROUNDING_CEILING" in w["rule_ids"] for w in out["weeks"]))
+
+    def test_fractional_long_run_share_never_rounds_above_cap(self):
+        source = case("R01")
+        source["history"] = [
+            {"complete": True, "km": 1.02, "long_km": 0.3},
+            {"complete": True, "km": 1.05, "long_km": 0.3},
+            {"complete": True, "km": 1.01, "long_km": 0.3},
+            {"complete": True, "km": 1.05, "long_km": 0.3},
+        ]
+        out = evaluate(source, self.policy)
+        for w in out["weeks"]:
+            self.assertLessEqual(w["long_run_km"], w["weekly_km"] * self.policy["long_run_max_fraction"])
+
     def test_missing_baseline_blocks_output(self):
         out = evaluate(case("R16"), self.policy)
         self.assertEqual(out["status"], "insufficient_baseline")
