@@ -53,7 +53,10 @@ internal sealed interface IndependentQualityFitnessDecision {
  */
 internal object IndependentQualityFitnessAdapter {
     private const val WARM_UP = 10 * 60
-    private const val COOL_DOWN = 8 * 60
+    private const val INTRO_COOL_DOWN = 8 * 60
+    private const val EXTENDED_COOL_DOWN = 10 * 60
+    private fun coolDown(workSeconds: Int) =
+        if (workSeconds >= 20 * 60) EXTENDED_COOL_DOWN else INTRO_COOL_DOWN
     private const val RECOVERY = 2 * 60
 
     fun generate(
@@ -78,11 +81,11 @@ internal object IndependentQualityFitnessAdapter {
         // The helper is stateless and uses only existing versioned M2 element types.
         fun stepOf(purpose: WorkoutPurpose, seconds: Int, target: WorkoutTarget) =
             WorkoutStep(purpose, WorkoutUnit.SECONDS, seconds.toDouble(), 1, target)
-        fun composition(middle: IndependentWorkoutElement): IndependentWorkoutComposition =
+        fun composition(middle: IndependentWorkoutElement, workSeconds: Int): IndependentWorkoutComposition =
             IndependentWorkoutComposition(listOf(
                 IndependentWorkoutElement.Step(stepOf(WorkoutPurpose.WARM_UP, WARM_UP, WorkoutTarget.EASY)),
                 middle,
-                IndependentWorkoutElement.Step(stepOf(WorkoutPurpose.COOL_DOWN, COOL_DOWN, WorkoutTarget.EASY))
+                IndependentWorkoutElement.Step(stepOf(WorkoutPurpose.COOL_DOWN, coolDown(workSeconds), WorkoutTarget.EASY))
             ))
         val candidatePairs = when (family) {
             IndependentQualityFamily.THRESHOLD -> {
@@ -91,13 +94,13 @@ internal object IndependentQualityFitnessAdapter {
                     (3..8).mapNotNull { workMinutes ->
                         val workSeconds = repetitions * workMinutes * 60
                         val recoverySeconds = (repetitions - 1) * RECOVERY
-                        val total = WARM_UP + workSeconds + recoverySeconds + COOL_DOWN
+                        val total = WARM_UP + workSeconds + recoverySeconds + coolDown(workSeconds)
                         if (workSeconds > permitted || total > input.availableSessionSeconds) null
                         else {
                             val group = IndependentIntervalGroup(repetitions,
                                 stepOf(WorkoutPurpose.WORK, workMinutes * 60, WorkoutTarget.THRESHOLD),
                                 stepOf(WorkoutPurpose.RECOVERY, RECOVERY, WorkoutTarget.EASY))
-                            Triple(composition(IndependentWorkoutElement.Intervals(group)),
+                            Triple(composition(IndependentWorkoutElement.Intervals(group), workSeconds),
                                 workSeconds, recoverySeconds)
                         }
                     }
@@ -107,9 +110,9 @@ internal object IndependentQualityFitnessAdapter {
                 // Continuous tempo between 8 and 40 min, in exact one-minute increments.
                 (8..40).mapNotNull { minutes ->
                     val seconds = minutes * 60
-                    if (seconds > permitted || WARM_UP + seconds + COOL_DOWN > input.availableSessionSeconds) null
+                    if (seconds > permitted || WARM_UP + seconds + coolDown(seconds) > input.availableSessionSeconds) null
                     else Triple(composition(IndependentWorkoutElement.Step(
-                        stepOf(WorkoutPurpose.WORK, seconds, WorkoutTarget.TEMPO))), seconds, 0)
+                        stepOf(WorkoutPurpose.WORK, seconds, WorkoutTarget.TEMPO)), seconds), seconds, 0)
                 }
             }
         }

@@ -53,6 +53,8 @@ class IndependentQualityFitnessAdapterTest {
         assertEquals(1200, developed.workSeconds)
         assertEquals(360, developed.recoverySeconds)
         assertEquals(2760, developed.totalSeconds)
+        assertEquals(480.0, (intro.workout.elements.last() as IndependentWorkoutElement.Step).value.amount, 0.0)
+        assertEquals(600.0, (developed.workout.elements.last() as IndependentWorkoutElement.Step).value.amount, 0.0)
         assertNotEquals(intro.id, developed.id)
         assertTrue(intro.id.startsWith("engine15-threshold-"))
     }
