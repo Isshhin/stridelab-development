@@ -178,11 +178,20 @@ internal object IndependentMultiweekResponse {
                 requireNotNull(it.observedKilometers) / it.plannedKilometers
             }
             if (ratios.all { it >= COMPLETE_RATIO }) {
+                // The original approved start is a ceiling, not evidence that
+                // a reduced-build athlete instantly regained that volume.
+                // Anchor the next week to both actual and prescribed recent
+                // builds, and permit one separately approved increment.
+                val demonstrated = minOf(
+                    recent.minOf { it.plannedKilometers },
+                    recent.minOf { requireNotNull(it.observedKilometers) },
+                    requireNotNull(input.volume.approvedStartingWeeklyKm)
+                )
                 proposed = minOf(
-                    requireNotNull(input.volume.approvedStartingWeeklyKm) +
-                        input.explicitlyApprovedIncreaseKm,
+                    demonstrated + input.explicitlyApprovedIncreaseKm,
                     requireNotNull(input.volume.approvedWeeklyCeilingKm),
-                    input.volume.requestedTargetWeeklyKm ?: requireNotNull(input.volume.approvedStartingWeeklyKm)
+                    input.volume.requestedTargetWeeklyKm
+                        ?: requireNotNull(input.volume.approvedStartingWeeklyKm)
                 )
                 reason = if (input.explicitlyApprovedIncreaseKm > 0.0)
                     "TWO_COMPLETED_BUILD_WEEKS_WITH_APPROVED_INCREMENT"

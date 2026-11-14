@@ -85,6 +85,23 @@ class IndependentMultiweekResponseTest {
         assertEquals("REPEATED_UNDERCOMPLETION_REDUCED_REPEAT_ONLY", out.reason)
     }
 
+    @Test fun successfulThirtyKmRebuildDoesNotJumpBackToOriginalSixty() {
+        // This follows two missed 60 km weeks, a reviewed reduction to 30 km,
+        // and then two fully completed 30 km build weeks.
+        val rebuild = input(history = listOf(
+            week(2, 30.0, 30.0), week(1, 30.0, 30.0)
+        ))
+        val repeated = candidate(rebuild)
+        assertEquals(30.0, repeated.volume.weeks.single().weeklyKilometers, 0.00001)
+
+        val incremental = candidate(rebuild.copy(
+            explicitlyApprovedIncreaseKm = 2.0,
+            increaseApprovalReference = "synthetic-reviewed-rebuild"
+        ))
+        assertEquals(32.0, incremental.volume.weeks.single().weeklyKilometers, 0.00001)
+        assertTrue(incremental.volume.weeks.single().weeklyKilometers < 60.0)
+    }
+
     @Test fun oneMissedBuildAndOneCompleteBuildNeedsExplicitReview() {
         reject("MIXED_OR_PARTIAL_COMPLETION_REVIEW", input(listOf(
             week(2, 60.0, 60.0), week(1, 60.0, 30.0)
