@@ -83,6 +83,10 @@ class SkeletonTests(unittest.TestCase):
         source["target_km"] = 130
         out = evaluate(source, self.policy)
         self.assertEqual(out["feasibility"], "unsupported")
+        self.assertEqual(out["status"], "conflict")
+        self.assertEqual(len(out["weeks"]), source["weeks"])
+        self.assertTrue(any(c["rule"] == "TARGET_ABOVE_CONFIGURED_CEILING" for c in out["conflicts"]))
+        self.assertIn("TARGET_ABOVE_CONFIGURED_CEILING", [t["rule"] for t in out["decision_trace"]])
         self.assertTrue(all(w["weekly_km"] <= 93 for w in out["weeks"]))
 
     def test_missing_baseline_blocks_output(self):

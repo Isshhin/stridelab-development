@@ -135,6 +135,11 @@ def evaluate(case, cfg):
         result["status"] = "conflict"
         conflicts.append({"rule": "INSUFFICIENT_DAYS", "available": days, "required": minimum_days})
         return result
+    if ceiling is not None and target > ceiling:
+        conflicts.append({"rule": "TARGET_ABOVE_CONFIGURED_CEILING",
+                          "requested_target_km": target, "ceiling_km": ceiling})
+        trace.append({"rule": "TARGET_ABOVE_CONFIGURED_CEILING",
+                      "detail": "Requested target is infeasible under the configured workload ceiling; preserve the complete projected plan."})
     factor = cfg["low_confidence_multiplier"] if confidence == "low" else 1.
     if confidence == "low":
         trace.append({"rule": "LOW_CONFIDENCE_ENVELOPE", "detail": "Narrow hypothetical progression constraints"})
@@ -195,8 +200,6 @@ def evaluate(case, cfg):
                           "rule_ids": fired, "target_weekly_km": target})
         if attainment is None and not recovering and volume >= target - 1e-7:
             attainment = week
-        if ceiling is not None and ceiling < target and last_build >= ceiling:
-            break
     if attainment is not None:
         result["feasibility"] = "within_window" if attainment <= length else "later"
         result["target_date_forecast"] = str(date_start + timedelta(weeks=attainment-1))
