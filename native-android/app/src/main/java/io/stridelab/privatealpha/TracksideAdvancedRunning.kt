@@ -85,7 +85,7 @@ internal fun TracksideAdvancedRunning(
                         modifier = Modifier.padding(bottom = 6.dp))
                 }
                 Slider(
-                    modifier = Modifier.fillMaxWidth().height(28.dp),
+                    modifier = Modifier.fillMaxWidth().height(28.dp).testTag("builder-target-mileage-slider"),
                     value = weeklyKm.toFloat().coerceIn(0f, 120f),
                     onValueChange = { onWeeklyKm(it.toInt().toDouble()) },
                     valueRange = 0f..120f,

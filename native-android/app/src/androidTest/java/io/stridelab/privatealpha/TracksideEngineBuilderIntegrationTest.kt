@@ -20,7 +20,11 @@ import org.junit.Test
 class TracksideEngineBuilderIntegrationTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
 
-    @Test fun builderCreatesRealPrescriptionsAndTrainingReopensTheApprovedPlanOffline() {
+    @Test fun builderCreatesRealPrescriptionsAndTrainingReopensTheApprovedPlanOffline() = exerciseBuilder(null)
+
+    @Test fun explicitTargetSurvivesApprovalAndOfflineReopen() = exerciseBuilder(20.0)
+
+    private fun exerciseBuilder(targetKm: Double?) {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val fixture = "trackside-engine-builder"
         val gateway = LocalGateway(fixture)
@@ -66,6 +70,12 @@ class TracksideEngineBuilderIntegrationTest {
             compose.onNodeWithTag("builder-ability-weekly-slider").performScrollTo()
             compose.onNodeWithTag("builder-ability-longest-slider")
                 .performSemanticsAction(SemanticsActions.SetProgress) { it(7f) }
+            if (targetKm != null) {
+                compose.onNodeWithTag("builder-advanced-settings").performScrollTo().performClick()
+                compose.onNodeWithTag("builder-target-mileage-slider")
+                    .performSemanticsAction(SemanticsActions.SetProgress) { it(targetKm.toFloat()) }
+                next() // save advanced preferences
+            }
             next() // current ability
             next() // weekly setup
             next() // dates
@@ -79,7 +89,7 @@ class TracksideEngineBuilderIntegrationTest {
             assertEquals(ENGINE15_VERSION, draft.engineVersion)
             assertEquals("Improve 10K", draft.request.goal)
             assertEquals(12.0, draft.request.weeklyKm, 0.0)
-            assertEquals(null, draft.request.targetWeeklyKm)
+            assertEquals(targetKm, draft.request.targetWeeklyKm)
             assertEquals(12, draft.sessions.size)
             val expectedEngine15 = Engine15.generate(draft.request,
                 fixture, draft.id, draft.createdAt)
@@ -101,6 +111,7 @@ class TracksideEngineBuilderIntegrationTest {
             repo = open()
             val restored = repo.state.value.plans.single()
             assertEquals("approved", restored.status)
+            assertEquals(targetKm, restored.request.targetWeeklyKm)
             assertEquals(draft.sessions, restored.sessions)
             assertTrue(restored.sessions.any { it.id == workout.id && it.status == "planned" })
         } finally {
