@@ -130,11 +130,9 @@ class IndependentRunWeekComposerTest {
     }
 
     @Test fun zeroDistanceAllocationsAreNotEncodedAsZeroAmountWorkoutSteps() {
-        val a = allocation(baseline = 0.01, ceiling = 0.01, target = 0.01,
-            weeks = 1, days = setOf(1, 2, 3), longDay = 3)
-        // Extremely small weekly distance cannot represent a 3-day long run
-        // under default long-run share; M4 itself defers.
-        // Instead inspect a two-day candidate with an even split and one 0 km day.
+        // A one-centi-kilometer week on two run days inevitably leaves
+        // one day at 0.00 km. The composer must defer instead of
+        // constructing a zero-amount WorkoutStep.
         val b = allocation(baseline = 0.01, ceiling = 0.01, target = 0.01,
             weeks = 1, days = setOf(3, 6), longDay = 6)
         deferred("ZERO_DISTANCE_RUN_DAY", generate(b, constraints(
