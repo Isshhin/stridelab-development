@@ -48,6 +48,18 @@ class Engine15ArchitectureTest {
         assertNull(PlanRequest.decode(legacy).targetWeeklyKm)
     }
 
+    @Test fun explicitTargetEqualToRecentMileageRemainsExplicitInSavedPlan() {
+        for (km in listOf(0.0, 24.0)) {
+            val requested = request().copy(weeklyKm = km, targetWeeklyKm = km)
+            assertTrue(requested.encode().has("targetWeeklyKm"))
+            assertEquals(requested, PlanRequest.decode(requested.encode()))
+            val snapshot = Engine15.generate(requested, owner, "target-$km", now)
+            assertEquals(snapshot, PlanSnapshot.decode(snapshot.encode(), owner))
+        }
+        assertFalse(request().encode().has("targetWeeklyKm"))
+        assertNull(PlanRequest.decode(request().encode()).targetWeeklyKm)
+    }
+
     @Test fun tracksidePreferencesAndExactSessionLocksSurviveTheSameSnapshot() {
         val original = request().copy(
             dailyMinutes = 85,

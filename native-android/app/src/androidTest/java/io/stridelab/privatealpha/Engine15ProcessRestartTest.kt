@@ -40,14 +40,14 @@ class Engine15ProcessRestartTest {
     @Test fun prepare() = runBlocking {
         assertNull("Use a fresh synthetic fixture ID", evidence.getString("snapshot", null))
         val scenario = requireNotNull(args.getString("scenario"))
-        require(scenario in setOf("draft", "approved", "completed", "feedback", "accepted", "dismissed"))
+        require(scenario in setOf("draft", "approved", "equal", "completed", "feedback", "accepted", "dismissed"))
         val repo = open(false)
         try {
             assertTrue(repo.signIn("restart@example.invalid", "fixture"))
             val request = PlanRequest(goal="Improve 5K", policyChoice="engine15",
                 start=LocalDate.now().plusDays(1), weeks=4, days=(1..7).toSet(),
                 runDays=3, longDay=6, experience=1, weeklyKm=20.0, longestKm=8.0,
-                targetWeeklyKm=25.0, qualityCount=0)
+                targetWeeklyKm=if (scenario == "equal") 20.0 else 25.0, qualityCount=0)
             val recordedDay = LocalDate.now().minusDays(1)
             val futureDay = LocalDate.now().with(TemporalAdjusters.next(DayOfWeek.MONDAY))
             val feedbackEngine = object : PlanGenerationEngine {
@@ -59,8 +59,9 @@ class Engine15ProcessRestartTest {
                         PlannedSession("future-run", futureDay, "run", "Future easy run", 60, 8.0, "easy")
                     ), listOf("Synthetic fixture for process-restart verification."))
             }
-            assertTrue(repo.generatePlan(request, if (scenario in setOf("draft", "approved")) Engine15 else feedbackEngine))
+            assertTrue(repo.generatePlan(request, if (scenario in setOf("draft", "approved", "equal")) Engine15 else feedbackEngine))
             var plan = repo.state.value.plans.single()
+            assertEquals(request.targetWeeklyKm, plan.request.targetWeeklyKm)
             if (scenario != "draft") {
                 assertTrue(repo.approvePlan(plan.id, plan.revision))
                 plan = repo.state.value.plans.single()

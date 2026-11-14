@@ -47,7 +47,7 @@ internal data class PlanRequest(
             }
             encoded.put("weeklySlots", assignments)
         }
-        if(targetWeeklyKm!=weeklyKm)encoded.put("targetWeeklyKm",targetWeeklyKm)
+        if(targetWeeklyKm!=null)encoded.put("targetWeeklyKm",targetWeeklyKm)
         if(preferredQuality!="Threshold")encoded.put("preferredQuality",preferredQuality)
         if(allowedQualityTypes.isNotEmpty())
             encoded.put("allowedQualityTypes",JSONArray(allowedQualityTypes.sorted()))

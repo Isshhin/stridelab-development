@@ -22,6 +22,16 @@ class BackupIntegrityTest {
     @Test fun fullMultiSessionSnapshotAndSameDayPairRestoreUnchanged() {
         val p=multi();assertEquals(p,restored(p));assertEquals(listOf(p),PlanBackup.additions(listOf(p),emptyList()))
     }
+    @Test fun explicitTargetEqualToRecentMileageSurvivesBackupRestore() {
+        val request=PlanRequest(goal="Improve 5K",policyChoice="engine15",start=LocalDate.parse("2026-11-02"),
+            weeks=4,days=(1..7).toSet(),runDays=3,longDay=6,weeklyKm=24.0,longestKm=8.0,
+            experience=1,targetWeeklyKm=24.0)
+        val plan=Engine15.generate(request,owner,"target-backup",now)
+        val recovered=restored(plan)
+        assertEquals(plan,recovered)
+        assertEquals(24.0,recovered.request.targetWeeklyKm!!,0.0)
+        assertEquals(listOf(plan),PlanBackup.additions(listOf(recovered),emptyList()))
+    }
     @Test fun compatibleCrossPlanMultiSessionPairIsAccepted() {
         val (a,b)=pairPlans();val rows=PlanBackup.read(raw(a,b),owner)
         assertEquals(listOf(a,b),PlanBackup.additions(rows,emptyList()))

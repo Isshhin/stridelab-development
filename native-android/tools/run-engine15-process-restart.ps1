@@ -12,7 +12,7 @@ $package = 'io.stridelab.privatealpha'
 $runner = "$package.test/androidx.test.runner.AndroidJUnitRunner"
 $class = 'io.stridelab.privatealpha.Engine15ProcessRestartTest'
 $run = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds().ToString()
-foreach ($scenario in @('draft', 'approved', 'completed', 'feedback', 'accepted', 'dismissed')) {
+foreach ($scenario in @('draft', 'approved', 'equal', 'completed', 'feedback', 'accepted', 'dismissed')) {
     $fixture = "$scenario$run"
     $seed = (& $Adb -s $Serial shell am instrument -w -r -e class "$class#prepare" -e fixture_id $fixture -e scenario $scenario $runner 2>&1 | Out-String)
     if ($LASTEXITCODE -ne 0 -or $seed -notmatch 'OK \(1 test\)') { throw "Prepare failed for ${scenario}: $seed" }
