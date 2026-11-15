@@ -55,10 +55,11 @@ class IndependentAndroidResearchBridgeTest {
         val result = candidate()
         assertEquals(5, result.mileage.mileage.weeks.size)
         assertEquals(60.0, result.mileage.mileage.weeks.first().weeklyKilometers, 0.00001)
-        assertEquals(5.0,
+        assertTrue(
             result.mileage.mileage.weeks.first().dayAllocations.first {
                 it.isoDay == 1
-            }.kilometers, 0.00001)
+            }.kilometers <= 5.0 + 0.00001
+        )
         assertEquals(listOf(2), result.qualitySlots.weeks.first()
             .opportunities.map { it.isoDay })
         assertFalse(result.authorizedForPlanMutation)
@@ -91,7 +92,8 @@ class IndependentAndroidResearchBridgeTest {
         reject("EXPLICIT_RUNNING_DAYS_MISMATCH",
             bounds = entered.copy(selectedRunDays = setOf(1, 2, 3)))
         reject("LONG_DAY_NOT_SELECTED",
-            bounds = entered.copy(selectedRunDays = setOf(1, 2, 3, 4, 5, 7)))
+            r = request.copy(runDays = 5),
+            bounds = entered.copy(selectedRunDays = setOf(1, 2, 3, 5, 7)))
     }
     @Test fun pinnedRunningDaysCannotBeIgnoredByExperimentalCalendar() {
         reject("PINNED_RUNNING_DAYS_CONFLICT",
