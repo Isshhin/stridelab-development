@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import kotlinx.coroutines.launch
@@ -95,7 +97,7 @@ private fun ReviewWeekdays(selected: Set<Int>, options: Set<Int> = (1..7).toSet(
 }
 
 @Composable
-internal fun Engine15RecommendationReview(plan: PlanSnapshot, actions: PlanActions, busy: Boolean, onlyTarget: String? = null) {
+internal fun Engine15RecommendationReview(plan: PlanSnapshot, actions: PlanActions, busy: Boolean, onlyTarget: String? = null, embedded: Boolean = false) {
     var previews by remember(plan.owner, plan.id, onlyTarget) { mutableStateOf<List<Engine15Feedback.Proposal>?>(null) }
     fun refresh() {
         previews = actions.previewAdjustments(plan.id).filter { onlyTarget == null || it.targetSessionId == onlyTarget }
@@ -103,8 +105,9 @@ internal fun Engine15RecommendationReview(plan: PlanSnapshot, actions: PlanActio
     val pending = plan.sessions.filter {
         (onlyTarget == null || onlyTarget == it.id) && it.suggestion?.let { s -> !s.accepted && s.reason.startsWith(Engine15Feedback.RULE_ID) } == true
     }
-    TracksideGlassCard(compact = true) {
-        TracksideSectionHeader("Workout recommendations")
+    val body: @Composable ColumnScope.() -> Unit = {
+        if (!embedded) Text("WORKOUT RECOMMENDATIONS",
+            color=TracksidePalette.text,fontSize=12.sp,fontWeight=FontWeight.Bold)
         if (plan.status == "approved") OutlinedButton(onClick = { refresh() }, enabled = !busy) { Text("Preview recommendations") }
         if (previews?.isEmpty() == true && pending.isEmpty()) Text("No recommendation from your current workout records.")
         for (proposal in previews.orEmpty()) {
@@ -152,6 +155,12 @@ internal fun Engine15RecommendationReview(plan: PlanSnapshot, actions: PlanActio
             Text("Original prescription · ${current.originalMinutes} min" + (current.originalDistanceKm?.let { " · $it km" } ?: ""))
             if (current.state == Engine15SessionPresentation.State.ACCEPTED_TIME_ONLY) Text("Current target · ${current.currentMinutes} min")
         }
+    }
+    if(embedded) {
+        Column(Modifier.fillMaxWidth(),
+            verticalArrangement=Arrangement.spacedBy(8.dp)) { body() }
+    } else {
+        TracksideWorkoutNeutralCard { body() }
     }
 }
 
