@@ -49,7 +49,7 @@ class RunningStepGroupingTest {
         val variedWork=work.copy(meters=600)
         val variedRecovery=recovery.copy(effort="Walk")
         val segments=listOf(warm,work,recovery,variedWork,variedRecovery,work,cool)
-        assertEquals(segments.map(RunningStepBlock::Single),RunningStepGrouping.of(segments))
+        assertEquals(segments.map { RunningStepBlock.Single(it) },RunningStepGrouping.of(segments))
     }
 
     @Test fun easyLongAndSingleTempoRemainIndividualCards() {
