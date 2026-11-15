@@ -12,7 +12,7 @@ internal object Engine15WeeklyReview {
         init { require(fatigue==null || fatigue in 1..5) }
     }
     data class Change(val sessionId:String,val minutes:Int,val reason:String)
-    data class Review(val original:PlanSnapshot,val asOf:LocalDate,val evaluatedAt:Instant,val input:Input,val changes:List<Change>,val explanations:List<String>)
+    data class Review(val original:PlanSnapshot,val asOf:LocalDate,val evaluatedAt:Instant,val input:Input,val changes:List<Change>,val explanations:List<String>,val overrunSessionIds:List<String> = emptyList())
 
     fun preview(plan:PlanSnapshot,asOf:LocalDate,input:Input=Input(),allPlans:List<PlanSnapshot> = listOf(plan),now:Instant=Instant.now()):Review {
         if(plan.engineVersion!=ENGINE15_VERSION || plan.policyId !in setOf(ENGINE15_POLICY,ENGINE15_MULTI_POLICY,ENGINE15_INTERFERENCE_POLICY) || !Engine1Engines.canManage(plan) || plan.status!="approved")
@@ -24,35 +24,35 @@ internal object Engine15WeeklyReview {
         val duplicateLinks=sessions.mapNotNull { it.linkedActivityId }.groupingBy { it }.eachCount().filterValues { it>1 }.keys
         val duplicateIds=sessions.groupingBy { it.id }.eachCount().filterValues { it>1 }.keys
         val completed=sessions.filter { s ->
-            val log=s.log; val date=log?.performedOn
+            val log=s.coachingLog(); val date=log?.performedOn
             s.discipline=="run" && s.status=="completed" && s.logRevision>0 && s.id !in duplicateIds &&
                 s.linkedActivityId !in duplicateLinks && log!=null && date!=null &&
                 ChronoUnit.DAYS.between(date,asOf) in 0L..6L && kotlin.math.abs(ChronoUnit.DAYS.between(s.date,date))<=2 &&
                 !log.at.isAfter(now)
         }
-        val health=completed.filter { it.log!!.discomfort=="Pain" }
-        val difficult=completed.filter { it.log!!.effort?.let { r -> r in 8..10 }==true ||
-            it.log!!.completionDifficulty in setOf("Harder","Could not finish") || it.log!!.discomfort=="Soreness" }
-        val missed=sessions.filter { it.id !in duplicateIds && it.linkedActivityId !in duplicateLinks && it.discipline=="run" && it.status in setOf("missed","skipped") && it.log==null &&
+        val health=completed.filter { it.coachingLog()!!.discomfort=="Pain" }
+        val difficult=completed.filter { it.coachingLog()!!.effort?.let { r -> r in 8..10 }==true ||
+            it.coachingLog()!!.completionDifficulty in setOf("Harder","Could not finish") || it.coachingLog()!!.discomfort=="Soreness" }
+        val missed=sessions.filter { it.id !in duplicateIds && it.linkedActivityId !in duplicateLinks && it.discipline=="run" && it.status in setOf("missed","skipped") && it.coachingLog()==null &&
             ChronoUnit.DAYS.between(it.date,asOf) in 0L..6L }
         val illness=missed.any { it.missedReason=="Illness" }
         val negativeMiss=missed.any { it.missedReason in setOf("Fatigue","Soreness") }
         // shortcut: distance/duration trigger a review, not a physiological load estimate; add measured intensity evidence separately.
         val overruns=completed.filter { s ->
-            ChronoUnit.DAYS.between(s.log!!.performedOn,asOf) in 0L..1L && (
-                s.log.distanceKm?.let { actual -> s.distanceKm?.let { planned -> planned>0 && actual.isFinite() && actual>planned*1.10 && actual-planned>=1.0 && s.suggestion?.accepted!=true } }==true ||
-                s.log.minutes?.let { it.isFinite() && it>s.effectiveMinutes*1.10 && it-s.effectiveMinutes>=10 }==true)
+            ChronoUnit.DAYS.between(s.coachingLog()!!.performedOn,asOf) in 0L..1L && (
+                s.coachingLog()!!.distanceKm?.let { actual -> s.distanceKm?.let { planned -> planned>0 && actual.isFinite() && actual>planned*1.10 && actual-planned>=1.0 && s.suggestion?.accepted!=true } }==true ||
+                s.coachingLog()!!.minutes?.let { it.isFinite() && it>s.effectiveMinutes*1.10 && it-s.effectiveMinutes>=10 }==true)
         }
         val notes=mutableListOf("Weekly review uses recorded response and availability; absent logs do not establish zero training or lost fitness.")
         if(missed.any { it.missedReason !in setOf("Fatigue","Soreness","Illness") }) notes+="Scheduling/availability interruption: no catch-up mileage and no inferred fatigue."
-        if(overruns.isNotEmpty())notes+="Overrun review: ${overruns.map { it.id }.sorted().joinToString()}. Extra distance or duration alone does not earn progression or require a reduction."
+        if(overruns.isNotEmpty())notes+="Overrun review: Extra distance or duration alone does not earn progression or require a reduction."
         if(input.trigger==Trigger.OVERRUN && overruns.isEmpty())notes+="No eligible recent overrun; no next-day adjustment proposed."
         val enabled=input.trigger==Trigger.WEEKLY || overruns.isNotEmpty()
         val strong=health.isNotEmpty() || illness
         val fatigue=input.fatigue?.let { it>=4 }==true
         val caution=difficult.isNotEmpty() || negativeMiss
         val candidates=plan.sessions.filter { it.discipline=="run" && it.date>asOf && it.date<=asOf.plusDays(7) &&
-            it.status=="planned" && it.log==null && it.linkedActivityId==null && it.suggestion==null && it.id !in plan.request.lockedSessionDays }
+            it.status=="planned" && it.coachingLog()==null && it.linkedActivityId==null && it.suggestion==null && it.id !in plan.request.lockedSessionDays }
             .sortedWith(compareBy<PlannedSession> { it.date }.thenBy { it.id })
         val changes=if(!enabled) emptyList() else candidates.mapNotNull { s ->
             val unavailable=s.date in input.unavailableDays
@@ -70,7 +70,7 @@ internal object Engine15WeeklyReview {
         if(strong)notes+="Pain/illness remains a review concern; the end of this proposal is not clearance to resume."
         if(changes.isEmpty())notes+="Maintain the existing prescription; missing feedback or an isolated easy completion does not authorize increased load."
         notes+="Evidence: "+(completed.map { "${it.id}@${it.logRevision}" }+missed.map { "${it.id}:${it.missedReason}" }).sorted().joinToString()
-        return Review(plan,asOf,now,input,changes,notes)
+        return Review(plan,asOf,now,input,changes,notes,overruns.map { it.id }.sorted())
     }
 
     fun accept(plan:PlanSnapshot,review:Review,asOf:LocalDate,now:Instant,allPlans:List<PlanSnapshot> = listOf(plan)):PlanSnapshot {

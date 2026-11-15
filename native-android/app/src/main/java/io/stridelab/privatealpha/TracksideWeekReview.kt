@@ -28,7 +28,7 @@ import java.util.Locale
 
 /** A saved planned-distance total; any unknown running distance keeps it unknown. */
 internal fun weekReviewDistance(rows: List<PlannedSession>): Double? {
-    val distances=rows.filter { it.discipline=="run" }.map { it.distanceKm }
+    val distances=rows.filter { it.discipline=="run" }.map { Engine15SessionPresentation.currentDistance(it) }
     if(distances.any { it==null || !it.isFinite() || it<0.0 })return null
     return distances.filterNotNull().sum().takeIf { it.isFinite() }
 }
