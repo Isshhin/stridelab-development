@@ -30,6 +30,31 @@ class Engine15CoachControlsTest {
         val dir=InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null)!!
         java.io.File(dir,"$name.png").outputStream().use { compose.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
     }
+    @Test fun plannedWorkoutShortcutsUseRealMoveAndMissedCallbacks() {
+        val p=plan()
+        var moved=0
+        var markedMissed=0
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    WorkoutScreen(
+                        TrainingState(initializing=false,plans=listOf(p)),
+                        p.id,"target",PlanActions(),
+                        onBack={},
+                        onMissed={ markedMissed++ },
+                        onMove={ moved++ }
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("workout-planned-move").performClick()
+        compose.onNodeWithTag("workout-planned-missed").performClick()
+        compose.runOnIdle {
+            assertEquals(1,moved)
+            assertEquals(1,markedMissed)
+        }
+    }
+
     @Test fun plannedWorkoutHidesLegacyFormsUntilUserOpensThem() {
         val p=plan()
         compose.runOnUiThread {
