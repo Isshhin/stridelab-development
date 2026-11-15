@@ -145,3 +145,19 @@ internal fun TracksideWorkoutDateSelector(
         }
     }
 }
+
+/** Consistent high-contrast inputs on neutral charcoal rather than old blue surfaces. */
+@Composable
+internal fun TracksideWorkoutInputColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor=TracksidePalette.text,
+    unfocusedTextColor=TracksidePalette.text,
+    disabledTextColor=TracksidePalette.textMuted,
+    focusedBorderColor=TracksidePalette.lime,
+    unfocusedBorderColor=TracksidePalette.outline,
+    disabledBorderColor=TracksidePalette.outline,
+    focusedLabelColor=TracksidePalette.lime,
+    unfocusedLabelColor=TracksidePalette.textMuted,
+    cursorColor=TracksidePalette.lime,
+    focusedContainerColor=TracksidePalette.surfaceRaised,
+    unfocusedContainerColor=TracksidePalette.surfaceRaised
+)
