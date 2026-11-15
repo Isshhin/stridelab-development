@@ -170,18 +170,21 @@ class IndependentTimedQualityDistanceReconciliationTest {
 
     @Test fun mixedMeterAndSecondWorkoutStepsRequireIndependentEvidence() {
         val original = preview()
-        val mixed = original.copy(qualityWorkout = IndependentWorkoutComposition(listOf(
-            IndependentWorkoutElement.Step(
-                WorkoutStep(WorkoutPurpose.WARM_UP, WorkoutUnit.METERS, 2000.0, 1, WorkoutTarget.EASY)
-            ),
-            IndependentWorkoutElement.Step(
-                WorkoutStep(WorkoutPurpose.WORK, WorkoutUnit.SECONDS, 720.0, 1, WorkoutTarget.THRESHOLD)
-            ),
-            IndependentWorkoutElement.Step(
-                WorkoutStep(WorkoutPurpose.COOL_DOWN, WorkoutUnit.SECONDS, 480.0, 1, WorkoutTarget.EASY)
-            )
-        )))
-        reject("MIXED_UNITS_CANNOT_RECONCILE", q = mixed, d = distances(original))
+        // M5a already rejects mixed-unit previews in its constructor.
+        // Confirm this guard prevents M9a from receiving such a preview.
+        assertThrows(IllegalArgumentException::class.java) {
+            original.copy(qualityWorkout = IndependentWorkoutComposition(listOf(
+                IndependentWorkoutElement.Step(
+                    WorkoutStep(WorkoutPurpose.WARM_UP, WorkoutUnit.METERS, 2000.0, 1, WorkoutTarget.EASY)
+                ),
+                IndependentWorkoutElement.Step(
+                    WorkoutStep(WorkoutPurpose.WORK, WorkoutUnit.SECONDS, 720.0, 1, WorkoutTarget.THRESHOLD)
+                ),
+                IndependentWorkoutElement.Step(
+                    WorkoutStep(WorkoutPurpose.COOL_DOWN, WorkoutUnit.SECONDS, 480.0, 1, WorkoutTarget.EASY)
+                )
+            )))
+        }
     }
 
     @Test fun noMileageOrWorkoutChangesOccurAcrossRepeatedCalls() {
