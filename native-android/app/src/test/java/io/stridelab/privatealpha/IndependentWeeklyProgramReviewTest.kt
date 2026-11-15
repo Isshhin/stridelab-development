@@ -241,18 +241,25 @@ class IndependentWeeklyProgramReviewTest {
     }
 
     @Test fun crossWeekHardSessionIsCheckedWithoutGuessingFatigue() {
-        val d = dose(spacing())
+        // Monday quality is adjacent to the preceding Sunday's hard workout.
+        val arrangement = spacing(2)
+        val d = dose(arrangement, two = true)
         reject("OTHER_DISCIPLINE_HARD_DAY_CONFLICT",
-            review = d, criteria = input(d, external = setOf(monday.minusDays(1))))
-        val outcome = accepted(criteria = input(d, external = setOf(monday.minusDays(3))))
+            arrangement = arrangement, review = d,
+            criteria = input(d, external = setOf(monday.minusDays(1))))
+        val outcome = accepted(arrangement, d,
+            input(d, external = setOf(monday.minusDays(3))))
         assertEquals(60.0, outcome.weeklyKmUnchanged, 0.00001)
     }
 
     @Test fun hardDayGapCanBeIndependentlyTightenedAndReviewed() {
-        val d = dose(spacing())
+        // Mon/Wed quality has a 2-day gap. A separately reviewed 3-day
+        // minimum holds the proposed two-quality calendar for review.
+        val arrangement = spacing(2)
+        val d = dose(arrangement, two = true)
         reject("RUNNING_HARD_DAY_SPACING_CONFLICT",
-            review = d, criteria = input(d, gap = 3))
-        val allowed = accepted(criteria = input(d, gap = 2))
+            arrangement = arrangement, review = d, criteria = input(d, gap = 3))
+        val allowed = accepted(arrangement, d, input(d, gap = 2))
         assertTrue(allowed.segmentDistanceArithmeticChecked)
     }
 
