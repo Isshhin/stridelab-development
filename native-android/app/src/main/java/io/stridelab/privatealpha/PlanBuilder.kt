@@ -85,7 +85,6 @@ import org.json.JSONObject
         }
     }
     fun request():PlanRequest=try { input.copy(start=LocalDate.parse(start),weeks=weeks.toInt(),minutes=minutes.toInt(),dailyMinutes=if(input.policyChoice=="multi-session")dailyMinutes.toInt() else input.dailyMinutes,weeklyKm=km.toDouble(),targetWeeklyKm=if(targetSupplied) targetKm.toDouble() else null,longestKm=longest.toDouble(),planningPace=pace.toDouble()*60,timeBudgetEnabled=false) } catch(e:Exception) { throw PlanConstraint("Enter a valid YYYY-MM-DD date and numeric recent and target mileage, pace, weeks, and daily budget if enabled.") }
-    var researchSelected by rememberSaveable { mutableStateOf(false) }
     var previewWeek by rememberSaveable { mutableIntStateOf(0) }
     var runningSubPage by rememberSaveable { mutableIntStateOf(0) }
     var scheduleSubPage by rememberSaveable { mutableIntStateOf(0) }
@@ -134,7 +133,7 @@ import org.json.JSONObject
             request = preview.request,
             plan = preview,
             busy = state.busy || awaiting || pendingApprovalId != null,
-            onBack = { step = 3 },
+            onBack = { step = 2; scheduleSubPage = 1 },
             onContinue = {
                 if(!state.busy && pendingApprovalId==null) {
                     error=null
@@ -671,42 +670,47 @@ import org.json.JSONObject
                     }
                     otherSelectedSlot=otherSelectedSlot.coerceIn(0,count-1)
                 },
+                generationBusy = state.busy || awaiting,
+                generationError = error,
+                researchContent = {
+                    IndependentAndroidResearchPreviewPanel(
+                        request = runCatching { request() }.getOrDefault(input),
+                        onSaveResearchReview = actions.saveResearchReview,
+                        savedResearchCount = state.researchDrafts.size,
+                        savedResearchReviews = state.researchDrafts
+                    )
+                },
                 onBack = { scheduleSubPage = 0 },
-                onContinue = { step = 3 }
+                onContinue = {
+                    if(!state.busy && !awaiting) {
+                        error = null
+                        try {
+                            val p = request()
+                            if(p.start < LocalDate.now())
+                                throw PlanConstraint("Choose today or a future start date.")
+                            // Research previews remain read-only and separate;
+                            // generation always invokes the approved production route.
+                            IndependentEngineRouteGate.requireProduction(
+                                IndependentEngineRoute.EXISTING_COACH
+                            )
+                            val selected = TracksideCoaching.request(p)
+                            beforeId = state.plans.firstOrNull()?.id
+                            awaiting = true
+                            actions.generate(selected)
+                        } catch(e:PlanConstraint) { error = e.message }
+                    }
+                }
             )
         }
         return
     }
-    if (step == 3) {
-        val previewInputs = runCatching { request() }.getOrDefault(input)
-        TracksideWeekReview(
-            request = previewInputs,
-            plan = null,
-            busy = state.busy || awaiting,
-            onBack = { step = 2; scheduleSubPage = 1 },
-            experimentalSelected = researchSelected,
-            onExperimentalSelected = { researchSelected = it; error = null },
-            onSaveResearchReview = actions.saveResearchReview,
-            researchDraftCount = state.researchDrafts.size,
-            savedResearchReviews = state.researchDrafts,
-            onContinue = {
-                error = null
-                try {
-                    val p = request()
-                    if (p.start < LocalDate.now())
-                        throw PlanConstraint("Choose today or a future start date.")
-                    IndependentEngineRouteGate.requireProduction(
-                        if (researchSelected) IndependentEngineRoute.RESEARCH_COMPARISON
-                        else IndependentEngineRoute.EXISTING_COACH
-                    )
-                    val selected = TracksideCoaching.request(p)
-                    beforeId = state.plans.firstOrNull()?.id
-                    awaiting = true
-                    actions.generate(selected)
-                } catch(e: PlanConstraint) { error = e.message }
-            },
-            error = error
-        )
+    if(step==3) {
+        // Older saved builder state may resume at the removed blueprint page.
+        // Return to final availability without generating or approving a plan.
+        LaunchedEffect(Unit) {
+            scheduleSubPage=1
+            step=2
+        }
         return
     }
     // An orphaned draft after process restore must never reveal the removed
@@ -719,16 +723,17 @@ import org.json.JSONObject
         description = if(missingDraft)
             "The draft is no longer available. Your choices are still here."
             else "This step could not be restored. Your plan inputs are preserved.",
-        ctaLabel = if(missingDraft) "Review your choices" else "Return to setup",
+        ctaLabel = if(missingDraft) "Review availability" else "Return to setup",
         onBack = {
-            if(missingDraft) step = 3 else step = 0
+            if(missingDraft) { step=2; scheduleSubPage=1 } else step = 0
         },
         onContinue = {
             error = null
             if(missingDraft) {
                 previewId = null
                 pendingApprovalId = null
-                step = 3
+                step = 2
+                scheduleSubPage = 1
             } else {
                 step = 0
                 runningSubPage = 0
