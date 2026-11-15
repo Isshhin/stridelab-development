@@ -75,6 +75,7 @@ internal data class IndependentResearchDraft(
     val createdAt: Instant,
     val request: PlanRequest,
     val selectedRunDays: Set<Int>,
+    val inputConstraints: IndependentAndroidPreviewConstraints,
     val weeks: List<IndependentResearchDraftWeek>,
     val policyId: String = POLICY_ID,
     val sourceEvidenceVerified: Boolean = false,
@@ -89,12 +90,29 @@ internal data class IndependentResearchDraft(
         require(request.targetWeeklyKm != null && request.targetWeeklyKm > 0.0)
         require(selectedRunDays.size == request.runDays)
         require(selectedRunDays.all { it in request.days && it in 1..7 })
+        require(inputConstraints.selectedRunDays == selectedRunDays)
+        val dayCaps = requireNotNull(inputConstraints.explicitlyEnteredMaxKmByDay)
+        require(dayCaps.keys == selectedRunDays && dayCaps.values.all {
+            it.isFinite() && it > 0.0
+        })
+        val startKm = requireNotNull(inputConstraints.explicitlyEnteredStartingWeeklyKm)
+        val ceiling = requireNotNull(inputConstraints.explicitlyEnteredWeeklyCeilingKm)
+        require(startKm.isFinite() && startKm > 0.0 &&
+            ceiling.isFinite() && ceiling >= startKm)
+        require(inputConstraints.explicitlyEnteredPreviousLongRunKm == null ||
+            inputConstraints.explicitlyEnteredPreviousLongRunKm >= 0.0)
         require(request.start.dayOfWeek == java.time.DayOfWeek.MONDAY)
         require(weeks.size == request.weeks && weeks.isNotEmpty())
         require(weeks.map { it.week } == (1..request.weeks).toList())
         require(weeks.all { week ->
             week.days.map { it.isoDay }.toSet() == selectedRunDays &&
                 week.days.count { it.longRunCandidate } == if (selectedRunDays.size >= 3) 1 else 0
+        })
+        require(weeks.all { week ->
+            week.weeklyKilometers <= ceiling + 0.00001 &&
+                week.days.all { day ->
+                    day.kilometers <= requireNotNull(dayCaps[day.isoDay]) + 0.00001
+                }
         })
         require(!sourceEvidenceVerified && !executable &&
             !authorizedForPlanMutation && !authorizedForProduction)
@@ -113,6 +131,17 @@ internal data class IndependentResearchDraft(
             .put("createdAt", createdAt.toString())
             .put("request", request.encode())
             .put("selectedRunDays", JSONArray(selectedRunDays.sorted()))
+            .put("inputConstraints", JSONObject()
+                .put("startingWeeklyKm", inputConstraints.explicitlyEnteredStartingWeeklyKm)
+                .put("weeklyCeilingKm", inputConstraints.explicitlyEnteredWeeklyCeilingKm)
+                .put("dailyCaps", JSONObject(
+                    inputConstraints.explicitlyEnteredMaxKmByDay.orEmpty()
+                        .mapKeys { it.key.toString() }
+                ))
+                .put("previousLongKm", inputConstraints.explicitlyEnteredPreviousLongRunKm)
+                .put("longCeilingKm", inputConstraints.explicitlyEnteredLongRunCeilingKm)
+                .put("maxLongIncreaseKm", inputConstraints.explicitlyEnteredMaxLongRunIncreaseKm)
+            )
             .put("weeks", JSONArray(weeks.map { week ->
                 JSONObject()
                     .put("week", week.week)
@@ -140,7 +169,7 @@ internal data class IndependentResearchDraft(
             owner: String,
             request: PlanRequest,
             result: IndependentAndroidPreviewDecision.ReadOnly,
-            selectedRunDays: Set<Int>,
+            constraints: IndependentAndroidPreviewConstraints,
             id: String = UUID.randomUUID().toString(),
             createdAt: Instant = Instant.now()
         ): IndependentResearchDraft {
@@ -174,7 +203,8 @@ internal data class IndependentResearchDraft(
                 }
             return IndependentResearchDraft(
                 id = id, owner = owner, createdAt = createdAt,
-                request = request, selectedRunDays = selectedRunDays, weeks = weeks
+                request = request, selectedRunDays = constraints.selectedRunDays,
+                inputConstraints = constraints, weeks = weeks
             )
         }
 
@@ -192,6 +222,26 @@ internal data class IndependentResearchDraft(
             val days = raw.getJSONArray("selectedRunDays")
             val decodedDays = (0 until days.length()).map { days.getInt(it) }
             require(decodedDays.distinct().size == decodedDays.size)
+            val input = raw.getJSONObject("inputConstraints")
+            val daily = input.getJSONObject("dailyCaps")
+            val enteredCaps = daily.keys().asSequence().associate { k ->
+                k.toInt() to daily.getDouble(k)
+            }
+            val constraints = IndependentAndroidPreviewConstraints(
+                selectedRunDays = decodedDays.toSet(),
+                explicitlyEnteredStartingWeeklyKm = input.getDouble("startingWeeklyKm"),
+                explicitlyEnteredWeeklyCeilingKm = input.getDouble("weeklyCeilingKm"),
+                explicitlyEnteredMaxKmByDay = enteredCaps,
+                explicitlyEnteredPreviousLongRunKm =
+                    if (input.isNull("previousLongKm")) null
+                    else input.getDouble("previousLongKm"),
+                explicitlyEnteredLongRunCeilingKm =
+                    if (input.isNull("longCeilingKm")) null
+                    else input.getDouble("longCeilingKm"),
+                explicitlyEnteredMaxLongRunIncreaseKm =
+                    if (input.isNull("maxLongIncreaseKm")) null
+                    else input.getDouble("maxLongIncreaseKm")
+            )
             val storedWeeks = raw.getJSONArray("weeks")
             require(storedWeeks.length() in 1..52)
             val decodedWeeks = (0 until storedWeeks.length()).map { index ->
@@ -219,6 +269,7 @@ internal data class IndependentResearchDraft(
                 createdAt = Instant.parse(raw.getString("createdAt")),
                 request = PlanRequest.decode(raw.getJSONObject("request")),
                 selectedRunDays = decodedDays.toSet(),
+                inputConstraints = constraints,
                 weeks = decodedWeeks
             )
         }

@@ -458,7 +458,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             is IndependentAndroidPreviewDecision.ReadOnly -> result
         }
         val draft=IndependentResearchDraft.fromPreview(
-            owner,request,preview,constraints.selectedRunDays
+            owner,request,preview,constraints
         )
         val raw=draft.encode().toString()
         RecordPolicy.record(owner,"exercise",draft.recordId,raw)

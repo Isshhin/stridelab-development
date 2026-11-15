@@ -30,7 +30,7 @@ class IndependentResearchDraftTest {
         return result as IndependentAndroidPreviewDecision.ReadOnly
     }
     private fun draft() = IndependentResearchDraft.fromPreview(
-        "synthetic-device-profile", request, preview(), limits.selectedRunDays,
+        "synthetic-device-profile", request, preview(), limits,
         id = "0fa768cd-1f1a-47f8-85fb-4c4d6514dce7",
         createdAt = Instant.parse("2026-11-15T00:00:00Z")
     )
@@ -67,6 +67,7 @@ class IndependentResearchDraftTest {
         assertFalse(draft.authorizedForPlanMutation)
         assertFalse(draft.authorizedForProduction)
         assertEquals(IndependentResearchDraft.POLICY_ID, draft.policyId)
+        assertEquals(limits, draft.inputConstraints)
     }
 
     @Test fun researchDraftPreservesEveryOriginalMileageDayAndWeek() {
@@ -98,6 +99,16 @@ class IndependentResearchDraftTest {
         }
         assertThrows(IllegalArgumentException::class.java) {
             first.days.single { it.longRunCandidate }.copy(qualityOpportunityOnly = true)
+        }
+    }
+
+    @Test fun tamperingWithDailyCapCannotMakeExistingMileageAppearFeasible() {
+        val original = draft()
+        assertThrows(IllegalArgumentException::class.java) {
+            original.copy(inputConstraints = original.inputConstraints.copy(
+                explicitlyEnteredMaxKmByDay =
+                    original.inputConstraints.selectedRunDays.associateWith { 0.1 }
+            ))
         }
     }
 
