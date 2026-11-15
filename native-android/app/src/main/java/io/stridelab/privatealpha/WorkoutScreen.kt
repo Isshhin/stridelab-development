@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.drop
     var pendingSwap by rememberSaveable(plan.owner,session.id) { mutableStateOf<String?>(null) }
     var swapId by rememberSaveable(plan.owner,session.id) { mutableStateOf<String?>(null) }
     val done=session.status=="completed";val active=Engine1Engines.canManage(plan) && plan.status in setOf("approved","paused") && session.status in setOf("planned","in_progress")
+    val plannedRun=session.discipline=="run" && session.status in setOf("planned","in_progress")
     var minutes by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.minutes ?: session.log?.minutes?.toString() ?: "") };var distance by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.distance ?: session.log?.distanceKm?.toString() ?: "") };var effort by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.effort ?: session.coachingLog()?.effort?.toString() ?: "") };var notes by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.notes ?: session.log?.notes ?: "") }
     val responseEditable=done && Engine1Engines.canManage(plan) && session.discipline=="run" && plan.engineVersion==ENGINE15_VERSION && plan.status in setOf("approved","paused")
     var difficulty by rememberSaveable(plan.owner,session.id) { mutableStateOf(if(entryDraft!=null)entryDraft.completionDifficulty else session.coachingLog()?.completionDifficulty) }
@@ -102,9 +103,28 @@ import kotlinx.coroutines.flow.drop
                 } catch(e:PlanConstraint) {formError=e.message;false}
             },error=formError)
     } else {
-    Screen(shown.effectiveTitle,"${disciplineLabel(session.discipline).uppercase()} · ${session.status.uppercase()}",compactTitle=true) {
+    Screen(
+        if(plannedRun) "Workout details" else shown.effectiveTitle,
+        "${disciplineLabel(session.discipline).uppercase()} · ${session.status.uppercase()}",
+        compactTitle=true,dense=plannedRun
+    ) {
         if(active && exercises.isNotEmpty()) item { SignalButton("Return to guided workout",{guided=true}) }
-        item { TextButton(onClick=onBack) { Text("Back to Training") };Text("${session.date} · ${current.currentMinutes} planned min",style=MaterialTheme.typography.bodyMedium);Text(shown.reason,style=MaterialTheme.typography.bodyLarge) }
+        if(plannedRun) item {
+            TracksidePlannedRunningPreview(
+                session=session,
+                target=current,
+                displayTitle=shown.effectiveTitle,
+                coachingReason=shown.reason,
+                onBack=onBack
+            )
+        } else item {
+            TextButton(onClick=onBack) { Text("Back to Training") }
+            Text("${session.date} · ${current.currentMinutes} planned min",
+                style=MaterialTheme.typography.bodyMedium,
+                color=TracksidePalette.textMuted)
+            Text(shown.reason,style=MaterialTheme.typography.bodyLarge,
+                color=TracksidePalette.textMuted)
+        }
         session.linkedActivityId?.let { activityId -> item { SignalCard { Text("LINKED SOURCE RUN",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary);val source=state.activities.find { it.id==activityId };Text(source?.let { "${it.title} · ${it.dateLabel} · ${it.distanceLabel} · ${it.durationLabel}" } ?: "The linked source is not currently cached. Its link and original prescription remain saved.");Text("The manual link confirms your association, not whether every prescribed interval or effort was performed. Manage the link in Activities.",style=MaterialTheme.typography.bodySmall) } } }
         if (plan.engineVersion == ENGINE15_VERSION && Engine1Engines.canManage(plan) && (plan.status == "approved" || current.disclosure != null)) item {
             Engine15RecommendationReview(plan, actions, state.busy, session.id)
@@ -114,7 +134,7 @@ import kotlinx.coroutines.flow.drop
             Text(suggestion.reason)
             if(!suggestion.accepted&&active) { SignalButton(if(suggestion.minutes==0) "Choose rest for this session" else "Accept lighter alternative",{actions.acceptSuggestion(plan.id,plan.revision,session.id)},!state.busy);Text("Original prescriptions remain saved. No catch-up workout is added.",style=MaterialTheme.typography.bodySmall) }
         } } }
-        item { SignalCard {
+        if(!plannedRun) item { SignalCard {
             Text("YOUR PRESCRIPTION",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
             if (rest || timeOnly) {
                 Text(if (rest) "Reviewed rest · 0 minutes" else "Time-only run · ${current.currentMinutes} minutes")
