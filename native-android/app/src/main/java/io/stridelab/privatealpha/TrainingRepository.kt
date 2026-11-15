@@ -216,7 +216,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                     IndependentResearchDraft.decode(
                         JSONObject(cursor.getString(1)), owner
                     ).also { require(it.recordId == cursor.getString(0)) }
-                }.onSuccess(drafts::add)
+                }.onSuccess { drafts.add(it) }
                 // Unsupported or corrupt records remain on disk; do not
                 // fabricate a substitute or migrate owners automatically.
             }
