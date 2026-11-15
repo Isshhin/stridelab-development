@@ -89,22 +89,61 @@ class Engine15ProcessRestartTest {
                 else assertNull(plan.sessions.last().suggestion)
             }
             assertEquals(ENGINE15_POLICY, plan.policyId)
+            val researchRequest = PlanRequest(
+                goal="General fitness", experience=2,
+                start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)),
+                weeks=5, days=setOf(1,2,3,5,6,7), runDays=6,
+                qualityCount=1, qualityDays=setOf(2), longDay=6,
+                weeklyKm=60.0, targetWeeklyKm=80.0, timeBudgetEnabled=false
+            )
+            val researchBounds = IndependentAndroidPreviewConstraints(
+                selectedRunDays=researchRequest.days,
+                explicitlyEnteredStartingWeeklyKm=60.0,
+                explicitlyEnteredWeeklyCeilingKm=80.0,
+                explicitlyEnteredMaxKmByDay=researchRequest.days.associateWith {
+                    if (it == 1) 5.0 else 25.0
+                },
+                explicitlyEnteredPreviousLongRunKm=17.0,
+                explicitlyEnteredLongRunCeilingKm=25.0,
+                explicitlyEnteredMaxLongRunIncreaseKm=2.0
+            )
+            assertTrue(repo.saveResearchReview(researchRequest, researchBounds))
+            val review = repo.state.value.researchDrafts.single()
+            assertEquals(owner, review.owner)
+            assertFalse(review.executable)
+            assertFalse(review.authorizedForProduction)
             assertTrue(evidence.edit().putString("snapshot", plan.encode().toString())
+                .putString("research", review.encode().toString())
                 .putInt("pid", Process.myPid()).commit())
         } finally { repo.close() }
     }
 
     @Test fun verifyAfterRestart() {
         val original = requireNotNull(evidence.getString("snapshot", null))
+        val originalResearch = requireNotNull(evidence.getString("research", null))
         assertNotEquals("The writer process must have exited", evidence.getInt("pid", -1), Process.myPid())
         val expected = PlanSnapshot.decode(JSONObject(original), owner)
+        val expectedResearch = IndependentResearchDraft.decode(JSONObject(originalResearch), owner)
         val repo = open(true)
         try {
             val actual = repo.state.value.plans.single()
             assertEquals(expected, actual)
+            assertEquals(listOf(expectedResearch), repo.state.value.researchDrafts)
             assertEquals(ENGINE15_VERSION, actual.engineVersion)
             assertEquals(ENGINE15_POLICY, actual.policyId)
             assertEquals(actual.sessions.size, actual.sessions.map { it.id }.distinct().size)
+            val research = repo.state.value.researchDrafts.single()
+            assertFalse(research.sourceEvidenceVerified)
+            assertFalse(research.executable)
+            assertFalse(research.authorizedForPlanMutation)
+            assertFalse(research.authorizedForProduction)
+            assertFalse(research.encode().has("sessions"))
+            assertFalse(research.encode().has("engineVersion"))
+            assertFalse(research.encode().has("status"))
+            try {
+                PlanSnapshot.decode(research.encode(), owner)
+                fail("A process-restored research review must remain non-executable")
+            } catch (_: Exception) { }
         } finally { repo.close() }
         val sibling = TrainingRepository(context, Gateway("$owner-sibling", false), database, "$preferences-sibling")
         try {
@@ -112,6 +151,7 @@ class Engine15ProcessRestartTest {
                 withTimeout(20_000) { sibling.state.first { !it.initializing } }
                 assertTrue(sibling.signIn("other@example.invalid", "fixture"))
                 assertTrue(sibling.state.value.plans.isEmpty())
+                assertTrue(sibling.state.value.researchDrafts.isEmpty())
             }
         } finally { sibling.close() }
     }

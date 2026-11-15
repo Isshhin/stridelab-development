@@ -115,7 +115,8 @@ internal fun TracksideRunningSetup(
                 // At 360dp the cells scroll horizontally instead of shrinking
                 // to unreachable < 44dp targets.
                 Row(
-                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                        .testTag("builder-running-day-row"),
                     horizontalArrangement=Arrangement.spacedBy(4.dp)
                 ) {
                     (1..7).forEach { day ->
