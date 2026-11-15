@@ -40,7 +40,7 @@ internal object PlanBuilderPalette {
 }
 
 @Composable
-internal fun PlanBuilderStageProgress(step: Int, total: Int = 7) {
+internal fun PlanBuilderStageProgress(step: Int, total: Int = 6) {
     val safeStep = step.coerceIn(1, total)
     Row(
         modifier = Modifier.fillMaxWidth().testTag("builder-stage-progress"),
