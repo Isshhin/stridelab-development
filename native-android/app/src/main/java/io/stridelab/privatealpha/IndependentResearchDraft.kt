@@ -93,14 +93,30 @@ internal data class IndependentResearchDraft(
         require(inputConstraints.selectedRunDays == selectedRunDays)
         val dayCaps = requireNotNull(inputConstraints.explicitlyEnteredMaxKmByDay)
         require(dayCaps.keys == selectedRunDays && dayCaps.values.all {
-            it.isFinite() && it > 0.0
+            it.isFinite() && it > 0.0 && it <= 150.0
         })
         val startKm = requireNotNull(inputConstraints.explicitlyEnteredStartingWeeklyKm)
         val ceiling = requireNotNull(inputConstraints.explicitlyEnteredWeeklyCeilingKm)
         require(startKm.isFinite() && startKm > 0.0 &&
-            ceiling.isFinite() && ceiling >= startKm)
-        require(inputConstraints.explicitlyEnteredPreviousLongRunKm == null ||
-            inputConstraints.explicitlyEnteredPreviousLongRunKm >= 0.0)
+            ceiling.isFinite() && ceiling >= startKm && ceiling <= 150.0)
+        require(request.runDays in 2..6 && !request.returning &&
+            request.experience > 0 &&
+            request.strengthDays == 0 && request.calDays == 0 &&
+            request.conditioningDays == 0)
+        require(request.goal !in setOf(
+            "Improve 5K","Improve 10K","Half marathon","Marathon"
+        ))
+        require(request.targetWeeklyKm!!.isFinite() &&
+            request.targetWeeklyKm <= 150.0)
+        val longInputs = listOf(
+            inputConstraints.explicitlyEnteredPreviousLongRunKm,
+            inputConstraints.explicitlyEnteredLongRunCeilingKm,
+            inputConstraints.explicitlyEnteredMaxLongRunIncreaseKm
+        )
+        require(longInputs.filterNotNull().all {
+            it.isFinite() && it in 0.0..150.0
+        })
+        require(selectedRunDays.size < 3 || longInputs.all { it != null })
         require(request.start.dayOfWeek == java.time.DayOfWeek.MONDAY)
         require(weeks.size == request.weeks && weeks.isNotEmpty())
         require(weeks.map { it.week } == (1..request.weeks).toList())
