@@ -394,6 +394,16 @@ class TracksideResponsiveQaTest {
                             saved.value=WeeklyPlacement.put(saved.value,"run",
                                 selected.value,day)
                         },
+                        onAssignSlot={ index,day ->
+                            custom.value=true
+                            saved.value=WeeklyPlacement.put(saved.value,"run",index,day)
+                            selected.value=index
+                        },
+                        onClearDay={ index ->
+                            custom.value=true
+                            saved.value=WeeklyPlacement.clear(saved.value,"run",index)
+                            selected.value=index
+                        },
                         onClearSlot={
                             saved.value=WeeklyPlacement.clear(saved.value,"run",
                                 selected.value)
@@ -438,10 +448,51 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("builder-running-day-7").assertIsDisplayed()
         screenshot("builder-running-week-last-day-reachable")
 
-        // A first tap reveals the non-modal editor, rather than secretly moving
-        // a workout; explicit selection and the second day tap perform the move.
+        // The primary flow opens a picker immediately without searching for
+        // the old below-the-fold editor. A type selection assigns that day.
         compose.onNodeWithTag("builder-running-day-6").assertIsDisplayed()
         compose.onNodeWithTag("builder-running-day-6").performClick()
+        compose.onNodeWithTag("builder-run-day-sheet").assertExists()
+        compose.onNodeWithTag("builder-run-sheet-option-easy").assertIsEnabled()
+        compose.onNodeWithTag("builder-run-sheet-option-easy").performClick()
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertTrue("Day-first assignment must activate manual placement",custom.value)
+            assertTrue("Easy session was not assigned to Saturday",
+                saved.value.weeklySlots["run"]?.get(2)==6)
+            assertTrue("Saturday was not made available",6 in saved.value.days)
+            assertTrue("Session count changed unexpectedly",saved.value.runDays==5)
+        }
+        // The same day can be reassigned to quality by swapping the occupied
+        // weekday, rather than silently dropping an existing run.
+        compose.onNodeWithTag("builder-running-day-6").performClick()
+        compose.onNodeWithTag("builder-run-sheet-option-quality").performClick()
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertTrue("Quality session was not swapped to Saturday",
+                saved.value.weeklySlots["run"]?.get(1)==6)
+            assertTrue("Displaced easy session should move to Tuesday",
+                saved.value.weeklySlots["run"]?.get(2)==2)
+            assertTrue("Long-run weekday changed unexpectedly",
+                saved.value.weeklySlots["run"]?.get(0)==7)
+        }
+        compose.onNodeWithTag("builder-running-day-6").performClick()
+        compose.onNodeWithTag("builder-run-sheet-clear").performClick()
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertTrue("Clearing should unplace quality, not remove it",
+                saved.value.weeklySlots["run"]?.get(1)==0)
+            assertTrue("Weekly run count must remain five",saved.value.runDays==5)
+        }
+        compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
+        compose.onNodeWithTag("builder-running-day-6").performClick()
+        compose.onNodeWithTag("builder-run-sheet-option-quality").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+
+        // Advanced session-ordinal and quality controls remain usable.
+        compose.onNodeWithTag("builder-running-advanced-toggle").performScrollTo()
+        compose.onNodeWithTag("builder-running-advanced-toggle").performClick()
         compose.onNodeWithTag("builder-running-custom").performScrollTo()
         compose.onNodeWithTag("builder-running-custom").performClick()
         // This guidance text is immediately below the horizontally scrollable
