@@ -6,6 +6,9 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -32,9 +35,9 @@ private val weekWhite = Color(0xFFFFFFFF)
 /**
  * Running-week baseline: approved Figma 548:95 (412dp) / 553:107 (360dp).
  *
- * Default view is the compact seven-day summary. Tapping a day reveals an
- * inline editor; the original manual-day, session-count and quality callbacks
- * remain authoritative, never a decorative or fake pin.
+ * The compact seven-day summary opens a focused assignment sheet on day taps.
+ * The existing manual weekday, session-count and quality rules remain authoritative;
+ * advanced controls are available separately without changing the generation contract.
  */
 @Composable
 internal fun TracksideRunningSetup(
@@ -48,6 +51,8 @@ internal fun TracksideRunningSetup(
     onQualityCount: (Int) -> Unit,
     onRunningCount: (Int) -> Unit,
     onAssignDay: (Int) -> Unit,
+    onAssignSlot: (Int, Int) -> Unit,
+    onClearDay: (Int) -> Unit,
     onClearSlot: () -> Unit,
     onBack: () -> Unit,
     onContinue: () -> Unit
@@ -60,13 +65,14 @@ internal fun TracksideRunningSetup(
         slots.all { it in request.days }
     val pinned = request.weeklySlots["run"]
     var editorOpen by remember { mutableStateOf(false) }
+    var editingDay by remember { mutableStateOf<Int?>(null) }
 
     TracksideBuilderFrame(
         progressStep = 3,
         toolbarTitle="Running Setup",
         eyebrow="RUNNING / WEEKLY SCHEDULE",
         headline="Your running week",
-        description="Suggested from your goals and recent training. Tap a day to change it.",
+        description="Suggested from your goals and recent training. Tap a day to assign its session.",
         descriptionBottomGap=49,
         descriptionFontSize=11f,
         contentTopPadding=54,
@@ -151,16 +157,7 @@ internal fun TracksideRunningSetup(
                                 color=weekMuted)
                             Spacer(Modifier.height(19.dp))
                             Surface(
-                                onClick={
-                                    when {
-                                        slot>=0 -> {
-                                            editorOpen=true
-                                            onSelectSlot(slot)
-                                        }
-                                        !editorOpen -> editorOpen=true
-                                        custom -> onAssignDay(day)
-                                    }
-                                },
+                                onClick={ editingDay=day },
                                 modifier=Modifier.size(46.dp)
                                     .testTag("builder-running-day-"+day),
                                 color=cellBg,
@@ -190,7 +187,15 @@ internal fun TracksideRunningSetup(
             }
         }
 
-        Spacer(Modifier.height(14.dp))
+        TextButton(
+            onClick={ editorOpen=!editorOpen },
+            modifier=Modifier.fillMaxWidth()
+                .testTag("builder-running-advanced-toggle")
+        ) {
+            Text(if(editorOpen) "Hide advanced weekly setup" else "Advanced weekly setup",
+                color=PlanBuilderPalette.accent,fontSize=12.sp,fontWeight=FontWeight.Bold)
+        }
+        Spacer(Modifier.height(3.dp))
         Text("RUNNING SESSION TYPES",fontSize=11.sp,
             fontWeight=FontWeight.Bold,color=weekMuted)
         Spacer(Modifier.height(10.dp))
@@ -225,13 +230,13 @@ internal fun TracksideRunningSetup(
                 Text(if(pinned!=null) "Pinned by you ◆" else "Suggested · Pin your days ◆",
                     color=weekWhite,fontSize=12.sp,fontWeight=FontWeight.Bold)
                 Spacer(Modifier.height(10.dp))
-                Text("Tap any day to edit or remove its session. Pinned choices are saved and cannot be moved silently.",
+                Text("Tap a weekday to choose its session. Swaps are explained before selection, and pinned choices are preserved.",
                     color=weekMuted,fontSize=10.5f.sp,lineHeight=14.sp)
             }
         }
 
-        // Editing tools are intentionally inline and below the approved
-        // compact default. There are no disruptive popups or fake controls.
+        // Advanced settings remain available for changing the quality count,
+        // preferred style, automatic scheduling, and exact session ordinals.
         if(editorOpen) {
             Spacer(Modifier.height(16.dp))
             Text("EDIT YOUR RUNNING WEEK",fontSize=11.sp,
@@ -375,6 +380,17 @@ internal fun TracksideRunningSetup(
             }
         }
     }
+    val chosenDay=editingDay
+    if(chosenDay!=null) {
+        RunningDayAssignmentSheet(
+            day=chosenDay,
+            request=request,
+            slots=slots,
+            onAssign=onAssignSlot,
+            onClear=onClearDay,
+            onDismiss={ editingDay=null }
+        )
+    }
 }
 
 @Composable
@@ -398,6 +414,155 @@ private fun RunningWeekLegendRow(
             Text(title,fontSize=12.5f.sp,color=weekWhite,
                 fontWeight=FontWeight.Bold)
             Text(subtitle,fontSize=10.5f.sp,color=weekMuted)
+        }
+    }
+}
+
+private data class RunningDayChoice(
+    val code: String,
+    val title: String,
+    val subtitle: String,
+    val indices: List<Int>,
+    val tag: String
+)
+
+/** A weekday is chosen first; selecting its session calls the same slot-safe
+ * placement policy as the advanced editor. It does not change the quality
+ * count or silently drop another session when two occupied days are swapped.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RunningDayAssignmentSheet(
+    day: Int,
+    request: PlanRequest,
+    slots: List<Int>,
+    onAssign: (Int, Int) -> Unit,
+    onClear: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val assignedIndex=slots.indexOf(day)
+    val options=listOf(
+        RunningDayChoice("E","Easy run","Aerobic base and recovery",
+            ((request.qualityCount+1) until request.runDays).toList(),"easy"),
+        RunningDayChoice("Q","Quality","Threshold, tempo or selected quality style",
+            (1..request.qualityCount).toList(),"quality"),
+        RunningDayChoice("L","Long run","Endurance session on one preferred day",
+            listOf(0),"long")
+    )
+    val sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true)
+
+    ModalBottomSheet(
+        onDismissRequest=onDismiss,
+        sheetState=sheetState,
+        modifier=Modifier.testTag("builder-run-day-sheet"),
+        containerColor=Color(0xFF171717),
+        contentColor=weekWhite,
+        tonalElevation=0.dp,
+        shape=RoundedCornerShape(topStart=24.dp,topEnd=24.dp)
+    ) {
+        Column(
+            Modifier.fillMaxWidth().navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(start=20.dp,end=20.dp,bottom=16.dp)
+        ) {
+            Text("ASSIGN RUNNING SESSION",color=PlanBuilderPalette.accent,
+                fontSize=10.sp,fontWeight=FontWeight.Bold)
+            Spacer(Modifier.height(5.dp))
+            Text(DayOfWeek.of(day).name.lowercase()
+                    .replaceFirstChar { it.uppercase() },
+                color=weekWhite,fontSize=23.sp,fontWeight=FontWeight.Bold)
+            Spacer(Modifier.height(5.dp))
+            Text(
+                if(assignedIndex>=0)
+                    "Currently: "+WeeklyPlacement.label(request,"run",assignedIndex)+
+                        ". Choose a different type to move or swap it."
+                else "Choose which workout belongs on this day.",
+                color=weekMuted,fontSize=12.sp,lineHeight=17.sp
+            )
+            if(day !in request.days) {
+                Spacer(Modifier.height(9.dp))
+                Text("This day is unavailable. Assigning a run will make it available.",
+                    color=weekMuted,fontSize=11.sp,lineHeight=16.sp)
+            }
+            Spacer(Modifier.height(19.dp))
+            options.forEach { choice ->
+                val targetIndex=choice.indices.firstOrNull { slots.getOrNull(it)==day }
+                    ?: choice.indices.firstOrNull { slots.getOrNull(it)==0 }
+                    ?: choice.indices.firstOrNull()
+                val selected=assignedIndex in choice.indices && assignedIndex>=0
+                val fromDay=targetIndex?.let { slots.getOrNull(it) } ?: 0
+                val status=when {
+                    targetIndex==null -> if(choice.code=="Q")
+                        "Change quality count in Advanced weekly setup."
+                        else "No "+choice.title.lowercase()+" slot available."
+                    selected -> "Currently assigned"
+                    fromDay==0 -> "Assign an unplaced session"
+                    assignedIndex>=0 -> "Swap with "+DayOfWeek.of(fromDay).name.take(3)
+                    else -> "Move from "+DayOfWeek.of(fromDay).name.take(3)
+                }
+                val activeColor=when(choice.code) {
+                    "L" -> Color.White
+                    "Q" -> PlanBuilderPalette.accent
+                    else -> Color(0xFF1D240B)
+                }
+                Surface(
+                    onClick={
+                        if(targetIndex!=null) {
+                            onAssign(targetIndex,day)
+                            onDismiss()
+                        }
+                    },
+                    enabled=targetIndex!=null,
+                    modifier=Modifier.fillMaxWidth().padding(bottom=9.dp)
+                        .heightIn(min=68.dp)
+                        .testTag("builder-run-sheet-option-"+choice.tag),
+                    color=if(selected) Color(0xFF222C14) else Color(0xFF242424),
+                    shape=RoundedCornerShape(12.dp),
+                    border=BorderStroke(if(selected)2.dp else 1.dp,
+                        if(selected)PlanBuilderPalette.accent else weekOutline)
+                ) {
+                    Row(Modifier.padding(horizontal=12.dp,vertical=10.dp),
+                        verticalAlignment=Alignment.CenterVertically,
+                        horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                        Box(Modifier.size(36.dp).background(activeColor,
+                            RoundedCornerShape(8.dp)),contentAlignment=Alignment.Center) {
+                            Text(choice.code,
+                                color=if(choice.code=="L" || choice.code=="Q")
+                                    Color(0xFF171717) else weekWhite,
+                                fontSize=15.sp,fontWeight=FontWeight.Bold)
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text(choice.title,color=if(targetIndex==null)weekMuted else weekWhite,
+                                fontSize=14.sp,fontWeight=FontWeight.Bold)
+                            Text(choice.subtitle,color=weekMuted,fontSize=11.sp,lineHeight=15.sp)
+                            Text(status,color=if(selected)PlanBuilderPalette.accent
+                                else weekMuted,fontSize=10.5f.sp,lineHeight=15.sp)
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(1.dp))
+            TextButton(
+                onClick={
+                    if(assignedIndex>=0) onClear(assignedIndex)
+                    onDismiss()
+                },
+                modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
+                    .testTag("builder-run-sheet-clear")
+            ) {
+                Text(if(assignedIndex>=0) "Remove run from this day"
+                     else "Leave this day unassigned",
+                    color=weekWhite,fontSize=13.sp)
+            }
+            if(assignedIndex>=0) {
+                Text("Removing a day keeps the weekly run count unchanged. Assign the unplaced workout before continuing.",
+                    color=weekMuted,fontSize=10.5f.sp,lineHeight=15.sp)
+            }
+            TextButton(onClick=onDismiss,
+                modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
+                    .testTag("builder-run-sheet-cancel")) {
+                Text("Cancel",color=PlanBuilderPalette.accent,fontSize=13.sp)
+            }
         }
     }
 }
