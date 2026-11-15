@@ -295,7 +295,8 @@ internal fun StrideLabTrainingHome(
                     modifier = Modifier.fillMaxWidth().testTag("training-plan-tools")
                 ) {
                     Text(
-                        if (active == null) "Restore a plan backup"
+                        if (active == null && state.researchDrafts.isNotEmpty()) "Plan tools · Research reviews & backups"
+                        else if (active == null) "Restore a plan backup"
                         else "Plan tools · Feedback & backups",
                         color = ScheduleLook.secondary, fontSize = 12.sp
                     )

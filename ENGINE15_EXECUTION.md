@@ -61,3 +61,21 @@ Branch: `codex/engine15-continuous-20261113`. Engine 2.x remains out of scope.
 ## Exact next action
 
 Verify normal UI restoration of a synthetic plan after application process restart, then verify explicit Engine 1.0 rollback and the remaining backup/restore and account-isolation paths. Keep M0 provisional until required emulator and owner-run physical-device evidence passes; never install to or modify the owner's physical phone. Do not infer the former hang's cause from the successful rerun.
+
+## M10d — Android review-flow and backup reconciliation (2026-11-15)
+
+- **Starting point:** isolated branch `integration/engine15-m10d-android-reconciliation-20261115`, based on PR #91/M10c `a27a552632b53f97b932635236363cbb9b19adaa`; M10c source remains untouched.
+- **Changes:** reconciled the current Week Review UI and explicit Existing Coach / Experimental Research Review route; added saved-review reopening in builder and Plan Tools; added schema-2 mixed backup while preserving schema-1 plan-only reads; validates records before atomic plan/review restore and keeps research reviews local-only/non-executable. No database schema change or production generator change.
+- **Focused verification:** test-first backup tests initially failed compilation because the versioned codec API was absent. After implementation, 29 focused JVM tests passed (11 `IndependentResearchDraftTest`, 15 `BackupIntegrityTest`, 3 `WeekReviewDistanceTest`); `:app:compileDebugKotlin` passed; `git diff --check` passed.
+- **M10.1 follow-up:** instrumentation was compiled; full JVM 710/710 passed; debug and Android-test APK assembly passed. The selected 38-test emulator set recorded 34 passes and four inherited responsive geometry failures, reproduced unchanged on the M10c parent. Details and limitations are recorded below; M10.1 remains PARTIAL.
+- **M10d delivery:** commit `872d6f0d` was pushed to a separate branch stacked on M10c. PR #91 remains open/draft/unmerged; M10d/M10.1 use a stacked follow-up PR.
+
+## M10.1 — Android automated validation (2026-11-15)
+
+- **Starting checkpoint:** M10d commit `872d6f0d` on `integration/engine15-m10d-android-reconciliation-20261115`; M10c parent `a27a552632b53f97b932635236363cbb9b19adaa` was also tested for baseline comparison.
+- **Corrections:** fixed the instrumentation harness to mount content through its existing Activity; added a standalone `StateRestorationTester` around the production `PlanBuilder`; made route selection visible in semantics; corrected the unknown-distance fixture to point at a running session.
+- **JVM/build:** 710/710 unit tests passed (90 suites, 0 skipped); `:app:assembleDebug` passed; `:app:assembleDebugAndroidTest` passed.
+- **Emulator:** disposable Android 15/API 35 AVD, reference viewport 412×950 dp. Focused M10 set 13/13 passed. Full selected M10 set ran 38 tests: 34 passed, 4 failed, 0 skipped. The failures are the four pre-existing Figma geometry checks listed in `research/engine15/experiments/m10.1-android-validation-20261115.md`; all four reproduce on the exact untouched M10c parent. Assertions were not weakened.
+- **Status:** M10.1 PARTIAL, not PASS. M10.5/Astra NOT READY. No personal-device installation. Hosted CI checked after push and reported separately from these local results.
+- **Hosted CI:** run `43692814444` on pushed head `fcbf2008da0c1857f7065747a17e84a62a63939e` completed FAILED; `android-unit` and `offline-library` ended after one second with zero steps, and no failed-job logs were available. Hosted tests did not execute. The final handoff-only commit below is checked separately for any new exact-head run.
+- **Next:** commit/push the M10.1 validation and regression coverage; open a draft follow-up PR stacked on #91. Resolve or separately review the four M10c-baseline geometry failures before claiming complete UI regression readiness.

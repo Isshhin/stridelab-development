@@ -24,8 +24,6 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import org.json.JSONArray
-import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -78,6 +76,7 @@ import kotlinx.coroutines.withContext
 }
 @Composable internal fun TrainingScreen(state:TrainingState,actions:PlanActions,onBuild:()->Unit,onOpen:(String,String)->Unit,onSignIn:()->Unit,onManage:(String,LocalDate)->Unit) {
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) };var selectedDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) };var monthView by rememberSaveable { mutableStateOf(false) };var agendaView by rememberSaveable { mutableStateOf(false) }
+    var openedResearchReviewId by rememberSaveable { mutableStateOf<String?>(null) }
     val plans=state.plans.filter { it.status!="archived" }
     val plan=plans.find { it.id==selectedId } ?: plans.find { it.status=="approved" } ?: plans.firstOrNull()
     // Keep the selected day when returning from Workout or Manage. Switch/reset only
@@ -116,6 +115,20 @@ import kotlinx.coroutines.withContext
                     )
                 }
                 if(plan==null) item { SignalCard { Text("Build your training around your life.",style=MaterialTheme.typography.headlineMedium);Text("Running, strength, calisthenics and conditioning share one calendar. Your plan stays on this device when signed out.");SignalButton("Create a plan",onBuild) } }
+                if(state.researchDrafts.isNotEmpty()) item {
+                    SignalCard {
+                        Text("SAVED RESEARCH REVIEWS · NOT PLANS",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
+                        Text("These mileage comparisons remain non-executable and never enter your workout calendar.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        state.researchDrafts.forEach { review ->
+                            TextButton(onClick={openedResearchReviewId=review.id},modifier=Modifier.fillMaxWidth().testTag("training-research-review-${review.id}")) {
+                                Text("Open comparison · ${review.createdAt.toString().take(10)}")
+                            }
+                        }
+                        state.researchDrafts.firstOrNull { it.id==openedResearchReviewId }?.let {
+                            IndependentResearchReadOnlyReview(it,Modifier.testTag("training-research-reopened"))
+                        }
+                    }
+                }
                 if(plans.size>1) item { Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) { plans.forEach { p -> SignalChip(p.id==plan?.id,{selectedId=p.id},label={Text((p.name ?: p.request.goal)+" · "+p.status)}) } } }
                 if(plan!=null) {
                     item {
@@ -154,8 +167,9 @@ import kotlinx.coroutines.withContext
                     }
                     item { PlanOverview(plan) }
                     item { PlanFeedbackForm(plan,actions) }
-                    item { NativePlanExport(state.plans) }
                 }
+                if(state.plans.isNotEmpty() || state.researchDrafts.isNotEmpty())
+                    item { NativePlanExport(state.plans,state.researchDrafts) }
                 if(state.account!=null || state.localPlanOwner!=null) item { NativePlanImport(state,actions) }
                 if(plan!=null) item { OutlinedButton(onClick=onBuild,modifier=Modifier.fillMaxWidth()) { Text("Create / edit a reviewed draft") } }
                 if(plan?.status in setOf("draft","paused")) item { Spacer(Modifier.height(96.dp)) }
@@ -223,12 +237,15 @@ import kotlinx.coroutines.withContext
         Text("${plan.feedback.size} saved feedback records",style=MaterialTheme.typography.bodySmall)
     }
 }
-@Composable internal fun NativePlanExport(plans:List<PlanSnapshot>) {
+@Composable internal fun NativePlanExport(
+    plans:List<PlanSnapshot>,
+    researchReviews:List<IndependentResearchDraft> = emptyList()
+) {
     val context=LocalContext.current;val scope=rememberCoroutineScope();var result by remember { mutableStateOf<String?>(null) }
     val launcher=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> if(uri!=null)scope.launch {
-        result=runCatching { withContext(Dispatchers.IO) { context.contentResolver.openOutputStream(uri)?.use { out -> val bundle=JSONObject().put("schemaVersion",1).put("plans",JSONArray(plans.map { it.encode() }));out.write(bundle.toString(2).toByteArray(Charsets.UTF_8)) } ?: error("No output stream") };"Plan backup exported" }.getOrDefault("Export could not be completed. Your saved plans remain on this device.")
+        result=runCatching { withContext(Dispatchers.IO) { context.contentResolver.openOutputStream(uri)?.use { out -> val owner=plans.firstOrNull()?.owner ?: researchReviews.firstOrNull()?.owner ?: error("No saved records");out.write(PlanBackup.encode(plans,researchReviews,owner).toByteArray(Charsets.UTF_8)) } ?: error("No output stream") };"Plan and research-review backup exported" }.getOrDefault("Export could not be completed. Your saved records remain on this device.")
     } }
-    OutlinedButton(onClick={launcher.launch("StrideLab-plans-${LocalDate.now()}.json")},modifier=Modifier.fillMaxWidth(),enabled=plans.isNotEmpty()) { Text("Export plans, logs & feedback") }
+    OutlinedButton(onClick={launcher.launch("StrideLab-backup-${LocalDate.now()}.json")},modifier=Modifier.fillMaxWidth(),enabled=plans.isNotEmpty() || researchReviews.isNotEmpty()) { Text("Export plans and research reviews") }
     result?.let { Text(it,style=MaterialTheme.typography.bodySmall) }
 }
 
@@ -253,14 +270,17 @@ import kotlinx.coroutines.withContext
         error=null
         try {
             val text=withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { input -> val bytes=readPlanBackupBytes(input);if(bytes.size>RecordPolicy.MAX_PAYLOAD_BYTES)throw PlanConstraint("Choose a plan backup smaller than 2 MB.");String(bytes,Charsets.UTF_8) } ?: throw PlanConstraint("The backup could not be opened.") }
-            val (plans,additions)=withContext(Dispatchers.Default) { val rows=PlanBackup.read(text,state.account ?: state.localPlanOwner ?: "");rows to PlanBackup.additions(rows,state.plans) }
-            description="${plans.size} plans in the current profile's backup; ${additions.size} new plans will be restored. Existing IDs are retained. Local-only backups require the original device identity; they are not imported into a cloud account automatically."
+            val (backup,additions,reviewAdditions)=withContext(Dispatchers.Default) {
+                val bundle=PlanBackup.readBundle(text,state.account ?: state.localPlanOwner ?: "")
+                Triple(bundle,PlanBackup.additions(bundle.plans,state.plans),PlanBackup.researchAdditions(bundle.researchReviews,state.researchDrafts))
+            }
+            description="${backup.plans.size} plans and ${backup.researchReviews.size} non-executable research reviews in this profile's backup; ${additions.size} new plans and ${reviewAdditions.size} new reviews will be restored. Existing records are retained. Local-only backups require the original device identity and are not imported into another account."
             raw=text
         } catch(e:Exception) { error=if(e is PlanConstraint)e.message else "The backup could not be verified. Existing records are unchanged." }
     } }
     OutlinedButton(onClick={launcher.launch(arrayOf("application/json","text/plain"))},enabled=!state.busy,modifier=Modifier.fillMaxWidth()) { Text("Restore a plan backup") }
     error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
-    if(raw!=null) AlertDialog(onDismissRequest={raw=null},title={Text("Review backup restore")},text={Text(description ?: "")},confirmButton={TextButton(onClick={raw?.let(actions.restore);raw=null}) { Text("Restore new plans") }},dismissButton={TextButton(onClick={raw=null}) { Text("Cancel") }})
+    if(raw!=null) AlertDialog(onDismissRequest={raw=null},title={Text("Review backup restore")},text={Text(description ?: "")},confirmButton={TextButton(onClick={raw?.let(actions.restore);raw=null}) { Text("Restore new records") }},dismissButton={TextButton(onClick={raw=null}) { Text("Cancel") }})
 }
 
 private fun readPlanBackupBytes(input:java.io.InputStream):ByteArray {

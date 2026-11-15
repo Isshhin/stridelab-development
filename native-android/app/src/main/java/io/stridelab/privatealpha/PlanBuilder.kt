@@ -664,6 +664,7 @@ import org.json.JSONObject
             onExperimentalSelected = { researchSelected = it; error = null },
             onSaveResearchReview = actions.saveResearchReview,
             researchDraftCount = state.researchDrafts.size,
+            savedResearchReviews = state.researchDrafts,
             onContinue = {
                 error = null
                 try {

@@ -80,6 +80,9 @@ class TracksideEngineBuilderIntegrationTest {
             next() // weekly setup
             next() // dates
             next() // availability
+            compose.onNodeWithTag("builder-route-existing").assertIsSelected()
+            compose.onNodeWithTag("builder-route-research").performScrollTo().performClick().assertIsSelected()
+            compose.onNodeWithTag("builder-route-existing").performScrollTo().performClick().assertIsSelected()
             compose.onNodeWithText("Generate My Plan").assertExists()
             next()
             compose.waitUntil(15_000) { repo.state.value.plans.isNotEmpty() }
