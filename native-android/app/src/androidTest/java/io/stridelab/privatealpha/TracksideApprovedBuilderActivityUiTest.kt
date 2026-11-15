@@ -48,14 +48,14 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-start-date").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("available-day-6").assertExists()
-        compose.onNodeWithTag("builder-figma-continue").performClick()
-        compose.onNodeWithText("Your training blueprint").assertExists()
-        compose.onNodeWithText("Chosen weekdays are requests",
-            substring=true).assertExists()
+        compose.onNodeWithText("Generate My Plan").assertExists()
+        compose.onNodeWithTag("builder-generate-draft-note").assertExists()
+        compose.onNodeWithText("Your training blueprint").assertDoesNotExist()
+        // The real generated-plan review only follows successful generation.
         compose.onNodeWithTag("builder-figma-continue").assertExists()
     }
 
-    @Test fun aRunDayChosenInTheEditorAppearsInDraftReview() {
+    @Test fun aRunDayChosenInTheSheetAppearsInFinalAvailability() {
         val state=TrainingState(initializing=false,account="synthetic-ui")
         compose.runOnUiThread {
             compose.activity.setContent {
@@ -69,23 +69,17 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
-        // The approved compact weekly view opens its inline editor on day tap.
+        // Day-first assignment should carry the selected weekday into
+        // availability, without the removed pre-generation blueprint step.
         compose.onNodeWithTag("builder-running-day-6").performClick()
-        compose.onNodeWithTag("builder-run-session-2").performScrollTo()
-        compose.onNodeWithTag("builder-run-session-2").performClick()
-        // Reveal the nested weekday row via the outer vertical scroll first.
-        compose.onNodeWithTag("builder-run-editor-weekday-row").performScrollTo()
-        compose.onNodeWithTag("builder-run-editor-weekday-row").assertIsDisplayed()
-        compose.onNodeWithTag("builder-run-editor-day-6").performScrollTo()
-        compose.onNodeWithTag("builder-run-editor-day-6").assertIsDisplayed()
-        compose.onNodeWithTag("builder-run-editor-day-6").performClick()
+        compose.onNodeWithTag("builder-run-day-sheet").assertExists()
+        compose.onNodeWithTag("builder-run-sheet-option-easy").performClick()
         compose.onNodeWithTag("builder-running-assignment-progress").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("available-day-6").assertIsEnabled()
-        compose.onNodeWithTag("builder-figma-continue").performClick()
-        compose.onNodeWithTag("builder-requested-day-6").assertExists()
-        compose.onNodeWithText("Easy 2 · requested",substring=true).assertExists()
+        compose.onNodeWithText("Generate My Plan").assertExists()
+        compose.onNodeWithText("Your training blueprint").assertDoesNotExist()
     }
 
     @Test fun pinnedWeekdayRemainsEditableWithAnExplicitClearConfirmation() {
