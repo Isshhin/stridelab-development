@@ -156,7 +156,7 @@ import kotlinx.coroutines.withContext
                     item { PlanFeedbackForm(plan,actions) }
                     item { NativePlanExport(state.plans) }
                 }
-                if(state.account!=null) item { NativePlanImport(state,actions) }
+                if(state.account!=null || state.localPlanOwner!=null) item { NativePlanImport(state,actions) }
                 if(plan!=null) item { OutlinedButton(onClick=onBuild,modifier=Modifier.fillMaxWidth()) { Text("Create / edit a reviewed draft") } }
                 if(plan?.status in setOf("draft","paused")) item { Spacer(Modifier.height(96.dp)) }
             }
@@ -253,8 +253,8 @@ import kotlinx.coroutines.withContext
         error=null
         try {
             val text=withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { input -> val bytes=readPlanBackupBytes(input);if(bytes.size>RecordPolicy.MAX_PAYLOAD_BYTES)throw PlanConstraint("Choose a plan backup smaller than 2 MB.");String(bytes,Charsets.UTF_8) } ?: throw PlanConstraint("The backup could not be opened.") }
-            val (plans,additions)=withContext(Dispatchers.Default) { val rows=PlanBackup.read(text,state.account ?: "");rows to PlanBackup.additions(rows,state.plans) }
-            description="${plans.size} plans in this account's backup; ${additions.size} new plans will be restored. Existing plan IDs are skipped, never overwritten. Approval states, original prescriptions, logs and feedback stay attached to their engine versions."
+            val (plans,additions)=withContext(Dispatchers.Default) { val rows=PlanBackup.read(text,state.account ?: state.localPlanOwner ?: "");rows to PlanBackup.additions(rows,state.plans) }
+            description="${plans.size} plans in the current profile's backup; ${additions.size} new plans will be restored. Existing IDs are retained. Local-only backups require the original device identity; they are not imported into a cloud account automatically."
             raw=text
         } catch(e:Exception) { error=if(e is PlanConstraint)e.message else "The backup could not be verified. Existing records are unchanged." }
     } }

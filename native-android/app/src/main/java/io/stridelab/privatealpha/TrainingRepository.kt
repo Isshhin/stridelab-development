@@ -329,27 +329,39 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             localGarminOwner=localGarminOwner, localGarminIds=ids)
     }
     suspend fun restorePlans(raw:String)=operation("Restoring reviewed plan backup…") {
-        val account=mutable.value.account ?: throw PlanConstraint("Sign in to the backup's original account before restoring.")
+        val account=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)
         val additions=PlanBackup.additions(PlanBackup.read(raw,account),mutable.value.plans)
         val db=store.writableDatabase
-        db.beginTransaction()
-        try {
-            // Some stored plan formats intentionally remain on disk when this build cannot
-            // decode them. Such IDs are absent from mutable.value.plans and must never
-            // be overwritten by a backup with the same ID.
-            additions.forEach { p ->
-                db.query("records",arrayOf("record_id"),"account=? AND kind=? AND record_id=?",
-                    arrayOf(account,"plan",p.id),null,null,null).use { cursor ->
-                    if(cursor.moveToFirst())throw PlanConstraint(
-                        "A saved plan already uses this ID but could not be restored into the current view. " +
-                            "Its original record was retained; no backup records were changed."
-                    )
-                }
+        // Protect opaque unsupported records that do not appear in decoded state.
+        additions.forEach { p ->
+            db.query("records",arrayOf("record_id"),"account=? AND kind=? AND record_id=?",
+                arrayOf(account,"plan",p.id),null,null,null).use { cursor ->
+                if(cursor.moveToFirst())throw PlanConstraint(
+                    "A saved plan already uses this ID but could not be restored into the current view. " +
+                        "Its original record was retained; no backup records were changed."
+                )
             }
-            additions.forEach { p -> store.enqueue(account,"plan",p.id,java.util.UUID.randomUUID().toString(),p.encode().toString(),null,System.currentTimeMillis()) }
-            db.setTransactionSuccessful()
-        } finally { db.endTransaction() }
-        loadCache(account)
+        }
+        if(mutable.value.account==null) {
+            // One atomic local SQLite batch, with no pending cloud mutation.
+            if(additions.isNotEmpty())store.applyRemotePage(
+                account,"plan",additions.map { p ->
+                    TrainingStore.RemoteRecord(p.id,p.encode().toString(),null)
+                },null,System.currentTimeMillis()
+            )
+            loadLocalPlanCache()
+        } else {
+            // Signed-in account behavior retains the original outbox contract.
+            db.beginTransaction()
+            try {
+                additions.forEach { p ->
+                    store.enqueue(account,"plan",p.id,java.util.UUID.randomUUID().toString(),
+                        p.encode().toString(),null,System.currentTimeMillis())
+                }
+                db.setTransactionSuccessful()
+            } finally { db.endTransaction() }
+            loadCache(account)
+        }
         mutable.value=mutable.value.copy(message="Restored ${additions.size} new plans. Existing plan IDs and all saved records were kept unchanged.")
     }
     suspend fun changeShelf(id:String,collection:String?=null,remove:Boolean=false)=operation("Saving your library…") {
