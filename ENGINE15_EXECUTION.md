@@ -99,3 +99,9 @@ Verify normal UI restoration of a synthetic plan after application process resta
 - Local validation: 762 JVM tests across 98 suites, zero failures/errors/skips; debug build and instrumentation compilation passed. No instrumentation execution or physical device installation in this follow-up.
 - Report and UI recommendations: `research/engine15/experiments/m106-history-weekly-review-20261115.md`. Weekly review/feedback APIs need separately authorized UI wiring. Imported-history coverage, positive-response quality progression and athlete effectiveness remain open; no competitor parity claim.
 - Next: review the unmerged candidate and implement the approved UI integration only when requested; continue provenance-aware weekly capacity and completed quality-work assessment before claiming autonomous coaching readiness.
+
+## M10.6 follow-up — coaching controls and confirmed evidence (2026-11-15)
+
+Candidate branch `feature/engine15-coach-review-ui-20261115`, stacked on retained draft PR #94 at `818cdc51`; backend commit `af062328`. Added complete-week confirmation, explicit threshold work evidence, source-bound completed-run responses, typed mileage choices and consistent accepted targets. Existing Android flows now expose weekly approval, optional overrun review, resumable post-run feedback and goal alternatives using current design components.
+
+Local verification: 770 JVM tests passed; debug and instrumentation builds passed; selected emulator checks 17/17 at 412 x 950 dp and seven coaching controls 7/7 at 360 x 800 dp with font scale 1.3. No physical-device installation, merge or experimental activation. Owner visual acceptance and real-athlete effectiveness remain open. Detailed boundaries, reproducible contracts and next gaps: `research/engine15/experiments/m106-coach-ui-integration-20261115.md`.

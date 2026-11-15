@@ -133,7 +133,7 @@ import org.json.JSONObject
         TracksideWeekReview(
             request = preview.request,
             plan = preview,
-            busy = state.busy || pendingApprovalId != null,
+            busy = state.busy || awaiting || pendingApprovalId != null,
             onBack = { step = 3 },
             onContinue = {
                 if(!state.busy && pendingApprovalId==null) {
@@ -145,7 +145,12 @@ import org.json.JSONObject
             onOpenSession = { sessionId -> onPreview(preview.id, sessionId) },
             weekIndex = previewWeek,
             onWeekChange = { previewWeek = it },
-            error = error
+            error = error,
+            onChooseGoalOption = { chosen ->
+                error=null;beforeId=state.plans.firstOrNull()?.id;awaiting=true
+                weeks=chosen.weeks.toString();targetKm=chosen.targetWeeklyKm.toString();targetSupplied=true;edit(chosen)
+                actions.generate(chosen)
+            }
         )
         return
     }
@@ -254,6 +259,12 @@ import org.json.JSONObject
                 experience = input.experience,
                 weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0,120.0) ?: 0.0,
                 longestKm = longest.toDoubleOrNull()?.coerceIn(0.0,42.0) ?: 0.0,
+                historyContent = {
+                    RunningHistoryConfirmation(state) { value -> km="%.1f".format(java.util.Locale.US,value);edit(input.copy(weeklyKm=value)) }
+                    if(input.policyChoice=="engine15") {
+                        CoachFeedbackChoices("Usual quality sessions per week",listOf("0","1","2"),input.recentQualitySessionsPerWeek?.toString()) { edit(input.copy(recentQualitySessionsPerWeek=it?.toInt())) }
+                    }
+                },
                 onExperience = { edit(input.copy(experience=it)) },
                 onWeeklyKm = { value ->
                     km=value.toInt().toString()

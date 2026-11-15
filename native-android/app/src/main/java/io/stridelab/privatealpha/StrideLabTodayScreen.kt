@@ -2672,7 +2672,7 @@ private fun TodayWaveWorkout(
 
 private fun todaySessionDetails(session: PlannedSession): String {
     val parts = mutableListOf<String>()
-    session.distanceKm?.let { parts.add(String.format(Locale.getDefault(), "%.1f km", it)) }
+    Engine15SessionPresentation.currentDistance(session)?.let { parts.add(String.format(Locale.getDefault(), "%.1f km", it)) }
     if (session.effectiveMinutes > 0) parts.add(session.effectiveMinutes.toString() + " min")
     if (session.discipline != "run" && session.effectiveExercises.isNotEmpty()) {
         parts.add(session.effectiveExercises.size.toString() + " exercises")

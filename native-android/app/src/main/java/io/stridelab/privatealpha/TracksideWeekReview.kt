@@ -54,7 +54,8 @@ internal fun TracksideWeekReview(
     onExperimentalSelected: (Boolean) -> Unit = {},
     onSaveResearchReview: (PlanRequest,IndependentAndroidPreviewConstraints) -> Unit = { _,_ -> },
     researchDraftCount: Int = 0,
-    savedResearchReviews: List<IndependentResearchDraft> = emptyList()
+    savedResearchReviews: List<IndependentResearchDraft> = emptyList(),
+    onChooseGoalOption:(PlanRequest)->Unit = {}
 ) {
     // A plan can start on any weekday. Its engine weeks are anchored at
     // request.start, NOT calendar Mondays; the review must display every
@@ -113,6 +114,7 @@ internal fun TracksideWeekReview(
         }
     ) {
 
+    if(plan!=null) MileageGoalChoices(plan,busy,onChooseGoalOption)
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             val trainingDays = days.coerceIn(0,7)
             val noRunning = request.runDays == 0 && rows.none { it.discipline == "run" }

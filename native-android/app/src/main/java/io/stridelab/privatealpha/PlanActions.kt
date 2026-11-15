@@ -22,5 +22,8 @@ internal data class PlanActions(
     val dismissPending:(String,Int,String)->Unit={_,_,_->},
     val pendingError:(String,String)->String?={_,_->null},
     val stageWorkoutDraft:(WorkoutEntryDraft)->Unit={},
+    val saveRunResponse:(String,Int,String,Int?,String?,String?)->Unit={_,_,_,_,_,_->},
+    val previewWeek:(String,Engine15WeeklyReview.Input)->Engine15WeeklyReview.Review?={_,_->null},
+    val acceptWeek:(Engine15WeeklyReview.Review)->Unit={},
     val saveResearchReview:(PlanRequest,IndependentAndroidPreviewConstraints)->Unit={_,_->}
 )

@@ -131,6 +131,7 @@ import kotlinx.coroutines.withContext
                 }
                 if(plans.size>1) item { Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) { plans.forEach { p -> SignalChip(p.id==plan?.id,{selectedId=p.id},label={Text((p.name ?: p.request.goal)+" · "+p.status)}) } } }
                 if(plan!=null) {
+                    item { Engine15CoachReviewCard(plan,actions,state.busy,state.message) }
                     item {
                         Column(Modifier.testTag("training-calendar")) {
                             TrainingCalendar(

@@ -40,6 +40,11 @@ class TracksideManageNavigationTest {
             }
         }
         compose.onNodeWithTag("nav-training").performClick()
+        // Calendar controls are reached through the existing timeline's Plan tools.
+        compose.onNodeWithTag("training-plan-tools").performClick()
+        compose.waitUntil(timeoutMillis = 10_000L) {
+            runCatching { compose.onNodeWithTag("screen-title").assertTextEquals("Training"); true }.getOrDefault(false)
+        }
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("training-calendar"))
         compose.onNodeWithTag("calendar-day-$selected").performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("training-manage-plan"))
