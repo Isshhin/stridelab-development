@@ -233,19 +233,19 @@ import kotlinx.coroutines.flow.drop
                 Text("Choose the actual date; it may differ from the schedule.",
                     style=MaterialTheme.typography.bodySmall)
             }
-            OutlinedTextField(minutes,{minutes=it.take(64)},label={Text("Actual duration (minutes), optional")},enabled=active,modifier=Modifier.fillMaxWidth().testTag("workout-actual-minutes"))
-            if(session.discipline=="run"||session.discipline=="cond") OutlinedTextField(distance,{distance=it.take(64)},label={Text("Actual distance (km), optional")},enabled=active,modifier=Modifier.fillMaxWidth().testTag("workout-actual-distance"))
-            OutlinedTextField(effort,{effort=it.take(64)},label={Text("Effort 1–10, optional")},enabled=(active||responseEditable) && !state.busy,modifier=Modifier.fillMaxWidth())
+            OutlinedTextField(minutes,{minutes=it.take(64)},label={Text("Actual duration (minutes), optional")},enabled=active,modifier=Modifier.fillMaxWidth().testTag("workout-actual-minutes"),colors=TracksideWorkoutInputColors())
+            if(session.discipline=="run"||session.discipline=="cond") OutlinedTextField(distance,{distance=it.take(64)},label={Text("Actual distance (km), optional")},enabled=active,modifier=Modifier.fillMaxWidth().testTag("workout-actual-distance"),colors=TracksideWorkoutInputColors())
+            OutlinedTextField(effort,{effort=it.take(64)},label={Text("Effort 1–10, optional")},enabled=(active||responseEditable) && !state.busy,modifier=Modifier.fillMaxWidth(),colors=TracksideWorkoutInputColors())
             if(session.discipline=="run" && plan.engineVersion==ENGINE15_VERSION) {
                 CoachFeedbackChoices("How did completion feel?",listOf("As planned","Easier","Harder","Could not finish"),difficulty,(active||responseEditable) && !state.busy) { difficulty=it }
                 CoachFeedbackChoices("Any discomfort?",listOf("None","Soreness","Pain"),discomfort,(active||responseEditable) && !state.busy) { discomfort=it }
                 if(session.quality) {
                     if(timeOnly)Text("Your current target is time-only. Record extra quality work only if you actually performed it; it will not establish progression evidence.",style=MaterialTheme.typography.bodySmall)
-                    OutlinedTextField(qualityWork,{qualityWork=it.take(64)},keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Decimal,imeAction=androidx.compose.ui.text.input.ImeAction.Done),keyboardActions=androidx.compose.foundation.text.KeyboardActions(onDone={focusManager.clearFocus()}),label={Text("Actual quality work (km), optional")},enabled=active && !state.busy,modifier=Modifier.fillMaxWidth())
+                    OutlinedTextField(qualityWork,{qualityWork=it.take(64)},keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Decimal,imeAction=androidx.compose.ui.text.input.ImeAction.Done),keyboardActions=androidx.compose.foundation.text.KeyboardActions(onDone={focusManager.clearFocus()}),label={Text("Actual quality work (km), optional")},enabled=active && !state.busy,modifier=Modifier.fillMaxWidth(),colors=TracksideWorkoutInputColors())
                     Text("Count only completed work repetitions; exclude warm-up, recovery and cool-down. Leave blank if unknown.",style=MaterialTheme.typography.bodySmall)
                 }
             }
-            OutlinedTextField(notes,{notes=it.take(2000)},label={Text("How did it feel?")},enabled=active,modifier=Modifier.fillMaxWidth())
+            OutlinedTextField(notes,{notes=it.take(2000)},label={Text("How did it feel?")},enabled=active,modifier=Modifier.fillMaxWidth(),colors=TracksideWorkoutInputColors())
             session.log?.let { Text("Saved ${it.at} · ${it.sets.size} sets with recorded values",style=MaterialTheme.typography.bodySmall) }
         } }
         formError?.let { item { Text(it,color=MaterialTheme.colorScheme.error) } }
