@@ -21,5 +21,6 @@ internal data class PlanActions(
     val dismissPreview:(Engine15Feedback.Proposal)->Unit={},
     val dismissPending:(String,Int,String)->Unit={_,_,_->},
     val pendingError:(String,String)->String?={_,_->null},
-    val stageWorkoutDraft:(WorkoutEntryDraft)->Unit={}
+    val stageWorkoutDraft:(WorkoutEntryDraft)->Unit={},
+    val saveResearchReview:(PlanRequest,IndependentAndroidPreviewConstraints)->Unit={_,_->}
 )

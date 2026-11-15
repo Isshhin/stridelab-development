@@ -36,7 +36,11 @@ internal fun TracksideWeekReview(
     onOpenSession: (String) -> Unit = {},
     weekIndex: Int = 0,
     onWeekChange: (Int) -> Unit = {},
-    error: String? = null
+    error: String? = null,
+    experimentalSelected: Boolean = false,
+    onExperimentalSelected: (Boolean) -> Unit = {},
+    onSaveResearchReview: (PlanRequest,IndependentAndroidPreviewConstraints) -> Unit = { _,_ -> },
+    researchDraftCount: Int = 0
 ) {
     // A plan can start on any weekday. Its engine weeks are anchored at
     // request.start, NOT calendar Mondays; the review must display every
@@ -74,9 +78,12 @@ internal fun TracksideWeekReview(
         description = if (plan == null) "Review your setup before StrideLab creates your plan."
             else "Your personalized plan. Review before finalizing.",
         onBack = onBack,
-        ctaLabel = if(plan == null)"Generate My Plan" else "Finalize Plan",
+        ctaLabel = if (plan == null && experimentalSelected)
+            "Research mode — no saved plan"
+            else if(plan == null) "Generate My Plan" else "Finalize Plan",
         onContinue = onContinue,
-        continueEnabled = !busy, descriptionBottomGap = 16,
+        continueEnabled = !busy && (plan != null || !experimentalSelected),
+        descriptionBottomGap = 16,
         footer = {
             Column(Modifier.padding(horizontal=20.dp,vertical=9.dp)) {
                 Text(
@@ -236,9 +243,46 @@ internal fun TracksideWeekReview(
             else "✓ Saved engine prescriptions · approval is a separate action",
             fontSize=11.sp,
             color=if(plan==null) Color(0xFFC5C5C5) else PlanBuilderPalette.accent)
-        if (plan == null && request.runDays > 0) {
+        if (plan == null) {
             Spacer(Modifier.height(12.dp))
-            IndependentAndroidResearchPreviewPanel(request)
+            Text("GENERATION ROUTE",fontSize=11.sp,
+                color=PlanBuilderPalette.secondary)
+            Row(
+                modifier=Modifier.fillMaxWidth(),
+                horizontalArrangement=Arrangement.spacedBy(8.dp)
+            ) {
+                TextButton(
+                    onClick={onExperimentalSelected(false)},
+                    modifier=Modifier.testTag("builder-route-existing")
+                ) {
+                    Text(if(!experimentalSelected) "✓ Existing coach"
+                        else "Existing coach",color=PlanBuilderPalette.text)
+                }
+                TextButton(
+                    onClick={onExperimentalSelected(true)},
+                    modifier=Modifier.testTag("builder-route-research")
+                ) {
+                    Text(if(experimentalSelected) "✓ Research review"
+                        else "Research review",color=PlanBuilderPalette.accent)
+                }
+            }
+            if (experimentalSelected) {
+                if (request.runDays > 0) {
+                    IndependentAndroidResearchPreviewPanel(
+                        request=request,
+                        onSaveResearchReview=onSaveResearchReview,
+                        savedResearchCount=researchDraftCount
+                    )
+                } else {
+                    Text("The research mileage model requires running sessions. " +
+                        "Use Existing coach for other disciplines.",
+                        fontSize=11.sp,color=PlanBuilderPalette.secondary)
+                }
+            } else {
+                Text("Existing coach creates a normal saved draft. " +
+                    "Research review is separate and can never be approved as a workout.",
+                    fontSize=11.sp,color=PlanBuilderPalette.secondary)
+            }
         }
         error?.let {
             Spacer(Modifier.height(8.dp))

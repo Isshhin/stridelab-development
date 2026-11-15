@@ -17,7 +17,11 @@ import java.util.Locale
  * ceilings. Never calls PlanActions.generate, PlanRepository, or approval.
  */
 @Composable
-internal fun IndependentAndroidResearchPreviewPanel(request: PlanRequest) {
+internal fun IndependentAndroidResearchPreviewPanel(
+    request: PlanRequest,
+    onSaveResearchReview: (PlanRequest,IndependentAndroidPreviewConstraints) -> Unit = { _,_ -> },
+    savedResearchCount: Int = 0
+) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     var dayCsv by rememberSaveable { mutableStateOf("") }
     var startingKm by rememberSaveable { mutableStateOf("") }
@@ -30,6 +34,9 @@ internal fun IndependentAndroidResearchPreviewPanel(request: PlanRequest) {
         mutableStateOf<IndependentAndroidPreviewDecision?>(null)
     }
     var parseError by remember { mutableStateOf<String?>(null) }
+    var lastReviewedBounds by remember(request) {
+        mutableStateOf<IndependentAndroidPreviewConstraints?>(null)
+    }
 
     Surface(
         modifier = Modifier.fillMaxWidth().testTag("builder-experimental-research-panel"),
@@ -75,6 +82,7 @@ internal fun IndependentAndroidResearchPreviewPanel(request: PlanRequest) {
                         onValueChange = {
                             change(it)
                             display = null
+                            lastReviewedBounds = null
                             parseError = null
                         },
                         label = { Text(label) },
@@ -113,6 +121,7 @@ internal fun IndependentAndroidResearchPreviewPanel(request: PlanRequest) {
                             parsed.toSet().size != parsed.size) {
                             parseError = "Enter distinct comma-separated day numbers 1 through 7."
                             display = null
+                            lastReviewedBounds = null
                         } else {
                             parseError = null
                             val selected = parsed.filterNotNull().toSet()
@@ -130,6 +139,7 @@ internal fun IndependentAndroidResearchPreviewPanel(request: PlanRequest) {
                                 explicitlyEnteredMaxLongRunIncreaseKm =
                                     longIncreaseKm.toDoubleOrNull()
                             )
+                            lastReviewedBounds = entered
                             display = runCatching {
                                 IndependentAndroidResearchBridge.preview(request, entered)
                             }.getOrElse {
@@ -191,6 +201,16 @@ internal fun IndependentAndroidResearchPreviewPanel(request: PlanRequest) {
                                 )
                             }
                         }
+                        OutlinedButton(
+                            onClick = {
+                                lastReviewedBounds?.let { bounds ->
+                                    onSaveResearchReview(request, bounds)
+                                }
+                            },
+                            enabled = lastReviewedBounds != null,
+                            modifier = Modifier.fillMaxWidth()
+                                .testTag("builder-research-save-local")
+                        ) { Text("Save comparison on device (not a plan)") }
                         Text(
                             "Owner/source coverage, measured intensity, and complete " +
                                 "coaching qualification remain unresolved. These are not approved workouts.",
@@ -200,6 +220,12 @@ internal fun IndependentAndroidResearchPreviewPanel(request: PlanRequest) {
                     }
                     null -> Unit
                 }
+                Text(
+                    "Research comparisons stored for current profile: " + savedResearchCount,
+                    color = PlanBuilderPalette.secondary,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.testTag("builder-research-saved-count")
+                )
             }
         }
     }

@@ -86,6 +86,7 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
     }
     internal fun planActions()=PlanActions(
         generate={p->viewModelScope.launch { repo.generatePlan(p) }},
+        saveResearchReview={p,limits->viewModelScope.launch { repo.saveResearchReview(p,limits) }},
         approve={id,r->viewModelScope.launch { repo.approvePlan(id,r) }},
         pause={id,r->viewModelScope.launch { repo.pausePlan(id,r) }},
         archive={id,r->viewModelScope.launch { repo.archivePlan(id,r) }},
@@ -111,7 +112,8 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
         dismissPending={id,r,s->viewModelScope.launch { repo.dismissStagedEngine15Adjustment(id,r,s) }},
         pendingError={id,s->
             val snapshot=state.value
-            val plan=snapshot.plans.find { it.id==id && it.owner==snapshot.account }
+            val activeOwner=snapshot.account ?: snapshot.localPlanOwner
+            val plan=snapshot.plans.find { it.id==id && it.owner==activeOwner }
             if(plan==null) "This plan is unavailable." else try {
                 Engine15Feedback.requireCurrentPendingAcceptance(plan,s,java.time.LocalDate.now(),snapshot.plans)
                 null
