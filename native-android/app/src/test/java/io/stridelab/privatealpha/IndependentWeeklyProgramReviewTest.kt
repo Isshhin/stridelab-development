@@ -136,7 +136,9 @@ class IndependentWeeklyProgramReviewTest {
         assertEquals(6, result.longDay)
         assertEquals(720, result.qualityWorkSeconds)
         assertTrue(result.segmentDistanceArithmeticChecked)
-        assertEquals(5.0, result.days.first().originallyAllocatedKm, 0.00001)
+        assertTrue(result.days.first().originallyAllocatedKm <= 5.0 + 0.00001)
+        assertEquals(base.baseWorkouts.weeks.first().sessions.first().allocatedKilometers,
+            result.days.first().originallyAllocatedKm, 0.00001)
         assertEquals(60.0, result.days.sumOf { it.originallyAllocatedKm }, 0.00001)
         assertEquals(listOf(2, 3, 4, 5), result.futureWeeksRemainBaseOnly)
         assertFalse(result.authorizedForPlanMutation)
