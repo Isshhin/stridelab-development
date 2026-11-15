@@ -55,11 +55,12 @@ internal object IndependentAdaptiveWeek {
     /** Allocator-only comparator: preserve the requested total, search within supplied day limits. */
     fun allocate(
         input: IndependentWeeklyMileageInput,
-        limits: IndependentMileageFeasibilityLimits
+        limits: IndependentMileageFeasibilityLimits,
+        policy: IndependentWeeklyMileagePolicy = IndependentWeeklyMileagePolicy()
     ): IndependentWeeklyMileageDecision {
         if (input.weeks != 1)
             return defer("NEXT_WEEK_ONLY", "Reassess after completion; future response is unknown.")
-        val baseline = when (val generated = IndependentWeeklyMileagePlanner.generate(input)) {
+        val baseline = when (val generated = IndependentWeeklyMileagePlanner.generate(input, policy)) {
             is IndependentWeeklyMileageDecision.Deferred -> return generated
             is IndependentWeeklyMileageDecision.Candidate -> generated
         }
@@ -81,7 +82,7 @@ internal object IndependentAdaptiveWeek {
         val maximum = if (hasLong) minOf(units(caps.getValue(longDay)),
             units(limits.approvedLongRunCeilingKm!!),
             units(limits.approvedPreviousLongRunKm!! + limits.approvedMaxBuildLongRunIncreaseKm!!),
-            floor(total * IndependentWeeklyMileagePolicy().maximumLongRunShare + 1e-8).toInt())
+            floor(total * policy.maximumLongRunShare + 1e-8).toInt())
         else minOf(total - others.size, units(caps.getValue(longDay)))
         val preferred = units(baseline.weeks.single().dayAllocations.single { it.isoDay == longDay }.kilometers)
         // Closest feasible long-run dose first; smaller dose breaks ties deterministically.
@@ -103,7 +104,7 @@ internal object IndependentAdaptiveWeek {
             IndependentDayMileageAllocation(it, allocated.getValue(it)/100.0, hasLong && it==longDay)
         }, ruleIds=listOf("EXTERNALLY_APPROVED_START_ASSERTED", "CONSTRAINT_SEARCH", "NO_QUALITY_AUTHORIZATION"))
         val candidate = baseline.copy(weeks=listOf(week), ruleIds=(baseline.ruleIds + "CONSTRAINT_SEARCH").distinct())
-        return when (val checked = IndependentMileageFeasibility.check(candidate, limits)) {
+        return when (val checked = IndependentMileageFeasibility.check(candidate, limits, policy)) {
             is IndependentMileageFeasibilityResult.Checked -> candidate
             is IndependentMileageFeasibilityResult.Conflict -> defer(checked.ruleId, checked.explanation)
             is IndependentMileageFeasibilityResult.Unchecked -> defer(checked.ruleId, checked.explanation)
