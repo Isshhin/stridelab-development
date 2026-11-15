@@ -62,6 +62,40 @@ class Engine15CoachControlsTest {
             .assertExists()
     }
 
+    @Test fun repeatedIntervalsRenderAsOneGroupWithExactSteps() {
+        val warm=RunningSegment("WARM_UP",1300,"Easy conversational running")
+        val work=RunningSegment("WORK",400,"Steady controlled effort")
+        val recovery=RunningSegment("RECOVERY",200,"Easy jog or walk")
+        val cool=RunningSegment("COOL_DOWN",900,"Easy running")
+        val segments=buildList {
+            add(warm)
+            repeat(5) { index ->
+                add(work)
+                if(index<4) add(recovery)
+            }
+            add(cool)
+        }
+        val session=PlannedSession("interval",day.plusDays(1),"run",
+            "Interval workout",70,5.0,"quality",quality=true,
+            runningPrescription=RunningPrescription("QUALITY","Intervals",segments))
+        val p=plan().copy(sessions=listOf(session))
+        show {
+            TracksidePlannedRunningPreview(
+                session,Engine15SessionPresentation.forSession(p,session.id),
+                session.title, "Steady controlled effort",onBack={}
+            )
+        }
+        compose.onNodeWithTag("workout-planned-structure").assertExists()
+        compose.onNodeWithTag("workout-step-single-0").assertExists()
+        compose.onNodeWithTag("workout-repeat-group-1").assertExists()
+        compose.onNodeWithTag("workout-repeat-count-1")
+            .assertTextEquals("5 Times")
+        compose.onNodeWithTag("workout-repeat-work-1").assertExists()
+        compose.onNodeWithTag("workout-repeat-recovery-1").assertExists()
+        compose.onNodeWithText("Between repetitions").assertExists()
+        compose.onNodeWithTag("workout-step-single-2").assertExists()
+    }
+
     @Test fun reviewedTimeOnlyPreviewNeverShowsOriginalDistanceAsCurrentTarget() {
         val session=PlannedSession(
             "shortened",day.plusDays(1),"run","Easy run",60,10.0,"easy",
