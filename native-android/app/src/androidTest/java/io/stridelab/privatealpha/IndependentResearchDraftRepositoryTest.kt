@@ -62,10 +62,19 @@ class IndependentResearchDraftRepositoryTest {
         explicitlyEnteredMaxLongRunIncreaseKm = 2.0
     )
 
-    private fun count(owner:String, table:String):Int =
-        context.openOrCreateDatabase(database,Context.MODE_PRIVATE,null).use { db ->
+    private fun count(owner:String, table:String):Int = count(database,owner,table)
+
+    private fun count(databaseName:String,owner:String,table:String):Int =
+        context.openOrCreateDatabase(databaseName,Context.MODE_PRIVATE,null).use { db ->
             db.rawQuery("SELECT COUNT(*) FROM $table WHERE account=?",
                 arrayOf(owner)).use { c ->
+                check(c.moveToFirst());c.getInt(0)
+            }
+        }
+
+    private fun recordCount(databaseName:String,owner:String,kind:String):Int =
+        context.openOrCreateDatabase(databaseName,Context.MODE_PRIVATE,null).use { db ->
+            db.rawQuery("SELECT COUNT(*) FROM records WHERE account=? AND kind=?",arrayOf(owner,kind)).use { c ->
                 check(c.moveToFirst());c.getInt(0)
             }
         }
@@ -145,6 +154,14 @@ class IndependentResearchDraftRepositoryTest {
     @Test fun invalidResearchRequestCannotMutateApprovedPlansOrCachedResearch() = runBlocking {
         val owner = requireNotNull(repo.state.value.localPlanOwner)
         assertTrue(repo.saveResearchReview(request,bounds))
+        repo.generatePlan(PlanRequest(
+            goal="General strength",start=LocalDate.of(2026,11,16),weeks=2,
+            runDays=0,strengthDays=2
+        ))
+        val draftPlan=repo.state.value.plans.single()
+        repo.approvePlan(draftPlan.id,draftPlan.revision)
+        val approved=repo.state.value.plans.single()
+        assertEquals("approved",approved.status)
         val existing = repo.state.value.researchDrafts.single()
         assertFalse(repo.saveResearchReview(
             request.copy(goal="Marathon"),bounds
@@ -153,8 +170,75 @@ class IndependentResearchDraftRepositoryTest {
             request,bounds.copy(explicitlyEnteredWeeklyCeilingKm=null)
         ))
         assertEquals(listOf(existing),repo.state.value.researchDrafts)
-        assertTrue(repo.state.value.plans.isEmpty())
+        assertEquals(listOf(approved),repo.state.value.plans)
         assertEquals(0,count(owner,"outbox"))
+    }
+
+    @Test fun mixedBackupRestoresApprovedPlanAndResearchOnlyForMatchingOwner() = runBlocking {
+        val owner=requireNotNull(repo.state.value.localPlanOwner)
+        assertTrue(repo.saveResearchReview(request,bounds))
+        repo.generatePlan(PlanRequest(
+            goal="General strength",start=LocalDate.of(2026,11,16),weeks=2,
+            runDays=0,strengthDays=2
+        ))
+        val plan=repo.state.value.plans.single()
+        repo.approvePlan(plan.id,plan.revision)
+        val approved=repo.state.value.plans.single()
+        val savedReview=repo.state.value.researchDrafts.single()
+        val raw=PlanBackup.encode(repo.state.value.plans,repo.state.value.researchDrafts,owner)
+
+        val restoreDatabase="synthetic-m10c-restore.db"
+        context.deleteDatabase(restoreDatabase)
+        val restored=TrainingRepository(context,gateway,restoreDatabase,prefs)
+        try {
+            restored.state.first { !it.initializing }
+            restored.restorePlans(raw)
+            assertEquals(listOf(approved),restored.state.value.plans)
+            assertEquals(listOf(savedReview),restored.state.value.researchDrafts)
+            assertFalse(restored.state.value.researchDrafts.single().executable)
+            assertEquals(0,count(restoreDatabase,owner,"outbox"))
+
+            assertTrue(restored.signIn("synthetic@example.invalid","fixture"))
+            assertFalse(restored.restorePlans(raw))
+            assertTrue(restored.state.value.plans.isEmpty())
+            assertTrue(restored.state.value.researchDrafts.isEmpty())
+            assertEquals(0,count(restoreDatabase,cloudOwner,"outbox"))
+            assertTrue(restored.signOut())
+            assertEquals(listOf(savedReview),restored.state.value.researchDrafts)
+        } finally {
+            restored.close()
+            context.deleteDatabase(restoreDatabase)
+        }
+    }
+
+    @Test fun opaqueResearchIdConflictPreventsAnyPartialBackupRestore() = runBlocking {
+        val owner=requireNotNull(repo.state.value.localPlanOwner)
+        assertTrue(repo.saveResearchReview(request,bounds))
+        repo.generatePlan(PlanRequest(
+            goal="General strength",start=LocalDate.of(2026,11,16),weeks=2,
+            runDays=0,strengthDays=2
+        ))
+        val draft=repo.state.value.plans.single()
+        repo.approvePlan(draft.id,draft.revision)
+        val raw=PlanBackup.encode(repo.state.value.plans,repo.state.value.researchDrafts,owner)
+        val reviewId=repo.state.value.researchDrafts.single().recordId
+        val restoreDatabase="synthetic-m10c-conflict-restore.db"
+        context.deleteDatabase(restoreDatabase)
+        val restored=TrainingRepository(context,gateway,restoreDatabase,prefs)
+        try {
+            restored.state.first { !it.initializing }
+            context.openOrCreateDatabase(restoreDatabase,Context.MODE_PRIVATE,null).use { db ->
+                db.execSQL("INSERT INTO records(account,kind,record_id,payload,server_version,synced_at) VALUES(?,?,?,?,?,?)",
+                    arrayOf(owner,"exercise",reviewId,"{}",null,0))
+            }
+            assertFalse(restored.restorePlans(raw))
+            assertTrue(restored.state.value.plans.isEmpty())
+            assertEquals(0,recordCount(restoreDatabase,owner,"plan"))
+            assertEquals(1,recordCount(restoreDatabase,owner,"exercise"))
+        } finally {
+            restored.close()
+            context.deleteDatabase(restoreDatabase)
+        }
     }
 
     private class FakeGateway : TrainingGateway {

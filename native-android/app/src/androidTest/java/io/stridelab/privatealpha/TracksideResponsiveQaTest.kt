@@ -1010,6 +1010,93 @@ class TracksideResponsiveQaTest {
 
     @Test fun engine15WeekPreviewSeparatesRequestedStateFromGeneratedNineSessionDraft() = verifyWeekPreview(engine15 = true)
 
+    @Test fun weekPreviewShowsSelectedWeekDistanceAndKeepsNavigation() {
+        val base=matchedNineSessionDraft("week-preview-distance")
+        val plan=base.copy(
+            request=base.request.copy(weeks=2,weeklyKm=40.0,targetWeeklyKm=80.0),
+            sessions=base.sessions+base.sessions.first().copy(
+                id="week-two-unknown",date=base.request.start.plusWeeks(1),distanceKm=null
+            )
+        )
+        val selected=mutableStateOf(0)
+        val firstWeek=weekReviewDistance(plan.sessions.filter { it.date in plan.request.start..plan.request.start.plusDays(6) })
+        show { TracksideWeekReview(plan.request,plan,false,{}, {},weekIndex=selected.value,onWeekChange={selected.value=it}) }
+        compose.onNodeWithText("planned km").assertExists()
+        compose.onNodeWithText(String.format(java.util.Locale.getDefault(),"%.1f",requireNotNull(firstWeek))).assertExists()
+        compose.onNodeWithText("Requested target:",substring=true).assertExists()
+        compose.onNodeWithTag("builder-previous-week").assertIsNotEnabled()
+        compose.onNodeWithTag("builder-next-week").performClick()
+        compose.onNodeWithText("distance unknown").assertExists()
+        compose.onNodeWithTag("builder-next-week").assertIsNotEnabled()
+        compose.onNodeWithTag("builder-previous-week").performClick()
+        compose.onNodeWithText("planned km").assertExists()
+    }
+
+    @Test fun weekPreviewKeepsNoRunningStateInsteadOfShowingZeroKilometers() {
+        val base=matchedNineSessionDraft("week-preview-no-running")
+        val plan=base.copy(request=base.request.copy(runDays=0,targetWeeklyKm=80.0),sessions=base.sessions.filter { it.discipline!="run" })
+        val generated=mutableStateOf(false)
+        show { TracksideWeekReview(plan.request,if(generated.value)plan else null,false,{}, {}) }
+        compose.onNodeWithText("no running").assertExists()
+        compose.runOnIdle { generated.value=true }
+        compose.onNodeWithText("no running").assertExists()
+        compose.onNodeWithText("planned km").assertDoesNotExist()
+        compose.onNodeWithText("Requested target:",substring=true).assertDoesNotExist()
+    }
+
+    @Test fun researchRouteIsExplicitSelectedAndCannotSubmitAsPlan() {
+        val request=PlanRequest(runDays=3,days=setOf(1,3,5),qualityCount=0)
+        val selected=mutableStateOf(false)
+        show {
+            TracksideWeekReview(request,null,false,{}, {},experimentalSelected=selected.value,
+                onExperimentalSelected={selected.value=it})
+        }
+        compose.onNodeWithTag("builder-route-existing").assertIsSelected()
+        compose.onNodeWithTag("builder-route-research").assertIsNotSelected()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        compose.onNodeWithTag("builder-route-research").performClick()
+        compose.onNodeWithTag("builder-route-research").assertIsSelected()
+        compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
+        compose.onNodeWithText("Experimental mileage calendar").assertExists()
+        compose.onNodeWithTag("builder-route-existing").performClick()
+        compose.onNodeWithTag("builder-route-existing").assertIsSelected()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+    }
+
+    @Test fun savedResearchReviewCanBeReopenedWithoutPlanActions() {
+        val request=PlanRequest(
+            goal="General fitness",experience=2,start=LocalDate.of(2026,11,16),weeks=5,
+            days=setOf(1,2,3,5,6,7),runDays=6,longDay=6,qualityCount=1,
+            qualityDays=setOf(2),weeklyKm=60.0,targetWeeklyKm=80.0
+        )
+        val limits=IndependentAndroidPreviewConstraints(
+            selectedRunDays=request.days,
+            explicitlyEnteredStartingWeeklyKm=60.0,
+            explicitlyEnteredWeeklyCeilingKm=80.0,
+            explicitlyEnteredMaxKmByDay=request.days.associateWith { if(it==1)5.0 else 25.0 },
+            explicitlyEnteredPreviousLongRunKm=17.0,
+            explicitlyEnteredLongRunCeilingKm=25.0,
+            explicitlyEnteredMaxLongRunIncreaseKm=2.0
+        )
+        val preview=IndependentAndroidResearchBridge.preview(request,limits)
+            as IndependentAndroidPreviewDecision.ReadOnly
+        val saved=IndependentResearchDraft.fromPreview(
+            "synthetic-responsive",request,preview,limits,
+            id="0fa768cd-1f1a-47f8-85fb-4c4d6514dce7",createdAt=Instant.EPOCH
+        )
+        show {
+            IndependentAndroidResearchPreviewPanel(
+                request=request,savedResearchReviews=listOf(saved)
+            )
+        }
+        compose.onNodeWithTag("builder-research-open-${saved.id}").performClick()
+        compose.onNodeWithTag("builder-research-reopened").assertExists()
+        compose.onNodeWithText("Research comparison · not executable").assertExists()
+        compose.onNodeWithText("Week 1:",substring=true).assertExists()
+        compose.onNodeWithText("Finalize Plan").assertDoesNotExist()
+        compose.onNodeWithText("Approve plan").assertDoesNotExist()
+    }
+
     private fun verifyWeekPreview(engine15: Boolean) {
         val plan = matchedNineSessionDraft("week-preview-matched", engine15)
         val prefix = if (engine15) "engine15-" else ""

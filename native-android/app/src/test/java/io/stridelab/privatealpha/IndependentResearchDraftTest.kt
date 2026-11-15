@@ -3,6 +3,8 @@ package io.stridelab.privatealpha
 import java.time.Instant
 import java.time.LocalDate
 import org.junit.Assert.*
+import org.json.JSONArray
+import org.json.JSONObject
 import org.junit.Test
 
 class IndependentResearchDraftTest {
@@ -117,5 +119,48 @@ class IndependentResearchDraftTest {
             !it.qualityOpportunityOnly || !it.longRunCandidate
         })
         assertEquals(draft(), draft())
+    }
+
+    @Test fun versionedBackupKeepsResearchReviewsSeparateAndReadsLegacyPlanOnlyFiles() {
+        val saved = draft()
+        val bundle = PlanBackup.encode(emptyList(), listOf(saved), saved.owner)
+        val restored = PlanBackup.readBundle(bundle, saved.owner)
+        assertTrue(restored.plans.isEmpty())
+        assertEquals(listOf(saved), restored.researchReviews)
+        assertThrows(PlanConstraint::class.java) { PlanBackup.read(bundle,saved.owner) }
+
+        val legacy = JSONObject().put("schemaVersion", 1)
+            .put("plans", JSONArray().put(Engine1.generate(
+                PlanRequest(start=LocalDate.of(2026,11,16),runDays=0,strengthDays=2),
+                saved.owner,"legacy-backup-plan",Instant.EPOCH
+            ).copy(status="approved").encode()))
+        val decodedLegacy = PlanBackup.readBundle(legacy.toString(), saved.owner)
+        assertEquals(1, decodedLegacy.plans.size)
+        assertTrue(decodedLegacy.researchReviews.isEmpty())
+    }
+
+    @Test fun backupRejectsUnknownVersionsForeignReviewsAndExecutablePromotion() {
+        val saved = draft()
+        val raw = PlanBackup.encode(emptyList(), listOf(saved), saved.owner)
+        assertThrows(PlanConstraint::class.java) {
+            PlanBackup.readBundle(JSONObject(raw).put("schemaVersion", 99).toString(), saved.owner)
+        }
+        assertThrows(PlanConstraint::class.java) {
+            PlanBackup.readBundle(raw, "different-owner")
+        }
+        val forged = JSONObject(saved.encode().toString()).put("executable", true)
+        assertThrows(PlanConstraint::class.java) {
+            PlanBackup.readBundle(JSONObject(raw).put("researchReviews", JSONArray().put(forged)).toString(), saved.owner)
+        }
+    }
+
+    @Test fun duplicateResearchIdsAreIdempotentOnlyWhenTheWholeReviewMatches() {
+        val saved=draft()
+        assertTrue(PlanBackup.researchAdditions(listOf(saved),listOf(saved)).isEmpty())
+        assertThrows(PlanConstraint::class.java) {
+            PlanBackup.researchAdditions(
+                listOf(saved.copy(createdAt=saved.createdAt.plusSeconds(1))),listOf(saved)
+            )
+        }
     }
 }

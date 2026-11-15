@@ -7,6 +7,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -38,10 +39,10 @@ class TracksideEngineBuilderIntegrationTest {
         }
         clear()
         var repo = open()
+        val restoration=StateRestorationTester(compose)
         fun showApp() {
             val repository = repo
-            compose.runOnUiThread {
-                compose.activity.setContent {
+            restoration.setContent {
                     val scope = rememberCoroutineScope()
                     val actions = PlanActions(
                         generate = { scope.launch { repository.generatePlan(it) } },
@@ -51,7 +52,6 @@ class TracksideEngineBuilderIntegrationTest {
                         NativeStrideContent(repository.state.collectAsState().value, false,
                             NativeActions({}, {}, {}, {}, { _, _ -> }, planning = actions))
                     }
-                }
             }
         }
         try {
@@ -80,6 +80,11 @@ class TracksideEngineBuilderIntegrationTest {
             next() // weekly setup
             next() // dates
             next() // availability
+            compose.onNodeWithTag("builder-route-existing").assertIsSelected()
+            compose.onNodeWithTag("builder-route-research").performClick().assertIsSelected()
+            restoration.emulateSaveAndRestore()
+            compose.onNodeWithTag("builder-route-research").assertIsSelected()
+            compose.onNodeWithTag("builder-route-existing").performClick().assertIsSelected()
             compose.onNodeWithText("Generate My Plan").assertExists()
             next()
             compose.waitUntil(15_000) { repo.state.value.plans.isNotEmpty() }

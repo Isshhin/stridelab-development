@@ -61,3 +61,11 @@ Branch: `codex/engine15-continuous-20261113`. Engine 2.x remains out of scope.
 ## Exact next action
 
 Verify normal UI restoration of a synthetic plan after application process restart, then verify explicit Engine 1.0 rollback and the remaining backup/restore and account-isolation paths. Keep M0 provisional until required emulator and owner-run physical-device evidence passes; never install to or modify the owner's physical phone. Do not infer the former hang's cause from the successful rerun.
+
+## M10d — Android review-flow and backup reconciliation (2026-11-15)
+
+- **Starting point:** isolated branch `integration/engine15-m10d-android-reconciliation-20261115`, based on PR #91/M10c `a27a552632b53f97b932635236363cbb9b19adaa`; M10c source remains untouched.
+- **Changes:** reconciled the current Week Review UI and explicit Existing Coach / Experimental Research Review route; added saved-review reopening in builder and Plan Tools; added schema-2 mixed backup while preserving schema-1 plan-only reads; validates records before atomic plan/review restore and keeps research reviews local-only/non-executable. No database schema change or production generator change.
+- **Focused verification:** test-first backup tests initially failed compilation because the versioned codec API was absent. After implementation, 29 focused JVM tests passed (11 `IndependentResearchDraftTest`, 15 `BackupIntegrityTest`, 3 `WeekReviewDistanceTest`); `:app:compileDebugKotlin` passed; `git diff --check` passed.
+- **Not yet verified:** M10d instrumentation additions have not been compiled or run; APK assembly, full JVM suite, emulator scenarios, exact-head hosted CI and physical-device acceptance remain separate. Do not infer M10.1 completion from M10d tests.
+- **Next:** commit and push this M10d batch; then execute M10.1, beginning with instrumentation compilation and the existing five M10c tests plus the new restoration/backup scenarios. PR #91 remains open/draft/unmerged; use a stacked follow-up PR if needed.

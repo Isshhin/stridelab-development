@@ -355,39 +355,21 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     }
     suspend fun restorePlans(raw:String)=operation("Restoring reviewed plan backup…") {
         val account=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)
-        val additions=PlanBackup.additions(PlanBackup.read(raw,account),mutable.value.plans)
-        val db=store.writableDatabase
-        // Protect opaque unsupported records that do not appear in decoded state.
-        additions.forEach { p ->
-            db.query("records",arrayOf("record_id"),"account=? AND kind=? AND record_id=?",
-                arrayOf(account,"plan",p.id),null,null,null).use { cursor ->
-                if(cursor.moveToFirst())throw PlanConstraint(
-                    "A saved plan already uses this ID but could not be restored into the current view. " +
-                        "Its original record was retained; no backup records were changed."
-                )
-            }
-        }
-        if(mutable.value.account==null) {
-            // One atomic local SQLite batch, with no pending cloud mutation.
-            if(additions.isNotEmpty())store.applyRemotePage(
-                account,"plan",additions.map { p ->
-                    TrainingStore.RemoteRecord(p.id,p.encode().toString(),null)
-                },null,System.currentTimeMillis()
-            )
-            loadLocalPlanCache()
-        } else {
-            // Signed-in account behavior retains the original outbox contract.
-            db.beginTransaction()
-            try {
-                additions.forEach { p ->
-                    store.enqueue(account,"plan",p.id,java.util.UUID.randomUUID().toString(),
-                        p.encode().toString(),null,System.currentTimeMillis())
-                }
-                db.setTransactionSuccessful()
-            } finally { db.endTransaction() }
-            loadCache(account)
-        }
-        mutable.value=mutable.value.copy(message="Restored ${additions.size} new plans. Existing plan IDs and all saved records were kept unchanged.")
+        val backup=PlanBackup.readBundle(raw,account)
+        val additions=PlanBackup.additions(backup.plans,mutable.value.plans)
+        val reviewAdditions=PlanBackup.researchAdditions(
+            backup.researchReviews,mutable.value.researchDrafts
+        )
+        val now=System.currentTimeMillis()
+        store.restoreReviewedBackup(
+            account,
+            additions.map { TrainingStore.RemoteRecord(it.id,it.encode().toString(),null) },
+            reviewAdditions.map { TrainingStore.RemoteRecord(it.recordId,it.encode().toString(),null) },
+            mutable.value.account!=null,
+            now
+        )
+        if(mutable.value.account==null)loadLocalPlanCache() else loadCache(account)
+        mutable.value=mutable.value.copy(message="Restored ${additions.size} new plans and ${reviewAdditions.size} non-executable research reviews. Existing records were kept unchanged.")
     }
     suspend fun changeShelf(id:String,collection:String?=null,remove:Boolean=false)=operation("Saving your library…") {
         val owner=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)

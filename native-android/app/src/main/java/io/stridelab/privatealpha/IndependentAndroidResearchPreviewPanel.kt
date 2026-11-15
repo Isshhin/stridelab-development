@@ -20,7 +20,8 @@ import java.util.Locale
 internal fun IndependentAndroidResearchPreviewPanel(
     request: PlanRequest,
     onSaveResearchReview: (PlanRequest,IndependentAndroidPreviewConstraints) -> Unit = { _,_ -> },
-    savedResearchCount: Int = 0
+    savedResearchCount: Int = 0,
+    savedResearchReviews: List<IndependentResearchDraft> = emptyList()
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     var dayCsv by rememberSaveable { mutableStateOf("") }
@@ -30,6 +31,7 @@ internal fun IndependentAndroidResearchPreviewPanel(
     var previousLongKm by rememberSaveable { mutableStateOf("") }
     var longCapKm by rememberSaveable { mutableStateOf("") }
     var longIncreaseKm by rememberSaveable { mutableStateOf("") }
+    var openedReviewId by rememberSaveable { mutableStateOf<String?>(null) }
     var display by remember(request) {
         mutableStateOf<IndependentAndroidPreviewDecision?>(null)
     }
@@ -227,6 +229,57 @@ internal fun IndependentAndroidResearchPreviewPanel(
                     modifier = Modifier.testTag("builder-research-saved-count")
                 )
             }
+            if(savedResearchReviews.isNotEmpty()) {
+                Text("SAVED RESEARCH REVIEWS · NOT PLANS",
+                    color=PlanBuilderPalette.secondary,style=MaterialTheme.typography.labelMedium)
+                savedResearchReviews.forEach { review ->
+                    TextButton(
+                        onClick={openedReviewId=review.id},
+                        modifier=Modifier.fillMaxWidth()
+                            .testTag("builder-research-open-${review.id}")
+                    ) { Text("Open comparison · ${review.createdAt.toString().take(10)}") }
+                }
+                savedResearchReviews.firstOrNull { it.id==openedReviewId }?.let { review ->
+                    IndependentResearchReadOnlyReview(
+                        review,modifier=Modifier.testTag("builder-research-reopened")
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun IndependentResearchReadOnlyReview(
+    review: IndependentResearchDraft,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier=modifier.fillMaxWidth(),
+        color=PlanBuilderPalette.surface,
+        shape=RoundedCornerShape(12.dp),
+        border=BorderStroke(1.dp,PlanBuilderPalette.border)
+    ) {
+        Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(5.dp)) {
+            Text("Research comparison · not executable",
+                color=PlanBuilderPalette.accent,style=MaterialTheme.typography.titleSmall)
+            Text("Saved ${review.createdAt} · ${review.policyId}",
+                color=PlanBuilderPalette.secondary,style=MaterialTheme.typography.bodySmall)
+            review.weeks.forEach { week ->
+                Text("Week ${week.week}: ${"%.2f".format(Locale.US,week.weeklyKilometers)} km"+
+                    if(week.recoveryWeek) " · lighter week" else "",
+                    color=PlanBuilderPalette.text,style=MaterialTheme.typography.bodyMedium)
+                Text(week.days.joinToString(" · ") { day ->
+                    "${dayName(day.isoDay)} ${"%.2f".format(Locale.US,day.kilometers)} km"+
+                        when {
+                            day.longRunCandidate -> " · long-run candidate"
+                            day.qualityOpportunityOnly -> " · possible quality day"
+                            else -> ""
+                        }
+                },color=PlanBuilderPalette.secondary,style=MaterialTheme.typography.bodySmall)
+            }
+            Text("Mileage comparison only. No workout, intensity, schedule approval or readiness is established.",
+                color=PlanBuilderPalette.secondary,style=MaterialTheme.typography.bodySmall)
         }
     }
 }
