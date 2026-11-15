@@ -95,10 +95,10 @@ class IndependentMultiweekResponseTest {
         assertEquals(30.0, repeated.volume.weeks.single().weeklyKilometers, 0.00001)
 
         val incremental = candidate(rebuild.copy(
-            explicitlyApprovedIncreaseKm = 2.0,
+            explicitlyApprovedIncreaseKm = 1.5,
             increaseApprovalReference = "synthetic-reviewed-rebuild"
         ))
-        assertEquals(32.0, incremental.volume.weeks.single().weeklyKilometers, 0.00001)
+        assertEquals(31.5, incremental.volume.weeks.single().weeklyKilometers, 0.00001)
         assertTrue(incremental.volume.weeks.single().weeklyKilometers < 60.0)
     }
 
@@ -106,9 +106,8 @@ class IndependentMultiweekResponseTest {
         reject("MIXED_OR_PARTIAL_COMPLETION_REVIEW", input(listOf(
             week(2, 60.0, 60.0), week(1, 60.0, 30.0)
         )))
-        reject("MIXED_OR_PARTIAL_COMPLETION_REVIEW", input(listOf(
-            week(2, 60.0, 50.0), week(1, 60.0, 50.0)
-        )))
+        val repeat = candidate(input(listOf(week(2, 60.0, 50.0), week(1, 60.0, 50.0))))
+        assertEquals(50.0, repeat.volume.weeks.single().weeklyKilometers, 0.00001)
     }
 
     @Test fun unknownCompletionAndIntentNeverBecomeZeroOrRecovery() {

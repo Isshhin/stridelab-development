@@ -90,3 +90,12 @@ Verify normal UI restoration of a synthetic plan after application process resta
 - **Status:** requested M10.1 synthetic validation is locally closed. Hosted validation remains unavailable. No physical phone used. M10.5/Astra remains **NOT READY** pending separate independent coaching review and executable-evidence qualification. PRs #91 and #92 remain open, draft and unmerged.
 - **Delivery:** commit `76687e5e50179a21fc3437fdf51b9c4749096016` was pushed; draft PR #93 is stacked on draft PR #92. Exact-head hosted run `43697163791` failed before runner assignment.
 - **Next:** resolve the GitHub Actions runner failure with repository-owner/GitHub Actions support; then hand the technical validation packet to independent Astra review, without starting that audit here.
+
+
+## M10.6 follow-up — history and weekly approval candidate (2026-11-15)
+
+- Retained draft PR94, start `29ec2069`, branch `fix/engine15-m106-coaching-quality-20261115`; owner approved implementation after design discussion, no UI edits.
+- Implemented repeated actual easy/long exposure for new drafts, final-role reconciliation, optional structured workout feedback, atomic approval-first weekly review and optional overrun review, and generated longer-horizon/lower-target explanations.
+- Local validation: 762 JVM tests across 98 suites, zero failures/errors/skips; debug build and instrumentation compilation passed. No instrumentation execution or physical device installation in this follow-up.
+- Report and UI recommendations: `research/engine15/experiments/m106-history-weekly-review-20261115.md`. Weekly review/feedback APIs need separately authorized UI wiring. Imported-history coverage, positive-response quality progression and athlete effectiveness remain open; no competitor parity claim.
+- Next: review the unmerged candidate and implement the approved UI integration only when requested; continue provenance-aware weekly capacity and completed quality-work assessment before claiming autonomous coaching readiness.

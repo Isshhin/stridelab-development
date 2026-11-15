@@ -60,12 +60,12 @@ class IndependentMultiweekTrajectoryComparisonTest {
         assertEquals(30.0, second.volume.weeks.single().weeklyKilometers, 0.00001)
 
         // Even with further completion, only an independent explicitly
-        // reviewed 2 km increase may change the research candidate.
+        // reviewed 1.5 km increase may change the research candidate.
         val thirdMonday = initialMonday.plusWeeks(4)
         val third = preview(thirdMonday, observed(
             thirdMonday, 30.0, 30.0, 30.0, 30.0
-        ), increase = 2.0)
-        assertEquals(32.0, third.volume.weeks.single().weeklyKilometers, 0.00001)
+        ), increase = 1.5)
+        assertEquals(31.5, third.volume.weeks.single().weeklyKilometers, 0.00001)
         assertTrue(listOf(first, second, third).all {
             !it.authorizedForProduction && !it.sourceEvidenceVerified
         })

@@ -53,6 +53,11 @@ class Engine15ArchitectureTest {
             val requested = request().copy(weeklyKm = km, targetWeeklyKm = km)
             assertTrue(requested.encode().has("targetWeeklyKm"))
             assertEquals(requested, PlanRequest.decode(requested.encode()))
+            if (km == 0.0) {
+                try { Engine15.generate(requested,owner,"zero",now); fail("Zero target needs explicit no-running choice") }
+                catch (_: PlanConstraint) { }
+                continue
+            }
             val snapshot = Engine15.generate(requested, owner, "target-$km", now)
             assertEquals(snapshot, PlanSnapshot.decode(snapshot.encode(), owner))
         }

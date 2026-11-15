@@ -58,7 +58,9 @@ internal data class IndependentQualityDoseReviewInput(
     val observedHistory: List<IndependentQualityWorkObservation>,
     val approvedWeeklyQualityWorkCeilingSeconds: Int?,
     val weeklyReviewReference: String?,
-    val explicitRecoveryOrReturnHold: Boolean = false
+    val explicitRecoveryOrReturnHold: Boolean = false,
+    /** Explicit coverage assertions, never inferred from the presence of two records. */
+    val completeQualityWeekMondays: Set<LocalDate> = emptySet()
 ) {
     init {
         require(assertedOwnerId.isNotBlank() && assertedOwnerId.length <= 256)
@@ -68,6 +70,7 @@ internal data class IndependentQualityDoseReviewInput(
         require(approvedWeeklyQualityWorkCeilingSeconds == null ||
             approvedWeeklyQualityWorkCeilingSeconds in 0..28800)
         require(weeklyReviewReference == null || weeklyReviewReference.length <= 256)
+        require(completeQualityWeekMondays.all { it.dayOfWeek == DayOfWeek.MONDAY && it < planningMonday })
     }
 }
 
@@ -300,6 +303,26 @@ internal object IndependentQualityDoseProgression {
         if (total > weeklyCeiling)
             return defer("WEEKLY_QUALITY_WORK_CEILING_EXCEEDED",
                 "Combined proposed work doses exceed the independently supplied weekly ceiling.")
+        val recentWeeks = request.completeQualityWeekMondays.filter {
+            ChronoUnit.DAYS.between(it, request.planningMonday) in 7L..LOOKBACK_DAYS
+        }.sortedDescending().take(2)
+        if (recentWeeks.size != 2 || recentWeeks[0] != request.planningMonday.minusWeeks(1) || recentWeeks[1].plusWeeks(1) != recentWeeks[0])
+            return defer("QUALITY_WEEK_COVERAGE_UNKNOWN",
+                "Two consecutive recent complete quality weeks must be explicitly reviewed; two sessions do not establish weekly exposure.")
+        for (monday in recentWeeks) {
+            val history = request.observedHistory.filter { it.performedOn in monday..monday.plusDays(6) }
+            if (history.any { it.recordedWorkSeconds == null || it.reportedResponse != IndependentWeekResponse.TOLERATED })
+                return defer("WEEKLY_QUALITY_RESPONSE_UNRESOLVED", "All quality exposure in the reviewed weeks needs known duration and tolerated response.")
+            for (family in output.map { it.family }.distinct()) {
+                val prior = history.filter { it.family == family }
+                val next = output.filter { it.family == family }
+                if (next.size > prior.map { it.performedOn }.distinct().size)
+                    return defer("QUALITY_FREQUENCY_INCREASE_REVIEW",
+                        "Repeating a session does not authorize more weekly sessions of that family. Review frequency separately.")
+                if (next.sumOf { it.selected.workSeconds } > prior.sumOf { requireNotNull(it.recordedWorkSeconds) } + next.sumOf { it.approvedIncreaseSeconds })
+                    return defer("QUALITY_WEEKLY_EXPOSURE_INCREASE_REVIEW", "Combined work exceeds demonstrated weekly exposure plus separately reviewed increments.")
+            }
+        }
         return IndependentQualityDoseReviewDecision.Preview(
             opportunities = output,
             totalProposedWeeklyWorkSeconds = total,
