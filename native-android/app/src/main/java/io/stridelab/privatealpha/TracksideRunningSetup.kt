@@ -21,6 +21,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -119,7 +121,7 @@ internal fun TracksideRunningSetup(
                 }
                 Spacer(Modifier.height(32.dp))
                 // At 360dp the cells scroll horizontally instead of shrinking
-                // to unreachable < 44dp targets.
+                // to unreachable < 48dp targets.
                 Row(
                     Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
                         .testTag("builder-running-day-row"),
@@ -150,7 +152,16 @@ internal fun TracksideRunningSetup(
                             "−" -> Color(0xFF383838)
                             else -> Color(0xFF383838)
                         }
-                        Column(Modifier.width(46.dp),
+                        val dayLabel=DayOfWeek.of(day).name.lowercase()
+                            .replaceFirstChar { it.uppercase() }
+                        val sessionLabel=when(code) {
+                            "L" -> "Long run"
+                            "Q" -> "Quality run"
+                            "E" -> "Easy run"
+                            "−" -> "Unavailable"
+                            else -> "Unassigned"
+                        }
+                        Column(Modifier.width(48.dp),
                             horizontalAlignment=Alignment.CenterHorizontally) {
                             Text(DayOfWeek.of(day).name.take(3),
                                 fontSize=9.sp,fontWeight=FontWeight.Bold,
@@ -158,8 +169,11 @@ internal fun TracksideRunningSetup(
                             Spacer(Modifier.height(19.dp))
                             Surface(
                                 onClick={ editingDay=day },
-                                modifier=Modifier.size(46.dp)
-                                    .testTag("builder-running-day-"+day),
+                                modifier=Modifier.size(48.dp)
+                                    .testTag("builder-running-day-"+day)
+                                    .semantics {
+                                        contentDescription="$dayLabel: $sessionLabel. Tap to edit"
+                                    },
                                 color=cellBg,
                                 shape=RoundedCornerShape(9.dp),
                                 border=BorderStroke(1.dp,cellBorder)
