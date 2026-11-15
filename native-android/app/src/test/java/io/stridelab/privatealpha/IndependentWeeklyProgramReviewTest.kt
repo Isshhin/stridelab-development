@@ -57,12 +57,13 @@ class IndependentWeeklyProgramReviewTest {
                 slot(3, IndependentQualityFamily.TEMPO)
             ) else listOf(slot(2, IndependentQualityFamily.THRESHOLD)),
             observedHistory = listOf(
-                history(18), history(9),
-                history(19, IndependentQualityFamily.TEMPO),
-                history(8, IndependentQualityFamily.TEMPO)
+                history(11), history(2),
+                history(12, IndependentQualityFamily.TEMPO),
+                history(1, IndependentQualityFamily.TEMPO)
             ),
             approvedWeeklyQualityWorkCeilingSeconds = 2400,
-            weeklyReviewReference = "synthetic-reviewed-week"
+            weeklyReviewReference = "synthetic-reviewed-week",
+            completeQualityWeekMondays = setOf(monday.minusWeeks(1),monday.minusWeeks(2))
         )
         val decision = IndependentQualityDoseProgression.review(base, arrangement, input)
         assertTrue(decision.toString(), decision is IndependentQualityDoseReviewDecision.Preview)

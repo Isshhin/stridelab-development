@@ -44,7 +44,7 @@ class IndependentQualityDoseProgressionTest {
         reportedResponse = response
     )
     private val standardHistory: List<IndependentQualityWorkObservation>
-        get() = listOf(observed(18), observed(9))
+        get() = listOf(observed(11), observed(2))
     private fun slot(
         day: Int = 2,
         family: IndependentQualityFamily = IndependentQualityFamily.THRESHOLD,
@@ -76,7 +76,8 @@ class IndependentQualityDoseProgressionTest {
         observedHistory = history,
         approvedWeeklyQualityWorkCeilingSeconds = weeklyCeiling,
         weeklyReviewReference = weeklyReference,
-        explicitRecoveryOrReturnHold = hold
+        explicitRecoveryOrReturnHold = hold,
+        completeQualityWeekMondays = setOf(planMonday.minusWeeks(1),planMonday.minusWeeks(2))
     )
     private fun inspect(
         review: IndependentQualityDoseReviewInput = input(),
@@ -124,7 +125,7 @@ class IndependentQualityDoseProgressionTest {
     }
     @Test fun lowerOfTwoRecentExposureClaimsAnchorsDose() {
         val result = preview(input(history = listOf(
-            observed(18, workSeconds = 1200), observed(9, workSeconds = 720)
+            observed(11, workSeconds = 1200), observed(2, workSeconds = 720)
         )))
         assertEquals(720, result.opportunities.single().assertedRepeatedWorkSeconds)
         assertEquals(720, result.opportunities.single().selected.workSeconds)
@@ -134,14 +135,14 @@ class IndependentQualityDoseProgressionTest {
             observed(10, workSeconds = 720),
             observed(20, workSeconds = 1320),
             observed(1, workSeconds = 720),
-            observed(9, workSeconds = 720)
+            observed(2, workSeconds = 720)
         )))
         assertEquals(720, result.opportunities.single().assertedRepeatedWorkSeconds)
     }
     @Test fun twoRequestedFamiliesRequireIndependentHistoryAndWeeklyBudget() {
         val exposure = standardHistory + listOf(
-            observed(19, family = IndependentQualityFamily.TEMPO),
-            observed(8, family = IndependentQualityFamily.TEMPO)
+            observed(12, family = IndependentQualityFamily.TEMPO),
+            observed(1, family = IndependentQualityFamily.TEMPO)
         )
         val result = preview(
             input(
@@ -160,8 +161,8 @@ class IndependentQualityDoseProgressionTest {
     }
     @Test fun combinedTwoQualityWorkDosesCannotExceedExplicitWeeklyCeiling() {
         val exposure = standardHistory + listOf(
-            observed(19, family = IndependentQualityFamily.TEMPO),
-            observed(8, family = IndependentQualityFamily.TEMPO)
+            observed(12, family = IndependentQualityFamily.TEMPO),
+            observed(1, family = IndependentQualityFamily.TEMPO)
         )
         reject(
             "WEEKLY_QUALITY_WORK_CEILING_EXCEEDED",
@@ -179,9 +180,9 @@ class IndependentQualityDoseProgressionTest {
         reject("TWO_RECENT_QUALITY_EXPOSURES_REQUIRED",
             input(history = listOf(observed(10))))
         reject("TWO_RECENT_QUALITY_EXPOSURES_REQUIRED",
-            input(history = listOf(observed(29), observed(9))))
+            input(history = listOf(observed(29), observed(2))))
         reject("RECENT_QUALITY_WORK_DURATION_UNKNOWN",
-            input(history = listOf(observed(18), observed(9, workSeconds = null))))
+            input(history = listOf(observed(11), observed(2, workSeconds = null))))
     }
     @Test fun unreviewedOrAboveStepLimitIncreaseIsRejected() {
         reject("DOSE_INCREASE_REVIEW_MISSING",
@@ -194,11 +195,11 @@ class IndependentQualityDoseProgressionTest {
     }
     @Test fun unknownOrDifficultReportedResponseBlocksHardTraining() {
         reject("QUALITY_TOLERANCE_UNKNOWN",
-            input(history = listOf(observed(18),
-                observed(9, response = IndependentWeekResponse.UNKNOWN))))
+            input(history = listOf(observed(11),
+                observed(2, response = IndependentWeekResponse.UNKNOWN))))
         reject("QUALITY_RESPONSE_DIFFICULT_REVIEW",
-            input(history = listOf(observed(18),
-                observed(9, response = IndependentWeekResponse.DIFFICULT))))
+            input(history = listOf(observed(11),
+                observed(2, response = IndependentWeekResponse.DIFFICULT))))
     }
     @Test fun recoveryOrReturnHoldOverridesAllDoseClaims() {
         reject("RECOVERY_OR_RETURN_HOLD", input(hold = true))
@@ -209,17 +210,17 @@ class IndependentQualityDoseProgressionTest {
     }
     @Test fun crossOwnerSourceDuplicatesAndFutureClaimsFailClosed() {
         reject("HISTORY_OWNER_SCOPE_CONFLICT",
-            input(history = listOf(observed(18), observed(9, ownedBy = "other"))))
+            input(history = listOf(observed(11), observed(2, ownedBy = "other"))))
         reject("DUPLICATE_QUALITY_SOURCE_OR_SESSION",
-            input(history = listOf(observed(18), observed(18), observed(9))))
+            input(history = listOf(observed(11), observed(11), observed(2))))
         reject("FUTURE_OR_CURRENT_HISTORY_RECORD",
-            input(history = listOf(observed(18), observed(0))))
+            input(history = listOf(observed(11), observed(0))))
     }
     @Test fun sameDayIsNotTwoIndependentExposures() {
         reject("SAME_DAY_QUALITY_CLAIMS_NEED_REVIEW",
             input(history = listOf(
-                observed(9, session = "a", source = "source-a"),
-                observed(9, session = "b", source = "source-b")
+                observed(2, session = "a", source = "source-a"),
+                observed(2, session = "b", source = "source-b")
             )))
     }
     @Test fun missingWeeklyAndSessionApprovalCeilingsPreventWorkouts() {
@@ -263,5 +264,9 @@ class IndependentQualityDoseProgressionTest {
         assertFalse(preview.distanceReconciled)
         assertFalse(preview.authorizedForProduction)
         assertEquals(60.0, base.mileage.weeks.first().weeklyKilometers, 0.00001)
+    }
+    @Test fun staleCompleteWeeksCannotReplaceUnknownRecentWeeks() {
+        reject("QUALITY_WEEK_COVERAGE_UNKNOWN", input().copy(
+            completeQualityWeekMondays=setOf(planMonday.minusWeeks(2),planMonday.minusWeeks(3))))
     }
 }

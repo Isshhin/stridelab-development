@@ -160,6 +160,9 @@ internal object IndependentMultiweekResponse {
         val compared: Int
 
         if (last.intent == IndependentObservedWeekIntent.PLANNED_RECOVERY) {
+            if (input.completedWeeks.dropLast(1).last().intent == IndependentObservedWeekIntent.PLANNED_RECOVERY)
+                return defer("PROLONGED_RECOVERY_REBUILD_REVIEW",
+                    "Consecutive reduced weeks require a rebuilding review; an older build is not current capacity.")
             val prior = input.completedWeeks.dropLast(1).lastOrNull {
                 it.intent == IndependentObservedWeekIntent.BUILD
             } ?: return defer("PRE_RECOVERY_BUILD_MISSING",
@@ -198,6 +201,11 @@ internal object IndependentMultiweekResponse {
                     recent.minOf { requireNotNull(it.observedKilometers) },
                     requireNotNull(input.volume.approvedStartingWeeklyKm)
                 )
+                // Keep the existing M4 progression envelope even with an external approval string.
+                val stepCeiling = demonstrated * 0.05
+                if (input.explicitlyApprovedIncreaseKm > stepCeiling + 1e-8)
+                    return defer("INCREMENT_EXCEEDS_PROVISIONAL_STEP",
+                        "The approved increment exceeds the existing M4 step envelope. A different progression policy needs separate evaluation.")
                 proposed = minOf(
                     demonstrated + input.explicitlyApprovedIncreaseKm,
                     requireNotNull(input.volume.approvedWeeklyCeilingKm),
@@ -208,7 +216,7 @@ internal object IndependentMultiweekResponse {
                     "TWO_COMPLETED_BUILD_WEEKS_WITH_APPROVED_INCREMENT"
                 else "REPEAT_APPROVED_BUILD_WITHOUT_INCREMENT"
                 compared = 2
-            } else if (ratios.all { it < MARKEDLY_MISSED_RATIO }) {
+            } else if (ratios.all { it < COMPLETE_RATIO }) {
                 val repeated = recent.minOf { requireNotNull(it.observedKilometers) }
                 if (repeated <= 0.0)
                     return defer("RETURN_TO_RUN_REVIEW",
