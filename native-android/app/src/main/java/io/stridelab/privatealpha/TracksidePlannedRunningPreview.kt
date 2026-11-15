@@ -105,59 +105,10 @@ internal fun TracksidePlannedRunningPreview(
                 )
             }
         }
-        Surface(
-            modifier=Modifier.fillMaxWidth().testTag("workout-planned-structure"),
-            color=TracksidePalette.surfaceRaised,
-            contentColor=TracksidePalette.text,
-            border=BorderStroke(1.dp,TracksidePalette.outline),
-            shape=RoundedCornerShape(15.dp)
-        ) {
-            Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                Text("WORKOUT STRUCTURE",color=TracksidePalette.text,
-                    fontSize=12.sp,fontWeight=FontWeight.Bold)
-                if(segments!=null && segments.isNotEmpty()) {
-                    segments.forEachIndexed { index, segment ->
-                        Row(Modifier.fillMaxWidth(),
-                            verticalAlignment=Alignment.Top,
-                            horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-                            Surface(
-                                color=Color(0xFF2A3629),
-                                shape=RoundedCornerShape(9.dp),
-                                modifier=Modifier.size(34.dp)
-                            ) {
-                                Box(contentAlignment=Alignment.Center) {
-                                    Text("${index+1}",color=TracksidePalette.lime,
-                                        fontSize=13.sp,fontWeight=FontWeight.Bold)
-                                }
-                            }
-                            Column(Modifier.weight(1f),
-                                verticalArrangement=Arrangement.spacedBy(3.dp)) {
-                                Text(when(segment.purpose) {
-                                    "WARM_UP" -> "Warm-up"
-                                    "WORK" -> "Quality work"
-                                    "RECOVERY" -> "Recovery"
-                                    "COOL_DOWN" -> "Cool-down"
-                                    else -> "Easy running"
-                                }+" · "+String.format(Locale.getDefault(),
-                                    "%.1f km",segment.meters/1000.0),
-                                    color=TracksidePalette.text,fontSize=13.sp,
-                                    fontWeight=FontWeight.Bold)
-                                Text(segment.effort,color=TracksidePalette.textMuted,
-                                    fontSize=11.sp,lineHeight=16.sp)
-                            }
-                        }
-                    }
-                } else if(target.currentSteps.isNotEmpty()) {
-                    target.currentSteps.forEachIndexed { index, step ->
-                        Text("${index+1}. $step",
-                            color=TracksidePalette.text,fontSize=12.sp,lineHeight=18.sp)
-                    }
-                } else {
-                    Text("No additional structured steps for this session.",
-                        color=TracksidePalette.textMuted,fontSize=12.sp)
-                }
-            }
-        }
+        TracksideRunningStepCards(
+            segments = segments,
+            textFallback = target.currentSteps
+        )
         Surface(
             modifier=Modifier.fillMaxWidth().testTag("workout-planned-coach-notes"),
             color=TracksidePalette.surfaceRaised,
