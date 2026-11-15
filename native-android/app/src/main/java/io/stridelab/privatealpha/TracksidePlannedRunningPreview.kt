@@ -139,7 +139,7 @@ internal fun TracksidePlannedRunningPreview(
                         Text(
                             if(target.state==Engine15SessionPresentation.State.ACCEPTED_REST)
                                 "Reviewed rest · 0 min"
-                            else "Estimated duration · \${target.currentMinutes} min",
+                            else "Estimated duration · ${target.currentMinutes} min",
                             color=TracksidePalette.text,fontSize=13.sp,
                             fontWeight=FontWeight.SemiBold,
                             modifier=Modifier.testTag("workout-planned-duration"))
