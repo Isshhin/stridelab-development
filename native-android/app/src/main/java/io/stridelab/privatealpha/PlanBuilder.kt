@@ -417,6 +417,19 @@ import org.json.JSONObject
                     edit(WeeklyPlacement.put(input,"run",
                         runningSelectedSlot.coerceIn(0,input.runDays-1),day))
                 },
+                onAssignSlot = { index,day ->
+                    // Tap day -> choose type is a single atomic placement.
+                    // WeeklyPlacement handles occupied-day swaps and preserves
+                    // long/quality ordinals and workout counts.
+                    runningCustom=true
+                    edit(WeeklyPlacement.put(input,"run",index,day))
+                    runningSelectedSlot=index
+                },
+                onClearDay = { index ->
+                    runningCustom=true
+                    edit(WeeklyPlacement.clear(input,"run",index))
+                    runningSelectedSlot=index
+                },
                 onClearSlot = {
                     edit(WeeklyPlacement.clear(input,"run",
                         runningSelectedSlot.coerceIn(0,input.runDays-1)))
