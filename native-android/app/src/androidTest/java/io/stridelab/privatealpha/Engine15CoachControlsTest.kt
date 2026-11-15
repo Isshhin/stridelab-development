@@ -30,6 +30,55 @@ class Engine15CoachControlsTest {
         val dir=InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null)!!
         java.io.File(dir,"$name.png").outputStream().use { compose.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
     }
+    @Test fun plannedWorkoutShortcutsUseRealMoveAndMissedCallbacks() {
+        val p=plan()
+        var moved=0
+        var markedMissed=0
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    WorkoutScreen(
+                        TrainingState(initializing=false,plans=listOf(p)),
+                        p.id,"target",PlanActions(),
+                        onBack={},
+                        onMissed={ markedMissed++ },
+                        onMove={ moved++ }
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("workout-planned-move").performScrollTo().performClick()
+        compose.onNodeWithTag("workout-planned-missed").performScrollTo().performClick()
+        compose.runOnIdle {
+            assertEquals(1,moved)
+            assertEquals(1,markedMissed)
+        }
+    }
+
+    @Test fun plannedWorkoutHidesLegacyFormsUntilUserOpensThem() {
+        val p=plan()
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    WorkoutScreen(
+                        TrainingState(initializing=false,plans=listOf(p)),
+                        p.id,"target",PlanActions(),{}
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("workout-planned-title")
+            .assertTextEquals("Easy run")
+        compose.onNodeWithTag("workout-recommendations-accordion").assertExists()
+        compose.onNodeWithTag("workout-record-form").assertDoesNotExist()
+        compose.onNodeWithTag("workout-log-toggle").performScrollTo().performClick()
+        compose.onNodeWithTag("workout-record-form").assertExists()
+        compose.onNodeWithTag("workout-actual-date").assertExists()
+        compose.onNodeWithTag("workout-recommendations-accordion-toggle")
+            .performScrollTo().performClick()
+        compose.onNodeWithText("Preview recommendations").assertExists()
+    }
+
     @Test fun plannedRunPreviewHasReadableTargetsAndExpandableNotes() {
         val session=PlannedSession(
             "preview",day.plusDays(1),"run","Aerobic endurance run",
@@ -143,6 +192,9 @@ class Engine15CoachControlsTest {
         val p=plan().copy(sessions=listOf(PlannedSession("target",day,"run","Threshold",75,14.0,"quality",quality=true)))
         var recorded:WorkoutLog?=null;val drafts=mutableListOf<WorkoutEntryDraft>()
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { androidx.compose.material3.Surface { WorkoutScreen(TrainingState(initializing=false,plans=listOf(p)),p.id,"target",PlanActions(record={_,_,_,log,_->recorded=log},stageWorkoutDraft={drafts+=it}),{}) } } } }
+        compose.onNodeWithTag("workout-log-toggle").performScrollTo().performClick()
+        compose.onNodeWithTag("workout-record-form").assertExists()
+        compose.onNodeWithTag("workout-actual-date").assertExists()
         compose.onNodeWithTag("workout-actual-distance").performScrollTo().performTextInput("14")
         compose.onNodeWithText("Effort 1–10, optional").performScrollTo().performTextInput("7")
         compose.onNodeWithText("As planned").performScrollTo().performClick()
@@ -180,6 +232,7 @@ class Engine15CoachControlsTest {
         val p=plan().copy(sessions=listOf(session))
         val draft=WorkoutEntryDraft(p.owner,p.id,session.id,1,"","","","",day.toString(),"{}",1)
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { androidx.compose.material3.Surface { WorkoutScreen(TrainingState(initializing=false,plans=listOf(p),workoutDrafts=mapOf((p.id to session.id) to draft)),p.id,session.id,PlanActions(),{}) } } } }
+        compose.onNodeWithTag("workout-log-toggle").performScrollTo().performClick()
         compose.onNodeWithText("How did completion feel?").performScrollTo()
         compose.onAllNodes(hasText("Unanswered") and isSelected()).assertCountEquals(2)
     }

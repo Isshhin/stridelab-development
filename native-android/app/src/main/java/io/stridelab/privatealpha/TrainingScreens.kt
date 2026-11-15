@@ -225,17 +225,23 @@ import kotlinx.coroutines.withContext
         }
     }
 }
-@Composable internal fun PlanFeedbackForm(plan:PlanSnapshot,actions:PlanActions,sessionId:String?=null) {
+@Composable internal fun PlanFeedbackForm(plan:PlanSnapshot,actions:PlanActions,sessionId:String?=null,embedded:Boolean=false) {
     var pendingCount by rememberSaveable(plan.id,sessionId) { mutableStateOf<Int?>(null) }
     var category by rememberSaveable(plan.id,sessionId) { mutableStateOf("Plan quality") };var text by rememberSaveable(plan.id,sessionId) { mutableStateOf("") }
     LaunchedEffect(plan.feedback.size) { if(pendingCount!=null && plan.feedback.size>pendingCount!!) { text="";pendingCount=null } }
-    SignalCard {
+    val fields: @Composable ColumnScope.() -> Unit = {
         Text("PRIVATE TESTING FEEDBACK",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
         FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) { listOf("Plan quality","Inappropriate prescription","Workout quality","Usability").forEach { c -> SignalChip(category==c,{category=c},label={Text(c)}) } }
         FormText("What worked, or what should change?",text,{text=it.take(2000)})
         Text("Saved privately on this device and included in your manual plan export. Nothing is sent automatically.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedButton(onClick={pendingCount=plan.feedback.size;actions.feedback(plan.id,plan.revision,category,text,sessionId)},enabled=text.trim().length>=3,modifier=Modifier.fillMaxWidth()) { Text("Save feedback") }
         Text("${plan.feedback.size} saved feedback records",style=MaterialTheme.typography.bodySmall)
+    }
+    if(embedded) {
+        Column(Modifier.fillMaxWidth(),
+            verticalArrangement=Arrangement.spacedBy(8.dp)) { fields() }
+    } else {
+        SignalCard { fields() }
     }
 }
 @Composable internal fun NativePlanExport(

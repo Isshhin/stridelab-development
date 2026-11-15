@@ -12,7 +12,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
@@ -126,12 +125,12 @@ private fun RunningStepTile(
     tag: String,
     additionalLabel: String? = null
 ) {
-    val accent=when(segment.purpose) {
-        "WARM_UP" -> Color(0xFFFF9980)
-        "WORK" -> TracksidePalette.lime
-        "RECOVERY" -> Color(0xFF9EA8A3)
-        "COOL_DOWN" -> Color(0xFF91D6B5)
-        else -> TracksidePalette.lime
+    val glyph=when(segment.purpose) {
+        "WARM_UP" -> "W"
+        "WORK" -> "R"
+        "RECOVERY" -> "↺"
+        "COOL_DOWN" -> "C"
+        else -> "E"
     }
     val name=when(segment.purpose) {
         "WARM_UP" -> "Warm-up"
@@ -146,16 +145,20 @@ private fun RunningStepTile(
         shape=RoundedCornerShape(12.dp)
     ) {
         Row(
-            Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+            Modifier.fillMaxWidth().padding(vertical=10.dp),
             verticalAlignment=Alignment.CenterVertically
         ) {
             Box(
-                Modifier.fillMaxHeight().width(5.dp)
-                    .background(accent)
-            )
+                Modifier.padding(start=12.dp).size(36.dp)
+                    .background(Color(0xFF303531),RoundedCornerShape(9.dp)),
+                contentAlignment=Alignment.Center
+            ) {
+                Text(glyph,color=TracksidePalette.textMuted,
+                    fontSize=13.sp,fontWeight=FontWeight.Bold)
+            }
             Column(
                 Modifier.weight(1f)
-                    .padding(horizontal=13.dp,vertical=12.dp),
+                    .padding(horizontal=13.dp,vertical=2.dp),
                 verticalArrangement=Arrangement.spacedBy(4.dp)
             ) {
                 Row(Modifier.fillMaxWidth(),

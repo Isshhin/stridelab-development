@@ -1,9 +1,12 @@
 package io.stridelab.privatealpha
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -15,10 +18,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -31,7 +38,10 @@ internal fun TracksidePlannedRunningPreview(
     target: Engine15SessionPresentation.Target,
     displayTitle: String,
     coachingReason: String,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    planStart: LocalDate = session.date,
+    onMove: (() -> Unit)? = null,
+    onMissed: (() -> Unit)? = null
 ) {
     var notesExpanded by rememberSaveable(session.id) { mutableStateOf(false) }
     val label=when {
@@ -47,64 +57,129 @@ internal fun TracksidePlannedRunningPreview(
         target.state==Engine15SessionPresentation.State.ORIGINAL ||
             target.state==Engine15SessionPresentation.State.PENDING_REVIEW
     }
+    val weekNumber = (ChronoUnit.DAYS.between(planStart,session.date) / 7L + 1L)
+        .coerceAtLeast(1L)
     Column(
         modifier=Modifier.fillMaxWidth().testTag("workout-planned-preview"),
-        verticalArrangement=Arrangement.spacedBy(12.dp)
+        verticalArrangement=Arrangement.spacedBy(14.dp)
     ) {
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,
-            horizontalArrangement=Arrangement.SpaceBetween) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement=Arrangement.SpaceBetween,
+            verticalAlignment=Alignment.CenterVertically
+        ) {
             TextButton(onClick=onBack,
                 modifier=Modifier.heightIn(min=48.dp).testTag("workout-planned-back")) {
-                Text("‹ Training",color=TracksidePalette.lime,fontSize=13.sp)
+                Text("‹  Week $weekNumber · Training",color=TracksidePalette.text,
+                    fontSize=14.sp,fontWeight=FontWeight.Medium)
             }
-            Text(session.date.format(DateTimeFormatter.ofPattern("EEE, MMM d",Locale.getDefault())),
-                color=TracksidePalette.textMuted,fontSize=12.sp)
+            Text("PLANNED",color=TracksidePalette.lime,
+                fontSize=10.sp,fontWeight=FontWeight.Bold)
         }
-        Surface(
-            modifier=Modifier.fillMaxWidth().testTag("workout-planned-summary"),
-            color=Color(0xFF152018),
-            contentColor=TracksidePalette.text,
-            border=BorderStroke(1.dp,Color(0xFF354536)),
-            shape=RoundedCornerShape(17.dp)
-        ) {
-            Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                Text("YOUR PLANNED RUN",color=TracksidePalette.lime,fontSize=11.sp,
-                    fontWeight=FontWeight.Bold)
+        Box(Modifier.fillMaxWidth().testTag("workout-planned-summary")) {
+            // Decorative translucent training-wave motif; it is not data.
+            Canvas(Modifier.matchParentSize()) {
+                val w=size.width
+                val h=size.height
+                for(i in 0..7) {
+                    val shift=i*8.dp.toPx()
+                    val p=Path().apply {
+                        moveTo(w*.48f,h*.62f+shift)
+                        cubicTo(w*.75f,h*.60f-shift*.2f,
+                            w*.79f,h*.28f+shift,w*1.15f,h*.16f+shift)
+                    }
+                    drawPath(p,TracksidePalette.lime.copy(alpha=.055f),
+                        style=Stroke(width=1.15.dp.toPx()))
+                }
+            }
+            Column(verticalArrangement=Arrangement.spacedBy(9.dp)) {
+                Text(
+                    session.date.format(DateTimeFormatter.ofPattern(
+                        "EEE, MMM d, yyyy",Locale.getDefault())).uppercase(Locale.getDefault()),
+                    color=TracksidePalette.textMuted,
+                    fontSize=11.sp,fontWeight=FontWeight.SemiBold
+                )
                 Text(displayTitle,color=TracksidePalette.text,
-                    style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)
-                Row(verticalAlignment=Alignment.Bottom,
-                    horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-                    val distance=target.currentDistanceTargetKm
+                    fontSize=29.sp,lineHeight=34.sp,fontWeight=FontWeight.Bold,
+                    modifier=Modifier.testTag("workout-planned-title"))
+                Text(
+                    when {
+                        target.currentDistanceTargetKm!=null ->
+                            "$label · "+String.format(Locale.getDefault(),
+                                "%.1f km",target.currentDistanceTargetKm)
+                        target.state==Engine15SessionPresentation.State.ACCEPTED_REST -> "Reviewed rest"
+                        else -> label
+                    },
+                    color=TracksidePalette.textMuted,fontSize=15.sp,
+                    modifier=Modifier.testTag("workout-planned-subtitle")
+                )
+                Spacer(Modifier.height(6.dp))
+                Row(Modifier.fillMaxWidth(),
+                    horizontalArrangement=Arrangement.spacedBy(20.dp),
+                    verticalAlignment=Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f),
+                        verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            when {
+                                target.state==Engine15SessionPresentation.State.ACCEPTED_REST -> "Rest"
+                                target.currentDistanceTargetKm!=null ->
+                                    String.format(Locale.getDefault(),
+                                        "%.1f km",target.currentDistanceTargetKm)
+                                else -> "Time-based"
+                            },
+                            color=TracksidePalette.text,fontSize=24.sp,
+                            fontWeight=FontWeight.Bold,
+                            modifier=Modifier.testTag("workout-planned-primary-target"))
+                        Text(
+                            if(target.currentDistanceTargetKm!=null) "Planned distance" else "Current target",
+                            color=TracksidePalette.textMuted,fontSize=11.sp
+                        )
+                    }
+                    Box(Modifier.width(1.dp).height(36.dp)
+                        .background(TracksidePalette.outline))
+                    Column(Modifier.weight(1f),
+                        verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            if(target.state==Engine15SessionPresentation.State.ACCEPTED_REST)
+                                "Reviewed rest · 0 min"
+                            else "Estimated duration · ${target.currentMinutes} min",
+                            color=TracksidePalette.text,fontSize=13.sp,
+                            fontWeight=FontWeight.SemiBold,
+                            modifier=Modifier.testTag("workout-planned-duration"))
+                        Text("Planned, not recorded",color=TracksidePalette.textMuted,
+                            fontSize=11.sp)
+                    }
+                }
+                if(target.state==Engine15SessionPresentation.State.ACCEPTED_TIME_ONLY) {
                     Text(
-                        when {
-                            target.state==Engine15SessionPresentation.State.ACCEPTED_REST ->
-                                "Rest"
-                            distance!=null ->
-                                String.format(Locale.getDefault(),"%.1f km",distance)
-                            else -> "Time-based"
-                        },
-                        fontSize=31.sp,lineHeight=35.sp,fontWeight=FontWeight.Bold,
-                        color=TracksidePalette.lime,
-                        modifier=Modifier.testTag("workout-planned-primary-target")
+                        "The reviewed time allowance is the current target; original distance and intervals are not required.",
+                        color=TracksidePalette.textMuted,fontSize=11.sp,lineHeight=16.sp
                     )
                 }
-                Text(label,color=TracksidePalette.text,
-                    fontSize=13.sp,fontWeight=FontWeight.Medium)
-                Text(
-                    if(target.state==Engine15SessionPresentation.State.ACCEPTED_REST)
-                        "Reviewed rest · 0 min"
-                    else "Estimated duration · ${target.currentMinutes} min",
-                    color=TracksidePalette.text,fontSize=13.sp,
-                    modifier=Modifier.testTag("workout-planned-duration")
-                )
-                Text(
-                    if(target.state==Engine15SessionPresentation.State.ACCEPTED_TIME_ONLY)
-                        "Only the reviewed time allowance is current. The original distance and intervals are not targets."
-                    else "Planned prescription, not a recorded run. Duration is an estimate, not a pace requirement.",
-                    color=TracksidePalette.textMuted,fontSize=11.sp,lineHeight=16.sp
-                )
             }
         }
+        if(onMove!=null || onMissed!=null) {
+            Row(Modifier.fillMaxWidth(),
+                horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                onMove?.let { action ->
+                    OutlinedButton(onClick=action,modifier=Modifier.weight(1f)
+                            .heightIn(min=48.dp).testTag("workout-planned-move"),
+                        border=BorderStroke(1.dp,TracksidePalette.outline),
+                        shape=RoundedCornerShape(13.dp)) {
+                        Text("Move workout",color=TracksidePalette.text,fontSize=12.sp)
+                    }
+                }
+                onMissed?.let { action ->
+                    OutlinedButton(onClick=action,modifier=Modifier.weight(1f)
+                            .heightIn(min=48.dp).testTag("workout-planned-missed"),
+                        border=BorderStroke(1.dp,TracksidePalette.outline),
+                        shape=RoundedCornerShape(13.dp)) {
+                        Text("Missed / skipped",color=TracksidePalette.text,fontSize=12.sp)
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(3.dp))
         TracksideRunningStepCards(
             segments = segments,
             textFallback = target.currentSteps

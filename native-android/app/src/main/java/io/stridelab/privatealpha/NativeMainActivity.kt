@@ -768,6 +768,7 @@ internal val LocalFloatingDockVisible=staticCompositionLocalOf { false }
 @Composable internal fun Screen(title: String, eyebrow: String, compactTitle: Boolean = false,
     dense: Boolean = false, edgeToEdge: Boolean = false, titleBadge: String? = null,
     bottomOverlayPadding: androidx.compose.ui.unit.Dp = 0.dp,
+    hideHeader: Boolean = false,
     content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     Box(
         Modifier.fillMaxSize().padding(bottom = bottomOverlayPadding),
@@ -785,7 +786,7 @@ internal val LocalFloatingDockVisible=staticCompositionLocalOf { false }
             ),
             verticalArrangement = Arrangement.spacedBy(gap)
         ) {
-            if (!edgeToEdge) item {
+            if (!edgeToEdge && !hideHeader) item {
                 TracksideScreenHeader(
                     title, eyebrow, compactTitle, LocalProfileAction.current,
                     dense = dense, titleBadge = titleBadge
