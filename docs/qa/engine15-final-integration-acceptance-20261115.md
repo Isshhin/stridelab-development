@@ -35,6 +35,36 @@ Normal candidate build, explicit Engine 1.5:
 - Sequential instrumentation run: **71 tests passed, 0 failed**. Coverage included coach controls, plan generation and approval, backup/repository behavior, research-review separation, offline persistence, navigation, Garmin guest activity history, Today/Training/More, Activity Detail, builder route restoration, and workout flows.
 - Process-death harness: **7/7 scenarios passed** as detailed above.
 
+The 71-test instrumentation set was run as one sequential ADB instrumentation session with the normal Engine 1.5 app and test APKs installed on the disposable AVD:
+
+```powershell
+$adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
+$classes = @(
+  'io.stridelab.privatealpha.ActivityIntelligenceUiTest',
+  'io.stridelab.privatealpha.Engine15CoachControlsTest',
+  'io.stridelab.privatealpha.Engine15FeedbackRepositoryTest',
+  'io.stridelab.privatealpha.Engine1RepositoryTest',
+  'io.stridelab.privatealpha.IndependentResearchDraftRepositoryTest',
+  'io.stridelab.privatealpha.LocalPlanRepositoryTest',
+  'io.stridelab.privatealpha.NativeNavigationTest',
+  'io.stridelab.privatealpha.PlanBuilderRouteRestorationTest',
+  'io.stridelab.privatealpha.TracksideEngineBuilderIntegrationTest',
+  'io.stridelab.privatealpha.TracksideGarminModalTest',
+  'io.stridelab.privatealpha.TracksideManageNavigationTest',
+  'io.stridelab.privatealpha.TracksideTabTest',
+  'io.stridelab.privatealpha.TracksideTodayTest',
+  'io.stridelab.privatealpha.TracksideTrainingCalendarUiTest',
+  'io.stridelab.privatealpha.WorkoutPlayerTest'
+) -join ','
+& $adb -s emulator-5554 shell am instrument -w -r -e class $classes io.stridelab.privatealpha.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Process-death harness invocation:
+
+```powershell
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\native-android\tools\run-engine15-process-restart.ps1 -Serial emulator-5554 -Adb $adb
+```
+
 Separate Engine 1.0 rollback build:
 
 ```powershell
