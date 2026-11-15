@@ -210,7 +210,7 @@ internal fun StrideLabUnifiedTrainingTimeline(
             )
             Surface(
                 onClick = {
-                    if (account == null) onSignIn() else showTools = true
+                    showTools = true
                 },
                 modifier = Modifier.size(48.dp)
                     .testTag("training-plan-tools")

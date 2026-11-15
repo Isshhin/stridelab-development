@@ -210,18 +210,18 @@ internal fun StrideLabTodayScreen(
         ) == 0f
     }
     val weekStart = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-    // Only the local Garmin namespace is visible without StrideLab sign-in.
-    // Cloud plans and records remain hidden after sign-out.
+    // Repository state is already owner-scoped: cloud plans while signed
+    // in, device-only plans while signed out, and local Garmin either way.
+    // Never infer plan visibility from cloud authentication alone.
     val hasLocalGarmin = state.localGarminIds.isNotEmpty()
-    val hasHistory = state.account != null || hasLocalGarmin
-    val plan = if (state.account == null) null else
-        state.plans.firstOrNull { it.status == "approved" }
+    val safePlans = state.plans
+    val hasHistory = state.account != null || hasLocalGarmin || safePlans.isNotEmpty()
+    val plan = safePlans.firstOrNull { it.status == "approved" }
     val safeActivities = if (hasHistory) visibleActivities else emptyList()
     val safeHistory = if (hasHistory) state.activities else emptyList()
-    val safePlans = if (state.account == null) emptyList() else state.plans
     // Tabs and charts remain presentation-only. Eligibility depends on actual
     // distinct training dates, not prescriptions or daily login streaks.
-    var chosenPage by rememberSaveable(state.account,hasHistory) { mutableStateOf("all") }
+    var chosenPage by rememberSaveable(state.account ?: state.localPlanOwner,hasHistory) { mutableStateOf("all") }
     val eligiblePages = remember(todayDate, safeHistory, safePlans) {
         TodayDisciplineAnalytics.available(
             safeHistory, safePlans, Instant.now(), ZoneId.systemDefault()
@@ -280,8 +280,8 @@ internal fun StrideLabTodayScreen(
     val hasUnfinishedWorkout = schedule.any { it.status in setOf("planned", "in_progress") }
     val mixedToday = date == todayDate && hasUnfinishedWorkout &&
         (recordedOnDate.isNotEmpty() || confirmedOnDate.isNotEmpty())
-    // Historical/recorded styles belong only to authenticated data. A
-    // signed-out athlete must see the same sign-in hero on every date.
+    // Historical/recorded styling uses only currently visible persisted
+    // records; a local plan is sufficient without cloud authentication.
     val showRecorded = hasHistory && (isPastDate ||
         (date == todayDate && !hasUnfinishedWorkout &&
             (recordedOnDate.isNotEmpty() || confirmedOnDate.isNotEmpty())))
@@ -294,7 +294,7 @@ internal fun StrideLabTodayScreen(
         showRecorded && confirmedOnDate.isNotEmpty() ->
             todayDisciplineColor(confirmedOnDate.first().discipline)
         showRecorded -> TodayLook.teal
-        state.account == null || plan == null -> TodayLook.lime
+        plan == null -> TodayLook.lime
         schedule.size > 1 ->
             if (schedule.map { todayHeroDiscipline(it.discipline) }.distinct().size == 1)
                 todayDisciplineColor(schedule.first().discipline)
