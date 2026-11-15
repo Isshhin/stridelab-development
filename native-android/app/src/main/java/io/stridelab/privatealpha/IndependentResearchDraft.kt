@@ -87,7 +87,8 @@ internal data class IndependentResearchDraft(
         require(runCatching { UUID.fromString(id).toString() == id }.getOrDefault(false))
         require(owner.isNotBlank() && owner.length <= 128)
         require(policyId == POLICY_ID)
-        require(request.targetWeeklyKm != null && request.targetWeeklyKm > 0.0)
+        val targetKm = requireNotNull(request.targetWeeklyKm)
+        require(targetKm.isFinite() && targetKm > 0.0 && targetKm <= 150.0)
         require(selectedRunDays.size == request.runDays)
         require(selectedRunDays.all { it in request.days && it in 1..7 })
         require(inputConstraints.selectedRunDays == selectedRunDays)
@@ -106,8 +107,6 @@ internal data class IndependentResearchDraft(
         require(request.goal !in setOf(
             "Improve 5K","Improve 10K","Half marathon","Marathon"
         ))
-        require(request.targetWeeklyKm!!.isFinite() &&
-            request.targetWeeklyKm <= 150.0)
         val longInputs = listOf(
             inputConstraints.explicitlyEnteredPreviousLongRunKm,
             inputConstraints.explicitlyEnteredLongRunCeilingKm,
