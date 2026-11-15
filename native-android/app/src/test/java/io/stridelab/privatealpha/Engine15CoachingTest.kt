@@ -53,9 +53,9 @@ class Engine15CoachingTest {
             val long = runs.single { it.kind == "long" }
             assertTrue(long.distanceKm!! <= current * 0.40 + 1e-6)
         }
-        assertTrue(bounded.sessions.zip(baseline.sessions).all { (a, b) ->
-            a.minutes <= b.minutes &&
-                (a.distanceKm == null || (b.distanceKm != null && a.distanceKm <= b.distanceKm))
+        assertTrue(bounded.sessions.all { s ->
+            s.minutes <= req.minutes && (s.distanceKm ?: 0.0) <= req.longestKm+1.0 &&
+                s.runningPrescription!!.meters == kotlin.math.round(s.distanceKm!!*1000).toInt()
         })
     }
 
@@ -83,27 +83,27 @@ class Engine15CoachingTest {
         assertTrue(volume(legacy, 6) <= Engine15.runningCeiling(6, 18.0) + 1e-6)
     }
 
-    @Test fun zeroTargetExplicitlyDisablesMileageWhileLegacyNullTargetDoesNot() {
+    @Test fun zeroTargetRequiresExplicitNoRunningWhileLegacyNullRetainsMileage() {
         val baseline=request(weekly=24.0,quality=0).copy(weeks=8)
         val legacy=Engine15.generate(baseline,owner,"legacy-target",now)
-        val noTarget=Engine15.generate(baseline.copy(targetWeeklyKm=0.0),owner,"zero-target",now)
         assertTrue(volume(legacy,0)>0.0)
-        assertTrue((0 until 8).all { volume(noTarget,it)==0.0 })
+        try { Engine15.generate(baseline.copy(targetWeeklyKm=0.0),owner,"zero-target",now); fail("Zero target requires correction") }
+        catch (_: PlanConstraint) { }
     }
 
     @Test fun distinctGoalsHaveDifferentControlledQualitySessions() {
         val variants = listOf(
-            "Improve 5K" to "3 × 3 min",
-            "Improve 10K" to "2 × 6 min",
-            "Half marathon" to "2 × 8 min",
-            "Marathon" to "2 × 8 min"
+            "Improve 5K" to 5,
+            "Improve 10K" to 4,
+            "Half marathon" to 3,
+            "Marathon" to 2
         )
         val titles = mutableSetOf<String>()
-        variants.forEach { (goal, phrase) ->
+        variants.forEach { (goal, repetitions) ->
             val p = Engine15.generate(request(goal = goal, weeks = 4), owner, goal, now)
             val q = week(p, 0).single { it.quality }
             titles.add(q.title)
-            assertTrue(q.steps.any { it.contains(phrase) })
+            assertEquals(repetitions,q.runningPrescription!!.segments.count { it.purpose=="WORK" })
             assertTrue(q.steps.any { it.contains("warm-up") })
             assertTrue(q.steps.any { it.contains("cool-down") })
             assertFalse(q.steps.any { it.contains("bpm") })
@@ -149,7 +149,7 @@ class Engine15CoachingTest {
             owner, "boundary", now)
         assertEquals(1, week(boundary, 0).count { it.quality })
         assertEquals(0, week(limited, 3).count { it.quality })
-        val experienced = Engine15.generate(request(weekly = 45.0, quality = 2, weeks = 4),
+        val experienced = Engine15.generate(request(weekly = 45.0, quality = 2, weeks = 4).copy(recentQualitySessionsPerWeek=2),
             owner, "experienced", now)
         assertEquals(2, week(experienced, 0).count { it.quality })
         assertEquals(0, week(experienced, 3).count { it.quality })

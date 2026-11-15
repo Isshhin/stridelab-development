@@ -14,6 +14,20 @@ import kotlin.math.floor
 internal object Engine15Feedback {
     const val RULE_ID = "stridelab.engine15.feedback-20261103.1"
 
+    internal data class DraftReview(val asOf:LocalDate,val recoveryThrough:LocalDate,val illnessThrough:LocalDate?,val evidenceIds:List<String>)
+
+    /** Reuse the same explicit negative evidence for a new draft, never infer successful work dose. */
+    fun reviewForNewDraft(owner:String,plans:List<PlanSnapshot>,now:Instant):DraftReview? {
+        val asOf=now.atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+        val owned=plans.filter { it.owner==owner && Engine1Engines.canManage(it) }
+        val sessions=owned.flatMap { it.sessions }
+        val duplicates=sessions.mapNotNull { it.linkedActivityId }.groupingBy { it }.eachCount().filterValues { it>1 }.keys
+        val signals=sessions.filter { it.log?.at?.isAfter(now)!=true }.mapNotNull { evidence(it,asOf,duplicates) }
+        if(signals.isEmpty())return null
+        return DraftReview(asOf,signals.maxOf { it.date.plusDays(4) },signals.filter { it.category=="Illness" }.maxOfOrNull { it.date.plusDays(4) },
+            signals.map { "${it.session.id}@${it.session.logRevision}:${it.category}" }.distinct().sorted())
+    }
+
     internal data class Proposal(
         val planId: String,
         val planRevision: Int,

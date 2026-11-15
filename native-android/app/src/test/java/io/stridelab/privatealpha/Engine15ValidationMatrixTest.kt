@@ -65,12 +65,16 @@ class Engine15ValidationMatrixTest {
                             val long = run.single { it.kind == "long" }
                             if (long.distanceKm != null) assertTrue(
                                 "$id week $w long cap", long.distanceKm <= 0.4 * volume + 1e-6)
-                            for (i in dates.indices) {
-                                assertTrue("$id week $w time", dates[i].minutes <= baseline[i].minutes)
-                                val km = dates[i].distanceKm
-                                if (km != null) assertTrue("$id week $w distance",
-                                    km <= (baseline[i].distanceKm ?: 0.0) + 1e-8)
+                            assertEquals(baseline.filter { it.discipline!="run" },dates.filter { it.discipline!="run" })
+                            assertTrue(volume<=baseline.filter { it.discipline=="run" }.sumOf { it.distanceKm ?: 0.0 }+1e-8)
+                            for (session in run) {
+                                if(req.timeBudgetEnabled) assertTrue("$id availability",session.minutes<=req.minutes)
+                                session.distanceKm?.let { km ->
+                                    assertTrue("$id exposure",km<=req.longestKm+1.0+1e-8)
+                                    assertEquals(km*1000,session.runningPrescription!!.meters.toDouble(),0.001)
+                                }
                             }
+                            assertTrue(run.sumOf { it.runningPrescription?.workMeters ?: 0 }<=volume*1000*0.2+1e-8)
                             if (experience == 0 || weekly < 20.0 ||
                                 (returning && w < 3) || w % 4 == 3 ||
                                 (goal in setOf("Half marathon", "Marathon") && w >= 6))

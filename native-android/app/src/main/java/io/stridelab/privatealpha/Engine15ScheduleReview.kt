@@ -168,5 +168,5 @@ internal fun PlanSnapshot.cardPresentation(session: PlannedSession): PlannedSess
     }
     return session.copy(title = title, minutes = target.currentMinutes, distanceKm = target.currentDistanceTargetKm,
         steps = target.currentSteps, kind = if (target.currentMinutes == 0) "rest" else "time only",
-        exercises = emptyList(), suggestion = null, reason = target.disclosure)
+        exercises = emptyList(), suggestion = null, runningPrescription = null, reason = target.disclosure)
 }
