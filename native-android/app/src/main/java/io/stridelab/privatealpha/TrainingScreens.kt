@@ -43,7 +43,11 @@ import kotlinx.coroutines.withContext
             Text("$requested sessions/week · ${firstWeek.map { it.date }.distinct().size} scheduled training days/week · ${plan.request.days.size} available days",style=MaterialTheme.typography.bodyMedium)
             Text("${plan.sessions.size} total prescribed sessions · ${plan.sessions.count { it.status=="completed" }} completed · ${plan.request.dailyMinutes} min daily budget",style=MaterialTheme.typography.bodyMedium)
         } else Text("${plan.sessions.size} prescribed sessions · ${plan.sessions.count { it.status=="completed" }} completed",style=MaterialTheme.typography.bodyMedium)
-        Text("Account-private · stored on this device · not cloud-synced",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(if (LocalPlanOwnership.isLocalPlanOwner(plan.owner))
+            "Device-only plan · sign-in does not automatically move it to the cloud."
+            else "Account-private · stored on this device · not automatically cloud-synced",
+            style=MaterialTheme.typography.bodySmall,
+            color=MaterialTheme.colorScheme.onSurfaceVariant)
         TextButton(onClick={expanded=!expanded}) { Text(if(expanded) "Hide plan explanation" else "Why this plan") }
         if(expanded) plan.explanations.forEach { Text(it,style=MaterialTheme.typography.bodyMedium) }
     }
@@ -111,8 +115,7 @@ import kotlinx.coroutines.withContext
                         onSelectWeek = { selectedDate = it.toString() }
                     )
                 }
-                if(state.account==null) item { SignalCard { Text("Plan without a watch",style=MaterialTheme.typography.headlineSmall);Text("Sign in once to create private, account-isolated plans. Generation, calendar and logging then work offline.");SignalButton("Sign in",onSignIn) } }
-                else if(plan==null) item { SignalCard { Text("Build your training around your life.",style=MaterialTheme.typography.headlineMedium);Text("Running, strength, calisthenics and conditioning share one calendar. Choose your goal, ability, days and equipment. Review real prescriptions before approving.");SignalButton("Create a plan",onBuild) } }
+                if(plan==null) item { SignalCard { Text("Build your training around your life.",style=MaterialTheme.typography.headlineMedium);Text("Running, strength, calisthenics and conditioning share one calendar. Your plan stays on this device when signed out.");SignalButton("Create a plan",onBuild) } }
                 if(plans.size>1) item { Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) { plans.forEach { p -> SignalChip(p.id==plan?.id,{selectedId=p.id},label={Text((p.name ?: p.request.goal)+" · "+p.status)}) } } }
                 if(plan!=null) {
                     item {
@@ -153,8 +156,8 @@ import kotlinx.coroutines.withContext
                     item { PlanFeedbackForm(plan,actions) }
                     item { NativePlanExport(state.plans) }
                 }
-                if(state.account!=null) item { NativePlanImport(state,actions) }
-                if(state.account!=null && plan!=null) item { OutlinedButton(onClick=onBuild,modifier=Modifier.fillMaxWidth()) { Text("Create / edit a reviewed draft") } }
+                if(state.account!=null || state.localPlanOwner!=null) item { NativePlanImport(state,actions) }
+                if(plan!=null) item { OutlinedButton(onClick=onBuild,modifier=Modifier.fillMaxWidth()) { Text("Create / edit a reviewed draft") } }
                 if(plan?.status in setOf("draft","paused")) item { Spacer(Modifier.height(96.dp)) }
             }
         }
@@ -250,8 +253,8 @@ import kotlinx.coroutines.withContext
         error=null
         try {
             val text=withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { input -> val bytes=readPlanBackupBytes(input);if(bytes.size>RecordPolicy.MAX_PAYLOAD_BYTES)throw PlanConstraint("Choose a plan backup smaller than 2 MB.");String(bytes,Charsets.UTF_8) } ?: throw PlanConstraint("The backup could not be opened.") }
-            val (plans,additions)=withContext(Dispatchers.Default) { val rows=PlanBackup.read(text,state.account ?: "");rows to PlanBackup.additions(rows,state.plans) }
-            description="${plans.size} plans in this account's backup; ${additions.size} new plans will be restored. Existing plan IDs are skipped, never overwritten. Approval states, original prescriptions, logs and feedback stay attached to their engine versions."
+            val (plans,additions)=withContext(Dispatchers.Default) { val rows=PlanBackup.read(text,state.account ?: state.localPlanOwner ?: "");rows to PlanBackup.additions(rows,state.plans) }
+            description="${plans.size} plans in the current profile's backup; ${additions.size} new plans will be restored. Existing IDs are retained. Local-only backups require the original device identity; they are not imported into a cloud account automatically."
             raw=text
         } catch(e:Exception) { error=if(e is PlanConstraint)e.message else "The backup could not be verified. Existing records are unchanged." }
     } }
