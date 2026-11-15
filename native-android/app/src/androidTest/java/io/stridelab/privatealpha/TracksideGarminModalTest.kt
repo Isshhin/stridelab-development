@@ -92,7 +92,7 @@ class TracksideGarminModalTest {
         compose.onNodeWithTag("timeline-recorded-garmin-local-guest-run")
             .assertExists().performClick()
         compose.onNodeWithTag("activity-map-hero").assertExists()
-        compose.onNodeWithText("Guest Garmin Run").assertExists()
+        compose.onNodeWithTag("activity-preview-title").assertTextContains("Guest Garmin Run")
     }
 
     @Test fun garminOpensAboveMoreAndClosesWithoutCreatingAnotherPage() {

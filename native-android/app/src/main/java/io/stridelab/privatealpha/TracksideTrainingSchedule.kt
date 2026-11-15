@@ -131,17 +131,7 @@ internal fun StrideLabTrainingHome(
             }
         }
 
-        if (state.account == null) {
-            item(key = "training-sign-in") {
-                TrainingEmptyHero(
-                    status = "SIGN IN REQUIRED",
-                    heading = "Keep your training private.",
-                    description = "Sign in to create and access your saved training plans.",
-                    action = "Sign in",
-                    onAction = onSignIn
-                )
-            }
-        } else if (state.initializing) {
+        if (state.initializing) {
             item(key = "training-initializing") {
                 Text("Loading saved training plans…", color = ScheduleLook.secondary)
             }
@@ -298,14 +288,15 @@ internal fun StrideLabTrainingHome(
             }
         }
 
-        if (state.account != null && !state.initializing) {
+        if (!state.initializing) {
             item(key = "training-plan-tools") {
                 TextButton(
                     onClick = { showPlanTools = true },
                     modifier = Modifier.fillMaxWidth().testTag("training-plan-tools")
                 ) {
                     Text(
-                        if (active == null) "Restore a plan backup"
+                        if (active == null && state.researchDrafts.isNotEmpty()) "Plan tools · Research reviews & backups"
+                        else if (active == null) "Restore a plan backup"
                         else "Plan tools · Feedback & backups",
                         color = ScheduleLook.secondary, fontSize = 12.sp
                     )

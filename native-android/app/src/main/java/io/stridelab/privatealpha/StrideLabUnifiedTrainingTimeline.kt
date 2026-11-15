@@ -139,11 +139,14 @@ internal fun StrideLabUnifiedTrainingTimeline(
 ) {
     val account = state.account
     val hasLocalGarmin = state.localGarminIds.isNotEmpty()
-    val hasHistory = account != null || hasLocalGarmin
-    val plans = if (account == null) emptyList() else state.plans
+    // The repository exposes only the active account's plans or the local
+    // device-only plan namespace. Never hide the latter in guest mode.
+    val plans = state.plans
+    val hasHistory = account != null || hasLocalGarmin || plans.isNotEmpty()
     val approved = plans.filter { it.status == "approved" }
-    var selectedPlanId by rememberSaveable(account) { mutableStateOf<String?>(null) }
-    var showTools by rememberSaveable(account) { mutableStateOf(false) }
+    val planProfile = account ?: state.localPlanOwner
+    var selectedPlanId by rememberSaveable(planProfile) { mutableStateOf<String?>(null) }
+    var showTools by rememberSaveable(planProfile) { mutableStateOf(false) }
     val active = approved.firstOrNull { it.id == selectedPlanId } ?: approved.firstOrNull()
     val pendingReview = plans.any { it.status == "draft" || it.status == "paused" }
 
@@ -207,7 +210,7 @@ internal fun StrideLabUnifiedTrainingTimeline(
             )
             Surface(
                 onClick = {
-                    if (account == null) onSignIn() else showTools = true
+                    showTools = true
                 },
                 modifier = Modifier.size(48.dp)
                     .testTag("training-plan-tools")
@@ -327,22 +330,13 @@ internal fun StrideLabUnifiedTrainingTimeline(
                     // The prompt is an independent full-width timeline card.
                     // It deliberately sits OUTSIDE the 48dp date rail + card
                     // row, aligned with the screen's 18dp horizontal margins.
-                    if (day.date == today && account == null && !hasLocalGarmin) {
-                        TimelinePromptCard(
-                            title = "Keep your training private.",
-                            description = "Connect Garmin in More to import local activities. StrideLab sign-in is optional.",
-                            action = "Sign in for cloud",
-                            onAction = onSignIn
-                        )
-                    } else if (day.date == today && account != null &&
-                        active == null && !state.initializing
-                    ) {
+                    if (day.date == today && active == null && !state.initializing) {
                         TimelinePromptCard(
                             title = if (pendingReview) "Your plan needs a review."
                                 else "Your training starts here.",
                             description = if (pendingReview)
                                 "Continue reviewing your saved training plan."
-                            else "Create a schedule built around your goals, disciplines, and availability.",
+                            else "Create an offline training plan. Sign-in is optional for cloud features.",
                             action = if (pendingReview) "Review saved plan"
                                 else "Create training plan",
                             onAction = {

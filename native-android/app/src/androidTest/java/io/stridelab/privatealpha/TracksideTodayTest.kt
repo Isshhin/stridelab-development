@@ -41,6 +41,7 @@ class TracksideTodayTest {
     }
     @Test fun signedOutTodayHeroKeepsSameDesignAcrossPastAndFutureWeeks() {
         var signInCount = 0
+        var trainingOpenCount = 0
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
@@ -48,7 +49,7 @@ class TracksideTodayTest {
                         state = TrainingState(initializing = false, account = null),
                         visibleActivities = emptyList(),
                         online = false,
-                        onOpenTraining = {},
+                        onOpenTraining = { trainingOpenCount++ },
                         onOpenActivity = {},
                         onOpenWorkout = { _, _ -> },
                         onOpenActivityDetail = {},
@@ -87,7 +88,7 @@ class TracksideTodayTest {
             0.5f
         )
         compose.onNodeWithTag("today-workout-action").performClick()
-        compose.runOnIdle { assertEquals(1, signInCount) }
+        compose.runOnIdle { assertEquals(1, trainingOpenCount); assertEquals(0, signInCount) }
     }
 
     @Test fun signedInEmptyPastDayUsesCompactStatusInsteadOfTallHero() {

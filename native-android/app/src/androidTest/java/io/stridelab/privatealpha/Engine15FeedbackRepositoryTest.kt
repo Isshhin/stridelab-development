@@ -25,7 +25,7 @@ class Engine15FeedbackRepositoryTest {
     private val alternateOwner = "synthetic-engine15-other"
     private val today = LocalDate.now()
     private val sourceDate = today.minusDays(1)
-    private val targetDate = today.plusDays(1)
+    private val targetDate = today.with(java.time.temporal.TemporalAdjusters.next(java.time.DayOfWeek.MONDAY))
     private val transport = FixtureGateway()
     private lateinit var repository: TrainingRepository
 

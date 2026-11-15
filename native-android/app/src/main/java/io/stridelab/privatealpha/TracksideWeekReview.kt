@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -12,6 +14,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -19,6 +25,13 @@ import androidx.compose.ui.unit.sp
 import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
+
+/** A saved planned-distance total; any unknown running distance keeps it unknown. */
+internal fun weekReviewDistance(rows: List<PlannedSession>): Double? {
+    val distances=rows.filter { it.discipline=="run" }.map { Engine15SessionPresentation.currentDistance(it) }
+    if(distances.any { it==null || !it.isFinite() || it<0.0 })return null
+    return distances.filterNotNull().sum().takeIf { it.isFinite() }
+}
 
 /**
  * Approved 614:412 Week Preview / 653:471 first plan approval.
@@ -36,7 +49,13 @@ internal fun TracksideWeekReview(
     onOpenSession: (String) -> Unit = {},
     weekIndex: Int = 0,
     onWeekChange: (Int) -> Unit = {},
-    error: String? = null
+    error: String? = null,
+    experimentalSelected: Boolean = false,
+    onExperimentalSelected: (Boolean) -> Unit = {},
+    onSaveResearchReview: (PlanRequest,IndependentAndroidPreviewConstraints) -> Unit = { _,_ -> },
+    researchDraftCount: Int = 0,
+    savedResearchReviews: List<IndependentResearchDraft> = emptyList(),
+    onChooseGoalOption:(PlanRequest)->Unit = {}
 ) {
     // A plan can start on any weekday. Its engine weeks are anchored at
     // request.start, NOT calendar Mondays; the review must display every
@@ -74,9 +93,12 @@ internal fun TracksideWeekReview(
         description = if (plan == null) "Review your setup before StrideLab creates your plan."
             else "Your personalized plan. Review before finalizing.",
         onBack = onBack,
-        ctaLabel = if(plan == null)"Generate My Plan" else "Finalize Plan",
+        ctaLabel = if (plan == null && experimentalSelected)
+            "Research mode — no saved plan"
+            else if(plan == null) "Generate My Plan" else "Finalize Plan",
         onContinue = onContinue,
-        continueEnabled = !busy, descriptionBottomGap = 16,
+        continueEnabled = !busy && (plan != null || !experimentalSelected),
+        descriptionBottomGap = 16,
         footer = {
             Column(Modifier.padding(horizontal=20.dp,vertical=9.dp)) {
                 Text(
@@ -92,31 +114,50 @@ internal fun TracksideWeekReview(
         }
     ) {
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+    if(plan!=null) MileageGoalChoices(plan,busy,onChooseGoalOption)
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             val trainingDays = days.coerceIn(0,7)
-            val targetDistance = if (request.runDays > 0) {
-                String.format(Locale.getDefault(), "%.0f", request.weeklyKm)
-            } else "—"
+            val noRunning = request.runDays == 0 && rows.none { it.discipline == "run" }
+            val distance = when {
+                noRunning -> null
+                plan != null -> weekReviewDistance(rows)
+                else -> request.targetWeeklyKm ?: request.weeklyKm
+            }
+            val distanceLabel = when {
+                noRunning -> "no running"
+                plan != null && distance == null -> "distance unknown"
+                plan != null -> "planned km"
+                request.targetWeeklyKm != null -> "target km / week"
+                else -> "recent km / week"
+            }
             listOf(
-                targetDistance to if (request.runDays > 0) "km target" else "no running",
+                (distance?.let { String.format(Locale.getDefault(), "%.1f", it) } ?: "—") to distanceLabel,
                 total.toString() to "sessions",
                 trainingDays.toString() to if (plan == null) "AVAILABLE DAYS" else "ACTIVE DAYS",
                 (7-trainingDays).toString() to "rest days"
-            ).forEach { (value, caption) ->
-                Surface(Modifier.weight(1f).heightIn(min = 62.dp),
-                    color = PlanBuilderPalette.surface,
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, PlanBuilderPalette.border)) {
-                    Column(Modifier.padding(horizontal = 5.dp, vertical = 10.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(value, color = PlanBuilderPalette.text,
-                            fontSize = 21.sp, fontWeight = FontWeight.Bold)
-                        Text(caption, color = PlanBuilderPalette.secondary,
-                            fontSize = 9.sp, maxLines = 2,
-                            overflow = TextOverflow.Ellipsis)
+            ).chunked(2).forEach { metrics ->
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(7.dp)) {
+                    metrics.forEach { (value,caption) ->
+                        Surface(Modifier.weight(1f).heightIn(min=62.dp),
+                            color=PlanBuilderPalette.surface,
+                            shape=RoundedCornerShape(12.dp),
+                            border=BorderStroke(1.dp,PlanBuilderPalette.border)) {
+                            Column(Modifier.semantics(mergeDescendants=true) {}
+                                .padding(horizontal=10.dp,vertical=10.dp),
+                                horizontalAlignment=Alignment.CenterHorizontally) {
+                                Text(value,color=PlanBuilderPalette.text,
+                                    fontSize=21.sp,fontWeight=FontWeight.Bold)
+                                Text(caption,color=PlanBuilderPalette.secondary,fontSize=12.sp)
+                            }
+                        }
                     }
                 }
             }
+        }
+        if(plan!=null && request.runDays>0 && request.targetWeeklyKm!=null) {
+            Spacer(Modifier.height(8.dp))
+            Text(String.format(Locale.getDefault(),"Requested target: %.1f km / week",request.targetWeeklyKm),
+                color=PlanBuilderPalette.secondary,fontSize=12.sp)
         }
         Spacer(Modifier.height(9.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -133,19 +174,19 @@ internal fun TracksideWeekReview(
         }
         Spacer(Modifier.height(12.dp))
         if(plan != null) {
-            Row(Modifier.fillMaxWidth().height(36.dp),
+            Row(Modifier.fillMaxWidth().heightIn(min=48.dp),
                 verticalAlignment=Alignment.CenterVertically,
                 horizontalArrangement=Arrangement.SpaceBetween) {
                 TextButton(onClick={onWeekChange(weekIndex-1)},
                     enabled=weekIndex>0,modifier=Modifier.testTag("builder-previous-week")) {
-                    Text("‹ Previous",color=Color.White,fontSize=11.sp)
+                    Text("‹ Previous",fontSize=12.sp)
                 }
                 Text("Week ${weekIndex+1} of ${request.weeks}",fontSize=11.sp,
                     color=Color(0xFFC5C5C5))
                 TextButton(onClick={onWeekChange(weekIndex+1)},
                     enabled=weekIndex<request.weeks-1,
                     modifier=Modifier.testTag("builder-next-week")) {
-                    Text("Next ›",color=Color.White,fontSize=11.sp)
+                    Text("Next ›",fontSize=12.sp)
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -209,7 +250,7 @@ internal fun TracksideWeekReview(
                         } else {
                             assigned.take(2).forEach { session ->
                                 Surface(
-                                    modifier=Modifier.weight(1f).heightIn(min=31.dp)
+                                    modifier=Modifier.weight(1f).heightIn(min=48.dp)
                                         .testTag("builder-preview-session-" + session.id),
                                     onClick={onOpenSession(session.id)},
                                     color=PlanBuilderPalette.selected,
@@ -219,9 +260,8 @@ internal fun TracksideWeekReview(
                                 ) {
                                     Box(contentAlignment=Alignment.Center) {
                                         Text(session.effectiveTitle,
-                                            fontSize=10.sp,color=Color.White,
-                                            maxLines=1,overflow=TextOverflow.Ellipsis,
-                                            modifier=Modifier.padding(horizontal=5.dp))
+                                            fontSize=12.sp,color=Color.White,
+                                            modifier=Modifier.padding(horizontal=7.dp,vertical=8.dp))
                                     }
                                 }
                             }
@@ -236,10 +276,68 @@ internal fun TracksideWeekReview(
             else "✓ Saved engine prescriptions · approval is a separate action",
             fontSize=11.sp,
             color=if(plan==null) Color(0xFFC5C5C5) else PlanBuilderPalette.accent)
+        if (plan == null) {
+            Spacer(Modifier.height(12.dp))
+            Text("GENERATION ROUTE",fontSize=11.sp,
+                color=PlanBuilderPalette.secondary)
+            Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                FilterChip(
+                    selected=!experimentalSelected,
+                    onClick={onExperimentalSelected(false)},
+                    label={Text("Existing coach · Engine 1.5")},
+                    modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
+                        .semantics { selected = !experimentalSelected }
+                        .testTag("builder-route-existing"),
+                    shape=RoundedCornerShape(50),
+                    border=BorderStroke(1.dp,if(!experimentalSelected)PlanBuilderPalette.accent else PlanBuilderPalette.border),
+                    colors=FilterChipDefaults.filterChipColors(
+                        containerColor=PlanBuilderPalette.surface,
+                        labelColor=PlanBuilderPalette.text,
+                        selectedContainerColor=PlanBuilderPalette.selected,
+                        selectedLabelColor=PlanBuilderPalette.accent
+                    )
+                )
+                FilterChip(
+                    selected=experimentalSelected,
+                    onClick={onExperimentalSelected(true)},
+                    label={Text("Experimental research review")},
+                    modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
+                        .semantics { selected = experimentalSelected }
+                        .testTag("builder-route-research"),
+                    shape=RoundedCornerShape(50),
+                    border=BorderStroke(1.dp,if(experimentalSelected)PlanBuilderPalette.accent else PlanBuilderPalette.border),
+                    colors=FilterChipDefaults.filterChipColors(
+                        containerColor=PlanBuilderPalette.surface,
+                        labelColor=PlanBuilderPalette.text,
+                        selectedContainerColor=PlanBuilderPalette.selected,
+                        selectedLabelColor=PlanBuilderPalette.accent
+                    )
+                )
+            }
+            if (experimentalSelected) {
+                if (request.runDays > 0) {
+                    IndependentAndroidResearchPreviewPanel(
+                        request=request,
+                        onSaveResearchReview=onSaveResearchReview,
+                        savedResearchCount=researchDraftCount,
+                        savedResearchReviews=savedResearchReviews
+                    )
+                } else {
+                    Text("The research mileage model requires running sessions. " +
+                        "Use Existing coach for other disciplines.",
+                        fontSize=11.sp,color=PlanBuilderPalette.secondary)
+                }
+            } else {
+                Text("Existing Coach uses Engine 1.5 to create a normal saved draft. " +
+                    "Research review is separate and can never be approved as a workout.",
+                    fontSize=11.sp,color=PlanBuilderPalette.secondary)
+            }
+        }
         error?.let {
             Spacer(Modifier.height(8.dp))
             Text(it,color=Color(0xFFFF9DA7),fontSize=12.sp,
-                modifier=Modifier.testTag("plan-form-error"))
+                modifier=Modifier.testTag("plan-form-error")
+                    .semantics { liveRegion=LiveRegionMode.Polite })
         }
     }
 }

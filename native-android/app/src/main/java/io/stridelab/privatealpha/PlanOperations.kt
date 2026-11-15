@@ -172,9 +172,12 @@ internal object PlanOperations {
         if(session.linkedActivityId==activityId)return plan // Idempotent link/unlink; no false revision increment.
         if(session.linkedActivityId!=null && activityId!=null)
             throw PlanConstraint("This planned run is already linked to another recorded activity. Unlink it first before choosing a replacement.")
+        if(session.runResponse!=null && session.logRevision==Int.MAX_VALUE)throw PlanConstraint("This feedback record needs review before changing its source.")
         val updated=if(activityId==null)session.copy(linkedActivityId=null,status=session.linkPreviousStatus ?: session.status,linkPreviousStatus=null)
             else session.copy(linkedActivityId=activityId,linkPreviousStatus=session.linkPreviousStatus ?: session.status,status="completed")
-        return plan.copy(sessions=plan.sessions.map { if(it.id==sessionId)updated else it })
+        val feedback=if(session.runResponse==null)plan.feedback else plan.feedback+PlanFeedback(UUID.randomUUID().toString(),Instant.now(),"Workout quality",
+            "Archived run feedback after source link changed from ${session.linkedActivityId ?: "manual record"}: ${session.runResponse.encode()}",sessionId)
+        return plan.copy(sessions=plan.sessions.map { if(it.id==sessionId)updated.copy(runResponse=null,logRevision=if(session.runResponse!=null)session.logRevision+1 else session.logRevision) else it },feedback=feedback)
     }
     fun record(plan:PlanSnapshot,sessionId:String,log:WorkoutLog,complete:Boolean):PlanSnapshot {
         compatible(plan)
@@ -206,6 +209,17 @@ internal object PlanOperations {
             s.id==next?.id && target.date>=LocalDate.now().minusDays(7) && reason in setOf("Fatigue","Soreness","Illness") -> s.copy(suggestion=SessionSuggestion(if(reason=="Illness") 0 else maxOf(10,(s.minutes*.7).toInt()),"After your reported $reason: consider ${if(reason=="Illness") "rest" else "an easier, shorter session or rest"}. No catch-up volume is added. This is a suggestion awaiting your choice, not a diagnosis."))
             else -> s
         } })
+    }
+    fun runResponse(plan:PlanSnapshot,sessionId:String,effort:Int?,difficulty:String?,discomfort:String?,performedOn:LocalDate?,now:Instant=Instant.now()):PlanSnapshot {
+        compatible(plan)
+        val session=plan.sessions.singleOrNull { it.id==sessionId } ?: throw PlanConstraint("This workout is unavailable.")
+        if(plan.engineVersion!=ENGINE15_VERSION || plan.status !in setOf("approved","paused") || session.discipline!="run" || session.status!="completed")
+            throw PlanConstraint("Post-run feedback requires a completed Engine 1.5 run.")
+        if(effort!=null && effort !in 1..10 || performedOn!=null && performedOn>now.atZone(java.time.ZoneId.systemDefault()).toLocalDate())
+            throw PlanConstraint("Check the reported effort and actual workout date.")
+        if(session.logRevision==Int.MAX_VALUE)throw PlanConstraint("This feedback record needs review before editing.")
+        val response=WorkoutLog(now,effort=effort,performedOn=performedOn,completionDifficulty=difficulty,discomfort=discomfort)
+        return plan.copy(sessions=plan.sessions.map { if(it.id==sessionId)it.copy(runResponse=response,logRevision=it.logRevision+1) else it })
     }
     fun acceptSuggestion(plan:PlanSnapshot,sessionId:String):PlanSnapshot {
         compatible(plan)

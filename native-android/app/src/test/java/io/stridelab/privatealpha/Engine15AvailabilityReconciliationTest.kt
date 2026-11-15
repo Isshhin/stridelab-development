@@ -47,7 +47,7 @@ class Engine15AvailabilityReconciliationTest {
 
     @Test fun oneAffectedWorkoutRelocatesWithoutMovingUnaffectedSessions() {
         val original=fixture(withCal=false)
-        val change=PlanOperations.updateAvailability(original,days-5)
+        val change=PlanOperations.updateAvailability(original,days-5,asOf=start)
         val moved=change.sessions.single { it.id=="easy-friday" }
         assertEquals("planned",moved.status)
         assertTrue("A safe available date exists",moved.date!=start.plusDays(4))
@@ -62,8 +62,8 @@ class Engine15AvailabilityReconciliationTest {
 
     @Test fun twoAffectedWorkoutsRelocateSafelyAndDeterministically() {
         val original=fixture()
-        val a=PlanOperations.updateAvailability(original,days-5)
-        val b=PlanOperations.updateAvailability(original,days-5)
+        val a=PlanOperations.updateAvailability(original,days-5,asOf=start)
+        val b=PlanOperations.updateAvailability(original,days-5,asOf=start)
         assertEquals(a,b)
         assertEquals("planned",a.sessions.single { it.id=="easy-friday" }.status)
         assertEquals("planned",a.sessions.single { it.id=="cal-friday" }.status)
@@ -80,7 +80,7 @@ class Engine15AvailabilityReconciliationTest {
 
     @Test fun impossibleRelocationNeverForgesCapacityOrDropsSessions() {
         val original=fixture()
-        val change=PlanOperations.updateAvailability(original,setOf(2,7))
+        val change=PlanOperations.updateAvailability(original,setOf(2,7),asOf=start)
         assertEquals(original.sessions.map { it.id }.toSet(),change.sessions.map { it.id }.toSet())
         assertEquals(original.sessions.size,change.sessions.size)
         assertEquals("unassigned",change.sessions.single { it.id=="easy-friday" }.status)
@@ -95,14 +95,14 @@ class Engine15AvailabilityReconciliationTest {
         val completed=plan.copy(sessions=plan.sessions.map {
             if(it.id=="easy-friday")it.copy(status="completed")else it
         })
-        val changed=PlanOperations.updateAvailability(completed,days-5)
+        val changed=PlanOperations.updateAvailability(completed,days-5,asOf=start)
         val actual=changed.sessions.single { it.id=="easy-friday" }
         assertEquals("completed",actual.status)
         assertEquals(start.plusDays(4),actual.date)
         assertEquals(plan.sessions.size,changed.sessions.size)
         val locked=PlanOperations.setSessionLock(plan,"easy-friday",true)
         assertThrows(PlanConstraint::class.java) {
-            PlanOperations.updateAvailability(locked,days-5)
+            PlanOperations.updateAvailability(locked,days-5,asOf=start)
         }
     }
 }

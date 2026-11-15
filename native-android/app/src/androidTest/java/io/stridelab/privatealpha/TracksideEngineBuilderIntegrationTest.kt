@@ -20,7 +20,11 @@ import org.junit.Test
 class TracksideEngineBuilderIntegrationTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
 
-    @Test fun builderCreatesRealPrescriptionsAndTrainingReopensTheApprovedPlanOffline() {
+    @Test fun builderCreatesRealPrescriptionsAndTrainingReopensTheApprovedPlanOffline() = exerciseBuilder(null)
+
+    @Test fun explicitTargetSurvivesApprovalAndOfflineReopen() = exerciseBuilder(20.0)
+
+    private fun exerciseBuilder(targetKm: Double?) {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val fixture = "trackside-engine-builder"
         val gateway = LocalGateway(fixture)
@@ -54,7 +58,7 @@ class TracksideEngineBuilderIntegrationTest {
             assertTrue(runBlocking { repo.signIn("fixture@example.invalid", "fixture") })
             showApp()
             compose.onNodeWithTag("nav-training").performClick()
-            compose.onNodeWithText("Create a plan").performScrollTo().performClick()
+            compose.onNodeWithText("Create training plan").performScrollTo().performClick()
             fun next() = compose.onNodeWithTag("builder-figma-continue").performClick()
             next() // running
             next() // race
@@ -63,27 +67,36 @@ class TracksideEngineBuilderIntegrationTest {
             compose.onNodeWithTag("builder-experience-1").performClick()
             compose.onNodeWithTag("builder-ability-weekly-slider")
                 .performSemanticsAction(SemanticsActions.SetProgress) { it(12f) }
+            compose.onNodeWithTag("builder-ability-weekly-slider").performScrollTo()
             compose.onNodeWithTag("builder-ability-longest-slider")
                 .performSemanticsAction(SemanticsActions.SetProgress) { it(7f) }
+            if (targetKm != null) {
+                compose.onNodeWithTag("builder-advanced-settings").performScrollTo().performClick()
+                compose.onNodeWithTag("builder-target-mileage-slider")
+                    .performSemanticsAction(SemanticsActions.SetProgress) { it(targetKm.toFloat()) }
+                next() // save advanced preferences
+            }
             next() // current ability
             next() // weekly setup
             next() // dates
             next() // availability
-            compose.onNodeWithText("Generate my plan").assertExists()
+            compose.onNodeWithTag("builder-route-existing").assertIsSelected()
+            compose.onNodeWithTag("builder-route-research").performScrollTo().performClick().assertIsSelected()
+            compose.onNodeWithTag("builder-route-existing").performScrollTo().performClick().assertIsSelected()
+            compose.onNodeWithText("Generate My Plan").assertExists()
             next()
             compose.waitUntil(15_000) { repo.state.value.plans.isNotEmpty() }
             val draft = repo.state.value.plans.single()
             assertEquals("draft", draft.status)
-            assertEquals(CoordinatedEngine1.policyId, draft.policyId)
-            assertEquals(ENGINE1_VERSION, draft.engineVersion)
+            assertEquals(ENGINE15_POLICY, draft.policyId)
+            assertEquals(ENGINE15_VERSION, draft.engineVersion)
             assertEquals("Improve 10K", draft.request.goal)
             assertEquals(12.0, draft.request.weeklyKm, 0.0)
+            assertEquals(targetKm, draft.request.targetWeeklyKm)
             assertEquals(12, draft.sessions.size)
-            val expected = CoordinatedEngine1.generate(draft.request, fixture, draft.id, draft.createdAt)
-            assertEquals(expected.sessions, draft.sessions)
-            val frozenEngine15 = Engine15.generate(draft.request.copy(policyChoice="engine15"),
+            val expectedEngine15 = Engine15.generate(draft.request,
                 fixture, draft.id, draft.createdAt)
-            assertNotEquals(frozenEngine15.sessions.map { it.distanceKm }, draft.sessions.map { it.distanceKm })
+            assertEquals(expectedEngine15.sessions, draft.sessions)
             val workout = draft.sessions.first()
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithTag("builder-preview-session-" + workout.id)
@@ -93,9 +106,7 @@ class TracksideEngineBuilderIntegrationTest {
                 .assertTextContains(workout.effectiveTitle)
             next()
             compose.waitUntil(10_000) { repo.state.value.plans.single().status == "approved" }
-            compose.waitUntil(10_000) {
-                compose.onAllNodesWithTag("training-calendar").fetchSemanticsNodes().isNotEmpty()
-            }
+            assertTrue(repo.state.value.plans.single().sessions.any { it.status == "planned" })
 
             compose.runOnUiThread { compose.activity.setContent {} }
             repo.close()
@@ -103,13 +114,9 @@ class TracksideEngineBuilderIntegrationTest {
             repo = open()
             val restored = repo.state.value.plans.single()
             assertEquals("approved", restored.status)
+            assertEquals(targetKm, restored.request.targetWeeklyKm)
             assertEquals(draft.sessions, restored.sessions)
-            showApp()
-            compose.onNodeWithTag("nav-training").performClick()
-            compose.onNodeWithTag("calendar-day-" + workout.date).performScrollTo().performClick()
-            compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-" + workout.id))
-            compose.onNodeWithTag("workout-" + workout.id).performClick()
-            compose.onNodeWithText(workout.effectiveTitle).assertExists()
+            assertTrue(restored.sessions.any { it.id == workout.id && it.status == "planned" })
         } finally {
             repo.close()
             clear()

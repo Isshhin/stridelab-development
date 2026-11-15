@@ -55,6 +55,19 @@ class Engine15FeedbackTest {
         assertEquals(preview,Engine15Feedback.preview(original,today))
     }
 
+    @Test fun partialHighEffortIsExplainedAsPartialAndStillRequiresReview() {
+        val original=plan(source=plan().sessions.first().copy(
+            status="completed",log=logged(effort=9,minutes=20.0),logRevision=2
+        ))
+        val proposal=Engine15Feedback.preview(original,today).single()
+        assertTrue(proposal.reason.contains("Partial workout (20 of 40 planned minutes)"))
+        assertNull(original.sessions.last().suggestion)
+        assertEquals(60,original.sessions.last().minutes)
+        val staged=Engine15Feedback.stage(original,proposal,today)
+        assertEquals(60,staged.sessions.last().effectiveMinutes)
+        assertFalse(staged.sessions.last().suggestion!!.accepted)
+    }
+
     @Test fun reviewAcceptRoundtripAndBackupPreserveOriginalTargetsAndActuals() {
         val original=plan()
         val decision=Engine15Feedback.preview(original,today).single()

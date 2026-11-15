@@ -16,7 +16,8 @@ import java.time.ZoneId
 import org.json.JSONObject
 
 @Composable internal fun PlanBuilder(state:TrainingState,actions:PlanActions,discipline:String="all",onDone:()->Unit,onSignIn:()->Unit,onPreview:(String,String)->Unit) {
-    if(state.account==null) { Screen("Create a plan","TRAINING") { item { SignalCard { Text("A watch is optional.",style=MaterialTheme.typography.headlineSmall);Text("Sign in once to keep plans and logs private to your account. You can then build, approve and manage plans offline.");SignalButton("Sign in",onSignIn) } } };return }
+    // Signed-out plans are persisted under an isolated on-device owner.
+    // Cloud sign-in remains optional for backup; generating does not need it.
     val baseline=remember { state.plans.firstOrNull { Engine1Engines.canManage(it) && it.policyId != SessionTemplate.POLICY_ID }?.let(TracksideCoaching::setupFor) ?: PlanRequest(policyChoice="coordinated",weeklyKm=historyWeeklyKm(state.activities,plans=state.plans) ?: 0.0,longestKm=state.activities.filter { DashboardSummary.isRun(it) }.mapNotNull { it.distanceM }.maxOrNull()?.div(1000) ?: 0.0) }
     val initial=remember {
         when(discipline) {
@@ -48,7 +49,7 @@ import org.json.JSONObject
     var step by rememberSaveable { mutableIntStateOf(0) }
     val input=PlanRequest.decode(JSONObject(encoded))
     fun edit(p:PlanRequest) { encoded=p.encode().toString() }
-    var km by rememberSaveable { mutableStateOf(initial.weeklyKm.toString()) };var longest by rememberSaveable { mutableStateOf(initial.longestKm.toString()) }
+    var km by rememberSaveable { mutableStateOf(initial.weeklyKm.toString()) };var targetKm by rememberSaveable { mutableStateOf((initial.targetWeeklyKm ?: initial.weeklyKm).toString()) };var targetSupplied by rememberSaveable { mutableStateOf(initial.targetWeeklyKm != null) };var longest by rememberSaveable { mutableStateOf(initial.longestKm.toString()) }
     var pace by rememberSaveable { mutableStateOf((initial.planningPace/60).toString()) };var start by rememberSaveable { mutableStateOf(maxOf(initial.start,LocalDate.now()).toString()) }
     var weeks by rememberSaveable { mutableStateOf(initial.weeks.toString()) };var minutes by rememberSaveable { mutableStateOf(initial.minutes.toString()) };var dailyMinutes by rememberSaveable { mutableStateOf(initial.dailyMinutes.toString()) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
@@ -83,7 +84,8 @@ import org.json.JSONObject
             }
         }
     }
-    fun request():PlanRequest=try { input.copy(start=LocalDate.parse(start),weeks=weeks.toInt(),minutes=minutes.toInt(),dailyMinutes=if(input.policyChoice=="multi-session")dailyMinutes.toInt() else input.dailyMinutes,weeklyKm=km.toDouble(),longestKm=longest.toDouble(),planningPace=pace.toDouble()*60,timeBudgetEnabled=false) } catch(e:Exception) { throw PlanConstraint("Enter a valid YYYY-MM-DD date and numeric mileage, pace, weeks, minutes, and daily budget if enabled.") }
+    fun request():PlanRequest=try { input.copy(start=LocalDate.parse(start),weeks=weeks.toInt(),minutes=minutes.toInt(),dailyMinutes=if(input.policyChoice=="multi-session")dailyMinutes.toInt() else input.dailyMinutes,weeklyKm=km.toDouble(),targetWeeklyKm=if(targetSupplied) targetKm.toDouble() else null,longestKm=longest.toDouble(),planningPace=pace.toDouble()*60,timeBudgetEnabled=false) } catch(e:Exception) { throw PlanConstraint("Enter a valid YYYY-MM-DD date and numeric recent and target mileage, pace, weeks, and daily budget if enabled.") }
+    var researchSelected by rememberSaveable { mutableStateOf(false) }
     var previewWeek by rememberSaveable { mutableIntStateOf(0) }
     var runningSubPage by rememberSaveable { mutableIntStateOf(0) }
     var scheduleSubPage by rememberSaveable { mutableIntStateOf(0) }
@@ -131,7 +133,7 @@ import org.json.JSONObject
         TracksideWeekReview(
             request = preview.request,
             plan = preview,
-            busy = state.busy || pendingApprovalId != null,
+            busy = state.busy || awaiting || pendingApprovalId != null,
             onBack = { step = 3 },
             onContinue = {
                 if(!state.busy && pendingApprovalId==null) {
@@ -143,7 +145,12 @@ import org.json.JSONObject
             onOpenSession = { sessionId -> onPreview(preview.id, sessionId) },
             weekIndex = previewWeek,
             onWeekChange = { previewWeek = it },
-            error = error
+            error = error,
+            onChooseGoalOption = { chosen ->
+                error=null;beforeId=state.plans.firstOrNull()?.id;awaiting=true
+                weeks=chosen.weeks.toString();targetKm=chosen.targetWeeklyKm.toString();targetSupplied=true;edit(chosen)
+                actions.generate(chosen)
+            }
         )
         return
     }
@@ -252,6 +259,12 @@ import org.json.JSONObject
                 experience = input.experience,
                 weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0,120.0) ?: 0.0,
                 longestKm = longest.toDoubleOrNull()?.coerceIn(0.0,42.0) ?: 0.0,
+                historyContent = {
+                    RunningHistoryConfirmation(state) { value -> km="%.1f".format(java.util.Locale.US,value);edit(input.copy(weeklyKm=value)) }
+                    if(input.policyChoice=="engine15") {
+                        CoachFeedbackChoices("Usual quality sessions per week",listOf("0","1","2"),input.recentQualitySessionsPerWeek?.toString()) { edit(input.copy(recentQualitySessionsPerWeek=it?.toInt())) }
+                    }
+                },
                 onExperience = { edit(input.copy(experience=it)) },
                 onWeeklyKm = { value ->
                     km=value.toInt().toString()
@@ -279,23 +292,24 @@ import org.json.JSONObject
             )
             3 -> TracksideAdvancedRunning(
                 guided = advancedBackPage != 0,
-                weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0, 120.0) ?: 0.0,
+                weeklyKm = targetKm.toDoubleOrNull()?.coerceIn(0.0, 120.0) ?: 0.0,
                 qualityCount = input.qualityCount.coerceIn(0, 2),
                 maxQualityCount = minOf(
                     (input.runDays-2).coerceAtLeast(0),
                     if(input.experience==2 && input.runDays>=4 &&
-                        (km.toDoubleOrNull() ?: 0.0)>=30.0) 2 else 1
+                        (targetKm.toDoubleOrNull() ?: km.toDoubleOrNull() ?: 0.0)>=40.0) 2 else 1
                 ),
                 selectedQualityTypes = advancedQualityTypes,
                 onWeeklyKm = { value ->
-                    km=value.toInt().toString()
-                    edit(input.copy(weeklyKm=value))
+                    targetKm=value.toInt().toString()
+                    targetSupplied=true
+                    edit(input.copy(targetWeeklyKm=value))
                 },
                 onQualityCount = { n ->
                     val allowed = minOf(
                         (input.runDays-2).coerceAtLeast(0),
                         if(input.experience==2 && input.runDays>=4 &&
-                            (km.toDoubleOrNull() ?: 0.0)>=30.0) 2 else 1
+                            (targetKm.toDoubleOrNull() ?: km.toDoubleOrNull() ?: 0.0)>=40.0) 2 else 1
                     )
                     edit(input.copy(qualityCount=n.coerceAtMost(allowed)))
                 },
@@ -315,7 +329,7 @@ import org.json.JSONObject
                 route = runningRoute,
                 selectedFocus = guidedFocus,
                 onFocus = { guidedFocus = it },
-                weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0,120.0) ?: 0.0,
+                weeklyKm = targetKm.toDoubleOrNull()?.coerceIn(0.0,120.0) ?: 0.0,
                 experience = input.experience,
                 onEditAbility = {
                     editingAbilityFromGuided = true
@@ -368,7 +382,7 @@ import org.json.JSONObject
                 onQualityCount = { n ->
                     val allowed = minOf((input.runDays-2).coerceAtLeast(0),
                         if(input.experience==2 && input.runDays>=4 &&
-                            input.weeklyKm>=30.0) 2 else 1)
+                            (targetKm.toDoubleOrNull() ?: input.weeklyKm)>=40.0) 2 else 1)
                     if(n<=allowed) {
                         val slots=WeeklyPlacement.days(input,"run")
                         edit(input.copy(
@@ -388,7 +402,7 @@ import org.json.JSONObject
                     )
                     val allowed=minOf((n-2).coerceAtLeast(0),
                         if(changed.experience==2 && n>=4 &&
-                            changed.weeklyKm>=30.0) 2 else 1)
+                            (targetKm.toDoubleOrNull() ?: changed.weeklyKm)>=40.0) 2 else 1)
                     val q=changed.qualityCount.coerceAtMost(allowed)
                     val slots=WeeklyPlacement.days(changed,"run")
                     edit(changed.copy(
@@ -657,12 +671,21 @@ import org.json.JSONObject
             plan = null,
             busy = state.busy || awaiting,
             onBack = { step = 2; scheduleSubPage = 1 },
+            experimentalSelected = researchSelected,
+            onExperimentalSelected = { researchSelected = it; error = null },
+            onSaveResearchReview = actions.saveResearchReview,
+            researchDraftCount = state.researchDrafts.size,
+            savedResearchReviews = state.researchDrafts,
             onContinue = {
                 error = null
                 try {
                     val p = request()
                     if (p.start < LocalDate.now())
                         throw PlanConstraint("Choose today or a future start date.")
+                    IndependentEngineRouteGate.requireProduction(
+                        if (researchSelected) IndependentEngineRoute.RESEARCH_COMPARISON
+                        else IndependentEngineRoute.EXISTING_COACH
+                    )
                     val selected = TracksideCoaching.request(p)
                     beforeId = state.plans.firstOrNull()?.id
                     awaiting = true
@@ -731,11 +754,6 @@ import org.json.JSONObject
 @Composable internal fun ChoiceChips(values:List<String>,selected:Int,onSelect:(Int)->Unit) { FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) { values.forEachIndexed { i,label -> SignalChip(i==selected,{onSelect(i)},label={Text(label)}) } } }
 @Composable internal fun DayChoices(selected:Set<Int>,tagPrefix:String?=null,onSelect:(Int)->Unit) { FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) { (1..7).forEach { d -> SignalChip(d in selected,{onSelect(d)},label={Text(dayName(d))},modifier=if(tagPrefix==null)Modifier else Modifier.testTag("$tagPrefix-$d")) } } }
 internal fun dayName(day:Int)=java.time.DayOfWeek.of(day).getDisplayName(java.time.format.TextStyle.SHORT,java.util.Locale.getDefault())
-internal fun historyWeeklyKm(history:List<ActivityRecord>,now:Instant=Instant.now(),plans:List<PlanSnapshot> = emptyList(),zone:ZoneId=ZoneId.systemDefault()):Double? {
-    val rows=ActivityDisplayConsolidation.visible(history).filter { DashboardSummary.isRun(it)&&it.startedAt<=now&&it.startedAt>=now.minusSeconds(28*86400L)&&it.distanceM!=null }
-    val end=now.atZone(zone).toLocalDate();val native=DashboardSummary.confirmedWorkouts(plans,history,now).filter { it.discipline=="run" && it.distanceM!=null && it.date in end.minusDays(27)..end }
-    return if(rows.size+native.size>=3)(rows.sumOf { it.distanceM!! }+native.sumOf { it.distanceM!! })/4000.0 else null
-}
 
 @Composable internal fun NativeDateField(label:String,value:String,onChange:(String)->Unit,enabled:Boolean=true) {
     val context=androidx.compose.ui.platform.LocalContext.current

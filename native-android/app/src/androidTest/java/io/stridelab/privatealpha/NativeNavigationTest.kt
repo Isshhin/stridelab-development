@@ -40,14 +40,13 @@ class NativeNavigationTest {
         }
         compose.onNodeWithTag("nav-home").performClick()
     }
-    @Test fun nativeEmptyStateAndNavigationSurviveRecreation() {
+    @Test fun todayTrainingAndMoreNavigationSurvivesRecreation() {
         capture("home")
-        compose.onNodeWithTag("nav-activities").performClick()
-        compose.onNodeWithTag("screen-title").assertTextEquals("Activities")
-        compose.onNodeWithText("Sign in to view your history").assertExists()
+        compose.onNodeWithTag("nav-training").performClick()
+        compose.onNodeWithTag("training-unified-timeline").assertExists()
         compose.activityRule.scenario.recreate()
-        compose.onNodeWithTag("screen-title").assertTextEquals("Activities")
-        capture("activities")
+        compose.onNodeWithTag("training-unified-timeline").assertExists()
+        capture("training")
         compose.onNodeWithTag("nav-settings").performClick()
         compose.onNodeWithTag("screen-title").assertTextEquals("More")
         capture("settings")

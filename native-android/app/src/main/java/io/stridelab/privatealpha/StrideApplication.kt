@@ -86,11 +86,13 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
     }
     internal fun planActions()=PlanActions(
         generate={p->viewModelScope.launch { repo.generatePlan(p) }},
+        saveResearchReview={p,limits->viewModelScope.launch { repo.saveResearchReview(p,limits) }},
         approve={id,r->viewModelScope.launch { repo.approvePlan(id,r) }},
         pause={id,r->viewModelScope.launch { repo.pausePlan(id,r) }},
         archive={id,r->viewModelScope.launch { repo.archivePlan(id,r) }},
         move={id,r,s,d->viewModelScope.launch { repo.moveSession(id,r,s,d) }},
         record={id,r,s,log,done->viewModelScope.launch { repo.recordWorkout(id,r,s,log,done) }},
+        saveRunResponse={id,r,s,effort,difficulty,discomfort->viewModelScope.launch { repo.saveRunResponse(id,r,s,effort,difficulty,discomfort) }},
         missed={id,r,s,reason,skipped->viewModelScope.launch { repo.markMissed(id,r,s,reason,skipped) }},
         acceptSuggestion={id,r,s->viewModelScope.launch { repo.acceptSuggestion(id,r,s) }},
         feedback={id,r,category,text,s->viewModelScope.launch { repo.saveFeedback(id,r,category,text,s) }},
@@ -106,12 +108,15 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
         longDay={id,r,day->viewModelScope.launch { repo.setLongRunDay(id,r,day) }},
         qualityDays={id,r,days->viewModelScope.launch { repo.setQualityDays(id,r,days) }},
         previewAdjustments={id->repo.previewEngine15Adjustments(id)},
+        previewWeek={id,input->repo.previewEngine15Week(id,input=input)},
+        acceptWeek={review->viewModelScope.launch { repo.acceptEngine15Week(review.original.id,review.original.revision,review) }},
         stageAdjustment={p->viewModelScope.launch { repo.stageEngine15Adjustment(p.planId,p.planRevision,p) }},
         dismissPreview={p->viewModelScope.launch { repo.dismissEngine15Adjustment(p.planId,p.planRevision,p) }},
         dismissPending={id,r,s->viewModelScope.launch { repo.dismissStagedEngine15Adjustment(id,r,s) }},
         pendingError={id,s->
             val snapshot=state.value
-            val plan=snapshot.plans.find { it.id==id && it.owner==snapshot.account }
+            val activeOwner=snapshot.account ?: snapshot.localPlanOwner
+            val plan=snapshot.plans.find { it.id==id && it.owner==activeOwner }
             if(plan==null) "This plan is unavailable." else try {
                 Engine15Feedback.requireCurrentPendingAcceptance(plan,s,java.time.LocalDate.now(),snapshot.plans)
                 null

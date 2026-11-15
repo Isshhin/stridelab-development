@@ -609,7 +609,8 @@ internal fun TracksideRunningAbilityScreen(
     onLongestKm: (Double) -> Unit,
     onBack: () -> Unit,
     onContinue: () -> Unit,
-    onAdvanced: () -> Unit
+    onAdvanced: () -> Unit,
+    historyContent:@Composable ()->Unit = {}
 ) {
     var resultInfoOpen by remember { mutableStateOf(false) }
     TracksideBuilderFrame(
@@ -658,6 +659,7 @@ internal fun TracksideRunningAbilityScreen(
             onValue=onLongestKm
         )
         Spacer(Modifier.height(11.dp))
+        historyContent()
         Text("RECENT PERFORMANCE  (OPTIONAL)",fontSize=11.sp,
             color=muted,fontWeight=FontWeight.Bold)
         Spacer(Modifier.height(9.dp))

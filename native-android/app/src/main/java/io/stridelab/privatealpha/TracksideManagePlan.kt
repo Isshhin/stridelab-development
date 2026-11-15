@@ -103,6 +103,7 @@ internal fun TracksideManagePlanScreen(
         }
         item { TracksideSectionHeader("Manage your plan") }
         if (plan.engineVersion == ENGINE15_VERSION && Engine1Engines.canManage(plan)) {
+            item { Engine15CoachReviewCard(plan,actions,busy) }
             item { Engine15ScheduleReview(plan, actions, busy) }
             item { Engine15RecommendationReview(plan, actions, busy) }
         }
