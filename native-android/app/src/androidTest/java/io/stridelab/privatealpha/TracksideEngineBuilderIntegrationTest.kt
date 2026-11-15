@@ -78,13 +78,18 @@ class TracksideEngineBuilderIntegrationTest {
             }
             next() // current ability
             next() // weekly setup
-            next() // dates
-            next() // availability
-            compose.onNodeWithTag("builder-route-existing").assertIsSelected()
-            compose.onNodeWithTag("builder-route-research").performScrollTo().performClick().assertIsSelected()
-            compose.onNodeWithTag("builder-route-existing").performScrollTo().performClick().assertIsSelected()
+            next() // dates -> final availability screen
+            compose.onNodeWithTag("available-day-6").assertExists()
+            compose.onNodeWithTag("builder-generate-draft-note").assertExists()
+            // Research reviews remain available without switching the
+            // production coach to a non-executable research route.
+            compose.onNodeWithTag("builder-availability-research-toggle")
+                .performScrollTo().performClick()
+            compose.onNodeWithTag("builder-experimental-research-panel").assertExists()
+            compose.onNodeWithTag("builder-availability-research-toggle")
+                .performScrollTo().performClick()
             compose.onNodeWithText("Generate My Plan").assertExists()
-            next()
+            next() // generate the saved draft; approval is still separate
             compose.waitUntil(15_000) { repo.state.value.plans.isNotEmpty() }
             val draft = repo.state.value.plans.single()
             assertEquals("draft", draft.status)

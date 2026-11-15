@@ -86,7 +86,7 @@ internal fun TracksideWeekReview(
     }
 
     TracksideBuilderFrame(
-        progressStep = if (plan == null) 6 else 7,
+        progressStep = 6,
         toolbarTitle = if (plan == null) "Training blueprint" else "Review plan",
         eyebrow = "PLAN / WEEK PREVIEW",
         headline = if (plan == null) "Your training blueprint" else "Review your training plan",

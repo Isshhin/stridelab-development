@@ -30,6 +30,61 @@ class Engine15CoachControlsTest {
         val dir=InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null)!!
         java.io.File(dir,"$name.png").outputStream().use { compose.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
     }
+    @Test fun plannedRunPreviewHasReadableTargetsAndExpandableNotes() {
+        val session=PlannedSession(
+            "preview",day.plusDays(1),"run","Aerobic endurance run",
+            109,13.6,"easy",
+            steps=listOf("1. 13600 m easy running"),
+            reason="The easy aerobic workout supports endurance.",
+            runningPrescription=RunningPrescription("EASY",null,
+                listOf(RunningSegment("EASY",13600,"Comfortable conversational running")))
+        )
+        val p=plan().copy(sessions=listOf(session))
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    WorkoutScreen(
+                        TrainingState(initializing=false,plans=listOf(p)),
+                        p.id,session.id,PlanActions(),{}
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("workout-planned-summary").assertExists()
+        compose.onNodeWithTag("workout-planned-primary-target")
+            .assertTextEquals("13.6 km")
+        compose.onNodeWithTag("workout-planned-duration")
+            .assertTextEquals("Estimated duration · 109 min")
+        compose.onNodeWithText("13600 m easy running").assertDoesNotExist()
+        compose.onNodeWithTag("workout-planned-structure").assertExists()
+        compose.onNodeWithTag("workout-planned-notes-toggle").performScrollTo().performClick()
+        compose.onNodeWithText("The easy aerobic workout supports endurance.")
+            .assertExists()
+    }
+
+    @Test fun reviewedTimeOnlyPreviewNeverShowsOriginalDistanceAsCurrentTarget() {
+        val session=PlannedSession(
+            "shortened",day.plusDays(1),"run","Easy run",60,10.0,"easy",
+            suggestion=SessionSuggestion(45,Engine15Feedback.RULE_ID+": accepted",true)
+        )
+        val p=plan().copy(sessions=listOf(session))
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    WorkoutScreen(
+                        TrainingState(initializing=false,plans=listOf(p)),
+                        p.id,session.id,PlanActions(),{}
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("workout-planned-primary-target")
+            .assertTextEquals("Time-based")
+        compose.onNodeWithTag("workout-planned-duration")
+            .assertTextEquals("Estimated duration · 45 min")
+        compose.onNodeWithText("Planned target: 10.0 km",substring=true)
+            .assertDoesNotExist()
+    }
     @Test fun weeklyPreviewAndApprovalPreserveOriginalRecords() {
         val original=plan();var saved by mutableStateOf(original);var approvals=0
         val actions=PlanActions(previewWeek={_,input->Engine15WeeklyReview.preview(saved,day,input)},acceptWeek={ review -> approvals++;saved=Engine15WeeklyReview.accept(saved,review,day,Instant.now()).copy(revision=2) })

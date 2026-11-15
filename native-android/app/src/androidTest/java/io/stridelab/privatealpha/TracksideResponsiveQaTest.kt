@@ -1318,13 +1318,15 @@ class TracksideResponsiveQaTest {
         }
     }
 
-    @Test fun builderAvailabilityAndDraftReviewRenderAtCurrentViewport() {
+    @Test fun builderGeneratesFromAvailabilityWithoutRedundantBlueprintPage() {
         val state=TrainingState(initializing=false,account="synthetic-responsive")
+        var generatedRequests=0
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    PlanBuilder(state=state,actions=PlanActions(),
-                        onDone={},onSignIn={},onPreview={_,_->})
+                    PlanBuilder(state=state,actions=PlanActions(
+                        generate={ generatedRequests++ }
+                    ),onDone={},onSignIn={},onPreview={_,_->})
                 }
             }
         }
@@ -1336,10 +1338,13 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("builder-start-date").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("available-day-6").assertExists()
-        screenshot("builder-availability")
+        compose.onNodeWithText("Generate My Plan").assertExists()
+        compose.onNodeWithText("Your training blueprint").assertDoesNotExist()
+        compose.onNodeWithTag("builder-generate-draft-note").assertExists()
+        screenshot("builder-availability-final-generate")
         compose.onNodeWithTag("builder-figma-continue").performClick()
-        compose.onNodeWithTag("builder-figma-continue").assertExists()
-        screenshot("builder-draft-review")
+        compose.runOnIdle { assertTrue("Generate should be called once",generatedRequests==1) }
+        compose.onNodeWithText("Your training blueprint").assertDoesNotExist()
     }
 
     @Test fun todayHeroAtLargeFontPreservesTargetsAndVisibleAction() {
