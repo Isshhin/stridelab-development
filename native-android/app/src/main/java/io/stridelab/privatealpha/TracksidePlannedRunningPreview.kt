@@ -130,7 +130,10 @@ internal fun TracksidePlannedRunningPreview(
                             color=TracksidePalette.text,fontSize=24.sp,
                             fontWeight=FontWeight.Bold,
                             modifier=Modifier.testTag("workout-planned-primary-target"))
-                        Text("Planned distance",color=TracksidePalette.textMuted,fontSize=11.sp)
+                        Text(
+                            if(target.currentDistanceTargetKm!=null) "Planned distance" else "Current target",
+                            color=TracksidePalette.textMuted,fontSize=11.sp
+                        )
                     }
                     Box(Modifier.width(1.dp).height(36.dp)
                         .background(TracksidePalette.outline))
