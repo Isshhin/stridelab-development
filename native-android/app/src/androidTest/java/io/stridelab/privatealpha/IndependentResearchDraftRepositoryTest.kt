@@ -229,7 +229,7 @@ class IndependentResearchDraftRepositoryTest {
             restored.state.first { !it.initializing }
             context.openOrCreateDatabase(restoreDatabase,Context.MODE_PRIVATE,null).use { db ->
                 db.execSQL("INSERT INTO records(account,kind,record_id,payload,server_version,synced_at) VALUES(?,?,?,?,?,?)",
-                    arrayOf(owner,"exercise",reviewId,"{}",null,0))
+                    arrayOf<Any?>(owner,"exercise",reviewId,"{}",null,0))
             }
             assertFalse(restored.restorePlans(raw))
             assertTrue(restored.state.value.plans.isEmpty())

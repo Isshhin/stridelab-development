@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -282,7 +283,9 @@ internal fun TracksideWeekReview(
                     selected=!experimentalSelected,
                     onClick={onExperimentalSelected(false)},
                     label={Text("Existing coach · Engine 1.5")},
-                    modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("builder-route-existing"),
+                    modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
+                        .semantics { selected = !experimentalSelected }
+                        .testTag("builder-route-existing"),
                     shape=RoundedCornerShape(50),
                     border=BorderStroke(1.dp,if(!experimentalSelected)PlanBuilderPalette.accent else PlanBuilderPalette.border),
                     colors=FilterChipDefaults.filterChipColors(
@@ -296,7 +299,9 @@ internal fun TracksideWeekReview(
                     selected=experimentalSelected,
                     onClick={onExperimentalSelected(true)},
                     label={Text("Experimental research review")},
-                    modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("builder-route-research"),
+                    modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
+                        .semantics { selected = experimentalSelected }
+                        .testTag("builder-route-research"),
                     shape=RoundedCornerShape(50),
                     border=BorderStroke(1.dp,if(experimentalSelected)PlanBuilderPalette.accent else PlanBuilderPalette.border),
                     colors=FilterChipDefaults.filterChipColors(

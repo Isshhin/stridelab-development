@@ -1014,7 +1014,7 @@ class TracksideResponsiveQaTest {
         val base=matchedNineSessionDraft("week-preview-distance")
         val plan=base.copy(
             request=base.request.copy(weeks=2,weeklyKm=40.0,targetWeeklyKm=80.0),
-            sessions=base.sessions+base.sessions.first().copy(
+            sessions=base.sessions+base.sessions.first { it.discipline=="run" }.copy(
                 id="week-two-unknown",date=base.request.start.plusWeeks(1),distanceKm=null
             )
         )
@@ -1054,11 +1054,11 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("builder-route-existing").assertIsSelected()
         compose.onNodeWithTag("builder-route-research").assertIsNotSelected()
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
-        compose.onNodeWithTag("builder-route-research").performClick()
+        compose.onNodeWithTag("builder-route-research").performScrollTo().performClick()
         compose.onNodeWithTag("builder-route-research").assertIsSelected()
         compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
         compose.onNodeWithText("Experimental mileage calendar").assertExists()
-        compose.onNodeWithTag("builder-route-existing").performClick()
+        compose.onNodeWithTag("builder-route-existing").performScrollTo().performClick()
         compose.onNodeWithTag("builder-route-existing").assertIsSelected()
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
     }
