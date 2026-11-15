@@ -22,7 +22,7 @@ internal object Engine15Feedback {
         val owned=plans.filter { it.owner==owner && Engine1Engines.canManage(it) }
         val sessions=owned.flatMap { it.sessions }
         val duplicates=sessions.mapNotNull { it.linkedActivityId }.groupingBy { it }.eachCount().filterValues { it>1 }.keys
-        val signals=sessions.filter { it.log?.at?.isAfter(now)!=true }.mapNotNull { evidence(it,asOf,duplicates) }
+        val signals=sessions.filter { it.coachingLog()?.at?.isAfter(now)!=true }.mapNotNull { evidence(it,asOf,duplicates) }
         if(signals.isEmpty())return null
         return DraftReview(asOf,signals.maxOf { it.date.plusDays(if(it.category=="Pain")7 else 4) },signals.filter { it.category in setOf("Illness","Pain") }.maxOfOrNull { it.date.plusDays(if(it.category=="Pain")7 else 4) },
             signals.map { "${it.session.id}@${it.session.logRevision}:${it.category}" }.distinct().sorted())
@@ -62,7 +62,7 @@ internal object Engine15Feedback {
         // A duplicate source link, even from imported records, is ambiguous.
         if (session.linkedActivityId != null && session.linkedActivityId in duplicateLinks)
             return null
-        if (session.status in setOf("missed", "skipped") && session.log == null &&
+        if (session.status in setOf("missed", "skipped") && session.coachingLog() == null &&
             session.date <= asOf && ChronoUnit.DAYS.between(session.date, asOf) in 0L..3L
         ) {
             val category = session.missedReason
@@ -70,7 +70,7 @@ internal object Engine15Feedback {
                 return Evidence(session, session.date, category!!,
                     "Explicitly marked ${session.status.lowercase()} ($category)")
         }
-        val log = session.log ?: return null
+        val log = session.coachingLog() ?: return null
         if (session.status != "completed" || session.logRevision <= 0) return null
         // A linked run without an actual WorkoutLog has no recorded effort;
         // missing RPE, partial progress and zero-set strength logs do not imply readiness.
@@ -128,7 +128,7 @@ internal object Engine15Feedback {
                 .filter { it.discipline == "run" && it.id !in reserved && it.date > asOf && it.date > source.date }
                 .filter { ChronoUnit.DAYS.between(source.date, it.date) in 1L..4L }
                 .filter {
-                    it.status == "planned" && it.log == null &&
+                    it.status == "planned" && it.coachingLog() == null &&
                         it.linkedActivityId == null && it.suggestion == null &&
                         !dismissed(plan, it.id)
                 }
@@ -164,7 +164,7 @@ internal object Engine15Feedback {
             proposal !in preview(plan, asOf, allPlans))
             throw PlanConstraint("The training suggestion is stale. Review current workout records and preview it again.")
         val session = plan.sessions.single { it.id == proposal.targetSessionId }
-        if (session.status != "planned" || session.log != null || session.suggestion != null)
+        if (session.status != "planned" || session.coachingLog() != null || session.suggestion != null)
             throw PlanConstraint("Only an unstarted workout without another suggestion may be reviewed.")
         val note = "${proposal.reason} ${proposal.uncertainty} " +
             "Evidence: session ${proposal.sourceSessionId}, log revision ${proposal.sourceLogRevision}."

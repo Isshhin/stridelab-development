@@ -504,6 +504,11 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     suspend fun setLongRunDay(id:String,revision:Int,day:Int)=changePlan(id,revision) { plan->PlanOperations.setLongRunDay(plan,day) }
     suspend fun setQualityDays(id:String,revision:Int,days:Set<Int>)=changePlan(id,revision) { plan->PlanOperations.setQualityDays(plan,days) }
     suspend fun recordWorkout(id:String,revision:Int,sessionId:String,log:WorkoutLog,complete:Boolean)=changePlan(id,revision) { PlanOperations.record(it,sessionId,log,complete) }
+    suspend fun saveRunResponse(id:String,revision:Int,sessionId:String,effort:Int?,difficulty:String?,discomfort:String?)=changePlan(id,revision) { plan ->
+        val session=plan.sessions.singleOrNull { it.id==sessionId } ?: throw PlanConstraint("This workout is unavailable.")
+        val performed=session.log?.performedOn ?: mutable.value.activities.singleOrNull { it.id==session.linkedActivityId }?.startedAt?.atZone(java.time.ZoneId.systemDefault())?.toLocalDate()
+        PlanOperations.runResponse(plan,sessionId,effort,difficulty,discomfort,performed)
+    }
     suspend fun markMissed(id:String,revision:Int,sessionId:String,reason:String,skipped:Boolean)=changePlan(id,revision) { PlanOperations.missed(it,sessionId,reason,skipped) }
     suspend fun acceptSuggestion(id:String,revision:Int,sessionId:String)=changePlan(id,revision) { plan ->
         Engine15Feedback.requireCurrentPendingAcceptance(

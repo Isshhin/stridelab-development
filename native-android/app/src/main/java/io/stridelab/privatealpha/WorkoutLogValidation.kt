@@ -5,6 +5,7 @@ import java.time.LocalDate
 /** Validate actuals without changing prescriptions or inferring performance from targets. */
 internal object WorkoutLogValidation {
     fun validate(session:PlannedSession,log:WorkoutLog) {
+        if(log.qualityWorkKm!=null && (session.discipline!="run" || !session.quality))throw PlanConstraint("Quality work belongs to a running quality session; leave it blank otherwise.")
         fun valid(n:Double?,zero:Boolean=false)=n==null || (n.isFinite() && if(zero) n>=0 else n>0)
         if(!valid(log.minutes) || !valid(log.distanceKm) || (log.effort!=null && log.effort !in 1..10) || log.notes.length>2000)throw PlanConstraint("Check actual duration, distance, effort (1-10), and notes. Blank metrics stay unrecorded.")
         if(log.performedOn!=null && (log.performedOn>LocalDate.now() || log.performedOn<LocalDate.of(1970,1,1)))throw PlanConstraint("Choose the date the workout actually happened, no later than today.")

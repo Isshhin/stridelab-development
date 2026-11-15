@@ -94,7 +94,7 @@ internal object Engine15 : PlanGenerationEngine {
             val original=baseline.sessions.filter { weekIndex(request,it)==week && it.discipline=="run" }
             check(sessions.filter { it.discipline=="run" }.sumOf { it.distanceKm ?: 0.0 } <= original.sumOf { it.distanceKm ?: 0.0 }+1e-8)
         }
-        val alternatives=if(includeAlternatives && request.targetWeeklyKm!=null && adapted.filter { it.discipline=="run" }.all { it.distanceKm!=null }) {
+        val options=if(includeAlternatives && request.targetWeeklyKm!=null && adapted.filter { it.discipline=="run" }.all { it.distanceKm!=null }) {
             val peak=adapted.filter { it.discipline=="run" }.groupBy { weekIndex(request,it) }.values.maxOfOrNull { rows -> rows.sumOf { it.distanceKm ?: 0.0 } } ?: 0.0
             if(request.runDays>0 && peak+0.01<request.targetWeeklyKm) {
                 val longer=((request.weeks+1)..16).firstOrNull { weeks ->
@@ -102,11 +102,9 @@ internal object Engine15 : PlanGenerationEngine {
                     val candidate=try { generateProgram(candidateRequest,owner,id,now,review,pattern,includeAlternatives=false) } catch(_:PlanConstraint) { return@firstOrNull false }
                     candidate.sessions.filter { it.discipline=="run" }.groupBy { weekIndex(candidateRequest,it) }.values.any { rows -> rows.sumOf { it.distanceKm ?: 0.0 }+0.01>=request.targetWeeklyKm }
                 }
-                listOf("LOWER_TARGET_OPTION: Review ${roundDownKm(peak)} km/week within the selected ${request.weeks}-week schedule; the requested target has not been changed.",
-                    if(longer!=null) "LONGER_TIMELINE_OPTION: A $longer-week generated projection reaches the requested ${request.targetWeeklyKm} km/week within the same constraints. This is conditional on future completion and response, not guaranteed readiness; approval is required."
-                    else "LONGER_TIMELINE_OPTION: A sufficient timeline is not established within the supported 16-week horizon. Reassess actual completed exposure and availability before extending; more weeks alone do not remove session limits.")
-            } else emptyList()
-        } else emptyList()
+                Engine15MileageOptions(roundDownKm(peak),request.targetWeeklyKm,longer)
+            } else null
+        } else null
         return baseline.copy(
             engineVersion = version,
             policyId = when {
@@ -115,6 +113,7 @@ internal object Engine15 : PlanGenerationEngine {
                 else -> policyId
             },
             request = request,
+            mileageOptions = options,
             sessions = adapted,
             explanations = listOf(
                 "Engine 1.5 policy (${if (interference) ENGINE15_INTERFERENCE_POLICY else if (multi) ENGINE15_MULTI_POLICY else policyId}): the scheduling baseline " +
@@ -130,7 +129,7 @@ internal object Engine15 : PlanGenerationEngine {
                 if(multi) "Multi-session days use the existing conservative easy-run + calisthenics pairing and daily budget. Incompatible schedules are rejected." else "Single-session Engine 1.0 calendar rules remain unchanged.",
                 "Review every workout before approval; no existing saved plan, " +
                     "completed activity or athlete record has been changed."
-            ) + alternatives + (pattern?.let { listOf("OBSERVED_RUN_PATTERN: Repeated logged easy/long exposures inform session allocation. Weekly coverage is unknown; logged totals do not replace reported weekly mileage. Sources: ${it.evidenceIds.joinToString()}.") } ?: emptyList()) + coachingReview(request, adapted) + (if(review!=null && request.start<=review.recoveryThrough)
+            ) + (options?.explanations(request.weeks) ?: emptyList()) + (pattern?.let { listOf("OBSERVED_RUN_PATTERN: Repeated logged easy/long exposures inform session allocation. Weekly coverage is unknown; logged totals do not replace reported weekly mileage. Sources: ${it.evidenceIds.joinToString()}.") } ?: emptyList()) + coachingReview(request, adapted) + (if(review!=null && request.start<=review.recoveryThrough)
                 listOf("RECENT_RESPONSE_REVIEW: Recent explicit difficulty limits upcoming running to shorter easy roles through ${review.recoveryThrough}. Evidence: ${review.evidenceIds.joinToString()}. No fitness or recovery score is inferred.") else emptyList()) + baseline.explanations.filterNot {
                 it.startsWith("Engine 1.0 uses ") ||
                     it.startsWith("Every fourth week is lighter.")

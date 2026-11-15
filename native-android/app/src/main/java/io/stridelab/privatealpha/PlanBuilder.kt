@@ -133,7 +133,7 @@ import org.json.JSONObject
         TracksideWeekReview(
             request = preview.request,
             plan = preview,
-            busy = state.busy || pendingApprovalId != null,
+            busy = state.busy || awaiting || pendingApprovalId != null,
             onBack = { step = 3 },
             onContinue = {
                 if(!state.busy && pendingApprovalId==null) {
@@ -145,7 +145,12 @@ import org.json.JSONObject
             onOpenSession = { sessionId -> onPreview(preview.id, sessionId) },
             weekIndex = previewWeek,
             onWeekChange = { previewWeek = it },
-            error = error
+            error = error,
+            onChooseGoalOption = { chosen ->
+                error=null;beforeId=state.plans.firstOrNull()?.id;awaiting=true
+                weeks=chosen.weeks.toString();targetKm=chosen.targetWeeklyKm.toString();targetSupplied=true;edit(chosen)
+                actions.generate(chosen)
+            }
         )
         return
     }
@@ -254,6 +259,12 @@ import org.json.JSONObject
                 experience = input.experience,
                 weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0,120.0) ?: 0.0,
                 longestKm = longest.toDoubleOrNull()?.coerceIn(0.0,42.0) ?: 0.0,
+                historyContent = {
+                    RunningHistoryConfirmation(state) { value -> km="%.1f".format(java.util.Locale.US,value);edit(input.copy(weeklyKm=value)) }
+                    if(input.policyChoice=="engine15") {
+                        CoachFeedbackChoices("Usual quality sessions per week",listOf("0","1","2"),input.recentQualitySessionsPerWeek?.toString()) { edit(input.copy(recentQualitySessionsPerWeek=it?.toInt())) }
+                    }
+                },
                 onExperience = { edit(input.copy(experience=it)) },
                 onWeeklyKm = { value ->
                     km=value.toInt().toString()
@@ -743,11 +754,6 @@ import org.json.JSONObject
 @Composable internal fun ChoiceChips(values:List<String>,selected:Int,onSelect:(Int)->Unit) { FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) { values.forEachIndexed { i,label -> SignalChip(i==selected,{onSelect(i)},label={Text(label)}) } } }
 @Composable internal fun DayChoices(selected:Set<Int>,tagPrefix:String?=null,onSelect:(Int)->Unit) { FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) { (1..7).forEach { d -> SignalChip(d in selected,{onSelect(d)},label={Text(dayName(d))},modifier=if(tagPrefix==null)Modifier else Modifier.testTag("$tagPrefix-$d")) } } }
 internal fun dayName(day:Int)=java.time.DayOfWeek.of(day).getDisplayName(java.time.format.TextStyle.SHORT,java.util.Locale.getDefault())
-internal fun historyWeeklyKm(history:List<ActivityRecord>,now:Instant=Instant.now(),plans:List<PlanSnapshot> = emptyList(),zone:ZoneId=ZoneId.systemDefault()):Double? {
-    val rows=ActivityDisplayConsolidation.visible(history).filter { DashboardSummary.isRun(it)&&it.startedAt<=now&&it.startedAt>=now.minusSeconds(28*86400L)&&it.distanceM!=null }
-    val end=now.atZone(zone).toLocalDate();val native=DashboardSummary.confirmedWorkouts(plans,history,now).filter { it.discipline=="run" && it.distanceM!=null && it.date in end.minusDays(27)..end }
-    return if(rows.size+native.size>=3)(rows.sumOf { it.distanceM!! }+native.sumOf { it.distanceM!! })/4000.0 else null
-}
 
 @Composable internal fun NativeDateField(label:String,value:String,onChange:(String)->Unit,enabled:Boolean=true) {
     val context=androidx.compose.ui.platform.LocalContext.current

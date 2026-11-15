@@ -120,8 +120,8 @@ internal object Engine15RunningProgram {
             var qualityPosition=0
             val generated=runs.mapIndexed { index,s ->
                 val meters=distance[index]*100
-                val family=selectFamily(p,w,qualityPosition)
-                val quality=if(s.id in qualityIds) quality(p,w,family,meters,workBudget-workUsed) else null
+                val family=if(p.allowedQualityTypes.isEmpty() && p.preferredQuality=="Threshold" && pattern?.thresholdWorkKm!=null) "Threshold" else selectFamily(p,w,qualityPosition)
+                val quality=if(s.id in qualityIds) quality(p,w,family,meters,workBudget-workUsed,if(family=="Threshold")pattern?.thresholdWorkKm else null) else null
                 val actualRole=if(s.id in qualityIds && quality==null)"EASY" else role.getValue(s.id)
                 val prescription=quality ?: RunningPrescription(actualRole,null,listOf(RunningSegment("EASY",meters,
                     if(p.experience==0) "Alternate easy running and walking; keep conversation comfortable" else "Conversational; no pace target")))
@@ -213,7 +213,7 @@ internal object Engine15RunningProgram {
         val ordered=listOf(preferred)+(p.allowedQualityTypes-preferred).sorted()
         return ordered[(slot+w/4)%ordered.size]
     }
-    private fun quality(p:PlanRequest,w:Int,family:String,total:Int,budget:Int):RunningPrescription? {
+    private fun quality(p:PlanRequest,w:Int,family:String,total:Int,budget:Int,observedWorkKm:Double?=null):RunningPrescription? {
         val warm=ceil(600000.0/p.planningPace/10).toInt()*10
         val cool=ceil(480000.0/p.planningPace/10).toInt()*10
         val phase=w%4%3
@@ -228,9 +228,9 @@ internal object Engine15RunningProgram {
             "Intervals"->when(p.goal) { "Improve 5K"->540; "Half marathon","Marathon"->960; else->720 }
             else->720
         }
-        val workLimit=minOf(budget,floor(total*0.40).toInt(),floor(workSeconds*1000.0/p.planningPace).toInt())
+        val workLimit=minOf(budget,floor(total*(if(observedWorkKm!=null)0.60 else 0.40)).toInt(),observedWorkKm?.let { floor(it*1000).toInt() } ?: floor(workSeconds*1000.0/p.planningPace).toInt())
         val minimum=if(family in setOf("Hills","Fartlek"))50 else 200
-        val maximum=when(family) { "Hills"->100; "Fartlek"->200; "Tempo","Progression"->3000; else->when(p.goal) { "Improve 5K"->600; "Half marathon"->2000; "Marathon"->2400; else->1200 } }
+        val maximum=if(observedWorkKm!=null)3000 else when(family) { "Hills"->100; "Fartlek"->200; "Tempo","Progression"->3000; else->when(p.goal) { "Improve 5K"->600; "Half marathon"->2000; "Marathon"->2400; else->1200 } }
         val perRep=(minOf(maximum,workLimit/reps,((total-warm-cool)/(reps+(reps-1)*recoveryRatio)).toInt())/10)*10
         if(perRep<minimum)return null
         val recovery=(perRep*recoveryRatio/10).toInt()*10
