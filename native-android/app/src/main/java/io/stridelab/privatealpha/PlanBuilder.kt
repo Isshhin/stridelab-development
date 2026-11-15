@@ -85,6 +85,7 @@ import org.json.JSONObject
         }
     }
     fun request():PlanRequest=try { input.copy(start=LocalDate.parse(start),weeks=weeks.toInt(),minutes=minutes.toInt(),dailyMinutes=if(input.policyChoice=="multi-session")dailyMinutes.toInt() else input.dailyMinutes,weeklyKm=km.toDouble(),targetWeeklyKm=if(targetSupplied) targetKm.toDouble() else null,longestKm=longest.toDouble(),planningPace=pace.toDouble()*60,timeBudgetEnabled=false) } catch(e:Exception) { throw PlanConstraint("Enter a valid YYYY-MM-DD date and numeric recent and target mileage, pace, weeks, and daily budget if enabled.") }
+    var researchSelected by rememberSaveable { mutableStateOf(false) }
     var previewWeek by rememberSaveable { mutableIntStateOf(0) }
     var runningSubPage by rememberSaveable { mutableIntStateOf(0) }
     var scheduleSubPage by rememberSaveable { mutableIntStateOf(0) }
@@ -659,12 +660,20 @@ import org.json.JSONObject
             plan = null,
             busy = state.busy || awaiting,
             onBack = { step = 2; scheduleSubPage = 1 },
+            experimentalSelected = researchSelected,
+            onExperimentalSelected = { researchSelected = it; error = null },
+            onSaveResearchReview = actions.saveResearchReview,
+            researchDraftCount = state.researchDrafts.size,
             onContinue = {
                 error = null
                 try {
                     val p = request()
                     if (p.start < LocalDate.now())
                         throw PlanConstraint("Choose today or a future start date.")
+                    IndependentEngineRouteGate.requireProduction(
+                        if (researchSelected) IndependentEngineRoute.RESEARCH_COMPARISON
+                        else IndependentEngineRoute.EXISTING_COACH
+                    )
                     val selected = TracksideCoaching.request(p)
                     beforeId = state.plans.firstOrNull()?.id
                     awaiting = true
