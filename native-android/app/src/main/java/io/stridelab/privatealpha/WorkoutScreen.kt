@@ -106,7 +106,9 @@ import kotlinx.coroutines.flow.drop
     Screen(
         if(plannedRun) "Workout details" else shown.effectiveTitle,
         "${disciplineLabel(session.discipline).uppercase()} · ${session.status.uppercase()}",
-        compactTitle=true,dense=plannedRun
+        compactTitle=true,dense=plannedRun,
+        // Keep all planned-run cards above the persistent floating dock.
+        bottomOverlayPadding=if(plannedRun) 106.dp else 0.dp
     ) {
         if(active && exercises.isNotEmpty()) item { SignalButton("Return to guided workout",{guided=true}) }
         if(plannedRun) item {
