@@ -43,7 +43,11 @@ import kotlinx.coroutines.withContext
             Text("$requested sessions/week · ${firstWeek.map { it.date }.distinct().size} scheduled training days/week · ${plan.request.days.size} available days",style=MaterialTheme.typography.bodyMedium)
             Text("${plan.sessions.size} total prescribed sessions · ${plan.sessions.count { it.status=="completed" }} completed · ${plan.request.dailyMinutes} min daily budget",style=MaterialTheme.typography.bodyMedium)
         } else Text("${plan.sessions.size} prescribed sessions · ${plan.sessions.count { it.status=="completed" }} completed",style=MaterialTheme.typography.bodyMedium)
-        Text("Account-private · stored on this device · not cloud-synced",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(if (LocalPlanOwnership.isLocalPlanOwner(plan.owner))
+            "Device-only plan · sign-in does not automatically move it to the cloud."
+            else "Account-private · stored on this device · not automatically cloud-synced",
+            style=MaterialTheme.typography.bodySmall,
+            color=MaterialTheme.colorScheme.onSurfaceVariant)
         TextButton(onClick={expanded=!expanded}) { Text(if(expanded) "Hide plan explanation" else "Why this plan") }
         if(expanded) plan.explanations.forEach { Text(it,style=MaterialTheme.typography.bodyMedium) }
     }
@@ -111,8 +115,7 @@ import kotlinx.coroutines.withContext
                         onSelectWeek = { selectedDate = it.toString() }
                     )
                 }
-                if(state.account==null) item { SignalCard { Text("Plan without a watch",style=MaterialTheme.typography.headlineSmall);Text("Sign in once to create private, account-isolated plans. Generation, calendar and logging then work offline.");SignalButton("Sign in",onSignIn) } }
-                else if(plan==null) item { SignalCard { Text("Build your training around your life.",style=MaterialTheme.typography.headlineMedium);Text("Running, strength, calisthenics and conditioning share one calendar. Choose your goal, ability, days and equipment. Review real prescriptions before approving.");SignalButton("Create a plan",onBuild) } }
+                if(plan==null) item { SignalCard { Text("Build your training around your life.",style=MaterialTheme.typography.headlineMedium);Text("Running, strength, calisthenics and conditioning share one calendar. Your plan stays on this device when signed out.");SignalButton("Create a plan",onBuild) } }
                 if(plans.size>1) item { Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) { plans.forEach { p -> SignalChip(p.id==plan?.id,{selectedId=p.id},label={Text((p.name ?: p.request.goal)+" · "+p.status)}) } } }
                 if(plan!=null) {
                     item {
@@ -154,7 +157,7 @@ import kotlinx.coroutines.withContext
                     item { NativePlanExport(state.plans) }
                 }
                 if(state.account!=null) item { NativePlanImport(state,actions) }
-                if(state.account!=null && plan!=null) item { OutlinedButton(onClick=onBuild,modifier=Modifier.fillMaxWidth()) { Text("Create / edit a reviewed draft") } }
+                if(plan!=null) item { OutlinedButton(onClick=onBuild,modifier=Modifier.fillMaxWidth()) { Text("Create / edit a reviewed draft") } }
                 if(plan?.status in setOf("draft","paused")) item { Spacer(Modifier.height(96.dp)) }
             }
         }
