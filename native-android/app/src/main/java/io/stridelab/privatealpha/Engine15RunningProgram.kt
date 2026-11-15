@@ -40,8 +40,8 @@ internal object Engine15RunningProgram {
     private fun units(km:Double)=floor(km*10+1e-8).toInt()
     private fun hard(s:PlannedSession)=s.quality || s.kind=="long" || s.lower
 
-    fun compose(p:PlanRequest, baseline:List<PlannedSession>,review:Engine15Feedback.DraftReview?=null):List<PlannedSession> {
-        if(review!=null)return applyResponse(p,compose(p,baseline),review)
+    fun compose(p:PlanRequest, baseline:List<PlannedSession>,review:Engine15Feedback.DraftReview?=null,pattern:Engine15RunHistory?=null):List<PlannedSession> {
+        if(review!=null)return applyResponse(p,compose(p,baseline,pattern=pattern),review)
         val result=mutableListOf<PlannedSession>()
         var priorBuildWork:Int?=null
         for((w,rows) in baseline.groupBy { week(p,it) }.toSortedMap()) {
@@ -84,8 +84,8 @@ internal object Engine15RunningProgram {
             }
             var budget=units(minOf(runs.sumOf { it.distanceKm ?: 0.0 },Engine15.runningCeiling(w,p.weeklyKm,p.targetWeeklyKm)))
             if(recovery && prior.isNotEmpty()) budget=minOf(budget,units(prior.sumOf { it.distanceKm ?: 0.0 }*0.8))
-            val exposure=if(p.longestKm>0) p.longestKm + if(p.returning && w<2)0.0 else 1.0
-                else p.weeklyKm/runs.size
+            val reportedExposure=if(p.longestKm>0) p.longestKm + if(p.returning && w<2)0.0 else 1.0 else p.weeklyKm/runs.size
+            val exposure=if(p.returning)reportedExposure else maxOf(reportedExposure,pattern?.longKm ?: 0.0)
             val caps=runs.map { s ->
                 val fraction=when(role.getValue(s.id)) { "LONG"->1.0; "ENDURANCE","QUALITY"->0.85; "RECOVERY"->0.6; else->0.8 }
                 val otherMinutes=rows.filter { it.date==s.date && it.id!=s.id }.sumOf { it.minutes }
@@ -93,9 +93,15 @@ internal object Engine15RunningProgram {
                     p.weeklySlots.values.flatten().let { it.size!=it.distinct().size }
                 val available=if(multi || otherMinutes>0) minOf(p.minutes,p.dailyMinutes-otherMinutes) else p.minutes
                 val timeCap=if(p.timeBudgetEnabled) available*60.0/p.planningPace else Double.MAX_VALUE
-                minOf(units(exposure*fraction),units(minOf(timeCap,120.0))).coerceAtLeast(0)
+                val observedCap=pattern?.easyKm?.let { easy -> when(role.getValue(s.id)) {
+                    "EASY"->easy+1.0; "RECOVERY"->easy; "ENDURANCE"->easy*1.25; else->120.0
+                } } ?: 120.0
+                minOf(units(exposure*fraction),units(minOf(timeCap,120.0,observedCap))).coerceAtLeast(0)
             }
-            val weight=runs.map { when(role.getValue(it.id)) { "LONG"->1.8; "ENDURANCE"->1.3; "QUALITY"->1.15; "RECOVERY"->0.65; else->1.0 } }
+            val easyReference=pattern?.easyKm
+            val longReference=pattern?.longKm ?: p.longestKm.takeIf { it>0 }
+            val longWeight=if(easyReference!=null && longReference!=null) (longReference/easyReference).coerceIn(1.0,3.0) else 1.8
+            val weight=runs.map { when(role.getValue(it.id)) { "LONG"->longWeight; "ENDURANCE"->1.3; "QUALITY"->1.15; "RECOVERY"->0.65; else->1.0 } }
             val distance=IntArray(runs.size)
             repeat(minOf(budget,caps.sum())) {
                 val index=runs.indices.filter { distance[it]<caps[it] }
@@ -132,12 +138,40 @@ internal object Engine15RunningProgram {
                         "The weekly and recent-session ceilings bind; no catch-up mileage or measured fitness is inferred.")
             }
             // Freeze the initial work envelope during a mileage build; variation does not imply new fitness.
-            if(!recovery && !taper && workUsed>0 && priorBuildWork==null) priorBuildWork=workUsed
-            val replacements=generated.associateBy { it.id }
+            val finalized=finalizeWeek(generated,p,pattern)
+            val deliveredWork=finalized.sumOf { it.runningPrescription!!.workMeters }
+            if(!recovery && !taper && deliveredWork>0 && priorBuildWork==null) priorBuildWork=deliveredWork
+            val replacements=finalized.associateBy { it.id }
             result+=rows.map { replacements[it.id] ?: it }
         }
         val byId=result.associateBy { it.id }
         return baseline.map { byId.getValue(it.id) }
+    }
+
+    /** Final roles, not requested roles, determine exposure and weekly work limits. */
+    private fun finalizeWeek(generated:List<PlannedSession>,p:PlanRequest,pattern:Engine15RunHistory?):List<PlannedSession> {
+        fun easy(s:PlannedSession,meters:Int,role:String):PlannedSession {
+            if(meters<=0)throw PlanConstraint("The final running roles cannot fit this weekly distance. Review frequency or mileage.")
+            val prescription=RunningPrescription(role,null,listOf(RunningSegment("EASY",meters,"Comfortable conversational running")))
+            return s.copy(distanceKm=meters/1000.0,minutes=minOf(s.minutes,ceil(meters/1000.0*p.planningPace/60).toInt().coerceAtLeast(1)),
+                quality=false,kind=if(role=="LONG")"long" else "easy",title=if(role=="LONG")"Long easy run" else "Easy run",
+                runningPrescription=prescription,steps=steps(prescription),reason=s.reason+" Final role exposure reconciled without redistribution.")
+        }
+        fun cap(s:PlannedSession)=minOf(s.runningPrescription!!.meters,pattern?.easyKm?.let { units(it+1.0)*100 } ?: Int.MAX_VALUE)
+        var runs=generated.map { s -> if(s.runningPrescription?.role=="EASY" && cap(s)<s.runningPrescription.meters)easy(s,cap(s),"EASY") else s }
+        // A role downgrade can shrink the week; recheck long share and work budget on the delivered total.
+        repeat(generated.count { it.quality }+1) {
+            val others=runs.filter { it.kind!="long" }.sumOf { it.runningPrescription!!.meters }
+            runs=runs.map { s ->
+                val maxLong=(floor(others*2.0/3/100+1e-8)*100).toInt()
+                if(runs.size>=3 && s.kind=="long" && s.runningPrescription!!.meters>maxLong)easy(s,maxLong,"LONG") else s
+            }
+            if(runs.sumOf { it.runningPrescription!!.workMeters }>runs.sumOf { it.runningPrescription!!.meters }*0.2+1e-8) {
+                val last=runs.lastOrNull { it.quality }
+                runs=runs.map { if(it.id==last?.id)easy(it,cap(it),"EASY") else it }
+            }
+        }
+        return runs
     }
 
     private fun applyResponse(p:PlanRequest,normal:List<PlannedSession>,review:Engine15Feedback.DraftReview):List<PlannedSession> {

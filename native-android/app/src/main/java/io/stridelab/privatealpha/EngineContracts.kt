@@ -89,9 +89,13 @@ internal data class SetRecord(val exerciseId:String,val set:Int,val reps:Int?=nu
     fun encode()=JSONObject().put("exerciseId",exerciseId).put("set",set).put("reps",reps).put("kg",kg).put("seconds",seconds)
     companion object { fun decode(j:JSONObject)=SetRecord(j.getString("exerciseId"),j.getInt("set"),j.nullInt("reps"),j.nullDouble("kg"),j.nullInt("seconds")) }
 }
-internal data class WorkoutLog(val at:Instant,val minutes:Double?=null,val distanceKm:Double?=null,val effort:Int?=null,val sets:List<SetRecord> = emptyList(),val notes:String="",val performedOn:LocalDate?=null) {
-    fun encode()=JSONObject().put("at",at.toString()).put("minutes",minutes).put("distanceKm",distanceKm).put("effort",effort).put("sets",JSONArray(sets.map { it.encode() })).put("notes",notes).put("performedOn",performedOn?.toString())
-    companion object { fun decode(j:JSONObject)=WorkoutLog(Instant.parse(j.getString("at")),j.nullDouble("minutes"),j.nullDouble("distanceKm"),j.nullInt("effort"),j.getJSONArray("sets").objects().map(SetRecord::decode),j.getString("notes"),j.nullString("performedOn")?.let(LocalDate::parse)) }
+internal data class WorkoutLog(val at:Instant,val minutes:Double?=null,val distanceKm:Double?=null,val effort:Int?=null,val sets:List<SetRecord> = emptyList(),val notes:String="",val performedOn:LocalDate?=null,val completionDifficulty:String?=null,val discomfort:String?=null) {
+    init {
+        require(completionDifficulty==null || completionDifficulty in setOf("As planned","Easier","Harder","Could not finish"))
+        require(discomfort==null || discomfort in setOf("None","Soreness","Pain"))
+    }
+    fun encode()=JSONObject().put("at",at.toString()).put("minutes",minutes).put("distanceKm",distanceKm).put("effort",effort).put("sets",JSONArray(sets.map { it.encode() })).put("notes",notes).put("performedOn",performedOn?.toString()).put("completionDifficulty",completionDifficulty).put("discomfort",discomfort)
+    companion object { fun decode(j:JSONObject)=WorkoutLog(Instant.parse(j.getString("at")),j.nullDouble("minutes"),j.nullDouble("distanceKm"),j.nullInt("effort"),j.getJSONArray("sets").objects().map(SetRecord::decode),j.getString("notes"),j.nullString("performedOn")?.let(LocalDate::parse),j.nullString("completionDifficulty"),j.nullString("discomfort")) }
 }
 internal data class SessionSuggestion(val minutes:Int,val reason:String,val accepted:Boolean=false) {
     fun encode()=JSONObject().put("minutes",minutes).put("reason",reason).put("accepted",accepted)

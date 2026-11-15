@@ -60,4 +60,17 @@ class Engine15HistoryResponseTest {
         assertTrue(pairs.isNotEmpty())
         assertTrue(pairs.all { (a,b) -> a.minutes<b.minutes && a.distanceKm==null })
     }
+    @Test fun lowEffortPainBlocksImmediateDraftAndDifficultyReducesIt() {
+        val h=history(effort=4)
+        val pain=h.copy(sessions=h.sessions.map { it.copy(log=it.log!!.copy(discomfort="Pain")) })
+        try { generate(listOf(pain));fail("Pain must require review") } catch(expected:PlanConstraint) {}
+        val hard=h.copy(sessions=h.sessions.map { it.copy(log=it.log!!.copy(completionDifficulty="Could not finish")) })
+        assertNotEquals(generate(emptyList()).sessions,generate(listOf(hard)).sessions)
+    }
+    @Test fun painWithinWeeklyReviewWindowAlsoBlocksNewDraft() {
+        for(age in listOf(3L,4L,6L)) {
+            val h=history(effort=4,daysAgo=age).let { h -> h.copy(sessions=h.sessions.map { it.copy(log=it.log!!.copy(discomfort="Pain")) }) }
+            try { generate(listOf(h));fail("Pain age=$age must require review") } catch(expected:PlanConstraint) {}
+        }
+    }
 }

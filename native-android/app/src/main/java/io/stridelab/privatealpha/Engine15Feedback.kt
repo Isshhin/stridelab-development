@@ -24,7 +24,7 @@ internal object Engine15Feedback {
         val duplicates=sessions.mapNotNull { it.linkedActivityId }.groupingBy { it }.eachCount().filterValues { it>1 }.keys
         val signals=sessions.filter { it.log?.at?.isAfter(now)!=true }.mapNotNull { evidence(it,asOf,duplicates) }
         if(signals.isEmpty())return null
-        return DraftReview(asOf,signals.maxOf { it.date.plusDays(4) },signals.filter { it.category=="Illness" }.maxOfOrNull { it.date.plusDays(4) },
+        return DraftReview(asOf,signals.maxOf { it.date.plusDays(if(it.category=="Pain")7 else 4) },signals.filter { it.category in setOf("Illness","Pain") }.maxOfOrNull { it.date.plusDays(if(it.category=="Pain")7 else 4) },
             signals.map { "${it.session.id}@${it.session.logRevision}:${it.category}" }.distinct().sorted())
     }
 
@@ -75,12 +75,15 @@ internal object Engine15Feedback {
         // A linked run without an actual WorkoutLog has no recorded effort;
         // missing RPE, partial progress and zero-set strength logs do not imply readiness.
         val performed = log.performedOn ?: return null
-        if (performed > asOf || ChronoUnit.DAYS.between(performed, asOf) !in 0L..3L ||
+        if (performed > asOf || ChronoUnit.DAYS.between(performed, asOf) !in 0L..(if(log.discomfort=="Pain")6L else 3L) ||
             kotlin.math.abs(ChronoUnit.DAYS.between(session.date, performed)) > 2 ||
             log.at.isAfter(asOf.plusDays(2).atStartOfDay(java.time.ZoneOffset.UTC).toInstant())
         ) return null
         if (session.discipline in setOf("str", "cal") &&
             !WorkoutLogValidation.hasPerformedSet(session, log)) return null
+        if(log.discomfort=="Pain") return Evidence(session,performed,"Pain","Reported pain during the completed run")
+        if(log.discomfort=="Soreness" || log.completionDifficulty in setOf("Harder","Could not finish"))
+            return Evidence(session,performed,"Reported difficulty","Reported ${log.completionDifficulty ?: log.discomfort}; no fitness inference")
         val effort = log.effort ?: return null
         if (effort !in 1..10) return null
         val minutes = log.minutes
@@ -133,7 +136,7 @@ internal object Engine15Feedback {
                 .firstOrNull() ?: continue
             // An explicit illness or high effort before quality suggests reviewed
             // rest, never an automatically rewritten "easy" workout with hard steps.
-            val rest = source.category == "Illness" || target.quality
+            val rest = source.category in setOf("Illness","Pain") || target.quality
             val adjusted = if (rest) 0 else floor(
                 target.minutes * if (source.category in setOf("Fatigue", "Soreness")) 0.70 else 0.75
             ).toInt().coerceAtLeast(10).coerceAtMost(target.minutes)
