@@ -385,7 +385,7 @@ internal fun StrideLabTodayScreen(
             if (!hasHistory) {
                 // Stable, draw-only animated notch. Do not recompose a
                 // complex hero card for every spring animation frame.
-                TodaySignedOutHero(notchPosition, onSignIn)
+                TodaySignedOutHero(notchPosition, onOpenTraining)
             } else if (mixedToday) {
                 TodayMixedDayCard(
                     date = date,
@@ -461,7 +461,7 @@ internal fun StrideLabTodayScreen(
                 completed = todayCompleted,
                 total = todaySchedule.size,
                 onOpen = {
-                    if (!hasHistory) onSignIn()
+                    if (!hasHistory) onOpenTraining()
                     else if (plan != null && future != null) onOpenWorkout(plan.id, future.id)
                     else onOpenTraining()
                 }
@@ -2314,7 +2314,7 @@ private fun TodayMultiPlannedCard(
 @Composable
 private fun TodaySignedOutHero(
     notchPosition: State<Float>,
-    onSignIn: () -> Unit
+    onCreatePlan: () -> Unit
 ) {
     val accent = TodayLook.lime
     val cardShape = remember { RoundedCornerShape(19.dp) }
@@ -2363,7 +2363,7 @@ private fun TodaySignedOutHero(
                 modifier = Modifier.fillMaxWidth(.83f)
             )
             Text(
-                "Sign in to see your own training schedule.",
+                "Create your training schedule offline. Cloud backup is optional.",
                 color = TodayLook.black.copy(alpha = .82f),
                 fontSize = 12.sp, lineHeight = 17.sp,
                 modifier = Modifier.fillMaxWidth(.75f),
@@ -2377,7 +2377,7 @@ private fun TodaySignedOutHero(
             )
             Spacer(Modifier.height(6.dp))
             Surface(
-                onClick = onSignIn,
+                onClick = onCreatePlan,
                 shape = RoundedCornerShape(28.dp),
                 color = Color(0xFFEAFB77),
                 modifier = Modifier.height(42.dp).testTag("today-workout-action")
@@ -2389,7 +2389,7 @@ private fun TodaySignedOutHero(
                 ) {
                     Text("▶", color = TodayLook.black, fontSize = 12.sp)
                     Text(
-                        "Sign in", color = TodayLook.black,
+                        "Create plan", color = TodayLook.black,
                         fontSize = 13.sp, fontWeight = FontWeight.Bold
                     )
                 }
@@ -3014,7 +3014,7 @@ private fun TodayNextSession(
                     )
                 } else {
                     Text(
-                        if (signedOut) "Sign in to see your training history."
+                        if (signedOut) "Create a plan on this device without signing in."
                         else if (plan == null) "Create an approved schedule to get started."
                         else "Check your training schedule for future workouts.",
                         color = TodayLook.muted, fontSize = 11.sp
