@@ -47,8 +47,8 @@ class Engine15CoachControlsTest {
                 }
             }
         }
-        compose.onNodeWithTag("workout-planned-move").performClick()
-        compose.onNodeWithTag("workout-planned-missed").performClick()
+        compose.onNodeWithTag("workout-planned-move").performScrollTo().performClick()
+        compose.onNodeWithTag("workout-planned-missed").performScrollTo().performClick()
         compose.runOnIdle {
             assertEquals(1,moved)
             assertEquals(1,markedMissed)
