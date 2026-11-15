@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.drop
     val plannedRun=session.discipline=="run" && session.status in setOf("planned","in_progress")
     var recordingOpen by rememberSaveable(plan.owner,session.id) { mutableStateOf(!plannedRun) }
     var recommendationsOpen by rememberSaveable(plan.owner,session.id) { mutableStateOf(false) }
+    var privateFeedbackOpen by rememberSaveable(plan.owner,session.id) { mutableStateOf(false) }
     var minutes by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.minutes ?: session.log?.minutes?.toString() ?: "") };var distance by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.distance ?: session.log?.distanceKm?.toString() ?: "") };var effort by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.effort ?: session.coachingLog()?.effort?.toString() ?: "") };var notes by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.notes ?: session.log?.notes ?: "") }
     val responseEditable=done && Engine1Engines.canManage(plan) && session.discipline=="run" && plan.engineVersion==ENGINE15_VERSION && plan.status in setOf("approved","paused")
     var difficulty by rememberSaveable(plan.owner,session.id) { mutableStateOf(if(entryDraft!=null)entryDraft.completionDifficulty else session.coachingLog()?.completionDifficulty) }
@@ -259,7 +260,17 @@ import kotlinx.coroutines.flow.drop
         }
         if(done) item { Engine15CoachReviewCard(plan,actions,state.busy,state.message) }
         if(done) item { Text("Completion is your recorded confirmation, not a sensor-verified activity. It appears separately in workout history without invented pace, GPS or heart rate.",style=MaterialTheme.typography.bodySmall) }
-        item { PlanFeedbackForm(plan,actions,session.id) }
+        if(plannedRun) item {
+            TracksideWorkoutAccordion(
+                title="Private plan feedback",
+                subtitle="Optional notes about your workout or the app",
+                expanded=privateFeedbackOpen,
+                onToggle={ privateFeedbackOpen=!privateFeedbackOpen },
+                tag="workout-private-feedback"
+            ) {
+                PlanFeedbackForm(plan,actions,session.id,embedded=true)
+            }
+        } else item { PlanFeedbackForm(plan,actions,session.id) }
     }
     }
     swapId?.let { id -> exercises.find { it.id==id }?.let { original -> ExerciseAlternatives.easier(original)?.let { replacement ->
