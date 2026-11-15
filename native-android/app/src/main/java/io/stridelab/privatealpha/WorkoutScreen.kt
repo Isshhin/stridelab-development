@@ -29,6 +29,8 @@ import kotlinx.coroutines.flow.drop
     var swapId by rememberSaveable(plan.owner,session.id) { mutableStateOf<String?>(null) }
     val done=session.status=="completed";val active=Engine1Engines.canManage(plan) && plan.status in setOf("approved","paused") && session.status in setOf("planned","in_progress")
     val plannedRun=session.discipline=="run" && session.status in setOf("planned","in_progress")
+    var recordingOpen by rememberSaveable(plan.owner,session.id) { mutableStateOf(!plannedRun) }
+    var recommendationsOpen by rememberSaveable(plan.owner,session.id) { mutableStateOf(false) }
     var minutes by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.minutes ?: session.log?.minutes?.toString() ?: "") };var distance by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.distance ?: session.log?.distanceKm?.toString() ?: "") };var effort by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.effort ?: session.coachingLog()?.effort?.toString() ?: "") };var notes by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.notes ?: session.log?.notes ?: "") }
     val responseEditable=done && Engine1Engines.canManage(plan) && session.discipline=="run" && plan.engineVersion==ENGINE15_VERSION && plan.status in setOf("approved","paused")
     var difficulty by rememberSaveable(plan.owner,session.id) { mutableStateOf(if(entryDraft!=null)entryDraft.completionDifficulty else session.coachingLog()?.completionDifficulty) }
@@ -108,7 +110,8 @@ import kotlinx.coroutines.flow.drop
         "${disciplineLabel(session.discipline).uppercase()} · ${session.status.uppercase()}",
         compactTitle=true,dense=plannedRun,
         // Keep all planned-run cards above the persistent floating dock.
-        bottomOverlayPadding=if(plannedRun) 106.dp else 0.dp
+        bottomOverlayPadding=if(plannedRun) 106.dp else 0.dp,
+        hideHeader=plannedRun
     ) {
         if(active && exercises.isNotEmpty()) item { SignalButton("Return to guided workout",{guided=true}) }
         if(plannedRun) item {
@@ -117,7 +120,13 @@ import kotlinx.coroutines.flow.drop
                 target=current,
                 displayTitle=shown.effectiveTitle,
                 coachingReason=shown.reason,
-                onBack=onBack
+                onBack=onBack,
+                planStart=plan.request.start,
+                onMissed=if(active && !state.busy) ({ if(onMissed!=null)onMissed() else missed=true }) else null,
+                onMove=if(active && !state.busy && session.log==null &&
+                    session.id !in plan.request.lockedSessionDays)
+                    ({ if(onMove!=null)onMove() else move=true })
+                else null
             )
         } else item {
             TextButton(onClick=onBack) { Text("Back to Training") }
@@ -129,9 +138,20 @@ import kotlinx.coroutines.flow.drop
         }
         session.linkedActivityId?.let { activityId -> item { SignalCard { Text("LINKED SOURCE RUN",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary);val source=state.activities.find { it.id==activityId };Text(source?.let { "${it.title} · ${it.dateLabel} · ${it.distanceLabel} · ${it.durationLabel}" } ?: "The linked source is not currently cached. Its link and original prescription remain saved.");Text("The manual link confirms your association, not whether every prescribed interval or effort was performed. Manage the link in Activities.",style=MaterialTheme.typography.bodySmall) } } }
         if (plan.engineVersion == ENGINE15_VERSION && Engine1Engines.canManage(plan) && (plan.status == "approved" || current.disclosure != null)) item {
-            Engine15RecommendationReview(plan, actions, state.busy, session.id)
+            if(plannedRun) {
+                TracksideWorkoutAccordion(
+                    title="Workout recommendations",
+                    subtitle="Optional coaching adjustments and guidance",
+                    expanded=recommendationsOpen,
+                    onToggle={ recommendationsOpen=!recommendationsOpen },
+                    tag="workout-recommendations-accordion"
+                ) {
+                    Engine15RecommendationReview(plan,actions,state.busy,
+                        session.id,embedded=true)
+                }
+            } else Engine15RecommendationReview(plan, actions, state.busy, session.id)
         }
-        session.suggestion?.takeUnless { current.disclosure != null }?.let { suggestion -> item { SignalCard {
+        session.suggestion?.takeUnless { current.disclosure != null }?.let { suggestion -> item { TracksideWorkoutNeutralCard {
             Text(if(suggestion.accepted) "RECOVERY CHANGE ACCEPTED" else "SUGGESTED · YOUR CHOICE",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
             Text(suggestion.reason)
             if(!suggestion.accepted&&active) { SignalButton(if(suggestion.minutes==0) "Choose rest for this session" else "Accept lighter alternative",{actions.acceptSuggestion(plan.id,plan.revision,session.id)},!state.busy);Text("Original prescriptions remain saved. No catch-up workout is added.",style=MaterialTheme.typography.bodySmall) }
@@ -176,12 +196,43 @@ import kotlinx.coroutines.flow.drop
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick={restSeconds=ex.rest;restRunning=true}) { Text("Start rest") };TextButton(onClick={restRunning=!restRunning},enabled=restSeconds>0) { Text(if(restRunning) "Pause" else "Resume") } }
             } }
         }
-        if (!rest && session.status!="unassigned") item { SignalCard {
-            Text(if(done) "SAVED WORKOUT" else "ACTUAL WORKOUT RECORD",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
-            if(active)Text(if(entryDraft?.contentKey==currentCandidate?.contentKey)"Entry draft saved on this device · not yet confirmed as training" else "Entries auto-save on this device. Save progress or completion to confirm what you performed.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Only enter values you actually performed. Blank values stay unrecorded; no target is copied into your history.",style=MaterialTheme.typography.bodySmall)
-            NativeDateField("Actual workout date",performedOn,{performedOn=it.take(32)},active)
-            Text("Choose the date you actually trained. It may differ from the scheduled date; older logs may have no recorded workout date.",style=MaterialTheme.typography.bodySmall)
+        if(plannedRun && !rest && session.status!="unassigned") item {
+            Button(
+                onClick={recordingOpen=!recordingOpen},
+                enabled=active,
+                modifier=Modifier.fillMaxWidth().heightIn(min=54.dp)
+                    .testTag("workout-log-toggle"),
+                shape=androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                colors=ButtonDefaults.buttonColors(
+                    containerColor=TracksidePalette.lime,
+                    contentColor=androidx.compose.ui.graphics.Color(0xFF141914)
+                )
+            ) {
+                Text(if(recordingOpen) "Hide recording form" else
+                    if(active) "Log Workout" else "Approve plan to record",
+                    style=MaterialTheme.typography.titleMedium)
+            }
+        }
+        if (!rest && session.status!="unassigned" && (!plannedRun || recordingOpen)) item {
+            TracksideWorkoutNeutralCard(Modifier.testTag("workout-record-form")) {
+            Text(if(done) "SAVED WORKOUT" else "ACTUAL WORKOUT RECORD",
+                style=MaterialTheme.typography.labelMedium,
+                color=TracksidePalette.lime)
+            if(active)Text("Entries auto-save locally as an unconfirmed draft.",
+                style=MaterialTheme.typography.bodySmall,
+                color=TracksidePalette.textMuted)
+            Text("Enter only what you actually performed. Blank fields remain unrecorded.",
+                style=MaterialTheme.typography.bodySmall,
+                color=TracksidePalette.text)
+            if(plannedRun) {
+                TracksideWorkoutDateSelector(performedOn,
+                    {performedOn=it.take(32)},active)
+            } else {
+                NativeDateField("Actual workout date",performedOn,
+                    {performedOn=it.take(32)},active)
+                Text("Choose the actual date; it may differ from the schedule.",
+                    style=MaterialTheme.typography.bodySmall)
+            }
             OutlinedTextField(minutes,{minutes=it.take(64)},label={Text("Actual duration (minutes), optional")},enabled=active,modifier=Modifier.fillMaxWidth().testTag("workout-actual-minutes"))
             if(session.discipline=="run"||session.discipline=="cond") OutlinedTextField(distance,{distance=it.take(64)},label={Text("Actual distance (km), optional")},enabled=active,modifier=Modifier.fillMaxWidth().testTag("workout-actual-distance"))
             OutlinedTextField(effort,{effort=it.take(64)},label={Text("Effort 1–10, optional")},enabled=(active||responseEditable) && !state.busy,modifier=Modifier.fillMaxWidth())
@@ -198,9 +249,9 @@ import kotlinx.coroutines.flow.drop
             session.log?.let { Text("Saved ${it.at} · ${it.sets.size} sets with recorded values",style=MaterialTheme.typography.bodySmall) }
         } }
         formError?.let { item { Text(it,color=MaterialTheme.colorScheme.error) } }
-        if(active) item { SignalButton("Save completed workout",{try {formError=null;actions.record(plan.id,plan.revision,session.id,log(),true)}catch(e:PlanConstraint){formError=e.message}},!state.busy)
+        if(active && (!plannedRun || recordingOpen)) item { SignalButton("Save completed workout",{try {formError=null;actions.record(plan.id,plan.revision,session.id,log(),true)}catch(e:PlanConstraint){formError=e.message}},!state.busy)
             OutlinedButton(onClick={try {formError=null;actions.record(plan.id,plan.revision,session.id,log(),false)}catch(e:PlanConstraint){formError=e.message}},enabled=!state.busy,modifier=Modifier.fillMaxWidth()) { Text("Save progress for offline reopening") }
-            Row { TextButton(onClick={ if(onMissed!=null) onMissed() else missed=true }) { Text("Missed / skipped") };TextButton(onClick={ if(onMove!=null) onMove() else move=true },enabled=session.log==null && session.id !in plan.request.lockedSessionDays) { Text("Move workout") } }
+            if(!plannedRun) Row { TextButton(onClick={ if(onMissed!=null) onMissed() else missed=true }) { Text("Missed / skipped") };TextButton(onClick={ if(onMove!=null) onMove() else move=true },enabled=session.log==null && session.id !in plan.request.lockedSessionDays) { Text("Move workout") } }
         }
         if(responseEditable) item {
             Text("Feedback is saved separately. Original workout measurements and prescriptions stay unchanged.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
