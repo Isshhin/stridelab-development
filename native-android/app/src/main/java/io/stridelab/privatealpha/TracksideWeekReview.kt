@@ -236,6 +236,10 @@ internal fun TracksideWeekReview(
             else "✓ Saved engine prescriptions · approval is a separate action",
             fontSize=11.sp,
             color=if(plan==null) Color(0xFFC5C5C5) else PlanBuilderPalette.accent)
+        if (plan == null && request.runDays > 0) {
+            Spacer(Modifier.height(12.dp))
+            IndependentAndroidResearchPreviewPanel(request)
+        }
         error?.let {
             Spacer(Modifier.height(8.dp))
             Text(it,color=Color(0xFFFF9DA7),fontSize=12.sp,
