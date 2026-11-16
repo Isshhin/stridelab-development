@@ -56,7 +56,7 @@ class Engine15ValidationMatrixTest {
                             val run = dates.filter { it.discipline == "run" }
                             assertEquals(4, run.size)
                             assertEquals(1, run.count { it.kind == "long" })
-                            val volume = run.sumOf { it.distanceKm ?: 0.0 }
+                            val volume = run.sumOf { it.distanceKm ?: it.runningPrescription?.estimatedDistanceKm ?: 0.0 }
                             assertTrue("$id week $w volume cap", volume <=
                                 Engine15.runningCeiling(w, weekly) + 1e-6)
                             assertTrue("$id week $w no invented speed", run.all {
@@ -69,9 +69,15 @@ class Engine15ValidationMatrixTest {
                             assertTrue(volume<=baseline.filter { it.discipline=="run" }.sumOf { it.distanceKm ?: 0.0 }+1e-8)
                             for (session in run) {
                                 if(req.timeBudgetEnabled) assertTrue("$id availability",session.minutes<=req.minutes)
-                                session.distanceKm?.let { km ->
+                                val distance=session.distanceKm ?: session.runningPrescription?.estimatedDistanceKm
+                                distance?.let { km ->
                                     assertTrue("$id exposure",km<=req.longestKm+1.0+1e-8)
-                                    assertEquals(km*1000,session.runningPrescription!!.meters.toDouble(),0.001)
+                                }
+                                if(session.runningPrescription?.mixedSegments!=null) {
+                                    assertNull("$id v2 must not pretend to know exact distance",session.distanceKm)
+                                    assertTrue(session.runningPrescription!!.estimatedDistanceKm!!>0.0)
+                                } else if(session.distanceKm!=null) {
+                                    assertEquals(session.distanceKm*1000,session.runningPrescription!!.meters.toDouble(),0.001)
                                 }
                             }
                             assertTrue(run.sumOf { it.runningPrescription?.workMeters ?: 0 }<=volume*1000*0.2+1e-8)

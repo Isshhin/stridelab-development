@@ -101,9 +101,17 @@ internal fun TracksideTodayHero(session: PlannedSession, onOpen: () -> Unit) {
                     }
                 }
             }
-            val middleLabel = if (running) "DISTANCE" else "EXERCISES"
+            val timeOnly=session.suggestion?.let { it.accepted && it.minutes<session.minutes }==true
+            val mixedEstimate=if(!timeOnly)session.runningPrescription?.estimatedDistanceKm else null
+            val middleLabel = if (running) {
+                if(mixedEstimate!=null)"EST. DISTANCE" else "DISTANCE"
+            } else "EXERCISES"
             val middleValue = if (running)
-                session.distanceKm?.let { String.format(Locale.getDefault(), "%.1f km", it) } ?: "Not set"
+                (if(timeOnly)null else session.distanceKm)?.let {
+                    String.format(Locale.getDefault(), "%.1f km", it)
+                }
+                    ?: mixedEstimate?.let { String.format(Locale.getDefault(), "~%.1f km", it) }
+                    ?: "Not set"
             else session.effectiveExercises.takeIf { it.isNotEmpty() }?.size?.toString() ?: "Not set"
             val status = session.status.replace('_',' ').uppercase(Locale.getDefault())
             BoxWithConstraints(Modifier.fillMaxWidth()) {

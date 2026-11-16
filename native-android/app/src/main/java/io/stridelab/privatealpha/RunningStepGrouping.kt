@@ -71,3 +71,47 @@ internal object RunningStepGrouping {
         return blocks
     }
 }
+
+/** Group only identical persisted v2 repetitions; never invent missing recovery. */
+internal sealed interface MixedRunningStepBlock {
+    data class Single(val segment:RunningStepV2):MixedRunningStepBlock
+    data class Repeat(val times:Int,val work:RunningStepV2,
+        val recovery:RunningStepV2?,val recoveryAfterLast:Boolean):MixedRunningStepBlock
+}
+internal object MixedRunningStepGrouping {
+    fun of(steps:List<RunningStepV2>):List<MixedRunningStepBlock> {
+        val blocks=mutableListOf<MixedRunningStepBlock>()
+        var index=0
+        while(index<steps.size) {
+            val current=steps[index]
+            if(current.purpose=="WORK") {
+                val recovery=steps.getOrNull(index+1)?.takeIf { it.purpose=="RECOVERY" }
+                if(recovery!=null) {
+                    var lastWork=index
+                    var count=1
+                    while(lastWork+2<steps.size &&
+                        steps[lastWork+1]==recovery && steps[lastWork+2]==current) {
+                        count++
+                        lastWork+=2
+                    }
+                    if(count>=2) {
+                        val after=steps.getOrNull(lastWork+1)==recovery
+                        blocks+=MixedRunningStepBlock.Repeat(count,current,recovery,after)
+                        index=lastWork+1+if(after)1 else 0
+                        continue
+                    }
+                }
+                var next=index+1
+                while(next<steps.size && steps[next]==current)next++
+                if(next-index>=2) {
+                    blocks+=MixedRunningStepBlock.Repeat(next-index,current,null,false)
+                    index=next
+                    continue
+                }
+            }
+            blocks+=MixedRunningStepBlock.Single(current)
+            index++
+        }
+        return blocks
+    }
+}

@@ -101,9 +101,9 @@ class Engine15CoachingTest {
         variants.forEach { (goal, repetitions) ->
             val p = Engine15.generate(request(goal = goal, weeks = 4), owner, goal, now)
             val q = week(p, 0).single { it.quality }
-            val work=q.runningPrescription!!.segments.filter { it.purpose=="WORK" }
+            val work=q.runningPrescription!!.mixedSegments!!.filter { it.purpose=="WORK" }
             assertEquals(repetitions,work.size)
-            val meters=work.first().meters
+            val meters=work.first().meters!!
             val expected=if(meters%1000==0) "${meters/1000}K Repeats"
                 else "${meters}m Repeats"
             assertEquals(expected,q.title)
@@ -130,8 +130,8 @@ class Engine15CoachingTest {
             val quality = week(p, 0).single { it.quality }
             if(title!=null)assertEquals(style,title,quality.title)
             else {
-                val meters=quality.runningPrescription!!.segments
-                    .first { it.purpose=="WORK" }.meters
+                val meters=quality.runningPrescription!!.mixedSegments!!
+                    .first { it.purpose=="WORK" }.meters!!
                 assertEquals(if(meters%1000==0) "${meters/1000}K Repeats"
                     else "${meters}m Repeats",quality.title)
             }

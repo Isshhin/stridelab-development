@@ -12,20 +12,71 @@ internal data class RunningSegment(val purpose:String, val meters:Int, val effor
     fun encode()=JSONObject().put("purpose",purpose).put("meters",meters).put("effort",effort)
     companion object { fun decode(j:JSONObject)=RunningSegment(j.getString("purpose"),j.getInt("meters"),j.getString("effort")) }
 }
-internal data class RunningPrescription(val role:String, val family:String?, val segments:List<RunningSegment>) {
+/** Version-2 executable extent. Each step has exactly one target unit. */
+internal data class RunningStepV2(val purpose:String, val effort:String, val meters:Int?=null, val seconds:Int?=null) {
     init {
-        require(role in setOf("RECOVERY","EASY","ENDURANCE","LONG","QUALITY") && segments.isNotEmpty() && segments.size<=50)
-        require(segments.sumOf { it.meters }<=120000)
-        require(if(role=="QUALITY") family in setOf("Threshold","Tempo","Intervals","Hills","Fartlek","Progression") && segments.any { it.purpose=="WORK" }
-            else family==null && segments.none { it.purpose=="WORK" })
+        require(purpose in setOf("WARM_UP","WORK","RECOVERY","COOL_DOWN","EASY"))
+        require((meters!=null) xor (seconds!=null))
+        require(meters==null || meters in 1..120000)
+        require(seconds==null || seconds in 1..14400)
     }
-    val meters get()=segments.sumOf { it.meters }
-    val workMeters get()=segments.filter { it.purpose=="WORK" }.sumOf { it.meters }
-    fun encode()=JSONObject().put("version",1).put("role",role).put("family",family).put("segments",JSONArray(segments.map { it.encode() }))
+    fun encode():JSONObject {
+        val j=JSONObject().put("purpose",purpose).put("effort",effort)
+        if(meters!=null) j.put("meters",meters) else j.put("seconds",seconds)
+        return j
+    }
     companion object {
-        fun decode(j:JSONObject):RunningPrescription {
-            require(j.getInt("version")==1)
-            return RunningPrescription(j.getString("role"),j.nullString("family"),j.getJSONArray("segments").objects().map(RunningSegment::decode))
+        fun decode(j:JSONObject):RunningStepV2 {
+            require(j.has("meters") xor j.has("seconds")) { "A step must have exactly one extent" }
+            return RunningStepV2(j.getString("purpose"),j.getString("effort"),
+                if(j.has("meters")) j.getInt("meters") else null,
+                if(j.has("seconds")) j.getInt("seconds") else null)
+        }
+    }
+}
+internal data class RunningPrescription(
+    val role:String, val family:String?, val segments:List<RunningSegment>,
+    val mixedSegments:List<RunningStepV2>?=null,
+    /** Administrative planning-pace estimate only, never an exact distance target. */
+    val estimatedDistanceKm:Double?=null
+) {
+    init {
+        require(role in setOf("RECOVERY","EASY","ENDURANCE","LONG","QUALITY"))
+        val purposes=if(mixedSegments==null) segments.map { it.purpose } else mixedSegments.map { it.purpose }
+        require(purposes.isNotEmpty() && purposes.size<=50)
+        require(if(role=="QUALITY") family in setOf("Threshold","Tempo","Intervals","Hills","Fartlek","Progression") && "WORK" in purposes
+            else family==null && "WORK" !in purposes)
+        if(mixedSegments==null) {
+            require(segments.sumOf { it.meters }<=120000 && estimatedDistanceKm==null)
+        } else {
+            require(segments.isEmpty())
+            require(mixedSegments.sumOf { it.meters ?: 0 }<=120000)
+            require(mixedSegments.any { it.seconds!=null })
+            require(estimatedDistanceKm!=null && estimatedDistanceKm.isFinite() && estimatedDistanceKm>0.0 && estimatedDistanceKm<=120.0)
+        }
+    }
+    val meters get()=if(mixedSegments==null) segments.sumOf { it.meters } else mixedSegments.sumOf { it.meters ?: 0 }
+    val workMeters get()=if(mixedSegments==null) segments.filter { it.purpose=="WORK" }.sumOf { it.meters }
+        else mixedSegments.filter { it.purpose=="WORK" }.sumOf { it.meters ?: 0 }
+    fun encode():JSONObject = if(mixedSegments==null) {
+        JSONObject().put("version",1).put("role",role).put("family",family).put("segments",JSONArray(segments.map { it.encode() }))
+    } else {
+        JSONObject().put("version",2).put("role",role).put("family",family)
+            .put("segments",JSONArray(mixedSegments.map { it.encode() }))
+            .put("estimatedDistanceKm",estimatedDistanceKm)
+            .put("estimateBasis","PLANNING_PACE_NOT_TARGET")
+    }
+    companion object {
+        fun decode(j:JSONObject):RunningPrescription = when(j.getInt("version")) {
+            1 -> RunningPrescription(j.getString("role"),j.nullString("family"),
+                j.getJSONArray("segments").objects().map(RunningSegment::decode))
+            2 -> {
+                require(j.getString("estimateBasis")=="PLANNING_PACE_NOT_TARGET")
+                RunningPrescription(j.getString("role"),j.nullString("family"),emptyList(),
+                    j.getJSONArray("segments").objects().map(RunningStepV2::decode),
+                    j.getDouble("estimatedDistanceKm"))
+            }
+            else -> throw IllegalArgumentException("Unsupported running prescription version")
         }
     }
 }
@@ -83,7 +134,9 @@ internal object Engine15RunningProgram {
                 continue
             }
             var budget=units(minOf(runs.sumOf { it.distanceKm ?: 0.0 },Engine15.runningCeiling(w,p.weeklyKm,p.targetWeeklyKm)))
-            if(recovery && prior.isNotEmpty()) budget=minOf(budget,units(prior.sumOf { it.distanceKm ?: 0.0 }*0.8))
+            if(recovery && prior.isNotEmpty()) budget=minOf(budget,units(prior.sumOf {
+                it.distanceKm ?: it.runningPrescription?.estimatedDistanceKm ?: 0.0
+            }*0.8))
             val reportedExposure=if(p.longestKm>0) p.longestKm + if(p.returning && w<2)0.0 else 1.0 else p.weeklyKm/runs.size
             val exposure=if(p.returning)reportedExposure else maxOf(reportedExposure,pattern?.longKm ?: 0.0)
             val caps=runs.map { s ->
@@ -148,9 +201,12 @@ internal object Engine15RunningProgram {
             }
             // Freeze the initial work envelope during a mileage build; variation does not imply new fitness.
             val finalized=finalizeWeek(generated,p,pattern)
-            val deliveredWork=finalized.sumOf { it.runningPrescription!!.workMeters }
+            // Convert only AFTER the legacy dose, spacing and long-share checks.
+            // Do not fabricate distance to fill an unused quality-session allowance.
+            val converted=reconcileMixedWeek(finalized,finalized.map { toMixedSupportSteps(p,it) },pattern,p)
+            val deliveredWork=converted.sumOf { it.runningPrescription!!.workMeters }
             if(!recovery && !taper && deliveredWork>0 && priorBuildWork==null) priorBuildWork=deliveredWork
-            val replacements=finalized.associateBy { it.id }
+            val replacements=converted.associateBy { it.id }
             result+=rows.map { replacements[it.id] ?: it }
         }
         val byId=result.associateBy { it.id }
@@ -183,6 +239,97 @@ internal object Engine15RunningProgram {
         return runs
     }
 
+    /** Recheck original hard-work and long-run limits on the smaller mixed-unit week. */
+    private fun reconcileMixedWeek(
+        originals:List<PlannedSession>,converted:List<PlannedSession>,
+        pattern:Engine15RunHistory?,p:PlanRequest
+    ):List<PlannedSession> {
+        val source=originals.associateBy { it.id }
+        fun budgetKm(s:PlannedSession)=s.distanceKm ?: s.runningPrescription?.estimatedDistanceKm ?: 0.0
+        fun toEasy(s:PlannedSession):PlannedSession {
+            val old=source.getValue(s.id)
+            val oldMeters=old.runningPrescription!!.meters
+            val limit=pattern?.easyKm?.let { units(it+1.0)*100 } ?: Int.MAX_VALUE
+            val meters=minOf(oldMeters,limit)
+            if(meters<=0)throw PlanConstraint("A quality fallback cannot fit even a short easy run.")
+            val prescription=RunningPrescription("EASY",null,listOf(RunningSegment("EASY",meters,
+                "Conversational easy run; quality withheld to preserve weekly workload limits")))
+            return old.copy(distanceKm=meters/1000.0,
+                minutes=minOf(old.minutes,ceil(meters/1000.0*p.planningPace/60.0).toInt().coerceAtLeast(1)),
+                kind="easy",quality=false,title="Easy run",runningPrescription=prescription,
+                steps=steps(prescription),reason=old.reason+" Quality withheld after timed-step reconciliation; no catch-up.")
+        }
+        var runs=converted
+        repeat(converted.count { it.quality }+2) {
+            if(runs.size>=3) {
+                val otherKm=runs.filter { it.kind!="long" }.sumOf(::budgetKm)
+                val maximum=units(otherKm*2.0/3.0)*100
+                runs=runs.map { s ->
+                    if(s.kind=="long" && (s.distanceKm ?: 0.0)*1000>maximum+1e-8) {
+                        if(maximum<=0)throw PlanConstraint("Mixed-unit session constraints leave no valid long-run distance.")
+                        val prescription=RunningPrescription("LONG",null,listOf(
+                            RunningSegment("EASY",maximum,"Comfortable conversational running")))
+                        s.copy(distanceKm=maximum/1000.0,
+                            minutes=minOf(s.minutes,ceil(maximum/1000.0*p.planningPace/60.0).toInt().coerceAtLeast(1)),
+                            runningPrescription=prescription,steps=steps(prescription),
+                            reason=s.reason+" Reduced to preserve 40% long-run share after mixed-unit conversion.")
+                    } else s
+                }
+            }
+            val weeklyMeters=runs.sumOf { budgetKm(it)*1000 }
+            val workMeters=runs.sumOf { it.runningPrescription?.workMeters ?: 0 }
+            if(workMeters>weeklyMeters*0.20+1e-8) {
+                val last=runs.lastOrNull { it.quality }
+                if(last!=null)runs=runs.map { if(it.id==last.id)toEasy(it) else it }
+            }
+        }
+        return runs
+    }
+
+    /**
+     * Q2 only: preserve the original WORK and RECOVERY distances and work-dose
+     * policy. Replace remainder-funded WARM_UP / COOL_DOWN with bounded times.
+     * Old approved v1 plans are never rewritten.
+     */
+    private fun toMixedSupportSteps(p:PlanRequest,s:PlannedSession):PlannedSession {
+        if(!s.quality)return s
+        val legacy=s.runningPrescription ?: return s
+        if(legacy.mixedSegments!=null)return s
+        val originalKm=s.distanceKm ?: return s
+        val known=legacy.segments.filter { it.purpose!="WARM_UP" && it.purpose!="COOL_DOWN" }
+        val warmChoices=if(legacy.family in setOf("Hills","Intervals")) listOf(12,10) else listOf(10)
+        var selected:List<RunningStepV2>?=null
+        var estimatedKm=0.0
+        var estimatedMinutes=0
+        for(warm in warmChoices) {
+            for(cool in listOf(8,5)) {
+                val mixed=buildList {
+                    add(RunningStepV2("WARM_UP","Easy conversational running",seconds=warm*60))
+                    known.forEach { add(RunningStepV2(it.purpose,it.effort,meters=it.meters)) }
+                    add(RunningStepV2("COOL_DOWN","Easy running or walking",seconds=cool*60))
+                }
+                val knownMeters=mixed.sumOf { it.meters ?: 0 }
+                val supportSeconds=mixed.sumOf { it.seconds ?: 0 }
+                val km=(knownMeters+supportSeconds*1000.0/p.planningPace)/1000.0
+                val minutes=ceil((supportSeconds+knownMeters*p.planningPace/1000.0)/60.0).toInt()
+                if(km<=originalKm+1e-8 && (!p.timeBudgetEnabled || minutes<=s.minutes)) {
+                    selected=mixed;estimatedKm=km;estimatedMinutes=minutes
+                    break
+                }
+            }
+            if(selected!=null)break
+        }
+        if(selected==null) {
+            val easy=RunningPrescription("EASY",null,listOf(RunningSegment("EASY",legacy.meters,
+                "Easy conversational running; the quality set did not fit timed support-step minimums")))
+            return s.copy(quality=false,kind="easy",title="Easy run",runningPrescription=easy,
+                steps=steps(easy),reason=s.reason+" Quality withheld: bounded warm-up, work, recovery and cool-down cannot fit the allocated session.")
+        }
+        val prescription=RunningPrescription("QUALITY",legacy.family,emptyList(),selected,estimatedKm)
+        return s.copy(distanceKm=null,minutes=estimatedMinutes,runningPrescription=prescription,
+            steps=steps(prescription),reason=s.reason+" Mixed-unit Q2 prescription: warm-up/cool-down are bounded time targets; total distance is an estimate only. Unused distance is not redistributed.")
+    }
+
     private fun applyResponse(p:PlanRequest,normal:List<PlannedSession>,review:Engine15Feedback.DraftReview):List<PlannedSession> {
         fun reduced(s:PlannedSession,meters:Int?,minutes:Int,reason:String):PlannedSession {
             if(meters!=null && meters<=0)throw PlanConstraint("The reviewed recovery target is too small for a distance session. Review running frequency or choose rest.")
@@ -203,7 +350,7 @@ internal object Engine15RunningProgram {
         }
         val corrected=limited.groupBy { week(p,it) }.values.flatMap { rows ->
             val runs=rows.filter { it.discipline=="run" }
-            val others=runs.filter { it.kind!="long" }.sumOf { it.distanceKm ?: 0.0 }
+            val others=runs.filter { it.kind!="long" }.sumOf { it.distanceKm ?: it.runningPrescription?.estimatedDistanceKm ?: 0.0 }
             rows.map { s ->
                 val maximum=units(others*2.0/3)*100
                 if(runs.size<3 || s.discipline!="run" || s.kind!="long" || s.distanceKm==null || s.distanceKm*1000<=maximum+1e-8)s
@@ -285,8 +432,13 @@ internal object Engine15RunningProgram {
         "QUALITY"->"A bounded work dose with explicit recoveries; future variation is provisional."
         else->"Build repeatable conversational running, without adding another demanding session."
     }
-    private fun steps(p:RunningPrescription)=p.segments.mapIndexed { i,s ->
-        val label=when(s.purpose) { "WARM_UP"->"warm-up"; "COOL_DOWN"->"cool-down"; "WORK"->"work"; "RECOVERY"->"recovery"; else->"easy running" }
-        "${i+1}. ${s.meters} m $label — ${s.effort}."
+    private fun steps(p:RunningPrescription):List<String> {
+        fun label(purpose:String)=when(purpose) { "WARM_UP"->"warm-up"; "COOL_DOWN"->"cool-down"; "WORK"->"work"; "RECOVERY"->"recovery"; else->"easy running" }
+        return p.mixedSegments?.mapIndexed { i,s ->
+            val extent=if(s.meters!=null) s.meters.toString()+" m" else s.seconds.toString()+" s"
+            (i+1).toString()+". "+extent+" "+label(s.purpose)+" — "+s.effort+"."
+        } ?: p.segments.mapIndexed { i,s ->
+            (i+1).toString()+". "+s.meters+" m "+label(s.purpose)+" — "+s.effort+"."
+        }
     }
 }

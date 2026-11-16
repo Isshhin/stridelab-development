@@ -92,7 +92,7 @@ internal object Engine15 : PlanGenerationEngine {
         check(adapted.filter { it.discipline!="run" }.all { it==originalById.getValue(it.id) })
         for ((week,sessions) in adapted.groupBy { weekIndex(request,it) }) {
             val original=baseline.sessions.filter { weekIndex(request,it)==week && it.discipline=="run" }
-            check(sessions.filter { it.discipline=="run" }.sumOf { it.distanceKm ?: 0.0 } <= original.sumOf { it.distanceKm ?: 0.0 }+1e-8)
+            check(sessions.filter { it.discipline=="run" }.sumOf { it.distanceKm ?: it.runningPrescription?.estimatedDistanceKm ?: 0.0 } <= original.sumOf { it.distanceKm ?: 0.0 }+1e-8)
         }
         val options=if(includeAlternatives && request.targetWeeklyKm!=null && adapted.filter { it.discipline=="run" }.all { it.distanceKm!=null }) {
             val peak=adapted.filter { it.discipline=="run" }.groupBy { weekIndex(request,it) }.values.maxOfOrNull { rows -> rows.sumOf { it.distanceKm ?: 0.0 } } ?: 0.0
@@ -150,10 +150,18 @@ internal object Engine15 : PlanGenerationEngine {
         if (request.qualityCount > (request.recentQualitySessionsPerWeek ?: 1))
             notes += "QUALITY_FREQUENCY_REVIEW: Requested quality exceeds the reported recent weekly pattern. Unknown history supports at most one introductory controlled session, not an inferred twice-weekly tolerance."
         val runs = sessions.filter { it.discipline == "run" }
-        val peak = runs.groupBy { weekIndex(request,it) }.values.maxOfOrNull { week -> week.sumOf { it.distanceKm ?: 0.0 } } ?: 0.0
+        val peak = runs.groupBy { weekIndex(request,it) }.values.maxOfOrNull { week ->
+            week.sumOf { it.distanceKm ?: it.runningPrescription?.estimatedDistanceKm ?: 0.0 }
+        } ?: 0.0
+        if(runs.any { it.runningPrescription?.mixedSegments!=null })
+            notes += "MIXED_UNIT_ESTIMATES: Planned warm-up/cool-down are timed. Mixed workout distance is estimated from planning pace, not an exact target. Unused allocated mileage is not redistributed. Estimated peak is about ${roundDownKm(peak)} km/week."
         request.targetWeeklyKm?.let { target ->
-            if (runs.any { it.distanceKm == null }) notes += "TARGET_FEASIBILITY_UNKNOWN: Time-only sessions cannot establish progress toward a kilometre target. Enter a recent running baseline before a mileage build."
-            else if (peak + 0.01 < target) notes += "TARGET_NOT_REACHED: Requested $target km/week; this constrained schedule peaks at ${roundDownKm(peak)} km. Review recent session exposure, running days and actual completed weeks before choosing a new build or timeline."
+            if(runs.any { it.distanceKm==null && it.runningPrescription?.mixedSegments==null })
+                notes += "TARGET_FEASIBILITY_UNKNOWN: Time-only running cannot establish progress toward a kilometre target."
+            else if(runs.any { it.runningPrescription?.mixedSegments!=null }) {
+                if(peak+0.01<target) notes += "ESTIMATED_TARGET_SHORTFALL: Target $target km/week; mixed-unit estimated peak is ${roundDownKm(peak)} km/week. This is not an exact distance target and no catch-up running is prescribed."
+            } else if(peak+0.01<target)
+                notes += "TARGET_NOT_REACHED: Requested $target km/week; this constrained schedule peaks at ${roundDownKm(peak)} km. Review recent session exposure, running days and actual completed weeks before choosing a new build or timeline."
         }
         if (request.returning) notes += "RETURN_REASSESSMENT: This reduced return schedule does not establish regained capacity. Review completed easy weeks and symptoms before regenerating with a current baseline; do not automatically remove the return restriction."
         if (request.goal in setOf("Improve 5K","Improve 10K","Half marathon","Marathon"))
