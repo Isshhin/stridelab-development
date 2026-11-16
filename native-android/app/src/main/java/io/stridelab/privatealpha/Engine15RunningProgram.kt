@@ -178,12 +178,22 @@ internal object Engine15RunningProgram {
                 val observedCap=pattern?.easyKm?.let { easy -> when(role.getValue(s.id)) {
                     "EASY"->easy+1.0; "RECOVERY"->easy; "ENDURANCE"->easy*1.25; else->120.0
                 } } ?: 120.0
-                minOf(units(exposure*fraction),units(minOf(timeCap,120.0,observedCap))).coerceAtLeast(0)
-            }
-            runs.forEachIndexed { i,s ->
-                ledger?.record(w,"SESSION_LIMIT","SESSION_EXPOSURE_CAP",
-                    s.distanceKm,caps[i]/10.0,null,
-                    "session=${s.id}; role=${role.getValue(s.id)}; evaluated cap only, not an executed distance reduction")
+                val exposureTenths=units(exposure*fraction)
+                val effective=minOf(exposureTenths,
+                    units(minOf(timeCap,120.0,observedCap))).coerceAtLeast(0)
+                ledger?.record(w,"SESSION_LIMIT","REPORTED_EXPOSURE_CANDIDATE",
+                    s.distanceKm,exposureTenths/10.0,null,
+                    "session=${s.id}; role=${role.getValue(s.id)}; fraction=$fraction; base exposure=$exposure; considered only")
+                ledger?.record(w,"SESSION_LIMIT","TIME_BUDGET_CANDIDATE",
+                    s.distanceKm,if(p.timeBudgetEnabled)maxOf(0.0,timeCap) else null,null,
+                    "session=${s.id}; explicit time budget enabled=${p.timeBudgetEnabled}; considered only")
+                ledger?.record(w,"SESSION_LIMIT","RECORDED_EXPOSURE_CANDIDATE",
+                    s.distanceKm,if(pattern?.easyKm!=null)observedCap else null,null,
+                    "session=${s.id}; repeated observed easy exposure available=${pattern?.easyKm!=null}; considered only")
+                ledger?.record(w,"SESSION_LIMIT","EFFECTIVE_SESSION_CAP",
+                    s.distanceKm,effective/10.0,null,
+                    "session=${s.id}; minimum of exposure, enabled time, 120 km, observed bounds; considered only")
+                effective
             }
             ledger?.record(w,"WEEK_CAPACITY","SUM_SESSION_CAPS",
                 budget/10.0,caps.sum()/10.0,minOf(budget,caps.sum())/10.0,
@@ -221,6 +231,11 @@ internal object Engine15RunningProgram {
             ledger?.record(w,"ROUNDING","DISTANCE_ROUNDING",
                 beforeRoundingKm,budget/10.0,distance.sum()/10.0,
                 "Executed grid rounding subject to upstream limits")
+            runs.forEachIndexed { i,session ->
+                ledger?.record(w,"SESSION_ALLOCATION","FINAL_PRE_COMPOSE_ALLOCATION",
+                    session.distanceKm,caps[i]/10.0,distance[i]/10.0,
+                    "session=${session.id}; role=${role.getValue(session.id)}; actual allocated distance before quality/Q2 adjustments")
+            }
             if(distance.any { it<=0 }) throw PlanConstraint("The mileage and recent-session limits cannot support every selected running day. Review mileage or running frequency.")
 
             // This is a distance budget, not a claimed physiological 80/20 distribution.
@@ -278,6 +293,12 @@ internal object Engine15RunningProgram {
             ledger?.record(w,"FINAL","FINAL_PRESCRIPTION",
                 ledger?.runningKm(finalized),null,ledger?.runningKm(converted),
                 "Final distance includes Q2 estimates, not exact target km; quality sessions=${converted.count { it.quality }}")
+            converted.forEach { session ->
+                ledger?.record(w,"FINAL_SESSION","DELIVERED_SESSION_OUTPUT",
+                    runs.firstOrNull { it.id==session.id }?.distanceKm,
+                    null,session.distanceKm ?: session.runningPrescription?.estimatedDistanceKm,
+                    "session=${session.id}; role=${session.runningPrescription?.role}; quality=${session.quality}; mixed_unit_estimate=${session.runningPrescription?.mixedSegments!=null}")
+            }
             val deliveredWork=converted.sumOf { it.runningPrescription!!.workMeters }
             if(!recovery && !taper && deliveredWork>0 && priorBuildWork==null) priorBuildWork=deliveredWork
             val replacements=converted.associateBy { it.id }
