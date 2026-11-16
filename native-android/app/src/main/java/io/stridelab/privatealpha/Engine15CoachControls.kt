@@ -96,8 +96,11 @@ import java.time.LocalDate
             Text("Estimated baseline · %.1f km/week".format(detected.weeklyKm),
                 style=MaterialTheme.typography.titleMedium,
                 modifier=Modifier.testTag("running-history-auto-baseline"))
-            Text("${detected.weeks.size} completed calendar weeks with recorded runs. Automatically prefilled for new plans; edit your usual mileage above if records are incomplete.",
+            Text("${detected.weeks.size} completed calendar weeks with recorded runs. Used when no existing baseline is set; previously chosen mileage is preserved.",
                 style=MaterialTheme.typography.bodySmall)
+            TextButton(onClick={onUse(detected.weeklyKm)}) {
+                Text("Use estimated mileage")
+            }
             TextButton(onClick={manualOpen=!manualOpen}) {
                 Text(if(manualOpen) "Hide manual week selection" else "Select different weeks")
             }
