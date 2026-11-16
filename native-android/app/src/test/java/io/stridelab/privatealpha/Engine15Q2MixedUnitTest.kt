@@ -151,7 +151,7 @@ class Engine15Q2MixedUnitTest {
         assertTrue(plan.sessions.all { it.minutes<=30 })
         assertTrue(plan.sessions.all { session ->
             session.runningPrescription?.mixedSegments?.any { step ->
-                step.purpose=="COOL_DOWN" && step.seconds in 300..480
+                step.purpose=="COOL_DOWN" && step.seconds?.let { it in 300..480 }==true
             } ?: true
         })
     }
