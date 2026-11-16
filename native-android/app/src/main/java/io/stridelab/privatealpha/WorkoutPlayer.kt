@@ -135,7 +135,7 @@ import org.json.JSONObject
             }
             (error ?: saveNotice)?.let { item { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.semantics { liveRegion=LiveRegionMode.Polite }) } }
         }
-        Surface(tonalElevation=3.dp) { Column(Modifier.padding(horizontal=22.dp,vertical=12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+        Surface(Modifier.padding(bottom=106.dp),tonalElevation=3.dp) { Column(Modifier.padding(horizontal=22.dp,vertical=12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
             // Stable touch targets: image decoding and scrolling must not move these controls.
             if(!resting)Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick={holdRunning=false;showGuide=true},modifier=Modifier.weight(1f).heightIn(min=48.dp)) { Text("Form guide") }

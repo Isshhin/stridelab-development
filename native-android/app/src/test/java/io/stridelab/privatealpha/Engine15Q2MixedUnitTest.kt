@@ -158,4 +158,27 @@ class Engine15Q2MixedUnitTest {
             } ?: true
         })
     }
+
+    @Test fun acceptedTimeOnlyAlternativeDoesNotRestoreMixedEstimatedDistanceAsTarget() {
+        val original=RunningPrescription("QUALITY","Threshold",emptyList(),
+            mixedSegments=listOf(
+                RunningStepV2("WARM_UP","Easy",seconds=600),
+                RunningStepV2("WORK","Controlled",meters=2000),
+                RunningStepV2("COOL_DOWN","Easy",seconds=480)),
+            estimatedDistanceKm=4.3)
+        val session=PlannedSession("mixed-target",date.plusDays(1),"run","Threshold",40,null,
+            "quality",quality=true,runningPrescription=original,
+            suggestion=SessionSuggestion(30,
+                "${Engine15Feedback.RULE_ID}: reviewed alternative",accepted=true))
+        val plan=PlanSnapshot("mixed-alternative",owner,ENGINE15_VERSION,ENGINE15_POLICY,now,
+            request(),listOf(session),emptyList(),status="approved")
+
+        val shown=Engine15SessionPresentation.forSession(plan,session.id)
+        assertEquals(Engine15SessionPresentation.State.ACCEPTED_TIME_ONLY,shown.state)
+        assertNull(shown.currentDistanceTargetKm)
+        val restored=PlanSnapshot.decode(plan.encode(),owner)
+        assertEquals(plan,restored)
+        assertNull(Engine15SessionPresentation.forSession(restored,session.id).currentDistanceTargetKm)
+        assertEquals(4.3,restored.sessions.single().runningPrescription!!.estimatedDistanceKm!!,0.0)
+    }
 }

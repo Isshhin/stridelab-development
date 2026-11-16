@@ -380,6 +380,11 @@ internal fun StrideLabTodayScreen(
                 onNext = { selectedDay = date.plusWeeks(1).toEpochDay() }
             )
         }
+        state.message?.takeIf(String::isNotBlank)?.let { message ->
+            item(key = "today-status-message") {
+                SignalCard { Text(message, style = MaterialTheme.typography.bodyMedium) }
+            }
+        }
         if (selectedPage == "all") {
         item(key = "today-hero") {
             if (!hasHistory) {
@@ -1588,6 +1593,7 @@ private fun TodayCompactEmptyDay(online: Boolean) {
             Text(
                 "Nothing scheduled or saved",
                 color = TodayLook.text, fontSize = 14.sp,
+                lineHeight = 18.sp,
                 fontWeight = FontWeight.SemiBold
             )
         }
@@ -1595,6 +1601,7 @@ private fun TodayCompactEmptyDay(online: Boolean) {
             if (online) "No activity or workout for this date."
             else "Offline · based on saved records and schedule.",
             color = TodayLook.muted, fontSize = 11.sp,
+            lineHeight = 14.sp,
             modifier = Modifier.padding(start = 16.dp)
         )
     }

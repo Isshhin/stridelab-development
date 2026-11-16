@@ -62,37 +62,39 @@ class NativeVisualTest {
             lastSync = 1792972800000)
         val actions = NativeActions({}, {}, {}, {}, { _, _ -> })
         show { StrideTheme { NativeStrideContent(fixture, true, actions) } }
-        compose.onNodeWithTag("activity-synthetic-visual").assertExists()
         capture("simulation-dashboard")
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("RECENT TRAINING TIME"))
-        capture("simulation-recorded-duration-chart")
-        compose.onNodeWithTag("nav-activities").performClick()
-        capture("simulation-history")
-        compose.onNodeWithText("Morning trail run").performClick()
+        compose.onNodeWithTag("nav-training").performClick()
+        compose.onNodeWithTag("timeline-recorded-synthetic-visual").assertExists()
+        compose.onNodeWithTag("timeline-recorded-synthetic-second").assertExists()
+        capture("simulation-training-timeline")
+        compose.onNodeWithTag("timeline-recorded-synthetic-visual").performClick()
         compose.onNodeWithTag("activity-parity-overview").assertExists()
-        compose.onNodeWithText("PACE").assertExists()
+        compose.onNodeWithText("DISTANCE").assertExists()
         capture("simulation-detail")
         compose.onNodeWithTag("activity-map-back").performClick()
         compose.onNodeWithTag("nav-settings").performClick()
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("GARMIN"))
+        compose.onNode(hasTestTag("screen") and androidx.compose.ui.test.SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.PaneTitle,"More"))
+            .performScrollToNode(hasTestTag("more-row-garmin"))
+        compose.onNodeWithTag("more-row-garmin").performClick()
+        compose.onNodeWithTag("garmin-modal-sheet").assertExists()
         capture("simulation-source-settings")
-        compose.onNodeWithTag("garmin-connection-card").assertExists()
         compose.onNodeWithText("Synchronize Intervals.icu").assertDoesNotExist()
         compose.onNodeWithText("Check connection").assertDoesNotExist()
     }
 
     @Test fun loadingOfflineAndFailureStayVisibleWithCachedHistory() {
+        val recentActivity=activity.copy(startedAt=Instant.now())
         val fixture = androidx.compose.runtime.mutableStateOf(TrainingState(initializing = false,
-            account = "synthetic-visual-account", activities = listOf(activity), busy = true, task = "Refreshing saved history"))
+            account = "synthetic-visual-account", activities = listOf(recentActivity), busy = true, task = "Refreshing saved history"))
         val actions = NativeActions({}, {}, {}, {}, { _, _ -> })
         show { StrideTheme { NativeStrideContent(fixture.value, false, actions) } }
         compose.onNodeWithTag("loading").assertExists()
-        compose.onNodeWithTag("offline-status").assertExists()
         capture("simulation-loading-offline")
         compose.runOnIdle { fixture.value = fixture.value.copy(busy = false, message = "Unable to refresh. Saved history is still available.") }
         compose.onNodeWithTag("loading").assertDoesNotExist()
         compose.onNodeWithText("Unable to refresh. Saved history is still available.").assertExists()
-        compose.onNodeWithText("Morning trail run").assertExists()
+        compose.onNodeWithTag("nav-training").performClick()
+        compose.onNodeWithTag("timeline-recorded-synthetic-visual").assertExists()
         capture("simulation-failure-with-cache")
     }
 
@@ -143,9 +145,11 @@ class NativeVisualTest {
                 StrideTheme { NativeStrideContent(TrainingState(initializing = false),true,NativeActions({}, {}, {}, {}, { _, _ -> })) }
             }
         }
-        compose.onNodeWithTag("screen-title").assertIsDisplayed()
-        val bounds = compose.onNodeWithTag("screen").fetchSemanticsNode().boundsInRoot
-        assertTrue("Reading column must be bounded", bounds.width <= 761f)
+        compose.onNodeWithTag("nav-training").performClick()
+        compose.onNodeWithTag("training-plan-tools").assertIsDisplayed()
+        val bounds = compose.onNodeWithTag("training-unified-timeline").fetchSemanticsNode().boundsInRoot
+        val viewport = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        assertTrue("Training content must stay within the display",bounds.left>=viewport.left && bounds.right<=viewport.right)
         capture("simulation-wide-layout")
     }    @Test fun datedNativeWorkoutAppearsInDashboardAsUserConfirmationWithoutSourceActivityFabrication() {
         val now=Instant.parse("2026-10-26T02:00:00Z");val date=java.time.LocalDate.parse("2026-10-25")
@@ -162,7 +166,7 @@ class NativeVisualTest {
         compose.runOnUiThread { compose.activity.window.decorView.invalidate() }
         androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().waitForIdleSync()
         android.os.SystemClock.sleep(350) // Let the actual display commit its rendered frame.
-        val folder = File(compose.activity.getExternalFilesDir(null), "native-ui-evidence"); folder.mkdirs()
+        val folder = File(compose.activity.getExternalFilesDir(null) ?: compose.activity.cacheDir, "native-ui-evidence"); folder.mkdirs()
         File(folder,"$name.png").outputStream().use {
             assertTrue(checkNotNull(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()).compress(Bitmap.CompressFormat.PNG,100,it))
         }

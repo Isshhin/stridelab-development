@@ -1336,7 +1336,6 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-start-date").assertExists()
-        compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("available-day-6").assertExists()
         compose.onNodeWithText("Generate My Plan").assertExists()
         compose.onNodeWithText("Your training blueprint").assertDoesNotExist()

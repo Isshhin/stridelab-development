@@ -26,7 +26,8 @@ class ActivityIntelligenceUiTest {
         compose.onNodeWithTag("activity-insights").assertIsDisplayed()
         compose.onNodeWithTag("activity-insights-toggle").performClick()
         compose.onNodeWithText("Effort, terrain and conditions may differ.",substring=true).assertIsDisplayed()
-        compose.onNodeWithText("not a fitness, recovery or training-readiness assessment",substring=true).assertIsDisplayed()
+        compose.onNodeWithText("not a fitness, recovery or training-readiness assessment",substring=true)
+            .performScrollTo().assertIsDisplayed()
         // An expanded approved activity sheet consumes Back before the route.
         compose.onNodeWithTag("activity-map-back").performClick()
         compose.onNodeWithTag("activity-map-hero").assertExists()
