@@ -70,7 +70,9 @@ internal object Engine15 : PlanGenerationEngine {
         request: PlanRequest, owner: String, id: String, now: Instant
     ): PlanSnapshot = generateProgram(request,owner,id,now,null)
 
-    private fun generateProgram(request:PlanRequest,owner:String,id:String,now:Instant,review:Engine15Feedback.DraftReview?,pattern:Engine15RunHistory?=null,includeAlternatives:Boolean=true):PlanSnapshot {
+    private fun generateProgram(request:PlanRequest,owner:String,id:String,now:Instant,
+        review:Engine15Feedback.DraftReview?,pattern:Engine15RunHistory?=null,
+        includeAlternatives:Boolean=true,ledger:Engine15WorkloadLedger?=null):PlanSnapshot {
         validate(request)
         if(request.runDays>0 && review?.illnessThrough!=null && request.start<=review.illnessThrough && request.start.plusWeeks(request.weeks.toLong())>review.asOf)
             throw PlanConstraint("Recent reported pain or illness needs recovery review before a new immediate running plan. Choose a later start or review your current records; no catch-up training is prescribed.")
@@ -85,7 +87,7 @@ internal object Engine15 : PlanGenerationEngine {
                 request.copy(policyChoice = "coordinated"), owner, id, now)
             else -> Engine1.generate(request.copy(policyChoice = "baseline"), owner, id, now)
         }
-        val adapted = Engine15RunningProgram.compose(request,baseline.sessions,review,pattern)
+        val adapted = Engine15RunningProgram.compose(request,baseline.sessions,review,pattern,ledger)
         Engine15SessionLocks.validateOutput(request, adapted)
         check(adapted.map { it.id to it.date } == baseline.sessions.map { it.id to it.date })
         val originalById=baseline.sessions.associateBy { it.id }
@@ -150,6 +152,22 @@ internal object Engine15 : PlanGenerationEngine {
     fun generateWithHistory(request:PlanRequest,owner:String,history:List<PlanSnapshot>,
         id:String=java.util.UUID.randomUUID().toString(),now:Instant=Instant.now()):PlanSnapshot =
         generateProgram(request,owner,id,now,Engine15Feedback.reviewForNewDraft(owner,history,now),Engine15RunHistory.assess(owner,history,now))
+
+    /**
+     * R0 read-only diagnostic path: same engine and policies, deterministic ID.
+     * No change to saved plans or production generate/generateWithHistory paths.
+     * The ledger contains modeled prescriptions, never athlete outcomes.
+     */
+    internal fun diagnoseWorkload(
+        request:PlanRequest,owner:String,id:String,now:Instant,
+        history:List<PlanSnapshot> = emptyList()
+    ):Pair<PlanSnapshot,Engine15WorkloadLedger> {
+        val ledger=Engine15WorkloadLedger()
+        val review=if(history.isEmpty())null else Engine15Feedback.reviewForNewDraft(owner,history,now)
+        val pattern=if(history.isEmpty())null else Engine15RunHistory.assess(owner,history,now)
+        val plan=generateProgram(request,owner,id,now,review,pattern,ledger=ledger)
+        return plan to ledger
+    }
 
     private fun coachingReview(request: PlanRequest, sessions: List<PlannedSession>): List<String> {
         if (request.runDays == 0) return emptyList()
