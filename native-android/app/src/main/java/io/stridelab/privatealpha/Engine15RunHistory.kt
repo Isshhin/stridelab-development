@@ -14,7 +14,9 @@ internal data class Engine15RunHistory(
     val evidenceIds:List<String>,
     val thresholdWorkKm:Double?=null,
     /** Explicitly completed quality-work distance, by the matching workout family. */
-    val qualityWorkKmByFamily:Map<String,Double> = emptyMap()
+    val qualityWorkKmByFamily:Map<String,Double> = emptyMap(),
+    /** Observed qualified work total per week; protects against multiplying one dose across two sessions. */
+    val verifiedWeeklyQualityWorkKm:Double? = null
 ) {
     fun verifiedWorkKm(family:String):Double? =
         qualityWorkKmByFamily[family] ?: if(family=="Threshold")thresholdWorkKm else null
@@ -87,9 +89,13 @@ internal data class Engine15RunHistory(
                 qualifiedRows+=rows
             }
             if(easy==null && long==null && approvedByFamily.isEmpty())return null
+            val qualifiedWeekTotals=qualifiedRows.groupBy {
+                it.coachingLog()!!.performedOn!!.with(java.time.DayOfWeek.MONDAY)
+            }.values.map { week -> week.sumOf { it.coachingLog()!!.qualityWorkKm!! } }
+            val weeklyCeiling=qualifiedWeekTotals.takeIf { it.size>=2 }?.let(::median)
             return Engine15RunHistory(
                 easy,long,(observed+qualifiedRows).map { "${it.id}@${it.logRevision}" }.distinct().sorted(),
-                approvedByFamily["Threshold"],approvedByFamily.toSortedMap()
+                approvedByFamily["Threshold"],approvedByFamily.toSortedMap(),weeklyCeiling
             )
         }
     }
