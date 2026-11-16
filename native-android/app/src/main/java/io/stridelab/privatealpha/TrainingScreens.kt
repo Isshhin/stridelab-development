@@ -17,6 +17,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -74,6 +77,74 @@ import kotlinx.coroutines.withContext
         }
     }
 }
+
+/**
+ * No-plan Training state. Match the current native Today/Training palette rather
+ * than the legacy blue-gradient SignalCard. This is presentation only.
+ */
+@Composable
+private fun TrainingEmptyPlanCard(onBuild: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("training-empty-plan-card"),
+        shape = RoundedCornerShape(16.dp),
+        color = TracksidePalette.surface,
+        border = BorderStroke(1.dp, TracksidePalette.outline)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.trackside_figma_calendar),
+                    contentDescription = null,
+                    tint = TracksidePalette.lime,
+                    modifier = Modifier.size(19.dp)
+                )
+                Text(
+                    "YOUR TRAINING PLAN",
+                    color = TracksidePalette.lime,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Text(
+                "Plan your week",
+                color = TracksidePalette.text,
+                fontSize = 19.sp,
+                lineHeight = 24.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                "Running, strength, calisthenics and conditioning in one calendar. Works without signing in.",
+                color = TracksidePalette.textMuted,
+                fontSize = 12.sp,
+                lineHeight = 18.sp
+            )
+            Surface(
+                onClick = onBuild,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    .testTag("training-create-plan")
+                    .semantics { contentDescription = "Create a plan" },
+                shape = RoundedCornerShape(14.dp),
+                color = TracksidePalette.lime
+            ) {
+                Box(Modifier.fillMaxWidth().padding(vertical = 13.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        "Create a plan",
+                        color = TracksidePalette.backgroundTop,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable internal fun TrainingScreen(state:TrainingState,actions:PlanActions,onBuild:()->Unit,onOpen:(String,String)->Unit,onSignIn:()->Unit,onManage:(String,LocalDate)->Unit) {
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) };var selectedDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) };var monthView by rememberSaveable { mutableStateOf(false) };var agendaView by rememberSaveable { mutableStateOf(false) }
     var openedResearchReviewId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -114,7 +185,7 @@ import kotlinx.coroutines.withContext
                         onSelectWeek = { selectedDate = it.toString() }
                     )
                 }
-                if(plan==null) item { SignalCard { Text("Build your training around your life.",style=MaterialTheme.typography.headlineMedium);Text("Running, strength, calisthenics and conditioning share one calendar. Your plan stays on this device when signed out.");SignalButton("Create a plan",onBuild) } }
+                if(plan==null) item { TrainingEmptyPlanCard(onBuild) }
                 if(state.researchDrafts.isNotEmpty()) item {
                     SignalCard {
                         Text("SAVED RESEARCH REVIEWS · NOT PLANS",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
@@ -171,7 +242,7 @@ import kotlinx.coroutines.withContext
                 }
                 if(state.plans.isNotEmpty() || state.researchDrafts.isNotEmpty())
                     item { NativePlanExport(state.plans,state.researchDrafts) }
-                if(state.account!=null || state.localPlanOwner!=null) item { NativePlanImport(state,actions) }
+                if(state.account!=null || state.localPlanOwner!=null) item { NativePlanImport(state,actions,compactEmptyState=plan==null) }
                 if(plan!=null) item { OutlinedButton(onClick=onBuild,modifier=Modifier.fillMaxWidth()) { Text("Create / edit a reviewed draft") } }
                 if(plan?.status in setOf("draft","paused")) item { Spacer(Modifier.height(96.dp)) }
             }
@@ -270,7 +341,7 @@ import kotlinx.coroutines.withContext
     if(week.isNotEmpty()) SignalCard { Text("THIS WEEK",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Text("${week.count { it.status=="completed" }} of ${week.size} sessions completed",style=MaterialTheme.typography.titleLarge);LinearProgressIndicator(progress={week.count { it.status=="completed" }.toFloat()/week.size},modifier=Modifier.fillMaxWidth());Text(week.groupingBy { disciplineLabel(it.discipline) }.eachCount().entries.joinToString(" · ") { "${it.value} ${it.key}" },style=MaterialTheme.typography.bodyMedium) }
 }
 
-@Composable internal fun NativePlanImport(state:TrainingState,actions:PlanActions) {
+@Composable internal fun NativePlanImport(state:TrainingState,actions:PlanActions,compactEmptyState:Boolean=false) {
     val context=LocalContext.current;val scope=rememberCoroutineScope()
     var raw by remember { mutableStateOf<String?>(null) };var description by remember { mutableStateOf<String?>(null) };var error by remember { mutableStateOf<String?>(null) }
     val launcher=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if(uri!=null)scope.launch {
@@ -285,7 +356,24 @@ import kotlinx.coroutines.withContext
             raw=text
         } catch(e:Exception) { error=if(e is PlanConstraint)e.message else "The backup could not be verified. Existing records are unchanged." }
     } }
-    OutlinedButton(onClick={launcher.launch(arrayOf("application/json","text/plain"))},enabled=!state.busy,modifier=Modifier.fillMaxWidth()) { Text("Restore a plan backup") }
+    val restoreAction = { launcher.launch(arrayOf("application/json", "text/plain")) }
+    if (compactEmptyState) {
+        OutlinedButton(
+            onClick = restoreAction,
+            enabled = !state.busy,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                .testTag("training-restore-plan-backup"),
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, TracksidePalette.outline),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = TracksidePalette.textMuted)
+        ) { Text("Restore a plan backup") }
+    } else {
+        OutlinedButton(
+            onClick = restoreAction,
+            enabled = !state.busy,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Restore a plan backup") }
+    }
     error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
     if(raw!=null) AlertDialog(onDismissRequest={raw=null},title={Text("Review backup restore")},text={Text(description ?: "")},confirmButton={TextButton(onClick={raw?.let(actions.restore);raw=null}) { Text("Restore new records") }},dismissButton={TextButton(onClick={raw=null}) { Text("Cancel") }})
 }
