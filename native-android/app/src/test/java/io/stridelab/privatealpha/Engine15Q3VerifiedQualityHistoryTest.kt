@@ -118,6 +118,22 @@ class Engine15Q3VerifiedQualityHistoryTest {
         assertEquals(baseline,other)
     }
 
+    @Test fun twoQualityDaysCannotMultiplyOneObservedWeeklyDose() {
+        val p=request().copy(qualityCount=2,recentQualitySessionsPerWeek=2,
+            qualityDays=setOf(2,4))
+        val evidence=Engine15RunHistory.assess(owner,listOf(history()),now)!!
+        assertEquals(5.0,evidence.verifiedWeeklyQualityWorkKm!!,1e-8)
+        val plan=Engine15.generateWithHistory(p,owner,listOf(history()),"two-quality",now)
+        for(week in 0 until p.weeks) {
+            val work=plan.sessions.filter { it.discipline=="run" &&
+                it.date>=date.plusWeeks(week.toLong()) &&
+                it.date<date.plusWeeks((week+1).toLong()) }
+                .sumOf { it.runningPrescription?.workMeters ?: 0 }
+            assertTrue("Two selected quality days cannot exceed 5 km of qualified weekly work",
+                work<=5000)
+        }
+    }
+
     @Test fun totalWorkHistoryNeverLengthensIndividualHillOrFiveKRepeats() {
         val hills=Engine15.generateWithHistory(
             request("Hills"),owner,listOf(history("Hills")),"hills",now)
