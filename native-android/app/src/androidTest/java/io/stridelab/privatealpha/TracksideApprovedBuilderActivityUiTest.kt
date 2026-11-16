@@ -46,7 +46,7 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-running-day-2").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-start-date").assertExists()
-        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-inline-schedule").assertExists()
         compose.onNodeWithTag("available-day-6").assertExists()
         compose.onNodeWithText("Generate My Plan").assertExists()
         compose.onNodeWithTag("builder-generate-draft-note").assertExists()
@@ -76,7 +76,6 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-run-sheet-option-easy").performClick()
         compose.onNodeWithTag("builder-running-assignment-progress").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
-        compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("available-day-6").assertIsEnabled()
         compose.onNodeWithText("Generate My Plan").assertExists()
         compose.onNodeWithText("Your training blueprint").assertDoesNotExist()
@@ -90,7 +89,7 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideAvailabilityScreen(
+                    TracksideCompactScheduleEditor(
                         request=selected.value,
                         onDay={ day ->
                             selected.value=selected.value.copy(
@@ -109,14 +108,14 @@ class TracksideApprovedBuilderActivityUiTest {
         }
         compose.onNodeWithTag("available-day-7").assertIsEnabled()
         compose.onNodeWithTag("available-day-7").performClick()
-        compose.onNodeWithText("Change Sunday availability?").assertExists()
+        compose.onNodeWithText("Change Sunday?").assertExists()
         compose.onNodeWithText("Cancel").performClick()
         assertEquals(listOf(7,3,1),selected.value.weeklySlots["run"])
         compose.onNodeWithTag("available-day-7").performClick()
         compose.onNodeWithTag("builder-confirm-remove-pinned-day").performClick()
         assertEquals(listOf(0,3,1),selected.value.weeklySlots["run"])
         assertEquals(false,7 in selected.value.days)
-        compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
+        assertTrue(compactScheduleError(selected.value)!=null)
     }
 
     @Test fun guidedGoalAndAdvancedPreferencesStayWithinApprovedBuilder() {
@@ -191,13 +190,15 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-cali-weekly").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-start-date").assertExists()
-        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-inline-schedule").assertExists()
         compose.onNodeWithTag("available-day-6").assertIsEnabled()
         // The wizard must preserve the intended 3 running + 2 strength + 2
         // calisthenics sessions across its six default available weekdays.
         compose.onNodeWithTag("builder-capacity-count").assertTextEquals("7")
         compose.onNodeWithTag("builder-capacity-days").assertTextEquals("sessions across 6 days")
         compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
+        compose.onNodeWithTag("builder-advanced-scheduling")
+            .performScrollTo().performClick()
         // The policy control is below the capacity summary in a scrollable
         // builder body. Clicking an off-screen node may miss the actual Surface.
         compose.onNodeWithTag("builder-enable-multi-session")
