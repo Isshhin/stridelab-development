@@ -374,23 +374,104 @@ private fun TrainingEmptyPlanCard(onBuild: () -> Unit) {
         }
     }
 }
+/** Private feedback; retain the existing save/acknowledgment contract. */
 @Composable internal fun PlanFeedbackForm(plan:PlanSnapshot,actions:PlanActions,sessionId:String?=null,embedded:Boolean=false) {
     var pendingCount by rememberSaveable(plan.id,sessionId) { mutableStateOf<Int?>(null) }
-    var category by rememberSaveable(plan.id,sessionId) { mutableStateOf("Plan quality") };var text by rememberSaveable(plan.id,sessionId) { mutableStateOf("") }
-    LaunchedEffect(plan.feedback.size) { if(pendingCount!=null && plan.feedback.size>pendingCount!!) { text="";pendingCount=null } }
+    var category by rememberSaveable(plan.id,sessionId) { mutableStateOf("Plan quality") }
+    var text by rememberSaveable(plan.id,sessionId) { mutableStateOf("") }
+    LaunchedEffect(plan.feedback.size) {
+        if(pendingCount!=null && plan.feedback.size>pendingCount!!) {
+            text=""
+            pendingCount=null
+        }
+    }
     val fields: @Composable ColumnScope.() -> Unit = {
-        Text("PRIVATE TESTING FEEDBACK",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
-        FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) { listOf("Plan quality","Inappropriate prescription","Workout quality","Usability").forEach { c -> SignalChip(category==c,{category=c},label={Text(c)}) } }
-        FormText("What worked, or what should change?",text,{text=it.take(2000)})
-        Text("Saved privately on this device and included in your manual plan export. Nothing is sent automatically.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        OutlinedButton(onClick={pendingCount=plan.feedback.size;actions.feedback(plan.id,plan.revision,category,text,sessionId)},enabled=text.trim().length>=3,modifier=Modifier.fillMaxWidth()) { Text("Save feedback") }
-        Text("${plan.feedback.size} saved feedback records",style=MaterialTheme.typography.bodySmall)
+        Text("PRIVATE TESTING FEEDBACK",
+            color=TracksidePalette.lime,fontSize=11.sp,fontWeight=FontWeight.Bold)
+        Text("Help improve your training plan",
+            color=TracksidePalette.text,fontSize=17.sp,
+            lineHeight=22.sp,fontWeight=FontWeight.Bold)
+        FlowRow(
+            modifier=Modifier.fillMaxWidth(),
+            horizontalArrangement=Arrangement.spacedBy(7.dp),
+            verticalArrangement=Arrangement.spacedBy(8.dp)
+        ) {
+            listOf("Plan quality","Inappropriate prescription","Workout quality","Usability").forEach { choice ->
+                val selected=category==choice
+                Surface(
+                    onClick={category=choice},
+                    color=if(selected)TracksidePalette.lime else TracksidePalette.surfaceVariant,
+                    shape=RoundedCornerShape(10.dp),
+                    border=BorderStroke(1.dp,
+                        if(selected)TracksidePalette.lime else TracksidePalette.outline),
+                    modifier=Modifier.testTag(
+                        "training-feedback-category-"+choice.lowercase().replace(' ','-'))
+                ) {
+                    Text(choice,
+                        modifier=Modifier.padding(horizontal=11.dp,vertical=8.dp),
+                        color=if(selected)TracksidePalette.backgroundTop else TracksidePalette.textMuted,
+                        fontSize=12.sp,
+                        fontWeight=if(selected)FontWeight.SemiBold else FontWeight.Medium)
+                }
+            }
+        }
+        OutlinedTextField(
+            value=text,
+            onValueChange={text=it.take(2000)},
+            label={Text("What worked, or what should change?")},
+            modifier=Modifier.fillMaxWidth().testTag("training-feedback-message"),
+            minLines=3,
+            maxLines=6,
+            shape=RoundedCornerShape(12.dp),
+            textStyle=MaterialTheme.typography.bodyMedium,
+            colors=OutlinedTextFieldDefaults.colors(
+                focusedTextColor=TracksidePalette.text,
+                unfocusedTextColor=TracksidePalette.text,
+                focusedLabelColor=TracksidePalette.lime,
+                unfocusedLabelColor=TracksidePalette.textMuted,
+                focusedBorderColor=TracksidePalette.lime,
+                unfocusedBorderColor=TracksidePalette.outline,
+                cursorColor=TracksidePalette.lime,
+                focusedContainerColor=TracksidePalette.surfaceVariant,
+                unfocusedContainerColor=TracksidePalette.surfaceVariant
+            )
+        )
+        Text("Saved privately on this device and included in your manual plan export. Nothing is sent automatically.",
+            color=TracksidePalette.textMuted,fontSize=11.sp,lineHeight=16.sp)
+        Button(
+            onClick={
+                pendingCount=plan.feedback.size
+                actions.feedback(plan.id,plan.revision,category,text,sessionId)
+            },
+            enabled=text.trim().length>=3,
+            modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
+                .testTag("training-feedback-save"),
+            shape=RoundedCornerShape(12.dp),
+            colors=ButtonDefaults.buttonColors(
+                containerColor=TracksidePalette.lime,
+                contentColor=TracksidePalette.backgroundTop,
+                disabledContainerColor=TracksidePalette.surfaceVariant,
+                disabledContentColor=TracksidePalette.textMuted
+            )
+        ) {
+            Text("Save feedback",fontSize=13.sp,fontWeight=FontWeight.SemiBold)
+        }
+        Text("${plan.feedback.size} saved feedback records",
+            color=TracksidePalette.textMuted,fontSize=11.sp)
     }
     if(embedded) {
         Column(Modifier.fillMaxWidth(),
-            verticalArrangement=Arrangement.spacedBy(8.dp)) { fields() }
+            verticalArrangement=Arrangement.spacedBy(12.dp)) { fields() }
     } else {
-        SignalCard { fields() }
+        Surface(
+            modifier=Modifier.fillMaxWidth().testTag("training-feedback-card"),
+            color=TracksidePalette.surface,
+            shape=RoundedCornerShape(16.dp),
+            border=BorderStroke(1.dp,TracksidePalette.outline)
+        ) {
+            Column(Modifier.fillMaxWidth().padding(16.dp),
+                verticalArrangement=Arrangement.spacedBy(12.dp)) { fields() }
+        }
     }
 }
 @Composable internal fun NativePlanExport(
