@@ -182,8 +182,13 @@ internal object Engine15RunningProgram {
             var qualityPosition=0
             val generated=runs.mapIndexed { index,s ->
                 val meters=distance[index]*100
-                val family=if(p.allowedQualityTypes.isEmpty() && p.preferredQuality=="Threshold" && pattern?.thresholdWorkKm!=null) "Threshold" else selectFamily(p,w,qualityPosition)
-                val quality=if(s.id in qualityIds) quality(p,w,family,meters,workBudget-workUsed,if(family=="Threshold")pattern?.thresholdWorkKm else null) else null
+                // Verified completed work supports only its matching family;
+                // user-requested quality frequency and weekly ceilings still bind.
+                val family=if(p.allowedQualityTypes.isEmpty() &&
+                    pattern?.verifiedWorkKm(p.preferredQuality)!=null) p.preferredQuality
+                    else selectFamily(p,w,qualityPosition)
+                val observedWorkKm=pattern?.verifiedWorkKm(family)
+                val quality=if(s.id in qualityIds) quality(p,w,family,meters,workBudget-workUsed,observedWorkKm) else null
                 val actualRole=if(s.id in qualityIds && quality==null)"EASY" else role.getValue(s.id)
                 val prescription=quality ?: RunningPrescription(actualRole,null,listOf(RunningSegment("EASY",meters,
                     if(p.experience==0) "Alternate easy running and walking; keep conversation comfortable" else "Conversational; no pace target")))
@@ -197,7 +202,10 @@ internal object Engine15RunningProgram {
                     runningPrescription=prescription,steps=steps(prescription),reason=
                         "${actualRole}: ${purpose(actualRole)} Distances reconcile to this session; duration is a planning estimate, not an intensity target. " +
                         if(s.id in qualityIds && quality==null) "Quality was withheld because warm-up, work, recovery and cool-down did not fit the available distance/work budget." else
-                        "The weekly and recent-session ceilings bind; no catch-up mileage or measured fitness is inferred.")
+                        "The weekly and recent-session ceilings bind; no catch-up mileage or measured fitness is inferred." +
+                        if(quality!=null && observedWorkKm!=null)
+                            " VERIFIED_QUALITY_WORK: Repeated completed ${family.lowercase()} sessions support up to ${observedWorkKm} km of work; this is a ceiling, not an automatic progression or pace estimate."
+                        else "")
             }
             // Freeze the initial work envelope during a mileage build; variation does not imply new fitness.
             val finalized=finalizeWeek(generated,p,pattern)
@@ -287,8 +295,8 @@ internal object Engine15RunningProgram {
     }
 
     /**
-     * Q2 only: preserve the original WORK and RECOVERY distances and work-dose
-     * policy. Replace remainder-funded WARM_UP / COOL_DOWN with bounded times.
+     * Q2: preserve Q3-selected WORK and RECOVERY distances. Replace
+     * remainder-funded WARM_UP / COOL_DOWN with bounded times.
      * Old approved v1 plans are never rewritten.
      */
     private fun toMixedSupportSteps(p:PlanRequest,s:PlannedSession):PlannedSession {
