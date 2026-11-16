@@ -21,6 +21,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -79,14 +83,40 @@ internal fun TracksideTrainingWeekChart(
     val weekIndex = ChronoUnit.WEEKS.between(firstMonday, weekStart).toInt() + 1
     val totalWeeks = ChronoUnit.WEEKS.between(firstMonday, lastMonday).toInt() + 1
     val days = tracksideTrainingWeek(plan, selected)
+    var distanceView by rememberSaveable(plan.id) { mutableStateOf(false) }
     val total = days.sumOf { it.plannedMinutes }
-    val maxDay = (days.maxOfOrNull { it.plannedMinutes } ?: 0).coerceAtLeast(1)
+    val dayDistances=days.map { day -> day.sessions.sumOf {
+        if(it.discipline=="run")it.distanceKm ?: 0.0 else 0.0
+    } }
+    val totalKm=dayDistances.sum()
+    val chartValues=days.indices.map { i ->
+        if(distanceView)dayDistances[i] else days[i].plannedMinutes.toDouble()
+    }
+    val maxDay=(chartValues.maxOrNull() ?: 0.0).coerceAtLeast(1.0)
     val byDiscipline = days.flatMap { it.sessions }.groupBy { it.discipline }
         .map { (discipline, sessions) -> discipline to sessions.size }
         .filter { it.second > 0 }
 
     Column(Modifier.fillMaxWidth().testTag("training-week-chart"),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+            Text("Your training week",style=MaterialTheme.typography.titleSmall,
+                color=Color(0xFFF0F4EE),fontWeight=FontWeight.Bold,
+                modifier=Modifier.weight(1f))
+            listOf(false to "min",true to "km").forEach { (metric,label) ->
+                Surface(onClick={distanceView=metric},
+                    modifier=Modifier.padding(start=3.dp)
+                        .testTag("training-chart-$label"),
+                    color=if(distanceView==metric)Color(0xFFD8FB70)
+                        else Color(0xFF2C342C),
+                    shape=RoundedCornerShape(8.dp)) {
+                    Text(label,Modifier.padding(horizontal=12.dp,vertical=7.dp),
+                        color=if(distanceView==metric)Color(0xFF11170D)
+                            else Color(0xFFAAB5A8),
+                        style=MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
         if (showNavigation) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween) {
@@ -132,16 +162,18 @@ internal fun TracksideTrainingWeekChart(
 
         if (LocalDensity.current.fontScale >= 1.3f) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Planned minutes per day", style = MaterialTheme.typography.titleSmall,
+                Text(if(distanceView)"Planned running kilometres" else "Planned minutes per day", style = MaterialTheme.typography.titleSmall,
                     color = TracksidePalette.text, fontWeight = FontWeight.Bold)
-                Text("Week total ${total / 60} h ${total % 60} min",
+                Text(if(distanceView)String.format(Locale.getDefault(),"%.1f km planned",totalKm)
+                    else "Week total ${total / 60} h ${total % 60} min",
                     style = MaterialTheme.typography.labelSmall, color = TracksidePalette.textMuted)
             }
         } else {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Planned minutes per day", style = MaterialTheme.typography.titleSmall,
+                Text(if(distanceView)"Planned running kilometres" else "Planned minutes per day", style = MaterialTheme.typography.titleSmall,
                     color = TracksidePalette.text, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Text("Week total ${total / 60} h ${total % 60} min",
+                Text(if(distanceView)String.format(Locale.getDefault(),"%.1f km planned",totalKm)
+                    else "Week total ${total / 60} h ${total % 60} min",
                     style = MaterialTheme.typography.labelSmall, color = TracksidePalette.textMuted)
             }
         }
@@ -181,9 +213,9 @@ internal fun TracksideTrainingWeekChart(
                     onClick = { onSelect(day.date) },
                     enabled = enabled,
                     shape = RoundedCornerShape(12.dp),
-                    color = if (active) Color(0xFF1A2C36) else Color.Transparent,
+                    color = if (active) Color(0xFF2B3825) else Color.Transparent,
                     border = BorderStroke(1.dp,
-                        if (active) Color(0xFFB2C5D0) else Color.Transparent),
+                        if (active) Color(0xFFD8FB70) else Color(0xFF333D33)),
                     modifier = (if (compact) Modifier.width(49.dp) else Modifier.weight(1f))
                         .testTag("calendar-day-${day.date}")
                         .semantics { contentDescription = description }
@@ -191,7 +223,9 @@ internal fun TracksideTrainingWeekChart(
                     Column(Modifier.fillMaxWidth().padding(horizontal = 1.dp, vertical = 5.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(if (day.plannedMinutes == 0) "–" else day.plannedMinutes.toString(),
+                        Text(if(chartValues[days.indexOf(day)]<=0.0) "–"
+                                else if(distanceView)String.format(Locale.getDefault(),"%.1f",dayDistances[days.indexOf(day)])
+                                else day.plannedMinutes.toString(),
                             color = if (enabled) TracksidePalette.text else TracksidePalette.textMuted,
                             style = MaterialTheme.typography.labelSmall,
                             maxLines = 1, textAlign = TextAlign.Center)
@@ -199,10 +233,13 @@ internal fun TracksideTrainingWeekChart(
                             Modifier.fillMaxWidth().height(72.dp),
                             verticalArrangement = Arrangement.Bottom
                         ) {
-                            day.byDiscipline.reversed().forEach { (discipline, minutes) ->
-                                val barHeight = (minutes.toFloat() / maxDay * 68f).coerceAtLeast(3f)
+                            val index=days.indexOf(day)
+                            val chartValue=chartValues[index]
+                            if(chartValue>0.0) {
+                                val barHeight=(chartValue/maxDay*68.0).toFloat().coerceAtLeast(3f)
                                 Box(Modifier.fillMaxWidth().height(barHeight.dp)
-                                    .background(tracksideDisciplineColor(discipline), RoundedCornerShape(5.dp)))
+                                    .background(if(active)Color(0xFFD8FB70)
+                                        else Color(0xFFA6CB6A),RoundedCornerShape(5.dp)))
                             }
                         }
                         Text(if (compact) day.date.dayOfWeek.name.take(2) else
