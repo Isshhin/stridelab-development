@@ -628,10 +628,17 @@ private fun TimelinePlannedCard(
     val recorded = session.status == "completed"
     val details = buildList {
         add(disciplineLabel(session.discipline))
-        val distance = if (recorded) session.log?.distanceKm else session.distanceKm
+        val reviewedTimeOnly=session.suggestion?.let { it.accepted && it.minutes<session.minutes }==true
+        val distance = if(recorded) session.log?.distanceKm
+            else if(reviewedTimeOnly) null else session.distanceKm
+        val estimated=if(!recorded && !reviewedTimeOnly && distance==null)
+            session.runningPrescription?.estimatedDistanceKm else null
         distance?.takeIf { it.isFinite() && it >= 0 }?.let {
             add((if (recorded) "" else "Target ") +
                 String.format(Locale.getDefault(), "%.1f km", it))
+        }
+        estimated?.let {
+            add(String.format(Locale.getDefault(),"~%.1f km estimated",it))
         }
         val minutes = if (recorded) session.log?.minutes else session.effectiveMinutes.toDouble()
         minutes?.takeIf { it.isFinite() && it > 0 }?.let {
