@@ -250,12 +250,12 @@ internal object Engine15RunningProgram {
             val limit=pattern?.easyKm?.let { units(it+1.0)*100 } ?: Int.MAX_VALUE
             val meters=minOf(oldMeters,limit)
             if(meters<=0)throw PlanConstraint("A quality fallback cannot fit even a short easy run.")
-            val steps=RunningPrescription("EASY",null,listOf(RunningSegment("EASY",meters,
+            val prescription=RunningPrescription("EASY",null,listOf(RunningSegment("EASY",meters,
                 "Conversational easy run; quality withheld to preserve weekly workload limits")))
             return old.copy(distanceKm=meters/1000.0,
                 minutes=minOf(old.minutes,ceil(meters/1000.0*p.planningPace/60.0).toInt().coerceAtLeast(1)),
-                kind="easy",quality=false,title="Easy run",runningPrescription=steps,
-                steps=steps(steps),reason=old.reason+" Quality withheld after timed-step reconciliation; no catch-up.")
+                kind="easy",quality=false,title="Easy run",runningPrescription=prescription,
+                steps=steps(prescription),reason=old.reason+" Quality withheld after timed-step reconciliation; no catch-up.")
         }
         var runs=converted
         repeat(converted.count { it.quality }+2) {
