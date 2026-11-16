@@ -53,10 +53,11 @@ internal fun TracksidePlannedRunningPreview(
         session.runningPrescription?.role=="RECOVERY" -> "Recovery"
         else -> "Easy effort"
     }
-    val segments=session.runningPrescription?.segments?.takeIf {
-        target.state==Engine15SessionPresentation.State.ORIGINAL ||
-            target.state==Engine15SessionPresentation.State.PENDING_REVIEW
-    }
+    val showOriginalSteps=target.state==Engine15SessionPresentation.State.ORIGINAL ||
+        target.state==Engine15SessionPresentation.State.PENDING_REVIEW
+    val segments=session.runningPrescription?.segments?.takeIf { showOriginalSteps }
+    val mixedSegments=session.runningPrescription?.mixedSegments?.takeIf { showOriginalSteps }
+    val estimatedDistance=session.runningPrescription?.estimatedDistanceKm?.takeIf { showOriginalSteps }
     val weekNumber = (ChronoUnit.DAYS.between(planStart,session.date) / 7L + 1L)
         .coerceAtLeast(1L)
     Column(
@@ -108,6 +109,8 @@ internal fun TracksidePlannedRunningPreview(
                             "$label · "+String.format(Locale.getDefault(),
                                 "%.1f km",target.currentDistanceTargetKm)
                         target.state==Engine15SessionPresentation.State.ACCEPTED_REST -> "Reviewed rest"
+                        estimatedDistance!=null ->
+                            "$label · "+String.format(Locale.getDefault(),"~%.1f km estimated",estimatedDistance)
                         else -> label
                     },
                     color=TracksidePalette.textMuted,fontSize=15.sp,
@@ -125,13 +128,16 @@ internal fun TracksidePlannedRunningPreview(
                                 target.currentDistanceTargetKm!=null ->
                                     String.format(Locale.getDefault(),
                                         "%.1f km",target.currentDistanceTargetKm)
+                                estimatedDistance!=null -> "Mixed targets"
                                 else -> "Time-based"
                             },
                             color=TracksidePalette.text,fontSize=24.sp,
                             fontWeight=FontWeight.Bold,
                             modifier=Modifier.testTag("workout-planned-primary-target"))
                         Text(
-                            if(target.currentDistanceTargetKm!=null) "Planned distance" else "Current target",
+                            if(target.currentDistanceTargetKm!=null) "Planned distance"
+                            else if(estimatedDistance!=null) "Time + distance steps"
+                            else "Current target",
                             color=TracksidePalette.textMuted,fontSize=11.sp
                         )
                     }
@@ -149,6 +155,12 @@ internal fun TracksidePlannedRunningPreview(
                         Text("Planned, not recorded",color=TracksidePalette.textMuted,
                             fontSize=11.sp)
                     }
+                }
+                if(estimatedDistance!=null) {
+                    Text(
+                        "Estimated total distance uses planning pace, not a distance target. Follow the timed and measured steps below.",
+                        color=TracksidePalette.textMuted,fontSize=11.sp,lineHeight=16.sp
+                    )
                 }
                 if(target.state==Engine15SessionPresentation.State.ACCEPTED_TIME_ONLY) {
                     Text(
@@ -182,7 +194,8 @@ internal fun TracksidePlannedRunningPreview(
         Spacer(Modifier.height(3.dp))
         TracksideRunningStepCards(
             segments = segments,
-            textFallback = target.currentSteps
+            textFallback = target.currentSteps,
+            mixedSegments = mixedSegments
         )
         Surface(
             modifier=Modifier.fillMaxWidth().testTag("workout-planned-coach-notes"),
