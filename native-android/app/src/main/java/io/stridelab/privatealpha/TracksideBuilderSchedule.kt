@@ -52,7 +52,7 @@ private fun PlanDatesIconTile(icon: Int, tag: String) {
     }
 }
 
-/** Approved 720:546 Plan details, kept separate from the availability screen. */
+/** Plan dates and inline schedule validation, before generating an unapproved draft. */
 @Composable
 internal fun TracksidePlanDetailsScreen(
     start: String, weeks: String, minutes: String,
@@ -61,7 +61,10 @@ internal fun TracksidePlanDetailsScreen(
     onBack: () -> Unit, onContinue: () -> Unit,
     dailyBudget: String = "90",
     multiSession: Boolean = false,
-    onDailyBudget: (String) -> Unit = {}
+    onDailyBudget: (String) -> Unit = {},
+    generationBusy: Boolean = false,
+    scheduleValid: Boolean = true,
+    scheduleContent: (@Composable () -> Unit)? = null
 ) {
     val context = LocalContext.current
     val panelBrush = Brush.horizontalGradient(listOf(PlanBuilderPalette.surface, PlanBuilderPalette.surfaceRaised))
@@ -72,11 +75,12 @@ internal fun TracksidePlanDetailsScreen(
         progressStep = 4,
         eyebrow = "PLAN / DETAILS", toolbarTitle = "Plan details",
         headline = "Set your plan dates",
-        description = "Choose when to start and how long to train.",
+        description = "Set dates and check your schedule before generating a draft.",
+        ctaLabel = if(generationBusy) "Generating plan…" else "Generate My Plan",
         onBack = onBack,
         onContinue = onContinue,
-        continueEnabled = weeks.toIntOrNull() in 1..16 &&
-            !date.isBefore(LocalDate.now())
+        continueEnabled = scheduleValid && !generationBusy &&
+            weeks.toIntOrNull() in 1..16 && !date.isBefore(LocalDate.now())
     ) {
         Surface(
             Modifier.fillMaxWidth(), shape=RoundedCornerShape(14.dp),
@@ -163,11 +167,16 @@ internal fun TracksidePlanDetailsScreen(
                 Box(Modifier.fillMaxWidth().height(1.dp)
                     .background(PlanBuilderPalette.accent))
                 TextButton(onClick={goalDateInfo=true}) {
-                    Text("Have a goal date? Use that instead  ›",
+                    Text("Why can't I select a race date?",
                         fontSize=11.sp,color=PlanBuilderPalette.accent)
                 }
             }
         }
+        scheduleContent?.invoke()
+        Spacer(Modifier.height(10.dp))
+        Text("Generating creates a draft. Review workouts before final approval.",
+            fontSize=11.sp,color=PlanBuilderPalette.secondary,
+            modifier=Modifier.testTag("builder-generate-draft-note"))
     }
     if(goalDateInfo) AlertDialog(
         onDismissRequest={goalDateInfo=false},
