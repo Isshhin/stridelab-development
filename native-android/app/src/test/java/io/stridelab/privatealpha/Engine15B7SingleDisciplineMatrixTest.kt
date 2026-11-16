@@ -66,7 +66,18 @@ class Engine15B7SingleDisciplineMatrixTest {
                         it.date<first.plusWeeks(1) }
                     assertEquals(id+" week=$w total",run,ss.size)
                     assertEquals(id+" week=$w long",1,ss.count { it.kind=="long" })
-                    val volume=ss.sumOf { it.distanceKm?:0.0 }
+                    // Mixed-unit quality steps do not have an exact distance
+                    // target. Include their explicitly labeled planning estimate
+                    // when checking the weekly and long-run exposure envelopes.
+                    // Ignoring them would incorrectly shrink the denominator.
+                    ss.filter { it.runningPrescription?.mixedSegments!=null }.forEach { mixed ->
+                        assertNull("$id week=$w mixed steps must not claim exact km",mixed.distanceKm)
+                        assertTrue("$id week=$w estimate must be positive and finite",
+                            mixed.runningPrescription!!.estimatedDistanceKm!!.let { it.isFinite() && it>0.0 })
+                    }
+                    val volume=ss.sumOf {
+                        it.distanceKm ?: it.runningPrescription?.estimatedDistanceKm ?: 0.0
+                    }
                     assertTrue("$id week=$w mileage=$volume",
                         volume<=Engine15.runningCeiling(w,km)+1e-6)
                     if(run>=3 && volume>0) {
