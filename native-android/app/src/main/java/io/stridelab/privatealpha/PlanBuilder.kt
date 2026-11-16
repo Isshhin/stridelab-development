@@ -18,7 +18,24 @@ import org.json.JSONObject
 @Composable internal fun PlanBuilder(state:TrainingState,actions:PlanActions,discipline:String="all",onDone:()->Unit,onSignIn:()->Unit,onPreview:(String,String)->Unit) {
     // Signed-out plans are persisted under an isolated on-device owner.
     // Cloud sign-in remains optional for backup; generating does not need it.
-    val baseline=remember { state.plans.firstOrNull { Engine1Engines.canManage(it) && it.policyId != SessionTemplate.POLICY_ID }?.let(TracksideCoaching::setupFor) ?: PlanRequest(policyChoice="coordinated",weeklyKm=historyWeeklyKm(state.activities,plans=state.plans) ?: 0.0,longestKm=state.activities.filter { DashboardSummary.isRun(it) }.mapNotNull { it.distanceM }.maxOrNull()?.div(1000) ?: 0.0) }
+    val observedBaseline=remember(state.activities,state.plans) {
+        automaticRunningBaseline(state.activities,plans=state.plans)
+    }
+    val baseline=remember {
+        val existing=state.plans.firstOrNull {
+            Engine1Engines.canManage(it) && it.policyId != SessionTemplate.POLICY_ID
+        }?.let(TracksideCoaching::setupFor)
+        if(existing!=null) {
+            // New draft starts from recent recorded training, not old planned
+            // mileage. User edits below remain authoritative in this session.
+            observedBaseline?.let { existing.copy(weeklyKm=it.weeklyKm) } ?: existing
+        } else {
+            PlanRequest(policyChoice="coordinated",
+                weeklyKm=observedBaseline?.weeklyKm ?: 0.0,
+                longestKm=state.activities.filter { DashboardSummary.isRun(it) }
+                    .mapNotNull { it.distanceM }.maxOrNull()?.div(1000) ?: 0.0)
+        }
+    }
     val initial=remember {
         when(discipline) {
             "run" -> baseline.copy(
