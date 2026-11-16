@@ -149,7 +149,10 @@ class Engine15Q2MixedUnitTest {
             qualityCount=1,recentQualitySessionsPerWeek=1)
         val plan=Engine15.generate(p,owner,"q2-available",now)
         assertTrue(plan.sessions.all { it.minutes<=30 })
-        assertTrue(plan.sessions.all { it.runningPrescription?.mixedSegments==null ||
-            it.runningPrescription.mixedSegments!!.any { step -> step.purpose=="COOL_DOWN" && step.seconds!! in 300..480 } })
+        assertTrue(plan.sessions.all { session ->
+            session.runningPrescription?.mixedSegments?.any { step ->
+                step.purpose=="COOL_DOWN" && step.seconds in 300..480
+            } ?: true
+        })
     }
 }
