@@ -40,8 +40,29 @@ internal fun TracksideRunningStepCards(
                 fontSize=13.sp,fontWeight=FontWeight.Bold)
             // Timed steps are displayed from their persisted executable extent.
             // No conversion to a synthetic distance target is performed here.
-            mixedSegments.forEachIndexed { index,step ->
-                MixedRunningStepTile(step,"workout-mixed-step-"+index)
+            MixedRunningStepGrouping.of(mixedSegments).forEachIndexed { index,block ->
+                when(block) {
+                    is MixedRunningStepBlock.Single ->
+                        MixedRunningStepTile(block.segment,"workout-mixed-step-"+index)
+                    is MixedRunningStepBlock.Repeat -> Surface(
+                        modifier=Modifier.fillMaxWidth().testTag("workout-mixed-repeat-"+index),
+                        color=Color(0xFF111312),shape=RoundedCornerShape(16.dp),
+                        border=BorderStroke(1.dp,Color(0xFF4D5350))
+                    ) {
+                        Column(Modifier.fillMaxWidth().padding(12.dp),
+                            verticalArrangement=Arrangement.spacedBy(9.dp)) {
+                            Text(block.times.toString()+" Times",
+                                color=TracksidePalette.text,fontSize=19.sp,
+                                fontWeight=FontWeight.Bold)
+                            MixedRunningStepTile(block.work,"workout-mixed-repeat-work-"+index)
+                            block.recovery?.let { recovery ->
+                                MixedRunningStepTile(recovery,"workout-mixed-repeat-recovery-"+index)
+                                if(!block.recoveryAfterLast)Text("Recovery between repetitions",
+                                    color=TracksidePalette.textMuted,fontSize=10.sp)
+                            }
+                        }
+                    }
+                }
             }
         } else if(compact) {
             Surface(
