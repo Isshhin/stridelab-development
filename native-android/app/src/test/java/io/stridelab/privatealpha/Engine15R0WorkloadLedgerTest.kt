@@ -72,6 +72,35 @@ class Engine15R0WorkloadLedgerTest {
                     it.ruleId=="UNKNOWN_TIME_ONLY_FOUNDATION" })
             assertTrue("Missing actual weekly audit: $name",
                 weekly.all { it.week in 0 until request.weeks })
+            for(summary in weekly) {
+                val steps=trace.entries.filter { it.week==summary.week }
+                if(request.weeklyKm>0.0) {
+                    for(code in listOf(
+                        "ENGINE1_BASELINE_OUTPUT","ENGINE15_WEEKLY_CEILING",
+                        "SUM_SESSION_CAPS","DISTANCE_ROUNDING","FINAL_PRESCRIPTION"
+                    )) {
+                        assertTrue("Missing $code in $name week ${summary.week+1}",
+                            steps.any { it.ruleId==code })
+                    }
+                    assertNotNull(summary.baselineKm)
+                    assertNotNull(summary.ceilingKm)
+                    assertNotNull(summary.assignedKm)
+                    assertNotNull(summary.deliveredKm)
+                    val final=steps.single { it.ruleId=="FINAL_PRESCRIPTION" }.outputKm
+                    assertEquals("Final trace must equal final plan: $name week ${summary.week+1}",
+                        final!!,summary.deliveredKm!!,1e-8)
+                    val cap=steps.single { it.ruleId=="SUM_SESSION_CAPS" }
+                    assertTrue("Effective capacity cannot increase input weekly budget",
+                        cap.outputKm!!<=cap.inputKm!!+1e-8)
+                    assertTrue("Weekly allocation should remain within the cap",
+                        summary.assignedKm!!<=cap.inputKm!!+1e-8)
+                } else {
+                    assertNull(summary.deliveredKm)
+                    assertEquals("UNKNOWN_TIME_ONLY",summary.note)
+                }
+                assertTrue("Candidate caps must not masquerade as executed reduction",
+                    steps.filter { it.stage=="SESSION_LIMIT" }.all { it.outputKm==null })
+            }
             assertTrue("Cannot invent exact baseline for a zero-distance athlete",
                 request.weeklyKm!=0.0 || weekly.all { it.deliveredKm==null })
             assertTrue("A final estimate must be marked, not an exact distance",
