@@ -115,7 +115,8 @@ internal object Engine15RunningProgram {
                 val bounded=Engine15DistanceRounding.allocate(
                     distance,caps,
                     runs.map { units(it.distanceKm ?: 0.0) }.toIntArray(),
-                    budget,longIndex
+                    budget,longIndex,
+                    runs.indices.filter { runs[it].id in qualityIds }.toSet()
                 )
                 for(i in distance.indices)distance[i]=bounded[i]
             }
