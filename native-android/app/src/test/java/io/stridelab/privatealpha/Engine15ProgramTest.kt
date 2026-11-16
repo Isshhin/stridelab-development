@@ -26,9 +26,9 @@ class Engine15ProgramTest {
     @Test fun weekHasRecoveryAndEnduranceRolesInsteadOfEqualEasyShares() {
         val week=generate(request().copy(qualityCount=1)).sessions.filter { it.date<start.plusWeeks(1) }
         assertTrue(week.any { it.title=="Recovery run" })
-        assertTrue(week.any { it.title=="Aerobic endurance run" })
+        assertTrue(week.any { it.title=="Aerobic run" })
         val recovery=week.first { it.title=="Recovery run" }
-        val endurance=week.first { it.title=="Aerobic endurance run" }
+        val endurance=week.first { it.title=="Aerobic run" }
         val long=week.first { it.kind=="long" }
         assertTrue(recovery.distanceKm!!<endurance.distanceKm!!)
         assertTrue(endurance.distanceKm!!<=long.distanceKm!!)
