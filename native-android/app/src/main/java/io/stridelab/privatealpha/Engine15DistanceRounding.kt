@@ -36,33 +36,24 @@ internal object Engine15DistanceRounding {
             allocatedTenths.indices.any { allocatedTenths[it]>cap[it] })
             return allocatedTenths.copyOf()
 
-        val rounded=IntArray(allocatedTenths.size) { i ->
-            val original=allocatedTenths[i]
-            if(i in fixedIndices || original<5)original else (original/5)*5
-        }
+        // Prefer upward half-kilometre rounding. When the additional metres
+        // do not fit the verified weekly/session ceiling, keep the original
+        // precise value rather than silently reducing another workout.
+        val rounded=allocatedTenths.copyOf()
         fun longShareOk():Boolean =
             longIndex<0 || rounded.size<3 ||
                 rounded[longIndex]*5 <= rounded.sum()*2
 
-        // Lowering other runs onto the half-km grid must not accidentally
-        // increase the long run's share above 40%.
-        if(!longShareOk()) {
-            val original=allocatedTenths.copyOf()
-            if(allocatedTenths[longIndex]*5 <= allocatedTenths.sum()*2) {
-                // Keep the original bounded allocation if the requested grid
-                // cannot represent it safely. Never weaken long-run safety.
-                return original
-            }
-        }
         val candidates=allocatedTenths.indices
-            .filter { it !in fixedIndices && allocatedTenths[it]>=5 && allocatedTenths[it]%5!=0 }
-            .sortedWith(compareByDescending<Int> { allocatedTenths[it]%5 }
-                .thenBy { it })
+            .filter { it !in fixedIndices && allocatedTenths[it]>=5 &&
+                allocatedTenths[it]%5!=0 }
+            .sortedWith(compareBy<Int> { 5-allocatedTenths[it]%5 }.thenBy { it })
         for(i in candidates) {
-            val next=rounded[i]+5
-            if(next>cap[i] || rounded.sum()+5>maximum)continue
+            val next=((allocatedTenths[i]+4)/5)*5
+            if(next>cap[i] || rounded.sum()+(next-rounded[i])>maximum)continue
+            val before=rounded[i]
             rounded[i]=next
-            if(!longShareOk()) rounded[i]-=5
+            if(!longShareOk()) rounded[i]=before
         }
         return rounded
     }
