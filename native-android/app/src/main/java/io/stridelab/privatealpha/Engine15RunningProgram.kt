@@ -113,7 +113,7 @@ internal object Engine15RunningProgram {
                 distance[longIndex]=minOf(distance[longIndex],floor((distance.sum()-distance[longIndex])*2.0/3.0+1e-8).toInt())
             if(distance.all { it>0 }) {
                 val bounded=Engine15DistanceRounding.allocate(
-                    distance,caps,
+                    distance,caps.toIntArray(),
                     runs.map { units(it.distanceKm ?: 0.0) }.toIntArray(),
                     budget,longIndex,
                     runs.indices.filter { runs[it].id in qualityIds }.toSet()
