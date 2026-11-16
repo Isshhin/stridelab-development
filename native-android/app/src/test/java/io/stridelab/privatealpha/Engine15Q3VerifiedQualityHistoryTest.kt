@@ -118,6 +118,22 @@ class Engine15Q3VerifiedQualityHistoryTest {
         assertEquals(baseline,other)
     }
 
+    @Test fun totalWorkHistoryNeverLengthensIndividualHillOrFiveKRepeats() {
+        val hills=Engine15.generateWithHistory(
+            request("Hills"),owner,listOf(history("Hills")),"hills",now)
+        assertTrue(hills.sessions.any { it.quality })
+        assertTrue(hills.sessions.filter { it.quality }.flatMap {
+            it.runningPrescription!!.mixedSegments!!.filter { step -> step.purpose=="WORK" }
+        }.all { (it.meters ?: 0)<=100 })
+
+        val intervals=Engine15.generateWithHistory(
+            request("Intervals"),owner,listOf(history("Intervals")),"intervals",now)
+        assertTrue(intervals.sessions.any { it.quality })
+        assertTrue(intervals.sessions.filter { it.quality }.flatMap {
+            it.runningPrescription!!.mixedSegments!!.filter { step -> step.purpose=="WORK" }
+        }.all { (it.meters ?: 0)<=600 })
+    }
+
     @Test fun verifiedHigherWorkRetainsQ2TimedSupportAndWeeklySafetyCeilings() {
         val p=request()
         val plan=Engine15.generateWithHistory(p,owner,listOf(history()),"draft",now)
