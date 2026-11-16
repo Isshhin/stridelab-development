@@ -26,7 +26,8 @@ import java.util.Locale
 @Composable
 internal fun TracksideRunningStepCards(
     segments: List<RunningSegment>?,
-    textFallback: List<String>
+    textFallback: List<String>,
+    mixedSegments: List<RunningStepV2>? = null
 ) {
     val blocks = segments?.let(RunningStepGrouping::of).orEmpty()
     val compact = blocks.size == 1 && blocks.single() is RunningStepBlock.Single
@@ -34,7 +35,15 @@ internal fun TracksideRunningStepCards(
         Modifier.fillMaxWidth().testTag("workout-planned-structure"),
         verticalArrangement=Arrangement.spacedBy(if(compact) 8.dp else 11.dp)
     ) {
-        if(compact) {
+        if(mixedSegments!=null) {
+            Text("WORKOUT STEPS",color=TracksidePalette.text,
+                fontSize=13.sp,fontWeight=FontWeight.Bold)
+            // Timed steps are displayed from their persisted executable extent.
+            // No conversion to a synthetic distance target is performed here.
+            mixedSegments.forEachIndexed { index,step ->
+                MixedRunningStepTile(step,"workout-mixed-step-"+index)
+            }
+        } else if(compact) {
             Surface(
                 modifier=Modifier.fillMaxWidth(),
                 shape=RoundedCornerShape(15.dp),
@@ -177,6 +186,36 @@ private fun RunningStepTile(
                         fontSize=10.sp,fontWeight=FontWeight.Medium)
                 }
             }
+        }
+    }
+}
+
+/** Version-2 mixed extent tile; duration and distance are different targets. */
+@Composable
+private fun MixedRunningStepTile(step:RunningStepV2,tag:String) {
+    val title=when(step.purpose) {
+        "WARM_UP"->"Warm-up"
+        "WORK"->"Run"
+        "RECOVERY"->"Recover"
+        "COOL_DOWN"->"Cool-down"
+        else->"Easy running"
+    }
+    val extent=step.meters?.let(::runningStepDistanceLabel) ?: run {
+        val seconds=checkNotNull(step.seconds)
+        if(seconds%60==0) (seconds/60).toString()+" min"
+        else if(seconds>60) (seconds/60).toString()+" min "+(seconds%60).toString()+" s"
+        else seconds.toString()+" s"
+    }
+    Surface(modifier=Modifier.fillMaxWidth().testTag(tag),
+        color=Color(0xFF242725),shape=RoundedCornerShape(12.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal=15.dp,vertical=13.dp),
+            verticalArrangement=Arrangement.spacedBy(5.dp)) {
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                Text(title,color=TracksidePalette.text,fontSize=14.sp,fontWeight=FontWeight.Bold)
+                Text(extent,color=TracksidePalette.lime,fontSize=13.sp,
+                    fontWeight=FontWeight.Bold)
+            }
+            Text(step.effort,color=TracksidePalette.textMuted,fontSize=11.sp,lineHeight=16.sp)
         }
     }
 }
