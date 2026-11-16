@@ -298,7 +298,20 @@ import org.json.JSONObject
                 weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0,120.0) ?: 0.0,
                 longestKm = longest.toDoubleOrNull()?.coerceIn(0.0,42.0) ?: 0.0,
                 historyContent = {
-                    RunningHistoryConfirmation(state) { value -> km="%.1f".format(java.util.Locale.US,value);edit(input.copy(weeklyKm=value)) }
+                    RunningHistoryConfirmation(state) { value -> km="%.1f".format(java.util.Locale.US,value);edit(input.copy(weeklyKm=value,foundationAcknowledged=false)) }
+                    if(input.trainYourWay && (km.toDoubleOrNull() ?: 0.0)==0.0 &&
+                        (targetKm.toDoubleOrNull() ?: 0.0)>0.0) {
+                        Text(
+                            "Recent weekly mileage is zero or unconfirmed. The " +
+                            "${targetKm} km/week value is a future target, not a training " +
+                            "baseline. Enter your actual recent mileage here. Leaving it " +
+                            "at zero requires explicitly choosing a foundation plan " +
+                            "before approval.",
+                            color=TracksidePalette.lime,
+                            style=MaterialTheme.typography.bodySmall,
+                            modifier=Modifier.testTag("builder-running-baseline-warning")
+                        )
+                    }
                     if(input.policyChoice=="engine15") {
                         CoachFeedbackChoices("Usual quality sessions per week",listOf("0","1","2"),input.recentQualitySessionsPerWeek?.toString()) { edit(input.copy(recentQualitySessionsPerWeek=it?.toInt())) }
                     }
