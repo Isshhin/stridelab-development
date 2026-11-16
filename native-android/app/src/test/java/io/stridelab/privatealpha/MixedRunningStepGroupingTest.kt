@@ -40,6 +40,10 @@ class MixedRunningStepGroupingTest {
     @Test fun differingRecoveryOrIntervalExtentsNeverMerge() {
         val varied=RunningStepV2("RECOVERY","Easy",seconds=120)
         val rows=listOf(work,recovery,work,varied,work)
-        assertEquals(rows.map { MixedRunningStepBlock.Single(it) },MixedRunningStepGrouping.of(rows))
+        assertEquals(listOf(
+            MixedRunningStepBlock.Repeat(2,work,recovery,false),
+            MixedRunningStepBlock.Single(varied),
+            MixedRunningStepBlock.Single(work)
+        ),MixedRunningStepGrouping.of(rows))
     }
 }
