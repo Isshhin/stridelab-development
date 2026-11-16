@@ -214,10 +214,8 @@ internal object Engine15RunningProgram {
         return ordered[(slot+w/4)%ordered.size]
     }
     private fun quality(p:PlanRequest,w:Int,family:String,total:Int,budget:Int,observedWorkKm:Double?=null):RunningPrescription? {
-        // Hard bounds on preparation volume; remaining easy mileage is not
-        // silently converted into harder work.
-        val warm=minOf(3000,ceil(600000.0/p.planningPace/10).toInt()*10)
-        val cool=minOf(2000,ceil(480000.0/p.planningPace/10).toInt()*10)
+        val warm=ceil(600000.0/p.planningPace/10).toInt()*10
+        val cool=ceil(480000.0/p.planningPace/10).toInt()*10
         val phase=w%4%3
         val reps=when(family) {
             "Progression"->3; "Tempo"->if(phase==2)1 else 2; "Hills","Fartlek"->6
@@ -248,16 +246,7 @@ internal object Engine15RunningProgram {
             segments+=RunningSegment("WORK",perRep,target)
             if(i<reps-1 && recovery>0)segments+=RunningSegment("RECOVERY",recovery,if(family=="Hills")"Walk or jog easily downhill" else "Easy jog or walk")
         }
-        val remaining=total-segments.sumOf { it.meters }
-        if(remaining<=0)return null
-        val cooldownMeters=minOf(2000,remaining)
-        val extraEasyMeters=remaining-cooldownMeters
-        if(extraEasyMeters>0) {
-            segments+=RunningSegment("EASY",extraEasyMeters,
-                "Easy aerobic extension; no additional hard repetitions")
-        }
-        segments+=RunningSegment("COOL_DOWN",cooldownMeters,
-            "Easy conversational running or walking")
+        segments+=RunningSegment("COOL_DOWN",total-segments.sumOf { it.meters },"Easy conversational running or walking")
         return RunningPrescription("QUALITY",family,segments)
     }
     /** A readable workout identity derived from actual saved work segments. */
