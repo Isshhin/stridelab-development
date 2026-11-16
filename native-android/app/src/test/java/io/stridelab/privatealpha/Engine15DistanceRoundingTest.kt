@@ -19,7 +19,9 @@ class Engine15DistanceRoundingTest {
         val result=Engine15DistanceRounding.allocate(
             intArrayOf(127,143),intArrayOf(140,150),
             intArrayOf(140,150),270)
-        assertArrayEquals(intArrayOf(125,145),result)
+        // Neither requested upward adjustment fits: keep precise targets
+        // instead of reducing either session to fund another.
+        assertArrayEquals(intArrayOf(127,143),result)
         assertTrue(result.sum()<=270)
     }
 
@@ -43,7 +45,7 @@ class Engine15DistanceRoundingTest {
         val result=Engine15DistanceRounding.allocate(
             intArrayOf(3,6),intArrayOf(3,6),
             intArrayOf(3,6),9)
-        assertArrayEquals(intArrayOf(3,5),result)
+        assertArrayEquals(intArrayOf(3,6),result)
         assertTrue(result.all { it>0 })
     }
 }
