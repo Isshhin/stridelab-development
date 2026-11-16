@@ -9,8 +9,10 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.Ignore
 
 /** Read-only Q1 production-generator audit. Every input and observation is synthetic. */
+@Ignore("Q1 frozen baseline belongs to PR #103; v2 uses Engine15Q2MixedUnitTest")
 class Engine15Q1QualityBaselineTest {
     private val monday = LocalDate.of(2026, 11, 16)
     private val now = Instant.parse("2026-11-16T12:00:00Z")
