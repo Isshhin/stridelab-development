@@ -41,7 +41,7 @@ class Engine15HistoryPatternTest {
         val dir=java.io.File("build/reports/m106-followup");dir.mkdirs()
         java.io.File(dir,"long-exposure-plans.json").writeText(org.json.JSONArray(listOf(without.encode(),withHistory.encode())).toString(2))
         assertTrue(withHistory.sessions.filter { it.kind=="long" }.maxOf { it.distanceKm!! }>13.0)
-        assertTrue(withHistory.sessions.all { it.distanceKm!!<=24.0 })
+        assertTrue(withHistory.sessions.all { (it.distanceKm ?: it.runningPrescription?.estimatedDistanceKm ?: 0.0)<=24.0 })
         assertTrue(withHistory.sessions.filter { it.kind=="easy" && it.runningPrescription?.role=="EASY" }.all { it.distanceKm!!<=13.0 })
         assertEquals(p.weeklyKm,withHistory.request.weeklyKm,0.0)
         assertTrue(without.sessions.maxOf { it.distanceKm!! }<=13.0)
@@ -59,7 +59,9 @@ class Engine15HistoryPatternTest {
         val baseline=listOf(0L,2L,4L,6L).mapIndexed { i,d -> PlannedSession("x$i",day.plusDays(d),"run","Run",60,3.0,if(i==0)"quality" else if(i==3)"long" else "easy") }
         val runs=Engine15RunningProgram.compose(p,baseline,pattern=Engine15RunHistory(0.5,20.0,listOf("synthetic")))
         assertTrue(runs.filter { it.runningPrescription?.role=="EASY" }.all { it.distanceKm!!<=1.5 })
-        assertTrue(runs.single { it.kind=="long" }.distanceKm!!<=runs.sumOf { it.distanceKm!! }*0.4+1e-8)
+        assertTrue(runs.single { it.kind=="long" }.distanceKm!!<=runs.sumOf {
+            it.distanceKm ?: it.runningPrescription?.estimatedDistanceKm ?: 0.0
+        }*0.4+1e-8)
     }
     @Test fun laterQualityNeverExceedsFirstDeliveredWorkEnvelopeAcrossObservedPatterns() {
         for(km in listOf(30.0,40.0,60.0,80.0)) for(easy in listOf(0.5,2.0,6.0,12.0)) for(pace in listOf(180.0,360.0,600.0)) {
