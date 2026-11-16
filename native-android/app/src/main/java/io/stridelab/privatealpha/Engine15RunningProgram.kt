@@ -177,6 +177,11 @@ internal object Engine15RunningProgram {
 
             // This is a distance budget, not a claimed physiological 80/20 distribution.
             var workBudget=floor(distance.sum()*100*0.20).toInt()
+            // Even when the request reports two quality days, two new sessions
+            // must not multiply a single observed quality-work exposure.
+            pattern?.verifiedWeeklyQualityWorkKm?.let { observed ->
+                workBudget=minOf(workBudget,floor(observed*1000.0).toInt())
+            }
             if(priorBuildWork!=null) workBudget=minOf(workBudget,priorBuildWork!!)
             var workUsed=0
             var qualityPosition=0
