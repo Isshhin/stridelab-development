@@ -98,32 +98,43 @@ class Engine15CoachingTest {
             "Half marathon" to 3,
             "Marathon" to 2
         )
-        val titles = mutableSetOf<String>()
         variants.forEach { (goal, repetitions) ->
             val p = Engine15.generate(request(goal = goal, weeks = 4), owner, goal, now)
             val q = week(p, 0).single { it.quality }
-            titles.add(q.title)
-            assertEquals(repetitions,q.runningPrescription!!.segments.count { it.purpose=="WORK" })
+            val work=q.runningPrescription!!.segments.filter { it.purpose=="WORK" }
+            assertEquals(repetitions,work.size)
+            val meters=work.first().meters
+            val expected=if(meters%1000==0) "${meters/1000}K Repeats"
+                else "${meters}m Repeats"
+            assertEquals(expected,q.title)
             assertTrue(q.steps.any { it.contains("warm-up") })
             assertTrue(q.steps.any { it.contains("cool-down") })
             assertFalse(q.steps.any { it.contains("bpm") })
             assertTrue(q.minutes <= p.request.minutes)
         }
-        assertEquals(4, titles.size)
     }
 
     @Test fun sixSelectedQualityStylesGenerateMatchingPrescriptions() {
         val expected = mapOf(
-            "Threshold" to "Controlled threshold intervals", "Tempo" to "Controlled tempo run",
-            "Intervals" to "Controlled 5K intervals", "Hills" to "Controlled hill repetitions",
-            "Fartlek" to "Controlled fartlek run", "Progression" to "Easy progression run"
+            "Threshold" to "Broken Threshold",
+            "Tempo" to "Tempo Intervals",
+            "Intervals" to null,
+            "Hills" to "Hill Repeats",
+            "Fartlek" to "Fartlek Run",
+            "Progression" to "Progression Run"
         )
         expected.forEach { (style, title) ->
             val p = Engine15.generate(request(weeks=4).copy(
                 preferredQuality=style, allowedQualityTypes=setOf(style)
             ), owner, style, now)
             val quality = week(p, 0).single { it.quality }
-            assertEquals(style, title, quality.title)
+            if(title!=null)assertEquals(style,title,quality.title)
+            else {
+                val meters=quality.runningPrescription!!.segments
+                    .first { it.purpose=="WORK" }.meters
+                assertEquals(if(meters%1000==0) "${meters/1000}K Repeats"
+                    else "${meters}m Repeats",quality.title)
+            }
             assertTrue(quality.steps.any { it.contains("warm-up") })
             assertTrue(quality.steps.any { it.contains("cool-down") })
         }
