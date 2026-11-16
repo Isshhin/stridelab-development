@@ -124,6 +124,9 @@ class Engine15Q2MixedUnitTest {
             assertTrue(prescription.estimatedDistanceKm!!<=p.longestKm+1.0+1e-8)
         }
         assertEquals(generated,PlanSnapshot.decode(generated.encode(),owner))
+        val backup=JSONObject().put("schemaVersion",1)
+            .put("plans",JSONArray().put(generated.encode())).toString()
+        assertEquals(listOf(generated),PlanBackup.read(backup,owner))
     }
 
     @Test fun mixedUnitWeeklyReconciliationRespectsOriginalMileageAndLongShare() {
