@@ -101,7 +101,7 @@ class TracksideApprovedBuilderActivityUiTest {
                             selected.value=WeeklyPlacement.makeUnavailable(
                                 selected.value,day)
                         },
-                        onMultiSessionToggle={},onBack={},onContinue={}
+                        onMultiSessionToggle={}
                     )
                 }
             }
