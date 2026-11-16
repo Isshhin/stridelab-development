@@ -29,8 +29,12 @@ internal object Engine15DistanceRounding {
             minOf(sessionLimitsTenths[i],baselineSessionTenths[i])
         }
         val maximum=minOf(weekBudgetTenths,cap.sum())
-        require(allocatedTenths.sum() <= maximum &&
-            allocatedTenths.indices.all { allocatedTenths[it] <= cap[it] })
+        // Preserve the existing engine allocation if an upstream session is
+        // already above a source-specific ceiling. Rounding is not a validator
+        // and must never make previously valid generation crash.
+        if(allocatedTenths.sum()>maximum ||
+            allocatedTenths.indices.any { allocatedTenths[it]>cap[it] })
+            return allocatedTenths.copyOf()
 
         val rounded=IntArray(allocatedTenths.size) { i ->
             val original=allocatedTenths[i]
