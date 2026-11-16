@@ -27,7 +27,8 @@ class Engine15CoachControlsTest {
     private fun show(content:@Composable ()->Unit) { compose.runOnUiThread { compose.activity.setContent { StrideTheme { androidx.compose.material3.Surface { Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) { content() } } } } } }
     private fun capture(name:String) {
         compose.waitForIdle()
-        val dir=InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null)!!
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val dir=context.getExternalFilesDir(null) ?: context.cacheDir
         java.io.File(dir,"$name.png").outputStream().use { compose.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
     }
     @Test fun plannedWorkoutShortcutsUseRealMoveAndMissedCallbacks() {
@@ -71,7 +72,8 @@ class Engine15CoachControlsTest {
             .assertTextEquals("Easy run")
         compose.onNodeWithTag("workout-recommendations-accordion").assertExists()
         compose.onNodeWithTag("workout-record-form").assertDoesNotExist()
-        compose.onNodeWithTag("workout-log-toggle").performScrollTo().performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-log-toggle"))
+        compose.onNodeWithTag("workout-log-toggle").performClick()
         compose.onNodeWithTag("workout-record-form").assertExists()
         compose.onNodeWithTag("workout-actual-date").assertExists()
         compose.onNodeWithTag("workout-recommendations-accordion-toggle")
@@ -192,7 +194,8 @@ class Engine15CoachControlsTest {
         val p=plan().copy(sessions=listOf(PlannedSession("target",day,"run","Threshold",75,14.0,"quality",quality=true)))
         var recorded:WorkoutLog?=null;val drafts=mutableListOf<WorkoutEntryDraft>()
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { androidx.compose.material3.Surface { WorkoutScreen(TrainingState(initializing=false,plans=listOf(p)),p.id,"target",PlanActions(record={_,_,_,log,_->recorded=log},stageWorkoutDraft={drafts+=it}),{}) } } } }
-        compose.onNodeWithTag("workout-log-toggle").performScrollTo().performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-log-toggle"))
+        compose.onNodeWithTag("workout-log-toggle").performClick()
         compose.onNodeWithTag("workout-record-form").assertExists()
         compose.onNodeWithTag("workout-actual-date").assertExists()
         compose.onNodeWithTag("workout-actual-distance").performScrollTo().performTextInput("14")
@@ -224,7 +227,7 @@ class Engine15CoachControlsTest {
         show { RunningHistoryConfirmation(TrainingState(initializing=false,plans=listOf(p))) { selected=it } }
         compose.onNodeWithText("Confirm complete weeks").performScrollTo().assertIsNotEnabled()
         compose.onNodeWithText(start.toString(),substring=true).performScrollTo().performClick()
-        compose.onNodeWithText("Use confirmed average · 10.0 km/week").performScrollTo().performClick()
+        compose.onNodeWithText("Use selected average · 10.0 km/week").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(10.0,selected!!,0.0) }
     }
     @Test fun unansweredDraftFeedbackDoesNotResurrectPreviouslySavedPain() {
@@ -232,7 +235,8 @@ class Engine15CoachControlsTest {
         val p=plan().copy(sessions=listOf(session))
         val draft=WorkoutEntryDraft(p.owner,p.id,session.id,1,"","","","",day.toString(),"{}",1)
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { androidx.compose.material3.Surface { WorkoutScreen(TrainingState(initializing=false,plans=listOf(p),workoutDrafts=mapOf((p.id to session.id) to draft)),p.id,session.id,PlanActions(),{}) } } } }
-        compose.onNodeWithTag("workout-log-toggle").performScrollTo().performClick()
+        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-log-toggle"))
+        compose.onNodeWithTag("workout-log-toggle").performClick()
         compose.onNodeWithText("How did completion feel?").performScrollTo()
         compose.onAllNodes(hasText("Unanswered") and isSelected()).assertCountEquals(2)
     }

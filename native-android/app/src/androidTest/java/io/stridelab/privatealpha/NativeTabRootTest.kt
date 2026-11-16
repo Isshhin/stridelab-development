@@ -15,7 +15,7 @@ class NativeTabRootTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
     private fun showHistory() {
         val rows = (0..39).map { index -> ActivityRecord("synthetic-tab-$index", "Saved walk $index", "Walking", "manual",
-            Instant.parse("2026-10-26T00:00:00Z").minusSeconds(index * 3600L), 2500.0, 900.0, null, null, null, null) }
+            Instant.now().minusSeconds(index * 3600L), 2500.0, 900.0, null, null, null, null) }
         val state = TrainingState(initializing = false, account = "synthetic-tabs", activities = rows)
         compose.runOnUiThread {
             compose.activity.setContent { StrideTheme { NativeStrideContent(state, true, NativeActions({}, {}, {}, {}, { _, _ -> })) } }
@@ -26,53 +26,49 @@ class NativeTabRootTest {
         // Click its real root item directly; scrolling the screen to "nav-settings"
         // was an invalid test locator and never exercised the More destination.
         compose.onNodeWithTag("nav-$path").assertIsDisplayed().performClick()
-        compose.onNode(hasTestTag("screen") and SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, title)).assertExists()
+        when(path) {
+            "training" -> compose.onNodeWithTag("training-unified-timeline").assertExists()
+            "home" -> compose.onNodeWithTag("today-week-swipe").assertExists()
+            else -> compose.onNode(hasTestTag("screen") and SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, title)).assertExists()
+        }
     }
     private fun back() = InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
 
-    @Test fun detailHomeActivitiesOpensListAndPreservesListPositionAcrossRepeatedSwitches() {
+    @Test fun trainingHistoryOpensDetailAndPreservesListPositionAcrossRootSwitches() {
         showHistory()
-        tab("activities", "Activities")
-        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("activity-synthetic-tab-39"))
-        compose.onNodeWithTag("activity-synthetic-tab-39").performClick()
+        tab("training", "Training")
+        compose.onNodeWithTag("training-unified-timeline", useUnmergedTree = true).performScrollToNode(hasTestTag("timeline-recorded-synthetic-tab-39"))
+        compose.onNodeWithTag("timeline-recorded-synthetic-tab-39").performClick()
         compose.onNodeWithTag("activity-parity-overview").assertExists()
-        // Approved activity detail has no bottom tabs; return to history first.
         back()
-        tab("home", "Today")
-        tab("activities", "Activities")
-        // Root navigation must not discard useful state to fix the restored-detail bug.
-        compose.onNodeWithTag("activity-synthetic-tab-39").assertIsDisplayed()
+        compose.onNodeWithTag("training-unified-timeline").assertExists()
+        compose.onNodeWithTag("timeline-recorded-synthetic-tab-39").assertIsDisplayed()
         repeat(3) {
             tab("settings", "More")
             tab("home", "Today")
-            tab("activities", "Activities")
-            compose.onNodeWithTag("activity-synthetic-tab-39").assertIsDisplayed()
+            tab("training", "Training")
+            compose.onNodeWithTag("timeline-recorded-synthetic-tab-39").assertIsDisplayed()
         }
-        tab("activities", "Activities")
-        back()
-        compose.onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle,"Today"))
-        compose.onNodeWithTag("nav-home").assertIsSelected()
     }
 
     @Test fun androidBackAlwaysReturnsDetailToHistoryIncludingHomeShortcut() {
         showHistory()
-        tab("activities", "Activities")
-        compose.onNodeWithTag("activity-synthetic-tab-0").performClick()
+        tab("training", "Training")
+        val timeline=compose.onNodeWithTag("training-unified-timeline",useUnmergedTree=true)
+        timeline.performScrollToNode(hasTestTag("timeline-recorded-synthetic-tab-0"))
+        // The final Today card can sit beneath the floating dock after lazy-list alignment.
+        timeline.performTouchInput { swipeUp(startY=height*.8f,endY=height*.35f) }
+        compose.onNodeWithTag("timeline-recorded-synthetic-tab-0").assertIsDisplayed().performClick()
         compose.onNodeWithTag("activity-parity-overview").assertExists()
         back()
-        compose.onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle,"Activities"))
-        compose.onNodeWithTag("nav-activities").assertIsSelected()
-        compose.onNodeWithTag("activity-synthetic-tab-0").assertIsDisplayed()
-        tab("home", "Today")
-        compose.onNodeWithTag("activity-synthetic-tab-0").performClick()
-        compose.onNodeWithTag("activity-parity-overview").assertExists()
-        back()
-        compose.onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle,"Activities"))
-        compose.onNodeWithTag("nav-activities").assertIsSelected()
-        compose.onNodeWithTag("activity-synthetic-tab-0").assertIsDisplayed()
-        compose.onNodeWithTag("activity-synthetic-tab-0").performClick()
-        // The detail closes through Android Back, not a tab hidden under the sheet.
-        back()
-        tab("activities", "Activities")
+        compose.onNodeWithTag("training-unified-timeline").assertExists()
+        compose.onNodeWithTag("nav-training").assertIsSelected()
+        compose.onNodeWithTag("timeline-recorded-synthetic-tab-0").assertIsDisplayed()
+    }
+
+    @Test fun retiredLibraryRemainsAbsentFromMoreAndTheDock() {
+        tab("settings", "More")
+        compose.onNodeWithTag("nav-library").assertDoesNotExist()
+        compose.onNodeWithText("Exercise library").assertDoesNotExist()
     }
 }

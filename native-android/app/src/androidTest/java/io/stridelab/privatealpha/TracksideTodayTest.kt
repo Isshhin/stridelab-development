@@ -117,10 +117,11 @@ class TracksideTodayTest {
         compose.waitForIdle()
         compose.onNodeWithTag("today-compact-empty-day").assertExists()
         compose.onNodeWithTag("today-recorded-hero").assertDoesNotExist()
+        val emptyDayHeightDp = compose.onNodeWithTag("today-compact-empty-day")
+            .getUnclippedBoundsInRoot().let { (it.bottom - it.top).value }
         org.junit.Assert.assertTrue(
-            "Empty-day status is still oversized",
-            compose.onNodeWithTag("today-compact-empty-day")
-                .getUnclippedBoundsInRoot().let { (it.bottom - it.top).value } < 110f
+            "Empty-day status is still oversized: ${emptyDayHeightDp}dp",
+            emptyDayHeightDp < 110f
         )
         // Return to the current date; no historical empty state should persist.
         compose.onNodeWithTag("today-week-swipe").performTouchInput { swipeLeft() }
