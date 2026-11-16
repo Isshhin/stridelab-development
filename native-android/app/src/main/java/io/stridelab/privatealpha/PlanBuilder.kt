@@ -26,9 +26,11 @@ import org.json.JSONObject
             Engine1Engines.canManage(it) && it.policyId != SessionTemplate.POLICY_ID
         }?.let(TracksideCoaching::setupFor)
         if(existing!=null) {
-            // New draft starts from recent recorded training, not old planned
-            // mileage. User edits below remain authoritative in this session.
-            observedBaseline?.let { existing.copy(weeklyKm=it.weeklyKm) } ?: existing
+            // Keep a previously chosen nonzero mileage baseline. Sparse
+            // imported history must not silently raise an athlete's load.
+            // When no baseline was supplied, use the eligible recorded estimate.
+            if(existing.weeklyKm>0.0) existing
+            else observedBaseline?.let { existing.copy(weeklyKm=it.weeklyKm) } ?: existing
         } else {
             PlanRequest(policyChoice="coordinated",
                 weeklyKm=observedBaseline?.weeklyKm ?: 0.0,
