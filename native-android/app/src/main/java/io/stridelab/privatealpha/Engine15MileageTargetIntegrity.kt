@@ -57,7 +57,7 @@ internal object Engine15MileageTargetIntegrity {
                 "This draft does not demonstrate your requested mileage. " +
                     assessment.explanation() +
                     " Return to plan review: enter your actual recent mileage " +
-                    "or explicitly choose a foundation plan. It cannot be approved as an $assessment.requestedKm km/week plan."
+                    "or explicitly choose a foundation plan. It cannot be approved as a ${assessment.requestedKm} km/week plan."
             )
     }
 
