@@ -78,17 +78,18 @@ internal fun TracksideManagePlanScreen(
     var confirmDraft by rememberSaveable(plan.id) { mutableStateOf(false) }
     var confirmPause by rememberSaveable(plan.id) { mutableStateOf(false) }
     var confirmArchive by rememberSaveable(plan.id) { mutableStateOf(false) }
+    var showRecommendations by rememberSaveable(plan.id) { mutableStateOf(false) }
 
     Screen("Manage plan", "CURRENT TRAINING PLAN", compactTitle = true, dense = true) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween) {
                 TextButton(onClick = onBack, modifier = Modifier.testTag("manage-back")) { Text("‹ Back to Training") }
-                Surface(shape = RoundedCornerShape(14.dp), color = TracksidePalette.surfaceRaised,
-                    border = BorderStroke(1.dp, TracksidePalette.outline)) {
+                Surface(shape = RoundedCornerShape(14.dp), color = Color(0xFF2D392A),
+                    border = BorderStroke(1.dp, Color(0xFF3F5038))) {
                     Text(plan.status.uppercase(Locale.getDefault()),
                         Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                        style = MaterialTheme.typography.labelSmall, color = TracksidePalette.text)
+                        style = MaterialTheme.typography.labelSmall, color = Color(0xFFD8FB70))
                 }
             }
             Text(plan.name ?: plan.request.goal,
@@ -129,7 +130,24 @@ internal fun TracksideManagePlanScreen(
         if (plan.engineVersion == ENGINE15_VERSION && Engine1Engines.canManage(plan)) {
             item { Engine15CoachReviewCard(plan,actions,busy) }
             item { Engine15ScheduleReview(plan, actions, busy) }
-            item { Engine15RecommendationReview(plan, actions, busy) }
+            item {
+                Surface(onClick={showRecommendations=!showRecommendations},
+                    modifier=Modifier.fillMaxWidth().testTag("manage-recommendations"),
+                    color=Color(0xFF1B211D),shape=RoundedCornerShape(14.dp),
+                    border=BorderStroke(1.dp,Color(0xFF343E34))) {
+                    Row(Modifier.fillMaxWidth().padding(13.dp),
+                        verticalAlignment=Alignment.CenterVertically) {
+                        Text("Workout recommendations",
+                            modifier=Modifier.weight(1f),
+                            color=Color(0xFFF1F5EF),
+                            style=MaterialTheme.typography.titleSmall)
+                        Text(if(showRecommendations)"Hide" else "Review",
+                            color=Color(0xFFD8FB70),
+                            style=MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+            if(showRecommendations) item { Engine15RecommendationReview(plan,actions,busy) }
         }
         item {
             Text("PLAN CONTROLS",color=Color(0xFFAAB5AA),
@@ -182,8 +200,8 @@ internal fun TracksideManagePlanScreen(
         }
         item {
             TracksideManageAction(
-                title = "Adjust future weeks",
-                subtitle = "Regenerate from a date you choose",
+                title = "Create a revised draft",
+                subtitle = "Review a new plan without changing this approved schedule",
                 iconRes = R.drawable.trackside_figma_loop, accent = Color(0xFFD8FB70),
                 enabled = canManage, modifier = Modifier.testTag("manage-adjust-weeks")
             ) { confirmDraft = true }
@@ -319,10 +337,10 @@ private fun TracksideManageAction(
     Surface(onClick = onClick, enabled = enabled,
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        color = TracksidePalette.surface,
-        border = BorderStroke(1.dp, TracksidePalette.outline)
+        color = Color(0xFF1B211D),
+        border = BorderStroke(1.dp, Color(0xFF343E34))
     ) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 76.dp).padding(horizontal = 12.dp, vertical = 10.dp),
+        Row(Modifier.fillMaxWidth().heightIn(min = 66.dp).padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.size(43.dp).background(accent.copy(alpha = .2f), RoundedCornerShape(11.dp)),
