@@ -31,26 +31,104 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/** Plan metadata only: neutral native surface, no changes to saved plans. */
 @Composable internal fun PlanOverview(plan:PlanSnapshot) {
     var expanded by rememberSaveable(plan.id) { mutableStateOf(false) }
     val firstWeek=plan.sessions.filter { it.date in plan.request.start..plan.request.start.plusDays(6) }
-    SignalCard {
-        Text(plan.status.uppercase()+" · ENGINE ${plan.engineVersion}",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
-        Text(plan.name ?: plan.request.goal,style=MaterialTheme.typography.headlineSmall)
-        Text(if(!Engine1Engines.canManage(plan))"Saved engine/policy · read-only here" else when(plan.policyId) {ENGINE15_POLICY->"Engine 1.5 training plan";ENGINE15_MULTI_POLICY->"Engine 1.5 multi-session scheduling";ENGINE15_INTERFERENCE_POLICY->"Engine 1.5 interference-aware scheduling";CoordinatedEngine1.policyId->"Coordinated discipline goals";MultiSessionEngine1.policyId->"Multi-session scheduling";SessionTemplate.POLICY_ID->"User-reviewed session targets";else->"Verified baseline fallback"},style=MaterialTheme.typography.bodySmall)
-        Text("${plan.request.start} – ${plan.request.start.plusWeeks(plan.request.weeks.toLong()).minusDays(1)} · ${plan.request.weeks} weeks",style=MaterialTheme.typography.bodyMedium)
-        if(PlanScheduleValidation.isMultiPolicy(plan.policyId)) {
-            val requested=plan.request.runDays+plan.request.strengthDays+plan.request.calDays+plan.request.conditioningDays
-            Text("$requested sessions/week · ${firstWeek.map { it.date }.distinct().size} scheduled training days/week · ${plan.request.days.size} available days",style=MaterialTheme.typography.bodyMedium)
-            Text("${plan.sessions.size} total prescribed sessions · ${plan.sessions.count { it.status=="completed" }} completed · ${plan.request.dailyMinutes} min daily budget",style=MaterialTheme.typography.bodyMedium)
-        } else Text("${plan.sessions.size} prescribed sessions · ${plan.sessions.count { it.status=="completed" }} completed",style=MaterialTheme.typography.bodyMedium)
-        Text(if (LocalPlanOwnership.isLocalPlanOwner(plan.owner))
-            "Device-only plan · sign-in does not automatically move it to the cloud."
-            else "Account-private · stored on this device · not automatically cloud-synced",
-            style=MaterialTheme.typography.bodySmall,
-            color=MaterialTheme.colorScheme.onSurfaceVariant)
-        TextButton(onClick={expanded=!expanded}) { Text(if(expanded) "Hide plan explanation" else "Why this plan") }
-        if(expanded) plan.explanations.forEach { Text(it,style=MaterialTheme.typography.bodyMedium) }
+    val completed=plan.sessions.count { it.status=="completed" }
+    val policy=if(!Engine1Engines.canManage(plan)) "Saved engine/policy · read-only here"
+        else when(plan.policyId) {
+            ENGINE15_POLICY->"Engine 1.5 training plan"
+            ENGINE15_MULTI_POLICY->"Engine 1.5 multi-session scheduling"
+            ENGINE15_INTERFERENCE_POLICY->"Engine 1.5 interference-aware scheduling"
+            CoordinatedEngine1.policyId->"Coordinated discipline goals"
+            MultiSessionEngine1.policyId->"Multi-session scheduling"
+            SessionTemplate.POLICY_ID->"User-reviewed session targets"
+            else->"Verified baseline fallback"
+        }
+    Surface(
+        modifier=Modifier.fillMaxWidth().testTag("training-plan-overview-card"),
+        shape=RoundedCornerShape(16.dp),
+        color=TracksidePalette.surface,
+        border=BorderStroke(1.dp,TracksidePalette.outline)
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement=Arrangement.spacedBy(11.dp)
+        ) {
+            Row(verticalAlignment=Alignment.CenterVertically,
+                horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                Icon(painterResource(R.drawable.trackside_figma_calendar),
+                    contentDescription=null,tint=TracksidePalette.lime,
+                    modifier=Modifier.size(18.dp))
+                Text(plan.status.uppercase()+" · ENGINE "+plan.engineVersion,
+                    color=TracksidePalette.lime,fontSize=11.sp,
+                    fontWeight=FontWeight.Bold)
+            }
+            Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                Text(plan.name ?: plan.request.goal,
+                    color=TracksidePalette.text,fontSize=20.sp,
+                    lineHeight=25.sp,fontWeight=FontWeight.Bold)
+                Text(policy,color=TracksidePalette.textMuted,
+                    fontSize=12.sp,lineHeight=17.sp)
+            }
+            Text("${plan.request.start} – ${plan.request.start.plusWeeks(plan.request.weeks.toLong()).minusDays(1)} · ${plan.request.weeks} weeks",
+                color=TracksidePalette.textMuted,fontSize=12.sp,lineHeight=18.sp)
+            Surface(color=TracksidePalette.surfaceVariant,
+                shape=RoundedCornerShape(12.dp),modifier=Modifier.fillMaxWidth()) {
+                Row(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=11.dp),
+                    horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(3.dp)) {
+                        Text(plan.sessions.size.toString(),color=TracksidePalette.text,
+                            fontSize=19.sp,fontWeight=FontWeight.Bold)
+                        Text("Prescribed sessions",color=TracksidePalette.textMuted,
+                            fontSize=11.sp,lineHeight=15.sp)
+                    }
+                    Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(3.dp)) {
+                        Text(completed.toString(),color=TracksidePalette.text,
+                            fontSize=19.sp,fontWeight=FontWeight.Bold)
+                        Text("Completed",color=TracksidePalette.textMuted,
+                            fontSize=11.sp,lineHeight=15.sp)
+                    }
+                }
+            }
+            if(PlanScheduleValidation.isMultiPolicy(plan.policyId)) {
+                val requested=plan.request.runDays+plan.request.strengthDays+
+                    plan.request.calDays+plan.request.conditioningDays
+                Text("${requested} sessions/week · ${firstWeek.map { it.date }.distinct().size} scheduled training days/week · ${plan.request.days.size} available days · ${plan.request.dailyMinutes} min daily budget",
+                    color=TracksidePalette.textMuted,fontSize=11.sp,lineHeight=17.sp)
+            }
+            Text(
+                if(LocalPlanOwnership.isLocalPlanOwner(plan.owner))
+                    "Device-only plan · sign-in does not automatically move it to the cloud."
+                else "Account-private · stored on this device · not automatically cloud-synced",
+                color=TracksidePalette.textMuted,fontSize=11.sp,lineHeight=17.sp
+            )
+            TextButton(
+                onClick={expanded=!expanded},
+                modifier=Modifier.heightIn(min=44.dp).testTag("training-why-plan"),
+                contentPadding=PaddingValues(0.dp)
+            ) {
+                Text(if(expanded) "Hide plan explanation −" else "Why this plan ›",
+                    color=TracksidePalette.lime,fontSize=13.sp,
+                    fontWeight=FontWeight.SemiBold)
+            }
+            if(expanded) {
+                Surface(
+                    color=TracksidePalette.surfaceVariant,
+                    shape=RoundedCornerShape(12.dp),
+                    modifier=Modifier.fillMaxWidth().testTag("training-plan-explanation")
+                ) {
+                    Column(Modifier.padding(12.dp),
+                        verticalArrangement=Arrangement.spacedBy(9.dp)) {
+                        plan.explanations.forEach {
+                            Text(it,color=TracksidePalette.textMuted,
+                                fontSize=12.sp,lineHeight=18.sp)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 @Composable internal fun PlannedWorkoutCard(s:PlannedSession,hasDraft:Boolean=false,compact:Boolean=false,onClick:()->Unit) {
@@ -296,23 +374,104 @@ private fun TrainingEmptyPlanCard(onBuild: () -> Unit) {
         }
     }
 }
+/** Private feedback; retain the existing save/acknowledgment contract. */
 @Composable internal fun PlanFeedbackForm(plan:PlanSnapshot,actions:PlanActions,sessionId:String?=null,embedded:Boolean=false) {
     var pendingCount by rememberSaveable(plan.id,sessionId) { mutableStateOf<Int?>(null) }
-    var category by rememberSaveable(plan.id,sessionId) { mutableStateOf("Plan quality") };var text by rememberSaveable(plan.id,sessionId) { mutableStateOf("") }
-    LaunchedEffect(plan.feedback.size) { if(pendingCount!=null && plan.feedback.size>pendingCount!!) { text="";pendingCount=null } }
+    var category by rememberSaveable(plan.id,sessionId) { mutableStateOf("Plan quality") }
+    var text by rememberSaveable(plan.id,sessionId) { mutableStateOf("") }
+    LaunchedEffect(plan.feedback.size) {
+        if(pendingCount!=null && plan.feedback.size>pendingCount!!) {
+            text=""
+            pendingCount=null
+        }
+    }
     val fields: @Composable ColumnScope.() -> Unit = {
-        Text("PRIVATE TESTING FEEDBACK",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
-        FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) { listOf("Plan quality","Inappropriate prescription","Workout quality","Usability").forEach { c -> SignalChip(category==c,{category=c},label={Text(c)}) } }
-        FormText("What worked, or what should change?",text,{text=it.take(2000)})
-        Text("Saved privately on this device and included in your manual plan export. Nothing is sent automatically.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        OutlinedButton(onClick={pendingCount=plan.feedback.size;actions.feedback(plan.id,plan.revision,category,text,sessionId)},enabled=text.trim().length>=3,modifier=Modifier.fillMaxWidth()) { Text("Save feedback") }
-        Text("${plan.feedback.size} saved feedback records",style=MaterialTheme.typography.bodySmall)
+        Text("PRIVATE TESTING FEEDBACK",
+            color=TracksidePalette.lime,fontSize=11.sp,fontWeight=FontWeight.Bold)
+        Text("Help improve your training plan",
+            color=TracksidePalette.text,fontSize=17.sp,
+            lineHeight=22.sp,fontWeight=FontWeight.Bold)
+        FlowRow(
+            modifier=Modifier.fillMaxWidth(),
+            horizontalArrangement=Arrangement.spacedBy(7.dp),
+            verticalArrangement=Arrangement.spacedBy(8.dp)
+        ) {
+            listOf("Plan quality","Inappropriate prescription","Workout quality","Usability").forEach { choice ->
+                val selected=category==choice
+                Surface(
+                    onClick={category=choice},
+                    color=if(selected)TracksidePalette.lime else TracksidePalette.surfaceVariant,
+                    shape=RoundedCornerShape(10.dp),
+                    border=BorderStroke(1.dp,
+                        if(selected)TracksidePalette.lime else TracksidePalette.outline),
+                    modifier=Modifier.testTag(
+                        "training-feedback-category-"+choice.lowercase().replace(' ','-'))
+                ) {
+                    Text(choice,
+                        modifier=Modifier.padding(horizontal=11.dp,vertical=8.dp),
+                        color=if(selected)TracksidePalette.backgroundTop else TracksidePalette.textMuted,
+                        fontSize=12.sp,
+                        fontWeight=if(selected)FontWeight.SemiBold else FontWeight.Medium)
+                }
+            }
+        }
+        OutlinedTextField(
+            value=text,
+            onValueChange={text=it.take(2000)},
+            label={Text("What worked, or what should change?")},
+            modifier=Modifier.fillMaxWidth().testTag("training-feedback-message"),
+            minLines=3,
+            maxLines=6,
+            shape=RoundedCornerShape(12.dp),
+            textStyle=MaterialTheme.typography.bodyMedium,
+            colors=OutlinedTextFieldDefaults.colors(
+                focusedTextColor=TracksidePalette.text,
+                unfocusedTextColor=TracksidePalette.text,
+                focusedLabelColor=TracksidePalette.lime,
+                unfocusedLabelColor=TracksidePalette.textMuted,
+                focusedBorderColor=TracksidePalette.lime,
+                unfocusedBorderColor=TracksidePalette.outline,
+                cursorColor=TracksidePalette.lime,
+                focusedContainerColor=TracksidePalette.surfaceVariant,
+                unfocusedContainerColor=TracksidePalette.surfaceVariant
+            )
+        )
+        Text("Saved privately on this device and included in your manual plan export. Nothing is sent automatically.",
+            color=TracksidePalette.textMuted,fontSize=11.sp,lineHeight=16.sp)
+        Button(
+            onClick={
+                pendingCount=plan.feedback.size
+                actions.feedback(plan.id,plan.revision,category,text,sessionId)
+            },
+            enabled=text.trim().length>=3,
+            modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
+                .testTag("training-feedback-save"),
+            shape=RoundedCornerShape(12.dp),
+            colors=ButtonDefaults.buttonColors(
+                containerColor=TracksidePalette.lime,
+                contentColor=TracksidePalette.backgroundTop,
+                disabledContainerColor=TracksidePalette.surfaceVariant,
+                disabledContentColor=TracksidePalette.textMuted
+            )
+        ) {
+            Text("Save feedback",fontSize=13.sp,fontWeight=FontWeight.SemiBold)
+        }
+        Text("${plan.feedback.size} saved feedback records",
+            color=TracksidePalette.textMuted,fontSize=11.sp)
     }
     if(embedded) {
         Column(Modifier.fillMaxWidth(),
-            verticalArrangement=Arrangement.spacedBy(8.dp)) { fields() }
+            verticalArrangement=Arrangement.spacedBy(12.dp)) { fields() }
     } else {
-        SignalCard { fields() }
+        Surface(
+            modifier=Modifier.fillMaxWidth().testTag("training-feedback-card"),
+            color=TracksidePalette.surface,
+            shape=RoundedCornerShape(16.dp),
+            border=BorderStroke(1.dp,TracksidePalette.outline)
+        ) {
+            Column(Modifier.fillMaxWidth().padding(16.dp),
+                verticalArrangement=Arrangement.spacedBy(12.dp)) { fields() }
+        }
     }
 }
 @Composable internal fun NativePlanExport(
