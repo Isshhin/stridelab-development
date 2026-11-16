@@ -257,7 +257,7 @@ internal fun ActivityPlanLink(
                     }
                 }
             }
-        )
+        }
     }
 }
 
