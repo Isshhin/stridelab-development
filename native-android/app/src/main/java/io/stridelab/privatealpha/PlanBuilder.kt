@@ -152,7 +152,7 @@ import org.json.JSONObject
             request = preview.request,
             plan = preview,
             busy = state.busy || awaiting || pendingApprovalId != null,
-            onBack = { step = 2; scheduleSubPage = 1 },
+            onBack = { step = 2; scheduleSubPage = 0 },
             onContinue = {
                 if(!state.busy && pendingApprovalId==null) {
                     error=null
@@ -615,119 +615,118 @@ import org.json.JSONObject
         }
         return
     }
-    if (step == 2 && scheduleSubPage < 2) {
-        if(scheduleSubPage == 0) {
-            TracksidePlanDetailsScreen(
-                start = start, weeks = weeks, minutes = minutes,
-                onStart = { start = it },
-                onWeeks = { weeks = it },
-                onMinutes = { minutes = it },
-                dailyBudget = dailyMinutes,
-                multiSession = input.policyChoice=="multi-session",
-                onDailyBudget = { dailyMinutes=it },
-                onBack = {
-                    step = 1
-                    if(input.runDays > 0) {
-                        if(input.strengthDays+input.calDays+input.conditioningDays>0) {
-                            crossTrainingGoals=true
-                            strengthGoalSaved=true
-                            strengthSetupSaved=true
-                        } else runningSubPage = 4
+    if (step == 2) {
+        // One Plan Dates screen: all availability, capacity and remaining
+        // discipline placement controls are inline instead of a second page.
+        // The composer still generates a draft; only explicit approval
+        // activates a plan.
+        TracksidePlanDetailsScreen(
+            start=start,weeks=weeks,minutes=minutes,
+            onStart={ start=it },onWeeks={ weeks=it },onMinutes={ minutes=it },
+            dailyBudget=dailyMinutes,
+            multiSession=input.policyChoice=="multi-session",
+            onDailyBudget={ dailyMinutes=it },
+            generationBusy=state.busy || awaiting,
+            scheduleValid=compactScheduleError(input)==null,
+            scheduleContent={
+                TracksideCompactScheduleEditor(
+                    request=input,
+                    onDay={ day ->
+                        val pinned=input.weeklySlots.values.flatten().contains(day)
+                        if(day !in input.days || !pinned) {
+                            val days=if(day in input.days)input.days-day else input.days+day
+                            edit(input.copy(
+                                days=days,
+                                longDay=if(input.longDay in days)input.longDay
+                                    else (days.maxOrNull() ?: input.longDay),
+                                qualityDays=input.qualityDays.intersect(days)
+                            ))
+                        }
+                    },
+                    onRemovePinnedDay={ day ->
+                        edit(WeeklyPlacement.makeUnavailable(input,day))
+                    },
+                    onMultiSessionToggle={ enabled ->
+                        edit(input.copy(policyChoice=
+                            if(enabled)"multi-session" else "coordinated"))
+                    },
+                    selectedOtherDiscipline=otherSelectedDiscipline,
+                    selectedOtherSlot=otherSelectedSlot,
+                    onSelectOtherDiscipline={ otherSelectedDiscipline=it },
+                    onSelectOtherSlot={ otherSelectedSlot=it },
+                    onAssignOtherDay={ discipline,index,day ->
+                        edit(WeeklyPlacement.put(input,discipline,index,day))
+                    },
+                    onClearOtherSlot={ discipline,index ->
+                        edit(WeeklyPlacement.clear(input,discipline,index))
+                    },
+                    onAutoOther={ discipline ->
+                        edit(input.copy(weeklySlots=input.weeklySlots-discipline))
+                    },
+                    onCountOther={ discipline,count ->
+                        if(discipline in input.weeklySlots) {
+                            edit(WeeklyPlacement.resize(input,discipline,count))
+                        } else {
+                            edit(when(discipline) {
+                                "str" -> input.copy(strengthDays=count)
+                                "cal" -> input.copy(calDays=count)
+                                else -> input.copy(conditioningDays=count)
+                            })
+                        }
+                        otherSelectedSlot=otherSelectedSlot.coerceIn(0,count-1)
+                    },
+                    researchContent={
+                        IndependentAndroidResearchPreviewPanel(
+                            request=runCatching { request() }.getOrDefault(input),
+                            onSaveResearchReview=actions.saveResearchReview,
+                            savedResearchCount=state.researchDrafts.size,
+                            savedResearchReviews=state.researchDrafts
+                        )
                     }
-                    crossGoalsSaved=input.calDays>0
-                },
-                onContinue = { scheduleSubPage = 1 }
-            )
-        } else {
-            TracksideAvailabilityScreen(
-                request = input,
-                onMultiSessionToggle = { enabled ->
-                    edit(input.copy(
-                        policyChoice = if(enabled) "multi-session" else "coordinated"
-                    ))
-                },
-                dailyBudget = dailyMinutes,
-                onDailyBudget = { dailyMinutes=it },
-                onDay = { day ->
-                    val pinned = input.weeklySlots.values.flatten().contains(day)
-                    if(day !in input.days || !pinned) {
-                        val days = if(day in input.days) input.days-day
-                            else input.days+day
-                        edit(input.copy(
-                            days=days,
-                            longDay=if(input.longDay in days)input.longDay
-                                else (days.maxOrNull() ?: input.longDay),
-                            qualityDays=input.qualityDays.intersect(days)
-                        ))
-                    }
-                },
-                onRemovePinnedDay = { day ->
-                    edit(WeeklyPlacement.makeUnavailable(input,day))
-                },
-                selectedOtherDiscipline = otherSelectedDiscipline,
-                selectedOtherSlot = otherSelectedSlot,
-                onSelectOtherDiscipline = { otherSelectedDiscipline=it },
-                onSelectOtherSlot = { otherSelectedSlot=it },
-                onAssignOtherDay = { discipline,index,day ->
-                    edit(WeeklyPlacement.put(input,discipline,index,day))
-                },
-                onClearOtherSlot = { discipline,index ->
-                    edit(WeeklyPlacement.clear(input,discipline,index))
-                },
-                onAutoOther = { discipline ->
-                    edit(input.copy(weeklySlots=input.weeklySlots-discipline))
-                },
-                onCountOther = { discipline,count ->
-                    if(discipline in input.weeklySlots) {
-                        edit(WeeklyPlacement.resize(input,discipline,count))
-                    } else {
-                        edit(when(discipline) {
-                            "str" -> input.copy(strengthDays=count)
-                            "cal" -> input.copy(calDays=count)
-                            else -> input.copy(conditioningDays=count)
-                        })
-                    }
-                    otherSelectedSlot=otherSelectedSlot.coerceIn(0,count-1)
-                },
-                generationBusy = state.busy || awaiting,
-                generationError = error,
-                researchContent = {
-                    IndependentAndroidResearchPreviewPanel(
-                        request = runCatching { request() }.getOrDefault(input),
-                        onSaveResearchReview = actions.saveResearchReview,
-                        savedResearchCount = state.researchDrafts.size,
-                        savedResearchReviews = state.researchDrafts
-                    )
-                },
-                onBack = { scheduleSubPage = 0 },
-                onContinue = {
-                    if(!state.busy && !awaiting) {
-                        error = null
-                        try {
-                            val p = request()
-                            if(p.start < LocalDate.now())
-                                throw PlanConstraint("Choose today or a future start date.")
-                            // Research previews remain read-only and separate;
-                            // generation always invokes the approved production route.
-                            IndependentEngineRouteGate.requireProduction(
-                                IndependentEngineRoute.EXISTING_COACH
-                            )
-                            val selected = TracksideCoaching.request(p)
-                            beforeId = state.plans.firstOrNull()?.id
-                            awaiting = true
-                            actions.generate(selected)
-                        } catch(e:PlanConstraint) { error = e.message }
-                    }
+                )
+                error?.let { message ->
+                    Text(message,color=MaterialTheme.colorScheme.error,
+                        modifier=Modifier.testTag("plan-form-error"))
                 }
-            )
-        }
+            },
+            onBack={
+                step=1
+                if(input.runDays>0) {
+                    if(input.strengthDays+input.calDays+input.conditioningDays>0) {
+                        crossTrainingGoals=true
+                        strengthGoalSaved=true
+                        strengthSetupSaved=true
+                    } else runningSubPage=4
+                }
+                crossGoalsSaved=input.calDays>0
+            },
+            onContinue={
+                if(!state.busy && !awaiting) {
+                    error=null
+                    try {
+                        val p=request()
+                        if(p.start<LocalDate.now())
+                            throw PlanConstraint("Choose today or a future start date.")
+                        val conflict=compactScheduleError(p)
+                        if(conflict!=null)throw PlanConstraint(conflict)
+                        IndependentEngineRouteGate.requireProduction(
+                            IndependentEngineRoute.EXISTING_COACH
+                        )
+                        val selected=TracksideCoaching.request(p)
+                        beforeId=state.plans.firstOrNull()?.id
+                        awaiting=true
+                        actions.generate(selected)
+                    } catch(e:PlanConstraint) { error=e.message }
+                }
+            }
+        )
         return
     }
     if(step==3) {
-        // Older saved builder state may resume at the removed blueprint page.
-        // Return to final availability without generating or approving a plan.
+        // Older builder state may resume at an obsolete page.
+        // Return to the combined plan dates and availability screen.
         LaunchedEffect(Unit) {
-            scheduleSubPage=1
+            scheduleSubPage=0
             step=2
         }
         return
@@ -742,9 +741,9 @@ import org.json.JSONObject
         description = if(missingDraft)
             "The draft is no longer available. Your choices are still here."
             else "This step could not be restored. Your plan inputs are preserved.",
-        ctaLabel = if(missingDraft) "Review availability" else "Return to setup",
+        ctaLabel = if(missingDraft) "Review plan dates" else "Return to setup",
         onBack = {
-            if(missingDraft) { step=2; scheduleSubPage=1 } else step = 0
+            if(missingDraft) { step=2; scheduleSubPage=0 } else step = 0
         },
         onContinue = {
             error = null
@@ -752,7 +751,7 @@ import org.json.JSONObject
                 previewId = null
                 pendingApprovalId = null
                 step = 2
-                scheduleSubPage = 1
+                scheduleSubPage = 0
             } else {
                 step = 0
                 runningSubPage = 0

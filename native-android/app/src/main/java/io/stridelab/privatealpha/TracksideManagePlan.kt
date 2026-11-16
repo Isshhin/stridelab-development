@@ -78,40 +78,87 @@ internal fun TracksideManagePlanScreen(
     var confirmDraft by rememberSaveable(plan.id) { mutableStateOf(false) }
     var confirmPause by rememberSaveable(plan.id) { mutableStateOf(false) }
     var confirmArchive by rememberSaveable(plan.id) { mutableStateOf(false) }
+    var showRecommendations by rememberSaveable(plan.id) { mutableStateOf(false) }
 
     Screen("Manage plan", "CURRENT TRAINING PLAN", compactTitle = true, dense = true) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween) {
                 TextButton(onClick = onBack, modifier = Modifier.testTag("manage-back")) { Text("‹ Back to Training") }
-                Surface(shape = RoundedCornerShape(14.dp), color = TracksidePalette.surfaceRaised,
-                    border = BorderStroke(1.dp, TracksidePalette.outline)) {
+                Surface(shape = RoundedCornerShape(14.dp), color = Color(0xFF2D392A),
+                    border = BorderStroke(1.dp, Color(0xFF3F5038))) {
                     Text(plan.status.uppercase(Locale.getDefault()),
                         Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                        style = MaterialTheme.typography.labelSmall, color = TracksidePalette.text)
+                        style = MaterialTheme.typography.labelSmall, color = Color(0xFFD8FB70))
                 }
             }
             Text(plan.name ?: plan.request.goal,
-                style = MaterialTheme.typography.titleSmall, color = TracksidePalette.text,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                style = MaterialTheme.typography.titleLarge, color = Color(0xFFF1F5EF),
+                maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(first.format(DateTimeFormatter.ofPattern("d MMM yyyy")) + " – " +
                 last.format(DateTimeFormatter.ofPattern("d MMM yyyy")),
                 color = TracksidePalette.textMuted, style = MaterialTheme.typography.bodySmall)
         }
         item {
-            TracksidePlanWeekOverview(plan, inRange)
+            val week=tracksideTrainingWeek(plan,inRange)
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(7.dp)) {
+                listOf(
+                    plan.request.weeks.toString() to "Weeks",
+                    week.sumOf { it.sessions.size }.toString() to "Sessions",
+                    week.count { it.sessions.isNotEmpty() }.toString() to "Active days"
+                ).forEach { (value,label) ->
+                    Surface(Modifier.weight(1f).heightIn(min=70.dp),
+                        shape=RoundedCornerShape(12.dp),color=Color(0xFF1B211D),
+                        border=BorderStroke(1.dp,Color(0xFF333C33))) {
+                        Column(Modifier.padding(10.dp),
+                            horizontalAlignment=Alignment.CenterHorizontally) {
+                            Text(value,style=MaterialTheme.typography.titleLarge,
+                                color=Color(0xFFF1F5EF),fontWeight=FontWeight.Bold)
+                            Text(label,style=MaterialTheme.typography.labelSmall,
+                                color=Color(0xFFAAB5AA))
+                        }
+                    }
+                }
+            }
         }
-        item { TracksideSectionHeader("Manage your plan") }
+        item { TracksidePlanWeekOverview(plan, inRange) }
+        item {
+            Text("COACHING & SCHEDULING",color=Color(0xFFAAB5AA),
+                style=MaterialTheme.typography.labelSmall,
+                fontWeight=FontWeight.Bold)
+        }
         if (plan.engineVersion == ENGINE15_VERSION && Engine1Engines.canManage(plan)) {
             item { Engine15CoachReviewCard(plan,actions,busy) }
             item { Engine15ScheduleReview(plan, actions, busy) }
-            item { Engine15RecommendationReview(plan, actions, busy) }
+            item {
+                Surface(onClick={showRecommendations=!showRecommendations},
+                    modifier=Modifier.fillMaxWidth().testTag("manage-recommendations"),
+                    color=Color(0xFF1B211D),shape=RoundedCornerShape(14.dp),
+                    border=BorderStroke(1.dp,Color(0xFF343E34))) {
+                    Row(Modifier.fillMaxWidth().padding(13.dp),
+                        verticalAlignment=Alignment.CenterVertically) {
+                        Text("Workout recommendations",
+                            modifier=Modifier.weight(1f),
+                            color=Color(0xFFF1F5EF),
+                            style=MaterialTheme.typography.titleSmall)
+                        Text(if(showRecommendations)"Hide" else "Review",
+                            color=Color(0xFFD8FB70),
+                            style=MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+            if(showRecommendations) item { Engine15RecommendationReview(plan,actions,busy) }
+        }
+        item {
+            Text("PLAN CONTROLS",color=Color(0xFFAAB5AA),
+                style=MaterialTheme.typography.labelSmall,
+                fontWeight=FontWeight.Bold)
         }
         item {
             TracksideManageAction(
                 title = "Edit a workout",
                 subtitle = "Move, change or remove a future session",
-                iconRes = R.drawable.trackside_figma_edit, accent = Color(0xFFFB3955),
+                iconRes = R.drawable.trackside_figma_edit, accent = Color(0xFFD8FB70),
                 enabled = canManage && future.isNotEmpty(),
                 modifier = Modifier.testTag("manage-edit-workout")
             ) { editExpanded = !editExpanded }
@@ -153,9 +200,9 @@ internal fun TracksideManagePlanScreen(
         }
         item {
             TracksideManageAction(
-                title = "Adjust future weeks",
-                subtitle = "Regenerate from a date you choose",
-                iconRes = R.drawable.trackside_figma_loop, accent = Color(0xFF8DBFE2),
+                title = "Create a revised draft",
+                subtitle = "Review a new plan without changing this approved schedule",
+                iconRes = R.drawable.trackside_figma_loop, accent = Color(0xFFD8FB70),
                 enabled = canManage, modifier = Modifier.testTag("manage-adjust-weeks")
             ) { confirmDraft = true }
         }
@@ -163,7 +210,7 @@ internal fun TracksideManagePlanScreen(
             TracksideManageAction(
                 title = "Pause training plan",
                 subtitle = "Keep your history and schedule",
-                iconRes = R.drawable.trackside_figma_pause, accent = Color(0xFF8DBFE2),
+                iconRes = R.drawable.trackside_figma_pause, accent = Color(0xFFD8FB70),
                 enabled = canManage, modifier = Modifier.testTag("manage-pause")
             ) { confirmPause = true }
         }
@@ -171,19 +218,15 @@ internal fun TracksideManagePlanScreen(
             TracksideManageAction(
                 title = if (plan.status == "paused") "Resume training plan" else "Approve this draft",
                 subtitle = "Review the current plan before activating it",
-                iconRes = R.drawable.trackside_figma_loop, accent = Color(0xFF8DBFE2),
+                iconRes = R.drawable.trackside_figma_loop, accent = Color(0xFFD8FB70),
                 enabled = canManage, modifier = Modifier.testTag("manage-resume")
             ) { actions.approve(plan.id, plan.revision) }
         }
         item {
-            TracksideGlassCard(compact = true) {
-                TracksideSectionHeader("Your history stays intact")
-                Text("Completed workouts and recorded history are preserved. Any future plan change requires review.",
-                    color = TracksidePalette.text, style = MaterialTheme.typography.bodyMedium)
-                if (!Engine1Engines.canManage(plan)) Text(
-                    "This saved plan uses an unsupported engine or policy and is read-only here.",
-                    color = TracksidePalette.textMuted, style = MaterialTheme.typography.bodySmall)
-            }
+            Text(if(Engine1Engines.canManage(plan))
+                "Completed workouts remain saved when you pause, edit or archive a plan."
+                else "This saved engine or policy is read-only. Recorded history remains available.",
+                color=Color(0xFFAAB5AA),style=MaterialTheme.typography.bodySmall)
         }
         item {
             OutlinedButton(onClick = { confirmArchive = true }, enabled = canManage,
@@ -233,59 +276,47 @@ internal fun TracksideManagePlanScreen(
 /** Static week preview: only scheduled minutes from persisted plan records. */
 @Composable
 private fun TracksidePlanWeekOverview(plan: PlanSnapshot, selected: LocalDate) {
-    val days = tracksideTrainingWeek(plan, selected)
-    val all = days.flatMap { it.sessions }
-    val count = all.size
-    val trainingDays = days.count { it.sessions.isNotEmpty() }
-    val distribution = all.groupBy { it.discipline }.toList()
-    val high = (days.maxOfOrNull { it.plannedMinutes } ?: 0).coerceAtLeast(1)
-    val firstMonday = tracksideCalendarMonday(plan.request.start)
-    val nowMonday = tracksideCalendarMonday(selected)
-    val lastMonday = tracksideCalendarMonday(plan.request.start.plusWeeks(plan.request.weeks.toLong()).minusDays(1))
-    val totalCalendarWeeks = ChronoUnit.WEEKS.between(firstMonday, lastMonday).toInt() + 1
-    val week = ChronoUnit.WEEKS.between(firstMonday, nowMonday).toInt() + 1
+    val days=tracksideTrainingWeek(plan,selected)
+    val high=(days.maxOfOrNull { it.plannedMinutes } ?: 0).coerceAtLeast(1)
+    val total=days.sumOf { it.plannedMinutes }
+    val monday=tracksideCalendarMonday(selected)
+    val firstMonday=tracksideCalendarMonday(plan.request.start)
+    val weekIndex=ChronoUnit.WEEKS.between(firstMonday,monday).toInt()+1
+    val last=plan.request.start.plusWeeks(plan.request.weeks.toLong()).minusDays(1)
+    val totalWeeks=ChronoUnit.WEEKS.between(firstMonday,tracksideCalendarMonday(last)).toInt()+1
 
-    Column(Modifier.fillMaxWidth().testTag("manage-week-overview"),
-        verticalArrangement = Arrangement.spacedBy(9.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Week $week of $totalCalendarWeeks",
-                style = MaterialTheme.typography.labelMedium, color = TracksidePalette.textMuted,
-                modifier = Modifier.weight(1f))
-            Text("$count sessions · $trainingDays days", style = MaterialTheme.typography.labelSmall,
-                color = TracksidePalette.textMuted)
-        }
-        if (distribution.isNotEmpty()) {
-            Row(Modifier.fillMaxWidth().height(8.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                distribution.forEach { (discipline, rows) ->
-                    Box(Modifier.weight(rows.size.toFloat()).height(8.dp)
-                        .background(tracksideDisciplineColor(discipline), RoundedCornerShape(4.dp)))
-                }
+    Surface(Modifier.fillMaxWidth().testTag("manage-week-overview"),
+        shape=RoundedCornerShape(14.dp),color=Color(0xFF1B211D),
+        border=BorderStroke(1.dp,Color(0xFF333C33))) {
+        Column(Modifier.fillMaxWidth().padding(13.dp),
+            verticalArrangement=Arrangement.spacedBy(11.dp)) {
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Text("Your training week",style=MaterialTheme.typography.titleSmall,
+                    color=Color(0xFFF1F5EF),fontWeight=FontWeight.Bold,
+                    modifier=Modifier.weight(1f))
+                Text("Week $weekIndex of $totalWeeks",
+                    style=MaterialTheme.typography.labelSmall,
+                    color=Color(0xFFAAB5AA))
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                distribution.forEach { (discipline, rows) ->
-                    Text(rows.size.toString() + " " + disciplineLabel(discipline),
-                        modifier = Modifier.weight(rows.size.toFloat()), maxLines = 2,
-                        color = tracksideDisciplineColor(discipline),
-                        style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        }
-        TracksideGlassCard(compact = true) {
-            // The session/day counts already appear directly above this card.
-            // Repeating them here shrinks the title at 1.5× fonts and wraps it.
-            TracksideSectionHeader("Your training week")
-            Row(Modifier.fillMaxWidth().height(116.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                days.forEach { day ->
-                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Column(Modifier.fillMaxWidth().height(92.dp), verticalArrangement = Arrangement.Bottom) {
-                            day.byDiscipline.reversed().forEach { (discipline, minutes) ->
-                                val height = (minutes.toFloat() / high * 88f).coerceAtLeast(3f)
+            Text("Planned ${total/60}h ${total%60}m",
+                style=MaterialTheme.typography.bodySmall,color=Color(0xFFAAB5AA))
+            Row(Modifier.fillMaxWidth().height(104.dp),
+                horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+                days.forEachIndexed { index,day ->
+                    Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally,
+                        verticalArrangement=Arrangement.Bottom) {
+                        Box(Modifier.fillMaxWidth().height(82.dp),
+                            contentAlignment=Alignment.BottomCenter) {
+                            if(day.plannedMinutes>0) {
+                                val height=(day.plannedMinutes.toFloat()/high*78f).coerceAtLeast(3f)
                                 Box(Modifier.fillMaxWidth().height(height.dp)
-                                    .background(tracksideDisciplineColor(discipline), RoundedCornerShape(5.dp)))
+                                    .background(if(index==5)Color(0xFFD8FB70)
+                                        else Color(0xFFA4CB6D),RoundedCornerShape(5.dp)))
                             }
                         }
-                        Text(day.date.dayOfWeek.name.take(3), style = MaterialTheme.typography.labelSmall,
-                            color = TracksidePalette.textMuted, maxLines = 1)
+                        Text(day.date.dayOfWeek.name.take(3),
+                            style=MaterialTheme.typography.labelSmall,
+                            color=Color(0xFFAAB5AA),maxLines=1)
                     }
                 }
             }
@@ -306,10 +337,10 @@ private fun TracksideManageAction(
     Surface(onClick = onClick, enabled = enabled,
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        color = TracksidePalette.surface,
-        border = BorderStroke(1.dp, TracksidePalette.outline)
+        color = Color(0xFF1B211D),
+        border = BorderStroke(1.dp, Color(0xFF343E34))
     ) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 76.dp).padding(horizontal = 12.dp, vertical = 10.dp),
+        Row(Modifier.fillMaxWidth().heightIn(min = 66.dp).padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.size(43.dp).background(accent.copy(alpha = .2f), RoundedCornerShape(11.dp)),

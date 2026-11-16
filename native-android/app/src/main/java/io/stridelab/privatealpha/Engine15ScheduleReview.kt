@@ -2,6 +2,11 @@
 package io.stridelab.privatealpha
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -20,12 +25,31 @@ internal fun Engine15ScheduleReview(plan: PlanSnapshot, actions: PlanActions, bu
     var error by remember(plan, days) { mutableStateOf<String?>(null) }
     var loading by remember(plan, days) { mutableStateOf(false) }
     val unresolved = plan.sessions.filter { it.status == "unassigned" }
-    TracksideGlassCard(compact = true) {
-        TracksideSectionHeader("Training availability")
-        Text(plan.request.days.sorted().joinToString(" · ", transform = ::dayName))
-        if (unresolved.isNotEmpty()) Text("Workouts needing placement before approval · ${unresolved.size}")
-        OutlinedButton(onClick = { open = !open }) { Text(if (open) "Close schedule review" else "Review schedule") }
-        if (open) {
+    Surface(
+        modifier=Modifier.fillMaxWidth().testTag("manage-training-availability"),
+        shape=RoundedCornerShape(14.dp),
+        color=Color(0xFF1B211D),
+        border=BorderStroke(1.dp,Color(0xFF343E34))
+    ) {
+        Column(Modifier.padding(13.dp),
+            verticalArrangement=Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Training availability",
+                        color=Color(0xFFF1F5EF),
+                        style=MaterialTheme.typography.titleSmall)
+                    Text("${plan.request.days.size} available days · Edit preferences",
+                        color=Color(0xFFAAB6A7),
+                        style=MaterialTheme.typography.bodySmall)
+                }
+                TextButton(onClick={open=!open}) {
+                    Text(if(open)"Hide" else "Edit",color=Color(0xFFD8FB70))
+                }
+            }
+            if (unresolved.isNotEmpty()) Text(
+                "${unresolved.size} workouts require placement",
+                color=Color(0xFFFF9DA7))
+            if (open) {
             Text("Available training days", style = MaterialTheme.typography.titleMedium)
             ReviewWeekdays(days) { days = if (it in days) days - it else days + it }
             OutlinedButton(onClick = {
@@ -85,6 +109,7 @@ internal fun Engine15ScheduleReview(plan: PlanSnapshot, actions: PlanActions, bu
                     Text("Place workout on $date")
                 }
             }
+        }
         }
     }
 }

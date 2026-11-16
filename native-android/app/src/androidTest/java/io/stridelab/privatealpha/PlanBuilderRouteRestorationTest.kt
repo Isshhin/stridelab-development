@@ -29,7 +29,10 @@ class PlanBuilderRouteRestorationTest {
         compose.onNodeWithTag("builder-experience-1").performClick()
         next() // running ability
         next() // running schedule
-        next() // plan dates -> final availability screen
+        // Plan Dates now embeds the compact availability editor.
+        compose.onNodeWithTag("builder-inline-schedule").assertExists()
+        compose.onNodeWithTag("builder-advanced-scheduling")
+            .performScrollTo().performClick()
 
         compose.onNodeWithTag("builder-availability-research-toggle")
             .performScrollTo().performClick()

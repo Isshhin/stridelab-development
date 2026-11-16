@@ -78,7 +78,10 @@ class TracksideEngineBuilderIntegrationTest {
             }
             next() // current ability
             next() // weekly setup
-            next() // dates -> final availability screen
+            // Plan Dates now includes the final capacity check and actions.
+            compose.onNodeWithTag("builder-inline-schedule").assertExists()
+            compose.onNodeWithTag("builder-advanced-scheduling")
+                .performScrollTo().performClick()
             compose.onNodeWithTag("available-day-6").assertExists()
             compose.onNodeWithTag("builder-generate-draft-note").assertExists()
             // Research reviews remain available without switching the
