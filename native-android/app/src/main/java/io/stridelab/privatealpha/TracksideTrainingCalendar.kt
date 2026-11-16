@@ -85,9 +85,18 @@ internal fun TracksideTrainingWeekChart(
     val days = tracksideTrainingWeek(plan, selected)
     var distanceView by rememberSaveable(plan.id) { mutableStateOf(false) }
     val total = days.sumOf { it.plannedMinutes }
+    fun activeEstimatedDistance(session:PlannedSession):Double? {
+        if(session.suggestion?.let { it.accepted && it.minutes<session.minutes }==true)return null
+        return session.distanceKm ?: session.runningPrescription?.estimatedDistanceKm
+    }
     val dayDistances=days.map { day -> day.sessions.sumOf {
-        if(it.discipline=="run")it.distanceKm ?: 0.0 else 0.0
+        if(it.discipline=="run")activeEstimatedDistance(it) ?: 0.0 else 0.0
     } }
+    val estimatedDays=days.map { day -> day.sessions.any { session ->
+        session.runningPrescription?.mixedSegments!=null &&
+            activeEstimatedDistance(session)!=null
+    } }
+    val hasEstimates=estimatedDays.any { it }
     val totalKm=dayDistances.sum()
     val chartValues=days.indices.map { i ->
         if(distanceView)dayDistances[i] else days[i].plannedMinutes.toDouble()
@@ -151,17 +160,23 @@ internal fun TracksideTrainingWeekChart(
 
         if (LocalDensity.current.fontScale >= 1.3f) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(if(distanceView)"Planned running kilometres" else "Planned minutes per day", style = MaterialTheme.typography.titleSmall,
+                Text(if(distanceView) {
+                    if(hasEstimates)"Running kilometres (includes estimates)" else "Planned running kilometres"
+                } else "Planned minutes per day", style = MaterialTheme.typography.titleSmall,
                     color = TracksidePalette.text, fontWeight = FontWeight.Bold)
-                Text(if(distanceView)String.format(Locale.getDefault(),"%.1f km planned",totalKm)
+                Text(if(distanceView)String.format(Locale.getDefault(),
+                    if(hasEstimates)"~%.1f km estimated" else "%.1f km planned",totalKm)
                     else "Week total ${total / 60} h ${total % 60} min",
                     style = MaterialTheme.typography.labelSmall, color = TracksidePalette.textMuted)
             }
         } else {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(if(distanceView)"Planned running kilometres" else "Planned minutes per day", style = MaterialTheme.typography.titleSmall,
+                Text(if(distanceView) {
+                    if(hasEstimates)"Running kilometres (includes estimates)" else "Planned running kilometres"
+                } else "Planned minutes per day", style = MaterialTheme.typography.titleSmall,
                     color = TracksidePalette.text, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Text(if(distanceView)String.format(Locale.getDefault(),"%.1f km planned",totalKm)
+                Text(if(distanceView)String.format(Locale.getDefault(),
+                    if(hasEstimates)"~%.1f km estimated" else "%.1f km planned",totalKm)
                     else "Week total ${total / 60} h ${total % 60} min",
                     style = MaterialTheme.typography.labelSmall, color = TracksidePalette.textMuted)
             }
@@ -213,7 +228,8 @@ internal fun TracksideTrainingWeekChart(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(if(chartValues[days.indexOf(day)]<=0.0) "–"
-                                else if(distanceView)String.format(Locale.getDefault(),"%.1f",dayDistances[days.indexOf(day)])
+                                else if(distanceView)String.format(Locale.getDefault(),
+                                    if(estimatedDays[days.indexOf(day)])"~%.1f" else "%.1f",dayDistances[days.indexOf(day)])
                                 else day.plannedMinutes.toString(),
                             color = if (enabled) TracksidePalette.text else TracksidePalette.textMuted,
                             style = MaterialTheme.typography.labelSmall,
