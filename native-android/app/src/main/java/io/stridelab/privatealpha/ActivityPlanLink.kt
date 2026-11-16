@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.foundation.layout.navigationBarsPadding
+import java.time.Instant
+import java.time.LocalDate
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,8 +26,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
-import kotlin.math.abs
 
 private val linkLime = Color(0xFFD8FB70)
 private val linkInk = Color(0xFFEFF5F0)
@@ -37,10 +38,34 @@ internal fun hasRunningPlanForActivityLink(plans: List<PlanSnapshot>): Boolean =
             plan.sessions.any { it.discipline == "run" }
     }
 
+/** Only workouts on the recorded activity date or three preceding days.
+ * No invented date matching, fuzzy future appointments, or automatic linking.
+ */
+internal fun eligiblePlannedRunsForLink(
+    plans:List<PlanSnapshot>,
+    recordedAt:Instant,
+    zone:ZoneId
+):List<Pair<PlanSnapshot,PlannedSession>> {
+    val recordedDate=recordedAt.atZone(zone).toLocalDate()
+    val earliest=recordedDate.minusDays(3)
+    return plans.filter {
+        it.status in setOf("approved","paused") && Engine1Engines.canManage(it)
+    }.flatMap { plan ->
+        plan.sessions.filter { s ->
+            s.discipline=="run" && s.linkedActivityId==null &&
+                s.status !in setOf("missed","skipped","unassigned") &&
+                s.date in earliest..recordedDate
+        }.map { plan to it }
+    }.sortedWith(compareByDescending<Pair<PlanSnapshot,PlannedSession>> {
+        it.second.date
+    }.thenBy { it.first.id }.thenBy { it.second.id })
+}
+
 /**
  * A single compact action in Activity Detail > Overview. Existing source
  * identity, manual linking, and unlink eligibility are preserved.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ActivityPlanLink(
     state: TrainingState,
@@ -52,6 +77,7 @@ internal fun ActivityPlanLink(
     if (!hasRunningPlan) return
 
     var choosing by remember(activity.id) { mutableStateOf(false) }
+    var selectedChoice by remember(activity.id) { mutableStateOf<Pair<String,String>?>(null) }
     var linkedDetails by remember(activity.id) { mutableStateOf(false) }
 
     // A grouped Garmin + Intervals activity can already be linked through
@@ -62,19 +88,7 @@ internal fun ActivityPlanLink(
     }.firstOrNull()
 
     val choices = remember(state.plans, activity.startedAt) {
-        state.plans.filter {
-            it.status in setOf("approved", "paused") && Engine1Engines.canManage(it)
-        }.flatMap { plan ->
-            plan.sessions.filter {
-                it.discipline == "run" && it.linkedActivityId == null &&
-                    it.status !in setOf("missed", "skipped")
-            }.map { plan to it }
-        }.sortedBy {
-            abs(ChronoUnit.DAYS.between(
-                it.second.date,
-                activity.startedAt.atZone(ZoneId.systemDefault()).toLocalDate()
-            ))
-        }
+        eligiblePlannedRunsForLink(state.plans,activity.startedAt,ZoneId.systemDefault())
     }
     val enabled = !state.busy && (linked != null || choices.isNotEmpty())
     val tint = if (enabled) linkLime else linkMuted
@@ -89,7 +103,7 @@ internal fun ActivityPlanLink(
         Row(
             modifier = Modifier.fillMaxWidth()
                 .clickable(enabled = enabled) {
-                    if (linked == null) choosing = true else linkedDetails = true
+                    if (linked == null) { selectedChoice=null;choosing = true } else linkedDetails = true
                 }
                 .semantics {
                     if (linked == null && choices.isEmpty())
@@ -154,37 +168,92 @@ internal fun ActivityPlanLink(
     }
 
     if (choosing) {
-        AlertDialog(
-            onDismissRequest = { choosing = false },
-            title = { Text("Choose the planned run") },
-            text = {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    item {
-                        Text(
-                            "Choose a workout to link manually. The source date may differ; " +
-                                "planned targets are never copied into recorded metrics."
-                        )
-                    }
+        val selected=choices.firstOrNull { (plan,session) ->
+            selectedChoice== (plan.id to session.id)
+        }
+        ModalBottomSheet(
+            onDismissRequest={ choosing=false },
+            sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),
+            containerColor=Color(0xFF171C18),
+            contentColor=linkInk,
+            shape=RoundedCornerShape(topStart=24.dp,topEnd=24.dp),
+            modifier=Modifier.testTag("activity-link-bottom-sheet")
+        ) {
+            Column(Modifier.fillMaxWidth().navigationBarsPadding()
+                .padding(start=18.dp,end=18.dp,bottom=16.dp),
+                verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                Text("Link to planned run",fontSize=22.sp,
+                    fontWeight=FontWeight.Bold,color=linkInk)
+                Text("Select the workout you completed.",
+                    fontSize=12.sp,color=linkMuted)
+                Surface(shape=RoundedCornerShape(12.dp),
+                    color=Color(0xFF242C23)) {
+                    Text("Your recorded activity data stays unchanged.",
+                        Modifier.padding(12.dp),fontSize=11.sp,color=linkInk)
+                }
+                val recordedDay=activity.startedAt.atZone(
+                    ZoneId.systemDefault()).toLocalDate()
+                Text("PLANNED WORKOUTS · ${recordedDay.minusDays(3)} – $recordedDay",
+                    color=linkMuted,fontSize=10.sp,fontWeight=FontWeight.Bold)
+                if(choices.isEmpty()) {
+                    Text("No eligible planned run in the previous three days or today.",
+                        color=linkMuted,modifier=Modifier.padding(vertical=18.dp))
+                } else LazyColumn(
+                    modifier=Modifier.fillMaxWidth().heightIn(max=430.dp)
+                        .testTag("activity-link-choices"),
+                    verticalArrangement=Arrangement.spacedBy(8.dp)
+                ) {
                     items(choices.size) { index ->
-                        val (plan, session) = choices[index]
-                        OutlinedButton(
-                            onClick = {
-                                actions.link(plan.id, plan.revision, session.id, activity.id)
-                                choosing = false
-                            },
-                            enabled = !state.busy,
-                            modifier = Modifier.fillMaxWidth()
+                        val (plan,session)=choices[index]
+                        val isSelected=selectedChoice == (plan.id to session.id)
+                        Surface(
+                            onClick={ selectedChoice=plan.id to session.id },
+                            modifier=Modifier.fillMaxWidth().heightIn(min=65.dp)
+                                .testTag("activity-link-option-${plan.id}-${session.id}"),
+                            shape=RoundedCornerShape(13.dp),
+                            color=if(isSelected)Color(0xFF2B3925) else Color(0xFF222923),
+                            border=BorderStroke(if(isSelected)2.dp else 1.dp,
+                                if(isSelected)linkLime else Color(0xFF3B443A))
                         ) {
-                            Text(
-                                session.date.toString() + " · " + session.title +
-                                    " · " + session.effectiveMinutes + " planned min"
-                            )
+                            Column(Modifier.padding(12.dp),
+                                verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                                Text(session.date.toString(),fontSize=11.sp,
+                                    fontWeight=FontWeight.SemiBold,
+                                    color=if(isSelected)linkLime else linkMuted)
+                                Text(session.effectiveTitle,fontSize=14.sp,
+                                    fontWeight=FontWeight.SemiBold,color=linkInk)
+                                Text(listOfNotNull(
+                                    session.distanceKm?.let { "%.1f km".format(it) },
+                                    "${session.effectiveMinutes} min planned"
+                                ).joinToString(" · "),fontSize=11.sp,color=linkMuted)
+                            }
                         }
                     }
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = { choosing = false }) { Text("Cancel") }
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                    TextButton(onClick={choosing=false},
+                        modifier=Modifier.weight(1f).heightIn(min=48.dp)) {
+                        Text("Cancel",color=linkInk)
+                    }
+                    Surface(
+                        onClick={
+                            selected?.let { (plan,session) ->
+                                actions.link(plan.id,plan.revision,session.id,activity.id)
+                                choosing=false
+                            }
+                        },
+                        enabled=selected!=null && !state.busy,
+                        modifier=Modifier.weight(2f).heightIn(min=48.dp)
+                            .testTag("activity-link-confirm"),
+                        shape=RoundedCornerShape(12.dp),
+                        color=if(selected!=null && !state.busy)linkLime else Color(0xFF4E5A49)
+                    ) {
+                        Box(contentAlignment=Alignment.Center) {
+                            Text("Link Run",color=Color(0xFF101610),
+                                fontSize=14.sp,fontWeight=FontWeight.Bold)
+                        }
+                    }
+                }
             }
         )
     }
