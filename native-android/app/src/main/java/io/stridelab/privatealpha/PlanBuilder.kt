@@ -138,7 +138,7 @@ import org.json.JSONObject
             else -> "Build Strength"
         })
     }
-    var runningRoute by rememberSaveable { mutableStateOf("race") }
+    var runningRoute by rememberSaveable { mutableStateOf(if(initial.trainYourWay) "custom" else "race") }
     var raceIntent by rememberSaveable { mutableStateOf("pr") }
     var raceDistance by rememberSaveable { mutableStateOf(when(input.goal) {
         "Improve 10K" -> "10K"
@@ -250,6 +250,13 @@ import org.json.JSONObject
                     when (runningRoute) {
                         "race" -> runningSubPage = 1
                         "custom" -> {
+                            // Train Your Way is mileage-led, not an inherited 5K race plan.
+                            edit(input.copy(
+                                goal="Aerobic foundation",
+                                disciplineGoals=input.disciplineGoals+("run" to "Aerobic foundation"),
+                                trainYourWay=true,
+                                foundationAcknowledged=false
+                            ))
                             advancedBackPage = 0
                             runningSubPage = 3
                         }
@@ -269,7 +276,8 @@ import org.json.JSONObject
                         else -> "Improve 5K"
                     }
                     edit(input.copy(goal=goal,
-                        disciplineGoals=input.disciplineGoals+("run" to goal)))
+                        disciplineGoals=input.disciplineGoals+("run" to goal),
+                        trainYourWay=false,foundationAcknowledged=false))
                     runningSubPage = 2
                 }
             )
@@ -286,7 +294,7 @@ import org.json.JSONObject
                 onExperience = { edit(input.copy(experience=it)) },
                 onWeeklyKm = { value ->
                     km=value.toInt().toString()
-                    edit(input.copy(weeklyKm=value))
+                    edit(input.copy(weeklyKm=value,foundationAcknowledged=false))
                 },
                 onLongestKm = { value ->
                     longest=value.toInt().toString()
@@ -321,7 +329,7 @@ import org.json.JSONObject
                 onWeeklyKm = { value ->
                     targetKm=value.toInt().toString()
                     targetSupplied=true
-                    edit(input.copy(targetWeeklyKm=value))
+                    edit(input.copy(targetWeeklyKm=value,foundationAcknowledged=false))
                 },
                 onQualityCount = { n ->
                     val allowed = minOf(
@@ -374,7 +382,8 @@ import org.json.JSONObject
                     }
                     edit(input.copy(
                         goal=goal,
-                        disciplineGoals=input.disciplineGoals+("run" to goal)
+                        disciplineGoals=input.disciplineGoals+("run" to goal),
+                        trainYourWay=false,foundationAcknowledged=false
                     ))
                     runningSubPage = 2
                 }
