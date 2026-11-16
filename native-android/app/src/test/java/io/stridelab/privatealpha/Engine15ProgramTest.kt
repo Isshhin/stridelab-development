@@ -18,8 +18,15 @@ class Engine15ProgramTest {
             val j=s.encode()
             assertTrue(s.title,j.has("runningPrescription"))
             val segments=j.getJSONObject("runningPrescription").getJSONArray("segments")
-            val meters=(0 until segments.length()).sumOf { segments.getJSONObject(it).getInt("meters") }
-            assertEquals(s.distanceKm!!*1000,meters.toDouble(),0.001)
+            val version=j.getJSONObject("runningPrescription").getInt("version")
+            if(version==2) {
+                assertNull("Mixed-unit distance must not be an exact target",s.distanceKm)
+                assertTrue((0 until segments.length()).any { segments.getJSONObject(it).has("seconds") })
+                assertTrue(j.getJSONObject("runningPrescription").getDouble("estimatedDistanceKm")>0.0)
+            } else {
+                val meters=(0 until segments.length()).sumOf { segments.getJSONObject(it).getInt("meters") }
+                assertEquals(s.distanceKm!!*1000,meters.toDouble(),0.001)
+            }
         }
         assertEquals(plan,PlanSnapshot.decode(plan.encode(),"synthetic"))
     }
@@ -56,7 +63,9 @@ class Engine15ProgramTest {
         val marathon=generate(request().copy(goal="Marathon",allowedQualityTypes=emptySet(),qualityCount=1))
         assertTrue(marathon.sessions.filter { it.quality }.all { s -> s.steps.none { it.contains("6–7/10") } })
         val progression=generate(request().copy(allowedQualityTypes=setOf("Progression"),qualityCount=1))
-        val efforts=progression.sessions.first { it.quality }.runningPrescription!!.segments.filter { it.purpose=="WORK" }.map { it.effort }
+        val rx=progression.sessions.first { it.quality }.runningPrescription!!
+        val efforts=rx.mixedSegments?.filter { it.purpose=="WORK" }?.map { it.effort }
+            ?: rx.segments.filter { it.purpose=="WORK" }.map { it.effort }
         assertTrue(efforts.distinct().size>=2)
     }
     @Test fun positiveMileageBeginnerStillHasWalkRunGuidance() {
