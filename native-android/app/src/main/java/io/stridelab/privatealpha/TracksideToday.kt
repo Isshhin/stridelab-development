@@ -107,7 +107,9 @@ internal fun TracksideTodayHero(session: PlannedSession, onOpen: () -> Unit) {
                 if(mixedEstimate!=null)"EST. DISTANCE" else "DISTANCE"
             } else "EXERCISES"
             val middleValue = if (running)
-                session.distanceKm?.let { String.format(Locale.getDefault(), "%.1f km", it) }
+                (if(timeOnly)null else session.distanceKm)?.let {
+                    String.format(Locale.getDefault(), "%.1f km", it)
+                }
                     ?: mixedEstimate?.let { String.format(Locale.getDefault(), "~%.1f km", it) }
                     ?: "Not set"
             else session.effectiveExercises.takeIf { it.isNotEmpty() }?.size?.toString() ?: "Not set"
