@@ -2,6 +2,10 @@
 package io.stridelab.privatealpha
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -34,11 +38,28 @@ import java.time.LocalDate
     LaunchedEffect(plan.owner,plan.id,plan.revision,today) {
         overrun=runCatching { actions.previewWeek(plan.id,Engine15WeeklyReview.Input(trigger=Engine15WeeklyReview.Trigger.OVERRUN)) }.getOrNull()?.takeIf { it.overrunSessionIds.isNotEmpty() }
     }
-    SignalCard(Modifier.testTag("coach-week-review")) {
-        Text("YOUR COACH REVIEW",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
-        Text("Plan the next seven days",style=MaterialTheme.typography.titleLarge)
-        Text("Review your response and availability. Nothing changes until you approve.",style=MaterialTheme.typography.bodySmall)
-        if(!open) TextButton(onClick={open=true},enabled=!busy) { Text("Review this week") }
+    Surface(
+        modifier=Modifier.fillMaxWidth().testTag("coach-week-review"),
+        color=Color(0xFF1B211D),
+        shape=RoundedCornerShape(14.dp),
+        border=BorderStroke(1.dp,Color(0xFF343E34))
+    ) {
+        Column(Modifier.padding(13.dp),
+            verticalArrangement=Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Weekly coach review",
+                        style=MaterialTheme.typography.titleSmall,
+                        color=Color(0xFFF0F5EC))
+                    Text("Review upcoming adjustments",
+                        style=MaterialTheme.typography.bodySmall,
+                        color=Color(0xFFAAB6A7))
+                }
+                TextButton(onClick={open=!open},enabled=!busy) {
+                    Text(if(open)"Hide" else "Review week",
+                        color=Color(0xFFD8FB70))
+                }
+            }
         overrun?.takeIf { it.overrunSessionIds.joinToString()!=dismissedOverrun }?.let { extra ->
             Text("You recorded more running than planned. A review is optional; extra distance alone does not mean you need less training.")
             TextButton(onClick={
@@ -75,6 +96,7 @@ import java.time.LocalDate
             }
             (localError ?: error)?.let { Text(it,color=MaterialTheme.colorScheme.error) }
             TextButton(onClick={open=false;review=null}) { Text("Close review") }
+        }
         }
     }
 }
