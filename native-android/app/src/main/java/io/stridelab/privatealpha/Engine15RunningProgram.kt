@@ -134,7 +134,9 @@ internal object Engine15RunningProgram {
                 continue
             }
             var budget=units(minOf(runs.sumOf { it.distanceKm ?: 0.0 },Engine15.runningCeiling(w,p.weeklyKm,p.targetWeeklyKm)))
-            if(recovery && prior.isNotEmpty()) budget=minOf(budget,units(prior.sumOf { it.distanceKm ?: 0.0 }*0.8))
+            if(recovery && prior.isNotEmpty()) budget=minOf(budget,units(prior.sumOf {
+                it.distanceKm ?: it.runningPrescription?.estimatedDistanceKm ?: 0.0
+            }*0.8))
             val reportedExposure=if(p.longestKm>0) p.longestKm + if(p.returning && w<2)0.0 else 1.0 else p.weeklyKm/runs.size
             val exposure=if(p.returning)reportedExposure else maxOf(reportedExposure,pattern?.longKm ?: 0.0)
             val caps=runs.map { s ->
