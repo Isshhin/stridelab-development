@@ -152,7 +152,19 @@ import org.json.JSONObject
             request = preview.request,
             plan = preview,
             busy = state.busy || awaiting || pendingApprovalId != null,
-            onBack = { step = 2; scheduleSubPage = 0 },
+            onBack = {
+                // A large target mismatch needs actual baseline input, not
+                // another pass through the date/availability editor.
+                if(Engine15MileageTargetIntegrity.review(preview)?.requiresFoundationDecision==true &&
+                    !preview.request.foundationAcknowledged) {
+                    step=1
+                    runningSubPage=2
+                    advancedBackPage=0
+                } else {
+                    step=2
+                    scheduleSubPage=0
+                }
+            },
             onContinue = {
                 if(!state.busy && pendingApprovalId==null) {
                     error=null
