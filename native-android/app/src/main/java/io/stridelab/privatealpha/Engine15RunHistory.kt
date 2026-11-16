@@ -40,7 +40,7 @@ internal data class Engine15RunHistory(
                     kotlin.math.abs(ChronoUnit.DAYS.between(s.date,date))<=2 && log.distanceKm?.let { it.isFinite() && it in 0.1..120.0 }==true &&
                     log.effort in 1..5 && log.discomfort !in setOf("Pain","Soreness") && log.completionDifficulty !in setOf("Harder","Could not finish")
             }
-            fun median(kind:String):Double? {
+            fun medianDistance(kind:String):Double? {
                 val rows=observed.filter { it.kind==kind }
                 // Repetition across weeks, not duplicated uploads or a single exceptional run.
                 if(rows.map { it.coachingLog()!!.performedOn!!.with(java.time.DayOfWeek.MONDAY) }.distinct().size<2 || rows.size<2)return null
@@ -48,8 +48,8 @@ internal data class Engine15RunHistory(
                 if(ChronoUnit.DAYS.between(dates.min(),dates.max())<7 || ChronoUnit.DAYS.between(dates.max(),today)>14)return null
                 return median(rows.map { it.coachingLog()!!.distanceKm!! })
             }
-            val easy=median("easy")
-            val long=median("long")
+            val easy=medianDistance("easy")
+            val long=medianDistance("long")
 
             // Q3: only an explicitly logged, well-tolerated, completed WORK
             // distance can inform the same family in the next draft. A planned
