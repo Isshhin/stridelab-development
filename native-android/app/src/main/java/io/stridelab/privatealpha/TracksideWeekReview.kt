@@ -85,6 +85,10 @@ internal fun TracksideWeekReview(
         d to rows.count { it.discipline == d }
     }
 
+    val targetReview=plan?.let(Engine15MileageTargetIntegrity::review)
+    val needsFoundationChoice=targetReview?.requiresFoundationDecision==true &&
+        plan?.request?.foundationAcknowledged!=true
+
     TracksideBuilderFrame(
         progressStep = 6,
         toolbarTitle = if (plan == null) "Training blueprint" else "Review plan",
@@ -93,11 +97,13 @@ internal fun TracksideWeekReview(
         description = if (plan == null) "Review your setup before StrideLab creates your plan."
             else "Your personalized plan. Review before finalizing.",
         onBack = onBack,
-        ctaLabel = if (plan == null && experimentalSelected)
-            "Research mode — no saved plan"
+        ctaLabel = if(needsFoundationChoice) "Resolve mileage target"
+            else if (plan == null && experimentalSelected)
+                "Research mode — no saved plan"
             else if(plan == null) "Generate My Plan" else "Finalize Plan",
         onContinue = onContinue,
-        continueEnabled = !busy && (plan != null || !experimentalSelected),
+        continueEnabled = !busy && (plan != null || !experimentalSelected) &&
+            !needsFoundationChoice,
         descriptionBottomGap = 16,
         footer = {
             Column(Modifier.padding(horizontal=20.dp,vertical=9.dp)) {
@@ -114,6 +120,65 @@ internal fun TracksideWeekReview(
         }
     ) {
 
+    if(plan!=null && targetReview!=null) {
+        Surface(
+            modifier=Modifier.fillMaxWidth().testTag("builder-mileage-target-review"),
+            color=PlanBuilderPalette.surface,
+            shape=RoundedCornerShape(14.dp),
+            border=BorderStroke(1.dp,
+                if(needsFoundationChoice) PlanBuilderPalette.accent
+                else PlanBuilderPalette.border)
+        ) {
+            Column(Modifier.fillMaxWidth().padding(14.dp),
+                verticalArrangement=Arrangement.spacedBy(9.dp)) {
+                Text(
+                    when {
+                        plan.request.foundationAcknowledged -> "FOUNDATION · FUTURE MILEAGE GOAL"
+                        needsFoundationChoice -> "MILEAGE TARGET NEEDS REVIEW"
+                        else -> "CURRENT TRAINING VS MILEAGE TARGET"
+                    },
+                    color=PlanBuilderPalette.accent,
+                    fontSize=11.sp,fontWeight=FontWeight.Bold
+                )
+                Text(targetReview.explanation(),
+                    color=PlanBuilderPalette.text,
+                    fontSize=12.sp,lineHeight=18.sp)
+                if(needsFoundationChoice) {
+                    Text(
+                        "This plan cannot be finalized as the requested mileage. " +
+                        "Go back to Running ability and enter your actual recent weekly " +
+                        "mileage and longest run, or explicitly choose a foundation " +
+                        "plan with the requested mileage as a future goal.",
+                        color=PlanBuilderPalette.secondary,
+                        fontSize=12.sp,lineHeight=18.sp
+                    )
+                    TextButton(
+                        onClick={onChooseGoalOption(plan.request.copy(foundationAcknowledged=true))},
+                        enabled=!busy,
+                        modifier=Modifier.fillMaxWidth().heightIn(min=44.dp)
+                            .testTag("builder-choose-foundation")
+                    ) {
+                        Text("Use foundation plan instead",
+                            color=PlanBuilderPalette.accent,
+                            fontWeight=FontWeight.SemiBold)
+                    }
+                } else if(plan.request.foundationAcknowledged) {
+                    Text(
+                        "Foundation plan explicitly selected. This is not a promise " +
+                        "to reach the future mileage target; follow the displayed workouts and reassess " +
+                        "your recent training before increasing mileage.",
+                        color=PlanBuilderPalette.secondary,
+                        fontSize=12.sp,lineHeight=18.sp
+                    )
+                } else if(targetReview.estimatedPeakKm!=null &&
+                    targetReview.estimatedPeakKm+0.01<targetReview.requestedKm) {
+                    Text("The requested target is not fully reached by this conservative schedule.",
+                        color=PlanBuilderPalette.secondary,fontSize=12.sp,lineHeight=18.sp)
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+    }
     if(plan!=null) MileageGoalChoices(plan,busy,onChooseGoalOption)
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             val trainingDays = days.coerceIn(0,7)
@@ -156,7 +221,10 @@ internal fun TracksideWeekReview(
         }
         if(plan!=null && request.runDays>0 && request.targetWeeklyKm!=null) {
             Spacer(Modifier.height(8.dp))
-            Text(String.format(Locale.getDefault(),"Requested target: %.1f km / week",request.targetWeeklyKm),
+            Text(String.format(Locale.getDefault(),
+                    if(request.foundationAcknowledged) "Future goal (not prescribed): %.1f km / week"
+                    else "Requested target: %.1f km / week",
+                    request.targetWeeklyKm),
                 color=PlanBuilderPalette.secondary,fontSize=12.sp)
         }
         Spacer(Modifier.height(9.dp))
