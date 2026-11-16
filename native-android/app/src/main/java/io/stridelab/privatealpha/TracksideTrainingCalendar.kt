@@ -142,22 +142,11 @@ internal fun TracksideTrainingWeekChart(
             }
         }
 
-        if (byDiscipline.isNotEmpty()) {
-            Row(Modifier.fillMaxWidth().height(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                byDiscipline.forEach { (discipline, count) ->
-                    Box(Modifier.weight(count.toFloat()).height(8.dp)
-                        .background(tracksideDisciplineColor(discipline), RoundedCornerShape(4.dp)))
-                }
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                byDiscipline.forEach { (discipline, count) ->
-                    Text("$count ${disciplineLabel(discipline)}", color = tracksideDisciplineColor(discipline),
-                        style = MaterialTheme.typography.labelSmall,
-                        maxLines = 2, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(count.toFloat()))
-                }
-            }
+        if(byDiscipline.isNotEmpty()) {
+            Text("${days.sumOf { it.sessions.size }} sessions · " +
+                "${days.count { it.sessions.isNotEmpty() }} active days",
+                color=Color(0xFFAAB5A8),
+                style=MaterialTheme.typography.labelSmall)
         }
 
         if (LocalDensity.current.fontScale >= 1.3f) {
