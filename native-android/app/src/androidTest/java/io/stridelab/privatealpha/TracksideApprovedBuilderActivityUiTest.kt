@@ -107,11 +107,11 @@ class TracksideApprovedBuilderActivityUiTest {
             }
         }
         compose.onNodeWithTag("available-day-7").assertIsEnabled()
-        compose.onNodeWithTag("available-day-7").performClick()
+        compose.onNodeWithTag("available-day-7").performScrollTo().performClick()
         compose.onNodeWithText("Change Sunday?").assertExists()
         compose.onNodeWithText("Cancel").performClick()
         assertEquals(listOf(7,3,1),selected.value.weeklySlots["run"])
-        compose.onNodeWithTag("available-day-7").performClick()
+        compose.onNodeWithTag("available-day-7").performScrollTo().performClick()
         compose.onNodeWithTag("builder-confirm-remove-pinned-day").performClick()
         assertEquals(listOf(0,3,1),selected.value.weeklySlots["run"])
         assertEquals(false,7 in selected.value.days)
