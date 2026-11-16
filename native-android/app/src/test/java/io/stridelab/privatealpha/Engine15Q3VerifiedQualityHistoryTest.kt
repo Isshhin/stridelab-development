@@ -71,7 +71,6 @@ class Engine15Q3VerifiedQualityHistoryTest {
         assertTrue(adapted.explanations.any { it.startsWith("VERIFIED_QUALITY_HISTORY:") })
         assertTrue(adapted.sessions.any { it.reason.contains("VERIFIED_QUALITY_WORK:") })
         assertEquals(p,adapted.request)
-        assertEquals(sources.sessions,listOf(sources).single().sessions)
         assertEquals(adapted,PlanSnapshot.decode(adapted.encode(),owner))
     }
 
@@ -105,6 +104,8 @@ class Engine15Q3VerifiedQualityHistoryTest {
             recent.copy(suggestion=SessionSuggestion(25,"Reviewed",accepted=true)),older))),now))
         assertNull(Engine15RunHistory.assess(owner,listOf(history(sessions=listOf(
             recent.copy(log=recent.log!!.copy(qualityWorkKm=null)),older))),now))
+        assertNull(Engine15RunHistory.assess(owner,listOf(history(sessions=listOf(
+            recent.copy(log=recent.log!!.copy(at=now.plusSeconds(1))),older))),now))
     }
 
     @Test fun duplicateSourceOrOtherOwnerCannotChangeQualityWork() {
@@ -133,8 +134,8 @@ class Engine15Q3VerifiedQualityHistoryTest {
                 val steps=quality.runningPrescription!!.mixedSegments!!
                 assertNull(quality.distanceKm)
                 assertTrue(quality.runningPrescription!!.workMeters<=5000)
-                assertTrue(steps.single { it.purpose=="WARM_UP" }.seconds in 600..720)
-                assertTrue(steps.single { it.purpose=="COOL_DOWN" }.seconds in 300..480)
+                assertTrue(steps.single { it.purpose=="WARM_UP" }.seconds!! in 600..720)
+                assertTrue(steps.single { it.purpose=="COOL_DOWN" }.seconds!! in 300..480)
                 assertNull(steps.single { it.purpose=="COOL_DOWN" }.meters)
             }
         }
