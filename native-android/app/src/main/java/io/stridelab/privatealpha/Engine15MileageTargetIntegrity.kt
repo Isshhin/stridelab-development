@@ -44,7 +44,9 @@ internal object Engine15MileageTargetIntegrity {
         // Apply the new approval gate to Train Your Way and target-bearing
         // zero-baseline plans. Preserve unrelated legacy/race plan behavior.
         val guarded=plan.request.trainYourWay || plan.request.weeklyKm==0.0
-        val materialShortfall=peak==null || peak+0.01<target*0.75
+        // A gap of 10% or more is material for a mileage-targeted plan.
+        // The small tolerance covers rounded planning estimates, not missing weeks.
+        val materialShortfall=peak==null || peak+0.01<target*0.90
         return Engine15MileageTargetReview(
             target,plan.request.weeklyKm,peak,guarded && materialShortfall
         )
