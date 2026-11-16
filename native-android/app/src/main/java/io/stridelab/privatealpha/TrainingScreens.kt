@@ -167,6 +167,10 @@ import kotlinx.coroutines.withContext
                         day.forEach { session -> item { PlannedWorkoutCard(session,state.workoutDrafts.containsKey(plan.id to session.id),compact=true) { onOpen(plan.id,session.id) } } }
                     }
                     item { PlanOverview(plan) }
+                    if(Engine15MileageTargetIntegrity.review(plan)?.requiresFoundationDecision==true &&
+                        !plan.request.foundationAcknowledged) {
+                        item { TracksideTrainingTargetWarning(plan) }
+                    }
                     item { PlanFeedbackForm(plan,actions) }
                 }
                 if(state.plans.isNotEmpty() || state.researchDrafts.isNotEmpty())
