@@ -201,7 +201,7 @@ internal object Engine15RunningProgram {
             val finalized=finalizeWeek(generated,p,pattern)
             // Convert only AFTER the legacy dose, spacing and long-share checks.
             // Do not fabricate distance to fill an unused quality-session allowance.
-            val converted=finalized.map { toMixedSupportSteps(p,it) }
+            val converted=reconcileMixedWeek(finalized,finalized.map { toMixedSupportSteps(p,it) },pattern,p)
             val deliveredWork=converted.sumOf { it.runningPrescription!!.workMeters }
             if(!recovery && !taper && deliveredWork>0 && priorBuildWork==null) priorBuildWork=deliveredWork
             val replacements=converted.associateBy { it.id }
@@ -232,6 +232,53 @@ internal object Engine15RunningProgram {
             if(runs.sumOf { it.runningPrescription!!.workMeters }>runs.sumOf { it.runningPrescription!!.meters }*0.2+1e-8) {
                 val last=runs.lastOrNull { it.quality }
                 runs=runs.map { if(it.id==last?.id)easy(it,cap(it),"EASY") else it }
+            }
+        }
+        return runs
+    }
+
+    /** Recheck original hard-work and long-run limits on the smaller mixed-unit week. */
+    private fun reconcileMixedWeek(
+        originals:List<PlannedSession>,converted:List<PlannedSession>,
+        pattern:Engine15RunHistory?,p:PlanRequest
+    ):List<PlannedSession> {
+        val source=originals.associateBy { it.id }
+        fun budgetKm(s:PlannedSession)=s.distanceKm ?: s.runningPrescription?.estimatedDistanceKm ?: 0.0
+        fun toEasy(s:PlannedSession):PlannedSession {
+            val old=source.getValue(s.id)
+            val oldMeters=old.runningPrescription!!.meters
+            val limit=pattern?.easyKm?.let { units(it+1.0)*100 } ?: Int.MAX_VALUE
+            val meters=minOf(oldMeters,limit)
+            if(meters<=0)throw PlanConstraint("A quality fallback cannot fit even a short easy run.")
+            val steps=RunningPrescription("EASY",null,listOf(RunningSegment("EASY",meters,
+                "Conversational easy run; quality withheld to preserve weekly workload limits")))
+            return old.copy(distanceKm=meters/1000.0,
+                minutes=minOf(old.minutes,ceil(meters/1000.0*p.planningPace/60.0).toInt().coerceAtLeast(1)),
+                kind="easy",quality=false,title="Easy run",runningPrescription=steps,
+                steps=steps(steps),reason=old.reason+" Quality withheld after timed-step reconciliation; no catch-up.")
+        }
+        var runs=converted
+        repeat(converted.count { it.quality }+2) {
+            if(runs.size>=3) {
+                val otherKm=runs.filter { it.kind!="long" }.sumOf(::budgetKm)
+                val maximum=units(otherKm*2.0/3.0)*100
+                runs=runs.map { s ->
+                    if(s.kind=="long" && (s.distanceKm ?: 0.0)*1000>maximum+1e-8) {
+                        if(maximum<=0)throw PlanConstraint("Mixed-unit session constraints leave no valid long-run distance.")
+                        val prescription=RunningPrescription("LONG",null,listOf(
+                            RunningSegment("EASY",maximum,"Comfortable conversational running")))
+                        s.copy(distanceKm=maximum/1000.0,
+                            minutes=minOf(s.minutes,ceil(maximum/1000.0*p.planningPace/60.0).toInt().coerceAtLeast(1)),
+                            runningPrescription=prescription,steps=steps(prescription),
+                            reason=s.reason+" Reduced to preserve 40% long-run share after mixed-unit conversion.")
+                    } else s
+                }
+            }
+            val weeklyMeters=runs.sumOf { budgetKm(it)*1000 }
+            val workMeters=runs.sumOf { it.runningPrescription?.workMeters ?: 0 }
+            if(workMeters>weeklyMeters*0.20+1e-8) {
+                val last=runs.lastOrNull { it.quality }
+                if(last!=null)runs=runs.map { if(it.id==last.id)toEasy(it) else it }
             }
         }
         return runs
