@@ -44,7 +44,7 @@ internal fun TracksideParityTrainingControls(
     ) {
         Row(
             Modifier.width(162.dp).height(44.dp)
-                .background(Color(0xFF14232D), RoundedCornerShape(12.dp))
+                .background(if (hasPlan) Color(0xFF14232D) else TracksidePalette.surfaceVariant, RoundedCornerShape(12.dp))
                 .padding(3.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -54,12 +54,12 @@ internal fun TracksideParityTrainingControls(
                     onClick = action,
                     modifier = Modifier.weight(1f).fillMaxHeight()
                         .testTag(if (label == "Day") "training-view-day" else "training-view-agenda"),
-                    color = if (selected) Color(0xFFF6F7F9) else Color.Transparent,
+                    color = if (selected) (if (hasPlan) Color(0xFFF6F7F9) else TracksidePalette.lime) else Color.Transparent,
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(label, fontSize = 13.5f.sp, fontWeight = FontWeight.Bold,
-                            color = if (selected) Color.Black else Color(0xFFA2A4AF))
+                            color = if (selected) TracksidePalette.backgroundTop else if (hasPlan) Color(0xFFA2A4AF) else TracksidePalette.textMuted)
                     }
                 }
             }

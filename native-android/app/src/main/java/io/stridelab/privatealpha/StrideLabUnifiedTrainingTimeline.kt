@@ -156,12 +156,18 @@ internal fun StrideLabUnifiedTrainingTimeline(
     }
 
     if (showTools) {
+        // The empty timeline has nothing to return to; don't place a redundant
+        // top navigation row above the no-plan state. Preserve Back whenever
+        // there are recorded activities or plans to revisit.
+        val hasTimelineContent = active != null || plans.isNotEmpty() || activityGroups.isNotEmpty()
         Column(Modifier.fillMaxSize().background(TimelineStyle.background)) {
-            TextButton(
-                onClick = { showTools = false },
-                modifier = Modifier.padding(start = 12.dp)
-                    .testTag("training-back-to-timeline")
-            ) { Text("‹  Back to timeline", color = TimelineStyle.lime) }
+            if (hasTimelineContent) {
+                TextButton(
+                    onClick = { showTools = false },
+                    modifier = Modifier.padding(start = 12.dp)
+                        .testTag("training-back-to-timeline")
+                ) { Text("‹  Back to timeline", color = TimelineStyle.lime) }
+            }
             Box(Modifier.weight(1f)) {
                 TrainingScreen(state, actions, onBuild, onOpenWorkout, onSignIn, onManage)
             }

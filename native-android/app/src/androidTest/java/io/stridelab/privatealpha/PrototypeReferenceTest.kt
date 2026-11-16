@@ -30,6 +30,15 @@ class PrototypeReferenceTest {
         compose.onNodeWithTag("today-week-swipe").assertExists()
         compose.onNodeWithTag("nav-training").performClick().assertIsSelected()
         compose.onNodeWithTag("training-unified-timeline").assertExists()
+        // Empty plan tools use native neutral/lime controls, with no dead-end
+        // return row when the timeline has no recorded content.
+        compose.onNodeWithTag("training-plan-tools").performClick()
+        compose.onNodeWithTag("training-empty-plan-card").assertExists()
+        compose.onNodeWithTag("training-create-plan").assertExists()
+        compose.onNodeWithTag("training-restore-plan-backup").assertExists()
+        compose.onNodeWithTag("training-back-to-timeline").assertDoesNotExist()
+        compose.onNodeWithTag("training-view-day").assertExists()
+        compose.onNodeWithTag("training-view-agenda").assertExists()
         compose.onNodeWithTag("nav-settings").performClick().assertIsSelected()
         compose.onNodeWithTag("screen-title").assertExists()
         compose.onNodeWithTag("nav-home").performClick().assertIsSelected()
