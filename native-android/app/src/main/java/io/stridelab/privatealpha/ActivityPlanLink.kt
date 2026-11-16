@@ -90,7 +90,9 @@ internal fun ActivityPlanLink(
     val choices = remember(state.plans, activity.startedAt) {
         eligiblePlannedRunsForLink(state.plans,activity.startedAt,ZoneId.systemDefault())
     }
-    val enabled = !state.busy && (linked != null || choices.isNotEmpty())
+    // Keep the action accessible when no nearby session matches: the sheet
+    // explains the date window instead of silently disabling manual linking.
+    val enabled = !state.busy
     val tint = if (enabled) linkLime else linkMuted
     val label = if (linked != null) "Linked to plan" else "Link run"
 
@@ -107,7 +109,7 @@ internal fun ActivityPlanLink(
                 }
                 .semantics {
                     if (linked == null && choices.isEmpty())
-                        contentDescription = "Link run unavailable: no eligible planned workouts"
+                        contentDescription = "No eligible planned workouts nearby. Tap to view the date window."
                 }
                 .heightIn(min = 50.dp)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
