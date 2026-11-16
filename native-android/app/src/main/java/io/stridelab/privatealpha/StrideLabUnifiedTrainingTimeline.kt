@@ -164,9 +164,20 @@ internal fun StrideLabUnifiedTrainingTimeline(
             if (hasTimelineContent) {
                 TextButton(
                     onClick = { showTools = false },
-                    modifier = Modifier.padding(start = 12.dp)
-                        .testTag("training-back-to-timeline")
-                ) { Text("‹  Back to timeline", color = TimelineStyle.lime) }
+                    modifier = Modifier.padding(start = 18.dp).heightIn(min = 44.dp)
+                        .testTag("training-back-to-timeline"),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        Text("‹", color = TracksidePalette.lime,
+                            fontSize = 23.sp, lineHeight = 25.sp)
+                        Text("Back to timeline", color = TracksidePalette.lime,
+                            fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
             }
             Box(Modifier.weight(1f)) {
                 TrainingScreen(state, actions, onBuild, onOpenWorkout, onSignIn, onManage)
