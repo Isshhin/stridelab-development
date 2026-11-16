@@ -91,13 +91,28 @@ internal object Engine15RunningProgram {
     private fun units(km:Double)=floor(km*10+1e-8).toInt()
     private fun hard(s:PlannedSession)=s.quality || s.kind=="long" || s.lower
 
-    fun compose(p:PlanRequest, baseline:List<PlannedSession>,review:Engine15Feedback.DraftReview?=null,pattern:Engine15RunHistory?=null):List<PlannedSession> {
-        if(review!=null)return applyResponse(p,compose(p,baseline,pattern=pattern),review)
+    fun compose(p:PlanRequest, baseline:List<PlannedSession>,review:Engine15Feedback.DraftReview?=null,
+        pattern:Engine15RunHistory?=null,ledger:Engine15WorkloadLedger?=null):List<PlannedSession> {
+        if(review!=null) {
+            val initial=compose(p,baseline,pattern=pattern,ledger=ledger)
+            val reviewed=applyResponse(p,initial,review)
+            for(w in 0 until p.weeks) {
+                val before=initial.filter { it.discipline=="run" && week(p,it)==w }
+                val after=reviewed.filter { it.discipline=="run" && week(p,it)==w }
+                ledger?.record(w,"RECOVERY_RESPONSE","EXPLICIT_NEGATIVE_FEEDBACK",
+                    ledger.runningKm(before),null,ledger.runningKm(after),
+                    "Observed adverse feedback; output may be reduced, never catch-up")
+            }
+            return reviewed
+        }
         val result=mutableListOf<PlannedSession>()
         var priorBuildWork:Int?=null
         for((w,rows) in baseline.groupBy { week(p,it) }.toSortedMap()) {
             val runs=rows.filter { it.discipline=="run" }.sortedBy { it.date }
             if(runs.isEmpty()) { result+=rows; continue }
+            ledger?.record(w,"BASELINE","ENGINE1_BASELINE_OUTPUT",
+                p.weeklyKm,p.targetWeeklyKm,ledger.runningKm(runs),
+                "Executed output of existing baseline generator; its internal rule attribution is not yet instrumented")
             val recovery=w%4==3
             val taper=p.goal in setOf("Half marathon","Marathon") && p.weeks>=8 && w>=p.weeks-2
             val qualityCount=if(p.experience==0 || p.weeklyKm<20 || recovery || taper || p.returning && w<3) 0
@@ -131,12 +146,26 @@ internal object Engine15RunningProgram {
                     title=if(role[s.id]=="LONG")"Long easy run / walk" else "Easy run / walk",
                     steps=listOf("Alternate comfortable running and walking. Keep conversation easy; shorten or stop if needed."),
                     reason="Time-only foundation: distance capacity is unknown. Reassess completed practice before increasing load.") }
+                ledger?.record(w,"FINAL","UNKNOWN_TIME_ONLY_FOUNDATION",null,null,null,
+                    "No reported recent mileage; time-only sessions cannot be expressed as delivered km")
                 continue
             }
-            var budget=units(minOf(runs.sumOf { it.distanceKm ?: 0.0 },Engine15.runningCeiling(w,p.weeklyKm,p.targetWeeklyKm)))
-            if(recovery && prior.isNotEmpty()) budget=minOf(budget,units(prior.sumOf {
-                it.distanceKm ?: it.runningPrescription?.estimatedDistanceKm ?: 0.0
-            }*0.8))
+            val baselineKm=runs.sumOf { it.distanceKm ?: 0.0 }
+            val weeklyCeiling=Engine15.runningCeiling(w,p.weeklyKm,p.targetWeeklyKm)
+            var budget=units(minOf(baselineKm,weeklyCeiling))
+            ledger?.record(w,"WEEK_BUDGET","ENGINE15_WEEKLY_CEILING",
+                baselineKm,weeklyCeiling,budget/10.0,
+                "Applied minimum of executed baseline volume and Engine 1.5 weekly ceiling")
+            if(recovery && prior.isNotEmpty()) {
+                val recoveryLimit=prior.sumOf {
+                    it.distanceKm ?: it.runningPrescription?.estimatedDistanceKm ?: 0.0
+                }*0.8
+                val beforeRecovery=budget
+                budget=minOf(budget,units(recoveryLimit))
+                ledger?.record(w,"WEEK_BUDGET","ENGINE15_RECOVERY_CAP",
+                    beforeRecovery/10.0,recoveryLimit,budget/10.0,
+                    "Fourth-week recovery also limited by 80% of previous delivered week")
+            }
             val reportedExposure=if(p.longestKm>0) p.longestKm + if(p.returning && w<2)0.0 else 1.0 else p.weeklyKm/runs.size
             val exposure=if(p.returning)reportedExposure else maxOf(reportedExposure,pattern?.longKm ?: 0.0)
             val caps=runs.map { s ->
@@ -151,6 +180,14 @@ internal object Engine15RunningProgram {
                 } } ?: 120.0
                 minOf(units(exposure*fraction),units(minOf(timeCap,120.0,observedCap))).coerceAtLeast(0)
             }
+            runs.forEachIndexed { i,s ->
+                ledger?.record(w,"SESSION_LIMIT","SESSION_EXPOSURE_CAP",
+                    s.distanceKm,caps[i]/10.0,null,
+                    "session=${s.id}; role=${role.getValue(s.id)}; evaluated cap only, not an executed distance reduction")
+            }
+            ledger?.record(w,"WEEK_CAPACITY","SUM_SESSION_CAPS",
+                budget/10.0,caps.sum()/10.0,minOf(budget,caps.sum())/10.0,
+                "Actual maximum allocatable before weighted distribution")
             val easyReference=pattern?.easyKm
             val longReference=pattern?.longKm ?: p.longestKm.takeIf { it>0 }
             val longWeight=if(easyReference!=null && longReference!=null) (longReference/easyReference).coerceIn(1.0,3.0) else 1.8
@@ -161,9 +198,17 @@ internal object Engine15RunningProgram {
                     .minWithOrNull(compareBy<Int> { (distance[it]+1)/weight[it] }.thenBy { runs[it].id })
                 if(index!=null) distance[index]++
             }
+            val weightedKm=distance.sum()/10.0
+            ledger?.record(w,"DISTRIBUTION","WEIGHTED_ALLOCATOR",
+                minOf(budget,caps.sum())/10.0,null,weightedKm,
+                "Executed weighted allocation in 100 m units")
             val longIndex=runs.indexOfFirst { it.kind=="long" }
             if(runs.size>=3 && longIndex>=0)
                 distance[longIndex]=minOf(distance[longIndex],floor((distance.sum()-distance[longIndex])*2.0/3.0+1e-8).toInt())
+            ledger?.record(w,"LONG_SHARE","INITIAL_LONG_SHARE",
+                weightedKm,null,distance.sum()/10.0,
+                "40 percent long-run share check; removed volume is not redistributed")
+            val beforeRoundingKm=distance.sum()/10.0
             if(distance.all { it>0 }) {
                 val bounded=Engine15DistanceRounding.allocate(
                     distance,caps.toIntArray(),
@@ -173,6 +218,9 @@ internal object Engine15RunningProgram {
                 )
                 for(i in distance.indices)distance[i]=bounded[i]
             }
+            ledger?.record(w,"ROUNDING","DISTANCE_ROUNDING",
+                beforeRoundingKm,budget/10.0,distance.sum()/10.0,
+                "Executed grid rounding subject to upstream limits")
             if(distance.any { it<=0 }) throw PlanConstraint("The mileage and recent-session limits cannot support every selected running day. Review mileage or running frequency.")
 
             // This is a distance budget, not a claimed physiological 80/20 distribution.
@@ -214,9 +262,22 @@ internal object Engine15RunningProgram {
             }
             // Freeze the initial work envelope during a mileage build; variation does not imply new fitness.
             val finalized=finalizeWeek(generated,p,pattern)
+            ledger?.record(w,"ROLE_RECONCILIATION","FINAL_ROLE_RECHECK",
+                ledger.runningKm(generated),null,ledger.runningKm(finalized),
+                "Executed final role exposure, long-share and quality-work reconciliation")
             // Convert only AFTER the legacy dose, spacing and long-share checks.
             // Do not fabricate distance to fill an unused quality-session allowance.
-            val converted=reconcileMixedWeek(finalized,finalized.map { toMixedSupportSteps(p,it) },pattern,p)
+            val mixed=finalized.map { toMixedSupportSteps(p,it) }
+            ledger?.record(w,"MIXED_UNITS","Q2_TIMED_SUPPORT_CONVERSION",
+                ledger.runningKm(finalized),null,ledger.runningKm(mixed),
+                "After replacing quality warm-up/cool-down distances by planning-pace estimates")
+            val converted=reconcileMixedWeek(finalized,mixed,pattern,p)
+            ledger?.record(w,"MIXED_RECONCILIATION","Q2_POST_CONVERSION_CHECK",
+                ledger.runningKm(mixed),null,ledger.runningKm(converted),
+                "Executed post-Q2 long-share and work-share checks")
+            ledger?.record(w,"FINAL","FINAL_PRESCRIPTION",
+                ledger.runningKm(finalized),null,ledger.runningKm(converted),
+                "Final distance includes Q2 estimates, not exact target km; quality sessions=${converted.count { it.quality }}")
             val deliveredWork=converted.sumOf { it.runningPrescription!!.workMeters }
             if(!recovery && !taper && deliveredWork>0 && priorBuildWork==null) priorBuildWork=deliveredWork
             val replacements=converted.associateBy { it.id }
