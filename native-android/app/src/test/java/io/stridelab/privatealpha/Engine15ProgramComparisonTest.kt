@@ -58,7 +58,11 @@ class Engine15ProgramComparisonTest {
                 val plan=generate(p)
                 row.put("status","generated").put("plan",plan.encode())
                 plan.sessions.filter { it.discipline=="run" && it.distanceKm!=null }.forEach {
-                    assertEquals(it.distanceKm!!*1000,it.runningPrescription!!.meters.toDouble(),0.001)
+                    val prescription=it.runningPrescription!!
+                    if(prescription.mixedSegments!=null) {
+                        assertNull(it.distanceKm)
+                        assertTrue(prescription.estimatedDistanceKm!!>0.0)
+                    } else assertEquals(it.distanceKm!!*1000,prescription.meters.toDouble(),0.001)
                 }
                 for(w in 0 until p.weeks) {
                     val runs=plan.sessions.filter { it.discipline=="run" && ChronoUnit.DAYS.between(p.start,it.date)/7==w.toLong() }
