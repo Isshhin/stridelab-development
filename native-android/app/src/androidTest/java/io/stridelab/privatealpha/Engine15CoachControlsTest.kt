@@ -172,7 +172,7 @@ class Engine15CoachControlsTest {
         val original=plan();var saved by mutableStateOf(original);var approvals=0
         val actions=PlanActions(previewWeek={_,input->Engine15WeeklyReview.preview(saved,day,input)},acceptWeek={ review -> approvals++;saved=Engine15WeeklyReview.accept(saved,review,day,Instant.now()).copy(revision=2) })
         show { Engine15CoachReviewCard(saved,actions,false) }
-        compose.onNodeWithText("Review this week").performClick()
+        compose.onNodeWithText("Review week").performClick()
         compose.onNodeWithText("5",useUnmergedTree=true).performScrollTo().performClick()
         compose.onNodeWithText("Preview weekly decision").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(0,approvals);assertNull(saved.sessions.last().suggestion) }
@@ -183,7 +183,7 @@ class Engine15CoachControlsTest {
     @Test fun overrunReviewRetainsTheCurrentFatigueChoice() {
         val p=plan();var input:Engine15WeeklyReview.Input?=null
         show { Engine15CoachReviewCard(p,PlanActions(previewWeek={_,i->input=i;Engine15WeeklyReview.preview(p,day,i)}),false) }
-        compose.onNodeWithText("Review this week").performClick()
+        compose.onNodeWithText("Review week").performClick()
         compose.onNodeWithText("5",useUnmergedTree=true).performScrollTo().performClick()
         compose.onNodeWithText("Review extra running").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(5,input!!.fatigue);assertEquals(Engine15WeeklyReview.Trigger.OVERRUN,input!!.trigger) }
