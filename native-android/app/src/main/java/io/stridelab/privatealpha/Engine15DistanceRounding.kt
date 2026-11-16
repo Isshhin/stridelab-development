@@ -16,12 +16,14 @@ internal object Engine15DistanceRounding {
         sessionLimitsTenths: IntArray,
         baselineSessionTenths: IntArray,
         weekBudgetTenths: Int,
-        longIndex: Int = -1
+        longIndex: Int = -1,
+        fixedIndices: Set<Int> = emptySet()
     ): IntArray {
         require(weekBudgetTenths >= 0)
         require(allocatedTenths.size == sessionLimitsTenths.size &&
             allocatedTenths.size == baselineSessionTenths.size)
         require(longIndex == -1 || longIndex in allocatedTenths.indices)
+        require(fixedIndices.all { it in allocatedTenths.indices })
         require(allocatedTenths.all { it > 0 })
         val cap=IntArray(allocatedTenths.size) { i ->
             minOf(sessionLimitsTenths[i],baselineSessionTenths[i])
@@ -32,7 +34,7 @@ internal object Engine15DistanceRounding {
 
         val rounded=IntArray(allocatedTenths.size) { i ->
             val original=allocatedTenths[i]
-            if(original<5)original else (original/5)*5
+            if(i in fixedIndices || original<5)original else (original/5)*5
         }
         fun longShareOk():Boolean =
             longIndex<0 || rounded.size<3 ||
@@ -49,7 +51,7 @@ internal object Engine15DistanceRounding {
             }
         }
         val candidates=allocatedTenths.indices
-            .filter { allocatedTenths[it]>=5 && allocatedTenths[it]%5!=0 }
+            .filter { it !in fixedIndices && allocatedTenths[it]>=5 && allocatedTenths[it]%5!=0 }
             .sortedWith(compareByDescending<Int> { allocatedTenths[it]%5 }
                 .thenBy { it })
         for(i in candidates) {
