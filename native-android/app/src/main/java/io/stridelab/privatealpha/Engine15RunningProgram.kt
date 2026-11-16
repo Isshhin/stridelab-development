@@ -100,7 +100,7 @@ internal object Engine15RunningProgram {
                 val before=initial.filter { it.discipline=="run" && week(p,it)==w }
                 val after=reviewed.filter { it.discipline=="run" && week(p,it)==w }
                 ledger?.record(w,"RECOVERY_RESPONSE","EXPLICIT_NEGATIVE_FEEDBACK",
-                    ledger.runningKm(before),null,ledger.runningKm(after),
+                    ledger?.runningKm(before),null,ledger?.runningKm(after),
                     "Observed adverse feedback; output may be reduced, never catch-up")
             }
             return reviewed
@@ -111,7 +111,7 @@ internal object Engine15RunningProgram {
             val runs=rows.filter { it.discipline=="run" }.sortedBy { it.date }
             if(runs.isEmpty()) { result+=rows; continue }
             ledger?.record(w,"BASELINE","ENGINE1_BASELINE_OUTPUT",
-                p.weeklyKm,p.targetWeeklyKm,ledger.runningKm(runs),
+                p.weeklyKm,p.targetWeeklyKm,ledger?.runningKm(runs),
                 "Executed output of existing baseline generator; its internal rule attribution is not yet instrumented")
             val recovery=w%4==3
             val taper=p.goal in setOf("Half marathon","Marathon") && p.weeks>=8 && w>=p.weeks-2
@@ -263,20 +263,20 @@ internal object Engine15RunningProgram {
             // Freeze the initial work envelope during a mileage build; variation does not imply new fitness.
             val finalized=finalizeWeek(generated,p,pattern)
             ledger?.record(w,"ROLE_RECONCILIATION","FINAL_ROLE_RECHECK",
-                ledger.runningKm(generated),null,ledger.runningKm(finalized),
+                ledger?.runningKm(generated),null,ledger?.runningKm(finalized),
                 "Executed final role exposure, long-share and quality-work reconciliation")
             // Convert only AFTER the legacy dose, spacing and long-share checks.
             // Do not fabricate distance to fill an unused quality-session allowance.
             val mixed=finalized.map { toMixedSupportSteps(p,it) }
             ledger?.record(w,"MIXED_UNITS","Q2_TIMED_SUPPORT_CONVERSION",
-                ledger.runningKm(finalized),null,ledger.runningKm(mixed),
+                ledger?.runningKm(finalized),null,ledger?.runningKm(mixed),
                 "After replacing quality warm-up/cool-down distances by planning-pace estimates")
             val converted=reconcileMixedWeek(finalized,mixed,pattern,p)
             ledger?.record(w,"MIXED_RECONCILIATION","Q2_POST_CONVERSION_CHECK",
-                ledger.runningKm(mixed),null,ledger.runningKm(converted),
+                ledger?.runningKm(mixed),null,ledger?.runningKm(converted),
                 "Executed post-Q2 long-share and work-share checks")
             ledger?.record(w,"FINAL","FINAL_PRESCRIPTION",
-                ledger.runningKm(finalized),null,ledger.runningKm(converted),
+                ledger?.runningKm(finalized),null,ledger?.runningKm(converted),
                 "Final distance includes Q2 estimates, not exact target km; quality sessions=${converted.count { it.quality }}")
             val deliveredWork=converted.sumOf { it.runningPrescription!!.workMeters }
             if(!recovery && !taper && deliveredWork>0 && priorBuildWork==null) priorBuildWork=deliveredWork
