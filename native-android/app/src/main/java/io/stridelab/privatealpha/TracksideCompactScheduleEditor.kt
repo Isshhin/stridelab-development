@@ -149,9 +149,13 @@ internal fun TracksideCompactScheduleEditor(
             Text("E Easy  ·  Q Quality  ·  L Long  ·  – Unavailable",
                 color=muted,fontSize=10.sp)
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Text(total.toString(),color=Color.White,fontSize=23.sp,
+                    fontWeight=FontWeight.Bold,
+                    modifier=Modifier.padding(end=11.dp)
+                        .testTag("builder-capacity-count"))
                 Column(Modifier.weight(1f)) {
                     Text("Schedule check",color=Color.White,fontWeight=FontWeight.SemiBold)
-                    Text("$total sessions · ${request.days.size} available days",
+                    Text("sessions across ${request.days.size} days",
                         color=muted,fontSize=11.sp,
                         modifier=Modifier.testTag("builder-capacity-days"))
                 }
@@ -170,7 +174,12 @@ internal fun TracksideCompactScheduleEditor(
             if(advanced) {
                 Surface(onClick={onMultiSessionToggle(request.policyChoice!="multi-session")},
                     modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
-                        .testTag("builder-enable-multi-session"),
+                        .testTag("builder-enable-multi-session")
+                        .semantics {
+                            stateDescription=if(request.policyChoice=="multi-session")
+                                "Same-day sessions enabled"
+                            else "Same-day sessions disabled"
+                        },
                     color=Color(0xFF292F29),shape=RoundedCornerShape(10.dp),
                     border=BorderStroke(1.dp,border)) {
                     Row(Modifier.padding(12.dp),
@@ -181,6 +190,8 @@ internal fun TracksideCompactScheduleEditor(
                             color=accent,fontWeight=FontWeight.Bold)
                     }
                 }
+                Text("Only compatible sessions can share a day; final recovery checks apply.",
+                    fontSize=10.sp,color=muted)
                 TracksideOtherDisciplineSlots(request,selectedOtherDiscipline,
                     selectedOtherSlot,onSelectOtherDiscipline,onSelectOtherSlot,
                     onAssignOtherDay,onClearOtherSlot,onAutoOther,onCountOther)
