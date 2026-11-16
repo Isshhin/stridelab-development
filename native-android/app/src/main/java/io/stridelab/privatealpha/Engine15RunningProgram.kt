@@ -111,6 +111,15 @@ internal object Engine15RunningProgram {
             val longIndex=runs.indexOfFirst { it.kind=="long" }
             if(runs.size>=3 && longIndex>=0)
                 distance[longIndex]=minOf(distance[longIndex],floor((distance.sum()-distance[longIndex])*2.0/3.0+1e-8).toInt())
+            if(distance.all { it>0 }) {
+                val bounded=Engine15DistanceRounding.allocate(
+                    distance,caps.toIntArray(),
+                    runs.map { units(it.distanceKm ?: 0.0) }.toIntArray(),
+                    budget,longIndex,
+                    runs.indices.filter { runs[it].id in qualityIds }.toSet()
+                )
+                for(i in distance.indices)distance[i]=bounded[i]
+            }
             if(distance.any { it<=0 }) throw PlanConstraint("The mileage and recent-session limits cannot support every selected running day. Review mileage or running frequency.")
 
             // This is a distance budget, not a claimed physiological 80/20 distribution.
@@ -126,8 +135,8 @@ internal object Engine15RunningProgram {
                 val prescription=quality ?: RunningPrescription(actualRole,null,listOf(RunningSegment("EASY",meters,
                     if(p.experience==0) "Alternate easy running and walking; keep conversation comfortable" else "Conversational; no pace target")))
                 if(quality!=null) { workUsed+=quality.workMeters; qualityPosition++ }
-                val title=if(quality!=null) qualityTitle(p,family) else when(actualRole) {
-                    "LONG"->"Long easy run"; "ENDURANCE"->"Aerobic endurance run"; "RECOVERY"->"Recovery run"; else->"Easy aerobic run"
+                val title=if(quality!=null) qualityTitle(quality) else when(actualRole) {
+                    "LONG"->"Long run"; "ENDURANCE"->"Aerobic run"; "RECOVERY"->"Recovery run"; else->"Easy run"
                 }
                 val minutes=ceil(meters/1000.0*p.planningPace/60).toInt().coerceAtLeast(1)
                 s.copy(distanceKm=meters/1000.0,minutes=minutes,quality=quality!=null,
@@ -154,7 +163,7 @@ internal object Engine15RunningProgram {
             if(meters<=0)throw PlanConstraint("The final running roles cannot fit this weekly distance. Review frequency or mileage.")
             val prescription=RunningPrescription(role,null,listOf(RunningSegment("EASY",meters,"Comfortable conversational running")))
             return s.copy(distanceKm=meters/1000.0,minutes=minOf(s.minutes,ceil(meters/1000.0*p.planningPace/60).toInt().coerceAtLeast(1)),
-                quality=false,kind=if(role=="LONG")"long" else "easy",title=if(role=="LONG")"Long easy run" else "Easy run",
+                quality=false,kind=if(role=="LONG")"long" else "easy",title=if(role=="LONG")"Long run" else "Easy run",
                 runningPrescription=prescription,steps=steps(prescription),reason=s.reason+" Final role exposure reconciled without redistribution.")
         }
         fun cap(s:PlannedSession)=minOf(s.runningPrescription!!.meters,pattern?.easyKm?.let { units(it+1.0)*100 } ?: Int.MAX_VALUE)
@@ -249,10 +258,25 @@ internal object Engine15RunningProgram {
         segments+=RunningSegment("COOL_DOWN",total-segments.sumOf { it.meters },"Easy conversational running or walking")
         return RunningPrescription("QUALITY",family,segments)
     }
-    private fun qualityTitle(p:PlanRequest,family:String)=when(family) {
-        "Threshold"->"Controlled threshold intervals"; "Tempo"->"Controlled tempo run"; "Hills"->"Controlled hill repetitions"
-        "Fartlek"->"Controlled fartlek run"; "Progression"->"Easy progression run"
-        else->when(p.goal) { "Improve 5K"->"Controlled 5K intervals"; "Improve 10K"->"Controlled 10K intervals"; "Half marathon"->"Controlled sustained intervals"; "Marathon"->"Steady aerobic intervals"; else->"Controlled aerobic intervals" }
+    /** A readable workout identity derived from actual saved work segments. */
+    private fun qualityTitle(prescription:RunningPrescription):String {
+        val work=prescription.segments.filter { it.purpose=="WORK" }
+        return when(prescription.family) {
+            "Threshold" -> if(work.size>1) "Broken Threshold" else "Threshold Run"
+            "Tempo" -> if(work.size>1) "Tempo Intervals" else "Tempo Run"
+            "Hills" -> "Hill Repeats"
+            "Fartlek" -> "Fartlek Run"
+            "Progression" -> "Progression Run"
+            else -> {
+                val length=work.firstOrNull()?.meters
+                if(length==null || work.any { it.meters!=length }) "Interval Repeats"
+                else {
+                    val distance=if(length%1000==0) "${length/1000}K"
+                        else "${length}m"
+                    "$distance Repeats"
+                }
+            }
+        }
     }
     private fun purpose(role:String)=when(role) {
         "RECOVERY"->"Shorter easy exposure after a demanding day; recovery is the priority."

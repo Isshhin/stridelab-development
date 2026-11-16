@@ -80,19 +80,52 @@ import java.time.LocalDate
 }
 
 @Composable internal fun RunningHistoryConfirmation(state:TrainingState,onUse:(Double)->Unit) {
-    val rows=remember(state.activities,state.plans) { observedRunningWeeks(state.activities,plans=state.plans) }
+    val rows=remember(state.activities,state.plans) {
+        observedRunningWeeks(state.activities,plans=state.plans)
+    }
+    val detected=remember(state.activities,state.plans) {
+        automaticRunningBaseline(state.activities,plans=state.plans)
+    }
+    var manualOpen by rememberSaveable { mutableStateOf(false) }
     var selectedCsv by rememberSaveable { mutableStateOf("") }
     val selected=selectedCsv.split(',').filter { it.isNotBlank() }.map(LocalDate::parse).toSet()
     SignalCard(Modifier.testTag("running-history-confirmation")) {
-        Text("RECENT RUNNING HISTORY",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
-        Text("Select only completed weeks with all your running recorded. Missing imports are not zero training. You can enter your usual mileage above instead.",style=MaterialTheme.typography.bodySmall)
-        rows.forEach { row ->
-            val complete=row.start.plusDays(6)<LocalDate.now()
-            SignalChip(selected=row.start in selected,enabled=complete && row.distanceKm!=null,onClick={selectedCsv=(if(row.start in selected)selected-row.start else selected+row.start).sorted().joinToString(",")},
-                label={Text("${row.start} · ${row.distanceKm?.let { "%.1f km".format(it) } ?: "distance incomplete"} · ${row.runs} ${if(row.runs==1)"run" else "runs"}${if(!complete)" · in progress" else ""}")},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp))
+        Text("RECENT RUNNING HISTORY",style=MaterialTheme.typography.labelMedium,
+            color=MaterialTheme.colorScheme.primary)
+        if(detected!=null) {
+            Text("Estimated baseline · %.1f km/week".format(detected.weeklyKm),
+                style=MaterialTheme.typography.titleMedium,
+                modifier=Modifier.testTag("running-history-auto-baseline"))
+            Text("${detected.weeks.size} completed calendar weeks with recorded runs. Used when no existing baseline is set; previously chosen mileage is preserved.",
+                style=MaterialTheme.typography.bodySmall)
+            TextButton(onClick={onUse(detected.weeklyKm)}) {
+                Text("Use estimated mileage")
+            }
+            TextButton(onClick={manualOpen=!manualOpen}) {
+                Text(if(manualOpen) "Hide manual week selection" else "Select different weeks")
+            }
+        } else {
+            Text("An automatic baseline needs at least two completed weeks with three recorded runs each. Enter your usual mileage above, or select complete weeks manually.",
+                style=MaterialTheme.typography.bodySmall)
         }
-        val average=historyWeeklyKm(state.activities,plans=state.plans,confirmedWeeks=selected)
-        SignalButton(average?.let { "Use confirmed average · %.1f km/week".format(it) } ?: "Confirm complete weeks",{average?.let(onUse)},average!=null)
+        if(detected==null || manualOpen) {
+            rows.forEach { row ->
+                val complete=row.start.plusDays(6)<LocalDate.now()
+                SignalChip(selected=row.start in selected,enabled=complete && row.distanceKm!=null,
+                    onClick={
+                        selectedCsv=(if(row.start in selected) selected-row.start
+                            else selected+row.start).sorted().joinToString(",")
+                    },label={
+                        Text("${row.start} · ${row.distanceKm?.let { "%.1f km".format(it) } ?: "distance incomplete"} · ${row.runs} ${if(row.runs==1)"run" else "runs"}${if(!complete)" · in progress" else ""}")
+                    },
+                    modifier=Modifier.fillMaxWidth().heightIn(min=48.dp))
+            }
+            val average=historyWeeklyKm(state.activities,plans=state.plans,confirmedWeeks=selected)
+            SignalButton(
+                average?.let { "Use selected average · %.1f km/week".format(it) }
+                    ?: "Confirm complete weeks",
+                { average?.let(onUse) },average!=null)
+        }
     }
 }
 

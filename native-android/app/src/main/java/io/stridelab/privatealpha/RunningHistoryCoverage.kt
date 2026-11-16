@@ -18,3 +18,38 @@ internal fun historyWeeklyKm(history:List<ActivityRecord>,now:Instant=Instant.no
     if(selected.size!=confirmedWeeks.size || selected.any { it.distanceKm==null })return null
     return selected.sumOf { it.distanceKm!! }/selected.size
 }
+
+/**
+ * Suggested baseline from recent *completed calendar weeks* with recorded running.
+ *
+ * No evidence of a run on a day is not evidence of rest. A week with fewer
+ * than three distinct runs is not used; the result is still an estimate and
+ * can be overridden by the athlete. These are imported/saved actual distances,
+ * never planned targets. Current incomplete week is excluded.
+ */
+internal data class AutomaticRunningBaseline(
+    val weeklyKm: Double,
+    val weeks: List<ObservedRunningWeek>
+)
+
+internal fun automaticRunningBaseline(
+    history: List<ActivityRecord>,
+    now: Instant = Instant.now(),
+    plans: List<PlanSnapshot> = emptyList(),
+    zone: ZoneId = ZoneId.systemDefault()
+): AutomaticRunningBaseline? {
+    val today=now.atZone(zone).toLocalDate()
+    val eligible=observedRunningWeeks(history,now,plans,zone)
+        .filter { week ->
+            week.start.plusDays(6)<today &&
+                week.runs>=3 &&
+                week.distanceKm?.let { it.isFinite() && it>0.0 }==true
+        }
+        .sortedByDescending { it.start }
+        .take(3)
+    if(eligible.size<2)return null
+    val weekly=eligible.sumOf { requireNotNull(it.distanceKm) }/eligible.size
+    if(!weekly.isFinite() || weekly<=0.0)return null
+    val rounded=kotlin.math.round(weekly*10.0)/10.0
+    return AutomaticRunningBaseline(rounded,eligible)
+}
