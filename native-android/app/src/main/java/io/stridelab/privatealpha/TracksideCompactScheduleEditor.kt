@@ -81,14 +81,14 @@ internal fun TracksideCompactScheduleEditor(
     onDay:(Int)->Unit,
     onRemovePinnedDay:(Int)->Unit,
     onMultiSessionToggle:(Boolean)->Unit,
-    selectedOtherDiscipline:String,
-    selectedOtherSlot:Int,
-    onSelectOtherDiscipline:(String)->Unit,
-    onSelectOtherSlot:(Int)->Unit,
-    onAssignOtherDay:(String,Int,Int)->Unit,
-    onClearOtherSlot:(String,Int)->Unit,
-    onAutoOther:(String)->Unit,
-    onCountOther:(String,Int)->Unit,
+    selectedOtherDiscipline:String="str",
+    selectedOtherSlot:Int=0,
+    onSelectOtherDiscipline:(String)->Unit={},
+    onSelectOtherSlot:(Int)->Unit={},
+    onAssignOtherDay:(String,Int,Int)->Unit={ _,_,_ -> },
+    onClearOtherSlot:(String,Int)->Unit={ _,_ -> },
+    onAutoOther:(String)->Unit={},
+    onCountOther:(String,Int)->Unit={ _,_ -> },
     researchContent:(@Composable ()->Unit)?=null
 ) {
     var advanced by rememberSaveable { mutableStateOf(false) }
