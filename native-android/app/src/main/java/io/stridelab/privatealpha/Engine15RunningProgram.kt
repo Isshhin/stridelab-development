@@ -111,6 +111,14 @@ internal object Engine15RunningProgram {
             val longIndex=runs.indexOfFirst { it.kind=="long" }
             if(runs.size>=3 && longIndex>=0)
                 distance[longIndex]=minOf(distance[longIndex],floor((distance.sum()-distance[longIndex])*2.0/3.0+1e-8).toInt())
+            if(distance.all { it>0 }) {
+                val bounded=Engine15DistanceRounding.allocate(
+                    distance,caps,
+                    runs.map { units(it.distanceKm ?: 0.0) }.toIntArray(),
+                    budget,longIndex
+                )
+                for(i in distance.indices)distance[i]=bounded[i]
+            }
             if(distance.any { it<=0 }) throw PlanConstraint("The mileage and recent-session limits cannot support every selected running day. Review mileage or running frequency.")
 
             // This is a distance budget, not a claimed physiological 80/20 distribution.
