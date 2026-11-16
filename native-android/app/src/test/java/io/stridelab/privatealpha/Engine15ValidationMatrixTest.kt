@@ -75,7 +75,7 @@ class Engine15ValidationMatrixTest {
                                 }
                                 if(session.runningPrescription?.mixedSegments!=null) {
                                     assertNull("$id v2 must not pretend to know exact distance",session.distanceKm)
-                                    assertTrue(session.runningPrescription.estimatedDistanceKm!!>0.0)
+                                    assertTrue(session.runningPrescription!!.estimatedDistanceKm!!>0.0)
                                 } else if(session.distanceKm!=null) {
                                     assertEquals(session.distanceKm*1000,session.runningPrescription!!.meters.toDouble(),0.001)
                                 }
