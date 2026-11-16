@@ -76,15 +76,15 @@ internal fun TracksideRunningSetup(
         eyebrow="RUNNING / WEEKLY SCHEDULE",
         headline="Your running week",
         description="Suggested from your goals and recent training. Tap a day to assign its session.",
-        descriptionBottomGap=49,
+        descriptionBottomGap=15,
         descriptionFontSize=11f,
-        contentTopPadding=54,
+        contentTopPadding=16,
         onBack=onBack,
         onContinue=onContinue,
         continueEnabled=!custom || complete
     ) {
         Surface(
-            modifier=Modifier.fillMaxWidth().heightIn(min=227.dp)
+            modifier=Modifier.fillMaxWidth().heightIn(min=170.dp)
                 .testTag("builder-running-week-card"),
             color=weekPanel,
             shape=RoundedCornerShape(13.dp),
@@ -120,7 +120,7 @@ internal fun TracksideRunningSetup(
                         Text("+",color=weekWhite,fontSize=23.sp,fontWeight=FontWeight.Bold)
                     }}
                 }
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(12.dp))
                 // At 360dp the cells scroll horizontally instead of shrinking
                 // to unreachable < 48dp targets.
                 Row(
@@ -140,14 +140,14 @@ internal fun TracksideRunningSetup(
                             else -> ""
                         }
                         val cellBg=when(code) {
-                            "L" -> Color(0xFFFFFFFF)
-                            "Q" -> PlanBuilderPalette.accent
-                            "E" -> Color(0xFF1D240B)
+                            "L" -> Color(0xFF2D3A27)
+                            "Q" -> Color(0xFF2D3A27)
+                            "E" -> Color(0xFF222922)
                             "−" -> Color(0xFF242424)
                             else -> Color(0xFF171717)
                         }
                         val cellBorder=when(code) {
-                            "L" -> Color.White
+                            "L" -> PlanBuilderPalette.accent
                             "Q" -> PlanBuilderPalette.accent
                             "E" -> PlanBuilderPalette.accent
                             "−" -> Color(0xFF383838)
@@ -167,7 +167,7 @@ internal fun TracksideRunningSetup(
                             Text(DayOfWeek.of(day).name.take(3),
                                 fontSize=9.sp,fontWeight=FontWeight.Bold,
                                 color=weekMuted)
-                            Spacer(Modifier.height(19.dp))
+                            Spacer(Modifier.height(8.dp))
                             Surface(
                                 onClick={ editingDay=day },
                                 modifier=Modifier.size(48.dp)
@@ -181,9 +181,8 @@ internal fun TracksideRunningSetup(
                             ) {
                                 Box(contentAlignment=Alignment.Center) {
                                     if(code.isNotBlank()) Text(code,
-                                        color=if(code=="L") Color(0xFF242424)
-                                            else if(code=="−") PlanBuilderPalette.accent
-                                            else weekWhite,
+                                        color=if(code=="−") weekMuted
+                                            else PlanBuilderPalette.accent,
                                         fontSize=15.sp,fontWeight=FontWeight.Bold)
                                     if(isPinned) Text("◆",
                                         modifier=Modifier.align(Alignment.TopEnd)
@@ -194,7 +193,7 @@ internal fun TracksideRunningSetup(
                         }
                     }
                 }
-                Spacer(Modifier.height(23.dp))
+                Spacer(Modifier.height(12.dp))
                 Text(assigned.toString()+" of "+count+" placed · "+
                         request.qualityCount.toString()+" quality · 1 long run",
                     color=weekMuted,fontSize=11.5f.sp,
@@ -202,53 +201,25 @@ internal fun TracksideRunningSetup(
             }
         }
 
+        Row(Modifier.fillMaxWidth(),
+            horizontalArrangement=Arrangement.SpaceBetween) {
+            Text("E Easy  ·  Q Quality  ·  L Long",
+                color=weekMuted,fontSize=10.sp,
+                modifier=Modifier.testTag("builder-running-legend"))
+        }
+        Text(if(pinned!=null) "Your selected training days are pinned."
+            else "Tap a day to choose its session.",
+            color=weekMuted,fontSize=11.sp,
+            modifier=Modifier.testTag("builder-running-pinned-note"))
         TextButton(
             onClick={ editorOpen=!editorOpen },
             modifier=Modifier.fillMaxWidth()
                 .testTag("builder-running-advanced-toggle")
         ) {
-            Text(if(editorOpen) "Hide advanced weekly setup" else "Advanced weekly setup",
+            Text(if(editorOpen) "Hide advanced setup" else "Advanced weekly setup",
                 color=PlanBuilderPalette.accent,fontSize=12.sp,fontWeight=FontWeight.Bold)
         }
         Spacer(Modifier.height(3.dp))
-        Text("RUNNING SESSION TYPES",fontSize=11.sp,
-            fontWeight=FontWeight.Bold,color=weekMuted)
-        Spacer(Modifier.height(10.dp))
-        Surface(
-            modifier=Modifier.fillMaxWidth().heightIn(min=143.dp)
-                .testTag("builder-running-legend"),
-            color=weekPanel,shape=RoundedCornerShape(13.dp),
-            border=BorderStroke(1.dp,weekOutline)
-        ) {
-            // Keep the approved 143dp card: 3 x 40dp rows plus a reserved
-            // 18dp bottom inset prevents the final subtitle touching its border.
-            Column(Modifier.padding(start=10.dp,end=10.dp,top=2.dp,bottom=18.dp)) {
-                RunningWeekLegendRow("E","Easy run","Aerobic base and recovery",
-                    Color(0xFF1D240B),weekWhite)
-                RunningWeekLegendRow("Q","Quality",
-                    "Threshold, tempo or selected categories",
-                    PlanBuilderPalette.accent,weekWhite)
-                RunningWeekLegendRow("L","Long run",
-                    "Endurance session on one preferred day",
-                    Color(0xFFFFFFFF),Color(0xFF242424))
-            }
-        }
-
-        Spacer(Modifier.height(22.dp))
-        Surface(
-            modifier=Modifier.fillMaxWidth().heightIn(min=89.dp)
-                .testTag("builder-running-pinned-note"),
-            color=weekPanel,shape=RoundedCornerShape(13.dp),
-            border=BorderStroke(1.dp,weekOutline)
-        ) {
-            Column(Modifier.padding(13.dp)) {
-                Text(if(pinned!=null) "Pinned by you ◆" else "Suggested · Pin your days ◆",
-                    color=weekWhite,fontSize=12.sp,fontWeight=FontWeight.Bold)
-                Spacer(Modifier.height(10.dp))
-                Text("Tap a weekday to choose its session. Swaps are explained before selection, and pinned choices are preserved.",
-                    color=weekMuted,fontSize=10.5f.sp,lineHeight=14.sp)
-            }
-        }
 
         // Advanced settings remain available for changing the quality count,
         // preferred style, automatic scheduling, and exact session ordinals.
