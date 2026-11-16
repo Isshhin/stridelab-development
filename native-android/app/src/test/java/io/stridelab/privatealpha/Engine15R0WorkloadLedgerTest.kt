@@ -17,7 +17,10 @@ class Engine15R0WorkloadLedgerTest {
     private val owner="r0-synthetic-only"
     private fun base()=PlanRequest(
         goal="Aerobic foundation",experience=2,start=monday,weeks=8,
-        days=(1..7).toSet(),runDays=6,longDay=7,
+        // Match the actual Train Your Way route (coordinated discipline goal)
+        // and its default six available weekdays, not a simplified baseline-only fixture.
+        days=setOf(1,2,3,4,5,7),runDays=6,longDay=7,
+        disciplineGoals=mapOf("run" to "Aerobic foundation"),
         qualityDays=setOf(2),qualityCount=1,
         recentQualitySessionsPerWeek=1,
         weeklyKm=75.0,longestKm=20.0,targetWeeklyKm=80.0,
