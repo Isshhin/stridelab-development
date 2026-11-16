@@ -261,7 +261,7 @@ internal object Engine15RunningProgram {
                         else "")
             }
             // Freeze the initial work envelope during a mileage build; variation does not imply new fitness.
-            val finalized=finalizeWeek(generated,p,pattern)
+            val finalized=finalizeWeek(generated,p,pattern,ledger,w)
             ledger?.record(w,"ROLE_RECONCILIATION","FINAL_ROLE_RECHECK",
                 ledger?.runningKm(generated),null,ledger?.runningKm(finalized),
                 "Executed final role exposure, long-share and quality-work reconciliation")
@@ -271,7 +271,7 @@ internal object Engine15RunningProgram {
             ledger?.record(w,"MIXED_UNITS","Q2_TIMED_SUPPORT_CONVERSION",
                 ledger?.runningKm(finalized),null,ledger?.runningKm(mixed),
                 "After replacing quality warm-up/cool-down distances by planning-pace estimates")
-            val converted=reconcileMixedWeek(finalized,mixed,pattern,p)
+            val converted=reconcileMixedWeek(finalized,mixed,pattern,p,ledger,w)
             ledger?.record(w,"MIXED_RECONCILIATION","Q2_POST_CONVERSION_CHECK",
                 ledger?.runningKm(mixed),null,ledger?.runningKm(converted),
                 "Executed post-Q2 long-share and work-share checks")
@@ -288,7 +288,8 @@ internal object Engine15RunningProgram {
     }
 
     /** Final roles, not requested roles, determine exposure and weekly work limits. */
-    private fun finalizeWeek(generated:List<PlannedSession>,p:PlanRequest,pattern:Engine15RunHistory?):List<PlannedSession> {
+    private fun finalizeWeek(generated:List<PlannedSession>,p:PlanRequest,
+        pattern:Engine15RunHistory?,ledger:Engine15WorkloadLedger?=null,w:Int=0):List<PlannedSession> {
         fun easy(s:PlannedSession,meters:Int,role:String):PlannedSession {
             if(meters<=0)throw PlanConstraint("The final running roles cannot fit this weekly distance. Review frequency or mileage.")
             val prescription=RunningPrescription(role,null,listOf(RunningSegment("EASY",meters,"Comfortable conversational running")))
@@ -298,16 +299,28 @@ internal object Engine15RunningProgram {
         }
         fun cap(s:PlannedSession)=minOf(s.runningPrescription!!.meters,pattern?.easyKm?.let { units(it+1.0)*100 } ?: Int.MAX_VALUE)
         var runs=generated.map { s -> if(s.runningPrescription?.role=="EASY" && cap(s)<s.runningPrescription.meters)easy(s,cap(s),"EASY") else s }
+        ledger?.record(w,"ROLE_RECONCILIATION","OBSERVED_EASY_ROLE_CAP",
+            ledger?.runningKm(generated),pattern?.easyKm?.plus(1.0),ledger?.runningKm(runs),
+            "Executed after role assignment; cap applies only to EASY roles")
         // A role downgrade can shrink the week; recheck long share and work budget on the delivered total.
-        repeat(generated.count { it.quality }+1) {
+        repeat(generated.count { it.quality }+1) { pass ->
+            val beforeLong=ledger?.runningKm(runs)
             val others=runs.filter { it.kind!="long" }.sumOf { it.runningPrescription!!.meters }
             runs=runs.map { s ->
                 val maxLong=(floor(others*2.0/3/100+1e-8)*100).toInt()
                 if(runs.size>=3 && s.kind=="long" && s.runningPrescription!!.meters>maxLong)easy(s,maxLong,"LONG") else s
             }
+            if(ledger!=null && beforeLong!=ledger.runningKm(runs))
+                ledger.record(w,"ROLE_RECONCILIATION","LONG_SHARE_RECHECK",
+                    beforeLong,null,ledger.runningKm(runs),"Executed pass ${pass+1}")
             if(runs.sumOf { it.runningPrescription!!.workMeters }>runs.sumOf { it.runningPrescription!!.meters }*0.2+1e-8) {
+                val beforeQuality=ledger?.runningKm(runs)
                 val last=runs.lastOrNull { it.quality }
                 runs=runs.map { if(it.id==last?.id)easy(it,cap(it),"EASY") else it }
+                if(ledger!=null && last!=null)
+                    ledger.record(w,"ROLE_RECONCILIATION","QUALITY_SHARE_DOWNGRADE",
+                        beforeQuality,null,ledger.runningKm(runs),
+                        "Executed pass ${pass+1}; demoted quality session ${last.id} to easy")
             }
         }
         return runs
@@ -316,7 +329,8 @@ internal object Engine15RunningProgram {
     /** Recheck original hard-work and long-run limits on the smaller mixed-unit week. */
     private fun reconcileMixedWeek(
         originals:List<PlannedSession>,converted:List<PlannedSession>,
-        pattern:Engine15RunHistory?,p:PlanRequest
+        pattern:Engine15RunHistory?,p:PlanRequest,
+        ledger:Engine15WorkloadLedger?=null,w:Int=0
     ):List<PlannedSession> {
         val source=originals.associateBy { it.id }
         fun budgetKm(s:PlannedSession)=s.distanceKm ?: s.runningPrescription?.estimatedDistanceKm ?: 0.0
@@ -334,8 +348,9 @@ internal object Engine15RunningProgram {
                 steps=steps(prescription),reason=old.reason+" Quality withheld after timed-step reconciliation; no catch-up.")
         }
         var runs=converted
-        repeat(converted.count { it.quality }+2) {
+        repeat(converted.count { it.quality }+2) { pass ->
             if(runs.size>=3) {
+                val beforeLong=ledger?.runningKm(runs)
                 val otherKm=runs.filter { it.kind!="long" }.sumOf(::budgetKm)
                 val maximum=units(otherKm*2.0/3.0)*100
                 runs=runs.map { s ->
@@ -349,12 +364,20 @@ internal object Engine15RunningProgram {
                             reason=s.reason+" Reduced to preserve 40% long-run share after mixed-unit conversion.")
                     } else s
                 }
+                if(ledger!=null && beforeLong!=ledger.runningKm(runs))
+                    ledger.record(w,"MIXED_RECONCILIATION","Q2_LONG_SHARE_RECHECK",
+                        beforeLong,null,ledger.runningKm(runs),"Executed pass ${pass+1}")
             }
             val weeklyMeters=runs.sumOf { budgetKm(it)*1000 }
             val workMeters=runs.sumOf { it.runningPrescription?.workMeters ?: 0 }
             if(workMeters>weeklyMeters*0.20+1e-8) {
+                val beforeQuality=ledger?.runningKm(runs)
                 val last=runs.lastOrNull { it.quality }
                 if(last!=null)runs=runs.map { if(it.id==last.id)toEasy(it) else it }
+                if(ledger!=null && last!=null)
+                    ledger.record(w,"MIXED_RECONCILIATION","Q2_QUALITY_SHARE_DOWNGRADE",
+                        beforeQuality,null,ledger.runningKm(runs),
+                        "Executed pass ${pass+1}; demoted ${last.id} after mixed-unit estimation")
             }
         }
         return runs
