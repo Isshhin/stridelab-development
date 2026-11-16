@@ -100,6 +100,7 @@ internal fun TracksideTrainingHubHeader(
                         color=hubLime,fontSize=11.sp)
                 }
             }
+            TracksideTrainingTargetWarning(active)
             if(selectorOpen) approvedPlans.forEach { candidate ->
                 Surface(
                     onClick={onPlanSelected(candidate.id);selectorOpen=false},
@@ -126,4 +127,29 @@ internal fun TracksideTrainingHubHeader(
         }
     }
     Engine15CoachReviewCard(active,actions,busy)
+}
+
+/** Advisory for pre-fix approved plans; never mutates or silently relabels history. */
+@Composable
+internal fun TracksideTrainingTargetWarning(plan:PlanSnapshot) {
+    val review=Engine15MileageTargetIntegrity.review(plan) ?: return
+    if(!review.requiresFoundationDecision || plan.request.foundationAcknowledged)return
+    Surface(
+        modifier=Modifier.fillMaxWidth().testTag("training-target-integrity-warning"),
+        color=TracksidePalette.surfaceVariant,
+        shape=RoundedCornerShape(11.dp),
+        border=BorderStroke(1.dp,TracksidePalette.outline)
+    ) {
+        Column(Modifier.padding(11.dp),verticalArrangement=Arrangement.spacedBy(5.dp)) {
+            Text("MILEAGE TARGET NOT CONFIRMED",color=TracksidePalette.lime,
+                fontSize=10.sp,fontWeight=FontWeight.Bold)
+            Text(
+                review.explanation()+" This saved plan remains unchanged. " +
+                    "Create a new reviewed plan using your actual recent mileage " +
+                    "or explicitly choose a foundation plan.",
+                color=TracksidePalette.textMuted,
+                fontSize=11.sp,lineHeight=16.sp
+            )
+        }
+    }
 }

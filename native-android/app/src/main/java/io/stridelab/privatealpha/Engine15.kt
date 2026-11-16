@@ -113,6 +113,9 @@ internal object Engine15 : PlanGenerationEngine {
                 else -> policyId
             },
             request = request,
+            // Manual mileage plans and explicitly accepted foundation plans
+            // must not be presented under an inherited race-goal title.
+            name = Engine15MileageTargetIntegrity.displayName(request) ?: baseline.name,
             mileageOptions = options,
             sessions = adapted,
             explanations = listOf(

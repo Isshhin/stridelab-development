@@ -11,6 +11,9 @@ internal object PlanOperations {
     fun approve(plan:PlanSnapshot,others:List<PlanSnapshot>):PlanSnapshot {
         compatible(plan)
         if(plan.status!="draft" && plan.status!="paused")throw PlanConstraint("Only a draft or paused plan can be approved.")
+        // A target is not the same as the workouts prescribed by a draft.
+        // Preserve existing snapshots; enforce on explicit approval only.
+        Engine15MileageTargetIntegrity.requireReviewedBeforeApproval(plan)
         Engine15SessionLocks.validateSaved(plan)
         Engine15Availability.requireReady(plan)
         val approved=others.filter { it.id!=plan.id&&it.status=="approved" }

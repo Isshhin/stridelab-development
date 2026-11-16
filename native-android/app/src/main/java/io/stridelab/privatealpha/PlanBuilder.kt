@@ -138,7 +138,7 @@ import org.json.JSONObject
             else -> "Build Strength"
         })
     }
-    var runningRoute by rememberSaveable { mutableStateOf("race") }
+    var runningRoute by rememberSaveable { mutableStateOf(if(initial.trainYourWay) "custom" else "race") }
     var raceIntent by rememberSaveable { mutableStateOf("pr") }
     var raceDistance by rememberSaveable { mutableStateOf(when(input.goal) {
         "Improve 10K" -> "10K"
@@ -152,7 +152,19 @@ import org.json.JSONObject
             request = preview.request,
             plan = preview,
             busy = state.busy || awaiting || pendingApprovalId != null,
-            onBack = { step = 2; scheduleSubPage = 0 },
+            onBack = {
+                // A large target mismatch needs actual baseline input, not
+                // another pass through the date/availability editor.
+                if(Engine15MileageTargetIntegrity.review(preview)?.requiresFoundationDecision==true &&
+                    !preview.request.foundationAcknowledged) {
+                    step=1
+                    runningSubPage=2
+                    advancedBackPage=0
+                } else {
+                    step=2
+                    scheduleSubPage=0
+                }
+            },
             onContinue = {
                 if(!state.busy && pendingApprovalId==null) {
                     error=null
@@ -250,6 +262,13 @@ import org.json.JSONObject
                     when (runningRoute) {
                         "race" -> runningSubPage = 1
                         "custom" -> {
+                            // Train Your Way is mileage-led, not an inherited 5K race plan.
+                            edit(input.copy(
+                                goal="Aerobic foundation",
+                                disciplineGoals=input.disciplineGoals+("run" to "Aerobic foundation"),
+                                trainYourWay=true,
+                                foundationAcknowledged=false
+                            ))
                             advancedBackPage = 0
                             runningSubPage = 3
                         }
@@ -269,7 +288,8 @@ import org.json.JSONObject
                         else -> "Improve 5K"
                     }
                     edit(input.copy(goal=goal,
-                        disciplineGoals=input.disciplineGoals+("run" to goal)))
+                        disciplineGoals=input.disciplineGoals+("run" to goal),
+                        trainYourWay=false,foundationAcknowledged=false))
                     runningSubPage = 2
                 }
             )
@@ -278,7 +298,20 @@ import org.json.JSONObject
                 weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0,120.0) ?: 0.0,
                 longestKm = longest.toDoubleOrNull()?.coerceIn(0.0,42.0) ?: 0.0,
                 historyContent = {
-                    RunningHistoryConfirmation(state) { value -> km="%.1f".format(java.util.Locale.US,value);edit(input.copy(weeklyKm=value)) }
+                    RunningHistoryConfirmation(state) { value -> km="%.1f".format(java.util.Locale.US,value);edit(input.copy(weeklyKm=value,foundationAcknowledged=false)) }
+                    if(input.trainYourWay && (km.toDoubleOrNull() ?: 0.0)==0.0 &&
+                        (targetKm.toDoubleOrNull() ?: 0.0)>0.0) {
+                        Text(
+                            "Recent weekly mileage is zero or unconfirmed. The " +
+                            "${targetKm} km/week value is a future target, not a training " +
+                            "baseline. Enter your actual recent mileage here. Leaving it " +
+                            "at zero requires explicitly choosing a foundation plan " +
+                            "before approval.",
+                            color=TracksidePalette.lime,
+                            style=MaterialTheme.typography.bodySmall,
+                            modifier=Modifier.testTag("builder-running-baseline-warning")
+                        )
+                    }
                     if(input.policyChoice=="engine15") {
                         CoachFeedbackChoices("Usual quality sessions per week",listOf("0","1","2"),input.recentQualitySessionsPerWeek?.toString()) { edit(input.copy(recentQualitySessionsPerWeek=it?.toInt())) }
                     }
@@ -286,7 +319,7 @@ import org.json.JSONObject
                 onExperience = { edit(input.copy(experience=it)) },
                 onWeeklyKm = { value ->
                     km=value.toInt().toString()
-                    edit(input.copy(weeklyKm=value))
+                    edit(input.copy(weeklyKm=value,foundationAcknowledged=false))
                 },
                 onLongestKm = { value ->
                     longest=value.toInt().toString()
@@ -321,7 +354,7 @@ import org.json.JSONObject
                 onWeeklyKm = { value ->
                     targetKm=value.toInt().toString()
                     targetSupplied=true
-                    edit(input.copy(targetWeeklyKm=value))
+                    edit(input.copy(targetWeeklyKm=value,foundationAcknowledged=false))
                 },
                 onQualityCount = { n ->
                     val allowed = minOf(
@@ -374,7 +407,8 @@ import org.json.JSONObject
                     }
                     edit(input.copy(
                         goal=goal,
-                        disciplineGoals=input.disciplineGoals+("run" to goal)
+                        disciplineGoals=input.disciplineGoals+("run" to goal),
+                        trainYourWay=false,foundationAcknowledged=false
                     ))
                     runningSubPage = 2
                 }
