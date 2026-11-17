@@ -66,7 +66,7 @@ class Engine15M6IndependentPeriodizationReviewTest {
         blockedDates: Set<LocalDate> = emptySet()
     ) = Engine15M6CReviewInput(
         calendar = Engine15M6CalendarInput(
-            startMonday = monday,
+            startDate = monday,
             availableIsoDays = days,
             preferredLongIsoDay = 7,
             blockedDates = blockedDates

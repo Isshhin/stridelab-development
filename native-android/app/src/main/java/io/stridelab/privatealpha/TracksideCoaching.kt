@@ -13,8 +13,9 @@ internal object TracksideCoaching {
 
     fun request(setup: PlanRequest, engine15Active: Boolean = BuildConfig.ENGINE15_ACTIVE): PlanRequest {
         require(setup.policyChoice in setOf("coordinated", "multi-session"))
+        val independentRunning = engine15Active && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE
         // Consent to double days is independent of which engine is deployed.
-        if (setup.policyChoice == "coordinated") {
+        if (setup.policyChoice == "coordinated" && !independentRunning) {
             Engine1.validate(setup)
             val assigned = setup.weeklySlots.values.flatten()
             if (assigned.distinct().size != assigned.size)

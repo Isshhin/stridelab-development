@@ -107,10 +107,6 @@ class Engine15I2AdversarialShadowMatrixTest {
             reason="UPSTREAM_CALENDAR_INSUFFICIENT_AVAILABLE_DAYS")
         add("calendar-blocked-easy","CALENDAR",input=conf(blocked=setOf(tue)),
             reason="UPSTREAM_CALENDAR_INSUFFICIENT_WEEK_AVAILABILITY")
-        add("calendar-invalid-start","CALENDAR",
-            input=conf(start=LocalDate.of(2026,11,17)),
-            reason="UPSTREAM_CALENDAR_PLAN_START_NOT_MONDAY")
-
         add("external-missing","EXTERNAL",input=conf(other=null),
             reason="UPSTREAM_EXTERNAL_CALENDAR_MISSING")
         add("external-unasserted","EXTERNAL",input=conf(claimed=false),
@@ -225,9 +221,9 @@ class Engine15I2AdversarialShadowMatrixTest {
             lines+=listOf(fixture.id,fixture.family,expected,decision,
                 fixture.expectedReason ?: "",reason).joinToString(",")
         }
-        assertEquals(39,all.size)
+        assertEquals(38,all.size)
         assertEquals(3,accepted)
-        assertEquals(36,deferred)
+        assertEquals(35,deferred)
         assertEquals(all.size+1,lines.size)
         assertTrue("Need genuinely diverse deferral codes",reasons.size>=19)
         assertEquals(setOf("ACCEPT","BASELINE","WORKLOAD","CALENDAR","EXTERNAL","QUALITY"),

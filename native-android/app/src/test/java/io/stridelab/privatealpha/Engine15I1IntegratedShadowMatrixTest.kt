@@ -57,7 +57,7 @@ class Engine15I1IntegratedShadowMatrixTest {
         longDay: Int = 7
     ) = Engine15M6CReviewInput(
         calendar = Engine15M6CalendarInput(
-            startMonday = monday, availableIsoDays = weekdays(days),
+            startDate = monday, availableIsoDays = weekdays(days),
             preferredLongIsoDay = longDay, blockedDates = blocked
         ),
         externalSessions = external,

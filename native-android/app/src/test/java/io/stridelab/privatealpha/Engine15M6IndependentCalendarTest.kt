@@ -44,7 +44,7 @@ class Engine15M6IndependentCalendarTest {
         preferredEasy: Set<Int> = emptySet(),
         start: LocalDate = monday
     ) = Engine15M6CalendarInput(
-        startMonday = start,
+        startDate = start,
         availableIsoDays = available,
         preferredLongIsoDay = longDay,
         blockedDates = blocked,
@@ -94,7 +94,7 @@ class Engine15M6IndependentCalendarTest {
             assertEquals(week.budgetKm, week.runs.sumOf { it.distanceKm }, 1e-8)
             assertEquals(base.slots.toSet(), week.runs.map { it.slot }.toSet())
             assertEquals(week.runs.size, week.runs.map { it.date }.toSet().size)
-            val start = input.startMonday.plusWeeks(i.toLong())
+            val start = input.startDate.plusWeeks(i.toLong())
             for (placed in week.runs) {
                 assertFalse(placed.executable)
                 assertFalse(placed.qualityAuthorized)
@@ -181,10 +181,15 @@ class Engine15M6IndependentCalendarTest {
         ), "INSUFFICIENT_WEEK_AVAILABILITY")
     }
 
-    @Test fun wrongStartDateAndTamperedWeeklyBudgetFailClosed() {
+    @Test fun arbitraryStartDateIsSupportedAndTamperedWeeklyBudgetFailsClosed() {
         val m4b = source()
-        deferred(m4b, calendar(start = LocalDate.of(2026, 11, 17)),
-            "PLAN_START_NOT_MONDAY")
+        val shifted = calendar(start = LocalDate.of(2026, 11, 17))
+        val decision = Engine15M6IndependentCalendar.schedule(m4b, shifted)
+        assertTrue("Expected candidate, got $decision", decision is Engine15M6CalendarDecision.Candidate)
+        val candidate = decision as Engine15M6CalendarDecision.Candidate
+        assertTrue(candidate.weeks.flatMap { it.runs }.all { it.date >= shifted.startDate })
+        assertEquals(m4b.weeks.first().proposedKm!!,
+            candidate.weeks.first().runs.sumOf { it.distanceKm }, 1e-6)
         deferred(m4b.copy(weeks = m4b.weeks.mapIndexed { i, week ->
             if (i == 0) week.copy(proposedKm = 100.0) else week
         }), calendar(), "BASE_M4B_RESULT_MISMATCH")

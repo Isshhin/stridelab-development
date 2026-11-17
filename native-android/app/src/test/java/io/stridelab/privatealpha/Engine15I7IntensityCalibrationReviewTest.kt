@@ -144,7 +144,7 @@ class Engine15I7IntensityCalibrationReviewTest {
         return Engine15I5DistanceFeasibilityInput(
             calendar=Engine15M6QualitySpacingInput(
                 calendar=Engine15M6CalendarInput(
-                    startMonday=monday,
+                    startDate=monday,
                     availableIsoDays=setOf(1,3,5,7),
                     preferredLongIsoDay=7
                 )

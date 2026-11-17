@@ -77,6 +77,192 @@ class Engine1RepositoryTest {
         assertEquals(plan,reopened)
         assertEquals(2,reopened.sessions.count { it.status=="completed" })
     }
+
+    @Test fun independentRunningDraftSurvivesOfflineReopenWithoutChangingOwner()=runBlocking {
+        Assume.assumeTrue(BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)
+        val request=PlanRequest(goal="Aerobic foundation",start=start,weeks=8,
+            days=setOf(1,2,3,5,6,7),runDays=6,longDay=6,weeklyKm=30.0,
+            targetWeeklyKm=30.0,longestKm=10.0,timeBudgetEnabled=false,
+            policyChoice="engine15",recentMileageBasis="SELF_REPORTED_AVERAGE")
+        assertTrue(repo.generatePlan(request))
+        var plan=repo.state.value.plans.single()
+        assertEquals(owner,plan.owner)
+        assertEquals(ENGINE15_INDEPENDENT_RUNNING_POLICY,plan.policyId)
+        assertEquals("draft",plan.status)
+        assertEquals(48,plan.sessions.size)
+        assertTrue(repo.approvePlan(plan.id,plan.revision))
+        plan=repo.state.value.plans.single()
+        repo.close();gateway.offline=true;open()
+        val reopened=repo.state.value.plans.single()
+        assertEquals(owner,reopened.owner)
+        assertEquals(plan.id,reopened.id)
+        assertEquals(plan.policyId,reopened.policyId)
+        assertEquals(plan.status,reopened.status)
+        assertEquals(plan.sessions.map { it.id to it.date },reopened.sessions.map { it.id to it.date })
+    }
+
+    @Test fun independentStrengthPlanUsesCuratedExerciseContractsAndReopensAfterApproval()=runBlocking {
+        Assume.assumeTrue(BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)
+        val request=PlanRequest(goal="General strength",start=start,weeks=4,
+            days=setOf(1,3,5,7),runDays=0,strengthDays=2,experience=1,
+            strengthExperience=1,minutes=45,equipment=mapOf("db" to 2,"bands" to 1,"anchor" to 1),
+            policyChoice="engine15")
+        assertTrue("Independent strength route should create a review draft: ${repo.state.value.message}",repo.generatePlan(request))
+        var plan=repo.state.value.plans.single()
+        assertEquals(owner,plan.owner)
+        assertEquals("draft",plan.status)
+        assertEquals(8,plan.sessions.size)
+        assertTrue(plan.policyId.contains("independent"))
+        assertTrue(plan.sessions.all { session ->
+            val ids=session.exercises.map { it.id }.toSet()
+            session.discipline=="str" && ids.size==5 &&
+                ids.any { it in setOf("gs","e1","sq","sit-to-stand") } &&
+                ids.any { it in setOf("dh","e3","hg","glute-bridge") } &&
+                ids.any { it in setOf("fp","bp","e4","ip","wall-push") } &&
+                ids.any { it in setOf("dr","br","cable-latpulldown") } &&
+                ids.any { it in setOf("plank","side-plank","bird-dog","fc") } &&
+                session.exercises.all { it.sets in 1..3 && it.reps in 6..15 && it.seconds==null }
+        })
+        val firstByWeek=(0..3).associateWith { week -> plan.sessions.first { it.date >= start.plusWeeks(week.toLong()) && it.date < start.plusWeeks(week+1L) }.exercises.first() }
+        assertEquals(listOf(8,9,10,8),firstByWeek.values.map { it.reps })
+        assertTrue(plan.sessions.filter { it.date >= start.plusWeeks(3) }.all { session -> session.exercises.all { it.sets==1 } })
+        assertTrue(repo.approvePlan(plan.id,plan.revision))
+        plan=repo.state.value.plans.single()
+        repo.close();gateway.offline=true;open()
+        val reopened=repo.state.value.plans.single()
+        assertEquals(plan.owner,reopened.owner)
+        assertEquals(plan.id,reopened.id)
+        assertEquals(plan.status,reopened.status)
+        assertEquals(plan.sessions,reopened.sessions)
+    }
+    @Test fun independentCalisthenicsPlanUsesCatalogAndReopensOfflineAfterApproval()=runBlocking {
+        Assume.assumeTrue(BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)
+        val request=PlanRequest(goal="Calisthenics foundation",start=start,weeks=4,
+            days=setOf(1,3,5,7),runDays=0,calDays=2,calLevel=0,
+            equipment=mapOf("bands" to 1,"anchor" to 1),policyChoice="engine15")
+        assertTrue("Independent calisthenics route should create a review draft: ${repo.state.value.message}",repo.generatePlan(request))
+        var plan=repo.state.value.plans.single()
+        assertEquals(owner,plan.owner)
+        assertEquals("draft",plan.status)
+        assertEquals(8,plan.sessions.size)
+        assertEquals(ENGINE15_INDEPENDENT_CALISTHENICS_POLICY,plan.policyId)
+        assertTrue(plan.sessions.all { session ->
+            val ids=session.exercises.map { it.id }.toSet()
+            session.discipline=="cal" && ids.containsAll(setOf("e4","br","fc")) &&
+                session.exercises.all { it.sets in 1..2 && it.reps in 1..8 && it.seconds==null }
+        })
+        assertTrue(plan.sessions.filter { it.date >= start.plusWeeks(3) }.all { session -> session.exercises.all { it.sets==1 } })
+        assertTrue(repo.approvePlan(plan.id,plan.revision))
+        plan=repo.state.value.plans.single()
+        repo.close();gateway.offline=true;open()
+        val reopened=repo.state.value.plans.single()
+        assertEquals(plan.owner,reopened.owner)
+        assertEquals(plan.id,reopened.id)
+        assertEquals(plan.status,reopened.status)
+        assertEquals(plan.sessions,reopened.sessions)
+    }
+    @Test fun independentConditioningPlanUsesCatalogAndReopensOfflineAfterApproval()=runBlocking {
+        Assume.assumeTrue(BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)
+        val request=PlanRequest(goal="Conditioning",start=start,weeks=4,
+            days=setOf(1,3,5,7),runDays=0,conditioningDays=1,policyChoice="engine15")
+        assertTrue("Independent conditioning route should create a review draft: ${repo.state.value.message}",repo.generatePlan(request))
+        var plan=repo.state.value.plans.single()
+        assertEquals(owner,plan.owner)
+        assertEquals("draft",plan.status)
+        assertEquals(4,plan.sessions.size)
+        assertEquals(ENGINE15_INDEPENDENT_CONDITIONING_POLICY,plan.policyId)
+        assertEquals(listOf(15,17,19,15),plan.sessions.map { it.minutes })
+        assertTrue(plan.sessions.all { it.discipline=="cond" && it.exercises.single().id=="cond-step-jack" })
+        assertTrue(repo.approvePlan(plan.id,plan.revision))
+        plan=repo.state.value.plans.single()
+        repo.close();gateway.offline=true;open()
+        val reopened=repo.state.value.plans.single()
+        assertEquals(plan.owner,reopened.owner)
+        assertEquals(plan.id,reopened.id)
+        assertEquals(plan.status,reopened.status)
+        assertEquals(plan.sessions,reopened.sessions)
+    }
+    @Test fun independentCombinedPlanCoordinatesRunAndCalWithLockedDoubleDayOffline()=runBlocking {
+        Assume.assumeTrue(BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)
+        val request=PlanRequest(goal="Aerobic foundation",start=start,weeks=4,
+            days=setOf(2,4,6),runDays=3,calDays=1,longDay=6,
+            weeklyKm=30.0,targetWeeklyKm=30.0,longestKm=10.0,
+            policyChoice="engine15",recentMileageBasis="SELF_REPORTED_AVERAGE",
+            timeBudgetEnabled=false,equipment=mapOf("bands" to 1,"anchor" to 1),
+            disciplineGoals=mapOf("cal" to "Calisthenics foundation"),
+            weeklySlots=mapOf("run" to listOf(6,2,4),"cal" to listOf(2)),
+            lockedSessionDays=mapOf("combined-w1-cal0" to start.plusDays(1).toString()),
+            allowDoubleDays=true)
+        assertTrue("Independent combined route should create a review draft: ${repo.state.value.message}",repo.generatePlan(request))
+        var plan=repo.state.value.plans.single()
+        assertEquals(owner,plan.owner)
+        assertEquals("draft",plan.status)
+        assertEquals(16,plan.sessions.size)
+        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY,plan.policyId)
+        assertEquals(start.plusDays(1),plan.sessions.single { it.id.endsWith("-w1-cal0") }.date)
+        assertEquals(4,plan.sessions.count { it.kind=="long" })
+        assertEquals(4,plan.sessions.count { it.discipline=="run" && it.kind=="easy" && it.date.dayOfWeek.value==2 })
+        assertTrue("Independent combined draft should pass its own schedule validator: ${repo.state.value.message}",repo.approvePlan(plan.id,plan.revision))
+        plan=repo.state.value.plans.single()
+        repo.close();gateway.offline=true;open()
+        val reopened=repo.state.value.plans.single()
+        assertEquals(plan.owner,reopened.owner)
+        assertEquals(plan.id,reopened.id)
+        assertEquals(plan.policyId,reopened.policyId)
+        assertEquals(plan.status,reopened.status)
+        assertEquals(plan.sessions,reopened.sessions)
+    }
+    @Test fun userDefinedStructuredRunningWorkoutApprovesAndReopensOffline()=runBlocking {
+        Assume.assumeTrue(BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)
+        val workout=Engine15UserWorkoutAuthoring.build("Threshold",listOf(
+            RunningStepV2("WARM_UP","Easy",meters=2000),
+            RunningStepV2("WORK","User supplied target",seconds=300,distanceEquivalentMeters=1200),
+            RunningStepV2("RECOVERY","User supplied recovery",seconds=90,distanceEquivalentMeters=300),
+            RunningStepV2("WORK","User supplied target",seconds=300,distanceEquivalentMeters=1200),
+            RunningStepV2("RECOVERY","User supplied recovery",seconds=90,distanceEquivalentMeters=300),
+            RunningStepV2("WORK","User supplied target",seconds=300,distanceEquivalentMeters=1200),
+            RunningStepV2("TRANSITION","Easy between blocks",seconds=180,distanceEquivalentMeters=300),
+            RunningStepV2("WORK","User supplied speed target",meters=200),
+            RunningStepV2("RECOVERY","User supplied recovery",meters=200),
+            RunningStepV2("WORK","User supplied speed target",meters=200),
+            RunningStepV2("RECOVERY","User supplied recovery",meters=200),
+            RunningStepV2("WORK","User supplied speed target",meters=200),
+            RunningStepV2("RECOVERY","User supplied recovery",meters=200),
+            RunningStepV2("WORK","User supplied speed target",meters=200),
+            RunningStepV2("COOL_DOWN","Easy",meters=5400)
+        ))
+        val request=PlanRequest(goal="Aerobic foundation",start=start,weeks=1,
+            days=setOf(1,2,3,4,5,6),runDays=3,longDay=6,qualityDays=setOf(2),qualityCount=1,
+            weeklyKm=40.0,targetWeeklyKm=40.0,longestKm=30.0,timeBudgetEnabled=false,
+            policyChoice="engine15",recentMileageBasis="SELF_REPORTED_AVERAGE",
+            weeklySlots=mapOf("run" to listOf(6,2,4)),userDirectedPlanning=true,
+            userDefinedQualityWorkouts=mapOf("w1-run1" to workout))
+        assertTrue("The independent route should create a reviewable draft: ${repo.state.value.message}",repo.generatePlan(request))
+        var plan=repo.state.value.plans.single()
+        assertEquals("draft",plan.status)
+        assertEquals(workout,plan.sessions.single { it.quality }.runningPrescription)
+        assertEquals(40.0,plan.sessions.sumOf { it.distanceKm!! },1e-6)
+        assertTrue(repo.approvePlan(plan.id,plan.revision))
+        plan=repo.state.value.plans.single()
+        repo.close();gateway.offline=true;open()
+        val reopened=repo.state.value.plans.single()
+        assertEquals(owner,reopened.owner)
+        assertEquals(plan.id,reopened.id)
+        assertEquals(plan.status,reopened.status)
+        assertEquals(plan.sessions,reopened.sessions)
+    }
     @Test fun repositoryMovementRejectsAnotherApprovedPlansIncompatibleSession()=runBlocking {
         assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
         val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)

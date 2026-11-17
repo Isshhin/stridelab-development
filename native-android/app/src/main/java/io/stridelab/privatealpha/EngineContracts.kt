@@ -10,6 +10,13 @@ internal const val PLAN_SCHEMA=1
 internal const val ENGINE1_VERSION="1.0.0"
 internal const val ENGINE1_POLICY="stridelab.engine1.conservative-20261026.1"
 internal class PlanConstraint(message:String):IllegalArgumentException(message)
+internal object PlanDisciplineContract {
+    val goals=mapOf(
+        "run" to listOf("Aerobic foundation","Improve 5K","Improve 10K","Half marathon","Marathon"),
+        "str" to listOf("General strength","Muscle development","Strength endurance"),
+        "cal" to listOf("Calisthenics foundation","Pull-up progression","Push-up progression","Core strength and control","Handstand foundations"),
+        "cond" to listOf("Conditioning"))
+}
 internal interface PlanGenerationEngine {
     val version:String
     val policyId:String
@@ -39,8 +46,19 @@ internal data class PlanRequest(
     /** M3 evidence provenance. Legacy snapshots remain unclassified. */
     val recentMileageBasis:String = "LEGACY_UNSPECIFIED",
     /** Reported peak is not treated as a sustainable weekly average. */
-    val reportedPeakWeeklyKm:Double? = null
+    val reportedPeakWeeklyKm:Double? = null,
+    /** Private/debug plan preference; this remains a requested budget, not validated capacity. */
+    val userDirectedPlanning:Boolean = false,
+    /** Explicit user-authored workouts keyed by stable week/run-slot suffix, e.g. w2-run1. */
+    val userDefinedQualityWorkouts:Map<String,RunningPrescription> = emptyMap()
 ) {
+    fun disciplineSessionCount(discipline:String)=when(discipline) {
+        "run"->runDays;"str"->strengthDays;"cal"->calDays;"cond"->conditioningDays;else->0
+    }
+    fun disciplineGoal(discipline:String):String=disciplineGoals[discipline]
+        ?: goal.takeIf { it in PlanDisciplineContract.goals.getValue(discipline) }
+        ?: PlanDisciplineContract.goals.getValue(discipline).first()
+
     fun encode():JSONObject {
         val encoded=JSONObject().put("goal",goal).put("secondaryGoal",secondaryGoal).put("experience",experience).put("start",start.toString()).put("weeks",weeks).put("minutes",minutes)
             .put("days",JSONArray(days.sorted())).put("runDays",runDays).put("strengthDays",strengthDays).put("calDays",calDays).put("conditioningDays",conditioningDays).put("longDay",longDay)
@@ -62,6 +80,11 @@ internal data class PlanRequest(
         if(foundationAcknowledged)encoded.put("foundationAcknowledged",true)
         if(recentMileageBasis!="LEGACY_UNSPECIFIED")encoded.put("recentMileageBasis",recentMileageBasis)
         if(reportedPeakWeeklyKm!=null)encoded.put("reportedPeakWeeklyKm",reportedPeakWeeklyKm)
+        if(policyChoice=="engine15" && userDirectedPlanning)encoded.put("userDirectedPlanning",true)
+        if(policyChoice=="engine15" && userDefinedQualityWorkouts.isNotEmpty())
+            encoded.put("userDefinedQualityWorkouts",JSONObject().apply {
+                userDefinedQualityWorkouts.toSortedMap().forEach { (key,value)->put(key,value.encode()) }
+            })
         if(runningRecoveryHold)encoded.put("runningRecoveryHold",true)
         if(recentQualitySessionsPerWeek!=null)encoded.put("recentQualitySessionsPerWeek",recentQualitySessionsPerWeek)
         if(preferredQuality!="Threshold")encoded.put("preferredQuality",preferredQuality)
@@ -92,7 +115,10 @@ internal data class PlanRequest(
                 j.optBoolean("timeBudgetEnabled",true),j.optDouble("targetWeeklyKm").takeIf { j.has("targetWeeklyKm") },j.optBoolean("runningRecoveryHold",false),j.nullInt("recentQualitySessionsPerWeek"),
                 j.optBoolean("trainYourWay",false),j.optBoolean("foundationAcknowledged",false),
                 j.optString("recentMileageBasis","LEGACY_UNSPECIFIED"),
-                j.nullDouble("reportedPeakWeeklyKm"))
+                j.nullDouble("reportedPeakWeeklyKm"),j.optBoolean("userDirectedPlanning",false),
+                j.optJSONObject("userDefinedQualityWorkouts")?.let { workouts ->
+                    workouts.keys().asSequence().associateWith { RunningPrescription.decode(workouts.getJSONObject(it)) }
+                } ?: emptyMap())
         }
     }
 }
@@ -125,9 +151,10 @@ internal data class PlannedSession(val id:String,val date:LocalDate,val discipli
             require(discipline=="run")
             if(it.mixedSegments==null) {
                 require(distanceKm!=null && kotlin.math.abs(distanceKm*1000-it.meters)<0.001)
+            } else if(it.reconciledDistanceMeters!=null) {
+                require(distanceKm!=null && kotlin.math.abs(distanceKm*1000-it.reconciledDistanceMeters)<0.001)
             } else {
-                // Time-based steps have no exact full-session distance. Estimate
-                // lives only in v2 prescription metadata, never in distanceKm.
+                // Pace-based estimate remains metadata only; it is not a target.
                 require(distanceKm==null)
             }
             require(quality==(it.role=="QUALITY"))

@@ -53,7 +53,7 @@ class Engine15I9ReadOnlyBasePlanAssemblyTest {
         blocked: Set<LocalDate> = emptySet(),
         preferredLongIsoDay: Int = 7
     ) = Engine15M6CalendarInput(
-        startMonday = monday,
+        startDate = monday,
         availableIsoDays = setOf(1, 2, 3, 5, 6, 7),
         preferredLongIsoDay = preferredLongIsoDay,
         blockedDates = blocked
@@ -245,15 +245,20 @@ class Engine15I9ReadOnlyBasePlanAssemblyTest {
             input = input(review = interference(other = null)))
     }
 
-    @Test fun blockedLongRunOrNonMondayStartPreserveOriginalCalendarHolds() {
+    @Test fun blockedLongRunPreservesCalendarHold() {
         deferred("M6D_UPSTREAM_CALENDAR_LONG_DAY_BLOCKED",
             input = input(review = interference(calendar = calendar(
                 blocked = setOf(LocalDate.of(2026,11,22))
             ))))
-        deferred("M6D_UPSTREAM_CALENDAR_PLAN_START_NOT_MONDAY",
-            input = input(review = interference(calendar = calendar(
-                monday = monday.plusDays(1)
-            ))))
+    }
+
+    @Test fun arbitraryStartDateCanAssembleACompleteDatedBasePlan() {
+        val shifted = monday.plusDays(1)
+        val review = interference(calendar = calendar(monday = shifted))
+        val result = Engine15M6IndependentPeriodizationReview.audit(source(), review)
+        assertTrue("Expected candidate, got $result", result is Engine15M6DReviewDecision.Candidate)
+        val candidate = result as Engine15M6DReviewDecision.Candidate
+        assertTrue(candidate.originalConflictReview.runningWeeks.flatMap { it.runs }.all { it.date >= shifted })
     }
 
     @Test fun sameDayExternalSessionIsNotSilentlyDropped() {

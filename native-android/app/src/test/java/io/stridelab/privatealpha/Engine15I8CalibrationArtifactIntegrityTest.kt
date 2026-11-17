@@ -40,7 +40,7 @@ class Engine15I8CalibrationArtifactIntegrityTest {
     ) = Engine15I9BasePlanAssemblyInput(
             interferenceReview = Engine15M6CReviewInput(
                 calendar = Engine15M6CalendarInput(
-                    startMonday = monday,
+                    startDate = monday,
                     availableIsoDays = if (longDay == 6)
                         setOf(1, 3, 5, 6, 7) else setOf(1, 3, 5, 7),
                     preferredLongIsoDay = longDay
@@ -188,7 +188,7 @@ class Engine15I8CalibrationArtifactIntegrityTest {
         return Engine15I5DistanceFeasibilityInput(
             calendar = Engine15M6QualitySpacingInput(
                 calendar = Engine15M6CalendarInput(
-                    startMonday = monday,
+                    startDate = monday,
                     availableIsoDays = setOf(1, 3, 5, 7),
                     preferredLongIsoDay = 7
                 )

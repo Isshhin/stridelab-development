@@ -31,6 +31,60 @@ class Engine15CoachControlsTest {
         val dir=context.getExternalFilesDir(null) ?: context.cacheDir
         java.io.File(dir,"$name.png").outputStream().use { compose.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
     }
+
+    @Test fun builderAuthorsAndSavesARepeatedUserDefinedWorkoutByStableSlot() {
+        val saved=mutableStateOf<Map<String,RunningPrescription>>(emptyMap())
+        show {
+            TracksideStructuredWorkoutAuthoring(weeks=2,qualityCount=1,saved=saved.value,
+                onSave={saved.value=it},onRemove={key->saved.value=saved.value-key})
+        }
+        compose.onNodeWithTag("builder-workout-add-warm_up").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-workout-amount-1").performScrollTo().performTextInput("2000")
+        compose.onNodeWithTag("builder-workout-effort-1").performTextInput("Easy by feel")
+        compose.onNodeWithTag("builder-workout-add-cool_down").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-workout-amount-2").performScrollTo().performTextInput("2000")
+        compose.onNodeWithTag("builder-workout-add-repeat-group").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-workout-down-2").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-workout-save").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-workout-error").assertDoesNotExist()
+        compose.onNodeWithTag("builder-workout-copy-missing").performScrollTo().performClick()
+        compose.runOnIdle {
+            val workout=checkNotNull(saved.value["w1-run1"])
+            assertEquals("Threshold",workout.family)
+            assertEquals(4,workout.segments.count { it.purpose=="WORK" })
+            assertEquals(3,workout.segments.count { it.purpose=="RECOVERY" })
+            assertEquals(8400,workout.meters)
+            assertEquals(setOf("w1-run1","w2-run1"),saved.value.keys)
+            assertEquals(workout,saved.value["w2-run1"])
+            assertEquals(workout,PlanRequest.decode(PlanRequest(policyChoice="engine15",userDefinedQualityWorkouts=saved.value).encode()).userDefinedQualityWorkouts["w1-run1"])
+        }
+    }
+
+    @Test fun builderRequiresExplicitDistanceEquivalentsForTimedRepeatGroups() {
+        val saved=mutableStateOf<Map<String,RunningPrescription>>(emptyMap())
+        show {
+            TracksideStructuredWorkoutAuthoring(weeks=1,qualityCount=1,saved=saved.value,
+                onSave={saved.value=it},onRemove={key->saved.value=saved.value-key})
+        }
+        compose.onNodeWithTag("builder-workout-add-warm_up").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-workout-amount-1").performScrollTo().performTextInput("2000")
+        compose.onNodeWithTag("builder-workout-add-cool_down").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-workout-amount-2").performScrollTo().performTextInput("2000")
+        compose.onNodeWithText("Time repeats").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-workout-group-work-equivalent").performScrollTo().performTextInput("800")
+        compose.onNodeWithTag("builder-workout-group-recovery-equivalent").performScrollTo().performTextInput("400")
+        compose.onNodeWithTag("builder-workout-add-repeat-group").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-workout-down-2").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-workout-save").performScrollTo().performClick()
+        compose.runOnIdle {
+            val workout=checkNotNull(saved.value["w1-run1"])
+            val steps=checkNotNull(workout.mixedSegments)
+            assertEquals(3,workout.encode().getInt("version"))
+            assertEquals(8400,workout.reconciledDistanceMeters)
+            assertEquals(4,steps.count { it.purpose=="WORK" })
+            assertEquals(3,steps.count { it.purpose=="RECOVERY" })
+        }
+    }
     @Test fun plannedWorkoutShortcutsUseRealMoveAndMissedCallbacks() {
         val p=plan()
         var moved=0
@@ -145,6 +199,39 @@ class Engine15CoachControlsTest {
         compose.onNodeWithTag("workout-repeat-recovery-1").assertExists()
         compose.onNodeWithText("Between repetitions").assertExists()
         compose.onNodeWithTag("workout-step-single-2").assertExists()
+    }
+
+    @Test fun mixedWorkoutKeepsTransitionBetweenDistinctBlocks() {
+        val steps=listOf(
+            RunningStepV2("WARM_UP","Easy",meters=2000),
+            RunningStepV2("WORK","User threshold target",meters=1000),
+            RunningStepV2("RECOVERY","Easy jog",meters=400),
+            RunningStepV2("WORK","User threshold target",meters=1000),
+            RunningStepV2("RECOVERY","Easy jog",meters=400),
+            RunningStepV2("WORK","User threshold target",meters=1000),
+            RunningStepV2("TRANSITION","Easy between blocks",seconds=180,distanceEquivalentMeters=300),
+            RunningStepV2("WORK","User speed target",meters=200),
+            RunningStepV2("RECOVERY","Easy jog",meters=200),
+            RunningStepV2("WORK","User speed target",meters=200),
+            RunningStepV2("COOL_DOWN","Easy",meters=6600)
+        )
+        val session=PlannedSession("two-block",day.plusDays(1),"run",
+            "Threshold and speed workout",75,13.3,"quality",quality=true,
+            runningPrescription=RunningPrescription("QUALITY","Threshold",emptyList(),steps,
+                reconciledDistanceMeters=13300))
+        val p=plan().copy(sessions=listOf(session))
+        show {
+            TracksidePlannedRunningPreview(
+                session,Engine15SessionPresentation.forSession(p,session.id),
+                session.title,"User-defined targets",onBack={}
+            )
+        }
+        compose.onNodeWithTag("workout-mixed-step-0").assertExists()
+        compose.onNodeWithTag("workout-mixed-repeat-1").assertExists()
+        compose.onNodeWithTag("workout-mixed-step-2").assertExists()
+        compose.onNodeWithText("Transition").assertExists()
+        compose.onNodeWithTag("workout-mixed-repeat-3").assertExists()
+        compose.onNodeWithTag("workout-mixed-step-4").assertExists()
     }
 
     @Test fun reviewedTimeOnlyPreviewNeverShowsOriginalDistanceAsCurrentTarget() {

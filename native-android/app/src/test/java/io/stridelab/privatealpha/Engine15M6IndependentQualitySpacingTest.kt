@@ -47,7 +47,7 @@ class Engine15M6IndependentQualitySpacingTest {
         policy: Engine15M6QualitySpacingPolicy = Engine15M6QualitySpacingPolicy()
     ) = Engine15M6QualitySpacingInput(
         calendar = Engine15M6CalendarInput(
-            startMonday = monday,
+            startDate = monday,
             availableIsoDays = available,
             preferredLongIsoDay = longDay,
             blockedDates = blockedDays

@@ -144,10 +144,10 @@ internal object Engine15M6IndependentPeriodizationReview {
                     "Each week needs exact, positive, 100 m-aligned original mileage.",
                     week)
 
-            if (!checkCap(km, m4b.existingPolicyCeilingKm) ||
+            if (!source.input.userDirected && (!checkCap(km, m4b.existingPolicyCeilingKm) ||
                 !checkCap(km, m4b.provisionalSessionCapacityKm) ||
                 !checkCap(km, m4b.returnFromBreakCeilingKm) ||
-                !checkCap(km, m4b.recoveryCeilingKm))
+                !checkCap(km, m4b.recoveryCeilingKm)))
                 return defer("M4B_VOLUME_CEILING_VIOLATION",
                     "The planned calendar may not exceed any original M4B workload bound.",
                     week)
@@ -180,7 +180,7 @@ internal object Engine15M6IndependentPeriodizationReview {
                     "M6D cannot admit multiple quality opportunities or recovery-week quality.",
                     week)
 
-            val startDate = input.calendar.startMonday.plusWeeks(index.toLong())
+            val startDate = input.calendar.startDate.plusWeeks(index.toLong())
             val weekEnd = startDate.plusWeeks(1)
             if (item.runs.any { it.date < startDate || it.date >= weekEnd })
                 return defer("RUN_OUTSIDE_WEEK",
@@ -224,7 +224,16 @@ internal object Engine15M6IndependentPeriodizationReview {
             requestedTargetKm = target,
             targetBudgetShortfallKm = gap,
             reviewAfterCompletedWeek = source.reviewAfterCompletedWeek,
-            ruleIds = listOf(
+            ruleIds = if(source.input.userDirected) listOf(
+                "USER_DIRECTED_BUDGET_RECONCILED_NOT_CAPACITY_VALIDATED",
+                "M6C_CALENDAR_AND_CONFLICT_RECOMPUTED",
+                "RECOVERY_RETAINED_AT_80_PERCENT_OF_PREVIOUS_WEEK",
+                "M5A_SESSION_DISTANCE_AND_LONG_CONTINUITY_RETAINED",
+                "QUALITY_OPPORTUNITIES_ARE_NOT_EXECUTABLE_WORKOUTS",
+                "BASELINE_REASSESSMENT_CHECKPOINT_NOT_AUTOMATIC_ADVANCEMENT",
+                "TARGET_BUDGET_NOT_ACTUAL_MILEAGE",
+                "ALL_FUTURE_WEEKS_PROVISIONAL_NO_PRODUCTION_AUTHORITY"
+            ) else listOf(
                 "ORIGINAL_M4B_PHASES_REPORTED_NOT_REPLANNED",
                 "M6C_CALENDAR_AND_CONFLICT_RECOMPUTED",
                 "M4B_CEILINGS_AND_RECOVERY_PREVIOUS_WEEK_RECHECKED",

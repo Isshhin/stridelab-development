@@ -7,7 +7,10 @@ internal object PlanScheduleValidation {
             policy==ENGINE15_INTERFERENCE_POLICY
 
     fun conflict(a:PlannedSession,b:PlannedSession,policyA:String,policyB:String)=
-        if(policyA==ENGINE15_INTERFERENCE_POLICY && policyB==ENGINE15_INTERFERENCE_POLICY)
+        if(policyA in setOf(ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY, ENGINE15_INDEPENDENT_CALISTHENICS_POLICY, ENGINE15_INDEPENDENT_CONDITIONING_POLICY, ENGINE15_INDEPENDENT_COMBINED_POLICY) ||
+            policyB in setOf(ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY, ENGINE15_INDEPENDENT_CALISTHENICS_POLICY, ENGINE15_INDEPENDENT_CONDITIONING_POLICY, ENGINE15_INDEPENDENT_COMBINED_POLICY))
+            Engine15IndependentPlanGenerator.conflict(a,b)
+        else if(policyA==ENGINE15_INTERFERENCE_POLICY && policyB==ENGINE15_INTERFERENCE_POLICY)
             Engine15InterferenceScheduling.conflict(a,b)
         else if(policyA==ENGINE15_INTERFERENCE_POLICY || policyB==ENGINE15_INTERFERENCE_POLICY)
             // Retain baseline cross-policy restrictions and also honor the
@@ -20,11 +23,16 @@ internal object PlanScheduleValidation {
 
     fun validatePlan(plan:PlanSnapshot) {
         if(plan.status!="approved" || !Engine1Engines.canManage(plan))return
+        if(plan.policyId in setOf(ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY, ENGINE15_INDEPENDENT_CALISTHENICS_POLICY, ENGINE15_INDEPENDENT_CONDITIONING_POLICY, ENGINE15_INDEPENDENT_COMBINED_POLICY))
+            Engine15IndependentPlanGenerator.validateSaved(plan)
         Engine15SessionLocks.validateSaved(plan)
         Engine15Availability.requireReady(plan)
         val sessions=scheduled(plan)
         for(i in sessions.indices)for(k in i+1 until sessions.size) {
-            if(conflict(sessions[i],sessions[k],plan.policyId,plan.policyId))throw PlanConstraint("The backup contains conflicting sessions inside an approved plan. No records were changed.")
+            val conflict = if(plan.policyId==ENGINE15_INDEPENDENT_COMBINED_POLICY)
+                Engine15StaticMultiDisciplinePlanner.conflict(sessions[i],sessions[k],plan.request)
+            else conflict(sessions[i],sessions[k],plan.policyId,plan.policyId)
+            if(conflict)throw PlanConstraint("The backup contains conflicting sessions inside an approved plan. No records were changed.")
         }
         if(isMultiPolicy(plan.policyId) && sessions.groupBy { it.date }.values.any { day -> day.size>2 || day.sumOf { it.effectiveMinutes }>plan.request.dailyMinutes })throw PlanConstraint("The backup exceeds an approved plan's daily time budget. No records were changed.")
     }

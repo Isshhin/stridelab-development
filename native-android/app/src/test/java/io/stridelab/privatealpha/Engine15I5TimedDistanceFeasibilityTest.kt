@@ -155,7 +155,7 @@ class Engine15I5TimedDistanceFeasibilityTest {
         blocked: Set<LocalDate> = emptySet()
     ) = Engine15M6QualitySpacingInput(
         calendar = Engine15M6CalendarInput(
-            startMonday = monday,
+            startDate = monday,
             availableIsoDays = when (days) {
                 4 -> setOf(1, 3, 5, 7)
                 6 -> setOf(1, 2, 3, 5, 6, 7)

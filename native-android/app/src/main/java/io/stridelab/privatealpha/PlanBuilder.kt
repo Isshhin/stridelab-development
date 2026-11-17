@@ -392,6 +392,11 @@ import org.json.JSONObject
                         )
                     }
                     if(input.policyChoice=="engine15") {
+                        if(BuildConfig.DEBUG) CoachFeedbackChoices(
+                            "Weekly volume policy",
+                            listOf("Coach recommended","User directed"),
+                            if(input.userDirectedPlanning) "User directed" else "Coach recommended"
+                        ) { selected -> edit(input.copy(userDirectedPlanning=selected=="User directed")) }
                         CoachFeedbackChoices("Usual quality sessions per week",listOf("0","1","2"),input.recentQualitySessionsPerWeek?.toString()) { edit(input.copy(recentQualitySessionsPerWeek=it?.toInt())) }
                     }
                 },
@@ -424,6 +429,9 @@ import org.json.JSONObject
             )
             3 -> TracksideAdvancedRunning(
                 guided = advancedBackPage != 0,
+                weeks = input.weeks,
+                userDirectedPlanning = input.userDirectedPlanning,
+                userDefinedQualityWorkouts = input.userDefinedQualityWorkouts,
                 weeklyKm = targetKm.toDoubleOrNull()?.coerceIn(0.0, 120.0) ?: 0.0,
                 qualityCount = input.qualityCount.coerceIn(0, 2),
                 maxQualityCount = minOf(
@@ -451,6 +459,12 @@ import org.json.JSONObject
                         else advancedQualityTypes+quality
                     advancedQualityCsv = updated.sorted().joinToString("|")
                     edit(input.copy(allowedQualityTypes=updated))
+                },
+                onSaveQualityWorkouts = { workouts ->
+                    edit(input.copy(userDefinedQualityWorkouts=workouts))
+                },
+                onRemoveQualityWorkout = { key ->
+                    edit(input.copy(userDefinedQualityWorkouts=input.userDefinedQualityWorkouts-key))
                 },
                 onBack = { runningSubPage = advancedBackPage },
                 onContinue = {
