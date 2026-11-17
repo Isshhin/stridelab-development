@@ -32,16 +32,16 @@ class Engine15M4BIndependentVolumePlannerTest {
 
     private fun propose(p:PlanRequest):Engine15IndependentVolumePlanner.Result =
         planner.propose(Engine15AthleteBaseline.assess(p),
-            planner.Input(p.weeks,p.runDays,p.targetWeeklyKm,p.returning,p.runningRecoveryHold))
+            Engine15IndependentVolumePlanner.Input(p.weeks,p.runDays,p.targetWeeklyKm,p.returning,p.runningRecoveryHold))
 
     @Test fun experiencedSeventyFiveToEightyDoesNotUseEngineOneOrClaimEighty() {
         val result=propose(athlete(peak=85.0))
-        assertEquals(planner.Status.DISTANCE_CANDIDATE,result.status)
+        assertEquals(Engine15IndependentVolumePlanner.Status.DISTANCE_CANDIDATE,result.status)
         val expected=listOf(67.5,71.2,75.0,60.0,71.2,75.0,78.7,62.9)
         assertEquals(expected,result.weeks.map { it.proposedKm })
         assertEquals(78.7,result.peakProposedKm!!,1e-9)
         assertEquals(1.3,result.shortfallToRequestedTargetKm!!,1e-8)
-        assertEquals(planner.TargetStatus.TARGET_NOT_REACHED_IN_BUDGET,
+        assertEquals(Engine15IndependentVolumePlanner.TargetStatus.TARGET_NOT_REACHED_IN_BUDGET,
             result.targetStatus)
         assertEquals(2,result.reviewAfterCompletedWeek)
         assertEquals(105.0,result.weeks.first().provisionalSessionCapacityKm!!,1e-9)
@@ -55,7 +55,7 @@ class Engine15M4BIndependentVolumePlannerTest {
         assertEquals(listOf(45.0,47.5,50.0,40.0),
             result.weeks.map { it.proposedKm })
         assertEquals(30.0,result.shortfallToRequestedTargetKm!!,1e-9)
-        assertEquals(planner.TargetStatus.TARGET_NOT_REACHED_IN_BUDGET,
+        assertEquals(Engine15IndependentVolumePlanner.TargetStatus.TARGET_NOT_REACHED_IN_BUDGET,
             result.targetStatus)
     }
 
@@ -94,14 +94,14 @@ class Engine15M4BIndependentVolumePlannerTest {
     @Test fun unknownPeakOnlyExplicitZeroAndLegacyAreDifferentOutcomes() {
         val scenarios=listOf(
             Triple(athlete(average=0.0,source="UNKNOWN"),
-                planner.Status.NEEDS_BASELINE,"MISSING_TYPICAL_RUNNING_MILEAGE"),
+                Engine15IndependentVolumePlanner.Status.NEEDS_BASELINE,"MISSING_TYPICAL_RUNNING_MILEAGE"),
             Triple(athlete(average=0.0,source="PEAK_WEEK_ONLY",peak=100.0),
-                planner.Status.NEEDS_BASELINE,"MISSING_TYPICAL_RUNNING_MILEAGE"),
+                Engine15IndependentVolumePlanner.Status.NEEDS_BASELINE,"MISSING_TYPICAL_RUNNING_MILEAGE"),
             Triple(athlete(average=0.0,source="CONFIRMED_ZERO",longest=0.0,
                 experience=0,days=3,target=20.0),
-                planner.Status.TIME_ONLY,"CONFIRMED_ZERO_REQUIRES_TIME_ONLY_FOUNDATION"),
+                Engine15IndependentVolumePlanner.Status.TIME_ONLY,"CONFIRMED_ZERO_REQUIRES_TIME_ONLY_FOUNDATION"),
             Triple(athlete(source="LEGACY_UNSPECIFIED"),
-                planner.Status.NEEDS_LEGACY_CONFIRMATION,
+                Engine15IndependentVolumePlanner.Status.NEEDS_LEGACY_CONFIRMATION,
                 "LEGACY_SCALAR_NOT_CONFIRMED_AS_AVERAGE")
         )
         for((p,status,reason) in scenarios) {
@@ -116,17 +116,17 @@ class Engine15M4BIndependentVolumePlannerTest {
 
     @Test fun invalidPeakAndExplicitRecoveryHoldStopIndependentPlanning() {
         val invalid=propose(athlete(average=75.0,peak=60.0))
-        assertEquals(planner.Status.NEEDS_REVIEW,invalid.status)
+        assertEquals(Engine15IndependentVolumePlanner.Status.NEEDS_REVIEW,invalid.status)
         assertTrue(invalid.weeks.all { it.proposedKm==null })
         val held=propose(athlete(recoveryHold=true))
-        assertEquals(planner.Status.RECOVERY_REVIEW,held.status)
+        assertEquals(Engine15IndependentVolumePlanner.Status.RECOVERY_REVIEW,held.status)
         assertTrue(held.weeks.all { it.proposedKm==null })
     }
 
     @Test fun confidenceIsNotFitnessOrPermissionToRaiseCeiling() {
         val p=athlete()
         val profile=Engine15AthleteBaseline.assess(p)
-        val input=planner.Input(8,6,80.0)
+        val input=Engine15IndependentVolumePlanner.Input(8,6,80.0)
         val reported=planner.propose(profile,input)
         val confirmed=planner.propose(profile.copy(
             confidence=AthleteBaselineConfidence.COMPLETE_FOUR_WEEK_HISTORY,
@@ -139,7 +139,7 @@ class Engine15M4BIndependentVolumePlannerTest {
 
     @Test fun missingLongestRunDoesNotPretendToProveSessionCapacity() {
         val result=propose(athlete(longest=0.0))
-        assertEquals(planner.Status.DISTANCE_CANDIDATE,result.status)
+        assertEquals(Engine15IndependentVolumePlanner.Status.DISTANCE_CANDIDATE,result.status)
         assertTrue(result.weeks.all { it.provisionalSessionCapacityKm==null })
         assertTrue(result.reasons.contains("SESSION_EXPOSURE_MUST_BE_REVIEWED_BY_M5"))
         assertTrue(result.weeks.all {
@@ -165,7 +165,7 @@ class Engine15M4BIndependentVolumePlannerTest {
                         if(i%4==3) {
                             val prev=r.weeks[i-1].proposedKm!!
                             assertTrue(v<=prev*0.8+1e-8)
-                            assertEquals(planner.WeekKind.RECOVERY,row.kind)
+                            assertEquals(Engine15IndependentVolumePlanner.WeekKind.RECOVERY,row.kind)
                         }
                     }
                 }
@@ -192,7 +192,7 @@ class Engine15M4BIndependentVolumePlannerTest {
                 "experienced-75-to-80",i+1,prior[i],v,
                 "%.3f".format(java.util.Locale.US,v-prior[i]),
                 w.existingPolicyCeilingKm,w.provisionalSessionCapacityKm,
-                w.kind==planner.WeekKind.RECOVERY
+                w.kind==Engine15IndependentVolumePlanner.WeekKind.RECOVERY
             ).joinToString(",")
         }
         File(reportDir,"shadow-weekly-comparison.csv")
