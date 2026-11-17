@@ -204,16 +204,20 @@ class TracksideActivityScrollTest {
         compose.onNodeWithTag("activity-tab-analysis").performClick()
         compose.onNodeWithTag("activity-continuous-scroll")
             .performScrollToNode(hasTestTag("activity-analysis-detailed"))
-        compose.onNodeWithTag("activity-analysis-detailed-headline").assertExists()
-        compose.onNodeWithTag("activity-analysis-detailed-summary").assertExists()
-        compose.onNodeWithTag("activity-analysis-detailed-descriptor").assertExists()
-        compose.onNodeWithTag("activity-analysis-detailed-descriptor").assertExists()
+        // The new Analysis headline leads the section; technical content
+        // remains hidden until the explicit "Show technical details" action.
+        compose.onNodeWithTag("activity-analysis-headline").assertExists()
+        compose.onNodeWithTag("activity-analysis-detailed-headline").assertDoesNotExist()
+        compose.onNodeWithTag("activity-analysis-detailed-summary").assertDoesNotExist()
+        compose.onNodeWithTag("activity-analysis-detailed-descriptor").assertDoesNotExist()
         compose.onNodeWithText("Detailed Analysis").assertExists()
         compose.onNodeWithText("RECORDED DATA").assertDoesNotExist()
         compose.onNodeWithTag("activity-analysis-detailed-detail-0").assertDoesNotExist()
         compose.onNodeWithTag("activity-continuous-scroll")
             .performScrollToNode(hasTestTag("activity-analysis-detailed-toggle"))
         compose.onNodeWithTag("activity-analysis-detailed-toggle").performClick()
+        compose.onNodeWithTag("activity-analysis-detailed-headline").assertExists()
+        compose.onNodeWithTag("activity-analysis-detailed-summary").assertExists()
         compose.onNodeWithTag("activity-analysis-detailed-detail-0").assertExists()
         // Expanding makes the card taller; scroll to the relocated button
         // before tapping again rather than relying on a stale screen offset.
