@@ -60,6 +60,26 @@ class Engine15IndependentPlanGeneratorTest {
         }
     }
 
+    @Test fun userDirectedModeHonorsHighWeeklyTargetAndLabelsItAsUnvalidated() {
+        val input=request(8).copy(targetWeeklyKm=110.0,longestKm=5.0,userDirectedPlanning=true)
+        val result=Engine15IndependentPlanGenerator.preview(input,owner,"user-directed",now)
+        assertTrue("Expected a reviewable user-directed plan, got $result",result is Engine15IndependentPlanDecision.Candidate)
+        val candidate=result as Engine15IndependentPlanDecision.Candidate
+        for(week in 0 until input.weeks) {
+            val rows=candidate.plan.sessions.filter {
+                it.date>=input.start.plusWeeks(week.toLong()) && it.date<input.start.plusWeeks((week+1).toLong())
+            }
+            assertEquals(if(week%4==3)88.0 else 110.0,rows.sumOf { it.distanceKm!! },1e-6)
+        }
+        assertTrue(candidate.plan.explanations.any { it.contains("user-requested workload") })
+        assertTrue(candidate.plan.explanations.any { it.contains("not validated athlete capacity") })
+        assertTrue(candidate.plan.explanations.any { it.contains("PROVISIONAL_SESSION_EXPOSURE_WARNING") })
+        assertTrue(PlanRequest.decode(candidate.plan.request.encode()).userDirectedPlanning)
+        val unknownLongest=Engine15IndependentPlanGenerator.preview(input.copy(longestKm=0.0),owner,"unknown-longest",now)
+        assertTrue("A provisional longest-run estimate must not cap user-directed volume: $unknownLongest",
+            unknownLongest is Engine15IndependentPlanDecision.Candidate)
+    }
+
     @Test fun defersMissingOrUnclassifiedTrainingHistory() {
         for (input in listOf(
             request().copy(weeklyKm = 0.0, recentMileageBasis = "UNKNOWN"),

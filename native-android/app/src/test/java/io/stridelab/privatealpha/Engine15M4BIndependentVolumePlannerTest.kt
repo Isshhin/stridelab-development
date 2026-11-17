@@ -80,6 +80,21 @@ class Engine15M4BIndependentVolumePlannerTest {
         })
     }
 
+    @Test fun userDirectedTargetsAreNotCappedByProvisionalLongestRunCapacity() {
+        val p=athlete(average=75.0,target=110.0,longest=5.0,days=6,weeks=8)
+        val result=planner.propose(Engine15AthleteBaseline.assess(p),
+            Engine15IndependentVolumePlanner.Input(8,6,110.0,userDirected=true))
+        assertEquals(listOf(110.0,110.0,110.0,88.0,110.0,110.0,110.0,88.0),
+            result.weeks.map { it.proposedKm })
+        assertEquals(110.0,result.peakProposedKm!!,1e-9)
+        assertTrue(result.weeks.all { it.constraintCodes.contains("USER_REQUESTED_NOT_CAPACITY_VALIDATED") })
+        assertTrue(result.weeks.filter { it.index % 4 != 3 }.all {
+            it.constraintCodes.contains("PROVISIONAL_SESSION_EXPOSURE_WARNING")
+        })
+        assertEquals(Engine15IndependentVolumePlanner.TargetStatus.TARGET_REACHED_IN_BUDGET,
+            result.targetStatus)
+    }
+
     @Test fun returningRunnerUsesOneReturnBoundAndOneRecoveryCap() {
         val result=propose(athlete(average=40.0,target=50.0,longest=12.0,
             days=4,returning=true))

@@ -35,7 +35,8 @@ internal object Engine15IndependentVolumePlanner {
         val runningDays:Int,
         val targetWeeklyKm:Double?,
         val returning:Boolean=false,
-        val recoveryHold:Boolean=false
+        val recoveryHold:Boolean=false,
+        val userDirected:Boolean=false
     ) {
         init {
             require(weeks in 1..52 && runningDays in 1..7)
@@ -120,9 +121,13 @@ internal object Engine15IndependentVolumePlanner {
             val recoveryCeiling=if(kind==WeekKind.RECOVERY)
                 priorKm?.times(0.8) else null
 
-            val components=listOfNotNull(existingCeiling,capacity,returnCeiling,recoveryCeiling)
+            val requested=if(input.userDirected) input.targetWeeklyKm ?: existingCeiling else null
+            val components=if(input.userDirected) listOfNotNull(recoveryCeiling)
+                else listOfNotNull(existingCeiling,capacity,returnCeiling,recoveryCeiling)
             val rawBound=components.minOrNull()
-            val proposed=rawBound?.let(::floorTenth)
+            val directedBudget=if(input.userDirected && recoveryCeiling!=null)
+                minOf(requested ?: recoveryCeiling,recoveryCeiling) else requested
+            val proposed=(directedBudget ?: rawBound)?.let(::floorTenth)
             val flags=mutableListOf<String>()
             if(!numeric)flags+="NO_NUMERIC_PROPOSAL"
             if(rawBound!=null && proposed!=null) {
@@ -135,6 +140,15 @@ internal object Engine15IndependentVolumePlanner {
                 if(binds(recoveryCeiling))flags+="RECOVERY_FROM_PLANNED_WEEK_CAP"
                 if(rawBound-proposed>1e-8)flags+="ROUNDING_DOWN_TO_100M"
                 if(capacity==null)flags+="SESSION_EXPOSURE_UNCONFIRMED"
+            }
+            if(input.userDirected && proposed!=null) {
+                flags+="USER_REQUESTED_NOT_CAPACITY_VALIDATED"
+                if(existingCeiling!=null && proposed>existingCeiling+1e-8)
+                    flags+="REQUESTED_TARGET_ABOVE_COACH_RECOMMENDATION"
+                if(capacity!=null && proposed>capacity+1e-8)
+                    flags+="PROVISIONAL_SESSION_EXPOSURE_WARNING"
+                if(returnCeiling!=null && proposed>returnCeiling+1e-8)
+                    flags+="RETURN_FROM_BREAK_RECOMMENDATION_EXCEEDED"
             }
             if(proposed!=null) priorKm=proposed
             Week(

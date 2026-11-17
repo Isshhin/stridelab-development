@@ -392,6 +392,11 @@ import org.json.JSONObject
                         )
                     }
                     if(input.policyChoice=="engine15") {
+                        if(BuildConfig.DEBUG) CoachFeedbackChoices(
+                            "Weekly volume policy",
+                            listOf("Coach recommended","User directed"),
+                            if(input.userDirectedPlanning) "User directed" else "Coach recommended"
+                        ) { selected -> edit(input.copy(userDirectedPlanning=selected=="User directed")) }
                         CoachFeedbackChoices("Usual quality sessions per week",listOf("0","1","2"),input.recentQualitySessionsPerWeek?.toString()) { edit(input.copy(recentQualitySessionsPerWeek=it?.toInt())) }
                     }
                 },

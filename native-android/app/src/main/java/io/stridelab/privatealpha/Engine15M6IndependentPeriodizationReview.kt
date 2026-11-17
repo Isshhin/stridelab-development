@@ -144,10 +144,10 @@ internal object Engine15M6IndependentPeriodizationReview {
                     "Each week needs exact, positive, 100 m-aligned original mileage.",
                     week)
 
-            if (!checkCap(km, m4b.existingPolicyCeilingKm) ||
+            if (!source.input.userDirected && (!checkCap(km, m4b.existingPolicyCeilingKm) ||
                 !checkCap(km, m4b.provisionalSessionCapacityKm) ||
                 !checkCap(km, m4b.returnFromBreakCeilingKm) ||
-                !checkCap(km, m4b.recoveryCeilingKm))
+                !checkCap(km, m4b.recoveryCeilingKm)))
                 return defer("M4B_VOLUME_CEILING_VIOLATION",
                     "The planned calendar may not exceed any original M4B workload bound.",
                     week)

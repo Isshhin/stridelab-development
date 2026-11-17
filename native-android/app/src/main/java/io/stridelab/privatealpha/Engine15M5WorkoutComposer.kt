@@ -100,14 +100,15 @@ internal object Engine15M5WorkoutComposer {
         if (runDays < 2)
             return defer("ONE_DAY_COMPOSITION_UNREVIEWED",
                 "One-day running plans need a separately reviewed composition policy.")
+        val userDirected=source.input.userDirected
         val longest = source.athleteBaseline.reportedLongestRunKm
-            ?: return defer("LONGEST_RUN_EXPOSURE_UNKNOWN",
-                "A numeric weekly budget does not establish per-session exposure.")
+        if(longest==null && !userDirected) return defer("LONGEST_RUN_EXPOSURE_UNKNOWN",
+            "A numeric weekly budget does not establish per-session exposure.")
 
         // M4B's provisional session bounds: one potential long exposure and
         // a separate 80% bound for every other day. No exposure is increased.
-        val longMaxUnits = tenths(longest + 1.0)
-        val easyMaxUnits = tenths((longest + 1.0) * 0.8)
+        val longMaxUnits = if(userDirected) 1200 else tenths(longest!! + 1.0)
+        val easyMaxUnits = if(userDirected) 1200 else tenths((longest!! + 1.0) * 0.8)
         if (easyMaxUnits < 1 || longMaxUnits < 1)
             return defer("SESSION_EXPOSURE_TOO_SMALL",
                 "Available exposure cannot support positive 100 m workout slots.")
@@ -132,7 +133,8 @@ internal object Engine15M5WorkoutComposer {
                         "Two easy runs cannot contain this M4B upper-bound budget.", number)
                 listOf(first, second)
             } else {
-                val longCap = minOf(longMaxUnits, tenths(total / 10.0 * 0.40))
+                val longCap = if(userDirected) longMaxUnits
+                    else minOf(longMaxUnits, tenths(total / 10.0 * 0.40))
                 // LONG is not a separate intensity. Give it at least the
                 // longest share and enough distance to keep EASY slots in cap.
                 val minimumLong = maxOf(

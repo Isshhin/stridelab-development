@@ -201,6 +201,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
 
         if (request.policyChoice != "engine15")
             return defer("ENGINE15_NOT_SELECTED", "Select Engine 1.5 before requesting an independent candidate.")
+        if (request.userDirectedPlanning && !BuildConfig.DEBUG)
+            return defer("USER_DIRECTED_POLICY_DEBUG_ONLY", "User-directed planning is available only in private development builds.")
         if (request.runningRecoveryHold)
             return defer("RUNNING_RECOVERY_HOLD", "Running remains on hold until the recovery review is resolved.")
         if (request.qualityCount != 0)
@@ -268,7 +270,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 runningDays = request.runDays,
                 targetWeeklyKm = request.targetWeeklyKm,
                 returning = request.returning,
-                recoveryHold = request.runningRecoveryHold
+                recoveryHold = request.runningRecoveryHold,
+                userDirected = request.userDirectedPlanning
             )
         )
         if (volume.status != Engine15IndependentVolumePlanner.Status.DISTANCE_CANDIDATE)
@@ -347,6 +350,11 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             explanations = buildList {
                 add("Independent Engine 1.5 running candidate; no Engine 1.0 generation or validation was used.")
                 add("Mileage basis: ${athlete.basis}; reported/recorded history remains provisional and is not source-authenticated.")
+                if(request.userDirectedPlanning)
+                    add("Weekly volume follows the user-requested workload, with scheduled recovery weeks. This is not validated athlete capacity; coach-recommended progression remains available for comparison.")
+                if(request.userDirectedPlanning) volume.weeks.flatMap { it.constraintCodes }.distinct()
+                    .filter { it in setOf("REQUESTED_TARGET_ABOVE_COACH_RECOMMENDED","PROVISIONAL_SESSION_EXPOSURE_WARNING","RETURN_FROM_BREAK_RECOMMENDATION_EXCEEDED") }
+                    .takeIf { it.isNotEmpty() }?.let { add("Conservative recommendations exceeded by user request: ${it.joinToString()}; review before approval.") }
                 add("M4B owns weekly volume and recovery weeks; M5A owns easy/long workout distances; M6A/M6C/M6D own date placement, interference review and periodization audit.")
                 add("Duration is an estimate from the entered planning pace. No pace or heart-rate target is prescribed.")
                 add("Preview only: executable, production-ready and production-authorized are all false.")

@@ -39,7 +39,9 @@ internal data class PlanRequest(
     /** M3 evidence provenance. Legacy snapshots remain unclassified. */
     val recentMileageBasis:String = "LEGACY_UNSPECIFIED",
     /** Reported peak is not treated as a sustainable weekly average. */
-    val reportedPeakWeeklyKm:Double? = null
+    val reportedPeakWeeklyKm:Double? = null,
+    /** Private/debug plan preference; this remains a requested budget, not validated capacity. */
+    val userDirectedPlanning:Boolean = false
 ) {
     fun encode():JSONObject {
         val encoded=JSONObject().put("goal",goal).put("secondaryGoal",secondaryGoal).put("experience",experience).put("start",start.toString()).put("weeks",weeks).put("minutes",minutes)
@@ -62,6 +64,7 @@ internal data class PlanRequest(
         if(foundationAcknowledged)encoded.put("foundationAcknowledged",true)
         if(recentMileageBasis!="LEGACY_UNSPECIFIED")encoded.put("recentMileageBasis",recentMileageBasis)
         if(reportedPeakWeeklyKm!=null)encoded.put("reportedPeakWeeklyKm",reportedPeakWeeklyKm)
+        if(policyChoice=="engine15" && userDirectedPlanning)encoded.put("userDirectedPlanning",true)
         if(runningRecoveryHold)encoded.put("runningRecoveryHold",true)
         if(recentQualitySessionsPerWeek!=null)encoded.put("recentQualitySessionsPerWeek",recentQualitySessionsPerWeek)
         if(preferredQuality!="Threshold")encoded.put("preferredQuality",preferredQuality)
@@ -92,7 +95,7 @@ internal data class PlanRequest(
                 j.optBoolean("timeBudgetEnabled",true),j.optDouble("targetWeeklyKm").takeIf { j.has("targetWeeklyKm") },j.optBoolean("runningRecoveryHold",false),j.nullInt("recentQualitySessionsPerWeek"),
                 j.optBoolean("trainYourWay",false),j.optBoolean("foundationAcknowledged",false),
                 j.optString("recentMileageBasis","LEGACY_UNSPECIFIED"),
-                j.nullDouble("reportedPeakWeeklyKm"))
+                j.nullDouble("reportedPeakWeeklyKm"),j.optBoolean("userDirectedPlanning",false))
         }
     }
 }
