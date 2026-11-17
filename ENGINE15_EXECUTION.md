@@ -116,6 +116,14 @@ Verify normal UI restoration of a synthetic plan after application process resta
 - **Boundaries:** Engine 1.0 remains available for legacy routes and is not called by this independent strength-only generator. Static multi-discipline scheduling, calisthenics and conditioning are not implemented yet; known schedules are conservatively deferred rather than ignored. Quality-session prescriptions remain outside this batch and unqualified. Strength feedback/recovery adaptation is not enabled.
 - **Status:** this is a verified incremental batch, not completion or cutover. Continue with independent calisthenics/conditioning construction and then a single static multi-discipline scheduler; maintain release behavior and the current development-only opt-in until full acceptance gates pass.
 
+### Batch 10 — independent calisthenics-only draft (2026-11-17)
+
+- **Starting checkpoint:** PR #131 branch after strength batch `edb18c267963193e28a9aae612f77396dad190ac`.
+- **Implementation commit:** `f31e9ea43173f1e20a882a8e687a7447c227b34f` (`feat(engine15): add independent calisthenics drafts`).
+- **Changes:** the same `Engine15IndependentPlanGenerator` facade now builds calisthenics-only drafts from shared offline exercise records. Engine 1.5 owns goal selection, catalog skill/equipment gates, simple static repetitions, conservative returning-athlete sets, four-week recovery sets, weekday/lock placement, time limits and saved-plan validation. Existing owner sessions in the generation horizon defer pending static combined scheduling. Unsupported handstand preparation, unmet pull-up/equipment constraints, free-text limitations/recovery notes and mixed requests explicitly defer. Conditioning-only requests also return a named deferral.
+- **Verification:** the focused development-route/architecture/lock/backup JVM selection passed; the full JVM suite passed **1,020 tests across 131 suites, zero failures/errors, one skipped legacy quality capture**. Debug and instrumentation APK assembly passed with the development opt-in. The isolated Android 15 Pixel 9 AVD test passed for an eight-session calisthenics draft through explicit approval and offline reopen with owner/session preservation. `git diff --check` passed. No personal device was used.
+- **Status:** this is not full multi-discipline support. Conditioning construction and combined-discipline static scheduling remain outstanding. The development flag remains opt-in, release defaults unchanged, and quality-session prescriptions remain unqualified.
+
 ## M10d — Android review-flow and backup reconciliation (2026-11-15)
 
 - **Starting point:** isolated branch `integration/engine15-m10d-android-reconciliation-20261115`, based on PR #91/M10c `a27a552632b53f97b932635236363cbb9b19adaa`; M10c source remains untouched.
