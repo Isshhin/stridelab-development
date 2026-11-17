@@ -60,7 +60,7 @@ class ActivityIntelligenceUiTest {
         compose.onNodeWithTag("activity-analysis-heart-rate-zones").assertExists()
         compose.onNodeWithTag("activity-analysis-feel").assertExists()
         compose.onNodeWithTag("activity-analysis-detailed").assertExists()
-        compose.onNodeWithTag("activity-workout-type-edit").assertDoesNotExist()
+        compose.onNodeWithTag("activity-workout-label-edit").assertExists()
         compose.onNodeWithTag("activity-tab-analysis").assertIsSelected()
         // Checkpoints navigate within the same continuous scroller.
         compose.onNodeWithTag("activity-tab-splits").performClick()
@@ -108,8 +108,51 @@ class ActivityIntelligenceUiTest {
             .fetchSemanticsNodes().isNotEmpty())
         compose.onNodeWithTag("activity-feedback-unavailable")
             .assertTextContains("Link it to its workout in Overview", substring = true)
-        compose.onNodeWithTag("activity-workout-type-edit").assertDoesNotExist()
+        compose.onNodeWithTag("activity-workout-detected").assertTextEquals("Detected: Unknown")
+        compose.onNodeWithTag("activity-workout-label-edit").assertExists()
         compose.onNodeWithText("recovery score", substring = true).assertDoesNotExist()
+    }
+
+    @Test fun userWorkoutLabelPersistsSeparatelyFromImportedActivity() {
+        val tab = mutableIntStateOf(0)
+        val owner = "analysis-user-label-owner"
+        val run = ActivityRecord(
+            "analysis-user-label", "Imported run", "run", "manual",
+            Instant.parse("2026-10-26T00:00:00Z"), 5000.0, 1800.0, 1750.0,
+            360.0, 145.0, 0.0
+        )
+        val store = UserActivityWorkoutLabelStore(compose.activity)
+        store.clear(owner, run.id)
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideActivityDetailSurface(
+                        activity = run, recorded = null, detailSource = run,
+                        matchedSourceIds = setOf(run.id), history = emptyList(),
+                        state = TrainingState(initializing = false, account = owner),
+                        actions = NativeActions({}, {}, {}, {}, { _, _ -> }), online = false,
+                        selectedTab = tab.intValue, onTab = { tab.intValue = it },
+                        matte = false, onToggleMatte = {}, onBack = {}
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("activity-sheet-scroll")
+            .performSemanticsAction(SemanticsActions.Expand)
+        compose.onNodeWithTag("activity-tab-analysis").performClick()
+        compose.onNodeWithTag("activity-workout-label-edit").performClick()
+        compose.onNodeWithText("Quality Run").performClick()
+        compose.onNodeWithTag("activity-workout-subtype-edit").performClick()
+        compose.onNodeWithText("Intervals").performClick()
+
+        val saved = UserActivityWorkoutLabel(ActivityWorkoutKind.QUALITY_RUN,
+            ActivityQualitySubtype.INTERVALS)
+        compose.onNodeWithTag("activity-workout-user-label").assertTextEquals("Your label: Quality Run · Intervals")
+        assertEquals(saved, UserActivityWorkoutLabelStore(compose.activity).load(owner, run.id))
+        assertEquals(null, store.load("another-owner", run.id))
+        assertEquals("Imported run", run.title)
+        assertEquals(5000.0, run.distanceM!!, 0.0)
+        store.clear(owner, run.id)
     }
 
     @Test fun analysisSavesHowItFeltToTheLinkedPlanRunResponse() {
@@ -177,7 +220,7 @@ class ActivityIntelligenceUiTest {
         compose.onNodeWithTag("activity-analysis-detailed").assertIsDisplayed()
         compose.onNodeWithTag("activity-analysis-detailed-toggle").performClick()
         compose.onAllNodesWithText("Effort, terrain and conditions may differ.",substring=true)
-            .onFirst().assertIsDisplayed()
+            .onFirst().performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("not a fitness, recovery or training-readiness assessment",substring=true)
             .performScrollTo().assertIsDisplayed()
         // An expanded approved activity sheet consumes Back before the route.
