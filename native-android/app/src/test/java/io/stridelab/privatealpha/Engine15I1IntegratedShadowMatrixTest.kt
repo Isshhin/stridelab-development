@@ -19,12 +19,12 @@ class Engine15I1IntegratedShadowMatrixTest {
         longest: Double = 20.0, days: Int = 6, weeks: Int = 8,
         returning: Boolean = false, hold: Boolean = false,
         basis: String = "SELF_REPORTED_AVERAGE",
-        peak: Double? = null, experience: Int = 2
+        peak: Double? = null, experience: Int = 2, longDay: Int = 7
     ): Engine15IndependentVolumePlanner.Result {
         val p = PlanRequest(
             goal = "Aerobic foundation", experience = experience,
             start = monday, weeks = weeks, days = (1..7).toSet(),
-            runDays = days, longDay = 7, qualityCount = 0,
+            runDays = days, longDay = longDay, qualityCount = 0,
             weeklyKm = typical, targetWeeklyKm = target, longestKm = longest,
             returning = returning, runningRecoveryHold = hold,
             policyChoice = "engine15", trainYourWay = true,
@@ -53,11 +53,12 @@ class Engine15I1IntegratedShadowMatrixTest {
         quality: List<Engine15M5QualityPreviewRequest> = emptyList(),
         external: List<Engine15M6CExternalSession>? = emptyList(),
         coverageAsserted: Boolean = true,
-        blocked: Set<LocalDate> = emptySet()
+        blocked: Set<LocalDate> = emptySet(),
+        longDay: Int = 7
     ) = Engine15M6CReviewInput(
         calendar = Engine15M6CalendarInput(
             startMonday = monday, availableIsoDays = weekdays(days),
-            preferredLongIsoDay = 7, blockedDates = blocked
+            preferredLongIsoDay = longDay, blockedDates = blocked
         ),
         externalSessions = external,
         externalCalendarCoverageAsserted = coverageAsserted,
@@ -71,7 +72,7 @@ class Engine15I1IntegratedShadowMatrixTest {
     ) = Engine15M5QualityPreviewRequest(
         weekNumber = week, slotNumber = slot, family = family,
         fitnessInput = IndependentQualityFitnessInput(
-            confirmedRecentWorkSeconds = 1200,
+            reportedRecentWorkSeconds = 1200,
             approvedWorkCeilingSeconds = 1200,
             approvedIncreaseSeconds = 0,
             availableSessionSeconds = 3600, qualityAuthorized = true
@@ -182,7 +183,7 @@ class Engine15I1IntegratedShadowMatrixTest {
             val longs = dated.runs.filter { it.role == Engine15M5RunRole.LONG }
             assertEquals(if (s.input.runningDays >= 3) 1 else 0, longs.size)
             if (longs.isNotEmpty()) {
-                assertEquals(7, longs.single().isoDay)
+                assertEquals(c.calendar.preferredLongIsoDay, longs.single().isoDay)
                 assertEquals(longs.single().distanceKm, week.longRunKm!!, 1e-7)
             } else assertNull(week.longRunKm)
         }
@@ -219,6 +220,36 @@ class Engine15I1IntegratedShadowMatrixTest {
             LocalDate.of(2026, 11, 24)),
             result.originalConflictReview.qualityOpportunities.map { it.proposedDate })
         assertEquals(result, Engine15M6IndependentPeriodizationReview.audit(s,c))
+    }
+
+    @Test fun saturdayLongSundayEasyKeepsQualityOpportunityOnCompatibleWeekday() {
+        val s = source(longDay = 6)
+        val requests = listOf(quality(1, slot = 1))
+        val result = accepted(s, config(quality = requests, longDay = 6))
+        val week = result.originalConflictReview.runningWeeks.first()
+        val long = week.runs.single { it.role == Engine15M5RunRole.LONG }
+        val sunday = week.runs.single { it.isoDay == 7 }
+        assertEquals(6, long.isoDay)
+        assertEquals(Engine15M5RunRole.EASY, sunday.role)
+        assertTrue(week.runs.none { it.isoDay == 4 })
+        assertEquals(listOf(1), result.originalConflictReview.qualityOpportunities
+            .map { it.proposedDate.dayOfWeek.value })
+        assertEquals(Engine15M5RunRole.EASY,
+            result.originalConflictReview.qualityOpportunities.first().existingRun.role)
+        assertTrue(result.originalConflictReview.qualityOpportunities.all {
+            !it.scheduledQualityWorkout && !it.executable
+        })
+        assertEquals(result.weeks.sumOf { it.proposedKm }, result.proposedTotalKm, 1e-7)
+        assertFalse(result.executable)
+        assertFalse(result.authorizedForProduction)
+    }
+
+    @Test fun twoSameWeekQualityRequestsRemainExplicitlyDeferred() {
+        val s = source(longDay = 6)
+        val requests = listOf(quality(1, slot = 1), quality(1, slot = 3,
+            family = IndependentQualityFamily.TEMPO))
+        denied(s, config(quality = requests, longDay = 6),
+            "MULTIPLE_QUALITY_REQUESTS_IN_WEEK")
     }
 
     @Test fun developingLimitedDaysReturnAndBigJumpDoNotInflateVolumes() {

@@ -13,12 +13,13 @@ class Engine15I9ReadOnlyBasePlanAssemblyTest {
         target: Double = 80.0,
         longest: Double = 20.0,
         days: Int = 6,
-        weeks: Int = 8
+        weeks: Int = 8,
+        longDay: Int = 7
     ): Engine15IndependentVolumePlanner.Result {
         val p = PlanRequest(
             goal = "Aerobic foundation", experience = 2,
             start = monday, weeks = weeks, days = (1..7).toSet(),
-            runDays = days, longDay = 7, qualityCount = 0,
+            runDays = days, longDay = longDay, qualityCount = 0,
             weeklyKm = recent, targetWeeklyKm = target,
             longestKm = longest, returning = false,
             policyChoice = "engine15", trainYourWay = true,
@@ -38,7 +39,7 @@ class Engine15I9ReadOnlyBasePlanAssemblyTest {
         slotNumber = 2,
         family = IndependentQualityFamily.THRESHOLD,
         fitnessInput = IndependentQualityFitnessInput(
-            confirmedRecentWorkSeconds = 1200,
+            reportedRecentWorkSeconds = 1200,
             approvedWorkCeilingSeconds = 1200,
             availableSessionSeconds = 3600,
             qualityAuthorized = true
@@ -49,11 +50,12 @@ class Engine15I9ReadOnlyBasePlanAssemblyTest {
 
     private fun calendar(
         monday: LocalDate = this.monday,
-        blocked: Set<LocalDate> = emptySet()
+        blocked: Set<LocalDate> = emptySet(),
+        preferredLongIsoDay: Int = 7
     ) = Engine15M6CalendarInput(
         startMonday = monday,
         availableIsoDays = setOf(1, 2, 3, 5, 6, 7),
-        preferredLongIsoDay = 7,
+        preferredLongIsoDay = preferredLongIsoDay,
         blockedDates = blocked
     )
 
@@ -160,6 +162,73 @@ class Engine15I9ReadOnlyBasePlanAssemblyTest {
                 assertFalse(entry.qualityAuthorized)
             }
         }
+    }
+
+    @Test fun sixDay75To80ScenarioSupportsSaturdayLongRunWithSundayEasy() {
+        val source = source(longDay = 6)
+        val review = interference(calendar = calendar(preferredLongIsoDay = 6))
+        val result = accepted(source, input(review))
+
+        assertEquals(8, result.weeks.size)
+        for (week in result.weeks) {
+            val saturday = week.runs.single { it.date.dayOfWeek.value == 6 }
+            val sunday = week.runs.single { it.date.dayOfWeek.value == 7 }
+            assertEquals(Engine15M5RunRole.LONG, saturday.role)
+            assertEquals(Engine15M5RunRole.EASY, sunday.role)
+            assertTrue(week.runs.none { it.date.dayOfWeek.value == 4 })
+            assertEquals(week.proposedKm, week.runs.sumOf { it.distanceKm }, 1e-8)
+        }
+        val firstLongRunKm = result.weeks.first().runs.single {
+            it.role == Engine15M5RunRole.LONG
+        }.distanceKm
+        // The current 30% M5A share yields 20.2 km in the first 67.5 km week.
+        // Retain that reviewed candidate and expose the 0.2 km preference gap.
+        assertEquals(20.2, firstLongRunKm, 1e-8)
+        assertEquals(listOf(67.5,71.2,75.0,60.0,71.2,75.0,78.7,62.9),
+            result.weeks.map { it.proposedKm })
+        assertEquals(0, result.originalM6D.weeks.first().qualityOpportunityCount)
+        assertFalse(result.executable)
+        assertFalse(result.authorizedForProduction)
+    }
+
+    @Test fun sixteenWeekSaturdayLongPreviewIsStableAcrossBuildAndRecoveryCycles() {
+        val source = source(weeks = 16, longDay = 6)
+        val input = input(interference(calendar = calendar(
+            preferredLongIsoDay = 6
+        )))
+        val result = accepted(source, input)
+        assertEquals(result, Engine15I9ReadOnlyBasePlanAssembly.assemble(source, input))
+        assertEquals((1..16).toList(), result.weeks.map { it.weekNumber })
+        assertEquals(96, result.weeks.sumOf { it.runs.size })
+        assertEquals(listOf(67.5,71.2,75.0,60.0,71.2,75.0,78.7,62.9,
+            75.0,78.7,80.0,64.0,78.7,80.0,80.0,64.0),
+            result.weeks.map { it.proposedKm })
+        assertEquals(listOf(20.2,21.0,21.0,18.0,21.0,21.0,21.0,18.8,
+            21.0,21.0,21.0,19.2,21.0,21.0,21.0,19.2),
+            result.weeks.map { week -> week.runs.single {
+                it.role == Engine15M5RunRole.LONG
+            }.distanceKm })
+        assertEquals(listOf(4, 8, 12, 16), result.weeks
+            .filter { it.phase == Engine15M6DPhase.RECOVERY }
+            .map { it.weekNumber })
+        for ((index, week) in result.weeks.withIndex()) {
+            assertEquals(6, week.runs.size)
+            assertEquals(week.proposedKm, week.runs.sumOf { it.distanceKm }, 1e-8)
+            assertEquals(Engine15M5RunRole.LONG,
+                week.runs.single { it.date.dayOfWeek.value == 6 }.role)
+            assertEquals(Engine15M5RunRole.EASY,
+                week.runs.single { it.date.dayOfWeek.value == 7 }.role)
+            assertTrue(week.runs.none { it.date.dayOfWeek.value == 4 })
+            assertTrue(week.runs.all { !it.executable && !it.qualityAuthorized })
+            if (week.phase == Engine15M6DPhase.RECOVERY)
+                assertTrue(week.proposedKm <= result.weeks[index - 1].proposedKm * 0.8 + 1e-8)
+        }
+        assertEquals(80.0, result.requestedTargetKm!!, 0.0)
+        assertEquals(maxOf(0.0, 80.0 - result.peakProposedKm),
+            result.targetShortfallKm!!, 1e-8)
+        assertFalse(result.qualityIncluded)
+        assertFalse(result.executable)
+        assertFalse(result.authorizedForProduction)
     }
 
     @Test fun unknownBaseOnlyIntentAndAnyQualityRequestAreNotSilentlyDowngraded() {

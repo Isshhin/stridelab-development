@@ -65,7 +65,7 @@ class Engine15M6IndependentQualitySpacingTest {
         weekNumber = week, slotNumber = slot,
         family = family,
         fitnessInput = IndependentQualityFitnessInput(
-            confirmedRecentWorkSeconds = 1200,
+            reportedRecentWorkSeconds = 1200,
             approvedWorkCeilingSeconds = 1200,
             approvedIncreaseSeconds = 0,
             availableSessionSeconds = 3600,

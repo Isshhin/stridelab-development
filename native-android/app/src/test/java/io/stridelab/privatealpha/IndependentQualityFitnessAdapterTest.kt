@@ -13,7 +13,7 @@ class IndependentQualityFitnessAdapterTest {
         authorized: Boolean = true,
         hold: Boolean = false
     ) = IndependentQualityFitnessInput(
-        confirmedRecentWorkSeconds = observedMinutes?.times(60),
+        reportedRecentWorkSeconds = observedMinutes?.times(60),
         approvedWorkCeilingSeconds = ceilingMinutes?.times(60),
         approvedIncreaseSeconds = additionalMinutes * 60,
         availableSessionSeconds = sessionMinutes * 60,
@@ -57,6 +57,7 @@ class IndependentQualityFitnessAdapterTest {
         assertEquals(600.0, (developed.workout.elements.last() as IndependentWorkoutElement.Step).value.amount, 0.0)
         assertNotEquals(intro.id, developed.id)
         assertTrue(intro.id.startsWith("engine15-threshold-"))
+        assertTrue("CALLER_REPORTED_QUALITY_WORK_EXPOSURE" in intro.ruleIds)
     }
 
     @Test fun tempoChangesContinuousDoseWithConfirmedFitnessExposure() {
@@ -68,6 +69,48 @@ class IndependentQualityFitnessAdapterTest {
         assertEquals(2400, high.totalSeconds)
         assertEquals(0, low.recoverySeconds)
         assertTrue(high.workout.elements[1] is IndependentWorkoutElement.Step)
+    }
+
+    @Test fun missingUserTimeLimitDoesNotCapAnEvidenceBoundedLongThresholdSession() {
+        val profile = IndependentQualityFitnessInput(
+            reportedRecentWorkSeconds = 48 * 60,
+            approvedWorkCeilingSeconds = 60 * 60,
+            availableSessionSeconds = null,
+            qualityAuthorized = true
+        )
+        val result = candidate(IndependentQualityFamily.THRESHOLD, profile)
+        assertEquals(48 * 60, result.workSeconds)
+        assertTrue(result.totalSeconds > 60 * 60)
+        assertTrue("USER_SESSION_TIME_LIMIT_NOT_PROVIDED" in result.ruleIds)
+    }
+
+    @Test fun explicitUserTimeLimitConstrainsCandidateAndZeroDefers() {
+        val profile = IndependentQualityFitnessInput(
+            reportedRecentWorkSeconds = 48 * 60,
+            approvedWorkCeilingSeconds = 60 * 60,
+            availableSessionSeconds = 60 * 60,
+            qualityAuthorized = true
+        )
+        val result = candidate(IndependentQualityFamily.THRESHOLD, profile)
+        assertTrue(result.totalSeconds <= 60 * 60)
+        assertTrue("USER_SESSION_TIME_LIMIT" in result.ruleIds)
+        assertDeferred("DOSE_OR_TIME_CONFLICT", IndependentQualityFamily.THRESHOLD,
+            profile.copy(availableSessionSeconds = 0))
+    }
+
+    @Test fun longerContinuousTempoUsesDemonstratedDoseUntilAnExplicitTimeLimitBinds() {
+        val profile = IndependentQualityFitnessInput(
+            reportedRecentWorkSeconds = 48 * 60,
+            approvedWorkCeilingSeconds = 60 * 60,
+            qualityAuthorized = true
+        )
+        val unrestricted = candidate(IndependentQualityFamily.TEMPO, profile)
+        assertEquals(48 * 60, unrestricted.workSeconds)
+        assertEquals(68 * 60, unrestricted.totalSeconds)
+        val limited = candidate(IndependentQualityFamily.TEMPO,
+            profile.copy(availableSessionSeconds = 60 * 60))
+        assertEquals(40 * 60, limited.workSeconds)
+        assertEquals(60 * 60, limited.totalSeconds)
     }
 
     @Test fun explicitAllowanceCanIncreaseDoseButCannotExceedIndependentCeiling() {

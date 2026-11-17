@@ -59,17 +59,18 @@ class Engine15Q3VerifiedQualityHistoryTest {
     private fun qualityWork(plan:PlanSnapshot):Int=plan.sessions.filter { it.quality }
         .first().runningPrescription!!.workMeters
 
-    @Test fun repeatedVerifiedThresholdWorkRaisesDoseWithoutExceedingActualEvidence() {
+    @Test fun repeatedReportedThresholdWorkRaisesDoseWithoutExceedingUserLogs() {
         val p=request()
         val baseline=Engine15.generate(p,owner,"draft",now)
         val sources=history()
         val adapted=Engine15.generateWithHistory(p,owner,listOf(sources),"draft",now)
         val first=qualityWork(adapted)
-        assertTrue("Q3 should increase the overconservative Q2 work only with verified history",
+        assertTrue("Q3 should increase the overconservative Q2 work only with repeated reported work",
             first>qualityWork(baseline))
-        assertTrue("Observed 5 km is a ceiling, not an automatic progression",first<=5000)
-        assertTrue(adapted.explanations.any { it.startsWith("VERIFIED_QUALITY_HISTORY:") })
-        assertTrue(adapted.sessions.any { it.reason.contains("VERIFIED_QUALITY_WORK:") })
+        assertTrue("User-reported 5 km is a ceiling, not an automatic progression",first<=5000)
+        assertTrue(adapted.explanations.any { it.startsWith("REPEATED_REPORTED_QUALITY_HISTORY:") })
+        assertTrue(adapted.sessions.any { it.reason.contains("REPORTED_QUALITY_WORK:") })
+        assertFalse(adapted.explanations.any { it.startsWith("VERIFIED_QUALITY_HISTORY:") })
         assertEquals(p,adapted.request)
         assertEquals(adapted,PlanSnapshot.decode(adapted.encode(),owner))
     }
@@ -77,8 +78,8 @@ class Engine15Q3VerifiedQualityHistoryTest {
     @Test fun matchingIntervalWorkUsesActualLogButCannotAuthorizeThresholdWork() {
         val history=history("Intervals")
         val observed=Engine15RunHistory.assess(owner,listOf(history),now)!!
-        assertEquals(5.0,observed.verifiedWorkKm("Intervals")!!,1e-8)
-        assertNull(observed.verifiedWorkKm("Threshold"))
+        assertEquals(5.0,observed.reportedWorkKm("Intervals")!!,1e-8)
+        assertNull(observed.reportedWorkKm("Threshold"))
         val threshold=request()
         val normal=Engine15.generate(threshold,owner,"draft",now)
         val unrelated=Engine15.generateWithHistory(threshold,owner,listOf(history),"draft",now)
@@ -122,7 +123,7 @@ class Engine15Q3VerifiedQualityHistoryTest {
         val p=request().copy(qualityCount=2,recentQualitySessionsPerWeek=2,
             qualityDays=setOf(2,4))
         val evidence=Engine15RunHistory.assess(owner,listOf(history()),now)!!
-        assertEquals(5.0,evidence.verifiedWeeklyQualityWorkKm!!,1e-8)
+        assertEquals(5.0,evidence.reportedWeeklyQualityWorkKm!!,1e-8)
         val plan=Engine15.generateWithHistory(p,owner,listOf(history()),"two-quality",now)
         for(week in 0 until p.weeks) {
             val work=plan.sessions.filter { it.discipline=="run" &&

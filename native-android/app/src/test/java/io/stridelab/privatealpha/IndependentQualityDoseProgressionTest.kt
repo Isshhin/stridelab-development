@@ -52,7 +52,7 @@ class IndependentQualityDoseProgressionTest {
         increase: Int = 0,
         stepLimit: Int? = null,
         reference: String? = null,
-        secondsAvailable: Int = 3600,
+        secondsAvailable: Int? = 3600,
         allowed: Boolean = true
     ) = IndependentQualityDoseSlotRequest(
         isoDay = day, family = family,
@@ -113,6 +113,22 @@ class IndependentQualityDoseProgressionTest {
         assertFalse(result.sourceEvidenceVerified)
         assertFalse(result.authorizedForProduction)
         assertFalse(opportunity.selected.executable)
+    }
+
+    @Test fun noUserTimeCapDoesNotTurnMissingAvailabilityIntoAnArbitraryOneHourLimit() {
+        val longHistory = listOf(
+            observed(11, workSeconds = 48 * 60),
+            observed(2, workSeconds = 48 * 60)
+        )
+        val result = preview(input(
+            slots = listOf(slot(ceiling = 60 * 60, secondsAvailable = null)),
+            history = longHistory,
+            weeklyCeiling = 60 * 60
+        ))
+        val workout = result.opportunities.single().selected
+        assertEquals(48 * 60, workout.workSeconds)
+        assertTrue(workout.totalSeconds > 60 * 60)
+        assertTrue("USER_SESSION_TIME_LIMIT_NOT_PROVIDED" in workout.ruleIds)
     }
     @Test fun explicitReviewedIncreaseAllowsSmallProgressionWithoutExceedingCeiling() {
         val result = preview(input(slots = listOf(slot(

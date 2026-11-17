@@ -42,9 +42,33 @@ class IndependentQualityTemplatesTest {
         assertTrue(tempo.workSeconds() > get(IndependentQualityFamily.TEMPO, IndependentQualityStage.INTRO).workSeconds())
     }
 
+    @Test fun threeByThreeKilometerThresholdUsesTwoNinetySecondRecoveries() {
+        val template = IndependentQualityTemplates.all().singleOrNull {
+            it.id == "engine15-threshold-long_repetitions-v1"
+        }
+        assertNotNull("Versioned 3×3 km research preview is missing", template)
+        val group = (template!!.workout.elements[1] as IndependentWorkoutElement.Intervals).value
+        assertEquals(3, group.repetitions)
+        assertEquals(WorkoutUnit.METERS, group.work.unit)
+        assertEquals(3000.0, group.work.amount, 0.0)
+        assertEquals(WorkoutTarget.THRESHOLD, group.work.target)
+        assertEquals(WorkoutUnit.SECONDS, group.recovery.unit)
+        assertEquals(90.0, group.recovery.amount, 0.0)
+        assertEquals(WorkoutTarget.EASY, group.recovery.target)
+        assertEquals(180.0,
+            template.workout.dose(WorkoutUnit.SECONDS, WorkoutPurpose.RECOVERY)!!, 0.0)
+        assertEquals(2000.0,
+            (template.workout.elements.first() as IndependentWorkoutElement.Step).value.amount, 0.0)
+        assertEquals(2000.0,
+            (template.workout.elements.last() as IndependentWorkoutElement.Step).value.amount, 0.0)
+        assertNull("Mixed-unit recovery distance must remain unknown",
+            template.workout.total(WorkoutUnit.METERS))
+        assertEquals("HEURISTIC", template.evidence)
+    }
+
     @Test fun allExamplesAreUniqueVersionedAndRoundTripWithoutUnitConversion() {
         val all = IndependentQualityTemplates.all()
-        assertEquals(4, all.size)
+        assertEquals(5, all.size)
         assertEquals(all.size, all.map { it.id }.distinct().size)
         assertEquals(all.size, all.map { it.family to it.stage }.distinct().size)
         for (template in all) {
@@ -52,7 +76,10 @@ class IndependentQualityTemplatesTest {
             assertNull(template.workout.total(WorkoutUnit.METERS))
             val restored = IndependentWorkoutComposition.decode(JSONObject(template.workout.encode().toString()))
             assertEquals(template.workout, restored)
-            assertEquals(template.totalSeconds(), restored.total(WorkoutUnit.SECONDS)!!, 0.0)
+            if (template.stage == IndependentQualityStage.LONG_REPETITIONS) {
+                assertNull(restored.total(WorkoutUnit.SECONDS))
+                assertNull(restored.total(WorkoutUnit.METERS))
+            } else assertEquals(template.totalSeconds(), restored.total(WorkoutUnit.SECONDS)!!, 0.0)
         }
     }
 

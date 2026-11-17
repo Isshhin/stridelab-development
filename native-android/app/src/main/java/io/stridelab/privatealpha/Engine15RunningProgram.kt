@@ -245,7 +245,7 @@ internal object Engine15RunningProgram {
             var workBudget=floor(distance.sum()*100*0.20).toInt()
             // Even when the request reports two quality days, two new sessions
             // must not multiply a single observed quality-work exposure.
-            pattern?.verifiedWeeklyQualityWorkKm?.let { observed ->
+            pattern?.reportedWeeklyQualityWorkKm?.let { observed ->
                 workBudget=minOf(workBudget,floor(observed*1000.0).toInt())
             }
             if(priorBuildWork!=null) workBudget=minOf(workBudget,priorBuildWork!!)
@@ -256,9 +256,9 @@ internal object Engine15RunningProgram {
                 // Verified completed work supports only its matching family;
                 // user-requested quality frequency and weekly ceilings still bind.
                 val family=if(p.allowedQualityTypes.isEmpty() &&
-                    pattern?.verifiedWorkKm(p.preferredQuality)!=null) p.preferredQuality
+                    pattern?.reportedWorkKm(p.preferredQuality)!=null) p.preferredQuality
                     else selectFamily(p,w,qualityPosition)
-                val observedWorkKm=pattern?.verifiedWorkKm(family)
+                val observedWorkKm=pattern?.reportedWorkKm(family)
                 val quality=if(s.id in qualityIds) quality(p,w,family,meters,workBudget-workUsed,observedWorkKm) else null
                 val actualRole=if(s.id in qualityIds && quality==null)"EASY" else role.getValue(s.id)
                 val prescription=quality ?: RunningPrescription(actualRole,null,listOf(RunningSegment("EASY",meters,
@@ -275,7 +275,7 @@ internal object Engine15RunningProgram {
                         if(s.id in qualityIds && quality==null) "Quality was withheld because warm-up, work, recovery and cool-down did not fit the available distance/work budget." else
                         "The weekly and recent-session ceilings bind; no catch-up mileage or measured fitness is inferred." +
                         if(quality!=null && observedWorkKm!=null)
-                            " VERIFIED_QUALITY_WORK: Repeated completed ${family.lowercase()} sessions support up to ${observedWorkKm} km of work; this is a ceiling, not an automatic progression or pace estimate."
+                            " REPORTED_QUALITY_WORK: Repeated self-reported ${family.lowercase()} sessions support a provisional ${observedWorkKm} km work ceiling; the log is not source-authenticated and does not authorize progression or provide a pace estimate."
                         else "")
             }
             // Freeze the initial work envelope during a mileage build; variation does not imply new fitness.

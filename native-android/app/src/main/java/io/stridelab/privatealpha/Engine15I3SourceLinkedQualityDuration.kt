@@ -139,7 +139,7 @@ internal object Engine15I3SourceLinkedQualityDuration {
         if (repeated <= 0)
             return defer("RECORDED_WORK_DURATION_TOO_SMALL",
                 "No positive whole seconds remain from recorded source laps.")
-        val claimed = qualityRequest.fitnessInput.confirmedRecentWorkSeconds
+        val claimed = qualityRequest.fitnessInput.reportedRecentWorkSeconds
             ?: return defer("REQUESTED_WORK_EXPOSURE_UNKNOWN",
                 "An explicit work-dose assertion is required; never autofill from laps.")
         if (claimed > repeated)
@@ -151,10 +151,11 @@ internal object Engine15I3SourceLinkedQualityDuration {
             claimed + dose.approvedIncreaseSeconds
         )
         val preview = m5b.qualityPreviews.single()
-        if (preview.workSeconds > permitted ||
-            preview.totalSeconds > dose.availableSessionSeconds)
+        if (preview.workSeconds > permitted || dose.availableSessionSeconds?.let {
+                preview.totalSeconds > it
+            } == true)
             return defer("REQUESTED_PREVIEW_EXCEEDS_EXPLICIT_BOUND",
-                "Quality preview exceeds the original caller-reviewed dose or time bound.")
+                "Quality preview exceeds the original caller-reviewed dose or explicit time limit.")
 
         return Engine15I3QualityDurationDecision.DurationConsistent(
             policyId = POLICY_ID,

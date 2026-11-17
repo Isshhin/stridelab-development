@@ -38,7 +38,7 @@ class Engine15I7IntensityCalibrationReviewTest {
     ) = Engine15M5QualityPreviewRequest(
         weekNumber=1,slotNumber=1,family=family,
         fitnessInput=IndependentQualityFitnessInput(
-            confirmedRecentWorkSeconds=480,
+            reportedRecentWorkSeconds=480,
             approvedWorkCeilingSeconds=1200,
             approvedIncreaseSeconds=0,
             availableSessionSeconds=3600,
