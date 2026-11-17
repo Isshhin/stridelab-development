@@ -40,6 +40,9 @@ class Engine15M3AthleteBaselineTest {
         assertEquals(AthleteBaselineStatus.PROVISIONAL_AVERAGE,c.status)
         assertEquals(AthleteBaselineConfidence.SELF_REPORTED_PROVISIONAL,c.confidence)
         assertEquals(75.0,c.typicalWeeklyKm!!,0.0)
+        assertEquals(75.0,c.reportedTypicalWeeklyKm!!,0.0)
+        assertNull(c.partialRecordedWeeklyKm)
+        assertNull(c.legacyUnclassifiedWeeklyKm)
         assertEquals(90.0,c.reportedPeakWeeklyKm!!,0.0)
         assertEquals(20.0,c.reportedLongestRunKm!!,0.0)
         assertNull(c.verifiedFourWeekAverageKm)
@@ -72,6 +75,8 @@ class Engine15M3AthleteBaselineTest {
         assertEquals(AthleteBaselineStatus.PROVISIONAL_AVERAGE,partial.status)
         assertEquals(AthleteBaselineConfidence.PARTIAL_ACTIVITY_ESTIMATE,partial.confidence)
         assertEquals(1,partial.completeWeekCount)
+        assertNull(partial.reportedTypicalWeeklyKm)
+        assertEquals(75.0,partial.partialRecordedWeeklyKm!!,0.0)
         assertNull(partial.verifiedFourWeekAverageKm)
         assertEquals(75.0,partial.typicalWeeklyKm!!,0.0)
 
@@ -123,6 +128,9 @@ class Engine15M3AthleteBaselineTest {
         assertEquals(original,PlanRequest.decode(json))
         val old=Engine15AthleteBaseline.assess(original)
         assertEquals(AthleteBaselineConfidence.LEGACY_UNVERIFIED,old.confidence)
+        assertNull(old.reportedTypicalWeeklyKm)
+        assertNull(old.partialRecordedWeeklyKm)
+        assertEquals(75.0,old.legacyUnclassifiedWeeklyKm!!,0.0)
         assertEquals(75.0,old.typicalWeeklyKm!!,0.0)
         assertNull(Engine15AthleteBaseline.assess(original.copy(weeklyKm=0.0)).typicalWeeklyKm)
 
