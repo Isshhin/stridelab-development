@@ -226,21 +226,15 @@ class Engine1RepositoryTest {
         Assume.assumeTrue(BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
         assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
         val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)
-        val workout=RunningPrescription("QUALITY","Intervals",listOf(
-            RunningSegment("WARM_UP",2000,"User supplied easy effort"),
-            RunningSegment("WORK",800,"User supplied fast target"),
-            RunningSegment("RECOVERY",400,"User supplied easy recovery"),
-            RunningSegment("WORK",800,"User supplied fast target"),
-            RunningSegment("RECOVERY",400,"User supplied easy recovery"),
-            RunningSegment("WORK",800,"User supplied fast target"),
-            RunningSegment("RECOVERY",400,"User supplied easy recovery"),
-            RunningSegment("WORK",800,"User supplied fast target"),
-            RunningSegment("RECOVERY",400,"User supplied easy recovery"),
-            RunningSegment("WORK",800,"User supplied fast target"),
-            RunningSegment("RECOVERY",400,"User supplied easy recovery"),
-            RunningSegment("WORK",800,"User supplied fast target"),
-            RunningSegment("COOL_DOWN",4500,"User supplied easy effort")
-        ))
+        val workout=RunningPrescription("QUALITY","Intervals",emptyList(),listOf(
+            RunningStepV2("WARM_UP","Easy",meters=2000),
+            RunningStepV2("WORK","User supplied target",seconds=300,distanceEquivalentMeters=1200),
+            RunningStepV2("RECOVERY","User supplied recovery",seconds=90,distanceEquivalentMeters=300),
+            RunningStepV2("WORK","User supplied target",seconds=300,distanceEquivalentMeters=1200),
+            RunningStepV2("RECOVERY","User supplied recovery",seconds=90,distanceEquivalentMeters=300),
+            RunningStepV2("WORK","User supplied target",seconds=300,distanceEquivalentMeters=1200),
+            RunningStepV2("COOL_DOWN","Easy",meters=7100)
+        ),reconciledDistanceMeters=13300)
         val request=PlanRequest(goal="Aerobic foundation",start=start,weeks=1,
             days=setOf(1,2,3,4,5,6),runDays=3,longDay=6,qualityDays=setOf(2),qualityCount=1,
             weeklyKm=40.0,targetWeeklyKm=40.0,longestKm=30.0,timeBudgetEnabled=false,

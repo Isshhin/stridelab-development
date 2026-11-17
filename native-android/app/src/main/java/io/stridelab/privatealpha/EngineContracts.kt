@@ -137,9 +137,10 @@ internal data class PlannedSession(val id:String,val date:LocalDate,val discipli
             require(discipline=="run")
             if(it.mixedSegments==null) {
                 require(distanceKm!=null && kotlin.math.abs(distanceKm*1000-it.meters)<0.001)
+            } else if(it.reconciledDistanceMeters!=null) {
+                require(distanceKm!=null && kotlin.math.abs(distanceKm*1000-it.reconciledDistanceMeters)<0.001)
             } else {
-                // Time-based steps have no exact full-session distance. Estimate
-                // lives only in v2 prescription metadata, never in distanceKm.
+                // Pace-based estimate remains metadata only; it is not a target.
                 require(distanceKm==null)
             }
             require(quality==(it.role=="QUALITY"))

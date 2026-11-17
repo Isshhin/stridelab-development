@@ -132,6 +132,39 @@ class Engine15IndependentPlanGeneratorTest {
             (result as Engine15IndependentPlanDecision.Deferred).reasonCode)
     }
 
+    @Test fun mixedUnitQualityUsesOnlyExplicitPerStepDistanceEquivalents() {
+        val mixed=RunningPrescription("QUALITY","Intervals",emptyList(),listOf(
+            RunningStepV2("WARM_UP","Easy",meters=2000),
+            RunningStepV2("WORK","User supplied target",seconds=300,distanceEquivalentMeters=1200),
+            RunningStepV2("RECOVERY","User supplied recovery",seconds=90,distanceEquivalentMeters=300),
+            RunningStepV2("WORK","User supplied target",seconds=300,distanceEquivalentMeters=1200),
+            RunningStepV2("RECOVERY","User supplied recovery",seconds=90,distanceEquivalentMeters=300),
+            RunningStepV2("WORK","User supplied target",seconds=300,distanceEquivalentMeters=1200),
+            RunningStepV2("COOL_DOWN","Easy",meters=7100)
+        ),reconciledDistanceMeters=13300)
+        assertThrows(IllegalArgumentException::class.java) {
+            mixed.copy(mixedSegments=mixed.mixedSegments!!.mapIndexed { index,step ->
+                if(index==2) step.copy(distanceEquivalentMeters=null) else step
+            })
+        }
+        val input=request(1).copy(weeks=1,runDays=3,days=setOf(1,2,3,4,5,6),
+            weeklyKm=40.0,targetWeeklyKm=40.0,longestKm=30.0,longDay=6,
+            weeklySlots=mapOf("run" to listOf(6,2,4)),qualityDays=setOf(2),qualityCount=1,
+            userDirectedPlanning=true,userDefinedQualityWorkouts=mapOf("w1-run1" to mixed))
+        val result=Engine15IndependentPlanGenerator.preview(input,owner,"mixed-distance",now)
+        assertTrue("Expected explicitly reconciled mixed workout, got $result",result is Engine15IndependentPlanDecision.Candidate)
+        val plan=(result as Engine15IndependentPlanDecision.Candidate).plan
+        val session=plan.sessions.single { it.quality }
+        assertEquals(13.3,session.distanceKm!!,1e-6)
+        assertEquals(mixed,session.runningPrescription)
+        assertTrue(session.steps[1].contains("300 s") && session.steps[1].contains("1200 m user-supplied distance equivalent") && session.steps[1].contains("work"))
+        assertTrue(session.steps[2].contains("90 s") && session.steps[2].contains("300 m user-supplied distance equivalent") && session.steps[2].contains("recovery"))
+        assertEquals(40.0,plan.sessions.sumOf { it.distanceKm!! },1e-6)
+        val saved=Engine15IndependentPlanGenerator.generateWithHistory(input,owner,emptyList(),"mixed-saved",now)
+        Engine15IndependentPlanGenerator.validateSaved(saved)
+        assertEquals(mixed,PlanSnapshot.decode(saved.encode(),owner).sessions.single { it.quality }.runningPrescription)
+    }
+
     @Test fun twoUserDefinedQualitySessionsFitOnlyWhenRunDaysAndSpacingPermit() {
         fun workout()=RunningPrescription("QUALITY","Threshold",listOf(
             RunningSegment("WARM_UP",2000,"Easy"),RunningSegment("WORK",1000,"User threshold target"),
