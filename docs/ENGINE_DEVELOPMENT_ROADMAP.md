@@ -1,6 +1,7 @@
 # StrideLab Coaching Engine Development Roadmap
 
 **Roadmap baseline:** 2026-11-17  
+**Owner-approved scope addition:** 2026-11-18 — marathon Training Intensity Distribution evaluator  
 **Decision:** Stabilize and complete Engine 1.5 before beginning Engine 2.x implementation.  
 **Status:** Authoritative development sequence; retain until the owner explicitly changes direction or a material safety/engineering finding requires review.
 
@@ -113,8 +114,26 @@ Complete stages sequentially, with small reversible, test-backed batches. A stag
 
 **Exit:** Different real-world histories yield appropriately different initial prescriptions with testable reasoning and confidence.
 
-### Stage 8 — Multi-discipline refinement and Engine 1.5 stabilization
-**Status: planned.**
+### Stage 8 — Training Intensity Distribution (TID) research evaluator
+**Status: owner-approved, planned after athlete profiling and before Engine 1.5 final stabilization.**
+
+**Research reference:** Muniz-Pumares D, Hunter B, Meyler S, Maunder E, Smyth B. [The Training Intensity Distribution of Marathon Runners Across Performance Levels](https://doi.org/10.1007/s40279-024-02137-7). *Sports Medicine*. 2025;55(4):1023–1035. [PubMed PMID 39616560](https://pubmed.ncbi.nlm.nih.gov/39616560/).
+
+**Scientific boundary:** This observational study examined training during the 16 weeks before 151,813 marathon performances by 119,452 runners. Higher-performing groups tended to accumulate more volume, notably at lower intensity, and pyramidal distributions were more prevalent. Associations are **not causal training prescriptions**, individual mileage limits or proof of a universally optimal percentage split. The study's three intensity zones use estimated critical speed (CS), with the Z1/Z2 boundary estimated at 82.3% CS; they are **not equivalent** to StrideLab/Garmin's five heart-rate zones. The original Strava athlete-level dataset was made available under a restricted research license, not as an open importable resource.
+
+- Introduce a versioned, deterministic, **advisory-only** TID evaluator that consumes Stage 6–7 shared athlete evidence and produces a report. Do not introduce a new plan generator, automatic adaptation loop, telemetry collection or athlete data export.
+- Calculate recorded **time at intensity** using reliable moving-time segments, matching threshold provenance and defensible zone boundaries. Keep unknown/unsupported time separate; expose coverage and data-quality flags. Do not infer an athlete's critical speed or first threshold from average HR or convert five HR zones into the paper's three CS-based zones without a validated method.
+- Support two clearly labeled outputs: (a) a **source-zone HR distribution**, where available, for descriptive display, and (b) a **research-compatible three-zone distribution** only where athlete-specific threshold evidence and measurements truly justify the conversion. If not justified, return `not comparable / insufficient evidence` rather than manufactured percentages.
+- For a static marathon plan, evaluate **planned intensity time** using only explicitly represented, reviewed workout steps and qualified intensity targets. Account for warm-ups, recoveries, cooldowns, uncertain time-to-distance conversions and unclassified segments. Compare with the athlete's observed distribution only when the measurement methods and coverage are comparable.
+- Flag large unexplained differences in planned versus demonstrated workload/intensity for **coach review**, based on separately reviewed policy; avoid mandating 80/20, a fixed pyramidal split, performance-group mileage averages, arbitrary escalation or session cancellation. Distinguish `informational observation`, `insufficient evidence`, and `review recommended`.
+- Keep conclusions **marathon-specific**; extending this paper's findings to shorter races or non-running disciplines requires independent evidence review.
+- Test missing HR, sensor gaps, pauses, incomplete historical coverage, deduplication, missing CS/threshold, mixed-intensity sessions, different zone models, sparse samples, and uncertain prescribed steps. Verify immutable source data, offline behavior, owner isolation and accessible explanations.
+- The paper alone **cannot qualify** automatic threshold/tempo/interval selection, pace/HR targets, safe work dosage or week-to-week progression. Engine 1.5 remains static, quality prescription gates stay closed where unqualified, and Engine 2.x stays deferred.
+
+**Exit:** An explainable, versioned TID report distinguishes source-derived exposure from missing or estimated data, provides transparent athlete-history and marathon-plan observations, and adds only reviewed **non-blocking** plan-quality advisories until independent policy qualification.
+
+### Stage 9 — Multi-discipline refinement and Engine 1.5 stabilization
+**Status: planned; follows the TID evaluator and other qualified initial-plan evidence.**
 
 - Improve static coordination of running, strength, calisthenics and conditioning; separate structural impossibilities from overly conservative advisory scheduling preferences.
 - Expand supported strength/calisthenics/conditioning prescriptions only with catalog coverage, clear progression and qualification. Improve time constraints, exercise compatibility, optional double days and complete-plan fidelity.
@@ -124,7 +143,7 @@ Complete stages sequentially, with small reversible, test-backed batches. A stag
 
 **Exit:** All Engine 1.5 acceptance conditions in Section 6 are met, and an explicit owner-approved release candidate exists.
 
-### Stage 9 — Engine 2.x (DEFERRED)
+### Stage 10 — Engine 2.x (DEFERRED)
 **Status: not an active implementation priority.**
 
 No implementation should begin solely to accelerate version progression. Preserve existing research artifacts, competing-framework synthesis, datasets and experimental prototypes as **research-only** until Engine 1.5 is stable.
@@ -157,6 +176,7 @@ When separately authorized after the Engine 1.5 gate:
 | Independent multi-discipline static plan construction | Owns | Reuses |
 | Workout structure, schedule, constraints and persistence | Owns | Reuses/validates |
 | Historical workout detection and effort baselines | Owns initial evidence | Reuses/refreshes evidence |
+| Marathon TID measurement and advisory static-plan evaluation | Owns verified initial evidence and qualified non-blocking review | May reuse evidence, not bypass policies |
 | Athlete-specific first prescription | Owns | May request a new validated prescription |
 | Static week-to-week progression and recovery weeks | Owns | Can propose changes later |
 | Automatic response to completed or missed sessions | Out of scope | Core |
@@ -176,6 +196,7 @@ All mandatory items must be explicitly assessed; a check is not passed merely be
 - [ ] Athlete-specific initial intensity and workload prescriptions have traceable evidence and uncertainty handling.
 - [ ] Workout classification distinguishes observed type, intended type and effort; user corrections and unknown cases work.
 - [ ] Relative-effort and pace/HR baselines are individually contextualized and do not overclaim fatigue/fitness.
+- [ ] Marathon TID evaluator reports coverage, threshold provenance and non-equivalence of research CS zones versus HR zones; missing evidence never produces invented distributions or unreviewed prescriptions.
 - [ ] Historical athlete evidence can safely inform initial Engine 1.5 prescriptions without fabricating measurements.
 - [ ] Supported multi-discipline combinations satisfy complete scheduling, workout and progression contracts; infeasible requests explain why.
 - [ ] Weekly and step-level mileage/duration totals reconcile; no silently dropped sessions or altered user goals.
@@ -200,7 +221,8 @@ All mandatory items must be explicitly assessed; a check is not passed merely be
 2. Then audit and restore the **legacy TypeScript automatic-workout detector** in Kotlin.
 3. Add **relative effort, comparable-condition athlete baselines, and evidence confidence**.
 4. Integrate the resulting history profile into **initial** Engine 1.5 plan generation.
-5. Refine other disciplines and finish full coaching/Android/offline acceptance.
-6. Freeze and review the Engine 1.5 candidate before considering Engine 2.x.
+5. Implement the **marathon TID evaluator** from Muniz-Pumares et al. as a provenance-aware, non-blocking analysis and static-plan review component; preserve differences between HR-zone metrics and CS-based research zones.
+6. Refine other disciplines and finish full coaching/Android/offline acceptance.
+7. Freeze and review the Engine 1.5 candidate before considering Engine 2.x.
 
 **Roadmap change policy:** Treat this sequencing decision as stable. Update this file only for explicit owner re-scoping, a formal milestone/acceptance decision, or a material correctness/safety finding. Routine progress and test evidence belong in the execution ledger rather than repeatedly rewriting this roadmap.
