@@ -368,12 +368,18 @@ class Engine15I6SourceWorkLapPaceConsistencyTest {
     @Test fun recordedWorkLapSpeedOutsideAssertedWorkRangeDefers() {
         val s=source()
         val q=request()
-        val ranges=configuration(s,q,workMin=1.2,workMax=2.5)
-        // I5 daily EASY budget can fit, but the recorded WORK laps
-        // (4.17 m/s) contradict the asserted WORK range (1.2..2.5).
-        assertTrue(Engine15I5TimedDistanceFeasibility.review(
+        // A 6.3 km existing EASY slot fits the synthetic 1680-second preview:
+        // 1200s of EASY at <=4.3m/s plus 480s of WORK at <=2.5m/s
+        // allows up to 6360m. The previous EASY max of 4.2m/s allowed
+        // only 6240m, so I5 correctly deferred before reaching I6.
+        val ranges=configuration(s,q,easyMax=4.3,workMin=1.2,workMax=2.5)
+        // I5 arithmetic is feasible, but recorded WORK laps (~4.17 m/s)
+        // still contradict the caller-asserted WORK range (1.2..2.5).
+        val feasibility=Engine15I5TimedDistanceFeasibility.review(
             s,q,evidence(),ranges
-        ) is Engine15I5DistanceFeasibilityDecision.EnvelopeReview)
+        )
+        assertTrue("Expected I5 feasible before I6 review, got $feasibility",
+            feasibility is Engine15I5DistanceFeasibilityDecision.EnvelopeReview)
         deferred("RECORDED_WORK_SPEED_OUTSIDE_ASSERTED_RANGE",
             s=s,q=q,ranges=ranges)
     }
