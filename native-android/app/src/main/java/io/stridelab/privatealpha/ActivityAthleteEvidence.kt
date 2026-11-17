@@ -15,8 +15,16 @@ internal data class ActivityAthleteEvidenceProfile(
     val longestRecordedRunLast28DaysKm: Double?,
     val userReportedRunCharacteristics: Map<ActivityWorkoutKind, ActivityRunCharacteristics>,
     val evidenceActivityIds: List<String>,
+    val provenance: String = "OWNER_SCOPED_ACTIVITY_CACHE",
     val sourceCoverage: String = "UNKNOWN"
 ) {
+    init {
+        require(version == VERSION)
+        require(owner.isNotBlank() && provenance == "OWNER_SCOPED_ACTIVITY_CACHE")
+        require(sourceCoverage == "UNKNOWN")
+        require(evidenceActivityIds.distinct() == evidenceActivityIds)
+    }
+
     companion object { const val VERSION = 1 }
 }
 
