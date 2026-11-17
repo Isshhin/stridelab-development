@@ -33,8 +33,8 @@ internal sealed interface Engine15IndependentPlanDecision {
             require(plan.engineVersion == ENGINE15_VERSION &&
                 plan.policyId == ENGINE15_INDEPENDENT_CANDIDATE_POLICY)
             require(plan.sessions.isNotEmpty() && plan.sessions.all {
-                it.discipline == "run" && it.quality.not() &&
-                    it.runningPrescription?.family == null
+                it.discipline == "run" && (!it.quality ||
+                    it.runningPrescription?.let { prescription -> prescription.role=="QUALITY" && prescription.family!=null } == true)
             })
             require(!executable && !productionReady && !authorizedForProduction)
         }
@@ -43,7 +43,7 @@ internal sealed interface Engine15IndependentPlanDecision {
 
 /**
  * Assembles the reviewed independent M3–M6 running path into app workout
- * contracts. Mixed disciplines, quality workouts and unresolved inputs defer.
+ * contracts. Coach-generated quality and unresolved inputs defer.
  */
 internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
     override val version = ENGINE15_VERSION
@@ -185,7 +185,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             policyId = policyId,
             name = "Engine 1.5 independent running plan",
             explanations = decision.plan.explanations.filterNot { it.startsWith("Preview only:") } +
-                "Development-route draft. Review every easy/long run and explicitly approve before use; no quality prescription is included."
+                "Development-route draft. Review every session and explicitly approve before use; any quality workout is user-defined, not a coach prescription."
         )
     }
 
@@ -205,8 +205,12 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             return defer("USER_DIRECTED_POLICY_DEBUG_ONLY", "User-directed planning is available only in private development builds.")
         if (request.runningRecoveryHold)
             return defer("RUNNING_RECOVERY_HOLD", "Running remains on hold until the recovery review is resolved.")
-        if (request.qualityCount != 0)
-            return defer("QUALITY_GENERATION_NOT_QUALIFIED", "Requested quality work is not qualified for an executable plan; no substitute was generated.")
+        if (request.qualityCount !in 0..2)
+            return defer("QUALITY_FREQUENCY_UNSUPPORTED", "At most two quality sessions per loading week can be represented.")
+        if (request.qualityCount > 0 && request.userDefinedQualityWorkouts.isEmpty())
+            return defer("QUALITY_GENERATION_NOT_QUALIFIED", "Automatic quality selection and intensity remain unqualified. The current Plan Builder cannot author a structured workout; no substitute was generated.")
+        if (request.userDefinedQualityWorkouts.isNotEmpty() && !request.userDirectedPlanning)
+            return defer("USER_DEFINED_WORKOUT_DEBUG_ONLY", "User-defined quality workouts are available only in private development plans.")
         if (request.strengthDays != 0 || request.calDays != 0 || request.conditioningDays != 0 ||
             request.disciplineGoals.keys.any { it != "run" })
             return defer("MIXED_DISCIPLINE_GENERATION_NOT_INDEPENDENT", "Independent workout construction and calendar coordination for mixed disciplines are not available yet.")
@@ -339,6 +343,65 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         if (sessions.size != request.weeks * request.runDays || sessions.map { it.id }.distinct().size != sessions.size)
             return defer("INCOMPLETE_PLAN_ASSEMBLY", "Independent output did not contain exactly one dated workout for every weekly running slot.")
 
+        val customPattern=Regex("w([1-9][0-9]*)-run(0|[1-9][0-9]*)")
+        val mappedQuality=request.userDefinedQualityWorkouts.map { (key,workout) ->
+            val match=customPattern.matchEntire(key)
+                ?: return defer("USER_WORKOUT_SLOT_INVALID", "A user-defined workout must target a stable w<week>-run<slot> identifier.")
+            val week=match.groupValues[1].toIntOrNull()
+                ?: return defer("USER_WORKOUT_SLOT_INVALID", "The workout week is outside the supported calendar range.")
+            val slot=match.groupValues[2].toIntOrNull()
+                ?: return defer("USER_WORKOUT_SLOT_INVALID", "The workout slot is outside the supported calendar range.")
+            if(week !in 1..request.weeks || slot !in 0 until request.runDays)
+                return defer("USER_WORKOUT_SLOT_INVALID", "A user-defined workout refers to a week or running slot outside this plan.")
+            if(workout.mixedSegments!=null)
+                return defer("USER_DEFINED_MIXED_DISTANCE_UNRECONCILED", "Timed/mixed-unit workouts need an explicit per-step distance basis before they can reconcile to weekly mileage; no recovery distance was inferred.")
+            val segments=workout.segments
+            val workIndices=segments.indices.filter { segments[it].purpose=="WORK" }
+            if(workout.role!="QUALITY" || workout.family==null || workIndices.isEmpty() ||
+                segments.firstOrNull()?.purpose!="WARM_UP" || segments.lastOrNull()?.purpose!="COOL_DOWN" ||
+                segments.drop(1).dropLast(1).any { it.purpose in setOf("WARM_UP","COOL_DOWN") } ||
+                segments.indices.any { i -> segments[i].purpose=="RECOVERY" &&
+                    (workIndices.none { it<i } || workIndices.none { it>i }) })
+                return defer("USER_WORKOUT_STRUCTURE_INVALID", "A user-defined quality workout needs warm-up, one or more ordered work steps, recoveries only between work steps, and cooldown.")
+            key to workout
+        }.toMap()
+        for(week in 1..request.weeks) {
+            val customCount=mappedQuality.keys.count { customPattern.matchEntire(it)?.groupValues?.get(1)?.toInt()==week }
+            val shouldHaveQuality=if((week-1)%4==3) 0 else request.qualityCount
+            if(customCount!=shouldHaveQuality)
+                return defer("USER_WORKOUT_FREQUENCY_MISMATCH", "Provide exactly the requested number of user-defined workouts for each loading week and none for scheduled recovery weeks.")
+        }
+        val qualityById=mutableMapOf<String,RunningPrescription>()
+        for(session in sessions) {
+            val match=Regex(".*-(w[1-9][0-9]*-run(?:0|[1-9][0-9]*))$").matchEntire(session.id) ?: continue
+            mappedQuality[match.groupValues[1]]?.let { workout ->
+                if(session.kind=="long" || session.distanceKm==null ||
+                    kotlin.math.abs(workout.segments.sumOf { it.meters }/1000.0-session.distanceKm)>1e-6)
+                    return defer("USER_WORKOUT_DISTANCE_CONFLICT", "The complete user-defined workout distance (${"%.1f".format(java.util.Locale.US,workout.segments.sumOf { it.meters }/1000.0)} km) must exactly fit its scheduled run slot (${session.distanceKm} km), including warm-up, every work and recovery step, and cooldown.")
+                if(request.qualityDays.isNotEmpty() && session.date.dayOfWeek.value !in request.qualityDays)
+                    return defer("USER_WORKOUT_DAY_CONFLICT", "The selected workout slot does not land on one of the requested quality weekdays.")
+                if(volume.weeks[match.groupValues[1].substringAfter('w').substringBefore('-').toInt()-1].kind==Engine15IndependentVolumePlanner.WeekKind.RECOVERY)
+                    return defer("USER_WORKOUT_RECOVERY_WEEK", "Quality workouts are deferred during scheduled recovery weeks; choose an easy session or move it to a loading week.")
+                qualityById[session.id]=workout
+            }
+        }
+        if(qualityById.size!=mappedQuality.size)
+            return defer("USER_WORKOUT_SLOT_NOT_FOUND", "A user-defined workout could not be matched to a generated running session.")
+        val qualitySessions=sessions.filter { it.id in qualityById }.map { session ->
+            val workout=qualityById.getValue(session.id)
+            session.copy(quality=true,kind="quality",title="User-defined ${workout.family} workout",
+                runningPrescription=workout,
+                steps=workout.segments.mapIndexed { i,step -> "${i+1}. ${step.meters} m ${step.purpose.lowercase().replace('_',' ')} — ${step.effort}." },
+                reason="User-defined workout structure and intensity targets are preserved as supplied; no coach qualification or athlete-specific intensity validation is claimed.")
+        }
+        if(qualitySessions.any { quality -> sessions.any { other -> other.id!=quality.id && conflict(quality,other) } })
+            return defer("USER_WORKOUT_SPACING_CONFLICT", "A user-defined quality workout is too close to another quality session or the long run.")
+        if(qualitySessions.any { quality -> external.sessions.any { other ->
+                other.hardLowerOrFull && kotlin.math.abs(ChronoUnit.DAYS.between(quality.date,other.date))<2
+            } })
+            return defer("USER_WORKOUT_EXTERNAL_SPACING_CONFLICT", "A user-defined quality workout is too close to a known external hard session.")
+        val assembledSessions=sessions.map { original -> qualitySessions.firstOrNull { it.id==original.id } ?: original }
+
         val snapshot = PlanSnapshot(
             id = id,
             owner = owner,
@@ -346,12 +409,13 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             policyId = ENGINE15_INDEPENDENT_CANDIDATE_POLICY,
             createdAt = now,
             request = request,
-            sessions = sessions,
+            sessions = assembledSessions,
             explanations = buildList {
                 add("Independent Engine 1.5 running candidate; no Engine 1.0 generation or validation was used.")
                 add("Mileage basis: ${athlete.basis}; reported/recorded history remains provisional and is not source-authenticated.")
                 if(request.userDirectedPlanning)
                     add("Weekly volume follows the user-requested workload, with scheduled recovery weeks. This is not validated athlete capacity; coach-recommended progression remains available for comparison.")
+                if(qualityById.isNotEmpty()) add("Quality workout steps and any intensity targets were explicitly user-defined; no automatic coach selection or intensity prescription was used.")
                 if(request.userDirectedPlanning) volume.weeks.flatMap { it.constraintCodes }.distinct()
                     .filter { it in setOf("REQUESTED_TARGET_ABOVE_COACH_RECOMMENDED","PROVISIONAL_SESSION_EXPOSURE_WARNING","RETURN_FROM_BREAK_RECOMMENDATION_EXCEEDED") }
                     .takeIf { it.isNotEmpty() }?.let { add("Conservative recommendations exceeded by user request: ${it.joinToString()}; review before approval.") }
@@ -461,7 +525,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         val expectedById = expected.sessions.associateBy { it.id }
         if (plan.sessions.any { session ->
                 val source = expectedById[session.id] ?: return@any true
-                session.discipline != "run" || session.quality || session.kind != source.kind ||
+                session.discipline != "run" || session.quality != source.quality || session.kind != source.kind ||
                     session.distanceKm != source.distanceKm || session.runningPrescription != source.runningPrescription ||
                     session.date.isBefore(plan.request.start) || !session.date.isBefore(plan.request.start.plusWeeks(plan.request.weeks.toLong())) ||
                     session.date.dayOfWeek.value !in plan.request.days

@@ -65,6 +65,7 @@ class Engine15IndependentPlanGeneratorTest {
         val result=Engine15IndependentPlanGenerator.preview(input,owner,"user-directed",now)
         assertTrue("Expected a reviewable user-directed plan, got $result",result is Engine15IndependentPlanDecision.Candidate)
         val candidate=result as Engine15IndependentPlanDecision.Candidate
+        assertTrue(candidate.periodization.ruleIds.contains("USER_DIRECTED_BUDGET_RECONCILED_NOT_CAPACITY_VALIDATED"))
         for(week in 0 until input.weeks) {
             val rows=candidate.plan.sessions.filter {
                 it.date>=input.start.plusWeeks(week.toLong()) && it.date<input.start.plusWeeks((week+1).toLong())
@@ -78,6 +79,97 @@ class Engine15IndependentPlanGeneratorTest {
         val unknownLongest=Engine15IndependentPlanGenerator.preview(input.copy(longestKm=0.0),owner,"unknown-longest",now)
         assertTrue("A provisional longest-run estimate must not cap user-directed volume: $unknownLongest",
             unknownLongest is Engine15IndependentPlanDecision.Candidate)
+    }
+
+    @Test fun userDefinedDistanceIntervalsReplaceOneEasySlotWithoutChangingWeeklyMileage() {
+        val workout=RunningPrescription("QUALITY","Intervals",listOf(
+            RunningSegment("WARM_UP",2000,"User supplied easy effort"),
+            RunningSegment("WORK",800,"User supplied fast target"),
+            RunningSegment("RECOVERY",400,"User supplied easy recovery") ,
+            RunningSegment("WORK",800,"User supplied fast target"),
+            RunningSegment("RECOVERY",400,"User supplied easy recovery"),
+            RunningSegment("WORK",800,"User supplied fast target"),
+            RunningSegment("RECOVERY",400,"User supplied easy recovery"),
+            RunningSegment("WORK",800,"User supplied fast target"),
+            RunningSegment("RECOVERY",400,"User supplied easy recovery"),
+            RunningSegment("WORK",800,"User supplied fast target"),
+            RunningSegment("RECOVERY",400,"User supplied easy recovery"),
+            RunningSegment("WORK",800,"User supplied fast target"),
+            RunningSegment("COOL_DOWN",4500,"User supplied easy effort")
+        ))
+        val input=request(1).copy(runDays=3,weeks=1,days=setOf(1,2,3,4,5,6),
+            weeklyKm=40.0,targetWeeklyKm=40.0,longestKm=30.0,longDay=6,
+            weeklySlots=mapOf("run" to listOf(6,2,4)),qualityDays=setOf(2),
+            qualityCount=1,userDirectedPlanning=true,userDefinedQualityWorkouts=mapOf("w1-run1" to workout))
+        val result=Engine15IndependentPlanGenerator.preview(input,owner,"structured",now)
+        assertTrue("Expected structured user-defined session, got $result",result is Engine15IndependentPlanDecision.Candidate)
+        val plan=(result as Engine15IndependentPlanDecision.Candidate).plan
+        val quality=plan.sessions.single { it.quality }
+        assertEquals(13.3,quality.distanceKm!!,1e-6)
+        assertEquals(workout,quality.runningPrescription)
+        assertEquals(40.0,plan.sessions.sumOf { it.distanceKm!! },1e-6)
+        assertEquals(2,quality.date.dayOfWeek.value)
+        assertTrue(quality.reason.contains("user-defined",ignoreCase=true))
+        assertFalse((result as Engine15IndependentPlanDecision.Candidate).executable)
+        assertEquals(workout,PlanRequest.decode(plan.request.encode()).userDefinedQualityWorkouts["w1-run1"])
+        val saved=Engine15IndependentPlanGenerator.generateWithHistory(input,owner,emptyList(),"saved-structured",now)
+        Engine15IndependentPlanGenerator.validateSaved(saved)
+        assertEquals(saved.sessions,PlanSnapshot.decode(saved.encode(),owner).sessions)
+    }
+
+    @Test fun userDefinedMixedUnitQualityDefersWithoutInventingRecoveryDistance() {
+        val mixed=RunningPrescription("QUALITY","Intervals",emptyList(),listOf(
+            RunningStepV2("WARM_UP","easy",meters=2000),
+            RunningStepV2("WORK","user target",seconds=180),
+            RunningStepV2("RECOVERY","easy",seconds=90),
+            RunningStepV2("COOL_DOWN","easy",meters=2000)
+        ),estimatedDistanceKm=8.0)
+        val input=request(1).copy(weeks=1,userDirectedPlanning=true,
+            userDefinedQualityWorkouts=mapOf("w1-run1" to mixed))
+        val result=Engine15IndependentPlanGenerator.preview(input,owner,"mixed-user",now)
+        assertTrue(result is Engine15IndependentPlanDecision.Deferred)
+        assertEquals("USER_DEFINED_MIXED_DISTANCE_UNRECONCILED",
+            (result as Engine15IndependentPlanDecision.Deferred).reasonCode)
+    }
+
+    @Test fun twoUserDefinedQualitySessionsFitOnlyWhenRunDaysAndSpacingPermit() {
+        fun workout()=RunningPrescription("QUALITY","Threshold",listOf(
+            RunningSegment("WARM_UP",2000,"Easy"),RunningSegment("WORK",1000,"User threshold target"),
+            RunningSegment("RECOVERY",400,"Easy jog"),RunningSegment("WORK",1000,"User threshold target"),
+            RunningSegment("COOL_DOWN",4400,"Easy")
+        ))
+        val input=request(1).copy(weeks=1,runDays=5,days=(1..7).toSet(),weeklyKm=50.0,
+            targetWeeklyKm=50.0,longestKm=30.0,longDay=6,weeklySlots=mapOf("run" to listOf(6,2,4,1,5)),
+            qualityCount=2,qualityDays=setOf(2,4),userDirectedPlanning=true,
+            userDefinedQualityWorkouts=mapOf("w1-run1" to workout(),"w1-run2" to workout()))
+        val result=Engine15IndependentPlanGenerator.preview(input,owner,"two-quality",now)
+        assertTrue("Expected spaced user-defined sessions, got $result",result is Engine15IndependentPlanDecision.Candidate)
+        val plan=(result as Engine15IndependentPlanDecision.Candidate).plan
+        assertEquals(2,plan.sessions.count { it.quality })
+        assertEquals(50.0,plan.sessions.sumOf { it.distanceKm!! },1e-6)
+        assertEquals(setOf(2,4),plan.sessions.filter { it.quality }.map { it.date.dayOfWeek.value }.toSet())
+    }
+
+    @Test fun eightWeekPlanKeepsStructuredQualityInLoadingWeeksAndEasyRecoveryWeeks() {
+        val workout=RunningPrescription("QUALITY","Intervals",listOf(
+            RunningSegment("WARM_UP",2000,"Easy"),RunningSegment("WORK",1000,"User supplied threshold"),
+            RunningSegment("RECOVERY",400,"Easy jog"),RunningSegment("WORK",1000,"User supplied threshold"),
+            RunningSegment("COOL_DOWN",4400,"Easy")
+        ))
+        val inputs=(1..8).filter { it%4!=0 }.associate { "w$it-run1" to workout }
+        val input=request(8).copy(weeks=8,runDays=5,days=(1..7).toSet(),weeklyKm=50.0,
+            targetWeeklyKm=50.0,longestKm=30.0,longDay=6,weeklySlots=mapOf("run" to listOf(6,2,4,1,5)),
+            qualityCount=1,qualityDays=setOf(2),userDirectedPlanning=true,userDefinedQualityWorkouts=inputs)
+        val result=Engine15IndependentPlanGenerator.preview(input,owner,"eight-structured",now)
+        assertTrue("Expected a complete eight-week plan, got $result",result is Engine15IndependentPlanDecision.Candidate)
+        val plan=(result as Engine15IndependentPlanDecision.Candidate).plan
+        assertEquals(40,plan.sessions.size)
+        for(week in 0 until 8) {
+            val rows=plan.sessions.filter { it.date>=input.start.plusWeeks(week.toLong()) && it.date<input.start.plusWeeks((week+1).toLong()) }
+            assertEquals(if(week%4==3)40.0 else 50.0,rows.sumOf { it.distanceKm!! },1e-6)
+            assertEquals(if(week%4==3)0 else 1,rows.count { it.quality })
+        }
+        assertTrue(plan.sessions.filter { it.quality }.all { it.runningPrescription==workout })
     }
 
     @Test fun defersMissingOrUnclassifiedTrainingHistory() {

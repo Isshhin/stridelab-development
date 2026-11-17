@@ -44,7 +44,7 @@ internal data class RunningPrescription(
         require(role in setOf("RECOVERY","EASY","ENDURANCE","LONG","QUALITY"))
         val purposes=if(mixedSegments==null) segments.map { it.purpose } else mixedSegments.map { it.purpose }
         require(purposes.isNotEmpty() && purposes.size<=50)
-        require(if(role=="QUALITY") family in setOf("Threshold","Tempo","Intervals","Hills","Fartlek","Progression") && "WORK" in purposes
+        require(if(role=="QUALITY") family in setOf("Threshold","Tempo","Intervals","Hills","Fartlek","Progression","Strides") && "WORK" in purposes
             else family==null && "WORK" !in purposes)
         if(mixedSegments==null) {
             require(segments.sumOf { it.meters }<=120000 && estimatedDistanceKm==null)

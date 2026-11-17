@@ -41,7 +41,9 @@ internal data class PlanRequest(
     /** Reported peak is not treated as a sustainable weekly average. */
     val reportedPeakWeeklyKm:Double? = null,
     /** Private/debug plan preference; this remains a requested budget, not validated capacity. */
-    val userDirectedPlanning:Boolean = false
+    val userDirectedPlanning:Boolean = false,
+    /** Explicit user-authored workouts keyed by stable week/run-slot suffix, e.g. w2-run1. */
+    val userDefinedQualityWorkouts:Map<String,RunningPrescription> = emptyMap()
 ) {
     fun encode():JSONObject {
         val encoded=JSONObject().put("goal",goal).put("secondaryGoal",secondaryGoal).put("experience",experience).put("start",start.toString()).put("weeks",weeks).put("minutes",minutes)
@@ -65,6 +67,10 @@ internal data class PlanRequest(
         if(recentMileageBasis!="LEGACY_UNSPECIFIED")encoded.put("recentMileageBasis",recentMileageBasis)
         if(reportedPeakWeeklyKm!=null)encoded.put("reportedPeakWeeklyKm",reportedPeakWeeklyKm)
         if(policyChoice=="engine15" && userDirectedPlanning)encoded.put("userDirectedPlanning",true)
+        if(policyChoice=="engine15" && userDefinedQualityWorkouts.isNotEmpty())
+            encoded.put("userDefinedQualityWorkouts",JSONObject().apply {
+                userDefinedQualityWorkouts.toSortedMap().forEach { (key,value)->put(key,value.encode()) }
+            })
         if(runningRecoveryHold)encoded.put("runningRecoveryHold",true)
         if(recentQualitySessionsPerWeek!=null)encoded.put("recentQualitySessionsPerWeek",recentQualitySessionsPerWeek)
         if(preferredQuality!="Threshold")encoded.put("preferredQuality",preferredQuality)
@@ -95,7 +101,10 @@ internal data class PlanRequest(
                 j.optBoolean("timeBudgetEnabled",true),j.optDouble("targetWeeklyKm").takeIf { j.has("targetWeeklyKm") },j.optBoolean("runningRecoveryHold",false),j.nullInt("recentQualitySessionsPerWeek"),
                 j.optBoolean("trainYourWay",false),j.optBoolean("foundationAcknowledged",false),
                 j.optString("recentMileageBasis","LEGACY_UNSPECIFIED"),
-                j.nullDouble("reportedPeakWeeklyKm"),j.optBoolean("userDirectedPlanning",false))
+                j.nullDouble("reportedPeakWeeklyKm"),j.optBoolean("userDirectedPlanning",false),
+                j.optJSONObject("userDefinedQualityWorkouts")?.let { workouts ->
+                    workouts.keys().asSequence().associateWith { RunningPrescription.decode(workouts.getJSONObject(it)) }
+                } ?: emptyMap())
         }
     }
 }
