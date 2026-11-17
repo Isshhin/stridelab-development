@@ -13,12 +13,13 @@ class Engine15I9ReadOnlyBasePlanAssemblyTest {
         target: Double = 80.0,
         longest: Double = 20.0,
         days: Int = 6,
-        weeks: Int = 8
+        weeks: Int = 8,
+        longDay: Int = 7
     ): Engine15IndependentVolumePlanner.Result {
         val p = PlanRequest(
             goal = "Aerobic foundation", experience = 2,
             start = monday, weeks = weeks, days = (1..7).toSet(),
-            runDays = days, longDay = 7, qualityCount = 0,
+            runDays = days, longDay = longDay, qualityCount = 0,
             weeklyKm = recent, targetWeeklyKm = target,
             longestKm = longest, returning = false,
             policyChoice = "engine15", trainYourWay = true,
@@ -49,11 +50,12 @@ class Engine15I9ReadOnlyBasePlanAssemblyTest {
 
     private fun calendar(
         monday: LocalDate = this.monday,
-        blocked: Set<LocalDate> = emptySet()
+        blocked: Set<LocalDate> = emptySet(),
+        preferredLongIsoDay: Int = 7
     ) = Engine15M6CalendarInput(
         startMonday = monday,
         availableIsoDays = setOf(1, 2, 3, 5, 6, 7),
-        preferredLongIsoDay = 7,
+        preferredLongIsoDay = preferredLongIsoDay,
         blockedDates = blocked
     )
 
@@ -160,6 +162,33 @@ class Engine15I9ReadOnlyBasePlanAssemblyTest {
                 assertFalse(entry.qualityAuthorized)
             }
         }
+    }
+
+    @Test fun sixDay75To80ScenarioSupportsSaturdayLongRunWithSundayEasy() {
+        val source = source(longDay = 6)
+        val review = interference(calendar = calendar(preferredLongIsoDay = 6))
+        val result = accepted(source, input(review))
+
+        assertEquals(8, result.weeks.size)
+        for (week in result.weeks) {
+            val saturday = week.runs.single { it.date.dayOfWeek.value == 6 }
+            val sunday = week.runs.single { it.date.dayOfWeek.value == 7 }
+            assertEquals(Engine15M5RunRole.LONG, saturday.role)
+            assertEquals(Engine15M5RunRole.EASY, sunday.role)
+            assertTrue(week.runs.none { it.date.dayOfWeek.value == 4 })
+            assertEquals(week.proposedKm, week.runs.sumOf { it.distanceKm }, 1e-8)
+        }
+        val firstLongRunKm = result.weeks.first().runs.single {
+            it.role == Engine15M5RunRole.LONG
+        }.distanceKm
+        // The current 30% M5A share yields 20.2 km in the first 67.5 km week.
+        // Retain that reviewed candidate and expose the 0.2 km preference gap.
+        assertEquals(20.2, firstLongRunKm, 1e-8)
+        assertEquals(listOf(67.5,71.2,75.0,60.0,71.2,75.0,78.7,62.9),
+            result.weeks.map { it.proposedKm })
+        assertEquals(0, result.originalM6D.weeks.first().qualityOpportunityCount)
+        assertFalse(result.executable)
+        assertFalse(result.authorizedForProduction)
     }
 
     @Test fun unknownBaseOnlyIntentAndAnyQualityRequestAreNotSilentlyDowngraded() {

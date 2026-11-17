@@ -47,6 +47,15 @@ Every Codex prompt, Work handoff, or delegated implementation batch MUST be prec
 
 This contract governs **how tasks are specified and reported**, not permission to ignore the owner's current prompt, protected code, signing/data safety, Codex's default code-edit-only rule, or owner-run verification requirements.
 
+## Engine 1.5 independent candidate work (2026-11-17 task scope)
+
+- When explicitly authorized to continue the independent Engine 1.5 candidate, work in a separate research branch/worktree and inspect the actual current PR heads first. Never use the shared dirty checkout as an edit target.
+- Keep I1–I9 and later shadow results typed, reproducible, read-only, and non-executable. Do not turn `sourceEvidenceVerified`, caller assertions, calibration digests, or arithmetic reconciliation into verified athlete provenance or authority.
+- M10.6 production-style generation and M4–M6 independent planning have overlapping but distinct workload policies. Preserve both; compare outputs and do not silently delegate, duplicate policy, or replace the M10.6 policy owner.
+- Reuse an existing approved/read-only research UI. Do not create another Android planning screen for the same preview.
+- Quality-session development is a priority when specifically requested. Keep family structure/version, work/recovery accounting, observed family-specific exposure, user-entered constraints, missing history, recovery holds, and weekly mileage reconciliation distinct. Missing evidence is unknown, not a duration cap or a user limit. Do not activate any experimental quality generator in production without separate owner approval.
+- Record exact heads, per-batch diffs, commands, test counts, blocked checks, and unresolved coaching risks in `ENGINE15_EXECUTION.md` and the candidate's research handoff. Green unit tests do not establish real-world coaching reliability.
+
 ## Owner-approved Today redesign (2026-11-06)
 
 - **AMOLED true black** Today screen, StrideLab branding, greeting, month/week navigation and seven-day tappable calendar.
