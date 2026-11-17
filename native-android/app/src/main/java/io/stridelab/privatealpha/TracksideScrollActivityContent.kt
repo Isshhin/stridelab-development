@@ -287,7 +287,7 @@ internal fun TracksideActivityExpandedHeader(
 
 /**
  * One continuous lazy list. The segmented rail never replaces the body.
- * Only changes in first visible section update the rail, not every scroll pixel.
+ * Four checkpoints scroll one sheet; its visible section updates the active checkpoint.
  */
 @Composable
 internal fun TracksideActivityContinuousSections(
@@ -355,112 +355,186 @@ internal fun TracksideActivityContinuousSections(
     val splitInsight = remember(laps, activity.supportsPace) {
         ActivityDetailSectionAnalysis.splits(laps, activity.supportsPace)
     }
+    val analysisStartIndex = 1
+    val splitStartIndex = 2
+    val chartsStartIndex = 3 + laps.size + (if (splitInsight != null) 1 else 0)
     val listState = rememberLazyListState()
-    LaunchedEffect(selectedTab, activity.id) { listState.scrollToItem(0) }
+    val scope = rememberCoroutineScope()
+    val currentSection by remember(listState, chartsStartIndex) {
+        derivedStateOf {
+            val layout = listState.layoutInfo
+            // The active section changes as its heading crosses the upper
+            // third of the viewport; avoid measuring every scroll pixel.
+            val threshold = layout.viewportStartOffset +
+                ((layout.viewportEndOffset - layout.viewportStartOffset) * .32f).roundToInt()
+            val anchor = layout.visibleItemsInfo.lastOrNull { it.offset <= threshold }?.index
+                ?: listState.firstVisibleItemIndex
+            when {
+                // With no fabricated trailing spacer, shorter chart sections
+                // may end before their heading can cross the upper threshold.
+                // At the genuine content end, Charts must still be selected.
+                !listState.canScrollForward &&
+                    layout.visibleItemsInfo.any { it.index >= chartsStartIndex } -> 3
+                anchor >= chartsStartIndex -> 3
+                anchor >= splitStartIndex -> 2
+                anchor >= analysisStartIndex -> 1
+                else -> 0
+            }
+        }
+    }
+    var pendingSection by remember(activity.id) { mutableStateOf<Int?>(null) }
+    LaunchedEffect(activity.id) {
+        listState.scrollToItem(0)
+        if (selectedTab != 0) onTab(0)
+    }
+    LaunchedEffect(currentSection, pendingSection) {
+        if (pendingSection == null && selectedTab != currentSection) onTab(currentSection)
+    }
+    val visibleSection = pendingSection ?: currentSection
+    val sectionOffset = listOf(0, analysisStartIndex, splitStartIndex, chartsStartIndex)
     Column(Modifier.fillMaxSize()) {
-        TracksideActivitySectionPill(selectedTab, onTab)
+        TracksideActivitySectionPill(visibleSection) { index ->
+            pendingSection = index
+            onTab(index)
+            scope.launch {
+                try { listState.animateScrollToItem(sectionOffset[index]) }
+                finally { pendingSection = null }
+            }
+        }
+        BoxWithConstraints(Modifier.weight(1f)) {
         LazyColumn(
-            modifier = Modifier.weight(1f).fillMaxWidth().testTag("activity-continuous-scroll"),
+            modifier = Modifier.fillMaxSize().testTag("activity-continuous-scroll"),
             state = listState,
             contentPadding = PaddingValues(start = 18.dp, end = 18.dp, bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
-            when (selectedTab.coerceIn(0, 3)) {
-                0 -> item(key = "section-overview") {
-                    Column(Modifier.fillMaxWidth().testTag("activity-section-overview")) {
-                        Spacer(Modifier.height(8.dp))
-                        TracksideActivityOverviewBody(
-                            activity, recorded, detailSource, matchedSourceIds,
-                            history, state, actions, online, onLoadGarminGps
-                        )
-                    }
-                }
-                1 -> item(key = "section-analysis") {
-                    TracksideActivityAnalysisBody(
-                        activity, recorded, history, state, actions, matchedSourceIds
+            item(key = "section-overview") {
+                Column(Modifier.fillMaxWidth().testTag("activity-section-overview")) {
+                    Spacer(Modifier.height(8.dp))
+                    TracksideActivityOverviewBody(
+                        activity, recorded, detailSource, matchedSourceIds,
+                        history, state, actions, online, onLoadGarminGps
                     )
                 }
-                2 -> {
-                    item(key = "section-splits") {
-                        Column(Modifier.fillMaxWidth().testTag("activity-section-splits")) {
-                            ActivitySectionHeading("Splits")
-                            Spacer(Modifier.height(3.dp))
-                            if (laps.isEmpty()) {
-                                Text("No recorded splits are available.", color = activityMuted,
-                                    fontSize = 13.sp, modifier = Modifier.padding(vertical = 18.dp))
-                            } else {
-                                Row(Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Text("SPLIT", color = activityMuted, fontSize = 10.sp,
-                                        modifier = Modifier.width(34.dp))
-                                    Text("PACE", color = activityMuted, fontSize = 10.sp,
-                                        modifier = Modifier.weight(1f))
-                                    if (hasSplitHr) Text("HR", color = activityMuted, fontSize = 10.sp,
-                                        modifier = Modifier.width(33.dp))
-                                }
-                            }
-                        }
-                    }
-                    itemsIndexed(laps, key = { index, lap -> "source-lap-$index-${lap.index}" }) { index, lap ->
-                        val window = splitWindows.getOrNull(index)
-                        val selected = window != null && selectedSeconds != null &&
-                            selectedSeconds >= window.first && selectedSeconds <= window.second
-                        TracksideActivitySplitRow(
-                            index, lap, hasSplitHr, paceBounds, activity.supportsPace,
-                            selected = selected,
-                            onSelect = window?.let { range -> {
-                                if (selected) onSelectRange(null) else {
-                                    onSelectSeconds((range.first + range.second) / 2.0)
-                                    onSelectRange(range)
-                                }
-                            } }
+            }
+            item(key = "section-analysis") {
+                TracksideActivityAnalysisBody(
+                    activity, recorded, history, state, actions, matchedSourceIds
+                )
+            }
+            item(key = "section-splits") {
+                Column(Modifier.fillMaxWidth().testTag("activity-section-splits")) {
+                    ActivitySectionHeading("Splits")
+                    Spacer(Modifier.height(3.dp))
+                    if (laps.isEmpty()) {
+                        Text(
+                            "No recorded splits are available.",
+                            color = activityMuted, fontSize = 13.sp,
+                            modifier = Modifier.padding(vertical = 18.dp)
                         )
-                    }
-                    if (splitInsight != null) item(key = "section-splits-analysis") {
-                        Spacer(Modifier.height(9.dp))
-                        TracksideActivityIntelligenceCard(splitInsight, "Splits Analysis", "activity-splits-insights")
-                        Spacer(Modifier.height(14.dp))
-                    }
-                }
-                else -> {
-                    item(key = "section-charts") {
-                        Column(Modifier.fillMaxWidth().testTag("activity-section-charts")) {
-                            ActivitySectionHeading("Charts")
-                            Spacer(Modifier.height(5.dp))
-                            if (!chartAvailability.any) Text(
-                                "No recorded charts are available.", color = activityMuted,
-                                fontSize = 13.sp, modifier = Modifier.padding(vertical = 18.dp)
-                            )
-                        }
-                    }
-                    if (recorded != null) {
-                        if (chartAvailability.pace) item(key = "chart-pace") {
-                            TracksideActivitySourceChart("Pace", "/km", recorded.samples, { it.pace }, pace = true,
-                                selectedSeconds = selectedSeconds, onSelectSeconds = onSelectSeconds,
-                                pauseIntervals = recorded.pauseIntervals)
-                        }
-                        if (chartAvailability.heartRate) item(key = "chart-heart-rate") {
-                            TracksideActivitySourceChart("Heart rate", "bpm", recorded.samples, { it.hr },
-                                selectedSeconds = selectedSeconds, onSelectSeconds = onSelectSeconds,
-                                pauseIntervals = recorded.pauseIntervals)
-                        }
-                        if (chartAvailability.heartRate) item(key = "chart-heart-rate-zones") {
-                            TracksideActivityHeartRateZones(recorded, state.account)
-                        }
-                        if (chartAvailability.elevation) item(key = "chart-elevation") {
-                            TracksideActivitySourceChart("Elevation", "m", recorded.samples, { it.altitude },
-                                selectedSeconds = selectedSeconds, onSelectSeconds = onSelectSeconds,
-                                pauseIntervals = recorded.pauseIntervals)
-                        }
-                        if (chartAvailability.cadence) item(key = "chart-cadence") {
-                            TracksideActivitySourceChart("Cadence", "spm", recorded.samples, { it.cadenceSpm },
-                                selectedSeconds = selectedSeconds, onSelectSeconds = onSelectSeconds,
-                                pauseIntervals = recorded.pauseIntervals)
+                    } else {
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text("SPLIT", color = activityMuted, fontSize = 10.sp,
+                                modifier = Modifier.width(34.dp))
+                            Text("PACE", color = activityMuted, fontSize = 10.sp,
+                                modifier = Modifier.weight(1f))
+                            if (hasSplitHr) Text("HR", color = activityMuted, fontSize = 10.sp,
+                                modifier = Modifier.width(33.dp))
                         }
                     }
                 }
             }
+            itemsIndexed(
+                laps,
+                key = { index, lap -> "source-lap-" + index + "-" + lap.index }
+            ) { index, lap ->
+                val window = splitWindows.getOrNull(index)
+                val selected = window != null && selectedSeconds != null &&
+                    selectedSeconds >= window.first && selectedSeconds <= window.second
+                TracksideActivitySplitRow(
+                    index, lap, hasSplitHr, paceBounds, activity.supportsPace,
+                    selected = selected,
+                    onSelect = window?.let { range ->
+                        {
+                            if (selected) {
+                                onSelectRange(null)
+                            } else {
+                                onSelectSeconds((range.first + range.second) / 2.0)
+                                onSelectRange(range)
+                            }
+                        }
+                    }
+                )
+            }
+            if (splitInsight != null) {
+                item(key = "section-splits-analysis") {
+                    Spacer(Modifier.height(9.dp))
+                    TracksideActivityIntelligenceCard(
+                        splitInsight, "Splits Analysis", "activity-splits-insights"
+                    )
+                    Spacer(Modifier.height(14.dp))
+                }
+            }
+            item(key = "section-charts") {
+                Column(Modifier.fillMaxWidth().testTag("activity-section-charts")) {
+                    ActivitySectionHeading("Charts")
+                    Spacer(Modifier.height(5.dp))
+                    if (!chartAvailability.any) {
+                        Text(
+                            "No recorded charts are available.",
+                            color = activityMuted, fontSize = 13.sp,
+                            modifier = Modifier.padding(vertical = 18.dp)
+                        )
+                    }
+                }
+            }
+            if (recorded != null) {
+                if (chartAvailability.pace)
+                    item(key = "chart-pace") {
+                        TracksideActivitySourceChart(
+                            "Pace", "/km", recorded.samples, { it.pace }, pace = true,
+                            selectedSeconds = selectedSeconds,
+                            onSelectSeconds = onSelectSeconds,
+                            pauseIntervals = recorded.pauseIntervals
+                        )
+                    }
+                if (chartAvailability.heartRate)
+                    item(key = "chart-heart-rate") {
+                        TracksideActivitySourceChart(
+                            "Heart rate", "bpm", recorded.samples, { it.hr },
+                            selectedSeconds = selectedSeconds,
+                            onSelectSeconds = onSelectSeconds,
+                            pauseIntervals = recorded.pauseIntervals
+                        )
+                    }
+                if (chartAvailability.heartRate)
+                    item(key = "chart-heart-rate-zones") {
+                        TracksideActivityHeartRateZones(recorded, state.account)
+                    }
+                if (chartAvailability.elevation)
+                    item(key = "chart-elevation") {
+                        TracksideActivitySourceChart(
+                            "Elevation", "m", recorded.samples, { it.altitude },
+                            selectedSeconds = selectedSeconds,
+                            onSelectSeconds = onSelectSeconds,
+                            pauseIntervals = recorded.pauseIntervals
+                        )
+                    }
+                if (chartAvailability.cadence)
+                    item(key = "chart-cadence") {
+                        TracksideActivitySourceChart(
+                            "Cadence", "spm", recorded.samples, { it.cadenceSpm },
+                            selectedSeconds = selectedSeconds,
+                            onSelectSeconds = onSelectSeconds,
+                            pauseIntervals = recorded.pauseIntervals
+                        )
+                    }
+            }
+        }
         }
     }
 }
