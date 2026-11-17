@@ -105,3 +105,24 @@ internal object ActivityDetailSectionAnalysis {
         return ActivityInsightPresentation(headline, summary, evidence, hasComparison = false)
     }
 }
+
+/** Feedback belongs to the linked completed Engine 1.5 run, never to a duplicate activity record. */
+internal fun findLinkedCompletedActivityRun(
+    plans: List<PlanSnapshot>,
+    matchedSourceIds: Set<String>
+): Pair<PlanSnapshot, PlannedSession>? {
+    if (matchedSourceIds.isEmpty()) return null
+    val matches = plans.asSequence()
+        .filter { it.engineVersion == ENGINE15_VERSION && it.status in setOf("approved", "paused") }
+        .flatMap { plan ->
+            plan.sessions.asSequence()
+                .filter {
+                    it.discipline == "run" && it.status == "completed" &&
+                        it.linkedActivityId in matchedSourceIds
+                }
+                .map { plan to it }
+        }
+        .take(2)
+        .toList()
+    return matches.singleOrNull()
+}

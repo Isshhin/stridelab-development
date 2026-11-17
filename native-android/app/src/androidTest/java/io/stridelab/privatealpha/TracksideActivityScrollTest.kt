@@ -18,6 +18,7 @@ class TracksideActivityScrollTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
 
     @Test fun longRecordingDefersExpandedAnalysisUntilSheetIsRequested() {
+        val tab = mutableIntStateOf(0)
         val activity = ActivityRecord(
             "synthetic-long-activity", "Long Run Running", "run", "manual",
             Instant.parse("2026-11-06T10:38:00Z"), 42000.0, 14400.0,
@@ -44,7 +45,7 @@ class TracksideActivityScrollTest {
                         history = listOf(activity), state = state,
                         actions = NativeActions({}, {}, {}, {}, { _, _ -> },
                             renameActivity = { _, _ -> true }),
-                        online = false, selectedTab = 0, onTab = {},
+                        online = false, selectedTab = tab.intValue, onTab = { tab.intValue = it },
                         matte = false, onToggleMatte = {}, onBack = {}
                     )
                 }
@@ -63,13 +64,14 @@ class TracksideActivityScrollTest {
         compose.onNodeWithTag("activity-edit-expanded").assertExists().assertHasClickAction()
         compose.onNodeWithTag("activity-share-expanded").assertExists().assertHasClickAction()
         compose.onNodeWithText("↗").assertDoesNotExist()
+        compose.onNodeWithTag("activity-tab-charts").performClick()
         compose.onNodeWithTag("activity-continuous-scroll").assertExists()
         compose.onNodeWithTag("activity-continuous-scroll")
             .performScrollToNode(hasTestTag("activity-chart-pace"))
         compose.onNodeWithTag("activity-chart-pace").assertExists()
     }
 
-    @Test fun previewStartsWithoutPillThenExpandsIntoScrollDrivenSections() {
+    @Test fun previewStartsWithoutPillThenExpandsIntoTabbedSections() {
         val activity = ActivityRecord(
             "synthetic-scroll-activity", "Santa Mesa Running", "run", "manual",
             Instant.parse("2026-11-06T10:38:00Z"), 13110.0, 5100.0,
@@ -206,25 +208,26 @@ class TracksideActivityScrollTest {
             .getUnclippedBoundsInRoot()
         assertTrue(kotlin.math.abs((((finalMetricBounds.left + finalMetricBounds.right) -
             (summaryBounds.left + summaryBounds.right)) / 2f).value) < 2f)
+        compose.onNodeWithTag("activity-tab-analysis").performClick()
         compose.onNodeWithTag("activity-continuous-scroll")
-            .performScrollToNode(hasTestTag("activity-insights"))
-        compose.onNodeWithTag("activity-insights-headline").assertExists()
-        compose.onNodeWithTag("activity-insights-summary").assertExists()
-        compose.onNodeWithTag("activity-insights-descriptor").assertExists()
-        compose.onNodeWithText("Steady pacing", substring = true).assertExists()
-        compose.onNodeWithText("Overall Analysis").assertExists()
+            .performScrollToNode(hasTestTag("activity-analysis-detailed"))
+        compose.onNodeWithTag("activity-analysis-detailed-headline").assertExists()
+        compose.onNodeWithTag("activity-analysis-detailed-summary").assertExists()
+        compose.onNodeWithTag("activity-analysis-detailed-descriptor").assertExists()
+        compose.onNodeWithTag("activity-analysis-detailed-descriptor").assertExists()
+        compose.onNodeWithText("Detailed Analysis").assertExists()
         compose.onNodeWithText("RECORDED DATA").assertDoesNotExist()
-        compose.onNodeWithTag("activity-insights-detail-0").assertDoesNotExist()
+        compose.onNodeWithTag("activity-analysis-detailed-detail-0").assertDoesNotExist()
         compose.onNodeWithTag("activity-continuous-scroll")
-            .performScrollToNode(hasTestTag("activity-insights-toggle"))
-        compose.onNodeWithTag("activity-insights-toggle").performClick()
-        compose.onNodeWithTag("activity-insights-detail-0").assertExists()
+            .performScrollToNode(hasTestTag("activity-analysis-detailed-toggle"))
+        compose.onNodeWithTag("activity-analysis-detailed-toggle").performClick()
+        compose.onNodeWithTag("activity-analysis-detailed-detail-0").assertExists()
         // Expanding makes the card taller; scroll to the relocated button
         // before tapping again rather than relying on a stale screen offset.
         compose.onNodeWithTag("activity-continuous-scroll")
-            .performScrollToNode(hasTestTag("activity-insights-toggle"))
-        compose.onNodeWithTag("activity-insights-toggle").performClick()
-        compose.onNodeWithTag("activity-insights-detail-0").assertDoesNotExist()
+            .performScrollToNode(hasTestTag("activity-analysis-detailed-toggle"))
+        compose.onNodeWithTag("activity-analysis-detailed-toggle").performClick()
+        compose.onNodeWithTag("activity-analysis-detailed-detail-0").assertDoesNotExist()
 
         compose.onNodeWithTag("activity-tab-splits").performClick()
         compose.waitUntil(timeoutMillis = 5000) {
@@ -461,6 +464,7 @@ class TracksideActivityScrollTest {
     }
 
     @Test fun overviewSurfacesOnlyRecordedEvidenceDuringTimerPauses() {
+        val tab = mutableIntStateOf(0)
         val activity = ActivityRecord(
             "synthetic-paused-run", "Paused Run", "run", "manual",
             Instant.parse("2026-11-06T10:38:00Z"), 4000.0, 1500.0,
@@ -490,7 +494,7 @@ class TracksideActivityScrollTest {
                         detailSource = activity, matchedSourceIds = setOf(activity.id),
                         history = listOf(activity),
                         state = state, actions = NativeActions({}, {}, {}, {}, { _, _ -> }),
-                        online = false, selectedTab = 0, onTab = {},
+                        online = false, selectedTab = tab.intValue, onTab = { tab.intValue = it },
                         matte = false, onToggleMatte = {}, onBack = {}
                     )
                 }
@@ -504,6 +508,7 @@ class TracksideActivityScrollTest {
         compose.onNodeWithTag("activity-pause-summary").assertDoesNotExist()
         // The source pause evidence remains in Overview, but the chart has a
         // continuous moving-time axis with no amber pause overlay or marker.
+        compose.onNodeWithTag("activity-tab-charts").performClick()
         compose.onNodeWithTag("activity-continuous-scroll")
             .performScrollToNode(hasTestTag("activity-chart-pace"))
         compose.onNodeWithTag("activity-chart-pace").assertExists()
@@ -642,6 +647,7 @@ class TracksideActivityScrollTest {
     }
 
     @Test fun activityWithoutSourceStreamsDoesNotInventSplitsOrCharts() {
+        val tab = mutableIntStateOf(0)
         val activity = ActivityRecord(
             "synthetic-scroll-no-streams", "Evening Run", "run", "manual",
             Instant.parse("2026-11-06T10:38:00Z"), 5000.0, 1800.0,
@@ -659,7 +665,7 @@ class TracksideActivityScrollTest {
                         detailSource = activity, matchedSourceIds = setOf(activity.id),
                         history = listOf(activity),
                         state = state, actions = NativeActions({}, {}, {}, {}, { _, _ -> }),
-                        online = false, selectedTab = 0, onTab = {},
+                        online = false, selectedTab = tab.intValue, onTab = { tab.intValue = it },
                         matte = false, onToggleMatte = {}, onBack = {}
                     )
                 }

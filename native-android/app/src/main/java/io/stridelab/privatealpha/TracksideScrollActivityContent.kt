@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -354,175 +355,112 @@ internal fun TracksideActivityContinuousSections(
     val splitInsight = remember(laps, activity.supportsPace) {
         ActivityDetailSectionAnalysis.splits(laps, activity.supportsPace)
     }
-    val splitStartIndex = 1
-    val chartsStartIndex = 2 + laps.size + (if (splitInsight != null) 1 else 0)
     val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
-    val currentSection by remember(listState, chartsStartIndex) {
-        derivedStateOf {
-            val layout = listState.layoutInfo
-            // The active section changes as its heading crosses the upper
-            // third of the viewport; avoid measuring every scroll pixel.
-            val threshold = layout.viewportStartOffset +
-                ((layout.viewportEndOffset - layout.viewportStartOffset) * .32f).roundToInt()
-            val anchor = layout.visibleItemsInfo.lastOrNull { it.offset <= threshold }?.index
-                ?: listState.firstVisibleItemIndex
-            when {
-                // With no fabricated trailing spacer, shorter chart sections
-                // may end before their heading can cross the upper threshold.
-                // At the genuine content end, Charts must still be selected.
-                !listState.canScrollForward &&
-                    layout.visibleItemsInfo.any { it.index >= chartsStartIndex } -> 2
-                anchor >= chartsStartIndex -> 2
-                anchor >= splitStartIndex -> 1
-                else -> 0
-            }
-        }
-    }
-    var pendingSection by remember { mutableStateOf<Int?>(null) }
-    LaunchedEffect(currentSection, pendingSection) {
-        if (pendingSection == null && selectedTab != currentSection) onTab(currentSection)
-    }
-    val visibleSection = pendingSection ?: currentSection
-    val sectionOffset = listOf(0, splitStartIndex, chartsStartIndex)
+    LaunchedEffect(selectedTab, activity.id) { listState.scrollToItem(0) }
     Column(Modifier.fillMaxSize()) {
-        TracksideActivitySectionPill(visibleSection) { index ->
-            pendingSection = index
-            onTab(index)
-            scope.launch {
-                try { listState.animateScrollToItem(sectionOffset[index]) }
-                finally { pendingSection = null }
-            }
-        }
-        BoxWithConstraints(Modifier.weight(1f)) {
+        TracksideActivitySectionPill(selectedTab, onTab)
         LazyColumn(
-            modifier = Modifier.fillMaxSize().testTag("activity-continuous-scroll"),
+            modifier = Modifier.weight(1f).fillMaxWidth().testTag("activity-continuous-scroll"),
             state = listState,
             contentPadding = PaddingValues(start = 18.dp, end = 18.dp, bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
-            item(key = "section-overview") {
-                Column(Modifier.fillMaxWidth().testTag("activity-section-overview")) {
-                    Spacer(Modifier.height(8.dp))
-                    TracksideActivityOverviewBody(
-                        activity, recorded, detailSource, matchedSourceIds,
-                        history, state, actions, online, onLoadGarminGps
-                    )
-                }
-            }
-            item(key = "section-splits") {
-                Column(Modifier.fillMaxWidth().testTag("activity-section-splits")) {
-                    ActivitySectionHeading("Splits")
-                    Spacer(Modifier.height(3.dp))
-                    if (laps.isEmpty()) {
-                        Text(
-                            "No recorded splits are available.",
-                            color = activityMuted, fontSize = 13.sp,
-                            modifier = Modifier.padding(vertical = 18.dp)
+            when (selectedTab.coerceIn(0, 3)) {
+                0 -> item(key = "section-overview") {
+                    Column(Modifier.fillMaxWidth().testTag("activity-section-overview")) {
+                        Spacer(Modifier.height(8.dp))
+                        TracksideActivityOverviewBody(
+                            activity, recorded, detailSource, matchedSourceIds,
+                            history, state, actions, online, onLoadGarminGps
                         )
-                    } else {
-                        Row(
-                            Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text("SPLIT", color = activityMuted, fontSize = 10.sp,
-                                modifier = Modifier.width(34.dp))
-                            Text("PACE", color = activityMuted, fontSize = 10.sp,
-                                modifier = Modifier.weight(1f))
-                            if (hasSplitHr) Text("HR", color = activityMuted, fontSize = 10.sp,
-                                modifier = Modifier.width(33.dp))
-                        }
                     }
                 }
-            }
-            itemsIndexed(
-                laps,
-                key = { index, lap -> "source-lap-" + index + "-" + lap.index }
-            ) { index, lap ->
-                val window = splitWindows.getOrNull(index)
-                val selected = window != null && selectedSeconds != null &&
-                    selectedSeconds >= window.first && selectedSeconds <= window.second
-                TracksideActivitySplitRow(
-                    index, lap, hasSplitHr, paceBounds, activity.supportsPace,
-                    selected = selected,
-                    onSelect = window?.let { range ->
-                        {
-                            if (selected) {
-                                onSelectRange(null)
+                1 -> item(key = "section-analysis") {
+                    TracksideActivityAnalysisBody(
+                        activity, recorded, history, state, actions, matchedSourceIds
+                    )
+                }
+                2 -> {
+                    item(key = "section-splits") {
+                        Column(Modifier.fillMaxWidth().testTag("activity-section-splits")) {
+                            ActivitySectionHeading("Splits")
+                            Spacer(Modifier.height(3.dp))
+                            if (laps.isEmpty()) {
+                                Text("No recorded splits are available.", color = activityMuted,
+                                    fontSize = 13.sp, modifier = Modifier.padding(vertical = 18.dp))
                             } else {
-                                onSelectSeconds((range.first + range.second) / 2.0)
-                                onSelectRange(range)
+                                Row(Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text("SPLIT", color = activityMuted, fontSize = 10.sp,
+                                        modifier = Modifier.width(34.dp))
+                                    Text("PACE", color = activityMuted, fontSize = 10.sp,
+                                        modifier = Modifier.weight(1f))
+                                    if (hasSplitHr) Text("HR", color = activityMuted, fontSize = 10.sp,
+                                        modifier = Modifier.width(33.dp))
+                                }
                             }
                         }
                     }
-                )
-            }
-            if (splitInsight != null) {
-                item(key = "section-splits-analysis") {
-                    Spacer(Modifier.height(9.dp))
-                    TracksideActivityIntelligenceCard(
-                        splitInsight, "Splits Analysis", "activity-splits-insights"
-                    )
-                    Spacer(Modifier.height(14.dp))
-                }
-            }
-            item(key = "section-charts") {
-                Column(Modifier.fillMaxWidth().testTag("activity-section-charts")) {
-                    ActivitySectionHeading("Charts")
-                    Spacer(Modifier.height(5.dp))
-                    if (!chartAvailability.any) {
-                        Text(
-                            "No recorded charts are available.",
-                            color = activityMuted, fontSize = 13.sp,
-                            modifier = Modifier.padding(vertical = 18.dp)
+                    itemsIndexed(laps, key = { index, lap -> "source-lap-$index-${lap.index}" }) { index, lap ->
+                        val window = splitWindows.getOrNull(index)
+                        val selected = window != null && selectedSeconds != null &&
+                            selectedSeconds >= window.first && selectedSeconds <= window.second
+                        TracksideActivitySplitRow(
+                            index, lap, hasSplitHr, paceBounds, activity.supportsPace,
+                            selected = selected,
+                            onSelect = window?.let { range -> {
+                                if (selected) onSelectRange(null) else {
+                                    onSelectSeconds((range.first + range.second) / 2.0)
+                                    onSelectRange(range)
+                                }
+                            } }
                         )
+                    }
+                    if (splitInsight != null) item(key = "section-splits-analysis") {
+                        Spacer(Modifier.height(9.dp))
+                        TracksideActivityIntelligenceCard(splitInsight, "Splits Analysis", "activity-splits-insights")
+                        Spacer(Modifier.height(14.dp))
                     }
                 }
+                else -> {
+                    item(key = "section-charts") {
+                        Column(Modifier.fillMaxWidth().testTag("activity-section-charts")) {
+                            ActivitySectionHeading("Charts")
+                            Spacer(Modifier.height(5.dp))
+                            if (!chartAvailability.any) Text(
+                                "No recorded charts are available.", color = activityMuted,
+                                fontSize = 13.sp, modifier = Modifier.padding(vertical = 18.dp)
+                            )
+                        }
+                    }
+                    if (recorded != null) {
+                        if (chartAvailability.pace) item(key = "chart-pace") {
+                            TracksideActivitySourceChart("Pace", "/km", recorded.samples, { it.pace }, pace = true,
+                                selectedSeconds = selectedSeconds, onSelectSeconds = onSelectSeconds,
+                                pauseIntervals = recorded.pauseIntervals)
+                        }
+                        if (chartAvailability.heartRate) item(key = "chart-heart-rate") {
+                            TracksideActivitySourceChart("Heart rate", "bpm", recorded.samples, { it.hr },
+                                selectedSeconds = selectedSeconds, onSelectSeconds = onSelectSeconds,
+                                pauseIntervals = recorded.pauseIntervals)
+                        }
+                        if (chartAvailability.heartRate) item(key = "chart-heart-rate-zones") {
+                            TracksideActivityHeartRateZones(recorded, state.account)
+                        }
+                        if (chartAvailability.elevation) item(key = "chart-elevation") {
+                            TracksideActivitySourceChart("Elevation", "m", recorded.samples, { it.altitude },
+                                selectedSeconds = selectedSeconds, onSelectSeconds = onSelectSeconds,
+                                pauseIntervals = recorded.pauseIntervals)
+                        }
+                        if (chartAvailability.cadence) item(key = "chart-cadence") {
+                            TracksideActivitySourceChart("Cadence", "spm", recorded.samples, { it.cadenceSpm },
+                                selectedSeconds = selectedSeconds, onSelectSeconds = onSelectSeconds,
+                                pauseIntervals = recorded.pauseIntervals)
+                        }
+                    }
+                }
             }
-            if (recorded != null) {
-                if (chartAvailability.pace)
-                    item(key = "chart-pace") {
-                        TracksideActivitySourceChart(
-                            "Pace", "/km", recorded.samples, { it.pace }, pace = true,
-                            selectedSeconds = selectedSeconds,
-                            onSelectSeconds = onSelectSeconds,
-                            pauseIntervals = recorded.pauseIntervals
-                        )
-                    }
-                if (chartAvailability.heartRate)
-                    item(key = "chart-heart-rate") {
-                        TracksideActivitySourceChart(
-                            "Heart rate", "bpm", recorded.samples, { it.hr },
-                            selectedSeconds = selectedSeconds,
-                            onSelectSeconds = onSelectSeconds,
-                            pauseIntervals = recorded.pauseIntervals
-                        )
-                    }
-                if (chartAvailability.heartRate)
-                    item(key = "chart-heart-rate-zones") {
-                        TracksideActivityHeartRateZones(recorded, state.account)
-                    }
-                if (chartAvailability.elevation)
-                    item(key = "chart-elevation") {
-                        TracksideActivitySourceChart(
-                            "Elevation", "m", recorded.samples, { it.altitude },
-                            selectedSeconds = selectedSeconds,
-                            onSelectSeconds = onSelectSeconds,
-                            pauseIntervals = recorded.pauseIntervals
-                        )
-                    }
-                if (chartAvailability.cadence)
-                    item(key = "chart-cadence") {
-                        TracksideActivitySourceChart(
-                            "Cadence", "spm", recorded.samples, { it.cadenceSpm },
-                            selectedSeconds = selectedSeconds,
-                            onSelectSeconds = onSelectSeconds,
-                            pauseIntervals = recorded.pauseIntervals
-                        )
-                    }
-            }
-        }
         }
     }
 }
@@ -534,7 +472,7 @@ private fun TracksideActivitySectionPill(selected: Int, onSelect: (Int) -> Unit)
             .height(48.dp).background(activitySurface, RoundedCornerShape(28.dp))
             .testTag("activity-sticky-pill")
     ) {
-        val segment = maxWidth / 3
+        val segment = maxWidth / 4
         val density = LocalDensity.current
         val position by animateDpAsState(
             targetValue = segment * selected,
@@ -550,7 +488,7 @@ private fun TracksideActivitySectionPill(selected: Int, onSelect: (Int) -> Unit)
                 .background(activityLime, RoundedCornerShape(25.dp))
         )
         Row(Modifier.fillMaxSize()) {
-            listOf("Overview", "Splits", "Charts").forEachIndexed { index, name ->
+            listOf("Overview", "Analysis", "Splits", "Charts").forEachIndexed { index, name ->
                 val color by animateColorAsState(
                     targetValue = if (selected == index) activitySheetBlack else activityMuted,
                     animationSpec = tween(140), label = "activity-tab-ink"
@@ -566,7 +504,7 @@ private fun TracksideActivitySectionPill(selected: Int, onSelect: (Int) -> Unit)
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        name, color = color, fontSize = 12.sp,
+                        name, color = color, fontSize = 11.sp,
                         fontWeight = if (index == selected) FontWeight.SemiBold else FontWeight.Normal
                     )
                 }
@@ -588,6 +526,181 @@ private fun TracksideActivitySectionPill(selected: Int, onSelect: (Int) -> Unit)
 }
 
 @Composable
+private fun TracksideActivityAnalysisBody(
+    activity: ActivityRecord,
+    recorded: ActivityDetail?,
+    history: List<ActivityRecord>,
+    state: TrainingState,
+    actions: NativeActions,
+    matchedSourceIds: Set<String>
+) {
+    val insight = remember(activity, recorded, history) {
+        ActivityIntelligence.presentation(activity, recorded, history)
+    }
+    val character = remember(activity, recorded) {
+        ActivityIntelligence.workoutCharacter(activity, recorded)
+    }
+    Column(Modifier.fillMaxWidth().testTag("activity-analysis-screen")) {
+        if (!DashboardSummary.isRun(activity)) {
+            ActivitySectionHeading("Analysis")
+            Text(
+                "Run analysis is unavailable for this activity type. No running workout type or training conclusion is inferred.",
+                color = activityMuted, fontSize = 13.sp, lineHeight = 19.sp,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)
+            )
+            return@Column
+        }
+        Column(Modifier.fillMaxWidth().testTag("activity-analysis-run-summary")) {
+            TracksideActivitySummary(activity, heading = "Run Summary")
+        }
+        ActivityAnalysisSection("Your Run, Explained", "activity-analysis-explained") {
+            Text(
+                insight?.summary ?: "A running summary is not available from the saved activity data.",
+                color = Color(0xFFCBD7CF), fontSize = 13.sp, lineHeight = 19.sp
+            )
+        }
+        ActivityAnalysisSection("Focus for Your Next Run", "activity-analysis-focus") {
+            Text(
+                "This activity alone cannot establish fitness, fatigue or recovery. Use your plan and your current condition when choosing what comes next.",
+                color = activityMuted, fontSize = 13.sp, lineHeight = 19.sp
+            )
+        }
+        ActivityAnalysisSection("How It Went", "activity-analysis-how-it-went") {
+            when {
+                character != null -> Text(
+                    "Recorded patterns: $character. These describe saved splits and sensor samples, not training benefit.",
+                    color = Color(0xFFCBD7CF), fontSize = 13.sp, lineHeight = 19.sp
+                )
+                recorded == null -> Text(
+                    "Recorded split and sensor details are not available offline for this activity.",
+                    color = activityMuted, fontSize = 13.sp, lineHeight = 19.sp
+                )
+                else -> Text(
+                    "There is not enough recorded split or sensor detail to describe a pacing or cadence pattern.",
+                    color = activityMuted, fontSize = 13.sp, lineHeight = 19.sp
+                )
+            }
+            val measured = remember(activity, recorded, history) {
+                ActivityIntelligence.briefInsights(activity, recorded, history)
+                    .filterNot { it.startsWith("No reliable pace comparison") }
+            }
+            measured.forEach { line ->
+                Spacer(Modifier.height(7.dp))
+                Text(line, color = activityMuted, fontSize = 12.sp, lineHeight = 17.sp)
+            }
+        }
+        ActivityAnalysisSection("Heart-Rate Zones", "activity-analysis-heart-rate-zones") {
+            val hrSamples = recorded?.samples.orEmpty().count { it.hr?.isFinite() == true && it.hr > 0.0 }
+            when {
+                recorded == null -> Text(
+                    "No recorded heart-rate stream is available for this activity.",
+                    color = activityMuted, fontSize = 12.sp, lineHeight = 17.sp
+                )
+                hrSamples < 2 -> Text(
+                    "Heart-rate zones are unavailable because this recording has fewer than two valid heart-rate samples.",
+                    color = activityMuted, fontSize = 12.sp, lineHeight = 17.sp
+                )
+                else -> TracksideActivityHeartRateZones(recorded, state.account)
+            }
+        }
+        ActivityAnalysisSection("How Did It Feel?", "activity-analysis-feel") {
+            TracksideActivityFeedbackEditor(
+                state, actions.planning, matchedSourceIds
+            )
+        }
+        if (insight != null) {
+            Spacer(Modifier.height(7.dp))
+            TracksideActivityIntelligenceCard(
+                insight,
+                heading = "Detailed Analysis",
+                tag = "activity-analysis-detailed",
+                descriptor = character,
+                collapsedLabel = "Show technical details",
+                expandedLabel = "Hide technical details"
+            )
+        } else {
+            ActivityAnalysisSection("Detailed Analysis", "activity-analysis-detailed") {
+                Text("Detailed running analysis is unavailable for this activity.",
+                    color = activityMuted, fontSize = 12.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActivityAnalysisSection(title: String, tag: String, content: @Composable () -> Unit) {
+    Column(Modifier.fillMaxWidth().testTag(tag)) {
+        ActivitySectionHeading(title)
+        Spacer(Modifier.height(4.dp))
+        content()
+    }
+}
+
+@Composable
+private fun TracksideActivityFeedbackEditor(
+    state: TrainingState,
+    actions: PlanActions,
+    matchedSourceIds: Set<String>
+) {
+    val target = remember(state.plans, matchedSourceIds) {
+        findLinkedCompletedActivityRun(state.plans, matchedSourceIds)
+    }
+    if (target == null) {
+        Text(
+            "This activity is not linked to one completed StrideLab run. Link it to its workout in Overview to record feedback there.",
+            color = activityMuted, fontSize = 12.sp, lineHeight = 17.sp,
+            modifier = Modifier.testTag("activity-feedback-unavailable")
+        )
+        return
+    }
+    val (plan, session) = target
+    val existing = session.coachingLog()
+    var effort by rememberSaveable(plan.id, session.id, session.logRevision) {
+        mutableStateOf(existing?.effort?.toString().orEmpty())
+    }
+    var difficulty by rememberSaveable(plan.id, session.id, session.logRevision) {
+        mutableStateOf(existing?.completionDifficulty)
+    }
+    var discomfort by rememberSaveable(plan.id, session.id, session.logRevision) {
+        mutableStateOf(existing?.discomfort)
+    }
+    val parsedEffort = effort.takeIf { it.isNotBlank() }?.toIntOrNull()
+    val invalidEffort = effort.isNotBlank() && (parsedEffort == null || parsedEffort !in 1..10)
+    Text(
+        if (session.runResponse == null)
+            "Your response is saved with this completed workout."
+        else "Your response is saved with this completed workout and can be updated.",
+        color = activityMuted, fontSize = 11.sp, lineHeight = 16.sp
+    )
+    OutlinedTextField(
+        value = effort, onValueChange = { effort = it.filter(Char::isDigit).take(2) },
+        label = { Text("Effort (1–10), optional") }, singleLine = true,
+        isError = invalidEffort, enabled = !state.busy,
+        modifier = Modifier.fillMaxWidth().testTag("activity-feedback-effort")
+    )
+    if (invalidEffort) Text("Enter effort from 1 to 10.", color = Color(0xFFFF8C87), fontSize = 11.sp)
+    CoachFeedbackChoices("How did completion feel?", listOf("As planned", "Easier", "Harder", "Could not finish"),
+        difficulty, enabled = !state.busy) { difficulty = it }
+    CoachFeedbackChoices("Any discomfort?", listOf("None", "Soreness", "Pain"),
+        discomfort, enabled = !state.busy) { discomfort = it }
+    Button(
+        onClick = {
+            actions.saveRunResponse(
+                plan.id, plan.revision, session.id, parsedEffort, difficulty, discomfort
+            )
+        },
+        enabled = !state.busy && !invalidEffort,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            .testTag("activity-feedback-save"),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = activityLime, contentColor = activitySheetBlack
+        )
+    ) {
+        Text(if (state.busy) "Saving…" else if (session.runResponse == null) "Save feedback" else "Update feedback")
+    }
+}
+
+@Composable
 private fun TracksideActivityOverviewBody(
     activity: ActivityRecord,
     recorded: ActivityDetail?,
@@ -599,12 +712,6 @@ private fun TracksideActivityOverviewBody(
     online: Boolean,
     onLoadGarminGps: (() -> Unit)?
 ) {
-    val insightPresentation = remember(activity, recorded, history) {
-        ActivityIntelligence.presentation(activity, recorded, history)
-    }
-    val workoutCharacter = remember(activity, recorded) {
-        ActivityIntelligence.workoutCharacter(activity, recorded)
-    }
     val missingSavedCadence = remember(recorded) {
         recorded != null && recorded.samples.isNotEmpty() &&
             recorded.samples.none { it.cadenceSpm != null }
@@ -651,15 +758,6 @@ private fun TracksideActivityOverviewBody(
         if (activity.source == "garmin" && state.message?.contains("Garmin", ignoreCase = true) == true) {
             Text(state.message.orEmpty(), color = activityMuted, fontSize = 11.sp)
         }
-        // Strava-style presentation rhythm: headline first, evidence on demand.
-        // This is still deterministic recorded-data analysis, NOT a generative
-        // AI coach or a recovery/fitness prediction.
-        if (insightPresentation != null) {
-            Spacer(Modifier.height(16.dp))
-            TracksideActivityIntelligenceCard(
-                insightPresentation, descriptor = workoutCharacter
-            )
-        }
     }
 }
 
@@ -680,7 +778,7 @@ private enum class ActivitySummaryGlyph {
 }
 
 @Composable
-private fun TracksideActivitySummary(activity: ActivityRecord) {
+private fun TracksideActivitySummary(activity: ActivityRecord, heading: String = "Summary") {
     val displayName = activityDisplayName(activity.title)
     val subtitle = if (DashboardSummary.isRun(activity) &&
         displayName.isNotBlank() &&
@@ -728,7 +826,7 @@ private fun TracksideActivitySummary(activity: ActivityRecord) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                "Summary", color = activityText, fontSize = 20.sp,
+                heading, color = activityText, fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
@@ -910,7 +1008,9 @@ private fun TracksideActivityIntelligenceCard(
     insight: ActivityInsightPresentation,
     heading: String = "Overall Analysis",
     tag: String = "activity-insights",
-    descriptor: String? = null
+    descriptor: String? = null,
+    collapsedLabel: String = "See analysis",
+    expandedLabel: String = "Show less"
 ) {
     var expanded by remember(insight.headline) { mutableStateOf(false) }
     val shape = RoundedCornerShape(18.dp)
@@ -1005,7 +1105,7 @@ private fun TracksideActivityIntelligenceCard(
             ),
             contentPadding = PaddingValues(vertical = 8.dp)
         ) {
-            Text(if (expanded) "Show less" else "See analysis",
+            Text(if (expanded) expandedLabel else collapsedLabel,
                 fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         }
     }
