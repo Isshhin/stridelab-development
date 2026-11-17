@@ -87,3 +87,12 @@ The realistic six-day 75→80 km, Thursday-unavailable case now exercises Saturd
 - Regressions addressed: no user-entered limit is treated as an arbitrary one-hour cap; history is no longer described as source-verified.
 - Risks: source and athlete tolerance remain unverified; the mixed-unit 3×3 km pattern cannot reconcile exact day/week distance; unsupported families remain deferred. Full repository suite/build and persistence/rollback checks remain pending.
 - Next: add wider background/history scenarios and an exact mixed time/distance segment reconciliation contract, then connect only to the existing read-only Android research panel if it preserves every non-executable boundary.
+
+### Batch 3 — Saturday long-run quality placement boundary
+
+- Starting branch/SHA: `research/engine15-cohesive-candidate-20261117`, `1d3151882a5b87e2d6141c81056cb9a82685d4cf`.
+- Change: generalized the integrated shadow test fixture's long day, then added the requested 75→80 km, six-day, Thursday-rest, Saturday-long/Sunday-easy quality opportunity scenario. Added a two-quality-in-one-week rejection assertion. No planner or policy implementation changed.
+- Verification: JBR 21.0.11 / Gradle 8.13, `:app:testDebugUnitTest --tests 'io.stridelab.privatealpha.Engine15I1IntegratedShadowMatrixTest' --tests 'io.stridelab.privatealpha.Engine15I9ReadOnlyBasePlanAssemblyTest' --no-daemon --max-workers=2`: **17 tests passed**, zero failures/errors/skips. An initial two-quality acceptance probe returned M5B's existing `MULTIPLE_QUALITY_REQUESTS_IN_WEEK` deferral; the final positive case uses one session and locks the deferral into a negative test.
+- Regressions addressed: integrated calendar invariants no longer hard-code Sunday as long day; no production behavior changed.
+- Risks: current independent candidate cannot meet a same-week two-session request; M5B has not established safe/verified frequency or dose accumulation for that case. One quality opportunity in a compatible Monday slot remains unscheduled and non-executable. Saturday-long first-week distance is 20.2 km versus the 20.0 km ideal.
+- Next: strengthen cross-background and missing-history selection/defer scenarios, then run the candidate's broad JVM and Android compile checks; do not implement multi-session eligibility without distinct frequency and cumulative-dose evidence.
