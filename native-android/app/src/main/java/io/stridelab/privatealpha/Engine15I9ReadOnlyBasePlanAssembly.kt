@@ -152,8 +152,8 @@ internal object Engine15I9ReadOnlyBasePlanAssembly {
                     originalDistanceWorkout = placed.slot.workout
                 )
             }
-            if (runs.count { it.role == Engine15M5RunRole.LONG } !=
-                if (source.input.runningDays >= 3) 1 else 0)
+            val requiredLongRuns = if (source.input.runningDays >= 3) 1 else 0
+            if (runs.count { it.role == Engine15M5RunRole.LONG } != requiredLongRuns)
                 return defer("BASE_LONG_RUN_ROLE_COUNT_MISMATCH",
                     "Only the original M5A long-run role may be represented.")
             if (runs.map { it.slotNumber }.toSet().size != runs.size ||
