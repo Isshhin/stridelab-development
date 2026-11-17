@@ -198,5 +198,42 @@ class Engine15M4BIndependentVolumePlannerTest {
         File(reportDir,"shadow-weekly-comparison.csv")
             .writeText(lines.joinToString("\n")+"\n")
         assertEquals(9,lines.size)
+
+        // R0 figures are FINAL mixed-unit planning-pace estimates, whereas
+        // M4B figures are PRE-COMPOSITION upper budgets. Different units of
+        // interpretation: never label their difference as delivered miles.
+        val profileCases=listOf(
+            Triple("experienced-new-app-75-to-80",athlete(),70.53333333333333),
+            Triple("large-jump-50-to-80-four-weeks",
+                athlete(average=50.0,longest=16.0,weeks=4),47.03333333333333),
+            Triple("developing-30-to-35",
+                athlete(average=30.0,target=35.0,longest=10.0,days=4),31.5),
+            Triple("beginner-zero-to-20",
+                athlete(average=0.0,target=20.0,longest=0.0,days=3,
+                    source="CONFIRMED_ZERO",experience=0),null),
+            Triple("returning-40-to-50",
+                athlete(average=40.0,target=50.0,longest=12.0,days=4,returning=true),28.3),
+            Triple("limited-three-days-75-to-80",
+                athlete(days=3),54.6),
+            Triple("experienced-unverified-quality-75-to-80",athlete(),70.53333333333333)
+        )
+        val summary=mutableListOf(
+            "profile,r0_final_mixed_unit_peak_estimate_km,m4b_precomposition_peak_budget_km,m4b_target_gap_km,status,review_after_completed_week,comparison_basis"
+        )
+        for((name,profile,r0Estimate) in profileCases) {
+            val candidate=propose(profile)
+            fun value(km:Double?)=km?.let {
+                "%.3f".format(java.util.Locale.US,it)
+            } ?: ""
+            summary+=listOf(
+                name,value(r0Estimate),value(candidate.peakProposedKm),
+                value(candidate.shortfallToRequestedTargetKm),
+                candidate.status.name,candidate.reviewAfterCompletedWeek?.toString() ?: "",
+                "NOT_DIRECTLY_COMPARABLE_R0_FINAL_ESTIMATE_VS_M4B_BUDGET"
+            ).joinToString(",")
+        }
+        File(reportDir,"synthetic-profile-comparison.csv")
+            .writeText(summary.joinToString("\n")+"\n")
+        assertEquals(8,summary.size)
     }
 }
