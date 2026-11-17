@@ -35,7 +35,11 @@ internal data class PlanRequest(
     /** Preserves the manual mileage-builder identity; never treated as race intent. */
     val trainYourWay:Boolean = false,
     /** Explicit consent to a foundation plan below the requested future mileage. */
-    val foundationAcknowledged:Boolean = false
+    val foundationAcknowledged:Boolean = false,
+    /** M3 evidence provenance. Legacy snapshots remain unclassified. */
+    val recentMileageBasis:String = "LEGACY_UNSPECIFIED",
+    /** Reported peak is not treated as a sustainable weekly average. */
+    val reportedPeakWeeklyKm:Double? = null
 ) {
     fun encode():JSONObject {
         val encoded=JSONObject().put("goal",goal).put("secondaryGoal",secondaryGoal).put("experience",experience).put("start",start.toString()).put("weeks",weeks).put("minutes",minutes)
@@ -56,6 +60,8 @@ internal data class PlanRequest(
         if(targetWeeklyKm!=null)encoded.put("targetWeeklyKm",targetWeeklyKm)
         if(trainYourWay)encoded.put("trainYourWay",true)
         if(foundationAcknowledged)encoded.put("foundationAcknowledged",true)
+        if(recentMileageBasis!="LEGACY_UNSPECIFIED")encoded.put("recentMileageBasis",recentMileageBasis)
+        if(reportedPeakWeeklyKm!=null)encoded.put("reportedPeakWeeklyKm",reportedPeakWeeklyKm)
         if(runningRecoveryHold)encoded.put("runningRecoveryHold",true)
         if(recentQualitySessionsPerWeek!=null)encoded.put("recentQualitySessionsPerWeek",recentQualitySessionsPerWeek)
         if(preferredQuality!="Threshold")encoded.put("preferredQuality",preferredQuality)
@@ -84,7 +90,9 @@ internal data class PlanRequest(
                     locks.keys().asSequence().associateWith { locks.getString(it) }
                 } ?: emptyMap(), j.has("allowDoubleDays") && j.getBoolean("allowDoubleDays"),
                 j.optBoolean("timeBudgetEnabled",true),j.optDouble("targetWeeklyKm").takeIf { j.has("targetWeeklyKm") },j.optBoolean("runningRecoveryHold",false),j.nullInt("recentQualitySessionsPerWeek"),
-                j.optBoolean("trainYourWay",false),j.optBoolean("foundationAcknowledged",false))
+                j.optBoolean("trainYourWay",false),j.optBoolean("foundationAcknowledged",false),
+                j.optString("recentMileageBasis","LEGACY_UNSPECIFIED"),
+                j.nullDouble("reportedPeakWeeklyKm"))
         }
     }
 }
