@@ -105,8 +105,7 @@ internal object Engine15M5WorkoutComposer {
         if(longest==null && !userDirected) return defer("LONGEST_RUN_EXPOSURE_UNKNOWN",
             "A numeric weekly budget does not establish per-session exposure.")
 
-        // M4B's provisional session bounds: one potential long exposure and
-        // a separate 80% bound for every other day. No exposure is increased.
+        // Coaching mode enforces provisional exposure bounds; user-directed mode reports them only.
         val longMaxUnits = if(userDirected) 1200 else tenths(longest!! + 1.0)
         val easyMaxUnits = if(userDirected) 1200 else tenths((longest!! + 1.0) * 0.8)
         if (easyMaxUnits < 1 || longMaxUnits < 1)
@@ -194,7 +193,13 @@ internal object Engine15M5WorkoutComposer {
         return Engine15M5CompositionDecision.Candidate(
             policyId = POLICY_ID,
             weeks = result,
-            ruleIds = listOf(
+            ruleIds = if(userDirected) listOf(
+                "M4B_RECOMPUTED_AND_MATCHED",
+                "WEEKLY_100M_BUDGET_EXACTLY_RECONCILED",
+                "USER_DIRECTED_VOLUME_NOT_VALIDATED_AS_ATHLETE_CAPACITY",
+                "PROVISIONAL_SESSION_EXPOSURE_IS_ADVISORY",
+                "UNSCHEDULED_SHADOW_ONLY_NO_PRODUCTION_MUTATION"
+            ) else listOf(
                 "M4B_RECOMPUTED_AND_MATCHED",
                 "WEEKLY_100M_BUDGET_EXACTLY_RECONCILED",
                 "LONG_MAX_40_PERCENT_AND_REPORTED_EXPOSURE",

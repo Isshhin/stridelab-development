@@ -224,7 +224,16 @@ internal object Engine15M6IndependentPeriodizationReview {
             requestedTargetKm = target,
             targetBudgetShortfallKm = gap,
             reviewAfterCompletedWeek = source.reviewAfterCompletedWeek,
-            ruleIds = listOf(
+            ruleIds = if(source.input.userDirected) listOf(
+                "USER_DIRECTED_BUDGET_RECONCILED_NOT_CAPACITY_VALIDATED",
+                "M6C_CALENDAR_AND_CONFLICT_RECOMPUTED",
+                "RECOVERY_RETAINED_AT_80_PERCENT_OF_PREVIOUS_WEEK",
+                "M5A_SESSION_DISTANCE_AND_LONG_CONTINUITY_RETAINED",
+                "QUALITY_OPPORTUNITIES_ARE_NOT_EXECUTABLE_WORKOUTS",
+                "BASELINE_REASSESSMENT_CHECKPOINT_NOT_AUTOMATIC_ADVANCEMENT",
+                "TARGET_BUDGET_NOT_ACTUAL_MILEAGE",
+                "ALL_FUTURE_WEEKS_PROVISIONAL_NO_PRODUCTION_AUTHORITY"
+            ) else listOf(
                 "ORIGINAL_M4B_PHASES_REPORTED_NOT_REPLANNED",
                 "M6C_CALENDAR_AND_CONFLICT_RECOMPUTED",
                 "M4B_CEILINGS_AND_RECOVERY_PREVIOUS_WEEK_RECHECKED",
