@@ -29,11 +29,16 @@ import org.json.JSONObject
             // Keep a previously chosen nonzero mileage baseline. Sparse
             // imported history must not silently raise an athlete's load.
             // When no baseline was supplied, use the eligible recorded estimate.
-            if(existing.weeklyKm>0.0) existing
-            else observedBaseline?.let { existing.copy(weeklyKm=it.weeklyKm) } ?: existing
+            if(existing.weeklyKm>0.0 || existing.recentMileageBasis in setOf(
+                    "UNKNOWN","CONFIRMED_ZERO","PEAK_WEEK_ONLY"
+                )) existing
+            else observedBaseline?.let {
+                existing.copy(weeklyKm=it.weeklyKm,recentMileageBasis="RECORDED_PARTIAL")
+            } ?: existing
         } else {
             PlanRequest(policyChoice="coordinated",
                 weeklyKm=observedBaseline?.weeklyKm ?: 0.0,
+                recentMileageBasis=if(observedBaseline==null) "LEGACY_UNSPECIFIED" else "RECORDED_PARTIAL",
                 longestKm=state.activities.filter { DashboardSummary.isRun(it) }
                     .mapNotNull { it.distanceM }.maxOrNull()?.div(1000) ?: 0.0)
         }
@@ -69,6 +74,9 @@ import org.json.JSONObject
     val input=PlanRequest.decode(JSONObject(encoded))
     fun edit(p:PlanRequest) { encoded=p.encode().toString() }
     var km by rememberSaveable { mutableStateOf(initial.weeklyKm.toString()) };var targetKm by rememberSaveable { mutableStateOf((initial.targetWeeklyKm ?: initial.weeklyKm).toString()) };var targetSupplied by rememberSaveable { mutableStateOf(initial.targetWeeklyKm != null) };var longest by rememberSaveable { mutableStateOf(initial.longestKm.toString()) }
+    var peakWeekKm by rememberSaveable {
+        mutableStateOf(initial.reportedPeakWeeklyKm?.toString() ?: "")
+    }
     var pace by rememberSaveable { mutableStateOf((initial.planningPace/60).toString()) };var start by rememberSaveable { mutableStateOf(maxOf(initial.start,LocalDate.now()).toString()) }
     var weeks by rememberSaveable { mutableStateOf(initial.weeks.toString()) };var minutes by rememberSaveable { mutableStateOf(initial.minutes.toString()) };var dailyMinutes by rememberSaveable { mutableStateOf(initial.dailyMinutes.toString()) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
@@ -103,7 +111,23 @@ import org.json.JSONObject
             }
         }
     }
-    fun request():PlanRequest=try { input.copy(start=LocalDate.parse(start),weeks=weeks.toInt(),minutes=minutes.toInt(),dailyMinutes=if(input.policyChoice=="multi-session")dailyMinutes.toInt() else input.dailyMinutes,weeklyKm=km.toDouble(),targetWeeklyKm=if(targetSupplied) targetKm.toDouble() else null,longestKm=longest.toDouble(),planningPace=pace.toDouble()*60,timeBudgetEnabled=false) } catch(e:Exception) { throw PlanConstraint("Enter a valid YYYY-MM-DD date and numeric recent and target mileage, pace, weeks, and daily budget if enabled.") }
+    fun request():PlanRequest=try {
+        val peak=peakWeekKm.trim().takeIf { it.isNotEmpty() }?.toDouble()
+        if(peak!=null && (!peak.isFinite() || peak !in 0.0..120.0))
+            throw PlanConstraint("Enter a valid recent peak between 0 and 120 km/week.")
+        if(input.recentMileageBasis=="PEAK_WEEK_ONLY" && (peak==null || peak<=0.0))
+            throw PlanConstraint("Enter your peak weekly mileage, or select Unknown if you cannot estimate it.")
+        input.copy(
+            start=LocalDate.parse(start),weeks=weeks.toInt(),minutes=minutes.toInt(),
+            dailyMinutes=if(input.policyChoice=="multi-session")dailyMinutes.toInt() else input.dailyMinutes,
+            weeklyKm=km.toDouble(),targetWeeklyKm=if(targetSupplied) targetKm.toDouble() else null,
+            longestKm=longest.toDouble(),planningPace=pace.toDouble()*60,
+            reportedPeakWeeklyKm=peak,timeBudgetEnabled=false
+        )
+    } catch(e:PlanConstraint) { throw e }
+      catch(e:Exception) {
+        throw PlanConstraint("Enter valid dates and numeric recent average, peak, target mileage, pace and weeks.")
+    }
     var previewWeek by rememberSaveable { mutableIntStateOf(0) }
     var runningSubPage by rememberSaveable { mutableIntStateOf(0) }
     var scheduleSubPage by rememberSaveable { mutableIntStateOf(0) }
@@ -298,11 +322,66 @@ import org.json.JSONObject
                 weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0,120.0) ?: 0.0,
                 longestKm = longest.toDoubleOrNull()?.coerceIn(0.0,42.0) ?: 0.0,
                 historyContent = {
-                    RunningHistoryConfirmation(state) { value -> km="%.1f".format(java.util.Locale.US,value);edit(input.copy(weeklyKm=value,foundationAcknowledged=false)) }
-                    if(input.trainYourWay && (km.toDoubleOrNull() ?: 0.0)==0.0 &&
+                    RunningHistoryConfirmation(state) { value ->
+                        km="%.1f".format(java.util.Locale.US,value)
+                        edit(input.copy(weeklyKm=value,recentMileageBasis="RECORDED_PARTIAL",
+                            foundationAcknowledged=false))
+                    }
+                    CoachFeedbackChoices(
+                        "Your recent weekly mileage",
+                        listOf("Usual average","Peak week only","No recent running","Unknown") +
+                            if(observedBaseline!=null) listOf("Recorded estimate") else emptyList(),
+                        when(input.recentMileageBasis) {
+                            "SELF_REPORTED_AVERAGE" -> "Usual average"
+                            "PEAK_WEEK_ONLY" -> "Peak week only"
+                            "CONFIRMED_ZERO" -> "No recent running"
+                            "UNKNOWN" -> "Unknown"
+                            "RECORDED_PARTIAL" -> if(observedBaseline!=null) "Recorded estimate" else null
+                            else -> null
+                        }
+                    ) { choice ->
+                        when(choice) {
+                            "Usual average" -> edit(input.copy(
+                                recentMileageBasis="SELF_REPORTED_AVERAGE",foundationAcknowledged=false))
+                            "Peak week only" -> {
+                                km="0"
+                                edit(input.copy(weeklyKm=0.0,recentMileageBasis="PEAK_WEEK_ONLY",
+                                    foundationAcknowledged=false))
+                            }
+                            "No recent running" -> {
+                                km="0"
+                                edit(input.copy(weeklyKm=0.0,recentMileageBasis="CONFIRMED_ZERO",
+                                    foundationAcknowledged=false))
+                            }
+                            "Recorded estimate" -> observedBaseline?.let { observed ->
+                                km="%.1f".format(java.util.Locale.US,observed.weeklyKm)
+                                edit(input.copy(weeklyKm=observed.weeklyKm,
+                                    recentMileageBasis="RECORDED_PARTIAL",foundationAcknowledged=false))
+                            }
+                            else -> {
+                                km="0"
+                                edit(input.copy(weeklyKm=0.0,recentMileageBasis="UNKNOWN",
+                                    foundationAcknowledged=false))
+                            }
+                        }
+                    }
+                    FormText("Highest recent week (optional, km)",peakWeekKm,{
+                        peakWeekKm=it
+                    },numeric=true)
+                    Text(
+                        "Use your usual weekly average, not your biggest week, as the " +
+                            "starting mileage. Self-reported data is provisional. " +
+                            "Recorded estimates may have incomplete coverage; Garmin import is optional.",
+                        style=MaterialTheme.typography.bodySmall,
+                        modifier=Modifier.testTag("builder-mileage-provenance-note")
+                    )
+                    if(input.trainYourWay &&
+                        (input.recentMileageBasis in setOf("UNKNOWN","PEAK_WEEK_ONLY","LEGACY_UNSPECIFIED") &&
+                            (km.toDoubleOrNull() ?: 0.0)==0.0 ||
+                            input.recentMileageBasis=="CONFIRMED_ZERO") &&
                         (targetKm.toDoubleOrNull() ?: 0.0)>0.0) {
                         Text(
-                            "Recent weekly mileage is zero or unconfirmed. The " +
+                            "Recent weekly average is missing or zero. The " +
                             "${targetKm} km/week value is a future target, not a training " +
                             "baseline. Enter your actual recent mileage here. Leaving it " +
                             "at zero requires explicitly choosing a foundation plan " +
@@ -319,7 +398,9 @@ import org.json.JSONObject
                 onExperience = { edit(input.copy(experience=it)) },
                 onWeeklyKm = { value ->
                     km=value.toInt().toString()
-                    edit(input.copy(weeklyKm=value,foundationAcknowledged=false))
+                    edit(input.copy(weeklyKm=value,
+                        recentMileageBasis="SELF_REPORTED_AVERAGE",
+                        foundationAcknowledged=false))
                 },
                 onLongestKm = { value ->
                     longest=value.toInt().toString()
