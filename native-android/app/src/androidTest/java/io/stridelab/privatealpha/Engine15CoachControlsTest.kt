@@ -31,6 +31,60 @@ class Engine15CoachControlsTest {
         val dir=context.getExternalFilesDir(null) ?: context.cacheDir
         java.io.File(dir,"$name.png").outputStream().use { compose.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
     }
+
+    @Test fun builderAuthorsAndSavesARepeatedUserDefinedWorkoutByStableSlot() {
+        val saved=mutableStateOf<Map<String,RunningPrescription>>(emptyMap())
+        show {
+            TracksideStructuredWorkoutAuthoring(weeks=2,qualityCount=1,saved=saved.value,
+                onSave={saved.value=it},onRemove={key->saved.value=saved.value-key})
+        }
+        compose.onNodeWithTag("builder-workout-add-warm_up").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-workout-amount-1").performScrollTo().performTextInput("2000")
+        compose.onNodeWithTag("builder-workout-effort-1").performTextInput("Easy by feel")
+        compose.onNodeWithTag("builder-workout-add-cool_down").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-workout-amount-2").performScrollTo().performTextInput("2000")
+        compose.onNodeWithTag("builder-workout-add-repeat-group").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-workout-down-2").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-workout-save").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-workout-error").assertDoesNotExist()
+        compose.onNodeWithTag("builder-workout-copy-missing").performScrollTo().performClick()
+        compose.runOnIdle {
+            val workout=checkNotNull(saved.value["w1-run1"])
+            assertEquals("Threshold",workout.family)
+            assertEquals(4,workout.segments.count { it.purpose=="WORK" })
+            assertEquals(3,workout.segments.count { it.purpose=="RECOVERY" })
+            assertEquals(8400,workout.meters)
+            assertEquals(setOf("w1-run1","w2-run1"),saved.value.keys)
+            assertEquals(workout,saved.value["w2-run1"])
+            assertEquals(workout,PlanRequest.decode(PlanRequest(policyChoice="engine15",userDefinedQualityWorkouts=saved.value).encode()).userDefinedQualityWorkouts["w1-run1"])
+        }
+    }
+
+    @Test fun builderRequiresExplicitDistanceEquivalentsForTimedRepeatGroups() {
+        val saved=mutableStateOf<Map<String,RunningPrescription>>(emptyMap())
+        show {
+            TracksideStructuredWorkoutAuthoring(weeks=1,qualityCount=1,saved=saved.value,
+                onSave={saved.value=it},onRemove={key->saved.value=saved.value-key})
+        }
+        compose.onNodeWithTag("builder-workout-add-warm_up").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-workout-amount-1").performScrollTo().performTextInput("2000")
+        compose.onNodeWithTag("builder-workout-add-cool_down").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-workout-amount-2").performScrollTo().performTextInput("2000")
+        compose.onNodeWithText("Time repeats").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-workout-group-work-equivalent").performScrollTo().performTextInput("800")
+        compose.onNodeWithTag("builder-workout-group-recovery-equivalent").performScrollTo().performTextInput("400")
+        compose.onNodeWithTag("builder-workout-add-repeat-group").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-workout-down-2").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-workout-save").performScrollTo().performClick()
+        compose.runOnIdle {
+            val workout=checkNotNull(saved.value["w1-run1"])
+            val steps=checkNotNull(workout.mixedSegments)
+            assertEquals(3,workout.encode().getInt("version"))
+            assertEquals(8400,workout.reconciledDistanceMeters)
+            assertEquals(4,steps.count { it.purpose=="WORK" })
+            assertEquals(3,steps.count { it.purpose=="RECOVERY" })
+        }
+    }
     @Test fun plannedWorkoutShortcutsUseRealMoveAndMissedCallbacks() {
         val p=plan()
         var moved=0

@@ -25,6 +25,85 @@ class Engine15IndependentPlanGeneratorTest {
         recentMileageBasis = "SELF_REPORTED_AVERAGE"
     )
 
+    @Test fun userWorkoutAuthoringBuildsDistanceAndMixedUnitPlansWithoutInferringDistance() {
+        val distance=Engine15UserWorkoutAuthoring.build("Intervals",listOf(
+            RunningStepV2("WARM_UP","Easy",meters=2000),
+            RunningStepV2("WORK","User fast target",meters=800),
+            RunningStepV2("RECOVERY","Easy",meters=400),
+            RunningStepV2("WORK","User fast target",meters=800),
+            RunningStepV2("COOL_DOWN","Easy",meters=2000)
+        ))
+        assertEquals(1,distance.encode().getInt("version"))
+        assertEquals(6000,distance.meters)
+        assertEquals(3,MixedRunningStepGrouping.of(listOf(
+            RunningStepV2("WARM_UP","Easy",meters=2000),
+            RunningStepV2("WORK","User fast target",meters=800),
+            RunningStepV2("RECOVERY","Easy",meters=400),
+            RunningStepV2("WORK","User fast target",meters=800),
+            RunningStepV2("COOL_DOWN","Easy",meters=2000)
+        )).size)
+
+        val timed=Engine15UserWorkoutAuthoring.build("Threshold",listOf(
+            RunningStepV2("WARM_UP","Easy",meters=2000),
+            RunningStepV2("WORK","User threshold target",seconds=300,distanceEquivalentMeters=1200),
+            RunningStepV2("RECOVERY","Easy",seconds=90,distanceEquivalentMeters=300),
+            RunningStepV2("WORK","User threshold target",seconds=300,distanceEquivalentMeters=1200),
+            RunningStepV2("TRANSITION","Easy between blocks",seconds=180,distanceEquivalentMeters=300),
+            RunningStepV2("WORK","User speed target",meters=200),
+            RunningStepV2("RECOVERY","Easy",meters=200),
+            RunningStepV2("WORK","User speed target",meters=200),
+            RunningStepV2("COOL_DOWN","Easy",meters=4000)
+        ))
+        assertEquals(3,timed.encode().getInt("version"))
+        assertEquals(9600,timed.reconciledDistanceMeters)
+        assertEquals(timed,RunningPrescription.decode(timed.encode()))
+    }
+
+    @Test fun userWorkoutAuthoringRejectsUnknownTimedDistanceAndInvalidStepOrder() {
+        assertThrows(PlanConstraint::class.java) {
+            Engine15UserWorkoutAuthoring.build("Tempo",listOf(
+                RunningStepV2("WARM_UP","Easy",meters=1000),
+                RunningStepV2("WORK","User target",seconds=300),
+                RunningStepV2("COOL_DOWN","Easy",meters=1000)
+            ))
+        }
+        assertThrows(PlanConstraint::class.java) {
+            Engine15UserWorkoutAuthoring.build("Fartlek",listOf(
+                RunningStepV2("WARM_UP","Easy",meters=1000),
+                RunningStepV2("RECOVERY","Easy",meters=100),
+                RunningStepV2("WORK","User target",meters=400),
+                RunningStepV2("COOL_DOWN","Easy",meters=1000)
+            ))
+        }
+    }
+
+    @Test fun workoutEditorReopensAndReordersRepeatGroupsAsAtomicBlocks() {
+        val workout=Engine15UserWorkoutAuthoring.build("Intervals",listOf(
+            RunningStepV2("WARM_UP","Easy",meters=1000),
+            RunningStepV2("WORK","User target",meters=800),
+            RunningStepV2("RECOVERY","Easy",meters=400),
+            RunningStepV2("WORK","User target",meters=800),
+            RunningStepV2("TRANSITION","Easy between blocks",meters=200),
+            RunningStepV2("WORK","Second block",meters=200),
+            RunningStepV2("COOL_DOWN","Easy",meters=1000)
+        ))
+        val savedRequest=PlanRequest(policyChoice="engine15",userDefinedQualityWorkouts=mapOf("w1-run1" to workout))
+        val reopened=WorkoutDraft.from(PlanRequest.decode(savedRequest.encode())
+            .userDefinedQualityWorkouts.getValue("w1-run1"),1)
+        val group=reopened.steps.filter { it.groupId!=null }
+        assertEquals(listOf("WORK","RECOVERY","WORK"),group.map { it.purpose })
+        assertEquals(2,group.count { it.purpose=="WORK" })
+
+        val moved=moveWorkoutStepBlock(reopened.steps,1,1)
+        val groupIndices=moved.indices.filter { moved[it].groupId==group.first().groupId }
+        assertEquals((groupIndices.first()..groupIndices.last()).toList(),groupIndices)
+        assertEquals(listOf("WORK","RECOVERY","WORK"),groupIndices.map { moved[it].purpose })
+        val edited=updateWorkoutStep(moved,groupIndices.first()) { it.copy(amount="900") }
+        assertEquals(listOf("900","900"),edited.filter { it.groupId==group.first().groupId && it.purpose=="WORK" }.map { it.amount })
+        assertEquals(1,edited.count { it.groupId==group.first().groupId && it.purpose=="RECOVERY" })
+        assertTrue(removeWorkoutStepBlock(edited,groupIndices.first()).none { it.groupId==group.first().groupId })
+    }
+
     @Test fun assemblesCompleteEightWeekSaturdayLongSundayEasyCandidate() {
         val decision = Engine15IndependentPlanGenerator.preview(request(), owner, "candidate", now)
         assertTrue("Expected candidate, got $decision", decision is Engine15IndependentPlanDecision.Candidate)

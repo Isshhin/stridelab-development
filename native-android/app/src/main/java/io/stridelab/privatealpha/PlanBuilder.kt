@@ -429,6 +429,9 @@ import org.json.JSONObject
             )
             3 -> TracksideAdvancedRunning(
                 guided = advancedBackPage != 0,
+                weeks = input.weeks,
+                userDirectedPlanning = input.userDirectedPlanning,
+                userDefinedQualityWorkouts = input.userDefinedQualityWorkouts,
                 weeklyKm = targetKm.toDoubleOrNull()?.coerceIn(0.0, 120.0) ?: 0.0,
                 qualityCount = input.qualityCount.coerceIn(0, 2),
                 maxQualityCount = minOf(
@@ -456,6 +459,12 @@ import org.json.JSONObject
                         else advancedQualityTypes+quality
                     advancedQualityCsv = updated.sorted().joinToString("|")
                     edit(input.copy(allowedQualityTypes=updated))
+                },
+                onSaveQualityWorkouts = { workouts ->
+                    edit(input.copy(userDefinedQualityWorkouts=workouts))
+                },
+                onRemoveQualityWorkout = { key ->
+                    edit(input.copy(userDefinedQualityWorkouts=input.userDefinedQualityWorkouts-key))
                 },
                 onBack = { runningSubPage = advancedBackPage },
                 onContinue = {

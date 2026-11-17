@@ -28,6 +28,9 @@ import java.util.Locale
 @Composable
 internal fun TracksideAdvancedRunning(
     guided: Boolean,
+    weeks:Int,
+    userDirectedPlanning:Boolean,
+    userDefinedQualityWorkouts:Map<String,RunningPrescription>,
     weeklyKm: Double,
     qualityCount: Int,
     maxQualityCount: Int,
@@ -35,6 +38,8 @@ internal fun TracksideAdvancedRunning(
     onWeeklyKm: (Double) -> Unit,
     onQualityCount: (Int) -> Unit,
     onToggleQuality: (String) -> Unit,
+    onSaveQualityWorkouts:(Map<String,RunningPrescription>)->Unit,
+    onRemoveQualityWorkout:(String)->Unit,
     onBack: () -> Unit,
     onContinue: () -> Unit
 ) {
@@ -191,9 +196,18 @@ internal fun TracksideAdvancedRunning(
             Spacer(Modifier.height(8.dp))
         }
         Text(
-            "Target mileage is kept separate from recent training. Selected quality styles are used when eligible.",
+            "Target mileage is kept separate from recent training. Workout-style preferences alone do not create a quality prescription.",
             fontSize = 11.sp, lineHeight = 15.sp,
             color = TracksidePalette.textMuted
         )
+        if(BuildConfig.DEBUG && userDirectedPlanning && qualityCount>0) {
+            Spacer(Modifier.height(14.dp))
+            TracksideStructuredWorkoutAuthoring(weeks,qualityCount,userDefinedQualityWorkouts,
+                onSaveQualityWorkouts,onRemoveQualityWorkout)
+        } else if(BuildConfig.DEBUG && qualityCount>0) {
+            Text("Switch to User directed planning to author review-only quality workouts. Coach-generated quality remains deferred.",
+                fontSize=11.sp,lineHeight=15.sp,color=TracksidePalette.textMuted,
+                modifier=Modifier.testTag("builder-quality-deferred-note"))
+        }
     }
 }
