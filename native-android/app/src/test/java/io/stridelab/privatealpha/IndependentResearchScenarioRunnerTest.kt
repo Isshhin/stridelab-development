@@ -50,7 +50,7 @@ class IndependentResearchScenarioRunnerTest {
         isoDay = day,
         family = family,
         input = IndependentQualityFitnessInput(
-            confirmedRecentWorkSeconds = recentWorkSeconds,
+            reportedRecentWorkSeconds = recentWorkSeconds,
             approvedWorkCeilingSeconds = 1200,
             approvedIncreaseSeconds = 0,
             availableSessionSeconds = 3600,

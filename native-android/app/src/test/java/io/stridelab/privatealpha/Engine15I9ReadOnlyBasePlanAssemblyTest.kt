@@ -39,7 +39,7 @@ class Engine15I9ReadOnlyBasePlanAssemblyTest {
         slotNumber = 2,
         family = IndependentQualityFamily.THRESHOLD,
         fitnessInput = IndependentQualityFitnessInput(
-            confirmedRecentWorkSeconds = 1200,
+            reportedRecentWorkSeconds = 1200,
             approvedWorkCeilingSeconds = 1200,
             availableSessionSeconds = 3600,
             qualityAuthorized = true

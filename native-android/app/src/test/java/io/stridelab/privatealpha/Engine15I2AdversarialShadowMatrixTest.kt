@@ -41,7 +41,7 @@ class Engine15I2AdversarialShadowMatrixTest {
                   exposure:Int?=1200,time:Int=3600)=Engine15M5QualityPreviewRequest(
         weekNumber=week,slotNumber=slot,family=IndependentQualityFamily.THRESHOLD,
         fitnessInput=IndependentQualityFitnessInput(
-            confirmedRecentWorkSeconds=exposure,approvedWorkCeilingSeconds=1200,
+            reportedRecentWorkSeconds=exposure,approvedWorkCeilingSeconds=1200,
             approvedIncreaseSeconds=0,availableSessionSeconds=time,
             qualityAuthorized=true),
         explicitlyReviewedDose=reviewed,reviewReference="synthetic-caller-review")

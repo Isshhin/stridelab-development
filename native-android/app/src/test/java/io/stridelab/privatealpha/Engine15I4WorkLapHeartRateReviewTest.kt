@@ -39,7 +39,7 @@ class Engine15I4WorkLapHeartRateReviewTest {
         weekNumber = 1, slotNumber = 1,
         family = IndependentQualityFamily.THRESHOLD,
         fitnessInput = IndependentQualityFitnessInput(
-            confirmedRecentWorkSeconds = confirmedSeconds,
+            reportedRecentWorkSeconds = confirmedSeconds,
             approvedWorkCeilingSeconds = 1200,
             approvedIncreaseSeconds = 0,
             availableSessionSeconds = 3600,

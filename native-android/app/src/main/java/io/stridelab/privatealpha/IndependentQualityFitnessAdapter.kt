@@ -9,7 +9,7 @@ package io.stridelab.privatealpha
  * ceiling/increase. Until then this stays a standalone research candidate.
  */
 internal data class IndependentQualityFitnessInput(
-    val confirmedRecentWorkSeconds: Int?,
+    val reportedRecentWorkSeconds: Int?,
     val approvedWorkCeilingSeconds: Int?,
     val approvedIncreaseSeconds: Int = 0,
     /** Null means no user-supplied time cap; it does not mean missing workout evidence. */
@@ -18,8 +18,8 @@ internal data class IndependentQualityFitnessInput(
     val recoveryOrReturnHold: Boolean = false
 ) {
     init {
-        require(confirmedRecentWorkSeconds == null ||
-            confirmedRecentWorkSeconds in 0..14400)
+        require(reportedRecentWorkSeconds == null ||
+            reportedRecentWorkSeconds in 0..14400)
         require(approvedWorkCeilingSeconds == null ||
             approvedWorkCeilingSeconds in 0..14400)
         require(approvedIncreaseSeconds in 0..14400)
@@ -71,7 +71,7 @@ internal object IndependentQualityFitnessAdapter {
             return defer("QUALITY_NOT_AUTHORIZED", "An upstream coaching policy must authorize quality.")
         if (input.recoveryOrReturnHold)
             return defer("RECOVERY_HOLD", "A recovery/return hold prevents quality-session selection.")
-        val observed = input.confirmedRecentWorkSeconds
+        val observed = input.reportedRecentWorkSeconds
             ?: return defer("QUALITY_EXPOSURE_UNKNOWN", "Recorded quality-work exposure is unavailable.")
         val approved = input.approvedWorkCeilingSeconds
             ?: return defer("WORK_CEILING_UNKNOWN", "No independent coaching work-dose ceiling was supplied.")
@@ -151,7 +151,7 @@ internal object IndependentQualityFitnessAdapter {
             recoverySeconds = selected.third,
             totalSeconds = total,
             ruleIds = listOf(
-                "CONFIRMED_QUALITY_WORK_EXPOSURE",
+                "CALLER_REPORTED_QUALITY_WORK_EXPOSURE",
                 "EXPLICIT_WORK_CEILING",
                 "EXPLICIT_INCREMENT_ALLOWANCE",
                 if (input.availableSessionSeconds == null)

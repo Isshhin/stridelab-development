@@ -50,7 +50,7 @@ class Engine15I5TimedDistanceFeasibilityTest {
         slotNumber = slot,
         family = family,
         fitnessInput = IndependentQualityFitnessInput(
-            confirmedRecentWorkSeconds = observed,
+            reportedRecentWorkSeconds = observed,
             approvedWorkCeilingSeconds = 1200,
             approvedIncreaseSeconds = 0,
             availableSessionSeconds = 3600,

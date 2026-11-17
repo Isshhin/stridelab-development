@@ -36,7 +36,7 @@ class Engine15I8CalibrationArtifactIntegrityTest {
     private fun quality(reviewed: Boolean = true) = Engine15M5QualityPreviewRequest(
         weekNumber = 1, slotNumber = 1, family = IndependentQualityFamily.THRESHOLD,
         fitnessInput = IndependentQualityFitnessInput(
-            confirmedRecentWorkSeconds = 480,
+            reportedRecentWorkSeconds = 480,
             approvedWorkCeilingSeconds = 1200,
             approvedIncreaseSeconds = 0,
             availableSessionSeconds = 3600,

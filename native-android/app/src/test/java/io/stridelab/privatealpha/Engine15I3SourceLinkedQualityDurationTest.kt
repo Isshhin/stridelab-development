@@ -44,7 +44,7 @@ class Engine15I3SourceLinkedQualityDurationTest {
     ) = Engine15M5QualityPreviewRequest(
         weekNumber = week, slotNumber = slot, family = family,
         fitnessInput = IndependentQualityFitnessInput(
-            confirmedRecentWorkSeconds = observed,
+            reportedRecentWorkSeconds = observed,
             approvedWorkCeilingSeconds = 1200,
             approvedIncreaseSeconds = 0,
             availableSessionSeconds = available,

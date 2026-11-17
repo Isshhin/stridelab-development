@@ -43,7 +43,7 @@ class IndependentQualityOverlayComposerTest {
     ) = IndependentQualityDayRequest(
         week, day, family,
         IndependentQualityFitnessInput(
-            confirmedRecentWorkSeconds = observedSeconds,
+            reportedRecentWorkSeconds = observedSeconds,
             approvedWorkCeilingSeconds = 1200,
             availableSessionSeconds = 3600,
             qualityAuthorized = authorization,

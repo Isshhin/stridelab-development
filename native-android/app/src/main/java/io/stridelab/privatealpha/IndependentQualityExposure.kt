@@ -74,7 +74,7 @@ internal data class IndependentQualityExposureAssessment(
     /** No source importer or cryptographic binding has been implemented yet. */
     val sourceEvidenceVerified: Boolean get() = false
 
-    /** M2's confirmedRecentWorkSeconds must NOT be filled from this field yet. */
+    /** M2's reportedRecentWorkSeconds must NOT be filled from this field yet. */
     val authorizedForTemplateSelection: Boolean get() = false
 }
 

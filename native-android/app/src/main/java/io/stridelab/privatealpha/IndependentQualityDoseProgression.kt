@@ -254,7 +254,7 @@ internal object IndependentQualityDoseProgression {
             val candidate = when (val result = IndependentQualityFitnessAdapter.generate(
                 slot.family,
                 IndependentQualityFitnessInput(
-                    confirmedRecentWorkSeconds = repeated,
+                    reportedRecentWorkSeconds = repeated,
                     approvedWorkCeilingSeconds = perSession,
                     approvedIncreaseSeconds = slot.explicitlyApprovedIncreaseSeconds,
                     availableSessionSeconds = slot.availableSessionSeconds,

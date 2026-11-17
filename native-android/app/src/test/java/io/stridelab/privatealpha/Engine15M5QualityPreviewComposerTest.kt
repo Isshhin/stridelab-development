@@ -51,7 +51,7 @@ class Engine15M5QualityPreviewComposerTest {
     ) = Engine15M5QualityPreviewRequest(
         weekNumber = week, slotNumber = slot, family = family,
         fitnessInput = IndependentQualityFitnessInput(
-            confirmedRecentWorkSeconds = recentWorkSeconds,
+            reportedRecentWorkSeconds = recentWorkSeconds,
             approvedWorkCeilingSeconds = ceilingSeconds,
             approvedIncreaseSeconds = approvedIncreaseSeconds,
             availableSessionSeconds = availableSeconds,

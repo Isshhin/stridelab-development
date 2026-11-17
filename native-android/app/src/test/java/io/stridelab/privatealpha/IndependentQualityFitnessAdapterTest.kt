@@ -13,7 +13,7 @@ class IndependentQualityFitnessAdapterTest {
         authorized: Boolean = true,
         hold: Boolean = false
     ) = IndependentQualityFitnessInput(
-        confirmedRecentWorkSeconds = observedMinutes?.times(60),
+        reportedRecentWorkSeconds = observedMinutes?.times(60),
         approvedWorkCeilingSeconds = ceilingMinutes?.times(60),
         approvedIncreaseSeconds = additionalMinutes * 60,
         availableSessionSeconds = sessionMinutes * 60,
@@ -57,6 +57,7 @@ class IndependentQualityFitnessAdapterTest {
         assertEquals(600.0, (developed.workout.elements.last() as IndependentWorkoutElement.Step).value.amount, 0.0)
         assertNotEquals(intro.id, developed.id)
         assertTrue(intro.id.startsWith("engine15-threshold-"))
+        assertTrue("CALLER_REPORTED_QUALITY_WORK_EXPOSURE" in intro.ruleIds)
     }
 
     @Test fun tempoChangesContinuousDoseWithConfirmedFitnessExposure() {
@@ -72,7 +73,7 @@ class IndependentQualityFitnessAdapterTest {
 
     @Test fun missingUserTimeLimitDoesNotCapAnEvidenceBoundedLongThresholdSession() {
         val profile = IndependentQualityFitnessInput(
-            confirmedRecentWorkSeconds = 48 * 60,
+            reportedRecentWorkSeconds = 48 * 60,
             approvedWorkCeilingSeconds = 60 * 60,
             availableSessionSeconds = null,
             qualityAuthorized = true
@@ -85,7 +86,7 @@ class IndependentQualityFitnessAdapterTest {
 
     @Test fun explicitUserTimeLimitConstrainsCandidateAndZeroDefers() {
         val profile = IndependentQualityFitnessInput(
-            confirmedRecentWorkSeconds = 48 * 60,
+            reportedRecentWorkSeconds = 48 * 60,
             approvedWorkCeilingSeconds = 60 * 60,
             availableSessionSeconds = 60 * 60,
             qualityAuthorized = true
@@ -99,7 +100,7 @@ class IndependentQualityFitnessAdapterTest {
 
     @Test fun longerContinuousTempoUsesDemonstratedDoseUntilAnExplicitTimeLimitBinds() {
         val profile = IndependentQualityFitnessInput(
-            confirmedRecentWorkSeconds = 48 * 60,
+            reportedRecentWorkSeconds = 48 * 60,
             approvedWorkCeilingSeconds = 60 * 60,
             qualityAuthorized = true
         )

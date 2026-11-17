@@ -96,3 +96,12 @@ The realistic six-day 75→80 km, Thursday-unavailable case now exercises Saturd
 - Regressions addressed: integrated calendar invariants no longer hard-code Sunday as long day; no production behavior changed.
 - Risks: current independent candidate cannot meet a same-week two-session request; M5B has not established safe/verified frequency or dose accumulation for that case. One quality opportunity in a compatible Monday slot remains unscheduled and non-executable. Saturday-long first-week distance is 20.2 km versus the 20.0 km ideal.
 - Next: strengthen cross-background and missing-history selection/defer scenarios, then run the candidate's broad JVM and Android compile checks; do not implement multi-session eligibility without distinct frequency and cumulative-dose evidence.
+
+### Batch 4 — reported quality exposure terminology
+
+- Starting branch/SHA: `research/engine15-cohesive-candidate-20261117`, `b82109d48eca740b2f7685b19aceff103f32f78d`.
+- Change: renamed the M2 input `confirmedRecentWorkSeconds` to `reportedRecentWorkSeconds` across its I3/M9 use and all Kotlin callers/tests. Output metadata now says `CALLER_REPORTED_QUALITY_WORK_EXPOSURE`; added a regression assertion and a durable AGENTS rule against equating caller reports with source evidence. This changes an internal Kotlin API only; no JSON, database or saved-plan format changed.
+- Verification: test-first provenance assertion failed before implementation. Afterwards JBR 21.0.11 / Gradle 8.13 compiled main and test sources and passed `IndependentQualityFitnessAdapterTest`, `Engine15I3SourceLinkedQualityDurationTest`, `IndependentQualityDoseProgressionTest`: **40 tests passed**, zero failures/errors/skips. `git diff --check` passed; `rg` found no remaining old input/rule names in source/test trees.
+- Regressions addressed: removed a misleading “confirmed” label at the selector boundary; preserved M3's explicit prohibition against auto-filling from its unverified source assertions.
+- Risks: work ceilings, increments, family claims and source bindings remain caller assertions; terminology does not strengthen evidence. Broader JVM/build and persistence/offline checks remain pending.
+- Next: broader background/history QA followed by full repository verification; no production activation.
