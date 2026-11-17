@@ -169,6 +169,14 @@ Verify normal UI restoration of a synthetic plan after application process resta
 - **Limitations:** Plan Builder still lacks controls to author a structured workout or per-step distance equivalences; generation currently consumes the typed request contract. An unknown timed recovery therefore defers. Automatic coach-generated family selection/intensity remains unqualified, and user-authored targets remain distinct from coach prescriptions. Release remains unchanged.
 - **Implementation commit:** `baa774b3eb1843c5cd50d6d144fe7d9daf7bde9d` (`feat(engine15): reconcile explicit mixed-unit workouts`). Documentation checkpoint follows.
 
+### Batch 16 — explicit multi-block transition steps (2026-11-17)
+
+- **Starting head:** `5e73dfd3aaa850dbaf312950c6156c2f02fb55e7`, confirmed equal to the remote feature branch and PR #131 head; PR remains open, draft and unmerged.
+- **Change:** extended the existing running-step purposes with `TRANSITION` for distance or timed between-block steps. Version 3 requires the timed transition's user-supplied distance equivalent like every other timed step; all steps remain ordered, and existing repeat grouping stops at the transition. The current planned-workout renderer labels the step as “Transition.” Version 1/2 decoding and release generation flags are unchanged.
+- **Complete-plan case:** a user-authored candidate retains a 3×1 km threshold block, explicit 3-minute/300 m transition, separate 4×200 m speed block, warm-up, all recoveries and cooldown; reconciles to a 13.3 km scheduled slot; and preserves the same structured prescription after saved-plan encode/decode.
+- **Tests/builds:** red-first `Engine15IndependentPlanGeneratorTest` initially failed at contract construction because `TRANSITION` was rejected; after implementation the focused generator suite passed (24 tests). Full debug JVM suite passed **1,033 tests / 131 suites, zero failures/errors, one skipped legacy quality capture**; full suite with `-PstrideEngine15IndependentRunningActive=false` passed with the same result. `:app:compileDebugAndroidTestKotlin`, `:app:assembleDebugAndroidTest`, `:app:assembleDebug`, and `:app:assembleRelease` passed. `Engine15CoachControlsTest` passed **13/13** on isolated `codex-engine15-clean-20261113` API 35, including separate repeat groups and transition rendering. `git diff --check` passed. No physical device was used.
+- **Limits:** no Plan Builder interface to author these structured steps was added, and automatic coach selection/intensity remains deferred. User-defined quality remains review-only and debug/development-only; this change does not claim coaching qualification or production readiness.
+
 ## M10d — Android review-flow and backup reconciliation (2026-11-15)
 
 - **Starting point:** isolated branch `integration/engine15-m10d-android-reconciliation-20261115`, based on PR #91/M10c `a27a552632b53f97b932635236363cbb9b19adaa`; M10c source remains untouched.

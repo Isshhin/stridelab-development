@@ -147,6 +147,39 @@ class Engine15CoachControlsTest {
         compose.onNodeWithTag("workout-step-single-2").assertExists()
     }
 
+    @Test fun mixedWorkoutKeepsTransitionBetweenDistinctBlocks() {
+        val steps=listOf(
+            RunningStepV2("WARM_UP","Easy",meters=2000),
+            RunningStepV2("WORK","User threshold target",meters=1000),
+            RunningStepV2("RECOVERY","Easy jog",meters=400),
+            RunningStepV2("WORK","User threshold target",meters=1000),
+            RunningStepV2("RECOVERY","Easy jog",meters=400),
+            RunningStepV2("WORK","User threshold target",meters=1000),
+            RunningStepV2("TRANSITION","Easy between blocks",seconds=180,distanceEquivalentMeters=300),
+            RunningStepV2("WORK","User speed target",meters=200),
+            RunningStepV2("RECOVERY","Easy jog",meters=200),
+            RunningStepV2("WORK","User speed target",meters=200),
+            RunningStepV2("COOL_DOWN","Easy",meters=6600)
+        )
+        val session=PlannedSession("two-block",day.plusDays(1),"run",
+            "Threshold and speed workout",75,13.3,"quality",quality=true,
+            runningPrescription=RunningPrescription("QUALITY","Threshold",emptyList(),steps,
+                reconciledDistanceMeters=13300))
+        val p=plan().copy(sessions=listOf(session))
+        show {
+            TracksidePlannedRunningPreview(
+                session,Engine15SessionPresentation.forSession(p,session.id),
+                session.title,"User-defined targets",onBack={}
+            )
+        }
+        compose.onNodeWithTag("workout-mixed-step-0").assertExists()
+        compose.onNodeWithTag("workout-mixed-repeat-1").assertExists()
+        compose.onNodeWithTag("workout-mixed-step-2").assertExists()
+        compose.onNodeWithText("Transition").assertExists()
+        compose.onNodeWithTag("workout-mixed-repeat-3").assertExists()
+        compose.onNodeWithTag("workout-mixed-step-4").assertExists()
+    }
+
     @Test fun reviewedTimeOnlyPreviewNeverShowsOriginalDistanceAsCurrentTarget() {
         val session=PlannedSession(
             "shortened",day.plusDays(1),"run","Easy run",60,10.0,"easy",

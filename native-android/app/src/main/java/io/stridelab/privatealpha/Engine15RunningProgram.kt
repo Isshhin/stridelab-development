@@ -8,7 +8,7 @@ import org.json.JSONObject
 
 /** Planned distance, not measured execution, threshold or fitness evidence. */
 internal data class RunningSegment(val purpose:String, val meters:Int, val effort:String) {
-    init { require(purpose in setOf("WARM_UP","WORK","RECOVERY","COOL_DOWN","EASY") && meters>0 && meters<=120000) }
+    init { require(purpose in setOf("WARM_UP","WORK","RECOVERY","TRANSITION","COOL_DOWN","EASY") && meters>0 && meters<=120000) }
     fun encode()=JSONObject().put("purpose",purpose).put("meters",meters).put("effort",effort)
     companion object { fun decode(j:JSONObject)=RunningSegment(j.getString("purpose"),j.getInt("meters"),j.getString("effort")) }
 }
@@ -16,7 +16,7 @@ internal data class RunningSegment(val purpose:String, val meters:Int, val effor
 internal data class RunningStepV2(val purpose:String, val effort:String, val meters:Int?=null, val seconds:Int?=null,
     val distanceEquivalentMeters:Int?=null) {
     init {
-        require(purpose in setOf("WARM_UP","WORK","RECOVERY","COOL_DOWN","EASY"))
+        require(purpose in setOf("WARM_UP","WORK","RECOVERY","TRANSITION","COOL_DOWN","EASY"))
         require((meters!=null) xor (seconds!=null))
         require(meters==null || meters in 1..120000)
         require(seconds==null || seconds in 1..14400)
@@ -586,7 +586,7 @@ internal object Engine15RunningProgram {
         else->"Build repeatable conversational running, without adding another demanding session."
     }
     private fun steps(p:RunningPrescription):List<String> {
-        fun label(purpose:String)=when(purpose) { "WARM_UP"->"warm-up"; "COOL_DOWN"->"cool-down"; "WORK"->"work"; "RECOVERY"->"recovery"; else->"easy running" }
+        fun label(purpose:String)=when(purpose) { "WARM_UP"->"warm-up"; "COOL_DOWN"->"cool-down"; "WORK"->"work"; "RECOVERY"->"recovery"; "TRANSITION"->"transition"; else->"easy running" }
         return p.mixedSegments?.mapIndexed { i,s ->
             val extent=if(s.meters!=null) s.meters.toString()+" m" else s.seconds.toString()+" s"
             (i+1).toString()+". "+extent+" "+label(s.purpose)+" — "+s.effort+"."

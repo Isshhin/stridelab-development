@@ -159,6 +159,7 @@ private fun RunningStepTile(
         "WARM_UP" -> "W"
         "WORK" -> "R"
         "RECOVERY" -> "↺"
+        "TRANSITION" -> "→"
         "COOL_DOWN" -> "C"
         else -> "E"
     }
@@ -166,6 +167,7 @@ private fun RunningStepTile(
         "WARM_UP" -> "Warm-up"
         "WORK" -> "Run"
         "RECOVERY" -> "Recover"
+        "TRANSITION" -> "Transition"
         "COOL_DOWN" -> "Cool-down"
         else -> "Easy running"
     }
@@ -218,6 +220,7 @@ private fun MixedRunningStepTile(step:RunningStepV2,tag:String) {
         "WARM_UP"->"Warm-up"
         "WORK"->"Run"
         "RECOVERY"->"Recover"
+        "TRANSITION"->"Transition"
         "COOL_DOWN"->"Cool-down"
         else->"Easy running"
     }

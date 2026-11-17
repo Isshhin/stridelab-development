@@ -165,6 +165,39 @@ class Engine15IndependentPlanGeneratorTest {
         assertEquals(mixed,PlanSnapshot.decode(saved.encode(),owner).sessions.single { it.quality }.runningPrescription)
     }
 
+    @Test fun multiBlockWorkoutPreservesAnExplicitTransitionInTheSavedSequence() {
+        val workout=RunningPrescription("QUALITY","Threshold",emptyList(),listOf(
+            RunningStepV2("WARM_UP","Easy",meters=2000),
+            RunningStepV2("WORK","User threshold target",meters=1000),
+            RunningStepV2("RECOVERY","Easy jog",meters=400),
+            RunningStepV2("WORK","User threshold target",meters=1000),
+            RunningStepV2("RECOVERY","Easy jog",meters=400),
+            RunningStepV2("WORK","User threshold target",meters=1000),
+            RunningStepV2("TRANSITION","Easy between blocks",seconds=180,distanceEquivalentMeters=300),
+            RunningStepV2("WORK","User speed target",meters=200),
+            RunningStepV2("RECOVERY","Easy jog",meters=200),
+            RunningStepV2("WORK","User speed target",meters=200),
+            RunningStepV2("RECOVERY","Easy jog",meters=200),
+            RunningStepV2("WORK","User speed target",meters=200),
+            RunningStepV2("RECOVERY","Easy jog",meters=200),
+            RunningStepV2("WORK","User speed target",meters=200),
+            RunningStepV2("COOL_DOWN","Easy",meters=5800)
+        ),reconciledDistanceMeters=13300)
+        val input=request(1).copy(weeks=1,runDays=3,days=(1..7).toSet(),weeklyKm=40.0,
+            targetWeeklyKm=40.0,longestKm=30.0,longDay=6,
+            weeklySlots=mapOf("run" to listOf(6,2,4)),qualityDays=setOf(2),qualityCount=1,
+            userDirectedPlanning=true,userDefinedQualityWorkouts=mapOf("w1-run1" to workout))
+        val result=Engine15IndependentPlanGenerator.preview(input,owner,"two-block",now)
+        assertTrue("Expected a complete multi-block candidate, got $result",result is Engine15IndependentPlanDecision.Candidate)
+        val plan=(result as Engine15IndependentPlanDecision.Candidate).plan
+        val session=plan.sessions.single { it.quality }
+        assertEquals(13.3,session.distanceKm!!,1e-6)
+        assertEquals(workout,session.runningPrescription)
+        assertTrue(session.steps.any { it.contains("transition") && it.contains("300 m") })
+        val saved=Engine15IndependentPlanGenerator.generateWithHistory(input,owner,emptyList(),"two-block-saved",now)
+        assertEquals(workout,PlanSnapshot.decode(saved.encode(),owner).sessions.single { it.quality }.runningPrescription)
+    }
+
     @Test fun twoUserDefinedQualitySessionsFitOnlyWhenRunDaysAndSpacingPermit() {
         fun workout()=RunningPrescription("QUALITY","Threshold",listOf(
             RunningSegment("WARM_UP",2000,"Easy"),RunningSegment("WORK",1000,"User threshold target"),
