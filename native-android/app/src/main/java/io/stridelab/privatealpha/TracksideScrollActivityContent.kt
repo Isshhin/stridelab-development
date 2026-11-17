@@ -614,7 +614,10 @@ private fun TracksideActivityAnalysisBody(
     val character = remember(activity, recorded) {
         ActivityIntelligence.workoutCharacter(activity, recorded)
     }
-    Column(Modifier.fillMaxWidth().testTag("activity-analysis-screen")) {
+    Column(
+        Modifier.fillMaxWidth().testTag("activity-analysis-screen")
+            .padding(top = 16.dp, bottom = 16.dp)
+    ) {
         if (!DashboardSummary.isRun(activity)) {
             ActivitySectionHeading("Analysis")
             Text(
@@ -624,46 +627,74 @@ private fun TracksideActivityAnalysisBody(
             )
             return@Column
         }
-        Column(Modifier.fillMaxWidth().testTag("activity-analysis-run-summary")) {
-            TracksideActivitySummary(activity, heading = "Run Summary")
-        }
-        ActivityAnalysisSection("Your Run, Explained", "activity-analysis-explained") {
+        Text(
+            "YOUR RUN, EXPLAINED",
+            color = activityLime, fontSize = 10.sp, fontWeight = FontWeight.SemiBold
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            insight?.headline ?: "A record of your run.",
+            color = activityText, fontSize = 23.sp, lineHeight = 29.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.fillMaxWidth().testTag("activity-analysis-headline")
+                .semantics { heading() }
+        )
+        Spacer(Modifier.height(9.dp))
+        Text(
+            insight?.summary ?: "There isn't enough recorded information for a meaningful comparison yet.",
+            color = Color(0xFFCBD7CF), fontSize = 13.sp, lineHeight = 20.sp,
+            modifier = Modifier.testTag("activity-analysis-explained")
+        )
+        Spacer(Modifier.height(20.dp))
+        val focusShape = RoundedCornerShape(14.dp)
+        Column(
+            Modifier.fillMaxWidth()
+                .background(Color(0xFF181C12), focusShape)
+                .border(1.dp, Color(0xFF444329), focusShape)
+                .testTag("activity-analysis-focus")
+                .padding(horizontal = 15.dp, vertical = 14.dp)
+        ) {
             Text(
-                insight?.summary ?: "A running summary is not available from the saved activity data.",
-                color = Color(0xFFCBD7CF), fontSize = 13.sp, lineHeight = 19.sp
+                "FOCUS FOR YOUR NEXT RUN",
+                color = activityLime, fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold
             )
-        }
-        ActivityAnalysisSection("Focus for Your Next Run", "activity-analysis-focus") {
+            Spacer(Modifier.height(7.dp))
             Text(
-                "This activity alone cannot establish fitness, fatigue or recovery. Use your plan and your current condition when choosing what comes next.",
-                color = activityMuted, fontSize = 13.sp, lineHeight = 19.sp
+                "Use a comfortable effort and your planned workout as guides. One recorded run alone can't establish fitness, fatigue or recovery.",
+                color = activityText, fontSize = 13.sp, lineHeight = 19.sp
             )
         }
         ActivityAnalysisSection("How It Went", "activity-analysis-how-it-went") {
-            when {
-                character != null -> Text(
-                    "Recorded patterns: $character. These describe saved splits and sensor samples, not training benefit.",
-                    color = Color(0xFFCBD7CF), fontSize = 13.sp, lineHeight = 19.sp
-                )
-                recorded == null -> Text(
-                    "Recorded split and sensor details are not available offline for this activity.",
-                    color = activityMuted, fontSize = 13.sp, lineHeight = 19.sp
-                )
-                else -> Text(
-                    "There is not enough recorded split or sensor detail to describe a pacing or cadence pattern.",
-                    color = activityMuted, fontSize = 13.sp, lineHeight = 19.sp
+            if (character != null) {
+                Text(character, color = activityText, fontSize = 13.sp, lineHeight = 19.sp,
+                    modifier = Modifier.padding(vertical = 6.dp))
+            } else {
+                Text(
+                    if (recorded == null)
+                        "Recorded splits and sensor samples aren't available for this activity."
+                    else "Not enough recorded detail to describe pacing or cadence reliably.",
+                    color = activityMuted, fontSize = 13.sp, lineHeight = 19.sp,
+                    modifier = Modifier.padding(vertical = 6.dp)
                 )
             }
             val measured = remember(activity, recorded, history) {
                 ActivityIntelligence.briefInsights(activity, recorded, history)
                     .filterNot { it.startsWith("No reliable pace comparison") }
+                    .take(3)
             }
             measured.forEach { line ->
-                Spacer(Modifier.height(7.dp))
-                Text(line, color = activityMuted, fontSize = 12.sp, lineHeight = 17.sp)
+                HorizontalDivider(color = activityBorder.copy(alpha = .6f), thickness = .7.dp)
+                Row(Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.Top) {
+                    Box(Modifier.padding(top = 7.dp).size(5.dp)
+                        .background(activityLime, RoundedCornerShape(3.dp)))
+                    Spacer(Modifier.width(10.dp))
+                    Text(line, color = activityMuted, fontSize = 12.sp, lineHeight = 18.sp)
+                }
             }
         }
-        ActivityAnalysisSection("Heart-Rate Zones", "activity-analysis-heart-rate-zones") {
+        ActivityAnalysisSection("Time in Each Zone", "activity-analysis-heart-rate-zones") {
             val hrSamples = recorded?.samples.orEmpty().count { it.hr?.isFinite() == true && it.hr > 0.0 }
             when {
                 recorded == null -> Text(
@@ -703,9 +734,15 @@ private fun TracksideActivityAnalysisBody(
 
 @Composable
 private fun ActivityAnalysisSection(title: String, tag: String, content: @Composable () -> Unit) {
-    Column(Modifier.fillMaxWidth().testTag(tag)) {
-        ActivitySectionHeading(title)
-        Spacer(Modifier.height(4.dp))
+    Column(
+        Modifier.fillMaxWidth().padding(top = 24.dp).testTag(tag)
+    ) {
+        Text(
+            title, color = activityText, fontSize = 17.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.semantics { heading() }
+        )
+        Spacer(Modifier.height(10.dp))
         content()
     }
 }
@@ -868,7 +905,7 @@ private fun TracksideActivitySummary(activity: ActivityRecord, heading: String =
             add(ActivitySummaryMetric("Distance", activity.distanceLabel, ActivitySummaryGlyph.Distance))
         }
         activity.movingTimeS?.let {
-            add(ActivitySummaryMetric("Moving time", ActivityRecord.duration(it), ActivitySummaryGlyph.Duration))
+            add(ActivitySummaryMetric("Duration", ActivityRecord.duration(it), ActivitySummaryGlyph.Duration))
         }
         if (activity.supportsPace && activity.detailPaceLabel != "Not recorded") {
             add(ActivitySummaryMetric("Average pace", activity.detailPaceLabel, ActivitySummaryGlyph.Pace))
@@ -895,26 +932,13 @@ private fun TracksideActivitySummary(activity: ActivityRecord, heading: String =
         Modifier.fillMaxWidth().testTag("activity-summary-redesign"),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        Column(
-            Modifier.fillMaxWidth().padding(top = 13.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                heading, color = activityText, fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-                    .testTag("activity-summary-heading")
-                    .semantics { heading() }
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                subtitle, color = activityMuted, fontSize = 11.sp,
-                lineHeight = 15.sp, textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().testTag("activity-summary-subtitle")
-            )
-        }
-        Spacer(Modifier.height(12.dp))
+        Text(
+            heading, color = activityText, fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 9.dp)
+                .testTag("activity-summary-heading")
+                .semantics { heading() }
+        )
         metrics.chunked(2).forEachIndexed { index, pair ->
             if (index > 0) {
                 HorizontalDivider(
@@ -941,22 +965,7 @@ private fun TracksideActivitySummary(activity: ActivityRecord, heading: String =
                 }
             }
         }
-        Spacer(Modifier.height(10.dp))
-        Row(
-            Modifier.fillMaxWidth()
-                .background(Color(0xFF151D18), RoundedCornerShape(10.dp))
-                .testTag("activity-summary-source")
-                .padding(horizontal = 13.dp, vertical = 11.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            SummarySourceGlyph()
-            Spacer(Modifier.width(10.dp))
-            Text(
-                "Recorded by " + activity.sourceLabel,
-                color = Color(0xFFCBD5CE), fontSize = 11.sp,
-                modifier = Modifier.weight(1f)
-            )
-        }
+        Spacer(Modifier.height(12.dp))
     }
 }
 
