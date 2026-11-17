@@ -9,6 +9,8 @@ internal const val ENGINE15_INDEPENDENT_CANDIDATE_POLICY =
     "stridelab.engine15.independent-running-candidate-20261117.1"
 internal const val ENGINE15_INDEPENDENT_RUNNING_POLICY =
     "stridelab.engine15.independent-running-20261117.1"
+internal const val ENGINE15_INDEPENDENT_STRENGTH_POLICY =
+    "stridelab.engine15.independent-strength-20261117.1"
 
 internal sealed interface Engine15IndependentPlanDecision {
     data class Deferred(val reasonCode: String, val explanation: String) : Engine15IndependentPlanDecision
@@ -51,6 +53,10 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
     )
 
     fun validateRequest(request: PlanRequest) {
+        if (request.runDays == 0 && request.strengthDays > 0) {
+            Engine15StrengthWorkoutComposer.validateRequest(request)
+            return
+        }
         appDraft(preview(request, "engine15-validation", "validation", Instant.EPOCH))
     }
 
@@ -59,8 +65,40 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         owner: String,
         plans: List<PlanSnapshot>,
         id: String = java.util.UUID.randomUUID().toString(),
-        now: Instant = Instant.now()
-    ): PlanSnapshot = appDraft(preview(request, owner, id, now, plans))
+        now: Instant = Instant.now(),
+        exerciseLibrary: ExerciseLibraryV2? = null
+    ): PlanSnapshot {
+        if (request.runDays == 0 && request.strengthDays > 0) {
+            Engine15StrengthWorkoutComposer.validateRequest(request)
+            val library = exerciseLibrary ?: throw PlanConstraint(
+                "STRENGTH_CATALOG_REQUIRED: The shared offline exercise catalog is unavailable; no substitute was generated."
+            )
+            val first = request.start.minusDays(1)
+            val last = request.start.plusWeeks(request.weeks.toLong())
+            val existing = plans.asSequence().filter { it.owner == owner && it.status in setOf("approved", "paused") }
+                .flatMap { plan -> plan.sessions.asSequence().filter { it.status in setOf("planned", "in_progress") }.map { plan.id to it } }
+                .filter { (_, session) -> session.date in first..last }.toList()
+            if (existing.isNotEmpty()) throw PlanConstraint(
+                "EXTERNAL_SCHEDULE_REVIEW_REQUIRED: Strength-only generation does not yet coordinate known saved sessions; no existing session was ignored."
+            )
+            RecordPolicy.identifier(owner)
+            RecordPolicy.identifier(id)
+            val sessions = Engine15StrengthWorkoutComposer.compose(request, id, library)
+            return PlanSnapshot(
+                id = id, owner = owner, engineVersion = version,
+                policyId = ENGINE15_INDEPENDENT_STRENGTH_POLICY, createdAt = now,
+                request = request, sessions = sessions,
+                explanations = listOf(
+                    "Independent Engine 1.5 strength plan; no Engine 1.0 generation or validation was used.",
+                    "Exercise records come from the shared offline library; selection, goal-specific repetition progression, deloads and constraints are owned by Engine 1.5.",
+                    "Repetition targets progress within each four-week block and reset in the fourth-week one-set recovery period; no load increase or feedback-based recalculation is inferred.",
+                    "This is a draft. Review each exercise, equipment requirement, schedule and repetition target before explicit approval."
+                ),
+                name = "Engine 1.5 independent strength plan"
+            )
+        }
+        return appDraft(preview(request, owner, id, now, plans))
+    }
 
     private fun appDraft(decision: Engine15IndependentPlanDecision): PlanSnapshot = when (decision) {
         is Engine15IndependentPlanDecision.Deferred ->
@@ -297,10 +335,17 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         fun hard(session: PlannedSession) = session.quality ||
             session.discipline == "cal" || session.discipline == "str" && session.lower
         fun longRun(session: PlannedSession) = session.discipline == "run" && session.kind == "long"
-        return longRun(a) && hard(b) && gap < 2 || longRun(b) && hard(a) && gap < 2
+        return hard(a) && hard(b) && gap < 2 ||
+            longRun(a) && hard(b) && gap < 2 || longRun(b) && hard(a) && gap < 2
     }
 
     fun validateSaved(plan: PlanSnapshot) {
+        if (plan.policyId == ENGINE15_INDEPENDENT_STRENGTH_POLICY) {
+            if (plan.engineVersion != version)
+                throw PlanConstraint("The independent strength plan has an unsupported engine identity.")
+            Engine15StrengthWorkoutComposer.validateSaved(plan)
+            return
+        }
         if (plan.engineVersion != version || plan.policyId != policyId)
             throw PlanConstraint("The independent running plan has an unsupported engine identity.")
         val expected = when (val decision = preview(plan.request, plan.owner, plan.id, plan.createdAt)) {

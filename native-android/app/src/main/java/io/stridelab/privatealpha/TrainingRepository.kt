@@ -46,6 +46,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     databaseName: String = TrainingStore.DATABASE, preferencesName: String = "native-account-v1") {
     private val store = TrainingStore(context, databaseName)
     private val appContext = context.applicationContext
+    private val engine15ExerciseLibrary by lazy {
+        try { ExerciseLibraryV2.load { path -> appContext.assets.open(path) } }
+        catch (_: Exception) { throw PlanConstraint("STRENGTH_CATALOG_UNAVAILABLE: The shared offline exercise catalog could not be read; no substitute was generated.") }
+    }
     private val vault = SessionVault(context)
     internal val garminSyncPreferences = GarminSyncPreferences(context)
     private val garminCloud = GarminCloudBackupGateway()
@@ -467,7 +471,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         val selected=engine ?: Engine1Engines.resolve(request)
         savePlan(when(selected) {
             Engine15 -> Engine15.generateWithHistory(request,owner,mutable.value.plans)
-            Engine15IndependentPlanGenerator -> Engine15IndependentPlanGenerator.generateWithHistory(request,owner,mutable.value.plans)
+            Engine15IndependentPlanGenerator -> Engine15IndependentPlanGenerator.generateWithHistory(
+                request, owner, mutable.value.plans,
+                exerciseLibrary = if (request.runDays == 0 && request.strengthDays > 0) engine15ExerciseLibrary else null
+            )
             else -> selected.generate(request,owner)
         })
     }

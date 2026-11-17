@@ -102,6 +102,43 @@ class Engine1RepositoryTest {
         assertEquals(plan.status,reopened.status)
         assertEquals(plan.sessions.map { it.id to it.date },reopened.sessions.map { it.id to it.date })
     }
+
+    @Test fun independentStrengthPlanUsesCuratedExerciseContractsAndReopensAfterApproval()=runBlocking {
+        Assume.assumeTrue(BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)
+        val request=PlanRequest(goal="General strength",start=start,weeks=4,
+            days=setOf(1,3,5,7),runDays=0,strengthDays=2,experience=1,
+            strengthExperience=1,minutes=45,equipment=mapOf("db" to 2,"bands" to 1,"anchor" to 1),
+            policyChoice="engine15")
+        assertTrue("Independent strength route should create a review draft: ${repo.state.value.message}",repo.generatePlan(request))
+        var plan=repo.state.value.plans.single()
+        assertEquals(owner,plan.owner)
+        assertEquals("draft",plan.status)
+        assertEquals(8,plan.sessions.size)
+        assertTrue(plan.policyId.contains("independent"))
+        assertTrue(plan.sessions.all { session ->
+            val ids=session.exercises.map { it.id }.toSet()
+            session.discipline=="str" && ids.size==5 &&
+                ids.any { it in setOf("gs","e1","sq","sit-to-stand") } &&
+                ids.any { it in setOf("dh","e3","hg","glute-bridge") } &&
+                ids.any { it in setOf("fp","bp","e4","ip","wall-push") } &&
+                ids.any { it in setOf("dr","br","cable-latpulldown") } &&
+                ids.any { it in setOf("plank","side-plank","bird-dog","fc") } &&
+                session.exercises.all { it.sets in 1..3 && it.reps in 6..15 && it.seconds==null }
+        })
+        val firstByWeek=(0..3).associateWith { week -> plan.sessions.first { it.date >= start.plusWeeks(week.toLong()) && it.date < start.plusWeeks(week+1L) }.exercises.first() }
+        assertEquals(listOf(8,9,10,8),firstByWeek.values.map { it.reps })
+        assertTrue(plan.sessions.filter { it.date >= start.plusWeeks(3) }.all { session -> session.exercises.all { it.sets==1 } })
+        assertTrue(repo.approvePlan(plan.id,plan.revision))
+        plan=repo.state.value.plans.single()
+        repo.close();gateway.offline=true;open()
+        val reopened=repo.state.value.plans.single()
+        assertEquals(plan.owner,reopened.owner)
+        assertEquals(plan.id,reopened.id)
+        assertEquals(plan.status,reopened.status)
+        assertEquals(plan.sessions,reopened.sessions)
+    }
     @Test fun repositoryMovementRejectsAnotherApprovedPlansIncompatibleSession()=runBlocking {
         assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
         val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)
