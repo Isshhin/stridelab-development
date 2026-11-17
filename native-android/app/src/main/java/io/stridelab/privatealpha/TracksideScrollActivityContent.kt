@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
@@ -635,7 +636,7 @@ private fun TracksideActivityAnalysisBody(
         Text(
             insight?.headline ?: "A record of your run.",
             color = activityText, fontSize = 23.sp, lineHeight = 29.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontFamily = FontFamily.Serif, fontWeight = FontWeight.SemiBold,
             modifier = Modifier.fillMaxWidth().testTag("activity-analysis-headline")
                 .semantics { heading() }
         )
@@ -661,7 +662,7 @@ private fun TracksideActivityAnalysisBody(
             )
             Spacer(Modifier.height(7.dp))
             Text(
-                "Use a comfortable effort and your planned workout as guides. One recorded run alone can't establish fitness, fatigue or recovery.",
+                "Use your next planned session and how you feel to guide effort. One recorded run alone can't establish fitness, fatigue or recovery.",
                 color = activityText, fontSize = 13.sp, lineHeight = 19.sp
             )
         }
@@ -1134,7 +1135,7 @@ private fun TracksideActivityIntelligenceCard(
                 lineHeight = 18.sp,
                 modifier = Modifier.testTag(tag + "-summary")
             )
-            }
+        }
         if (expanded) {
             Spacer(Modifier.height(15.dp))
             HorizontalDivider(color = activityBorder, thickness = 1.dp)
