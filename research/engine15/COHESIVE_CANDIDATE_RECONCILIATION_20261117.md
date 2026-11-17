@@ -80,6 +80,7 @@ The realistic six-day 75→80 km, Thursday-unavailable case now exercises Saturd
 ### Batch 2 — explicit time limits, longer tempo and threshold structure
 
 - Starting branch/SHA: `research/engine15-cohesive-candidate-20261117`, `1abefa11`.
+- Implementation commit: `b2832568` (`feat(engine15): harden shadow quality previews`).
 - Change: nullable optional user time limit in M2/M9b; evidence-bounded continuous tempo range (removes fixed 40-minute cap); 3–12 minute interval support; versioned 3×3 km/90-second threshold research structure; athlete-entered M10 history labels/accessors corrected from “verified” to “reported”. No dose values, production switch, saved plan, or persistence format changed.
 - Test-first evidence: unknown time limit first failed because the constructor required a value; 48-minute continuous tempo then failed at the old 40-minute cap; report-terminology tests initially failed to compile because `reportedWorkKm` did not exist. All now pass after the minimal changes.
 - Verification: JBR 21.0.11 / Gradle 8.13, focused nine-class set covering M2, M5, M9b, M9a, I3, research scenario runner, and M10 Q3 history: **98 tests, zero failures/errors/skips**. `git diff --check` passed.
