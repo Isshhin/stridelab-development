@@ -26,7 +26,7 @@ class Engine15I2AdversarialShadowMatrixTest {
         5->setOf(1,2,3,5,7); 6->setOf(1,2,3,5,6,7)
         else->error("unsupported I2 run frequency")
     }
-    private fun conf(n:Int=6,allowed:Set<Int>=days(n),start:LocalDate=monday,
+    private fun conf(n: Int = 6, allowed: Set<Int> = days(n), start: LocalDate = monday,
                      blocked:Set<LocalDate> = emptySet(),
                      blockedQuality:Set<LocalDate> = emptySet(),
                      other:List<Engine15M6CExternalSession>?=emptyList(),
