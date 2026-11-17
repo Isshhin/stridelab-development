@@ -71,7 +71,7 @@ class TracksideActivityScrollTest {
         compose.onNodeWithTag("activity-chart-pace").assertExists()
     }
 
-    @Test fun previewStartsWithoutPillThenExpandsIntoTabbedSections() {
+    @Test fun previewStartsWithoutPillThenExpandsIntoContinuousSections() {
         val activity = ActivityRecord(
             "synthetic-scroll-activity", "Santa Mesa Running", "run", "manual",
             Instant.parse("2026-11-06T10:38:00Z"), 13110.0, 5100.0,
@@ -190,24 +190,17 @@ class TracksideActivityScrollTest {
         compose.onNodeWithTag("activity-continuous-scroll")
             .performScrollToNode(hasTestTag("activity-summary-redesign"))
         compose.onNodeWithTag("activity-summary-redesign").assertExists()
-        compose.onNodeWithTag("activity-summary-source").assertExists()
+        compose.onNodeWithTag("activity-summary-source").assertDoesNotExist()
         compose.onNodeWithText("Summary").assertExists()
-        compose.onNodeWithText("Key stats from your run at Santa Mesa.").assertExists()
         compose.onNodeWithText("13.11 km").assertExists()
         compose.onNodeWithText("1:24:59").assertExists()
-        compose.onNodeWithText("Moving time").assertExists()
-        compose.onNodeWithText("Duration").assertDoesNotExist()
+        compose.onNodeWithText("Moving time").assertDoesNotExist()
+        compose.onNodeWithText("Duration").assertExists()
         compose.onNodeWithText("Elapsed time").assertDoesNotExist()
-        val summaryBounds = compose.onNodeWithTag("activity-summary-redesign")
-            .getUnclippedBoundsInRoot()
-        for (tag in listOf("activity-summary-heading", "activity-summary-subtitle")) {
-            val bounds = compose.onNodeWithTag(tag).getUnclippedBoundsInRoot()
-            assertTrue(kotlin.math.abs((((bounds.left + bounds.right) - (summaryBounds.left + summaryBounds.right)) / 2f).value) < 2f)
-        }
-        val finalMetricBounds = compose.onNodeWithTag("activity-summary-metric-elevation-gain")
-            .getUnclippedBoundsInRoot()
-        assertTrue(kotlin.math.abs((((finalMetricBounds.left + finalMetricBounds.right) -
-            (summaryBounds.left + summaryBounds.right)) / 2f).value) < 2f)
+        // Overview is compact and left-aligned. Analysis is the next
+        // continuous section rather than an independently switched page.
+        compose.onNodeWithTag("activity-summary-heading").assertExists()
+        compose.onNodeWithTag("activity-summary-subtitle").assertDoesNotExist()
         compose.onNodeWithTag("activity-tab-analysis").performClick()
         compose.onNodeWithTag("activity-continuous-scroll")
             .performScrollToNode(hasTestTag("activity-analysis-detailed"))
