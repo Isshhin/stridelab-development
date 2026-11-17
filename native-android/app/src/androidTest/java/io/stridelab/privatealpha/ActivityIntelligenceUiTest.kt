@@ -15,7 +15,7 @@ import java.time.Instant
 class ActivityIntelligenceUiTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
 
-    @Test fun analysisUsesItsOwnTabAndShowsSectionsInTheApprovedOrder() {
+    @Test fun analysisCheckpointsScrollWithinOneContinuousSheet() {
         val tab = mutableIntStateOf(0)
         val run = ActivityRecord(
             "analysis-tabs", "Recorded run", "run", "manual",
@@ -50,7 +50,10 @@ class ActivityIntelligenceUiTest {
         compose.onNodeWithTag("activity-tab-overview").assertIsSelected()
         compose.onNodeWithTag("activity-tab-analysis").assertExists().performClick()
         compose.onNodeWithTag("activity-analysis-screen").assertExists()
-        compose.onNodeWithTag("activity-analysis-run-summary").assertExists()
+        // Overview remains in the same LazyColumn; the Analysis section
+        // does not duplicate its metrics or create a separate page.
+        compose.onNodeWithTag("activity-analysis-run-summary").assertDoesNotExist()
+        compose.onNodeWithTag("activity-analysis-headline").assertExists()
         compose.onNodeWithTag("activity-analysis-explained").assertExists()
         compose.onNodeWithTag("activity-analysis-focus").assertExists()
         compose.onNodeWithTag("activity-analysis-how-it-went").assertExists()
@@ -59,12 +62,21 @@ class ActivityIntelligenceUiTest {
         compose.onNodeWithTag("activity-analysis-detailed").assertExists()
         compose.onNodeWithTag("activity-workout-type-edit").assertDoesNotExist()
         compose.onNodeWithTag("activity-tab-analysis").assertIsSelected()
+        // Checkpoints navigate within the same continuous scroller.
         compose.onNodeWithTag("activity-tab-splits").performClick()
-        compose.onNodeWithTag("activity-analysis-screen").assertDoesNotExist()
         compose.onNodeWithTag("activity-section-splits").assertExists()
         compose.onNodeWithTag("activity-tab-charts").performClick()
         compose.onNodeWithTag("activity-section-charts").assertExists()
-        compose.onNodeWithTag("activity-analysis-screen").assertDoesNotExist()
+        compose.onNodeWithTag("activity-tab-overview").performClick()
+        compose.onNodeWithTag("activity-section-overview").assertExists()
+        // Natural scrolling (rather than changing tabs) reaches Analysis.
+        compose.onNodeWithTag("activity-continuous-scroll")
+            .performScrollToNode(hasTestTag("activity-analysis-screen"))
+        compose.onNodeWithTag("activity-analysis-headline").assertExists()
+        // The same scroller still contains Splits farther down.
+        compose.onNodeWithTag("activity-continuous-scroll")
+            .performScrollToNode(hasTestTag("activity-section-splits"))
+        compose.onNodeWithTag("activity-section-splits").assertExists()
     }
 
     @Test fun analysisExplainsMissingEvidenceWithoutInventingHeartRateOrFeedback() {
