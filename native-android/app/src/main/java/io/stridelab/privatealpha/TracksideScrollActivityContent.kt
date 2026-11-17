@@ -721,7 +721,8 @@ private fun TracksideActivityAnalysisBody(
                 tag = "activity-analysis-detailed",
                 descriptor = character,
                 collapsedLabel = "Show technical details",
-                expandedLabel = "Hide technical details"
+                expandedLabel = "Hide technical details",
+                technicalOnly = true
             )
         } else {
             ActivityAnalysisSection("Detailed Analysis", "activity-analysis-detailed") {
@@ -875,8 +876,8 @@ private fun TracksideActivityOverviewBody(
 
 /**
  * Athlete Intelligence-inspired interaction with StrideLab's own styling.
- * Short verified highlight after the activity stats; "See analysis" expands
- * in the same sheet rather than nesting another draggable bottom sheet.
+ * Explain activity evidence in the same draggable sheet, with technical
+ * details collapsed until requested.
  */
 private data class ActivitySummaryMetric(
     val label: String,
@@ -890,16 +891,6 @@ private enum class ActivitySummaryGlyph {
 
 @Composable
 private fun TracksideActivitySummary(activity: ActivityRecord, heading: String = "Summary") {
-    val displayName = activityDisplayName(activity.title)
-    val subtitle = if (DashboardSummary.isRun(activity) &&
-        displayName.isNotBlank() &&
-        !displayName.equals("Recorded Run", ignoreCase = true) &&
-        !displayName.equals("Untitled activity", ignoreCase = true)
-    ) {
-        "Key stats from your run at $displayName."
-    } else {
-        "Key stats from this activity."
-    }
     val metrics = buildList {
         activity.distanceM?.let {
             add(ActivitySummaryMetric("Distance", activity.distanceLabel, ActivitySummaryGlyph.Distance))
@@ -1093,7 +1084,8 @@ private fun TracksideActivityIntelligenceCard(
     tag: String = "activity-insights",
     descriptor: String? = null,
     collapsedLabel: String = "See analysis",
-    expandedLabel: String = "Show less"
+    expandedLabel: String = "Show less",
+    technicalOnly: Boolean = false
 ) {
     var expanded by remember(insight.headline) { mutableStateOf(false) }
     val shape = RoundedCornerShape(18.dp)
@@ -1111,36 +1103,38 @@ private fun TracksideActivityIntelligenceCard(
             fontWeight = FontWeight.SemiBold,
             fontSize = 12.sp
         )
-        if (!descriptor.isNullOrBlank()) {
-            Spacer(Modifier.height(10.dp))
+        if (!technicalOnly || expanded) {
+            if (!descriptor.isNullOrBlank()) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    descriptor,
+                    color = activityLime,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.testTag(tag + "-descriptor")
+                )
+                Spacer(Modifier.height(9.dp))
+            } else {
+                Spacer(Modifier.height(13.dp))
+            }
             Text(
-                descriptor,
-                color = activityLime,
-                fontSize = 11.sp,
-                lineHeight = 15.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.testTag(tag + "-descriptor")
+                insight.headline,
+                color = activityText,
+                fontWeight = FontWeight.Bold,
+                fontSize = 19.sp,
+                lineHeight = 24.sp,
+                modifier = Modifier.testTag(tag + "-headline")
             )
-            Spacer(Modifier.height(9.dp))
-        } else {
-            Spacer(Modifier.height(13.dp))
-        }
-        Text(
-            insight.headline,
-            color = activityText,
-            fontWeight = FontWeight.Bold,
-            fontSize = 19.sp,
-            lineHeight = 24.sp,
-            modifier = Modifier.testTag(tag + "-headline")
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            insight.summary,
-            color = Color(0xFFCBD7CF),
-            fontSize = 12.sp,
-            lineHeight = 18.sp,
-            modifier = Modifier.testTag(tag + "-summary")
-        )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                insight.summary,
+                color = Color(0xFFCBD7CF),
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+                modifier = Modifier.testTag(tag + "-summary")
+            )
+            }
         if (expanded) {
             Spacer(Modifier.height(15.dp))
             HorizontalDivider(color = activityBorder, thickness = 1.dp)
