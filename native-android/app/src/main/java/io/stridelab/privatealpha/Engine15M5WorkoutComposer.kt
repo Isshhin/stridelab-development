@@ -140,7 +140,7 @@ internal object Engine15M5WorkoutComposer {
                     total - (runDays - 1) * easyMaxUnits
                 )
                 val preferredLong = floor(total * 0.30 + EPS).toInt()
-                val chosenLong = maxOf(minimumLong, preferredLong)
+                val chosenLong = maxOf(minimumLong, minOf(preferredLong, longCap))
                 if (chosenLong > longCap || chosenLong < 1)
                     return defer("LONG_OR_EASY_EXPOSURE_CONFLICT",
                         "A long slot capped at 40% and the session exposure limits cannot fit the week.",
