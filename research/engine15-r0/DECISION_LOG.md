@@ -30,3 +30,23 @@ Every proposed guardrail adjustment must document: (1) current source and ration
 ## Next decision
 
 Run `Engine15R0WorkloadLedgerTest` locally and review `executed-weekly-ledger.csv` and `executed-rule-events.csv`. When R0 evidence is available, decide whether the Engine 1.0 baseline boundary requires deeper internal instrumentation before Gate B authorizes M3/M4. No results are recorded or claimed before the test actually runs.
+
+## Decision 2026-11-17 / D-002 — R0 executed readout and Gate B authorization
+
+**Status:** R0 accepted on executed synthetic measurements; M3 contract implementation authorized; M4/M5 behavior changes NOT authorized.
+
+The user locally executed the R0 focused test (BUILD SUCCESSFUL, 37s) and supplied console displays of the CSV reports. For 75→80 km, Week 7's Engine 1.0 baseline measured 85.700 km, Engine 1.5 allocated 78.700 km, and the final Q2 mixed-unit estimate was 70.533 km. The 40% long-run and 20% quality-work safeguards made no selected-profile reduction. This does not prove the safety of relaxing any threshold. Full evidence readout: GATE_B_EXECUTED_READOUT_20261117.md.
+
+**Approved:** A provisional, source-aware M3 athlete baseline metadata interface. Reuse existing IndependentRunningHistory evidence with explicit complete-week proof. Preserve legacy plan JSON and actual Q2/Q3 prescriptions.
+
+**Not approved:** Making Engine 1.0's output a new target, loosening current progression/long-run/quality rules, raising total workload, auto-certifying Garmin records, or creating a second weekly workload planner.
+
+## Decision 2026-11-17 / D-003 — M3 input contract and consumer
+
+**Status:** Code committed on a draft research branch; focused Kotlin tests pending.
+
+PlanRequest receives optional recentMileageBasis and reportedPeakWeeklyKm metadata. Existing weeklyKm remains the legacy scalar consumed by Engine 1.5 until M4. Engine15AthleteBaseline.assess returns a typed capacity profile with typicalWeeklyKm (nullable), reported peak, reported/unverified longest run, verified four-week reference when available, provenance confidence, and review reasons. Unknown and explicit zero remain distinct in that typed profile even though the old generator currently handles both as time-only.
+
+**Constraint:** The M3 module is read-only. An imported *partial* week or self-reported average does not become verified capacity. A reported peak week alone cannot be considered a typical week. Contradictions return NEEDS_REVIEW and suppress the M4-ready typical weekly value. The M4 caller must explicitly make the eventual volume/progression decision, and must not silently interpret an unresolved profile as zero.
+
+**Approval test:** Exact generated-session parity against pre-M3 Q2/Q3 inputs, new and old serialization roundtrips, no automatic week-coverage promotion, explicit zero vs unknown vs peak-only, contradiction rejection by the typed profile, and no safety-policy mutations.
