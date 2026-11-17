@@ -191,6 +191,46 @@ class Engine15I9ReadOnlyBasePlanAssemblyTest {
         assertFalse(result.authorizedForProduction)
     }
 
+    @Test fun sixteenWeekSaturdayLongPreviewIsStableAcrossBuildAndRecoveryCycles() {
+        val source = source(weeks = 16, longDay = 6)
+        val input = input(interference(calendar = calendar(
+            preferredLongIsoDay = 6
+        )))
+        val result = accepted(source, input)
+        assertEquals(result, Engine15I9ReadOnlyBasePlanAssembly.assemble(source, input))
+        assertEquals((1..16).toList(), result.weeks.map { it.weekNumber })
+        assertEquals(96, result.weeks.sumOf { it.runs.size })
+        assertEquals(listOf(67.5,71.2,75.0,60.0,71.2,75.0,78.7,62.9,
+            75.0,78.7,80.0,64.0,78.7,80.0,80.0,64.0),
+            result.weeks.map { it.proposedKm })
+        assertEquals(listOf(20.2,21.0,21.0,18.0,21.0,21.0,21.0,18.8,
+            21.0,21.0,21.0,19.2,21.0,21.0,21.0,19.2),
+            result.weeks.map { week -> week.runs.single {
+                it.role == Engine15M5RunRole.LONG
+            }.distanceKm })
+        assertEquals(listOf(4, 8, 12, 16), result.weeks
+            .filter { it.phase == Engine15M6DPhase.RECOVERY }
+            .map { it.weekNumber })
+        for ((index, week) in result.weeks.withIndex()) {
+            assertEquals(6, week.runs.size)
+            assertEquals(week.proposedKm, week.runs.sumOf { it.distanceKm }, 1e-8)
+            assertEquals(Engine15M5RunRole.LONG,
+                week.runs.single { it.date.dayOfWeek.value == 6 }.role)
+            assertEquals(Engine15M5RunRole.EASY,
+                week.runs.single { it.date.dayOfWeek.value == 7 }.role)
+            assertTrue(week.runs.none { it.date.dayOfWeek.value == 4 })
+            assertTrue(week.runs.all { !it.executable && !it.qualityAuthorized })
+            if (week.phase == Engine15M6DPhase.RECOVERY)
+                assertTrue(week.proposedKm <= result.weeks[index - 1].proposedKm * 0.8 + 1e-8)
+        }
+        assertEquals(80.0, result.requestedTargetKm!!, 0.0)
+        assertEquals(maxOf(0.0, 80.0 - result.peakProposedKm),
+            result.targetShortfallKm!!, 1e-8)
+        assertFalse(result.qualityIncluded)
+        assertFalse(result.executable)
+        assertFalse(result.authorizedForProduction)
+    }
+
     @Test fun unknownBaseOnlyIntentAndAnyQualityRequestAreNotSilentlyDowngraded() {
         deferred("BASE_ONLY_SCOPE_NOT_ACKNOWLEDGED",
             input = input(acknowledged = false))

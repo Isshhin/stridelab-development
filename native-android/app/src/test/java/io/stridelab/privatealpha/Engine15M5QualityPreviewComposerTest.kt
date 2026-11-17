@@ -128,6 +128,29 @@ class Engine15M5QualityPreviewComposerTest {
         assertEquals(75.0, candidate.baseWeeks[2].budgetKm, 1e-8)
     }
 
+    @Test fun beginnerAndEstablishedRunnerPreviewsFollowTheirReportedFamilyExposure() {
+        val beginner = source(recentKm = 25.0, longestKm = 10.0,
+            targetKm = 30.0, days = 4, experience = 0)
+        val established = source(experience = 2)
+        fun request(exposureSeconds: Int) = request(
+            recentWorkSeconds = exposureSeconds,
+            ceilingSeconds = exposureSeconds,
+            availableSeconds = 3600
+        )
+
+        val beginnerPreview = accepted(beginner, listOf(request(8 * 60)))
+            .qualityPreviews.single()
+        val establishedPreview = accepted(established, listOf(request(20 * 60)))
+            .qualityPreviews.single()
+        assertEquals(8 * 60, beginnerPreview.workSeconds)
+        assertEquals(20 * 60, establishedPreview.workSeconds)
+        assertTrue(beginnerPreview.workSeconds <= 8 * 60)
+        assertTrue(establishedPreview.workSeconds <= 20 * 60)
+        assertFalse(beginnerPreview.executable)
+        assertFalse(establishedPreview.executable)
+        // Experience labels do not manufacture dose; explicit reported exposure binds each preview.
+    }
+
     @Test fun unknownOrUnapprovedQualityEvidenceCannotSelectDose() {
         val m4b = source()
         deferred(m4b, listOf(request(reviewed = false)),

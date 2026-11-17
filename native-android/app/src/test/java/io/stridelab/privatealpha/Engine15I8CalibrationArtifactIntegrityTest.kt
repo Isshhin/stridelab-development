@@ -33,6 +33,41 @@ class Engine15I8CalibrationArtifactIntegrityTest {
         )
     }
 
+    private fun baseInput(
+        longDay: Int = 7,
+        externalSessions: List<Engine15M6CExternalSession> = emptyList(),
+        allowEasyUpperPair: Boolean = false
+    ) = Engine15I9BasePlanAssemblyInput(
+            interferenceReview = Engine15M6CReviewInput(
+                calendar = Engine15M6CalendarInput(
+                    startMonday = monday,
+                    availableIsoDays = if (longDay == 6)
+                        setOf(1, 3, 5, 6, 7) else setOf(1, 3, 5, 7),
+                    preferredLongIsoDay = longDay
+                ),
+                externalSessions = externalSessions,
+                externalCalendarCoverageAsserted = true,
+                allowEasyUpperPair = allowEasyUpperPair
+            ),
+            explicitBaseOnlyReview = true
+        )
+
+    private fun qualityInput(
+        source: Engine15IndependentVolumePlanner.Result = source(),
+        artifactBytes: ByteArray? = originalBytes()
+    ): Engine15I10QualityReviewInput {
+        val request = quality()
+        return Engine15I10QualityReviewInput(
+            request = request,
+            sourceEvidence = sourceEvidence(),
+            feasibilityInput = speedWindows(source, request),
+            calibrationInput = Engine15I7CalibrationReviewInput(
+                claim().copy(artifactSha256Claim = hex(originalBytes()))
+            ),
+            artifactBytes = artifactBytes
+        )
+    }
+
     private fun quality(reviewed: Boolean = true) = Engine15M5QualityPreviewRequest(
         weekNumber = 1, slotNumber = 1, family = IndependentQualityFamily.THRESHOLD,
         fitnessInput = IndependentQualityFitnessInput(
@@ -253,6 +288,97 @@ class Engine15I8CalibrationArtifactIntegrityTest {
         assertFalse(outcome.authorizedForProduction)
         assertFalse(outcome.originalI7.calibrationArtifactVerified)
         assertFalse(outcome.originalI7.thresholdIntensityVerified)
+
+        val s = source()
+        val assembled = Engine15I10ReadOnlyCandidateAssembly.assemble(
+            Engine15I10ReadOnlyCandidateInput(s, baseInput(), qualityInput(s))
+        )
+        assertTrue(assembled.toString(),
+            assembled is Engine15I10ReadOnlyCandidateDecision.Candidate)
+        val candidate = assembled as Engine15I10ReadOnlyCandidateDecision.Candidate
+        val alternative = requireNotNull(candidate.qualityAlternative)
+        val opportunity = outcome.originalI7.originalI6.originalI5.selectedOpportunity
+        assertEquals(opportunity, alternative)
+        assertEquals(opportunity.proposedDate, alternative.proposedDate)
+        assertEquals(opportunity.existingRun.slot.slotNumber,
+            alternative.existingRun.slot.slotNumber)
+        assertEquals(opportunity.existingRun.distanceKm,
+            alternative.existingRun.distanceKm, 0.0)
+        assertFalse(candidate.qualityIncludedInBaseMileage)
+        assertFalse(alternative.scheduledQualityWorkout)
+        assertFalse(candidate.executable)
+        assertFalse(candidate.authorizedForProduction)
+    }
+
+    @Test fun i10PropagatesI8DeferralAndRejectsBaseSlotMismatch() {
+        val s = source()
+        val deferred = Engine15I10ReadOnlyCandidateAssembly.assemble(
+            Engine15I10ReadOnlyCandidateInput(
+                s, baseInput(), qualityInput(s, artifactBytes = null)
+            )
+        )
+        assertTrue(deferred.toString(),
+            deferred is Engine15I10ReadOnlyCandidateDecision.Deferred)
+        assertEquals("QUALITY_ARTIFACT_BYTES_MISSING",
+            (deferred as Engine15I10ReadOnlyCandidateDecision.Deferred).reasonCode)
+
+        val mismatch = Engine15I10ReadOnlyCandidateAssembly.assemble(
+            Engine15I10ReadOnlyCandidateInput(
+                s, baseInput(longDay = 6), qualityInput(s)
+            )
+        )
+        assertTrue(mismatch.toString(),
+            mismatch is Engine15I10ReadOnlyCandidateDecision.Deferred)
+        assertEquals("BASE_QUALITY_CALENDAR_MISMATCH",
+            (mismatch as Engine15I10ReadOnlyCandidateDecision.Deferred).reasonCode)
+    }
+
+    @Test fun i10CanReturnAnExplicitBaseOnlyCandidateWithoutQuality() {
+        val result = Engine15I10ReadOnlyCandidateAssembly.assemble(
+            Engine15I10ReadOnlyCandidateInput(source(), baseInput())
+        )
+        assertTrue(result.toString(),
+            result is Engine15I10ReadOnlyCandidateDecision.Candidate)
+        val candidate = result as Engine15I10ReadOnlyCandidateDecision.Candidate
+        assertNull(candidate.qualityReview)
+        assertNull(candidate.qualityAlternative)
+        assertTrue("BASE_ONLY_PREVIEW" in candidate.ruleIds)
+        assertFalse(candidate.qualityIncludedInBaseMileage)
+        assertFalse(candidate.qualityScheduled)
+        assertFalse(candidate.executable)
+        assertFalse(candidate.authorizedForProduction)
+    }
+
+    @Test fun i10RejectsQualityOnOrTooCloseToAssertedExternalHardSessions() {
+        val s = source()
+        val sameDayUpper = Engine15M6CExternalSession(
+            "same-day-upper", monday, Engine15M6CDiscipline.STRENGTH,
+            Engine15M6CLoad.UPPER_BODY
+        )
+        val sameDay = Engine15I10ReadOnlyCandidateAssembly.assemble(
+            Engine15I10ReadOnlyCandidateInput(
+                s, baseInput(externalSessions = listOf(sameDayUpper),
+                    allowEasyUpperPair = true), qualityInput(s)
+            )
+        )
+        assertTrue(sameDay.toString(),
+            sameDay is Engine15I10ReadOnlyCandidateDecision.Deferred)
+        assertEquals("QUALITY_EXTERNAL_SAME_DAY_CONFLICT",
+            (sameDay as Engine15I10ReadOnlyCandidateDecision.Deferred).reasonCode)
+
+        val nextDayHard = Engine15M6CExternalSession(
+            "next-day-hard", monday.plusDays(1), Engine15M6CDiscipline.STRENGTH,
+            Engine15M6CLoad.LOWER_BODY
+        )
+        val tooClose = Engine15I10ReadOnlyCandidateAssembly.assemble(
+            Engine15I10ReadOnlyCandidateInput(
+                s, baseInput(externalSessions = listOf(nextDayHard)), qualityInput(s)
+            )
+        )
+        assertTrue(tooClose.toString(),
+            tooClose is Engine15I10ReadOnlyCandidateDecision.Deferred)
+        assertEquals("QUALITY_EXTERNAL_HARD_TOO_CLOSE",
+            (tooClose as Engine15I10ReadOnlyCandidateDecision.Deferred).reasonCode)
     }
 
     @Test fun missingAndOversizedBytesCannotBeReadAsValidArtifacts() {

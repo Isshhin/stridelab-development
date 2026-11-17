@@ -55,6 +55,8 @@ class IndependentQualityTemplatesTest {
         assertEquals(WorkoutUnit.SECONDS, group.recovery.unit)
         assertEquals(90.0, group.recovery.amount, 0.0)
         assertEquals(WorkoutTarget.EASY, group.recovery.target)
+        assertEquals(180.0,
+            template.workout.dose(WorkoutUnit.SECONDS, WorkoutPurpose.RECOVERY)!!, 0.0)
         assertEquals(2000.0,
             (template.workout.elements.first() as IndependentWorkoutElement.Step).value.amount, 0.0)
         assertEquals(2000.0,
