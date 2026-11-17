@@ -151,19 +151,22 @@ internal object Engine15RunningProgram {
                 continue
             }
             val baselineKm=runs.sumOf { it.distanceKm ?: 0.0 }
-            val weeklyCeiling=Engine15.runningCeiling(w,p.weeklyKm,p.targetWeeklyKm)
-            var budget=units(minOf(baselineKm,weeklyCeiling))
+            val priorKm=if(recovery && prior.isNotEmpty()) prior.sumOf {
+                it.distanceKm ?: it.runningPrescription?.estimatedDistanceKm ?: 0.0
+            } else null
+            val weeklyDecision=Engine15WeeklyVolumeSkeleton.existingWeekBudget(
+                week=w,reportedRecentKm=p.weeklyKm,requestedTargetKm=p.targetWeeklyKm,
+                upstreamBaselineKm=baselineKm,previousDeliveredKm=priorKm
+            )
+            val budget=weeklyDecision.budgetTenths
             ledger?.record(w,"WEEK_BUDGET","ENGINE15_WEEKLY_CEILING",
-                baselineKm,weeklyCeiling,budget/10.0,
-                "Applied minimum of executed baseline volume and Engine 1.5 weekly ceiling")
-            if(recovery && prior.isNotEmpty()) {
-                val recoveryLimit=prior.sumOf {
-                    it.distanceKm ?: it.runningPrescription?.estimatedDistanceKm ?: 0.0
-                }*0.8
-                val beforeRecovery=budget
-                budget=minOf(budget,units(recoveryLimit))
+                baselineKm,weeklyDecision.policyCeilingKm,
+                weeklyDecision.beforeRecoveryKm,
+                "M4 legacy-parity intersection of existing baseline and Engine 1.5 ceiling")
+            weeklyDecision.recoveryLimitKm?.let { recoveryLimit ->
                 ledger?.record(w,"WEEK_BUDGET","ENGINE15_RECOVERY_CAP",
-                    beforeRecovery/10.0,recoveryLimit,budget/10.0,
+                    weeklyDecision.beforeRecoveryKm,recoveryLimit,
+                    weeklyDecision.budgetKm,
                     "Fourth-week recovery also limited by 80% of previous delivered week")
             }
             val reportedExposure=if(p.longestKm>0) p.longestKm + if(p.returning && w<2)0.0 else 1.0 else p.weeklyKm/runs.size

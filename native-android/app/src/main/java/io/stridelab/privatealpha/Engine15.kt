@@ -42,24 +42,11 @@ internal object Engine15 : PlanGenerationEngine {
     }
 
     /**
-     * Planned-mileage ceiling from athlete-supplied weekly mileage.
-     * Three staged loading weeks followed by a lighter fourth week.
-     * No catch-up mileage is added after deload weeks.
+     * Compatibility entry point. M4 owns this unchanged numeric formula.
+     * Legacy callers and existing tests continue using the same API.
      */
-    internal fun runningCeiling(week: Int, recentKm: Double, targetKm: Double? = null): Double {
-        require(week >= 0 && recentKm.isFinite() && recentKm >= 0.0 &&
-            (targetKm == null || targetKm.isFinite() && targetKm >= 0.0))
-        val block = week / 4
-        val part = week % 4
-        if(targetKm==null) {
-            val factor=if(part==3) minOf(0.90,0.76+block*0.04)
-                else minOf(1.10,0.90+part*0.05+block*0.045)
-            return recentKm*factor
-        }
-        val peak = minOf(targetKm, recentKm * (1.0 + block * 0.05))
-        return if (part == 3) peak * 0.80
-            else minOf(targetKm, recentKm * (0.90 + part * 0.05 + block * 0.05))
-    }
+    internal fun runningCeiling(week: Int, recentKm: Double, targetKm: Double? = null): Double =
+        Engine15WeeklyVolumeSkeleton.ceiling(week,recentKm,targetKm)
 
     private fun weekIndex(request: PlanRequest, session: PlannedSession) =
         (ChronoUnit.DAYS.between(request.start, session.date) / 7L).toInt()

@@ -50,3 +50,13 @@ PlanRequest receives optional recentMileageBasis and reportedPeakWeeklyKm metada
 **Constraint:** The M3 module is read-only. An imported *partial* week or self-reported average does not become verified capacity. A reported peak week alone cannot be considered a typical week. Contradictions return NEEDS_REVIEW and suppress the M4-ready typical weekly value. The M4 caller must explicitly make the eventual volume/progression decision, and must not silently interpret an unresolved profile as zero.
 
 **Approval test:** Exact generated-session parity against pre-M3 Q2/Q3 inputs, new and old serialization roundtrips, no automatic week-coverage promotion, explicit zero vs unknown vs peak-only, contradiction rejection by the typed profile, and no safety-policy mutations.
+
+## Decision 2026-11-17 / D-004 — M4 Stage A parity migration, no relaxed limits
+
+**Status:** Committed on draft branch; focused local validation pending.
+
+Following the user's successful M3 Gradle result (BUILD SUCCESSFUL in 1m 47s), the first M4 batch extracts the EXISTING Engine 1.5 weekly ceiling and upstream-volume/recovery intersection into `Engine15WeeklyVolumeSkeleton`. The generator delegates to it, while future M4 candidates may consume its separate `outline(Engine15AthleteCapacity,...)` interface. The pre-written mechanical rubric in `M4_GATE_B_PREFLIGHT_20261117.md` defines expected ceiling and R0 parity before test execution.
+
+**Approved scope:** numerical ownership consolidation and tests; no change to existing 0.9/0.95/etc coefficients, 80% recovery limits, 40% long-run ratio, 20% quality work, Q2 support timing, Q3 historical work or PlanSnapshot persistence. The Engine 1.0 scheduling baseline remains an upstream cap in Stage A.
+
+**Not yet authorized:** independent M4 Stage B workload progression, removal of Engine 1.0's session-volume influence, using confidence to widen workload, reallocating Q2 differences or changing target approval. This stage is a migration with *unchanged training outputs*, not a fix to the 80 km target gap. Focused M4 test execution and Gate B comparison required before progressing.
