@@ -38,6 +38,8 @@ internal data class Engine15AthleteCapacity(
     /** Feasible input to consider in M4, NOT permission to prescribe this load. */
     val typicalWeeklyKm:Double?,
     val reportedTypicalWeeklyKm:Double?,
+    val partialRecordedWeeklyKm:Double?,
+    val legacyUnclassifiedWeeklyKm:Double?,
     val reportedPeakWeeklyKm:Double?,
     val reportedLongestRunKm:Double?,
     val verifiedFourWeekAverageKm:Double?,
@@ -87,17 +89,20 @@ internal object Engine15AthleteBaseline {
         val fourWeek=history?.confirmedFourWeekMeanKm
         if(fourWeek!=null && !validKm(fourWeek))notes+="INVALID_COMPLETE_HISTORY_MEAN"
         val confirmed=fourWeek?.takeIf(::validKm)
-        val reportedTypical=when(basis) {
-            RecentMileageBasis.SELF_REPORTED_AVERAGE,
-            RecentMileageBasis.RECORDED_PARTIAL ->
-                recent.takeIf { validKm(it) && it>0.0 }
-            RecentMileageBasis.LEGACY_UNSPECIFIED ->
-                recent.takeIf { validKm(it) && it>0.0 }
-            else -> null
+        val scalar=recent.takeIf { validKm(it) && it>0.0 }
+        val reportedTypical=scalar.takeIf {
+            basis==RecentMileageBasis.SELF_REPORTED_AVERAGE
         }
-        if(basis in setOf(RecentMileageBasis.SELF_REPORTED_AVERAGE,
-                RecentMileageBasis.RECORDED_PARTIAL) && reportedTypical==null)
+        val partialRecorded=scalar.takeIf {
+            basis==RecentMileageBasis.RECORDED_PARTIAL
+        }
+        val legacyUnclassified=scalar.takeIf {
+            basis==RecentMileageBasis.LEGACY_UNSPECIFIED
+        }
+        if(basis==RecentMileageBasis.SELF_REPORTED_AVERAGE && reportedTypical==null)
             notes+="MISSING_REPORTED_AVERAGE"
+        if(basis==RecentMileageBasis.RECORDED_PARTIAL && partialRecorded==null)
+            notes+="MISSING_PARTIAL_RECORDED_ESTIMATE"
         if(basis==RecentMileageBasis.CONFIRMED_ZERO && recent!=0.0)
             notes+="ZERO_CONTRADICTS_LEGACY_WEEKLY_KM"
         if(basis in setOf(RecentMileageBasis.UNKNOWN,RecentMileageBasis.PEAK_WEEK_ONLY) &&
@@ -108,14 +113,17 @@ internal object Engine15AthleteBaseline {
         if(reportedTypical!=null && validKm(peak) &&
             peak!!+1e-8<reportedTypical)
             notes+="PEAK_BELOW_REPORTED_AVERAGE"
+        if(partialRecorded!=null && validKm(peak) &&
+            peak!!+1e-8<partialRecorded)
+            notes+="PEAK_BELOW_RECORDED_ESTIMATE"
         if(basis==RecentMileageBasis.CONFIRMED_ZERO && confirmed!=null &&
             confirmed>0.0)notes+="ZERO_CONTRADICTS_COMPLETE_HISTORY"
 
         val primary=when(basis) {
             RecentMileageBasis.CONFIRMED_ZERO -> 0.0.takeIf { recent==0.0 }
-            RecentMileageBasis.SELF_REPORTED_AVERAGE,
-            RecentMileageBasis.RECORDED_PARTIAL,
-            RecentMileageBasis.LEGACY_UNSPECIFIED -> reportedTypical ?: confirmed
+            RecentMileageBasis.SELF_REPORTED_AVERAGE -> reportedTypical ?: confirmed
+            RecentMileageBasis.RECORDED_PARTIAL -> partialRecorded ?: confirmed
+            RecentMileageBasis.LEGACY_UNSPECIFIED -> legacyUnclassified ?: confirmed
             RecentMileageBasis.UNKNOWN,
             RecentMileageBasis.PEAK_WEEK_ONLY -> confirmed
         }
@@ -123,11 +131,9 @@ internal object Engine15AthleteBaseline {
         // Never imply either one proves demonstrated tolerance.
         val confidence=when {
             primary==null -> AthleteBaselineConfidence.NONE
-            reportedTypical!=null -> when(basis) {
-                RecentMileageBasis.SELF_REPORTED_AVERAGE -> AthleteBaselineConfidence.SELF_REPORTED_PROVISIONAL
-                RecentMileageBasis.RECORDED_PARTIAL -> AthleteBaselineConfidence.PARTIAL_ACTIVITY_ESTIMATE
-                else -> AthleteBaselineConfidence.LEGACY_UNVERIFIED
-            }
+            reportedTypical!=null -> AthleteBaselineConfidence.SELF_REPORTED_PROVISIONAL
+            partialRecorded!=null -> AthleteBaselineConfidence.PARTIAL_ACTIVITY_ESTIMATE
+            legacyUnclassified!=null -> AthleteBaselineConfidence.LEGACY_UNVERIFIED
             basis==RecentMileageBasis.CONFIRMED_ZERO -> AthleteBaselineConfidence.SELF_REPORTED_PROVISIONAL
             confirmed!=null -> AthleteBaselineConfidence.COMPLETE_FOUR_WEEK_HISTORY
             else -> AthleteBaselineConfidence.NONE
@@ -137,13 +143,16 @@ internal object Engine15AthleteBaseline {
             basis==RecentMileageBasis.CONFIRMED_ZERO -> AthleteBaselineStatus.CONFIRMED_ZERO
             primary!=null && confidence==AthleteBaselineConfidence.COMPLETE_FOUR_WEEK_HISTORY ->
                 AthleteBaselineStatus.COMPLETE_HISTORY
-            reportedTypical!=null -> AthleteBaselineStatus.PROVISIONAL_AVERAGE
+            reportedTypical!=null || partialRecorded!=null || legacyUnclassified!=null ->
+                AthleteBaselineStatus.PROVISIONAL_AVERAGE
             basis==RecentMileageBasis.PEAK_WEEK_ONLY -> AthleteBaselineStatus.PEAK_ONLY
             else -> AthleteBaselineStatus.UNKNOWN
         }
         return Engine15AthleteCapacity(
             typicalWeeklyKm=primary.takeIf { notes.isEmpty() },
             reportedTypicalWeeklyKm=reportedTypical,
+            partialRecordedWeeklyKm=partialRecorded,
+            legacyUnclassifiedWeeklyKm=legacyUnclassified,
             reportedPeakWeeklyKm=peak?.takeIf(::validKm),
             reportedLongestRunKm=longest.takeIf { validKm(it) && it>0.0 },
             verifiedFourWeekAverageKm=confirmed,
