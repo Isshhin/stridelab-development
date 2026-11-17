@@ -124,6 +124,14 @@ Verify normal UI restoration of a synthetic plan after application process resta
 - **Verification:** the focused development-route/architecture/lock/backup JVM selection passed; the full JVM suite passed **1,020 tests across 131 suites, zero failures/errors, one skipped legacy quality capture**. Debug and instrumentation APK assembly passed with the development opt-in. The isolated Android 15 Pixel 9 AVD test passed for an eight-session calisthenics draft through explicit approval and offline reopen with owner/session preservation. `git diff --check` passed. No personal device was used.
 - **Status:** this is not full multi-discipline support. Conditioning construction and combined-discipline static scheduling remain outstanding. The development flag remains opt-in, release defaults unchanged, and quality-session prescriptions remain unqualified.
 
+### Batch 11 — independent conditioning-only draft (2026-11-17)
+
+- **Starting checkpoint:** PR #131 branch after calisthenics batch `f31e9ea43173f1e20a882a8e687a7447c227b34` and ledger update `d32cce8ff35abec250fb58a617c4ac7bd566c1e2`.
+- **Implementation commit:** `e3b5424575c2e04433dc23508f692c21dbd93c80` (`feat(engine15): add independent conditioning drafts`).
+- **Changes:** the existing Engine 1.5 generator facade now builds conditioning-only drafts using the shared catalog's foundation-level low-impact step jack. Engine 1.5 owns fixed 15/17/19-minute weekly progression, fourth-week recovery, talk-test/break cues, assigned available weekdays, session locks, time bounds and saved-plan validation. Known owner sessions, excluded movement, unresolved notes and mixed requests defer. Conditioning sessions are marked as lower-body load for basic hard-session spacing checks.
+- **Verification:** focused route/architecture/lock/backup JVM tests passed. Full `:app:testDebugUnitTest` passed **1,021 tests across 131 suites, zero failures/errors, one skipped legacy quality capture**. Debug and Android-test APKs compiled with the opt-in enabled. The isolated Android 15 Pixel 9 AVD test passed through draft creation, explicit approval and offline reopen with owner/session preservation. Eight-week conditioning composition and recovery blocks are covered by a deterministic JVM test. `git diff --check` passed. No personal device was used.
+- **Status:** all four requested disciplines now have standalone static composers routed through the same facade. Mixed-discipline plans, double-day coordination and interference-aware combined scheduling remain incomplete and explicitly defer. Running quality remains unqualified; no release or default cutover occurred.
+
 ## M10d — Android review-flow and backup reconciliation (2026-11-15)
 
 - **Starting point:** isolated branch `integration/engine15-m10d-android-reconciliation-20261115`, based on PR #91/M10c `a27a552632b53f97b932635236363cbb9b19adaa`; M10c source remains untouched.
