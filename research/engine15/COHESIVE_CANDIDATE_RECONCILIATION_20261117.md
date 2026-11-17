@@ -90,7 +90,7 @@ The realistic six-day 75→80 km, Thursday-unavailable case now exercises Saturd
 
 ### Batch 3 — Saturday long-run quality placement boundary
 
-- Starting branch/SHA: `research/engine15-cohesive-candidate-20261117`, `1d3151882a5b87e2d6141c81056cb9a82685d4cf`.
+- Starting branch/SHA: `research/engine15-cohesive-candidate-20261117`, `1d3151882a5b87e2d6141c81056cb9a82685d4cf`; implementation commit `b82109d48eca740b2f7685b19aceff103f32f78d`.
 - Change: generalized the integrated shadow test fixture's long day, then added the requested 75→80 km, six-day, Thursday-rest, Saturday-long/Sunday-easy quality opportunity scenario. Added a two-quality-in-one-week rejection assertion. No planner or policy implementation changed.
 - Verification: JBR 21.0.11 / Gradle 8.13, `:app:testDebugUnitTest --tests 'io.stridelab.privatealpha.Engine15I1IntegratedShadowMatrixTest' --tests 'io.stridelab.privatealpha.Engine15I9ReadOnlyBasePlanAssemblyTest' --no-daemon --max-workers=2`: **17 tests passed**, zero failures/errors/skips. An initial two-quality acceptance probe returned M5B's existing `MULTIPLE_QUALITY_REQUESTS_IN_WEEK` deferral; the final positive case uses one session and locks the deferral into a negative test.
 - Regressions addressed: integrated calendar invariants no longer hard-code Sunday as long day; no production behavior changed.
@@ -99,7 +99,7 @@ The realistic six-day 75→80 km, Thursday-unavailable case now exercises Saturd
 
 ### Batch 4 — reported quality exposure terminology
 
-- Starting branch/SHA: `research/engine15-cohesive-candidate-20261117`, `b82109d48eca740b2f7685b19aceff103f32f78d`.
+- Starting branch/SHA: `research/engine15-cohesive-candidate-20261117`, `b82109d48eca740b2f7685b19aceff103f32f78d`; implementation commit `2148ee7bc2abde5f8e5842b52d0af52ecb24f8d7`.
 - Change: renamed the M2 input `confirmedRecentWorkSeconds` to `reportedRecentWorkSeconds` across its I3/M9 use and all Kotlin callers/tests. Output metadata now says `CALLER_REPORTED_QUALITY_WORK_EXPOSURE`; added a regression assertion and a durable AGENTS rule against equating caller reports with source evidence. This changes an internal Kotlin API only; no JSON, database or saved-plan format changed.
 - Verification: test-first provenance assertion failed before implementation. Afterwards JBR 21.0.11 / Gradle 8.13 compiled main and test sources and passed `IndependentQualityFitnessAdapterTest`, `Engine15I3SourceLinkedQualityDurationTest`, `IndependentQualityDoseProgressionTest`: **40 tests passed**, zero failures/errors/skips. `git diff --check` passed; `rg` found no remaining old input/rule names in source/test trees.
 - Regressions addressed: removed a misleading “confirmed” label at the selector boundary; preserved M3's explicit prohibition against auto-filling from its unverified source assertions.
