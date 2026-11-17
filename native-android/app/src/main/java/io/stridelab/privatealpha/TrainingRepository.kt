@@ -465,8 +465,11 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     suspend fun generatePlan(request:PlanRequest,engine:PlanGenerationEngine?=null) = operation("Building your plan…") {
         val owner=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)
         val selected=engine ?: Engine1Engines.resolve(request)
-        savePlan(if(selected===Engine15) Engine15.generateWithHistory(request,owner,mutable.value.plans)
-            else selected.generate(request,owner))
+        savePlan(when(selected) {
+            Engine15 -> Engine15.generateWithHistory(request,owner,mutable.value.plans)
+            Engine15IndependentPlanGenerator -> Engine15IndependentPlanGenerator.generateWithHistory(request,owner,mutable.value.plans)
+            else -> selected.generate(request,owner)
+        })
     }
     suspend fun changePlan(id:String,revision:Int,action:(PlanSnapshot)->PlanSnapshot) = operation("Saving your plan…") {
         val activeOwner=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)

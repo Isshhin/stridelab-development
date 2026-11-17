@@ -14,12 +14,14 @@ internal data class Engine15M6CalendarInput(
     val preferredLongIsoDay: Int,
     val blockedDates: Set<LocalDate> = emptySet(),
     val preferredEasyIsoDays: Set<Int> = emptySet(),
-    val lockedSlotDates: Map<Pair<Int, Int>, LocalDate> = emptyMap()
+    val lockedSlotDates: Map<Pair<Int, Int>, LocalDate> = emptyMap(),
+    val assignedSlotDays: Map<Pair<Int, Int>, Int> = emptyMap()
 ) {
     init {
         require(availableIsoDays.all { it in 1..7 })
         require(preferredLongIsoDay in 1..7)
         require(preferredEasyIsoDays.all { it in 1..7 })
+        require(assignedSlotDays.values.all { it in 1..7 })
     }
 }
 
@@ -167,6 +169,7 @@ internal object Engine15M6IndependentCalendar {
                     week.weekNumber)
 
             val weekLocks = calendar.lockedSlotDates.filterKeys { it.first == week.weekNumber }
+            val weekAssignments = calendar.assignedSlotDays.filterKeys { it.first == week.weekNumber }
             if (weekLocks.keys.any { key -> week.slots.none { it.slotNumber == key.second } } ||
                 weekLocks.values.any { date ->
                     val delta = ((date.dayOfWeek.value - weekStart.dayOfWeek.value + 7) % 7).toLong()
@@ -174,12 +177,27 @@ internal object Engine15M6IndependentCalendar {
                         date.dayOfWeek.value !in calendar.availableIsoDays
                 })
                 return defer("LOCKED_SLOT_UNAVAILABLE", "A locked workout date cannot be used in this plan week.", week.weekNumber)
+            if (weekAssignments.keys.any { key -> week.slots.none { it.slotNumber == key.second } } ||
+                weekAssignments.values.any { it !in possible })
+                return defer("ASSIGNED_SLOT_UNAVAILABLE", "A fixed running weekday cannot be used in this plan week.", week.weekNumber)
+            if (weekLocks.any { (key, date) ->
+                    weekAssignments[key]?.let { it != date.dayOfWeek.value } == true
+                })
+                return defer("LOCK_ASSIGNMENT_CONFLICT", "A locked run date disagrees with its fixed weekday assignment.", week.weekNumber)
             val lockedEasyDays = weekLocks.filterKeys { it.second != longSlot?.slotNumber }.values
                 .map { it.dayOfWeek.value }.toSet()
+            val assignedEasyDays = weekAssignments.filterKeys { it.second != longSlot?.slotNumber }.values.toSet()
             if (lockedLong != null && lockedLong.dayOfWeek.value !in possible)
                 return defer("LOCKED_LONG_SLOT_UNAVAILABLE", "The locked long-run date is unavailable.", week.weekNumber)
+            val assignedLongDay = longSlot?.let { weekAssignments[week.weekNumber to it.slotNumber] }
+            if (lockedLong != null && assignedLongDay != null && lockedLong.dayOfWeek.value != assignedLongDay)
+                return defer("LOCK_ASSIGNMENT_CONFLICT", "The long-run lock disagrees with its fixed weekday assignment.", week.weekNumber)
+            val requiredLongDay = lockedLong?.dayOfWeek?.value ?: assignedLongDay
+            if (requiredLongDay != null && longDay != null && longDay != requiredLongDay)
+                return defer("LONG_DAY_ASSIGNMENT_CONFLICT", "The long-run weekday does not match the fixed running assignment.", week.weekNumber)
             val chosen = chooseDays(
-                possible, days, longDay, calendar.preferredEasyIsoDays, lockedEasyDays
+                possible, days, requiredLongDay ?: longDay, calendar.preferredEasyIsoDays,
+                lockedEasyDays + assignedEasyDays
             ) ?: return defer("NO_WEEKDAY_ASSIGNMENT",
                 "Could not place every independent distance-only slot in available days.",
                 week.weekNumber)
@@ -193,9 +211,18 @@ internal object Engine15M6IndependentCalendar {
 
             val pairs = mutableListOf<Pair<Engine15M5WorkoutSlot, Int>>()
             val lockedEasy = easy.filter { (week.weekNumber to it.slotNumber) in weekLocks }
-            for (slot in lockedEasy) pairs += slot to weekLocks.getValue(week.weekNumber to slot.slotNumber).dayOfWeek.value
-            val freeDays = easyDays - lockedEasy.map { weekLocks.getValue(week.weekNumber to it.slotNumber).dayOfWeek.value }.toSet()
-            pairs += easy.filterNot { it in lockedEasy }.zip(freeDays)
+            val fixedEasy = easy.filter { (week.weekNumber to it.slotNumber) in weekLocks || (week.weekNumber to it.slotNumber) in weekAssignments }
+            for (slot in fixedEasy) {
+                val key = week.weekNumber to slot.slotNumber
+                val day = weekLocks[key]?.dayOfWeek?.value ?: weekAssignments.getValue(key)
+                pairs += slot to day
+            }
+            val fixedDays = fixedEasy.map { slot ->
+                val key = week.weekNumber to slot.slotNumber
+                weekLocks[key]?.dayOfWeek?.value ?: weekAssignments.getValue(key)
+            }.toSet()
+            val freeDays = easyDays - fixedDays
+            pairs += easy.filterNot { it in fixedEasy }.zip(freeDays)
             if (longDay != null) {
                 val longSlot = longSlot ?: return defer("LONG_SLOT_NOT_FOUND",
                     "M5A did not supply the one required long-run slot.",

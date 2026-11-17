@@ -7,7 +7,9 @@ internal object PlanScheduleValidation {
             policy==ENGINE15_INTERFERENCE_POLICY
 
     fun conflict(a:PlannedSession,b:PlannedSession,policyA:String,policyB:String)=
-        if(policyA==ENGINE15_INTERFERENCE_POLICY && policyB==ENGINE15_INTERFERENCE_POLICY)
+        if(policyA==ENGINE15_INDEPENDENT_RUNNING_POLICY || policyB==ENGINE15_INDEPENDENT_RUNNING_POLICY)
+            Engine15IndependentPlanGenerator.conflict(a,b)
+        else if(policyA==ENGINE15_INTERFERENCE_POLICY && policyB==ENGINE15_INTERFERENCE_POLICY)
             Engine15InterferenceScheduling.conflict(a,b)
         else if(policyA==ENGINE15_INTERFERENCE_POLICY || policyB==ENGINE15_INTERFERENCE_POLICY)
             // Retain baseline cross-policy restrictions and also honor the
@@ -20,6 +22,8 @@ internal object PlanScheduleValidation {
 
     fun validatePlan(plan:PlanSnapshot) {
         if(plan.status!="approved" || !Engine1Engines.canManage(plan))return
+        if(plan.policyId==ENGINE15_INDEPENDENT_RUNNING_POLICY)
+            Engine15IndependentPlanGenerator.validateSaved(plan)
         Engine15SessionLocks.validateSaved(plan)
         Engine15Availability.requireReady(plan)
         val sessions=scheduled(plan)

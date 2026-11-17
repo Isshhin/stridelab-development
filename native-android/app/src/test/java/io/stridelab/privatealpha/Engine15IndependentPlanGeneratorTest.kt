@@ -26,7 +26,7 @@ class Engine15IndependentPlanGeneratorTest {
     )
 
     @Test fun assemblesCompleteEightWeekSaturdayLongSundayEasyCandidate() {
-        val decision = Engine15IndependentPlanGenerator.generate(request(), owner, "candidate", now)
+        val decision = Engine15IndependentPlanGenerator.preview(request(), owner, "candidate", now)
         assertTrue("Expected candidate, got $decision", decision is Engine15IndependentPlanDecision.Candidate)
         val candidate = decision as Engine15IndependentPlanDecision.Candidate
         val plan = candidate.plan
@@ -44,14 +44,14 @@ class Engine15IndependentPlanGeneratorTest {
         assertFalse(candidate.executable)
         assertFalse(candidate.authorizedForProduction)
         assertTrue(plan.sessions.all { it.quality.not() && it.runningPrescription?.family == null })
-        assertEquals(plan, Engine15IndependentPlanGenerator.generate(request(), owner, "candidate", now).let {
+        assertEquals(plan, Engine15IndependentPlanGenerator.preview(request(), owner, "candidate", now).let {
             (it as Engine15IndependentPlanDecision.Candidate).plan
         })
     }
 
     @Test fun defersQualityRequestsInsteadOfDroppingOrSubstitutingThem() {
         for (qualityCount in 1..2) {
-            val decision = Engine15IndependentPlanGenerator.generate(
+            val decision = Engine15IndependentPlanGenerator.preview(
                 request().copy(qualityCount = qualityCount), owner, "quality-$qualityCount", now
             )
             assertTrue(decision is Engine15IndependentPlanDecision.Deferred)
@@ -65,13 +65,13 @@ class Engine15IndependentPlanGeneratorTest {
             request().copy(weeklyKm = 0.0, recentMileageBasis = "UNKNOWN"),
             request().copy(recentMileageBasis = "LEGACY_UNSPECIFIED")
         )) {
-            assertTrue(Engine15IndependentPlanGenerator.generate(input, owner, "history", now)
+            assertTrue(Engine15IndependentPlanGenerator.preview(input, owner, "history", now)
                 is Engine15IndependentPlanDecision.Deferred)
         }
     }
 
     @Test fun incompleteRecordedHistoryCannotBecomeTheWeeklyMileageBaseline() {
-        val decision = Engine15IndependentPlanGenerator.generate(
+        val decision = Engine15IndependentPlanGenerator.preview(
             request().copy(recentMileageBasis = "RECORDED_PARTIAL"), owner, "partial", now
         )
         assertTrue(decision is Engine15IndependentPlanDecision.Deferred)
@@ -80,7 +80,7 @@ class Engine15IndependentPlanGeneratorTest {
     }
 
     @Test fun conflictingTrainingHistoryIsDeferredForReview() {
-        val decision = Engine15IndependentPlanGenerator.generate(
+        val decision = Engine15IndependentPlanGenerator.preview(
             request().copy(reportedPeakWeeklyKm = 60.0), owner, "conflict", now
         )
         assertTrue(decision is Engine15IndependentPlanDecision.Deferred)
@@ -90,7 +90,7 @@ class Engine15IndependentPlanGeneratorTest {
 
     @Test fun beginnerIntermediateAndAdvancedProfilesUseReportedInputsWithoutInventedQuality() {
         for (experience in 0..2) {
-            val decision = Engine15IndependentPlanGenerator.generate(
+            val decision = Engine15IndependentPlanGenerator.preview(
                 request().copy(experience = experience, returning = experience == 0),
                 owner, "experience-$experience", now
             )
@@ -103,7 +103,7 @@ class Engine15IndependentPlanGeneratorTest {
 
     @Test fun assemblesSixteenWeeksWithFourRecoveryCyclesAndExactWorkoutExtent() {
         val input = request(16).copy(planningPace = 360.0)
-        val decision = Engine15IndependentPlanGenerator.generate(input, owner, "sixteen", now)
+        val decision = Engine15IndependentPlanGenerator.preview(input, owner, "sixteen", now)
         assertTrue(decision is Engine15IndependentPlanDecision.Candidate)
         val candidate = decision as Engine15IndependentPlanDecision.Candidate
         assertEquals(listOf(4, 8, 12, 16), candidate.periodization.weeks
@@ -130,7 +130,7 @@ class Engine15IndependentPlanGeneratorTest {
     }
 
     @Test fun independentPreviewDoesNotBecomeAnExecutableSavedPlan() {
-        val candidate = Engine15IndependentPlanGenerator.generate(request(), owner, "readonly", now)
+        val candidate = Engine15IndependentPlanGenerator.preview(request(), owner, "readonly", now)
             as Engine15IndependentPlanDecision.Candidate
         val decoded = PlanSnapshot.decode(candidate.plan.encode(), owner)
         assertNotNull(decoded.foreignSnapshot)
@@ -142,13 +142,13 @@ class Engine15IndependentPlanGeneratorTest {
     }
 
     @Test fun defersPersistentRecoveryHoldAndUnsupportedMixedDisciplineRequests() {
-        val hold = Engine15IndependentPlanGenerator.generate(
+        val hold = Engine15IndependentPlanGenerator.preview(
             request().copy(runningRecoveryHold = true), owner, "hold", now
         )
         assertTrue(hold is Engine15IndependentPlanDecision.Deferred)
         assertEquals("RUNNING_RECOVERY_HOLD", (hold as Engine15IndependentPlanDecision.Deferred).reasonCode)
 
-        val mixed = Engine15IndependentPlanGenerator.generate(
+        val mixed = Engine15IndependentPlanGenerator.preview(
             request().copy(calDays = 1), owner, "mixed", now
         )
         assertTrue(mixed is Engine15IndependentPlanDecision.Deferred)
@@ -158,34 +158,111 @@ class Engine15IndependentPlanGeneratorTest {
 
     @Test fun arbitraryStartDateAndExactSessionLockAreHonored() {
         val input = request().copy(start = LocalDate.parse("2026-11-17"))
-        val shifted = Engine15IndependentPlanGenerator.generate(input, owner, "shifted", now)
+        val shifted = Engine15IndependentPlanGenerator.preview(input, owner, "shifted", now)
         assertTrue("Expected candidate, got $shifted", shifted is Engine15IndependentPlanDecision.Candidate)
         val sessions = (shifted as Engine15IndependentPlanDecision.Candidate).plan.sessions
         assertTrue(sessions.all { it.date >= input.start && it.date < input.start.plusWeeks(input.weeks.toLong()) })
 
         val lockedId = "locked-w1-run1"
         val lockedInput = input.copy(lockedSessionDays = mapOf(lockedId to "2026-11-18"))
-        val locked = Engine15IndependentPlanGenerator.generate(lockedInput, owner, "locked", now)
+        val locked = Engine15IndependentPlanGenerator.preview(lockedInput, owner, "locked", now)
         assertTrue("Expected locked candidate, got $locked", locked is Engine15IndependentPlanDecision.Candidate)
         assertEquals(LocalDate.parse("2026-11-18"),
             (locked as Engine15IndependentPlanDecision.Candidate).plan.sessions.single { it.id == lockedId }.date)
+
+        val longLock = Engine15IndependentPlanGenerator.preview(
+            input.copy(lockedSessionDays = mapOf("prior-w1-run0" to "2026-11-21")), owner, "locked-long", now
+        ) as Engine15IndependentPlanDecision.Candidate
+        assertEquals(LocalDate.parse("2026-11-21"), longLock.plan.sessions.single {
+            it.kind == "long" && it.date < input.start.plusWeeks(1)
+        }.date)
+    }
+
+    @Test fun explicitRunningWeekdayAssignmentsArePreservedInEveryWeek() {
+        val assigned = listOf(6, 1, 2, 3, 5, 7)
+        val input = request().copy(weeklySlots = mapOf("run" to assigned))
+        val result = Engine15IndependentPlanGenerator.preview(input, owner, "assigned", now)
+        assertTrue("Expected candidate, got $result", result is Engine15IndependentPlanDecision.Candidate)
+        val sessions = (result as Engine15IndependentPlanDecision.Candidate).plan.sessions
+        for (week in 1..input.weeks) {
+            for (runIndex in assigned.indices) {
+                val session = sessions.single { it.id == "assigned-w$week-run$runIndex" }
+                assertEquals(assigned[runIndex], session.date.dayOfWeek.value)
+            }
+        }
+    }
+
+    @Test fun appGenerationReturnsAReviewableManagedDraftAndKeepsQualityDeferred() {
+        val plan = Engine15IndependentPlanGenerator.generateWithHistory(request(), owner, emptyList(), "app-draft", now)
+        assertEquals(ENGINE15_INDEPENDENT_RUNNING_POLICY, plan.policyId)
+        assertEquals("draft", plan.status)
+        assertTrue(Engine1Engines.canManage(plan))
+        assertTrue(plan.sessions.all { it.discipline == "run" && !it.quality })
+        val decoded = PlanSnapshot.decode(plan.encode(), owner)
+        assertEquals(plan, decoded)
+        assertNull(decoded.foreignSnapshot)
+
+        val error = assertThrows(PlanConstraint::class.java) {
+            Engine15IndependentPlanGenerator.generateWithHistory(request().copy(qualityCount = 1), owner, emptyList(), "quality", now)
+        }
+        assertTrue(error.message.orEmpty().contains("QUALITY_GENERATION_NOT_QUALIFIED"))
+    }
+
+    @Test fun directGenerationWithoutRepositoryCalendarContextFailsClosed() {
+        val error = assertThrows(PlanConstraint::class.java) {
+            Engine15IndependentPlanGenerator.generate(request(), owner, "missing-calendar", now)
+        }
+        assertTrue(error.message.orEmpty().contains("EXTERNAL_PLAN_CONTEXT_REQUIRED"))
+    }
+
+    @Test fun savedHardSessionsAreCheckedAndOtherOwnersAreIsolated() {
+        val strength = PlannedSession("leg-day", LocalDate.parse("2026-11-20"), "str",
+            "Lower body strength", 45, null, "strength", lower = true)
+        val saved = PlanSnapshot("saved-strength", owner, ENGINE1_VERSION, ENGINE1_POLICY, now,
+            PlanRequest(start = request().start, weeks = 8, strengthDays = 1), listOf(strength),
+            emptyList(), status = "approved")
+        val input = request().copy(runDays = 3, days = setOf(2, 4, 6), longDay = 6,
+            weeklyKm = 30.0, targetWeeklyKm = 30.0, longestKm = 10.0)
+        val blocked = assertThrows(PlanConstraint::class.java) {
+            Engine15IndependentPlanGenerator.generateWithHistory(input, owner, listOf(saved), "blocked", now)
+        }
+        assertTrue(blocked.message.orEmpty().contains("EXTERNAL_HARD_TOO_CLOSE_TO_LONG"))
+
+        val foreign = Engine15IndependentPlanGenerator.generateWithHistory(
+            input, owner, listOf(saved.copy(owner = "another-owner")), "isolated", now
+        )
+        assertTrue(foreign.sessions.all { it.date.dayOfWeek.value in input.days })
+    }
+
+    @Test fun savedQualityConditioningSessionIsNeverDowngradedToEasyExternalLoad() {
+        val session = PlannedSession("hard-conditioning", LocalDate.parse("2026-11-20"), "cond",
+            "Conditioning intervals", 35, null, "conditioning", quality = true)
+        val saved = PlanSnapshot("saved-conditioning", owner, ENGINE1_VERSION, ENGINE1_POLICY, now,
+            PlanRequest(start = request().start, weeks = 8, conditioningDays = 1), listOf(session),
+            emptyList(), status = "approved")
+        val input = request().copy(runDays = 3, days = setOf(2, 4, 6), longDay = 6,
+            weeklyKm = 30.0, targetWeeklyKm = 30.0, longestKm = 10.0)
+        val error = assertThrows(PlanConstraint::class.java) {
+            Engine15IndependentPlanGenerator.generateWithHistory(input, owner, listOf(saved), "conditioning", now)
+        }
+        assertTrue(error.message.orEmpty().contains("EXTERNAL_HARD_TOO_CLOSE_TO_LONG"))
     }
 
     @Test fun defersDoubleDaysAndUnmappableSessionLocks() {
-        val doubleDays = Engine15IndependentPlanGenerator.generate(
+        val doubleDays = Engine15IndependentPlanGenerator.preview(
             request().copy(allowDoubleDays = true), owner, "double", now
         )
         assertTrue(doubleDays is Engine15IndependentPlanDecision.Deferred)
         assertEquals("DOUBLE_DAYS_UNSUPPORTED", (doubleDays as Engine15IndependentPlanDecision.Deferred).reasonCode)
 
-        val locked = Engine15IndependentPlanGenerator.generate(
+        val locked = Engine15IndependentPlanGenerator.preview(
             request().copy(lockedSessionDays = mapOf("unknown-session" to "2026-11-16")),
             owner, "candidate", now
         )
         assertTrue(locked is Engine15IndependentPlanDecision.Deferred)
         assertEquals("SESSION_LOCK_MAPPING_UNSUPPORTED",
             (locked as Engine15IndependentPlanDecision.Deferred).reasonCode)
-        val staleLock = Engine15IndependentPlanGenerator.generate(
+        val staleLock = Engine15IndependentPlanGenerator.preview(
             request().copy(lockedSessionDays = mapOf("previous-w9-run1" to "2026-11-16")),
             owner, "candidate", now
         )
@@ -193,7 +270,7 @@ class Engine15IndependentPlanGeneratorTest {
         assertEquals("SESSION_LOCK_MAPPING_UNSUPPORTED",
             (staleLock as Engine15IndependentPlanDecision.Deferred).reasonCode)
 
-        val tightTime = Engine15IndependentPlanGenerator.generate(
+        val tightTime = Engine15IndependentPlanGenerator.preview(
             request().copy(timeBudgetEnabled = true, minutes = 45), owner, "time", now
         )
         assertTrue(tightTime is Engine15IndependentPlanDecision.Deferred)

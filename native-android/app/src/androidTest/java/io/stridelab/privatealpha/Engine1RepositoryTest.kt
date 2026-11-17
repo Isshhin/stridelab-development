@@ -77,6 +77,31 @@ class Engine1RepositoryTest {
         assertEquals(plan,reopened)
         assertEquals(2,reopened.sessions.count { it.status=="completed" })
     }
+
+    @Test fun independentRunningDraftSurvivesOfflineReopenWithoutChangingOwner()=runBlocking {
+        Assume.assumeTrue(BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)
+        val request=PlanRequest(goal="Aerobic foundation",start=start,weeks=8,
+            days=setOf(1,2,3,5,6,7),runDays=6,longDay=6,weeklyKm=30.0,
+            targetWeeklyKm=30.0,longestKm=10.0,timeBudgetEnabled=false,
+            policyChoice="engine15",recentMileageBasis="SELF_REPORTED_AVERAGE")
+        assertTrue(repo.generatePlan(request))
+        var plan=repo.state.value.plans.single()
+        assertEquals(owner,plan.owner)
+        assertEquals(ENGINE15_INDEPENDENT_RUNNING_POLICY,plan.policyId)
+        assertEquals("draft",plan.status)
+        assertEquals(48,plan.sessions.size)
+        assertTrue(repo.approvePlan(plan.id,plan.revision))
+        plan=repo.state.value.plans.single()
+        repo.close();gateway.offline=true;open()
+        val reopened=repo.state.value.plans.single()
+        assertEquals(owner,reopened.owner)
+        assertEquals(plan.id,reopened.id)
+        assertEquals(plan.policyId,reopened.policyId)
+        assertEquals(plan.status,reopened.status)
+        assertEquals(plan.sessions.map { it.id to it.date },reopened.sessions.map { it.id to it.date })
+    }
     @Test fun repositoryMovementRejectsAnotherApprovedPlansIncompatibleSession()=runBlocking {
         assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
         val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)

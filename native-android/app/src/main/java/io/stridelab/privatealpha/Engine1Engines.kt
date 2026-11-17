@@ -13,7 +13,7 @@ internal object Engine1Engines {
     /** A policy is editable only when both its exact version and policy ID are supported. */
     fun supports(version:String,policy:String):Boolean =
         (version==ENGINE1_VERSION && policy in knownPolicies) ||
-        (version==ENGINE15_VERSION && policy in setOf(ENGINE15_POLICY, ENGINE15_FOUNDATION_POLICY, ENGINE15_MULTI_POLICY, ENGINE15_INTERFERENCE_POLICY))
+        (version==ENGINE15_VERSION && policy in setOf(ENGINE15_POLICY, ENGINE15_FOUNDATION_POLICY, ENGINE15_MULTI_POLICY, ENGINE15_INTERFERENCE_POLICY, ENGINE15_INDEPENDENT_RUNNING_POLICY))
     fun canManage(plan:PlanSnapshot)=supports(plan.engineVersion,plan.policyId)
     fun discipline(goal:String)=goals.entries.find { goal in it.value }?.key
     fun goal(p:PlanRequest,discipline:String):String=p.disciplineGoals[discipline] ?: p.goal.takeIf { it in goals.getValue(discipline) } ?: goals.getValue(discipline).first()
@@ -21,12 +21,13 @@ internal object Engine1Engines {
         "baseline"->Engine1
         "coordinated"->CoordinatedEngine1
         "multi-session"->MultiSessionEngine1
-        "engine15"->Engine15
+        "engine15"->if(BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE) Engine15IndependentPlanGenerator else Engine15
         else->throw PlanConstraint("Choose a supported coaching engine policy.")
     }
     fun validate(p:PlanRequest) {
         when(resolve(p)) {
             MultiSessionEngine1->MultiSessionEngine1.validate(p)
+            Engine15IndependentPlanGenerator->Engine15IndependentPlanGenerator.validateRequest(p)
             Engine15->Engine15.validate(p)
             else->Engine1.validate(p)
         }
