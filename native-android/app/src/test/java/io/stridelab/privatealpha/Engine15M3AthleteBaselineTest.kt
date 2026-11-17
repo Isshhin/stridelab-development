@@ -41,7 +41,7 @@ class Engine15M3AthleteBaselineTest {
         assertEquals(AthleteBaselineConfidence.SELF_REPORTED_PROVISIONAL,c.confidence)
         assertEquals(75.0,c.typicalWeeklyKm!!,0.0)
         assertEquals(90.0,c.reportedPeakWeeklyKm!!,0.0)
-        assertEquals(20.0,c.longestRecentRunKm!!,0.0)
+        assertEquals(20.0,c.reportedLongestRunKm!!,0.0)
         assertNull(c.verifiedFourWeekAverageKm)
         assertEquals(0,c.completeWeekCount)
         assertTrue(c.readyForVolumeSkeleton)
