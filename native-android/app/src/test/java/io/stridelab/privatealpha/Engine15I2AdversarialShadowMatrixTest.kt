@@ -173,7 +173,7 @@ class Engine15I2AdversarialShadowMatrixTest {
         add("quality-returner-hold","QUALITY",
             source=src(usual=40.0,target=50.0,longest=12.0,days=4,returning=true),
             input=conf(n=4,quality=listOf(q(slot=1))),
-            reason="UPSTREAM_QUALITY_RETURNING_RUNNER_QUALITY_HOLD")
+            reason="UPSTREAM_QUALITY_QUALITY_RETURNING_RUNNER_QUALITY_HOLD")
         add("quality-two-day-hold","QUALITY",
             source=src(usual=20.0,target=25.0,longest=20.0,days=2,weeks=1),
             input=conf(n=2,quality=listOf(q(slot=1))),
