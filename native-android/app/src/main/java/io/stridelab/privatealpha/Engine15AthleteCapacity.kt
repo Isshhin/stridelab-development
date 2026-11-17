@@ -80,7 +80,8 @@ internal object Engine15AthleteBaseline {
         if(!validKm(recent))notes+="INVALID_RECENT_KM"
         val peak=request.reportedPeakWeeklyKm
         if(peak!=null && !validKm(peak))notes+="INVALID_PEAK_KM"
-        // Legacy longestKm has no recency/source proof; keep it provisional.\n        val longest=request.longestKm
+        // Legacy longestKm has no recency/source proof; keep it provisional.
+        val longest=request.longestKm
         if(!validKm(longest))notes+="INVALID_LONGEST_KM"
 
         val fourWeek=history?.confirmedFourWeekMeanKm
