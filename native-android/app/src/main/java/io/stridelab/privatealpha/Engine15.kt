@@ -126,7 +126,7 @@ internal object Engine15 : PlanGenerationEngine {
                     if(observed.easyKm!=null || observed.longKm!=null)
                         add("OBSERVED_RUN_PATTERN: Repeated logged easy/long exposures inform session allocation. Weekly coverage is unknown; logged totals do not replace reported weekly mileage. Sources: ${observed.evidenceIds.joinToString()}.")
                     if(observed.qualityWorkKmByFamily.isNotEmpty())
-                        add("VERIFIED_QUALITY_HISTORY: Explicitly completed work, repeated across weeks, bounds future matching quality families (${observed.qualityWorkKmByFamily.entries.joinToString { "${it.key}: ${it.value} km" }}). Work is never increased beyond this evidence; this is not a measured threshold, pace, readiness score or approval to advance. Sources: ${observed.evidenceIds.joinToString()}.")
+                        add("REPEATED_REPORTED_QUALITY_HISTORY: Self-reported completed work, repeated across weeks, bounds future matching quality families (${observed.qualityWorkKmByFamily.entries.joinToString { "${it.key}: ${it.value} km" }}). Logs are not source-authenticated; work is never increased beyond them and they do not establish a measured threshold, pace, readiness score or approval to advance. Logs: ${observed.evidenceIds.joinToString()}.")
                 }
             } ?: emptyList()) + coachingReview(request, adapted) + (if(review!=null && request.start<=review.recoveryThrough)
                 listOf("RECENT_RESPONSE_REVIEW: Recent explicit difficulty limits upcoming running to shorter easy roles through ${review.recoveryThrough}. Evidence: ${review.evidenceIds.joinToString()}. No fitness or recovery score is inferred.") else emptyList()) + baseline.explanations.filterNot {

@@ -151,10 +151,11 @@ internal object Engine15I3SourceLinkedQualityDuration {
             claimed + dose.approvedIncreaseSeconds
         )
         val preview = m5b.qualityPreviews.single()
-        if (preview.workSeconds > permitted ||
-            preview.totalSeconds > dose.availableSessionSeconds)
+        if (preview.workSeconds > permitted || dose.availableSessionSeconds?.let {
+                preview.totalSeconds > it
+            } == true)
             return defer("REQUESTED_PREVIEW_EXCEEDS_EXPLICIT_BOUND",
-                "Quality preview exceeds the original caller-reviewed dose or time bound.")
+                "Quality preview exceeds the original caller-reviewed dose or explicit time limit.")
 
         return Engine15I3QualityDurationDecision.DurationConsistent(
             policyId = POLICY_ID,

@@ -37,6 +37,31 @@ Continue on this isolated research branch based on the exact I9 history. Complet
 - **Defer:** requested workout lacks sufficient identity, usable source-linked repeated exposure, a conflict-free recovery/calendar assessment, internally consistent work/recovery structure, or feasible base-distance reconciliation. Do not substitute EASY, invent pace/HR, or silently omit the request.
 - **Executable approval:** disabled for this candidate. It requires separately verified source and athlete-specific intensity/dose authority, complete workload/recovery controls, independent review, owner approval, and a separate authorized implementation. None of I1–I9 grants this authority.
 
+## Quality-generator audit and current family disposition
+
+### M10.6 candidate
+
+`Engine15RunningProgram.quality` makes weekly quality count conditional on experience, reported mileage, recovery week, taper, return status, requested count, and reported recent frequency. It spaces sessions away from long/lower-body sessions, selects goal/phase-dependent interval counts, budgets work against original session/week volume, and rechecks work share after mixed warm-up/cool-down conversion. Supported family labels include Threshold, Tempo, Intervals, Hills, Fartlek, and Progression; there is no separate VO₂max or Strides library. Prescriptions use distance work segments and planning-pace warm-up/cool-down estimates, not measured threshold HR/pace. Policies remain candidate heuristics, not injury limits.
+
+`Engine15RunHistory` derives family-specific exposure from two or more completed athlete-entered workout logs in separate recent weeks, with logged effort, completion difficulty, and discomfort checks. These logs are not source-authenticated interval measurements. The user-facing explanation and internal accessor previously said “VERIFIED”; batch 2 changes them to “REPORTED” and explicitly states that logs are not source-authenticated. The numeric policy and selection behavior do not change.
+
+### Independent M2/M5/M9 candidate
+
+- M2 generates threshold intervals and continuous tempo from caller-supplied recent work, a separate work ceiling, explicit allowance for any increase, quality authorization, and an optional session-time limit. M9b additionally needs two distinct recent same-family work reports, complete-week assertions, tolerated response, session/week ceilings and spacing. These remain caller assertions, not proof of source, owner, intensity, or tolerance.
+- Previously, `availableSessionSeconds` was mandatory and tempo stopped at 40 minutes even when reported and reviewed work supported more. M2/M9b now allow a missing user-entered cap as `null`; explicit zero still defers and any explicit limit constrains selection. Continuous tempo enumerates in one-minute increments up to the lower of reported work and reviewed ceiling. Threshold intervals allow 3–12 minute repeats and emit recovery only between work reps. Same-family dose evidence and reviewed ceilings still bind.
+- Added versioned research structure `engine15-threshold-long_repetitions-v1`: 2 km easy warm-up, 3 × 3 km threshold, 90-second easy recoveries between work reps, and 2 km easy cool-down. This is an illustrative mixed-unit preview: elapsed duration and exact total distance are unknown because recovery distance is unmeasured. It is not auto-selected, does not enter M9a reconciliation, and has no executable/production permission. The current timed reconciler correctly defers mixed-unit structures until there is an exact segment-distance contract.
+
+### Family disposition
+
+| Class | Current disposition |
+|---|---|
+| Safe-to-display research preview | Versioned threshold/tempo structures with exact represented work/recovery and `HEURISTIC` labels. Show reported exposure and an entered time cap separately. This does not establish athlete eligibility. The 3 × 3 km structure is illustrative only; its total distance remains unknown until recovery distance is resolved. |
+| Requires external review | Any athlete-specific selection, dose increase, two-quality-session week, or threshold/tempo candidate based on self-reported logs. Review references remain caller assertions. |
+| Must defer | Missing/zero usable same-family exposure, missing reviewed ceiling or quality permission, recovery/return hold, unscheduled or too-close placement, explicit user time-limit conflict, incomplete history when evidence is required, or mixed-unit mileage without segment distances. Never silently downgrade a requested workout. |
+| Executable approval | Disabled. I1–I9 do not establish this for any family. |
+
+Continuous tempo and basic threshold intervals can only advance as previews within repeated same-family reported exposure and reviewed ceilings. **Progression tempo, Fartlek, VO₂max intervals, strides and hills cannot progress beyond illustrative preview/defer status in the independent candidate yet**: family-specific selection/tolerance rules and exact weekly-distance handling have not been independently qualified. M10's existing Hill/Fartlek labels do not establish those gates. Missing user time input adds no time cap.
+
 ## First scenario finding
 
 The realistic six-day 75→80 km, Thursday-unavailable case now exercises Saturday LONG and Sunday EASY while retaining the current 8-week recovery series and exact weekly totals. Current M5A's 30% preferred long-run share yields 20.2 km in its first 67.5 km week; this narrowly exceeds the requested 18–20 km preference. The test must record that as an unmet preference rather than change a policy silently or claim the request was met. This is a real allocation trade-off for the next policy audit. No session duration cap was introduced.
@@ -45,9 +70,19 @@ The realistic six-day 75→80 km, Thursday-unavailable case now exercises Saturd
 
 ### Batch 1 — source reconciliation and alternate long-day regression
 
-- Starting branch/head: new isolated `research/engine15-cohesive-candidate-20261117` at `cf209b710268f116feac96154f53cb17779dbf73`.
+- Starting branch/head: new isolated `research/engine15-cohesive-candidate-20261117` at `cf209b710268f116feac96154f53cb17779dbf73`; batch commit `1abefa11`.
 - Change: added this report; added the Saturday-long/Sunday-easy 75→80 km case to `Engine15I9ReadOnlyBasePlanAssemblyTest`.
 - Verification: JBR 21.0.11, Gradle 8.13, `:app:testDebugUnitTest --tests '*Engine15I9ReadOnlyBasePlanAssemblyTest' --no-daemon --max-workers=2` passed **10/10**, zero skipped/failures. An initial run passed the nine existing methods but exposed that a strict 18–20 km expectation conflicts with M5A's 30% rule (observed 20.2 km). The final test records that exact output and verifies Saturday placement, Sunday easy, Thursday rest, weekly totals, and non-executable authority flags.
 - Regressions addressed: corrected a test assumption; no planner or production code changed.
 - Risks: quality eligibility and template variety remain incomplete; no athlete evidence or external review has been authenticated.
-- Next: audit M2 threshold/tempo selection and structure; add realistic 3×3 km/longer-threshold and background/history cases, then add versioned families only where evidence permits.
+- Next: build broader cross-background threshold/tempo selection scenarios and map the independent preview into the existing research UI contract without adding another interface.
+
+### Batch 2 — explicit time limits, longer tempo and threshold structure
+
+- Starting branch/SHA: `research/engine15-cohesive-candidate-20261117`, `1abefa11`.
+- Change: nullable optional user time limit in M2/M9b; evidence-bounded continuous tempo range (removes fixed 40-minute cap); 3–12 minute interval support; versioned 3×3 km/90-second threshold research structure; athlete-entered M10 history labels/accessors corrected from “verified” to “reported”. No dose values, production switch, saved plan, or persistence format changed.
+- Test-first evidence: unknown time limit first failed because the constructor required a value; 48-minute continuous tempo then failed at the old 40-minute cap; report-terminology tests initially failed to compile because `reportedWorkKm` did not exist. All now pass after the minimal changes.
+- Verification: JBR 21.0.11 / Gradle 8.13, focused nine-class set covering M2, M5, M9b, M9a, I3, research scenario runner, and M10 Q3 history: **98 tests, zero failures/errors/skips**. `git diff --check` passed.
+- Regressions addressed: no user-entered limit is treated as an arbitrary one-hour cap; history is no longer described as source-verified.
+- Risks: source and athlete tolerance remain unverified; the mixed-unit 3×3 km pattern cannot reconcile exact day/week distance; unsupported families remain deferred. Full repository suite/build and persistence/rollback checks remain pending.
+- Next: add wider background/history scenarios and an exact mixed time/distance segment reconciliation contract, then connect only to the existing read-only Android research panel if it preserves every non-executable boundary.

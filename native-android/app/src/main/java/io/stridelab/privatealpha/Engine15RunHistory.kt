@@ -16,9 +16,9 @@ internal data class Engine15RunHistory(
     /** Explicitly completed quality-work distance, by the matching workout family. */
     val qualityWorkKmByFamily:Map<String,Double> = emptyMap(),
     /** Observed qualified work total per week; protects against multiplying one dose across two sessions. */
-    val verifiedWeeklyQualityWorkKm:Double? = null
+    val reportedWeeklyQualityWorkKm:Double? = null
 ) {
-    fun verifiedWorkKm(family:String):Double? =
+    fun reportedWorkKm(family:String):Double? =
         qualityWorkKmByFamily[family] ?: if(family=="Threshold")thresholdWorkKm else null
 
     companion object {
@@ -53,7 +53,7 @@ internal data class Engine15RunHistory(
             val easy=medianDistance("easy")
             val long=medianDistance("long")
 
-            // Q3: only an explicitly logged, well-tolerated, completed WORK
+            // Q3: only explicitly self-reported, well-tolerated, completed WORK
             // distance can inform the same family in the next draft. A planned
             // interval, GPS distance, RPE alone or sparse single week is not
             // evidence that the prescribed work was actually performed.

@@ -30,7 +30,8 @@ internal data class IndependentQualityWorkObservation(
 internal data class IndependentQualityDoseSlotRequest(
     val isoDay: Int,
     val family: IndependentQualityFamily,
-    val availableSessionSeconds: Int,
+    /** Null means the athlete supplied no time cap; it is not missing-dose evidence. */
+    val availableSessionSeconds: Int? = null,
     val approvedSessionWorkCeilingSeconds: Int?,
     val explicitlyApprovedIncreaseSeconds: Int = 0,
     val maxReviewedSingleStepIncreaseSeconds: Int? = null,
@@ -39,7 +40,7 @@ internal data class IndependentQualityDoseSlotRequest(
 ) {
     init {
         require(isoDay in 1..7)
-        require(availableSessionSeconds in 0..14400)
+        require(availableSessionSeconds == null || availableSessionSeconds >= 0)
         require(approvedSessionWorkCeilingSeconds == null ||
             approvedSessionWorkCeilingSeconds in 0..14400)
         require(explicitlyApprovedIncreaseSeconds in 0..14400)
@@ -267,7 +268,7 @@ internal object IndependentQualityDoseProgression {
             }
             if (candidate.workSeconds > repeated + slot.explicitlyApprovedIncreaseSeconds ||
                 candidate.workSeconds > perSession ||
-                candidate.totalSeconds > slot.availableSessionSeconds)
+                slot.availableSessionSeconds?.let { candidate.totalSeconds > it } == true)
                 return defer("QUALITY_DOSE_POLICY_INCONSISTENT",
                     "M2 structure exceeds the reviewed session dose or duration.")
             val preview = IndependentQualityDayPreview(

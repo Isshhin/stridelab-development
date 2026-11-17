@@ -70,6 +70,48 @@ class IndependentQualityFitnessAdapterTest {
         assertTrue(high.workout.elements[1] is IndependentWorkoutElement.Step)
     }
 
+    @Test fun missingUserTimeLimitDoesNotCapAnEvidenceBoundedLongThresholdSession() {
+        val profile = IndependentQualityFitnessInput(
+            confirmedRecentWorkSeconds = 48 * 60,
+            approvedWorkCeilingSeconds = 60 * 60,
+            availableSessionSeconds = null,
+            qualityAuthorized = true
+        )
+        val result = candidate(IndependentQualityFamily.THRESHOLD, profile)
+        assertEquals(48 * 60, result.workSeconds)
+        assertTrue(result.totalSeconds > 60 * 60)
+        assertTrue("USER_SESSION_TIME_LIMIT_NOT_PROVIDED" in result.ruleIds)
+    }
+
+    @Test fun explicitUserTimeLimitConstrainsCandidateAndZeroDefers() {
+        val profile = IndependentQualityFitnessInput(
+            confirmedRecentWorkSeconds = 48 * 60,
+            approvedWorkCeilingSeconds = 60 * 60,
+            availableSessionSeconds = 60 * 60,
+            qualityAuthorized = true
+        )
+        val result = candidate(IndependentQualityFamily.THRESHOLD, profile)
+        assertTrue(result.totalSeconds <= 60 * 60)
+        assertTrue("USER_SESSION_TIME_LIMIT" in result.ruleIds)
+        assertDeferred("DOSE_OR_TIME_CONFLICT", IndependentQualityFamily.THRESHOLD,
+            profile.copy(availableSessionSeconds = 0))
+    }
+
+    @Test fun longerContinuousTempoUsesDemonstratedDoseUntilAnExplicitTimeLimitBinds() {
+        val profile = IndependentQualityFitnessInput(
+            confirmedRecentWorkSeconds = 48 * 60,
+            approvedWorkCeilingSeconds = 60 * 60,
+            qualityAuthorized = true
+        )
+        val unrestricted = candidate(IndependentQualityFamily.TEMPO, profile)
+        assertEquals(48 * 60, unrestricted.workSeconds)
+        assertEquals(68 * 60, unrestricted.totalSeconds)
+        val limited = candidate(IndependentQualityFamily.TEMPO,
+            profile.copy(availableSessionSeconds = 60 * 60))
+        assertEquals(40 * 60, limited.workSeconds)
+        assertEquals(60 * 60, limited.totalSeconds)
+    }
+
     @Test fun explicitAllowanceCanIncreaseDoseButCannotExceedIndependentCeiling() {
         val held = candidate(IndependentQualityFamily.TEMPO, input(observedMinutes = 12, ceilingMinutes = 14))
         val increment = candidate(IndependentQualityFamily.TEMPO,

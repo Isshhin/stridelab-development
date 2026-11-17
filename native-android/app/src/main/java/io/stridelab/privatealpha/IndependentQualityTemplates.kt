@@ -6,7 +6,7 @@ package io.stridelab.privatealpha
  * measured threshold pace, physiological safety, or a progression decision.
  */
 internal enum class IndependentQualityFamily { THRESHOLD, TEMPO }
-internal enum class IndependentQualityStage { INTRO, EXTENDED }
+internal enum class IndependentQualityStage { INTRO, EXTENDED, LONG_REPETITIONS }
 
 internal data class IndependentQualityTemplate(
     val id: String,
@@ -22,9 +22,11 @@ internal data class IndependentQualityTemplate(
         // quality block and one cool-down; more complex structures can be added
         // as separately versioned candidates.
         require(workout.elements.size == 3)
+        val boundaryUnit = if (stage == IndependentQualityStage.LONG_REPETITIONS)
+            WorkoutUnit.METERS else WorkoutUnit.SECONDS
         fun easyStep(element: IndependentWorkoutElement, purpose: WorkoutPurpose): Boolean =
             (element as? IndependentWorkoutElement.Step)?.value?.let { step ->
-                step.purpose == purpose && step.unit == WorkoutUnit.SECONDS &&
+                step.purpose == purpose && step.unit == boundaryUnit &&
                     step.target == WorkoutTarget.EASY && step.repetitions == 1
             } == true
         require(easyStep(workout.elements.first(), WorkoutPurpose.WARM_UP))
@@ -33,12 +35,17 @@ internal data class IndependentQualityTemplate(
             IndependentQualityFamily.THRESHOLD -> {
                 val group = (workout.elements[1] as? IndependentWorkoutElement.Intervals)?.value
                     ?: throw IllegalArgumentException("Threshold example requires interval group")
-                require(group.work.unit == WorkoutUnit.SECONDS &&
-                    group.work.target == WorkoutTarget.THRESHOLD &&
-                    group.recovery.unit == WorkoutUnit.SECONDS &&
+                require(group.work.target == WorkoutTarget.THRESHOLD &&
                     group.recovery.target == WorkoutTarget.EASY)
+                if (stage == IndependentQualityStage.LONG_REPETITIONS) {
+                    require(group.repetitions == 3 && group.work.unit == WorkoutUnit.METERS &&
+                        group.work.amount == 3000.0 && group.recovery.unit == WorkoutUnit.SECONDS &&
+                        group.recovery.amount == 90.0)
+                } else require(group.work.unit == WorkoutUnit.SECONDS &&
+                    group.recovery.unit == WorkoutUnit.SECONDS)
             }
             IndependentQualityFamily.TEMPO -> {
+                require(stage != IndependentQualityStage.LONG_REPETITIONS)
                 val step = (workout.elements[1] as? IndependentWorkoutElement.Step)?.value
                     ?: throw IllegalArgumentException("Tempo example requires continuous work")
                 require(step.purpose == WorkoutPurpose.WORK &&
@@ -46,7 +53,9 @@ internal data class IndependentQualityTemplate(
                     step.target == WorkoutTarget.TEMPO && step.repetitions == 1)
             }
         }
-        require(workout.total(WorkoutUnit.SECONDS) != null)
+        require(if (stage == IndependentQualityStage.LONG_REPETITIONS)
+            workout.total(WorkoutUnit.SECONDS) == null && workout.total(WorkoutUnit.METERS) == null
+        else workout.total(WorkoutUnit.SECONDS) != null)
     }
 
     fun totalSeconds(): Double = requireNotNull(workout.total(WorkoutUnit.SECONDS))
@@ -85,13 +94,32 @@ internal object IndependentQualityTemplates {
             ))
         )
 
+    private fun longRepetitions() = IndependentQualityTemplate(
+        id = "engine15-threshold-long_repetitions-v1",
+        family = IndependentQualityFamily.THRESHOLD,
+        stage = IndependentQualityStage.LONG_REPETITIONS,
+        workout = IndependentWorkoutComposition(listOf(
+            IndependentWorkoutElement.Step(WorkoutStep(WorkoutPurpose.WARM_UP,
+                WorkoutUnit.METERS, 2_000.0, 1, WorkoutTarget.EASY)),
+            IndependentWorkoutElement.Intervals(IndependentIntervalGroup(
+                3,
+                WorkoutStep(WorkoutPurpose.WORK, WorkoutUnit.METERS, 3_000.0, 1,
+                    WorkoutTarget.THRESHOLD),
+                step(WorkoutPurpose.RECOVERY, 90, WorkoutTarget.EASY)
+            )),
+            IndependentWorkoutElement.Step(WorkoutStep(WorkoutPurpose.COOL_DOWN,
+                WorkoutUnit.METERS, 2_000.0, 1, WorkoutTarget.EASY))
+        ))
+    )
+
     // Intro doses match the existing controlled Engine 1.5 text examples;
     // extended doses are synthetic research alternatives, not auto-progression.
     fun all(): List<IndependentQualityTemplate> = listOf(
         threshold(IndependentQualityStage.INTRO, 3, 4 * 60, 2 * 60, 10 * 60, 8 * 60),
         threshold(IndependentQualityStage.EXTENDED, 4, 5 * 60, 2 * 60, 10 * 60, 10 * 60),
         tempo(IndependentQualityStage.INTRO, 12 * 60, 10 * 60, 8 * 60),
-        tempo(IndependentQualityStage.EXTENDED, 20 * 60, 10 * 60, 10 * 60)
+        tempo(IndependentQualityStage.EXTENDED, 20 * 60, 10 * 60, 10 * 60),
+        longRepetitions()
     )
 
     fun get(family: IndependentQualityFamily, stage: IndependentQualityStage): IndependentQualityTemplate =
