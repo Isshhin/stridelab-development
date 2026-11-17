@@ -52,14 +52,14 @@ class Engine15IndependentDevelopmentRouteTest {
             "Engine15IndependentVolumePlanner.kt", "Engine15M5WorkoutComposer.kt",
             "Engine15M6IndependentCalendar.kt", "Engine15M6IndependentInterferenceReview.kt",
             "Engine15M6IndependentPeriodizationReview.kt", "Engine15StrengthWorkoutComposer.kt",
-            "Engine15CalisthenicsWorkoutComposer.kt"
+            "Engine15CalisthenicsWorkoutComposer.kt", "Engine15ConditioningWorkoutComposer.kt"
         )
         independentCallGraph.forEach { source ->
             assertFalse("Legacy planning dependency in $source",
                 forbidden.containsMatchIn(java.io.File(root, source).readText()))
         }
         val validation = java.io.File(root, "PlanScheduleValidation.kt").readText()
-        val independentBranch = validation.substringAfter("if(policyA in setOf(ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY, ENGINE15_INDEPENDENT_CALISTHENICS_POLICY) ||")
+        val independentBranch = validation.substringAfter("if(policyA in setOf(ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY, ENGINE15_INDEPENDENT_CALISTHENICS_POLICY, ENGINE15_INDEPENDENT_CONDITIONING_POLICY) ||")
             .substringBefore("else if(policyA==ENGINE15_INTERFERENCE_POLICY")
         assertTrue(independentBranch.contains("Engine15IndependentPlanGenerator.conflict"))
         assertFalse(independentBranch.contains("Engine1."))
@@ -86,7 +86,7 @@ class Engine15IndependentDevelopmentRouteTest {
         assertTrue(notes.message.orEmpty().contains("STRENGTH_NOTES_REQUIRE_REVIEW"))
     }
 
-    @Test fun calisthenicsRequestDefersUnsupportedSkillsAndConditioning() {
+    @Test fun calisthenicsAndConditioningRequestsDeferUnsupportedCombinations() {
         val foundation = PlanRequest(
             goal = "Calisthenics foundation", start = LocalDate.parse("2026-11-16"), weeks = 8,
             days = setOf(1, 3, 5, 7), runDays = 0, calDays = 2, calLevel = 0,
@@ -101,12 +101,13 @@ class Engine15IndependentDevelopmentRouteTest {
             Engine15CalisthenicsWorkoutComposer.validateRequest(foundation.copy(goal = "Handstand foundations"))
         }
         assertTrue(handstand.message.orEmpty().contains("CALISTHENICS_HANDSTAND_EVIDENCE_UNAVAILABLE"))
-        val conditioning = assertThrows(PlanConstraint::class.java) {
-            Engine15IndependentPlanGenerator.validateRequest(foundation.copy(
-                goal = "Conditioning", calDays = 0, conditioningDays = 1
+        val mixedConditioning = assertThrows(PlanConstraint::class.java) {
+            Engine15ConditioningWorkoutComposer.validateRequest(PlanRequest(
+                goal = "Conditioning", start = foundation.start, weeks = 8, days = foundation.days,
+                runDays = 1, conditioningDays = 1, policyChoice = "engine15"
             ))
         }
-        assertTrue(conditioning.message.orEmpty().contains("CONDITIONING_GENERATION_NOT_INDEPENDENT"))
+        assertTrue(mixedConditioning.message.orEmpty().contains("MIXED_DISCIPLINE_GENERATION_NOT_INDEPENDENT"))
     }
 
     @Test fun calisthenicsComposesCompleteEightWeekCatalogBackedDraft() {
@@ -124,6 +125,27 @@ class Engine15IndependentDevelopmentRouteTest {
         })
         assertTrue(plan.sessions.filter { it.date >= request.start.plusWeeks(3) && it.date < request.start.plusWeeks(4) }
             .all { it.exercises.all { exercise -> exercise.sets == 1 } })
+        Engine15IndependentPlanGenerator.validateSaved(plan)
+    }
+
+    @Test fun conditioningComposesCompleteEightWeekTimedDraftWithRecoveryBlocks() {
+        val request = PlanRequest(
+            goal = "Conditioning", start = LocalDate.parse("2026-11-18"), weeks = 8,
+            days = setOf(1, 3, 5, 7), runDays = 0, conditioningDays = 2,
+            policyChoice = "engine15"
+        )
+        val library = ExerciseLibraryV2.load { path -> java.io.File("src/main/assets", path).inputStream() }
+        val plan = Engine15IndependentPlanGenerator.generateWithHistory(request, owner, emptyList(), "cond-eight", now, library)
+        assertEquals(16, plan.sessions.size)
+        assertEquals(ENGINE15_INDEPENDENT_CONDITIONING_POLICY, plan.policyId)
+        assertTrue(plan.sessions.all { session ->
+            session.discipline == "cond" && session.kind == "conditioning" &&
+                session.exercises.single().id == "cond-step-jack" && session.steps.size == 3
+        })
+        val minutesByWeek = (0..7).map { week ->
+            plan.sessions.first { it.date >= request.start.plusWeeks(week.toLong()) && it.date < request.start.plusWeeks(week + 1L) }.minutes
+        }
+        assertEquals(listOf(15, 17, 19, 15, 15, 17, 19, 15), minutesByWeek)
         Engine15IndependentPlanGenerator.validateSaved(plan)
     }
 }

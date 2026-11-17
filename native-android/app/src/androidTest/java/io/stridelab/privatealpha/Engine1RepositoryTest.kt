@@ -167,6 +167,29 @@ class Engine1RepositoryTest {
         assertEquals(plan.status,reopened.status)
         assertEquals(plan.sessions,reopened.sessions)
     }
+    @Test fun independentConditioningPlanUsesCatalogAndReopensOfflineAfterApproval()=runBlocking {
+        Assume.assumeTrue(BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)
+        val request=PlanRequest(goal="Conditioning",start=start,weeks=4,
+            days=setOf(1,3,5,7),runDays=0,conditioningDays=1,policyChoice="engine15")
+        assertTrue("Independent conditioning route should create a review draft: ${repo.state.value.message}",repo.generatePlan(request))
+        var plan=repo.state.value.plans.single()
+        assertEquals(owner,plan.owner)
+        assertEquals("draft",plan.status)
+        assertEquals(4,plan.sessions.size)
+        assertEquals(ENGINE15_INDEPENDENT_CONDITIONING_POLICY,plan.policyId)
+        assertEquals(listOf(15,17,19,15),plan.sessions.map { it.minutes })
+        assertTrue(plan.sessions.all { it.discipline=="cond" && it.exercises.single().id=="cond-step-jack" })
+        assertTrue(repo.approvePlan(plan.id,plan.revision))
+        plan=repo.state.value.plans.single()
+        repo.close();gateway.offline=true;open()
+        val reopened=repo.state.value.plans.single()
+        assertEquals(plan.owner,reopened.owner)
+        assertEquals(plan.id,reopened.id)
+        assertEquals(plan.status,reopened.status)
+        assertEquals(plan.sessions,reopened.sessions)
+    }
     @Test fun repositoryMovementRejectsAnotherApprovedPlansIncompatibleSession()=runBlocking {
         assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
         val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)

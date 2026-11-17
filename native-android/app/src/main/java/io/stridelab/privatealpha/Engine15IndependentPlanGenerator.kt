@@ -13,6 +13,8 @@ internal const val ENGINE15_INDEPENDENT_STRENGTH_POLICY =
     "stridelab.engine15.independent-strength-20261117.1"
 internal const val ENGINE15_INDEPENDENT_CALISTHENICS_POLICY =
     "stridelab.engine15.independent-calisthenics-20261117.1"
+internal const val ENGINE15_INDEPENDENT_CONDITIONING_POLICY =
+    "stridelab.engine15.independent-conditioning-20261117.1"
 
 internal sealed interface Engine15IndependentPlanDecision {
     data class Deferred(val reasonCode: String, val explanation: String) : Engine15IndependentPlanDecision
@@ -55,8 +57,10 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
     )
 
     fun validateRequest(request: PlanRequest) {
-        if (request.runDays == 0 && request.strengthDays == 0 && request.calDays == 0 && request.conditioningDays > 0)
-            throw PlanConstraint("CONDITIONING_GENERATION_NOT_INDEPENDENT: Conditioning workout construction has not yet been added to the Engine 1.5 pipeline.")
+        if (request.runDays == 0 && request.strengthDays == 0 && request.calDays == 0 && request.conditioningDays > 0) {
+            Engine15ConditioningWorkoutComposer.validateRequest(request)
+            return
+        }
         if (request.runDays == 0 && request.strengthDays == 0 && request.calDays > 0) {
             Engine15CalisthenicsWorkoutComposer.validateRequest(request)
             return
@@ -76,8 +80,33 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         now: Instant = Instant.now(),
         exerciseLibrary: ExerciseLibraryV2? = null
     ): PlanSnapshot {
-        if (request.runDays == 0 && request.strengthDays == 0 && request.calDays == 0 && request.conditioningDays > 0)
-            throw PlanConstraint("CONDITIONING_GENERATION_NOT_INDEPENDENT: Conditioning workout construction has not yet been added to the Engine 1.5 pipeline.")
+        if (request.runDays == 0 && request.strengthDays == 0 && request.calDays == 0 && request.conditioningDays > 0) {
+            Engine15ConditioningWorkoutComposer.validateRequest(request)
+            val library = exerciseLibrary ?: throw PlanConstraint(
+                "CONDITIONING_CATALOG_REQUIRED: The shared offline exercise catalog is unavailable; no substitute was generated."
+            )
+            val existing = plans.asSequence().filter { it.owner == owner && it.status in setOf("approved", "paused") }
+                .flatMap { plan -> plan.sessions.asSequence().filter { it.status in setOf("planned", "in_progress") }.map { it.date } }
+                .any { it in request.start.minusDays(1)..request.start.plusWeeks(request.weeks.toLong()) }
+            if (existing) throw PlanConstraint(
+                "EXTERNAL_SCHEDULE_REVIEW_REQUIRED: Conditioning-only generation does not yet coordinate known saved sessions; no existing session was ignored."
+            )
+            RecordPolicy.identifier(owner)
+            RecordPolicy.identifier(id)
+            val sessions = Engine15ConditioningWorkoutComposer.compose(request, id, library)
+            return PlanSnapshot(
+                id = id, owner = owner, engineVersion = version,
+                policyId = ENGINE15_INDEPENDENT_CONDITIONING_POLICY, createdAt = now,
+                request = request, sessions = sessions,
+                explanations = listOf(
+                    "Independent Engine 1.5 conditioning plan; no legacy generator or coaching validator was used.",
+                    "The low-impact stepping exercise is selected from the shared offline educational catalog; Engine 1.5 owns the fixed four-week duration progression and recovery weeks.",
+                    "This static plan does not increase effort or recalculate workload from completed sessions.",
+                    "This is a draft. Review the movement, schedule and comfortable talk-test limit before explicit approval."
+                ),
+                name = "Engine 1.5 independent conditioning plan"
+            )
+        }
         if (request.runDays == 0 && request.strengthDays == 0 && request.calDays > 0) {
             Engine15CalisthenicsWorkoutComposer.validateRequest(request)
             val library = exerciseLibrary ?: throw PlanConstraint(
@@ -370,13 +399,19 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         if (a.date == b.date) return true
         val gap = kotlin.math.abs(ChronoUnit.DAYS.between(a.date, b.date))
         fun hard(session: PlannedSession) = session.quality ||
-            session.discipline == "cal" || session.discipline == "str" && session.lower
+            session.discipline == "cal" || session.discipline in setOf("str", "cond") && session.lower
         fun longRun(session: PlannedSession) = session.discipline == "run" && session.kind == "long"
         return hard(a) && hard(b) && gap < 2 ||
             longRun(a) && hard(b) && gap < 2 || longRun(b) && hard(a) && gap < 2
     }
 
     fun validateSaved(plan: PlanSnapshot) {
+        if (plan.policyId == ENGINE15_INDEPENDENT_CONDITIONING_POLICY) {
+            if (plan.engineVersion != version)
+                throw PlanConstraint("The independent conditioning plan has an unsupported engine identity.")
+            Engine15ConditioningWorkoutComposer.validateSaved(plan)
+            return
+        }
         if (plan.policyId == ENGINE15_INDEPENDENT_CALISTHENICS_POLICY) {
             if (plan.engineVersion != version)
                 throw PlanConstraint("The independent calisthenics plan has an unsupported engine identity.")
