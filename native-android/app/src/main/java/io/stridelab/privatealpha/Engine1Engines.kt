@@ -4,11 +4,7 @@ import java.time.Instant
 
 /** Engine 1.0 policy registry. The verified original generator is retained unchanged. */
 internal object Engine1Engines {
-    val goals=mapOf(
-        "run" to listOf("Aerobic foundation","Improve 5K","Improve 10K","Half marathon","Marathon"),
-        "str" to listOf("General strength","Muscle development","Strength endurance"),
-        "cal" to listOf("Calisthenics foundation","Pull-up progression","Push-up progression","Core strength and control","Handstand foundations"),
-        "cond" to listOf("Conditioning"))
+    val goals=PlanDisciplineContract.goals
     val knownPolicies=setOf(ENGINE1_POLICY,CoordinatedEngine1.policyId,MultiSessionEngine1.policyId,SessionTemplate.POLICY_ID)
     /** A policy is editable only when both its exact version and policy ID are supported. */
     fun supports(version:String,policy:String):Boolean =
@@ -16,8 +12,8 @@ internal object Engine1Engines {
         (version==ENGINE15_VERSION && policy in setOf(ENGINE15_POLICY, ENGINE15_FOUNDATION_POLICY, ENGINE15_MULTI_POLICY, ENGINE15_INTERFERENCE_POLICY, ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY, ENGINE15_INDEPENDENT_CALISTHENICS_POLICY, ENGINE15_INDEPENDENT_CONDITIONING_POLICY, ENGINE15_INDEPENDENT_COMBINED_POLICY))
     fun canManage(plan:PlanSnapshot)=supports(plan.engineVersion,plan.policyId)
     fun discipline(goal:String)=goals.entries.find { goal in it.value }?.key
-    fun count(p:PlanRequest,discipline:String)=when(discipline) { "run"->p.runDays;"str"->p.strengthDays;"cal"->p.calDays;"cond"->p.conditioningDays;else->0 }
-    fun goal(p:PlanRequest,discipline:String):String=p.disciplineGoals[discipline] ?: p.goal.takeIf { it in goals.getValue(discipline) } ?: goals.getValue(discipline).first()
+    fun count(p:PlanRequest,discipline:String)=p.disciplineSessionCount(discipline)
+    fun goal(p:PlanRequest,discipline:String):String=p.disciplineGoal(discipline)
     fun resolve(p:PlanRequest):PlanGenerationEngine=when(p.policyChoice) {
         "baseline"->Engine1
         "coordinated"->CoordinatedEngine1

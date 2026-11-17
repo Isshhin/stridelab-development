@@ -59,7 +59,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
     )
 
     fun validateRequest(request: PlanRequest) {
-        if (listOf("run", "str", "cal", "cond").count { Engine1Engines.count(request, it) > 0 } > 1) {
+        if (listOf("run", "str", "cal", "cond").count { request.disciplineSessionCount(it) > 0 } > 1) {
             Engine15StaticMultiDisciplinePlanner.validateRequest(request)
             return
         }
@@ -86,7 +86,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         now: Instant = Instant.now(),
         exerciseLibrary: ExerciseLibraryV2? = null
     ): PlanSnapshot {
-        if (listOf("run", "str", "cal", "cond").count { Engine1Engines.count(request, it) > 0 } > 1) {
+        if (listOf("run", "str", "cal", "cond").count { request.disciplineSessionCount(it) > 0 } > 1) {
             val library = exerciseLibrary ?: throw PlanConstraint(
                 "ENGINE15_COMBINED_CATALOG_REQUIRED: The shared offline exercise catalog is unavailable; no substitute was generated."
             )
@@ -208,7 +208,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         if (request.qualityCount !in 0..2)
             return defer("QUALITY_FREQUENCY_UNSUPPORTED", "At most two quality sessions per loading week can be represented.")
         if (request.qualityCount > 0 && request.userDefinedQualityWorkouts.isEmpty())
-            return defer("QUALITY_GENERATION_NOT_QUALIFIED", "Automatic quality selection and intensity remain unqualified. The current Plan Builder cannot author a structured workout; no substitute was generated.")
+            return defer("QUALITY_GENERATION_NOT_QUALIFIED", "Coach-generated family selection, athlete-specific dose progression, and intensity remain unqualified: quality templates are heuristic, source matching is caller-asserted, and no verified importer or reviewed dose policy authorizes them. Structured workouts can be authored in the private development Plan Builder; no coach-generated substitute was created.")
         if (request.userDefinedQualityWorkouts.isNotEmpty() && !request.userDirectedPlanning)
             return defer("USER_DEFINED_WORKOUT_DEBUG_ONLY", "User-defined quality workouts are available only in private development plans.")
         if (request.strengthDays != 0 || request.calDays != 0 || request.conditioningDays != 0 ||

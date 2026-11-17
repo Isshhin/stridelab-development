@@ -136,6 +136,56 @@ class Engine15IndependentPlanGeneratorTest {
             assertTrue(decision is Engine15IndependentPlanDecision.Deferred)
             assertEquals("QUALITY_GENERATION_NOT_QUALIFIED",
                 (decision as Engine15IndependentPlanDecision.Deferred).reasonCode)
+            assertTrue(decision.explanation.contains("heuristic"))
+            assertTrue(decision.explanation.contains("caller-asserted"))
+            assertTrue(decision.explanation.contains("no coach-generated substitute"))
+        }
+    }
+
+    @Test fun representativeGoalsProduceCompleteDeterministicEightToSixteenWeekPlans() {
+        val scenarios = listOf(
+            Triple("Improve 5K", 3, 35.0),
+            Triple("Improve 10K", 4, 45.0),
+            Triple("Half marathon", 5, 60.0),
+            Triple("Marathon", 6, 75.0)
+        )
+        for ((index, scenario) in scenarios.withIndex()) {
+            val (goal, frequency, target) = scenario
+            val input = request(if (index % 2 == 0) 8 else 16).copy(
+                goal = goal,
+                runDays = frequency,
+                weeklyKm = target,
+                targetWeeklyKm = target,
+                longestKm = target * 0.3,
+                days = (1..7).toSet(),
+                userDirectedPlanning = true
+            )
+            val first = Engine15IndependentPlanGenerator.preview(input, owner, "matrix-$index", now)
+            assertTrue("$goal/$frequency/$target: $first", first is Engine15IndependentPlanDecision.Candidate)
+            val candidate = first as Engine15IndependentPlanDecision.Candidate
+            val repeated = Engine15IndependentPlanGenerator.preview(input, owner, "matrix-$index", now)
+                as Engine15IndependentPlanDecision.Candidate
+            assertEquals(candidate.plan, repeated.plan)
+            assertEquals(input.weeks * frequency, candidate.plan.sessions.size)
+            assertEquals(input.weeks, candidate.periodization.weeks.size)
+            for (week in 0 until input.weeks) {
+                val from = input.start.plusWeeks(week.toLong())
+                val rows = candidate.plan.sessions.filter { it.date >= from && it.date < from.plusWeeks(1) }
+                assertEquals(frequency, rows.size)
+                assertEquals(candidate.volume.weeks[week].proposedKm!!, rows.sumOf { it.distanceKm!! }, 1e-6)
+                assertEquals(
+                    if (week % 4 == 3) Engine15IndependentVolumePlanner.WeekKind.RECOVERY
+                    else Engine15IndependentVolumePlanner.WeekKind.LOADING,
+                    candidate.volume.weeks[week].kind
+                )
+            }
+            val savedDraft = Engine15IndependentPlanGenerator.generateWithHistory(
+                input, owner, emptyList(), "matrix-saved-$index", now
+            )
+            Engine15IndependentPlanGenerator.validateSaved(savedDraft)
+            assertEquals(candidate.plan.sessions.map { listOf(it.date, it.distanceKm, it.kind, it.runningPrescription) },
+                savedDraft.sessions.map { listOf(it.date, it.distanceKm, it.kind, it.runningPrescription) })
+            assertFalse(candidate.executable)
         }
     }
 
@@ -539,6 +589,10 @@ class Engine15IndependentPlanGeneratorTest {
         val root = java.io.File("src/main/java/io/stridelab/privatealpha")
         val files = listOf(
             "Engine15IndependentPlanGenerator.kt",
+            "Engine15StaticMultiDisciplinePlanner.kt",
+            "Engine15StrengthWorkoutComposer.kt",
+            "Engine15CalisthenicsWorkoutComposer.kt",
+            "Engine15ConditioningWorkoutComposer.kt",
             "Engine15AthleteCapacity.kt",
             "Engine15IndependentVolumePlanner.kt",
             "Engine15M5WorkoutComposer.kt",
@@ -549,7 +603,7 @@ class Engine15IndependentPlanGeneratorTest {
             "Engine15M6IndependentPeriodizationReview.kt",
             "Engine15M6IndependentQualitySpacing.kt"
         )
-        val forbidden = Regex("\\b(?:Engine1\\.(?:generate|validate)|MultiSessionEngine1|CoordinatedEngine1|Engine15InterferenceScheduling)\\b")
+        val forbidden = Regex("\\b(?:Engine1\\.(?:generate|validate)|MultiSessionEngine1|CoordinatedEngine1|Engine15InterferenceScheduling|Engine1Engines)\\b")
         for (file in files) {
             val source = java.io.File(root, file).readText()
             assertFalse("Legacy planning dependency in $file", forbidden.containsMatchIn(source))

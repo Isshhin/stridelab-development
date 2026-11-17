@@ -8,7 +8,7 @@ internal object Engine15CalisthenicsWorkoutComposer {
     private val allowed = setOf("wall-push", "e4", "ap", "e2", "br", "fc", "side-plank", "core-hollow")
 
     fun validateRequest(request: PlanRequest) {
-        val goal = Engine1Engines.goal(request, "cal")
+        val goal = request.disciplineGoal("cal")
         if (request.runDays > 0 || request.strengthDays > 0 || request.conditioningDays > 0)
             throw PlanConstraint("MIXED_DISCIPLINE_GENERATION_NOT_INDEPENDENT: Calisthenics combined with other disciplines is deferred until Engine 1.5 static multi-discipline scheduling is available.")
         if (request.policyChoice != "engine15" || request.runDays != 0 || request.strengthDays != 0 ||
@@ -39,7 +39,7 @@ internal object Engine15CalisthenicsWorkoutComposer {
 
     fun compose(request: PlanRequest, id: String, library: ExerciseLibraryV2, allowCalendarReschedule: Boolean = false): List<PlannedSession> {
         validateRequest(request)
-        val goal = Engine1Engines.goal(request, "cal")
+        val goal = request.disciplineGoal("cal")
         fun choose(ids: List<String>): ExerciseLibraryRecordV2 = ids.asSequence().mapNotNull(library::find).firstOrNull {
             it.id in allowed && it.id !in request.excluded && it.kind == "exercise" && it.prerequisites.isEmpty() &&
                 (it.difficulty == "foundation" || request.calLevel >= 1 && it.difficulty == "developing") &&

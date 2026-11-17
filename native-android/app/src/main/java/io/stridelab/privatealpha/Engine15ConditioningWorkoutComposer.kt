@@ -10,7 +10,7 @@ internal object Engine15ConditioningWorkoutComposer {
         if (request.runDays > 0 || request.strengthDays > 0 || request.calDays > 0)
             throw PlanConstraint("MIXED_DISCIPLINE_GENERATION_NOT_INDEPENDENT: Conditioning combined with other disciplines is deferred until Engine 1.5 static multi-discipline scheduling is available.")
         if (request.policyChoice != "engine15" || request.conditioningDays !in 1..3 || request.weeks !in 1..16 ||
-            Engine1Engines.goal(request, "cond") != "Conditioning" || request.days.isEmpty() ||
+            request.disciplineGoal("cond") != "Conditioning" || request.days.isEmpty() ||
             request.days.any { it !in 1..7 } || request.days.size < request.conditioningDays ||
             request.qualityCount != 0 || (request.timeBudgetEnabled && request.minutes !in 15..120) ||
             request.disciplineGoals.keys.any { it != "cond" } || request.weeklySlots.keys.any { it != "cond" } ||

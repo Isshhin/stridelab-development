@@ -7,7 +7,7 @@ internal object Engine15StaticMultiDisciplinePlanner {
     private val disciplines = listOf("run", "str", "cal", "cond")
 
     fun validateRequest(request: PlanRequest) {
-        val active = disciplines.filter { Engine1Engines.count(request, it) > 0 }
+        val active = disciplines.filter { request.disciplineSessionCount(it) > 0 }
         if (request.policyChoice != "engine15" || active.size < 2 || request.weeks !in 1..16 ||
             request.days.isEmpty() || request.days.any { it !in 1..7 } ||
             request.disciplineGoals.keys.any { it !in active } ||
@@ -42,7 +42,7 @@ internal object Engine15StaticMultiDisciplinePlanner {
             throw PlanConstraint("EXTERNAL_SCHEDULE_REVIEW_REQUIRED: Combined generation does not yet merge pre-existing saved workouts; no existing session was ignored.")
         RecordPolicy.identifier(owner)
         RecordPolicy.identifier(id)
-        val sessions = disciplines.filter { Engine1Engines.count(request, it) > 0 }.flatMap { discipline ->
+        val sessions = disciplines.filter { request.disciplineSessionCount(it) > 0 }.flatMap { discipline ->
             val solo = soloRequest(request, discipline)
             when (discipline) {
                 "run" -> (Engine15IndependentPlanGenerator.preview(solo, owner, id, now) as? Engine15IndependentPlanDecision.Candidate)
@@ -53,7 +53,7 @@ internal object Engine15StaticMultiDisciplinePlanner {
             }
         }
         val scheduled = schedule(request, sessions)
-        if (scheduled.size != request.weeks * disciplines.sumOf { Engine1Engines.count(request, it) } ||
+        if (scheduled.size != request.weeks * disciplines.sumOf { request.disciplineSessionCount(it) } ||
             scheduled.map { it.id }.distinct().size != scheduled.size)
             throw PlanConstraint("ENGINE15_COMBINED_PLAN_INCOMPLETE: A combined discipline slot is missing or duplicated.")
         return PlanSnapshot(
@@ -72,9 +72,9 @@ internal object Engine15StaticMultiDisciplinePlanner {
 
     fun validateSaved(plan: PlanSnapshot) {
         val request = plan.request
-        val active = disciplines.filter { Engine1Engines.count(request, it) > 0 }
+        val active = disciplines.filter { request.disciplineSessionCount(it) > 0 }
         validateWeeklySlots(request, active)
-        val expected = request.weeks * active.sumOf { Engine1Engines.count(request, it) }
+        val expected = request.weeks * active.sumOf { request.disciplineSessionCount(it) }
         if (plan.engineVersion != ENGINE15_VERSION || plan.policyId != ENGINE15_INDEPENDENT_COMBINED_POLICY ||
             active.size < 2 || plan.sessions.size != expected || plan.sessions.any { session ->
                 val match = Regex(".*-w([1-9][0-9]*)-(run|str|cal|cond)(0|[1-9][0-9]*)$").matchEntire(session.id)
@@ -82,7 +82,7 @@ internal object Engine15StaticMultiDisciplinePlanner {
                 val discipline = match?.groupValues?.get(2)
                 val slot = match?.groupValues?.get(3)?.toIntOrNull()
                 week == null || week !in 1..request.weeks || discipline == null || discipline !in active || slot == null ||
-                    slot >= Engine1Engines.count(request, discipline.orEmpty()) || session.discipline != discipline ||
+                    slot >= request.disciplineSessionCount(discipline.orEmpty()) || session.discipline != discipline ||
                     session.date !in request.start.plusWeeks((week - 1).toLong())..request.start.plusWeeks(week.toLong()).minusDays(1) ||
                     session.date.dayOfWeek.value !in request.days || session.quality || session.distanceKm?.let { !it.isFinite() || it <= 0.0 } == true
             } || plan.sessions.map { it.id }.distinct().size != expected)
@@ -92,7 +92,7 @@ internal object Engine15StaticMultiDisciplinePlanner {
                 val match = Regex(".*-w([1-9][0-9]*)-(run|str|cal|cond)(0|[1-9][0-9]*)$").matchEntire(session.id)
                 match?.groupValues?.get(1)?.toIntOrNull() == week && match.groupValues[2] == discipline
             }
-            if (sessions.size != Engine1Engines.count(request, discipline) ||
+            if (sessions.size != request.disciplineSessionCount(discipline) ||
                 sessions.mapNotNull { Regex(".*-(?:run|str|cal|cond)(0|[1-9][0-9]*)$").matchEntire(it.id)?.groupValues?.get(1)?.toIntOrNull() }.distinct().size != sessions.size)
                 throw PlanConstraint("The saved independent combined plan is missing a discipline slot.")
             val assignedDays = request.weeklySlots[discipline]
@@ -129,7 +129,7 @@ internal object Engine15StaticMultiDisciplinePlanner {
         else Engine15IndependentPlanGenerator.conflict(a, b)
 
     private fun schedule(request: PlanRequest, sessions: List<PlannedSession>): List<PlannedSession> {
-        validateWeeklySlots(request, disciplines.filter { Engine1Engines.count(request, it) > 0 })
+        validateWeeklySlots(request, disciplines.filter { request.disciplineSessionCount(it) > 0 })
         val placed = mutableListOf<PlannedSession>()
         repeat(request.weeks) { weekIndex ->
             val first = request.start.plusWeeks(weekIndex.toLong())
@@ -207,7 +207,7 @@ internal object Engine15StaticMultiDisciplinePlanner {
     private fun validateWeeklySlots(request: PlanRequest, active: List<String>) {
         active.forEach { discipline ->
             val assigned = request.weeklySlots[discipline] ?: return@forEach
-            val count = Engine1Engines.count(request, discipline)
+            val count = request.disciplineSessionCount(discipline)
             if (assigned.size != count || assigned.any { it !in request.days } || assigned.distinct().size != count ||
                 discipline == "run" && assigned.firstOrNull() != request.longDay)
                 throw PlanConstraint("ENGINE15_COMBINED_SLOT_ASSIGNMENT_INVALID: Each fixed discipline slot needs a distinct available weekday and running slot one must match the long-run day.")
@@ -223,7 +223,7 @@ internal object Engine15StaticMultiDisciplinePlanner {
     }
 
     private fun soloRequest(request: PlanRequest, discipline: String) = request.copy(
-        goal = Engine1Engines.goal(request, discipline),
+        goal = request.disciplineGoal(discipline),
         runDays = if (discipline == "run") request.runDays else 0,
         strengthDays = if (discipline == "str") request.strengthDays else 0,
         calDays = if (discipline == "cal") request.calDays else 0,

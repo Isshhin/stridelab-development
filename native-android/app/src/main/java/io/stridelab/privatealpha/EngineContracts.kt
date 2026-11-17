@@ -10,6 +10,13 @@ internal const val PLAN_SCHEMA=1
 internal const val ENGINE1_VERSION="1.0.0"
 internal const val ENGINE1_POLICY="stridelab.engine1.conservative-20261026.1"
 internal class PlanConstraint(message:String):IllegalArgumentException(message)
+internal object PlanDisciplineContract {
+    val goals=mapOf(
+        "run" to listOf("Aerobic foundation","Improve 5K","Improve 10K","Half marathon","Marathon"),
+        "str" to listOf("General strength","Muscle development","Strength endurance"),
+        "cal" to listOf("Calisthenics foundation","Pull-up progression","Push-up progression","Core strength and control","Handstand foundations"),
+        "cond" to listOf("Conditioning"))
+}
 internal interface PlanGenerationEngine {
     val version:String
     val policyId:String
@@ -45,6 +52,13 @@ internal data class PlanRequest(
     /** Explicit user-authored workouts keyed by stable week/run-slot suffix, e.g. w2-run1. */
     val userDefinedQualityWorkouts:Map<String,RunningPrescription> = emptyMap()
 ) {
+    fun disciplineSessionCount(discipline:String)=when(discipline) {
+        "run"->runDays;"str"->strengthDays;"cal"->calDays;"cond"->conditioningDays;else->0
+    }
+    fun disciplineGoal(discipline:String):String=disciplineGoals[discipline]
+        ?: goal.takeIf { it in PlanDisciplineContract.goals.getValue(discipline) }
+        ?: PlanDisciplineContract.goals.getValue(discipline).first()
+
     fun encode():JSONObject {
         val encoded=JSONObject().put("goal",goal).put("secondaryGoal",secondaryGoal).put("experience",experience).put("start",start.toString()).put("weeks",weeks).put("minutes",minutes)
             .put("days",JSONArray(days.sorted())).put("runDays",runDays).put("strengthDays",strengthDays).put("calDays",calDays).put("conditioningDays",conditioningDays).put("longDay",longDay)
