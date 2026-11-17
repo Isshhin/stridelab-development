@@ -121,16 +121,19 @@ internal object Engine15IndependentVolumePlanner {
                 priorKm?.times(0.8) else null
 
             val components=listOfNotNull(existingCeiling,capacity,returnCeiling,recoveryCeiling)
-            val proposed=if(existingCeiling==null) null
-                else floorTenth(components.minOrNull()!!)
+            val rawBound=components.minOrNull()
+            val proposed=rawBound?.let(::floorTenth)
             val flags=mutableListOf<String>()
             if(!numeric)flags+="NO_NUMERIC_PROPOSAL"
-            if(existingCeiling!=null && proposed!=null) {
-                fun binds(value:Double?)=value!=null && value<=proposed+0.09999999
+            if(rawBound!=null && proposed!=null) {
+                // An exact raw minimum actually binds. Do not mislabel nearby
+                // candidate limits as executed cuts just because of 100 m flooring.
+                fun binds(value:Double?)=value!=null && kotlin.math.abs(value-rawBound)<=1e-8
                 if(binds(existingCeiling))flags+="EXISTING_ENGINE15_CEILING"
                 if(binds(capacity))flags+="PROVISIONAL_SESSION_EXPOSURE_CAP"
                 if(binds(returnCeiling))flags+="RETURN_FROM_BREAK_CAP"
                 if(binds(recoveryCeiling))flags+="RECOVERY_FROM_PLANNED_WEEK_CAP"
+                if(rawBound-proposed>1e-8)flags+="ROUNDING_DOWN_TO_100M"
                 if(capacity==null)flags+="SESSION_EXPOSURE_UNCONFIRMED"
             }
             if(proposed!=null) priorKm=proposed
