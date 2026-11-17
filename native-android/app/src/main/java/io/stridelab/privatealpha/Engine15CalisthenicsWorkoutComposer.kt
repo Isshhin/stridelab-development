@@ -37,7 +37,7 @@ internal object Engine15CalisthenicsWorkoutComposer {
         Engine15SessionLocks.validateRequest(request)
     }
 
-    fun compose(request: PlanRequest, id: String, library: ExerciseLibraryV2): List<PlannedSession> {
+    fun compose(request: PlanRequest, id: String, library: ExerciseLibraryV2, allowCalendarReschedule: Boolean = false): List<PlannedSession> {
         validateRequest(request)
         val goal = Engine1Engines.goal(request, "cal")
         fun choose(ids: List<String>): ExerciseLibraryRecordV2 = ids.asSequence().mapNotNull(library::find).firstOrNull {
@@ -80,7 +80,7 @@ internal object Engine15CalisthenicsWorkoutComposer {
                 repeat(request.calDays) { slot ->
                     val date = weekStart.plusDays(((assignments[slot] - weekStart.dayOfWeek.value + 7) % 7).toLong())
                     val lock = locks[weekIndex + 1 to slot]
-                    if (lock != null && lock != date)
+                    if (lock != null && !allowCalendarReschedule && lock != date)
                         throw PlanConstraint("CALISTHENICS_SESSION_LOCK_CONFLICT: A locked date conflicts with its assigned weekday or plan week.")
                     val exercises = pattern.map { record ->
                         val isHold = record.id == "core-hollow" || record.id == "side-plank"
@@ -111,13 +111,13 @@ internal object Engine15CalisthenicsWorkoutComposer {
                 }
             }
         }.sortedWith(compareBy<PlannedSession> { it.date }.thenBy { it.id })
-        Engine15SessionLocks.validateOutput(request, sessions)
+        if (!allowCalendarReschedule) Engine15SessionLocks.validateOutput(request, sessions)
         if (sessions.size != request.weeks * request.calDays || sessions.map { it.date }.distinct().size != sessions.size)
             throw PlanConstraint("CALISTHENICS_PLAN_INCOMPLETE: Every requested slot must have one distinct dated workout.")
         return sessions
     }
 
-    fun validateSaved(plan: PlanSnapshot) {
+    fun validateSaved(plan: PlanSnapshot, allowCalendarReschedule: Boolean = false) {
         validateRequest(plan.request)
         val count = plan.request.weeks * plan.request.calDays
         val assignments = plan.request.weeklySlots["cal"] ?: spacedWeekdays(plan.request.days, plan.request.calDays)
@@ -133,7 +133,7 @@ internal object Engine15CalisthenicsWorkoutComposer {
                 val expectedSets = if (week != null && ((week - 1) % 4 == 3 || plan.request.returning && week <= 2)) 1 else 2
                 it.discipline != "cal" || it.kind != "calisthenics" || it.exercises.size < 2 ||
                     it.date.dayOfWeek.value !in plan.request.days || it.quality || it.distanceKm != null ||
-                    expectedDate == null || it.date != expectedDate ||
+                    expectedDate == null || !allowCalendarReschedule && it.date != expectedDate ||
                     it.exercises.any { exercise -> exercise.id !in allowed || exercise.id in plan.request.excluded ||
                         exercise.sets != expectedSets || (exercise.reps != null && exercise.reps != expectedReps) }
             } || plan.sessions.map { it.id }.distinct().size != count || plan.sessions.map { it.date }.distinct().size != count)

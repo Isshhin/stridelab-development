@@ -15,6 +15,8 @@ internal const val ENGINE15_INDEPENDENT_CALISTHENICS_POLICY =
     "stridelab.engine15.independent-calisthenics-20261117.1"
 internal const val ENGINE15_INDEPENDENT_CONDITIONING_POLICY =
     "stridelab.engine15.independent-conditioning-20261117.1"
+internal const val ENGINE15_INDEPENDENT_COMBINED_POLICY =
+    "stridelab.engine15.independent-combined-20261117.1"
 
 internal sealed interface Engine15IndependentPlanDecision {
     data class Deferred(val reasonCode: String, val explanation: String) : Engine15IndependentPlanDecision
@@ -57,6 +59,10 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
     )
 
     fun validateRequest(request: PlanRequest) {
+        if (listOf("run", "str", "cal", "cond").count { Engine1Engines.count(request, it) > 0 } > 1) {
+            Engine15StaticMultiDisciplinePlanner.validateRequest(request)
+            return
+        }
         if (request.runDays == 0 && request.strengthDays == 0 && request.calDays == 0 && request.conditioningDays > 0) {
             Engine15ConditioningWorkoutComposer.validateRequest(request)
             return
@@ -80,6 +86,12 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         now: Instant = Instant.now(),
         exerciseLibrary: ExerciseLibraryV2? = null
     ): PlanSnapshot {
+        if (listOf("run", "str", "cal", "cond").count { Engine1Engines.count(request, it) > 0 } > 1) {
+            val library = exerciseLibrary ?: throw PlanConstraint(
+                "ENGINE15_COMBINED_CATALOG_REQUIRED: The shared offline exercise catalog is unavailable; no substitute was generated."
+            )
+            return Engine15StaticMultiDisciplinePlanner.compose(request, owner, id, now, plans, library)
+        }
         if (request.runDays == 0 && request.strengthDays == 0 && request.calDays == 0 && request.conditioningDays > 0) {
             Engine15ConditioningWorkoutComposer.validateRequest(request)
             val library = exerciseLibrary ?: throw PlanConstraint(
@@ -406,6 +418,10 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
     }
 
     fun validateSaved(plan: PlanSnapshot) {
+        if (plan.policyId == ENGINE15_INDEPENDENT_COMBINED_POLICY) {
+            Engine15StaticMultiDisciplinePlanner.validateSaved(plan)
+            return
+        }
         if (plan.policyId == ENGINE15_INDEPENDENT_CONDITIONING_POLICY) {
             if (plan.engineVersion != version)
                 throw PlanConstraint("The independent conditioning plan has an unsupported engine identity.")
@@ -450,7 +466,9 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             .mapValues { (_, rows) -> rows.sumOf { it.distanceKm ?: 0.0 } }
         val actualTotals = plan.sessions.groupBy { ChronoUnit.DAYS.between(plan.request.start, it.date) / 7L }
             .mapValues { (_, rows) -> rows.sumOf { it.distanceKm ?: 0.0 } }
-        if (actualTotals != expectedTotals)
+        if (actualTotals.keys != expectedTotals.keys || expectedTotals.any { (week, km) ->
+                kotlin.math.abs((actualTotals[week] ?: Double.NaN) - km) > 1e-6
+            })
             throw PlanConstraint("The saved independent running plan's weekly distance no longer reconciles.")
     }
 }

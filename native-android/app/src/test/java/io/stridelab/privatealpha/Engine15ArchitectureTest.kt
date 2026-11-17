@@ -25,8 +25,12 @@ class Engine15ArchitectureTest {
     )
 
     @Test fun policyIsExplicitAndAllEngine10FallbacksRemainStable() {
-        val candidate = request()
-        assertSame(Engine15, Engine1Engines.resolve(candidate))
+        val candidate = request().let {
+            if (BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
+                it.copy(recentMileageBasis = "SELF_REPORTED_AVERAGE", timeBudgetEnabled = false) else it
+        }
+        assertSame(if (BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
+            Engine15IndependentPlanGenerator else Engine15, Engine1Engines.resolve(candidate))
         assertSame(Engine1, Engine1Engines.resolve(candidate.copy(policyChoice = "baseline")))
         assertSame(CoordinatedEngine1, Engine1Engines.resolve(candidate.copy(policyChoice = "coordinated")))
         assertSame(MultiSessionEngine1, Engine1Engines.resolve(candidate.copy(policyChoice = "multi-session")))

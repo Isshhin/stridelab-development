@@ -29,7 +29,7 @@ internal object Engine15ConditioningWorkoutComposer {
         Engine15SessionLocks.validateRequest(request)
     }
 
-    fun compose(request: PlanRequest, id: String, library: ExerciseLibraryV2): List<PlannedSession> {
+    fun compose(request: PlanRequest, id: String, library: ExerciseLibraryV2, allowCalendarReschedule: Boolean = false): List<PlannedSession> {
         validateRequest(request)
         val exercise = library.find(EXERCISE_ID)?.takeIf {
             it.kind == "exercise" && it.difficulty == "foundation" && it.prerequisites.isEmpty() &&
@@ -47,7 +47,7 @@ internal object Engine15ConditioningWorkoutComposer {
                 repeat(request.conditioningDays) { slot ->
                     val date = weekStart.plusDays(((weekdays[slot] - weekStart.dayOfWeek.value + 7) % 7).toLong())
                     val lock = locks[weekIndex + 1 to slot]
-                    if (lock != null && lock != date)
+                    if (lock != null && !allowCalendarReschedule && lock != date)
                         throw PlanConstraint("CONDITIONING_SESSION_LOCK_CONFLICT: A locked date conflicts with its assigned weekday or plan week.")
                     val sessionId = request.lockedSessionDays.keys.firstOrNull { key ->
                         Regex(".*-w([1-9][0-9]*)-cond(0|[1-9][0-9]*)$").matchEntire(key)?.let {
@@ -72,13 +72,13 @@ internal object Engine15ConditioningWorkoutComposer {
                 }
             }
         }.sortedWith(compareBy<PlannedSession> { it.date }.thenBy { it.id })
-        Engine15SessionLocks.validateOutput(request, sessions)
+        if (!allowCalendarReschedule) Engine15SessionLocks.validateOutput(request, sessions)
         if (sessions.size != request.weeks * request.conditioningDays || sessions.map { it.date }.distinct().size != sessions.size)
             throw PlanConstraint("CONDITIONING_PLAN_INCOMPLETE: Every requested slot must have one distinct dated workout.")
         return sessions
     }
 
-    fun validateSaved(plan: PlanSnapshot) {
+    fun validateSaved(plan: PlanSnapshot, allowCalendarReschedule: Boolean = false) {
         validateRequest(plan.request)
         val count = plan.request.weeks * plan.request.conditioningDays
         val weekdays = plan.request.weeklySlots["cond"] ?: spacedWeekdays(plan.request.days, plan.request.conditioningDays)
@@ -92,7 +92,7 @@ internal object Engine15ConditioningWorkoutComposer {
                 } else null
                 val expectedMinutes = if (week != null) minOf(if ((week - 1) % 4 == 3) 15 else minOf(21, 15 + 2 * ((week - 1) % 4)), if (plan.request.timeBudgetEnabled) plan.request.minutes else 21) else 0
                 it.discipline != "cond" || it.kind != "conditioning" || !it.lower || it.quality ||
-                    it.distanceKm != null || it.minutes != expectedMinutes || expectedDate == null || it.date != expectedDate ||
+                    it.distanceKm != null || it.minutes != expectedMinutes || expectedDate == null || !allowCalendarReschedule && it.date != expectedDate ||
                     it.exercises.singleOrNull()?.let { exercise -> exercise.id != EXERCISE_ID || exercise.seconds != expectedMinutes * 60 || exercise.sets != 1 } != false
             } || plan.sessions.map { it.id }.distinct().size != count || plan.sessions.map { it.date }.distinct().size != count)
             throw PlanConstraint("The saved independent conditioning plan no longer matches its supported workout and calendar contract.")

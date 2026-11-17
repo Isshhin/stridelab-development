@@ -17,7 +17,8 @@ internal object Engine15StrengthWorkoutComposer {
     fun compose(
         request: PlanRequest,
         id: String,
-        library: ExerciseLibraryV2
+        library: ExerciseLibraryV2,
+        allowCalendarReschedule: Boolean = false
     ): List<PlannedSession> {
         validateRequest(request)
         val equipment = equipmentTokens(request)
@@ -68,7 +69,7 @@ internal object Engine15StrengthWorkoutComposer {
                     val day = weekdays[slot]
                     val date = weekStart.plusDays(((day - weekStartIso + 7) % 7).toLong())
                     val lock = locked[weekIndex + 1 to slot]
-                    if (lock != null && (lock != date || lock.dayOfWeek.value !in request.days))
+                    if (lock != null && ((!allowCalendarReschedule && lock != date) || lock.dayOfWeek.value !in request.days))
                         throw PlanConstraint("STRENGTH_SESSION_LOCK_CONFLICT: A locked date conflicts with its fixed weekday or plan week.")
                     val exercises = selected.values.map { (record, equipmentOption) ->
                         val detail = equipmentOption.sorted().joinToString(" + ") { it.replace('_', ' ') }.ifBlank { "No equipment" }
@@ -116,7 +117,7 @@ internal object Engine15StrengthWorkoutComposer {
                 }
             }
         }.sortedWith(compareBy<PlannedSession> { it.date }.thenBy { it.id })
-        Engine15SessionLocks.validateOutput(request, sessions)
+        if (!allowCalendarReschedule) Engine15SessionLocks.validateOutput(request, sessions)
         if (sessions.size != request.weeks * request.strengthDays || sessions.map { it.date }.distinct().size != sessions.size)
             throw PlanConstraint("STRENGTH_PLAN_INCOMPLETE: Every strength slot must have one distinct dated workout.")
         return sessions
@@ -145,7 +146,7 @@ internal object Engine15StrengthWorkoutComposer {
         Engine15SessionLocks.validateRequest(request)
     }
 
-    fun validateSaved(plan: PlanSnapshot) {
+    fun validateSaved(plan: PlanSnapshot, allowCalendarReschedule: Boolean = false) {
         validateRequest(plan.request)
         val expectedCount = plan.request.weeks * plan.request.strengthDays
         val (firstReps, maxReps, repStep) = when (plan.request.goal) {
@@ -170,7 +171,7 @@ internal object Engine15StrengthWorkoutComposer {
                     session.exercises.size != exerciseIds.size || session.exercises.any { it.id !in allowedExerciseIds } ||
                     session.exercises.map { it.id }.distinct().size != exerciseIds.size ||
                     session.exercises.any { it.reps != expectedReps || it.sets != expectedSets } ||
-                    expectedDate == null || session.date != expectedDate ||
+                    expectedDate == null || !allowCalendarReschedule && session.date != expectedDate ||
                     session.date.isBefore(plan.request.start) ||
                     !session.date.isBefore(plan.request.start.plusWeeks(plan.request.weeks.toLong())) ||
                     session.date.dayOfWeek.value !in plan.request.days

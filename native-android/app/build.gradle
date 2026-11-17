@@ -9,7 +9,7 @@ android {
     defaultConfig {
         applicationId 'io.stridelab.privatealpha'
         buildConfigField 'boolean', 'ENGINE15_ACTIVE', (project.findProperty('strideEngine15Active') ?: 'true').toString().toBoolean().toString()
-        buildConfigField 'boolean', 'ENGINE15_INDEPENDENT_RUNNING_ACTIVE', (project.findProperty('strideEngine15IndependentRunningActive') ?: 'false').toString().toBoolean().toString()
+        buildConfigField 'boolean', 'ENGINE15_INDEPENDENT_RUNNING_ACTIVE', (project.findProperty('strideEngine15IndependentRunningActive') ?: 'true').toString().toBoolean().toString()
         minSdk = 26
         targetSdk = 35
         versionCode = (project.findProperty('strideVersionCode') ?: '15').toInteger()

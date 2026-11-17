@@ -85,7 +85,7 @@ class Engine15MileageTargetIntegrityTest {
     }
 
     @Test fun manualBuilderIntentSurvivesCoachSelectionAndSerialization() {
-        val fromUi=custom(currentKm=80.0).copy(policyChoice="coordinated")
+        val fromUi=custom(currentKm=80.0).copy(policyChoice="coordinated",recentMileageBasis="SELF_REPORTED_AVERAGE",timeBudgetEnabled=false)
         val selected=TracksideCoaching.request(fromUi,engine15Active=true)
         assertEquals("engine15",selected.policyChoice)
         assertTrue(selected.trainYourWay)

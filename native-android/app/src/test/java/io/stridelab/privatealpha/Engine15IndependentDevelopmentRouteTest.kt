@@ -39,9 +39,12 @@ class Engine15IndependentDevelopmentRouteTest {
         assertTrue(plan.sessions.all { it.discipline == "run" && !it.quality })
 
         val unsupported = assertThrows(PlanConstraint::class.java) {
-            Engine1Engines.validate(selected.copy(strengthDays = 1))
+            Engine15IndependentPlanGenerator.generateWithHistory(
+                selected.copy(strengthDays = 1, strengthExperience = 1, equipment = mapOf("db" to 2)), owner, emptyList(), "too-many-sessions", now,
+                ExerciseLibraryV2.load { path -> java.io.File("src/main/assets", path).inputStream() }
+            )
         }
-        assertTrue(unsupported.message.orEmpty().contains("MIXED_DISCIPLINE_GENERATION_NOT_INDEPENDENT"))
+        assertTrue("Unexpected defer: ${unsupported.message}", unsupported.message.orEmpty().contains("ENGINE15_COMBINED_SCHEDULE_CONFLICT"))
     }
 
     @Test fun independentRouteAndSavedConflictValidationHaveNoLegacyPlannerCalls() {
@@ -52,14 +55,15 @@ class Engine15IndependentDevelopmentRouteTest {
             "Engine15IndependentVolumePlanner.kt", "Engine15M5WorkoutComposer.kt",
             "Engine15M6IndependentCalendar.kt", "Engine15M6IndependentInterferenceReview.kt",
             "Engine15M6IndependentPeriodizationReview.kt", "Engine15StrengthWorkoutComposer.kt",
-            "Engine15CalisthenicsWorkoutComposer.kt", "Engine15ConditioningWorkoutComposer.kt"
+            "Engine15CalisthenicsWorkoutComposer.kt", "Engine15ConditioningWorkoutComposer.kt",
+            "Engine15StaticMultiDisciplinePlanner.kt"
         )
         independentCallGraph.forEach { source ->
             assertFalse("Legacy planning dependency in $source",
                 forbidden.containsMatchIn(java.io.File(root, source).readText()))
         }
         val validation = java.io.File(root, "PlanScheduleValidation.kt").readText()
-        val independentBranch = validation.substringAfter("if(policyA in setOf(ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY, ENGINE15_INDEPENDENT_CALISTHENICS_POLICY, ENGINE15_INDEPENDENT_CONDITIONING_POLICY) ||")
+        val independentBranch = validation.substringAfter("if(policyA in setOf(ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY, ENGINE15_INDEPENDENT_CALISTHENICS_POLICY, ENGINE15_INDEPENDENT_CONDITIONING_POLICY, ENGINE15_INDEPENDENT_COMBINED_POLICY) ||")
             .substringBefore("else if(policyA==ENGINE15_INTERFERENCE_POLICY")
         assertTrue(independentBranch.contains("Engine15IndependentPlanGenerator.conflict"))
         assertFalse(independentBranch.contains("Engine1."))
@@ -147,5 +151,122 @@ class Engine15IndependentDevelopmentRouteTest {
         }
         assertEquals(listOf(15, 17, 19, 15, 15, 17, 19, 15), minutesByWeek)
         Engine15IndependentPlanGenerator.validateSaved(plan)
+    }
+
+    @Test fun combinedRunningAndCalisthenicsPlanPreservesDoubleDayRulesAndLocks() {
+        val start = LocalDate.parse("2026-11-18")
+        val request = PlanRequest(
+            goal = "Aerobic foundation", start = start, weeks = 8,
+            days = setOf(2, 4, 6), runDays = 3, calDays = 1, longDay = 6,
+            weeklyKm = 30.0, targetWeeklyKm = 30.0, longestKm = 10.0,
+            timeBudgetEnabled = false, policyChoice = "engine15",
+            recentMileageBasis = "SELF_REPORTED_AVERAGE",
+            equipment = mapOf("bands" to 1, "anchor" to 1),
+            disciplineGoals = mapOf("cal" to "Calisthenics foundation"),
+            weeklySlots = mapOf("run" to listOf(6, 2, 4), "cal" to listOf(2)),
+            lockedSessionDays = mapOf("combined-eight-w1-cal0" to start.plusDays(6).toString()),
+            allowDoubleDays = true
+        )
+        val library = ExerciseLibraryV2.load { path -> java.io.File("src/main/assets", path).inputStream() }
+        val plan = Engine15IndependentPlanGenerator.generateWithHistory(request, owner, emptyList(), "combined-eight", now, library)
+        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, plan.policyId)
+        assertEquals(32, plan.sessions.size)
+        for (week in 0 until 8) {
+            val monday = start.plusWeeks(week.toLong())
+            val sessions = plan.sessions.filter { it.date >= monday && it.date < monday.plusWeeks(1) }
+            assertEquals(4, sessions.size)
+            val sameDay = sessions.groupBy { it.date }.filterValues { it.size > 1 }
+            assertEquals(1, sameDay.size)
+            assertEquals(setOf("run", "cal"), sameDay.values.single().map { it.discipline }.toSet())
+            assertEquals(6, sessions.single { it.kind == "long" }.date.dayOfWeek.value)
+        }
+        Engine15IndependentPlanGenerator.validateSaved(plan)
+        assertThrows(PlanConstraint::class.java) {
+            Engine15IndependentPlanGenerator.generateWithHistory(
+                request.copy(allowDoubleDays = false), owner, emptyList(), "combo-no-double", now, library
+            )
+        }
+    }
+
+    @Test fun combinedStrengthCalisthenicsAndConditioningAutoScheduleWithoutHardDayCollisions() {
+        val request = PlanRequest(
+            goal = "General strength", start = LocalDate.parse("2026-11-18"), weeks = 8,
+            days = (1..7).toSet(), runDays = 0, strengthDays = 1, calDays = 1, conditioningDays = 1,
+            strengthExperience = 1, calLevel = 0, equipment = mapOf("db" to 2, "bands" to 1, "anchor" to 1),
+            timeBudgetEnabled = false, policyChoice = "engine15"
+        )
+        val library = ExerciseLibraryV2.load { path -> java.io.File("src/main/assets", path).inputStream() }
+        val plan = Engine15IndependentPlanGenerator.generateWithHistory(request, owner, emptyList(), "static-mix", now, library)
+        assertEquals(24, plan.sessions.size)
+        for (week in 0 until 8) {
+            val first = request.start.plusWeeks(week.toLong())
+            val sessions = plan.sessions.filter { it.date >= first && it.date < first.plusWeeks(1) }
+            assertEquals(setOf("str", "cal", "cond"), sessions.map { it.discipline }.toSet())
+            assertEquals(3, sessions.map { it.date }.distinct().size)
+        }
+        Engine15IndependentPlanGenerator.validateSaved(plan)
+    }
+
+    @Test fun combinedPlannerHonorsValidLockOutsideComposerDefaultWeekday() {
+        val start = LocalDate.parse("2026-11-18")
+        val request = PlanRequest(
+            goal = "General strength", start = start, weeks = 8,
+            days = (1..7).toSet(), runDays = 0, strengthDays = 1, calDays = 1,
+            strengthExperience = 1, calLevel = 0, equipment = mapOf("db" to 2, "bands" to 1, "anchor" to 1),
+            policyChoice = "engine15",
+            disciplineGoals = mapOf("cal" to "Calisthenics foundation"),
+            lockedSessionDays = mapOf("locked-mix-w1-str0" to start.toString())
+        )
+        val library = ExerciseLibraryV2.load { path -> java.io.File("src/main/assets", path).inputStream() }
+        val plan = Engine15IndependentPlanGenerator.generateWithHistory(
+            request, owner, emptyList(), "locked-mix", now, library
+        )
+        assertEquals(start, plan.sessions.single { it.id.endsWith("-w1-str0") }.date)
+        Engine15IndependentPlanGenerator.validateSaved(plan)
+    }
+
+    @Test fun runningCombinesWithStrengthConditioningAndAllSupportedDisciplines() {
+        val start = LocalDate.parse("2026-11-18")
+        val library = ExerciseLibraryV2.load { path -> java.io.File("src/main/assets", path).inputStream() }
+        val requests = listOf(
+            PlanRequest(
+                goal = "Aerobic foundation", start = start, weeks = 8, days = (1..7).toSet(),
+                runDays = 3, strengthDays = 1, longDay = 6, weeklyKm = 30.0,
+                targetWeeklyKm = 30.0, longestKm = 10.0, recentMileageBasis = "SELF_REPORTED_AVERAGE", timeBudgetEnabled = false,
+                disciplineGoals = mapOf("str" to "General strength"), strengthExperience = 1,
+                equipment = mapOf("db" to 2), policyChoice = "engine15"
+            ),
+            PlanRequest(
+                goal = "Aerobic foundation", start = start, weeks = 8, days = (1..7).toSet(),
+                runDays = 3, conditioningDays = 1, longDay = 6, weeklyKm = 30.0,
+                targetWeeklyKm = 30.0, longestKm = 10.0, recentMileageBasis = "SELF_REPORTED_AVERAGE", timeBudgetEnabled = false,
+                disciplineGoals = mapOf("cond" to "Conditioning"), policyChoice = "engine15"
+            ),
+            PlanRequest(
+                goal = "Aerobic foundation", start = start, weeks = 8, days = (1..7).toSet(),
+                runDays = 3, strengthDays = 1, calDays = 1, conditioningDays = 1, longDay = 6,
+                weeklyKm = 30.0, targetWeeklyKm = 30.0, longestKm = 10.0,
+                recentMileageBasis = "SELF_REPORTED_AVERAGE", timeBudgetEnabled = false, strengthExperience = 1,
+                equipment = mapOf("db" to 2, "bands" to 1, "anchor" to 1),
+                disciplineGoals = mapOf("str" to "General strength", "cal" to "Calisthenics foundation", "cond" to "Conditioning"),
+                policyChoice = "engine15"
+            )
+        )
+        requests.take(2).forEachIndexed { index, request ->
+            val plan = try {
+                Engine15IndependentPlanGenerator.generateWithHistory(
+                    request, owner, emptyList(), "running-mix-$index", now, library
+                )
+            } catch (e: PlanConstraint) { throw AssertionError("Combination $index deferred: ${e.message}", e) }
+            assertEquals(request.weeks * (request.runDays + request.strengthDays + request.calDays + request.conditioningDays), plan.sessions.size)
+            assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, plan.policyId)
+            Engine15IndependentPlanGenerator.validateSaved(plan)
+        }
+        val allFour = assertThrows(PlanConstraint::class.java) {
+            Engine15IndependentPlanGenerator.generateWithHistory(
+                requests.last(), owner, emptyList(), "all-four-mix", now, library
+            )
+        }
+        assertTrue(allFour.message.orEmpty().contains("ENGINE15_COMBINED_SCHEDULE_CONFLICT"))
     }
 }
