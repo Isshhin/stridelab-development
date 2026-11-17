@@ -71,7 +71,7 @@ class Engine15M6IndependentInterferenceReviewTest {
         allowEasyUpperPair: Boolean = false
     ) = Engine15M6CReviewInput(
         calendar = Engine15M6CalendarInput(
-            startMonday = monday,
+            startDate = monday,
             availableIsoDays = available,
             preferredLongIsoDay = 7,
             blockedDates = blockedDates

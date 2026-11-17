@@ -24,7 +24,7 @@ internal sealed interface IndependentAndroidPreviewDecision {
         IndependentAndroidPreviewDecision
 
     data class ReadOnly(
-        val startMonday: java.time.LocalDate,
+        val startDate: java.time.LocalDate,
         val mileage: IndependentConstrainedMultiweekDecision.Candidate,
         val qualitySlots: IndependentQualitySpacingDecision.Candidate,
         val ruleIds: List<String>,
@@ -34,7 +34,7 @@ internal sealed interface IndependentAndroidPreviewDecision {
         val authorizedForProduction: Boolean = false
     ) : IndependentAndroidPreviewDecision {
         init {
-            require(startMonday.dayOfWeek == DayOfWeek.MONDAY)
+            require(startDate.dayOfWeek == DayOfWeek.MONDAY)
             require(mileage.mileage.weeks.size == qualitySlots.weeks.size)
             require(ruleIds.distinct() == ruleIds)
             require(!sourceEvidenceVerified && !executable &&
@@ -160,7 +160,7 @@ internal object IndependentAndroidResearchBridge {
             return defer("QUALITY_DAY_PIN_MISMATCH",
                 "Research spacing could not honor your explicitly requested quality weekdays.")
         return IndependentAndroidPreviewDecision.ReadOnly(
-            startMonday = request.start,
+            startDate = request.start,
             mileage = mileage,
             qualitySlots = spacing,
             ruleIds = listOf(

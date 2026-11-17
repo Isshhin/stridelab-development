@@ -194,7 +194,7 @@ class Engine15I6SourceWorkLapPaceConsistencyTest {
         return Engine15I5DistanceFeasibilityInput(
             calendar = Engine15M6QualitySpacingInput(
                 calendar = Engine15M6CalendarInput(
-                    startMonday = monday,
+                    startDate = monday,
                     availableIsoDays =
                         if (s.input.runningDays == 6)
                             setOf(1, 2, 3, 5, 6, 7)

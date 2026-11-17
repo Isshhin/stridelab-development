@@ -156,20 +156,42 @@ class Engine15IndependentPlanGeneratorTest {
             (mixed as Engine15IndependentPlanDecision.Deferred).reasonCode)
     }
 
-    @Test fun rejectsUnsupportedCalendarAndSessionLocksExplicitly() {
-        val shifted = Engine15IndependentPlanGenerator.generate(
-            request().copy(start = LocalDate.parse("2026-11-17")), owner, "shifted", now
+    @Test fun arbitraryStartDateAndExactSessionLockAreHonored() {
+        val input = request().copy(start = LocalDate.parse("2026-11-17"))
+        val shifted = Engine15IndependentPlanGenerator.generate(input, owner, "shifted", now)
+        assertTrue("Expected candidate, got $shifted", shifted is Engine15IndependentPlanDecision.Candidate)
+        val sessions = (shifted as Engine15IndependentPlanDecision.Candidate).plan.sessions
+        assertTrue(sessions.all { it.date >= input.start && it.date < input.start.plusWeeks(input.weeks.toLong()) })
+
+        val lockedId = "locked-w1-run1"
+        val lockedInput = input.copy(lockedSessionDays = mapOf(lockedId to "2026-11-18"))
+        val locked = Engine15IndependentPlanGenerator.generate(lockedInput, owner, "locked", now)
+        assertTrue("Expected locked candidate, got $locked", locked is Engine15IndependentPlanDecision.Candidate)
+        assertEquals(LocalDate.parse("2026-11-18"),
+            (locked as Engine15IndependentPlanDecision.Candidate).plan.sessions.single { it.id == lockedId }.date)
+    }
+
+    @Test fun defersDoubleDaysAndUnmappableSessionLocks() {
+        val doubleDays = Engine15IndependentPlanGenerator.generate(
+            request().copy(allowDoubleDays = true), owner, "double", now
         )
-        assertTrue(shifted is Engine15IndependentPlanDecision.Deferred)
-        assertEquals("PLAN_START_NOT_MONDAY", (shifted as Engine15IndependentPlanDecision.Deferred).reasonCode)
+        assertTrue(doubleDays is Engine15IndependentPlanDecision.Deferred)
+        assertEquals("DOUBLE_DAYS_UNSUPPORTED", (doubleDays as Engine15IndependentPlanDecision.Deferred).reasonCode)
 
         val locked = Engine15IndependentPlanGenerator.generate(
-            request().copy(lockedSessionDays = mapOf("candidate-w1-run1" to "2026-11-16")),
+            request().copy(lockedSessionDays = mapOf("unknown-session" to "2026-11-16")),
             owner, "candidate", now
         )
         assertTrue(locked is Engine15IndependentPlanDecision.Deferred)
         assertEquals("SESSION_LOCK_MAPPING_UNSUPPORTED",
             (locked as Engine15IndependentPlanDecision.Deferred).reasonCode)
+        val staleLock = Engine15IndependentPlanGenerator.generate(
+            request().copy(lockedSessionDays = mapOf("previous-w9-run1" to "2026-11-16")),
+            owner, "candidate", now
+        )
+        assertTrue(staleLock is Engine15IndependentPlanDecision.Deferred)
+        assertEquals("SESSION_LOCK_MAPPING_UNSUPPORTED",
+            (staleLock as Engine15IndependentPlanDecision.Deferred).reasonCode)
 
         val tightTime = Engine15IndependentPlanGenerator.generate(
             request().copy(timeBudgetEnabled = true, minutes = 45), owner, "time", now

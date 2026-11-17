@@ -56,15 +56,11 @@ internal object Engine15IndependentPlanGenerator {
             return defer("MIXED_DISCIPLINE_GENERATION_NOT_INDEPENDENT", "Independent workout construction and calendar coordination for mixed disciplines are not available yet.")
         if (request.runDays !in 2..6 || request.weeks !in 1..16)
             return defer("RUNNING_SCOPE_UNSUPPORTED", "This candidate supports two to six running days and one to sixteen weeks.")
-        if (request.start.dayOfWeek.value != 1)
-            return defer("PLAN_START_NOT_MONDAY", "Independent calendar weeks currently require a Monday plan start.")
         if (request.days.isEmpty() || request.days.any { it !in 1..7 } || request.days.size < request.runDays ||
             (request.runDays >= 3 && request.longDay !in request.days))
             return defer("RUNNING_AVAILABILITY_UNSUPPORTED", "Available weekdays must fit every run and the selected long-run day.")
         if (request.weeklySlots.isNotEmpty())
             return defer("WEEKLY_SLOT_ASSIGNMENTS_UNSUPPORTED", "This candidate does not yet honor per-discipline weekday assignments.")
-        if (request.lockedSessionDays.isNotEmpty())
-            return defer("SESSION_LOCK_MAPPING_UNSUPPORTED", "Saved workout locks cannot yet be mapped safely to independently generated session identities.")
         if (request.allowDoubleDays)
             return defer("DOUBLE_DAYS_UNSUPPORTED", "The running-only calendar does not generate or validate double sessions.")
         if (!request.weeklyKm.isFinite() || request.weeklyKm !in 0.0..120.0 ||
@@ -74,6 +70,19 @@ internal object Engine15IndependentPlanGenerator {
             return defer("INVALID_RUNNING_INPUT", "Recent mileage, longest-run exposure, target and planning pace must be valid before generation.")
         if (request.recentMileageBasis == RecentMileageBasis.RECORDED_PARTIAL.name)
             return defer("ATHLETE_BASELINE_NEEDS_BASELINE", "Recorded mileage has incomplete coverage; confirm a usual weekly average or provide complete history before a numeric plan is generated.")
+
+        Engine15SessionLocks.validateRequest(request)
+        val lockPattern = Regex(".*-w([1-9][0-9]*)-run([1-9][0-9]*)$")
+        val lockedSlots = request.lockedSessionDays.mapNotNull { (sessionId, rawDate) ->
+            val match = lockPattern.matchEntire(sessionId)
+                ?: return defer("SESSION_LOCK_MAPPING_UNSUPPORTED", "A locked workout ID does not identify an Engine 1.5 running week and slot.")
+            val slot = match.groupValues[1].toInt() to match.groupValues[2].toInt()
+            (slot to LocalDate.parse(rawDate))
+        }.toMap()
+        if (lockedSlots.size != request.lockedSessionDays.size)
+            return defer("SESSION_LOCK_MAPPING_UNSUPPORTED", "Multiple locks target the same Engine 1.5 running slot.")
+        if (lockedSlots.keys.any { (week, slot) -> week !in 1..request.weeks || slot !in 1..request.runDays })
+            return defer("SESSION_LOCK_MAPPING_UNSUPPORTED", "A locked workout ID refers to a week or run slot outside this plan.")
 
         RecordPolicy.identifier(owner)
         RecordPolicy.identifier(id)
@@ -93,10 +102,11 @@ internal object Engine15IndependentPlanGenerator {
             return defer("ATHLETE_BASELINE_${volume.status.name}", volume.reasons.joinToString(" "))
 
         val calendar = Engine15M6CalendarInput(
-            startMonday = request.start,
+            startDate = request.start,
             availableIsoDays = request.days,
             preferredLongIsoDay = request.longDay,
-            preferredEasyIsoDays = request.days - request.longDay
+            preferredEasyIsoDays = request.days - request.longDay,
+            lockedSlotDates = lockedSlots
         )
         val periodization = when (val outcome = Engine15M6IndependentPeriodizationReview.audit(
             volume,
@@ -116,12 +126,17 @@ internal object Engine15IndependentPlanGenerator {
             week.runs.map { placed ->
                 val slot = placed.slot
                 val meters = (slot.distanceKm * 1000.0).toInt()
+                val sessionId = request.lockedSessionDays.keys.firstOrNull { lockedId ->
+                    lockPattern.matchEntire(lockedId)?.let {
+                        it.groupValues[1].toInt() == week.weekNumber && it.groupValues[2].toInt() == slot.slotNumber
+                    } == true
+                } ?: "$id-w${week.weekNumber}-run${slot.slotNumber}"
                 val estimatedMinutes = ceil(slot.distanceKm * request.planningPace / 60.0)
                     .toInt().coerceAtLeast(1)
                 if (request.timeBudgetEnabled && estimatedMinutes > request.minutes)
                     return defer("DISTANCE_TIME_BUDGET_CONFLICT", "A distance-only run exceeds the entered session-time limit; no shorter substitute was generated.")
                 PlannedSession(
-                    id = "$id-w${week.weekNumber}-run${slot.slotNumber}",
+                    id = sessionId,
                     date = placed.date,
                     discipline = "run",
                     title = if (slot.role == Engine15M5RunRole.LONG) "Long easy run" else "Easy run",

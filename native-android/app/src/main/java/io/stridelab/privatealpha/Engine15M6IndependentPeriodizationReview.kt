@@ -180,7 +180,7 @@ internal object Engine15M6IndependentPeriodizationReview {
                     "M6D cannot admit multiple quality opportunities or recovery-week quality.",
                     week)
 
-            val startDate = input.calendar.startMonday.plusWeeks(index.toLong())
+            val startDate = input.calendar.startDate.plusWeeks(index.toLong())
             val weekEnd = startDate.plusWeeks(1)
             if (item.runs.any { it.date < startDate || it.date >= weekEnd })
                 return defer("RUN_OUTSIDE_WEEK",

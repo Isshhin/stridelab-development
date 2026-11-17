@@ -126,8 +126,8 @@ internal object Engine15M6IndependentInterferenceReview {
             is Engine15M6CalendarDecision.Candidate -> result
         }
 
-        val first = input.calendar.startMonday.minusDays(1)
-        val last = input.calendar.startMonday.plusWeeks(dated.weeks.size.toLong())
+        val first = input.calendar.startDate.minusDays(1)
+        val last = input.calendar.startDate.plusWeeks(dated.weeks.size.toLong())
         if (others.any { it.date < first || it.date > last })
             return defer("EXTERNAL_DATE_OUTSIDE_REVIEW_WINDOW",
                 "External items must lie within the plan or its one-day adjacency window.")

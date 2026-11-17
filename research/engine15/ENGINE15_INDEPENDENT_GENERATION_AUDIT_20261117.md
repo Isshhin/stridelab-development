@@ -34,14 +34,20 @@ M10/M10.6 documentation reviewed: `experiments/m106-whole-week-coaching-20261115
 3. `Engine15M5WorkoutComposer` owns exact easy/long distance slots and distance reconciliation.
 4. `Engine15M6IndependentCalendar` owns dated running-day placement.
 5. `Engine15M6IndependentInterferenceReview` and `Engine15M6IndependentPeriodizationReview` recheck calendar and weekly constraints.
-6. `Engine15IndependentPlanGenerator` assembles those outputs into a complete one-to-sixteen-week run-only preview and checks identity, date, weekly sum and extent invariants.
+6. `Engine15IndependentPlanGenerator` assembles those outputs into a complete one-to-sixteen-week run-only preview and checks identity, date, weekly sum and extent invariants. M6 weeks are rolling seven-day windows from the request start; persisted running IDs ending in `-w<week>-run<slot>` map to exact lock dates.
 
-The assembled candidate has no quality session, no measured pace/HR target and no production authority. It explicitly defers requested quality, partial-only or legacy-unclassified mileage, conflicting mileage history, recovery holds, unmapped locks, arbitrary weekday assignments, time-budget conflicts, non-Monday starts and every mixed-discipline request. The preview's duration is a display estimate from the supplied planning pace; the pace is not made a workout target.
+The assembled candidate has no quality session, no measured pace/HR target and no production authority. It explicitly defers requested quality, partial-only or legacy-unclassified mileage, conflicting mileage history, recovery holds, unmappable locks, arbitrary weekday assignments, double days, time-budget conflicts and every mixed-discipline request. The preview's duration is a display estimate from the supplied planning pace; the pace is not made a workout target.
+
+## Continuation batch — independent calendar dates and running locks
+
+At PR #131's starting head, M6 only accepted a Monday `startMonday` despite the app request carrying an arbitrary start date. M6 now treats each seven-day training window relative to `PlanRequest.start`, maps available ISO weekdays to a date in that window, and retains blocked-date checks. The independent generator maps lock IDs by their week/slot suffix and retains a locked ID on the matching preview session so exact date validation can run. Malformed, duplicate, stale, out-of-range or impossible locks defer with a specific reason.
+
+Focused verification passed 119 tests across the independent generator, M6 calendar/interference/periodization/quality spacing and I1/I2/I5–I9 suites. Tests cover non-Monday starts, exact running locks, malformed/stale locks and unchanged distance arithmetic. This change does not alter the legacy app route. Cross-discipline scheduling, weekly slot assignment, double sessions, app integration, and Engine 1.0 removal from `Engine15.validate`/`generateProgram` remain incomplete; cutover stays **BLOCKED**.
 
 ## Missing capabilities and cutover blockers
 
 - Independent strength, calisthenics and conditioning workout construction, plus a complete cross-discipline scheduling/spacing policy.
-- Stable mapping of app `weeklySlots`, persisted `lockedSessionDays`, double-day consent and non-Monday starts into the M6 calendar contract.
+- Stable mapping of app `weeklySlots` and double-day consent into the M6 calendar contract; running lock mapping is now covered by the candidate but not app-integrated.
 - A first-party connector from activity/source coverage evidence and persistent owner-scoped feedback into M3/M4, without promoting partial imports or caller assertions.
 - A production-authorized independent workout contract and an approved storage/persistence path. The current candidate is deliberately unknown-policy/read-only.
 - Qualified family-specific intensity and cumulative workload rules. I8/I10 remain review-only; no quality family is executable and two-quality requests are deferred.

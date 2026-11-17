@@ -190,7 +190,7 @@ internal data class IndependentResearchDraft(
         ): IndependentResearchDraft {
             require(!result.sourceEvidenceVerified && !result.executable &&
                 !result.authorizedForPlanMutation && !result.authorizedForProduction)
-            require(result.startMonday == request.start)
+            require(result.startDate == request.start)
             val weeks = result.mileage.mileage.weeks.zip(result.qualitySlots.weeks)
                 .map { (mileage, spacing) ->
                     require(mileage.week == spacing.week &&
