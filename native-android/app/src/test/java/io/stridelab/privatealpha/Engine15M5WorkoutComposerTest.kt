@@ -91,7 +91,7 @@ class Engine15M5WorkoutComposerTest {
                     floor(slot.distanceKm * 10.0 + 1e-8), 1e-8)
                 assertEquals(slot.distanceKm * 1000.0,
                     slot.workout.total(WorkoutUnit.METERS)!!, 1e-6)
-                assertEquals(null, slot.workout.total(WorkoutUnit.SECONDS))
+                assertNull(slot.workout.total(WorkoutUnit.SECONDS))
                 val step = (slot.workout.elements.single() as IndependentWorkoutElement.Step).value
                 assertEquals(WorkoutPurpose.WORK, step.purpose)
                 assertEquals(WorkoutUnit.METERS, step.unit)
