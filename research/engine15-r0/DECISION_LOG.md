@@ -60,3 +60,15 @@ Following the user's successful M3 Gradle result (BUILD SUCCESSFUL in 1m 47s), t
 **Approved scope:** numerical ownership consolidation and tests; no change to existing 0.9/0.95/etc coefficients, 80% recovery limits, 40% long-run ratio, 20% quality work, Q2 support timing, Q3 historical work or PlanSnapshot persistence. The Engine 1.0 scheduling baseline remains an upstream cap in Stage A.
 
 **Not yet authorized:** independent M4 Stage B workload progression, removal of Engine 1.0's session-volume influence, using confidence to widen workload, reallocating Q2 differences or changing target approval. This stage is a migration with *unchanged training outputs*, not a fix to the 80 km target gap. Focused M4 test execution and Gate B comparison required before progressing.
+
+## Decision 2026-11-17 / D-005 — Independent M4 Stage B shadow candidate
+
+**Status:** Implemented on draft branch; focused execution and Gate B candidate review pending.
+
+The user's M4 Stage A focused Gradle result passed (BUILD SUCCESSFUL in 32s). A new independent M4 Stage B candidate is committed with a pre-written review rubric at `M4_STAGE_B_GATE_B_PREFLIGHT_20261117.md`. It consumes M3 capacity plus explicit run-day/target/return/recovery flags; it never calls Engine 1.0, Engine 1.5 plan generation, the calendar, session composer or saved-plan storage.
+
+**Scope:** Standalone weekly budget proposals, current 1.5 ceiling retained; conservative session-exposure upper bound; return-from-break bound; one deload applied from prior *planned budget*, not prior Q2 *estimated final distance*. Provisional self-reported averages are usable with a two-completed-week review marker. Peak-only, unknown, legacy-unconfirmed, explicit zero, contradiction and health hold remain distinct and do not produce numeric candidate weeks.
+
+**No final coach authorization:** M4B budgets are not scheduled workouts and are not proven feasible. They do not remove runtime Engine 1.0 fallback yet; removing it before M5/M6 would leave the app unable to build its running sessions. The final independent engine will reject infeasible requests rather than silently fall back. The measured R0 70.533 km mixed-unit estimated peak must never be compared directly with a pre-composition M4B budget as though both were final prescription volumes.
+
+**Gate:** Run focused M4B tests; review all profiles and the single-recovery deload contrast with R0; approve or reject actual policy changes before wiring into production. The 40% long-run and 20% quality-work constraints remain unchanged.
