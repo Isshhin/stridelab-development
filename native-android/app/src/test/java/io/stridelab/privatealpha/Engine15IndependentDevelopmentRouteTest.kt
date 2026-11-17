@@ -51,14 +51,15 @@ class Engine15IndependentDevelopmentRouteTest {
             "Engine15IndependentPlanGenerator.kt", "Engine15AthleteCapacity.kt",
             "Engine15IndependentVolumePlanner.kt", "Engine15M5WorkoutComposer.kt",
             "Engine15M6IndependentCalendar.kt", "Engine15M6IndependentInterferenceReview.kt",
-            "Engine15M6IndependentPeriodizationReview.kt", "Engine15StrengthWorkoutComposer.kt"
+            "Engine15M6IndependentPeriodizationReview.kt", "Engine15StrengthWorkoutComposer.kt",
+            "Engine15CalisthenicsWorkoutComposer.kt"
         )
         independentCallGraph.forEach { source ->
             assertFalse("Legacy planning dependency in $source",
                 forbidden.containsMatchIn(java.io.File(root, source).readText()))
         }
         val validation = java.io.File(root, "PlanScheduleValidation.kt").readText()
-        val independentBranch = validation.substringAfter("if(policyA in setOf(ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY) ||")
+        val independentBranch = validation.substringAfter("if(policyA in setOf(ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY, ENGINE15_INDEPENDENT_CALISTHENICS_POLICY) ||")
             .substringBefore("else if(policyA==ENGINE15_INTERFERENCE_POLICY")
         assertTrue(independentBranch.contains("Engine15IndependentPlanGenerator.conflict"))
         assertFalse(independentBranch.contains("Engine1."))
@@ -78,10 +79,51 @@ class Engine15IndependentDevelopmentRouteTest {
         val mixed = assertThrows(PlanConstraint::class.java) {
             Engine15StrengthWorkoutComposer.validateRequest(strength.copy(runDays = 2))
         }
-        assertTrue(mixed.message.orEmpty().contains("STRENGTH_REQUEST_UNSUPPORTED"))
+        assertTrue(mixed.message.orEmpty().contains("MIXED_DISCIPLINE_GENERATION_NOT_INDEPENDENT"))
         val notes = assertThrows(PlanConstraint::class.java) {
             Engine15StrengthWorkoutComposer.validateRequest(strength.copy(limitations = "shoulder pain"))
         }
         assertTrue(notes.message.orEmpty().contains("STRENGTH_NOTES_REQUIRE_REVIEW"))
+    }
+
+    @Test fun calisthenicsRequestDefersUnsupportedSkillsAndConditioning() {
+        val foundation = PlanRequest(
+            goal = "Calisthenics foundation", start = LocalDate.parse("2026-11-16"), weeks = 8,
+            days = setOf(1, 3, 5, 7), runDays = 0, calDays = 2, calLevel = 0,
+            equipment = mapOf("bands" to 1, "anchor" to 1), policyChoice = "engine15"
+        )
+        Engine15CalisthenicsWorkoutComposer.validateRequest(foundation)
+        val mixed = assertThrows(PlanConstraint::class.java) {
+            Engine15CalisthenicsWorkoutComposer.validateRequest(foundation.copy(conditioningDays = 1))
+        }
+        assertTrue(mixed.message.orEmpty().contains("MIXED_DISCIPLINE_GENERATION_NOT_INDEPENDENT"))
+        val handstand = assertThrows(PlanConstraint::class.java) {
+            Engine15CalisthenicsWorkoutComposer.validateRequest(foundation.copy(goal = "Handstand foundations"))
+        }
+        assertTrue(handstand.message.orEmpty().contains("CALISTHENICS_HANDSTAND_EVIDENCE_UNAVAILABLE"))
+        val conditioning = assertThrows(PlanConstraint::class.java) {
+            Engine15IndependentPlanGenerator.validateRequest(foundation.copy(
+                goal = "Conditioning", calDays = 0, conditioningDays = 1
+            ))
+        }
+        assertTrue(conditioning.message.orEmpty().contains("CONDITIONING_GENERATION_NOT_INDEPENDENT"))
+    }
+
+    @Test fun calisthenicsComposesCompleteEightWeekCatalogBackedDraft() {
+        val request = PlanRequest(
+            goal = "Calisthenics foundation", start = LocalDate.parse("2026-11-18"), weeks = 8,
+            days = setOf(1, 3, 5, 7), runDays = 0, calDays = 2,
+            equipment = mapOf("bands" to 1, "anchor" to 1), policyChoice = "engine15"
+        )
+        val library = ExerciseLibraryV2.load { path -> java.io.File("src/main/assets", path).inputStream() }
+        val plan = Engine15IndependentPlanGenerator.generateWithHistory(request, owner, emptyList(), "cal-eight", now, library)
+        assertEquals(16, plan.sessions.size)
+        assertEquals(ENGINE15_INDEPENDENT_CALISTHENICS_POLICY, plan.policyId)
+        assertTrue(plan.sessions.all { session ->
+            session.discipline == "cal" && session.exercises.map { it.id }.containsAll(listOf("e4", "br", "fc"))
+        })
+        assertTrue(plan.sessions.filter { it.date >= request.start.plusWeeks(3) && it.date < request.start.plusWeeks(4) }
+            .all { it.exercises.all { exercise -> exercise.sets == 1 } })
+        Engine15IndependentPlanGenerator.validateSaved(plan)
     }
 }

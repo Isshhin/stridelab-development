@@ -473,7 +473,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             Engine15 -> Engine15.generateWithHistory(request,owner,mutable.value.plans)
             Engine15IndependentPlanGenerator -> Engine15IndependentPlanGenerator.generateWithHistory(
                 request, owner, mutable.value.plans,
-                exerciseLibrary = if (request.runDays == 0 && request.strengthDays > 0) engine15ExerciseLibrary else null
+                exerciseLibrary = if (request.runDays == 0 && (request.strengthDays > 0 || request.calDays > 0 || request.conditioningDays > 0))
+                    engine15ExerciseLibrary else null
             )
             else -> selected.generate(request,owner)
         })

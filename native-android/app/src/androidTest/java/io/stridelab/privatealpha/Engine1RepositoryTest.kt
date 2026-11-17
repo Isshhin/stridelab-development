@@ -139,6 +139,34 @@ class Engine1RepositoryTest {
         assertEquals(plan.status,reopened.status)
         assertEquals(plan.sessions,reopened.sessions)
     }
+    @Test fun independentCalisthenicsPlanUsesCatalogAndReopensOfflineAfterApproval()=runBlocking {
+        Assume.assumeTrue(BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)
+        val request=PlanRequest(goal="Calisthenics foundation",start=start,weeks=4,
+            days=setOf(1,3,5,7),runDays=0,calDays=2,calLevel=0,
+            equipment=mapOf("bands" to 1,"anchor" to 1),policyChoice="engine15")
+        assertTrue("Independent calisthenics route should create a review draft: ${repo.state.value.message}",repo.generatePlan(request))
+        var plan=repo.state.value.plans.single()
+        assertEquals(owner,plan.owner)
+        assertEquals("draft",plan.status)
+        assertEquals(8,plan.sessions.size)
+        assertEquals(ENGINE15_INDEPENDENT_CALISTHENICS_POLICY,plan.policyId)
+        assertTrue(plan.sessions.all { session ->
+            val ids=session.exercises.map { it.id }.toSet()
+            session.discipline=="cal" && ids.containsAll(setOf("e4","br","fc")) &&
+                session.exercises.all { it.sets in 1..2 && it.reps in 1..8 && it.seconds==null }
+        })
+        assertTrue(plan.sessions.filter { it.date >= start.plusWeeks(3) }.all { session -> session.exercises.all { it.sets==1 } })
+        assertTrue(repo.approvePlan(plan.id,plan.revision))
+        plan=repo.state.value.plans.single()
+        repo.close();gateway.offline=true;open()
+        val reopened=repo.state.value.plans.single()
+        assertEquals(plan.owner,reopened.owner)
+        assertEquals(plan.id,reopened.id)
+        assertEquals(plan.status,reopened.status)
+        assertEquals(plan.sessions,reopened.sessions)
+    }
     @Test fun repositoryMovementRejectsAnotherApprovedPlansIncompatibleSession()=runBlocking {
         assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
         val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)

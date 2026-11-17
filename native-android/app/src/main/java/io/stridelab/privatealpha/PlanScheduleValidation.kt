@@ -7,8 +7,8 @@ internal object PlanScheduleValidation {
             policy==ENGINE15_INTERFERENCE_POLICY
 
     fun conflict(a:PlannedSession,b:PlannedSession,policyA:String,policyB:String)=
-        if(policyA in setOf(ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY) ||
-            policyB in setOf(ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY))
+        if(policyA in setOf(ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY, ENGINE15_INDEPENDENT_CALISTHENICS_POLICY) ||
+            policyB in setOf(ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY, ENGINE15_INDEPENDENT_CALISTHENICS_POLICY))
             Engine15IndependentPlanGenerator.conflict(a,b)
         else if(policyA==ENGINE15_INTERFERENCE_POLICY && policyB==ENGINE15_INTERFERENCE_POLICY)
             Engine15InterferenceScheduling.conflict(a,b)
@@ -23,7 +23,7 @@ internal object PlanScheduleValidation {
 
     fun validatePlan(plan:PlanSnapshot) {
         if(plan.status!="approved" || !Engine1Engines.canManage(plan))return
-        if(plan.policyId in setOf(ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY))
+        if(plan.policyId in setOf(ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY, ENGINE15_INDEPENDENT_CALISTHENICS_POLICY))
             Engine15IndependentPlanGenerator.validateSaved(plan)
         Engine15SessionLocks.validateSaved(plan)
         Engine15Availability.requireReady(plan)

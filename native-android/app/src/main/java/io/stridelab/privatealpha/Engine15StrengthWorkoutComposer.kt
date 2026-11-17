@@ -123,6 +123,8 @@ internal object Engine15StrengthWorkoutComposer {
     }
 
     fun validateRequest(request: PlanRequest) {
+        if (request.runDays > 0 || request.calDays > 0 || request.conditioningDays > 0)
+            throw PlanConstraint("MIXED_DISCIPLINE_GENERATION_NOT_INDEPENDENT: Strength combined with other disciplines is deferred until Engine 1.5 static multi-discipline scheduling is available.")
         if (request.policyChoice != "engine15" || request.runDays != 0 || request.strengthDays !in 1..4 ||
             request.calDays != 0 || request.conditioningDays != 0 || request.weeks !in 1..16 ||
             request.goal !in setOf("General strength", "Muscle development", "Strength endurance") ||

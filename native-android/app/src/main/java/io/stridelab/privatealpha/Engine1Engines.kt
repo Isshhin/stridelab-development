@@ -13,7 +13,7 @@ internal object Engine1Engines {
     /** A policy is editable only when both its exact version and policy ID are supported. */
     fun supports(version:String,policy:String):Boolean =
         (version==ENGINE1_VERSION && policy in knownPolicies) ||
-        (version==ENGINE15_VERSION && policy in setOf(ENGINE15_POLICY, ENGINE15_FOUNDATION_POLICY, ENGINE15_MULTI_POLICY, ENGINE15_INTERFERENCE_POLICY, ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY))
+        (version==ENGINE15_VERSION && policy in setOf(ENGINE15_POLICY, ENGINE15_FOUNDATION_POLICY, ENGINE15_MULTI_POLICY, ENGINE15_INTERFERENCE_POLICY, ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY, ENGINE15_INDEPENDENT_CALISTHENICS_POLICY))
     fun canManage(plan:PlanSnapshot)=supports(plan.engineVersion,plan.policyId)
     fun discipline(goal:String)=goals.entries.find { goal in it.value }?.key
     fun goal(p:PlanRequest,discipline:String):String=p.disciplineGoals[discipline] ?: p.goal.takeIf { it in goals.getValue(discipline) } ?: goals.getValue(discipline).first()
