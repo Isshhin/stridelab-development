@@ -39,7 +39,7 @@ internal data class Engine15AthleteCapacity(
     val typicalWeeklyKm:Double?,
     val reportedTypicalWeeklyKm:Double?,
     val reportedPeakWeeklyKm:Double?,
-    val longestRecentRunKm:Double?,
+    val reportedLongestRunKm:Double?,
     val verifiedFourWeekAverageKm:Double?,
     val basis:RecentMileageBasis,
     val confidence:AthleteBaselineConfidence,
@@ -80,7 +80,7 @@ internal object Engine15AthleteBaseline {
         if(!validKm(recent))notes+="INVALID_RECENT_KM"
         val peak=request.reportedPeakWeeklyKm
         if(peak!=null && !validKm(peak))notes+="INVALID_PEAK_KM"
-        val longest=request.longestKm
+        // Legacy longestKm has no recency/source proof; keep it provisional.\n        val longest=request.longestKm
         if(!validKm(longest))notes+="INVALID_LONGEST_KM"
 
         val fourWeek=history?.confirmedFourWeekMeanKm
@@ -144,7 +144,7 @@ internal object Engine15AthleteBaseline {
             typicalWeeklyKm=primary.takeIf { notes.isEmpty() },
             reportedTypicalWeeklyKm=reportedTypical,
             reportedPeakWeeklyKm=peak?.takeIf(::validKm),
-            longestRecentRunKm=longest.takeIf { validKm(it) && it>0.0 },
+            reportedLongestRunKm=longest.takeIf { validKm(it) && it>0.0 },
             verifiedFourWeekAverageKm=confirmed,
             basis=basis,confidence=confidence,status=status,
             reviewReasons=notes.distinct(),completeWeekCount=history?.completeWeekCount ?: 0
