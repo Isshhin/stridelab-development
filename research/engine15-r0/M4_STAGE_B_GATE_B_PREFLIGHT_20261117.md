@@ -33,7 +33,7 @@ H. Explicit recovery hold: RECOVERY_REVIEW; no numeric proposal.
 
 ## Pass/fail
 
-1. Standalone Stage B class has **zero references to Engine1, Engine15, PlanSnapshot, or old baseline sessions**; only calls the standalone M4 Stage A ceiling function and M3 typed capacity.
+1. Standalone Stage B class never invokes Engine1.generate, Engine15.generate, CoordinatedEngine1, MultiSessionEngine1, PlanSnapshot or old baseline sessions. It may use only the M3 typed capacity and the standalone M4 Stage A ceiling function.
 2. Deterministic 100 m flooring, no negative/NaN outputs, no undocumented increase above existing Engine 1.5 ceiling, return cap, or conservative session cap.
 3. Every week: target comparison reports an honest positive gap when target is not reached. Recovery weeks <= 0.8 × previous proposed week (subject to 100 m floor). No post-recovery catch-up.
 4. Missing data/peak-only/explicit zero/recovery hold remain separate, with null planned distance except explicit time-only status. Self-report usable as *provisional*, not certified.
