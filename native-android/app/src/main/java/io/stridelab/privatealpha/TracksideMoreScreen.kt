@@ -65,7 +65,8 @@ internal fun TracksideMoreScreen(
     onAbout: () -> Unit,
     onSignOut: () -> Unit,
     onAnalytics: (() -> Unit)? = null,
-    onManualLogging: (() -> Unit)? = null
+    onManualLogging: (() -> Unit)? = null,
+    onActivityBackup: (() -> Unit)? = null
 ) {
     val signedIn = state.account != null
     LazyColumn(
@@ -158,6 +159,14 @@ internal fun TracksideMoreScreen(
                 MoreGroup {
                     MoreActionRow("Log strength and conditioning", MoreSymbol.Dumbbell,
                         "manual-logs", onManualLogging)
+                }
+            }
+        }
+        if(onActivityBackup != null) {
+            item(key = "more-activity-backup") {
+                MoreGroup {
+                    MoreActionRow("Activity backup and recovery", MoreSymbol.Info,
+                        "activity-archive", onActivityBackup)
                 }
             }
         }
