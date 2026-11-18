@@ -468,13 +468,28 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
 
     suspend fun generatePlan(request:PlanRequest,engine:PlanGenerationEngine?=null) = operation("Building your plan…") {
         val owner=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)
+        val state=mutable.value
         val selected=engine ?: Engine1Engines.resolve(request)
+        val activityEvidence = if (selected === Engine15IndependentPlanGenerator && request.runDays > 0 &&
+            request.strengthDays == 0 && request.calDays == 0 && request.conditioningDays == 0 &&
+            request.disciplineGoals.keys.all { it == "run" }) {
+            val rows = state.activities.filter { activityCorrectionOwner(it.id, state) == owner }
+            if (rows.isEmpty()) null else {
+                val labels = UserActivityWorkoutLabelStore(appContext)
+                ActivityAthleteEvidence.profile(
+                    owner, rows, rows.mapTo(mutableSetOf()) { it.id },
+                    rows.mapNotNull { row -> labels.load(owner, row.id)?.let { row.id to it } }.toMap(),
+                    java.time.Instant.now()
+                )
+            }
+        } else null
         savePlan(when(selected) {
             Engine15 -> Engine15.generateWithHistory(request,owner,mutable.value.plans)
             Engine15IndependentPlanGenerator -> Engine15IndependentPlanGenerator.generateWithHistory(
                 request, owner, mutable.value.plans,
                 exerciseLibrary = if (request.strengthDays > 0 || request.calDays > 0 || request.conditioningDays > 0)
-                    engine15ExerciseLibrary else null
+                    engine15ExerciseLibrary else null,
+                activityEvidence = activityEvidence
             )
             else -> selected.generate(request,owner)
         })

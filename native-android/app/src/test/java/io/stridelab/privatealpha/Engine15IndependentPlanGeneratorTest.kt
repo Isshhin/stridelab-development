@@ -128,6 +128,37 @@ class Engine15IndependentPlanGeneratorTest {
         })
     }
 
+    @Test fun activityEvidenceIsOwnerCheckedAndDescriptiveOnly() {
+        val evidence = ActivityAthleteEvidenceProfile(
+            owner = owner, asOf = now, recordedRunCount = 4,
+            recordedDistanceByWeekKm = emptyMap(), recordedRunDaysByWeek = emptyMap(),
+            longestRecordedRunLast28DaysKm = 12.0,
+            userReportedRunCharacteristics = emptyMap(), evidenceActivityIds = listOf("run-a", "run-b"),
+            sourceCoverage = "UNKNOWN"
+        )
+        val without = Engine15IndependentPlanGenerator.preview(request(), owner, "same", now)
+            as Engine15IndependentPlanDecision.Candidate
+        val with = Engine15IndependentPlanGenerator.preview(
+            request(), owner, "same", now, activityEvidence = evidence
+        ) as Engine15IndependentPlanDecision.Candidate
+
+        assertEquals(without.volume.weeks, with.volume.weeks)
+        assertEquals(without.volume.athleteBaseline.typicalWeeklyKm,
+            with.volume.athleteBaseline.typicalWeeklyKm)
+        assertEquals(evidence, with.volume.athleteBaseline.activityEvidence)
+        assertEquals(without.plan.sessions, with.plan.sessions)
+        assertTrue(with.plan.explanations.any {
+            it.contains("ACTIVITY_EVIDENCE_CONTEXT") && it.contains("did not set weekly capacity")
+        })
+        val mismatch = Engine15IndependentPlanGenerator.preview(
+            request(), owner, "mismatch", now,
+            activityEvidence = evidence.copy(owner = "another-owner")
+        )
+        assertTrue(mismatch is Engine15IndependentPlanDecision.Deferred)
+        assertEquals("ACTIVITY_EVIDENCE_SCOPE_INVALID",
+            (mismatch as Engine15IndependentPlanDecision.Deferred).reasonCode)
+    }
+
     @Test fun defersQualityRequestsInsteadOfDroppingOrSubstitutingThem() {
         for (qualityCount in 1..2) {
             val decision = Engine15IndependentPlanGenerator.preview(

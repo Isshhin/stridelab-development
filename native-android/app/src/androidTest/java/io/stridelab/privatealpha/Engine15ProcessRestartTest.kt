@@ -40,7 +40,7 @@ class Engine15ProcessRestartTest {
     @Test fun prepare() = runBlocking {
         assertNull("Use a fresh synthetic fixture ID", evidence.getString("snapshot", null))
         val scenario = requireNotNull(args.getString("scenario"))
-        require(scenario in setOf("draft", "approved", "equal", "completed", "feedback", "accepted", "dismissed"))
+        require(scenario in setOf("draft", "approved", "equal", "completed", "feedback", "accepted", "dismissed", "activity-label"))
         val repo = open(false)
         try {
             assertTrue(repo.signIn("restart@example.invalid", "fixture"))
@@ -78,6 +78,11 @@ class Engine15ProcessRestartTest {
                 plan = repo.state.value.plans.single()
                 assertEquals(1, plan.feedback.size)
             }
+            val activityLabel = UserActivityWorkoutLabel(ActivityWorkoutKind.QUALITY_RUN,
+                ActivityQualitySubtype.INTERVALS)
+            if (scenario == "activity-label") {
+                assertTrue(UserActivityWorkoutLabelStore(context).save(owner, "restart-activity-$runId", activityLabel))
+            }
             if (scenario in setOf("accepted", "dismissed")) {
                 val proposal = repo.previewEngine15Adjustments(plan.id, LocalDate.now()).single()
                 assertTrue(repo.stageEngine15Adjustment(plan.id, plan.revision, proposal, LocalDate.now()))
@@ -114,6 +119,7 @@ class Engine15ProcessRestartTest {
             assertFalse(review.authorizedForProduction)
             assertTrue(evidence.edit().putString("snapshot", plan.encode().toString())
                 .putString("research", review.encode().toString())
+                .putString("activity_label", if (scenario == "activity-label") UserActivityWorkoutLabelCodec.encode(activityLabel) else null)
                 .putInt("pid", Process.myPid()).commit())
         } finally { repo.close() }
     }
@@ -129,6 +135,11 @@ class Engine15ProcessRestartTest {
             val actual = repo.state.value.plans.single()
             assertEquals(expected, actual)
             assertEquals(listOf(expectedResearch), repo.state.value.researchDrafts)
+            val activityId = "restart-activity-$runId"
+            val expectedLabel = evidence.getString("activity_label", null)
+            assertEquals(expectedLabel?.let(UserActivityWorkoutLabelCodec::decode),
+                UserActivityWorkoutLabelStore(context).load(owner, activityId))
+            assertNull(UserActivityWorkoutLabelStore(context).load("$owner-sibling", activityId))
             assertEquals(ENGINE15_VERSION, actual.engineVersion)
             assertEquals(ENGINE15_POLICY, actual.policyId)
             assertEquals(actual.sessions.size, actual.sessions.map { it.id }.distinct().size)

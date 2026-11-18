@@ -49,7 +49,9 @@ internal data class Engine15AthleteCapacity(
     /** Hard evidence/data contradictions; unresolved profile must not drive M4. */
     val reviewReasons:List<String>,
     /** Structural property only. No fitness or readiness inference. */
-    val completeWeekCount:Int
+    val completeWeekCount:Int,
+    /** Descriptive imported-activity context; never used as a capacity input without verified coverage. */
+    val activityEvidence:ActivityAthleteEvidenceProfile?=null
 ) {
     val readyForVolumeSkeleton:Boolean get()=
         typicalWeeklyKm!=null && reviewReasons.isEmpty() &&
@@ -70,7 +72,8 @@ internal object Engine15AthleteBaseline {
 
     fun assess(
         request:PlanRequest,
-        history:IndependentRunningHistoryEvidence?=null
+        history:IndependentRunningHistoryEvidence?=null,
+        activityEvidence:ActivityAthleteEvidenceProfile?=null
     ):Engine15AthleteCapacity {
         val rawBasis=request.recentMileageBasis
         val basis=RecentMileageBasis.parse(rawBasis)
@@ -157,7 +160,8 @@ internal object Engine15AthleteBaseline {
             reportedLongestRunKm=longest.takeIf { validKm(it) && it>0.0 },
             verifiedFourWeekAverageKm=confirmed,
             basis=basis,confidence=confidence,status=status,
-            reviewReasons=notes.distinct(),completeWeekCount=history?.completeWeekCount ?: 0
+            reviewReasons=notes.distinct(),completeWeekCount=history?.completeWeekCount ?: 0,
+            activityEvidence=activityEvidence
         )
     }
 }

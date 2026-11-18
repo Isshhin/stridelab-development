@@ -84,7 +84,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         plans: List<PlanSnapshot>,
         id: String = java.util.UUID.randomUUID().toString(),
         now: Instant = Instant.now(),
-        exerciseLibrary: ExerciseLibraryV2? = null
+        exerciseLibrary: ExerciseLibraryV2? = null,
+        activityEvidence: ActivityAthleteEvidenceProfile? = null
     ): PlanSnapshot {
         if (listOf("run", "str", "cal", "cond").count { request.disciplineSessionCount(it) > 0 } > 1) {
             val library = exerciseLibrary ?: throw PlanConstraint(
@@ -175,7 +176,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 name = "Engine 1.5 independent strength plan"
             )
         }
-        return appDraft(preview(request, owner, id, now, plans))
+        return appDraft(preview(request, owner, id, now, plans, activityEvidence))
     }
 
     private fun appDraft(decision: Engine15IndependentPlanDecision): PlanSnapshot = when (decision) {
@@ -194,10 +195,15 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         owner: String,
         id: String,
         now: Instant,
-        existingPlans: List<PlanSnapshot>? = null
+        existingPlans: List<PlanSnapshot>? = null,
+        activityEvidence: ActivityAthleteEvidenceProfile? = null
     ): Engine15IndependentPlanDecision {
         fun defer(code: String, explanation: String) =
             Engine15IndependentPlanDecision.Deferred(code, explanation)
+
+        if (activityEvidence != null && (activityEvidence.version != ActivityAthleteEvidenceProfile.VERSION ||
+                activityEvidence.owner != owner))
+            return defer("ACTIVITY_EVIDENCE_SCOPE_INVALID", "Activity evidence is from an unsupported profile version or another local owner; it was not used.")
 
         if (request.policyChoice != "engine15")
             return defer("ENGINE15_NOT_SELECTED", "Select Engine 1.5 before requesting an independent candidate.")
@@ -266,7 +272,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         RecordPolicy.identifier(owner)
         RecordPolicy.identifier(id)
 
-        val athlete = Engine15AthleteBaseline.assess(request)
+        val athlete = Engine15AthleteBaseline.assess(request, activityEvidence = activityEvidence)
         val volume = Engine15IndependentVolumePlanner.propose(
             athlete,
             Engine15IndependentVolumePlanner.Input(
@@ -419,6 +425,11 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             explanations = buildList {
                 add("Independent Engine 1.5 running candidate; no Engine 1.0 generation or validation was used.")
                 add("Mileage basis: ${athlete.basis}; reported/recorded history remains provisional and is not source-authenticated.")
+                athlete.activityEvidence?.let { evidence ->
+                    add("ACTIVITY_EVIDENCE_CONTEXT v${evidence.version}: ${evidence.recordedRunCount} recorded runs; " +
+                        "longest recorded in the recent window: ${evidence.longestRecordedRunLast28DaysKm?.let { "%.1f km".format(java.util.Locale.US, it) } ?: "not available"}; " +
+                        "source coverage is ${evidence.sourceCoverage}. This evidence is descriptive only and did not set weekly capacity, quality eligibility, workout dose, or intensity.")
+                }
                 if(request.userDirectedPlanning)
                     add("Weekly volume follows the user-requested workload, with scheduled recovery weeks. This is not validated athlete capacity; coach-recommended progression remains available for comparison.")
                 if(qualityById.isNotEmpty()) add("Quality workout steps and any intensity targets were explicitly user-defined; no automatic coach selection or intensity prescription was used. Timed steps are included in mileage only when explicit per-step distance equivalents were supplied.")
