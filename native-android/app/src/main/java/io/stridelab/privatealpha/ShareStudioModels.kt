@@ -106,7 +106,7 @@ internal data class ShareWorkoutRecap(
                     lap.distance?.takeIf { it.isFinite() && it>0.0 }?.let {
                         String.format(Locale.ROOT,"%.2f km",it/1000.0)
                     },
-                    lap.seconds?.takeIf { it.isFinite() && it>0.0 }?.let(ActivityRecord::duration),
+                    lap.seconds?.takeIf { it.isFinite() && it>0.0 }?.let { ActivityRecord.duration(it) },
                     lap.pace?.takeIf { it.isFinite() && it>0.0 }?.let {
                         ActivityRecord.duration(it)+" /km"
                     })
