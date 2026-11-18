@@ -8,6 +8,9 @@ android {
     compileSdk = 36
     defaultConfig {
         applicationId 'io.stridelab.privatealpha'
+        // An explicit QA build uses its own package, storage and file-provider authority.
+        // Normal debug and release APK identifiers stay unchanged.
+        manifestPlaceholders['strideAppLabel'] = 'StrideLab'
         buildConfigField 'boolean', 'ENGINE15_ACTIVE', (project.findProperty('strideEngine15Active') ?: 'true').toString().toBoolean().toString()
         buildConfigField 'boolean', 'ENGINE15_INDEPENDENT_RUNNING_ACTIVE', (project.findProperty('strideEngine15IndependentRunningActive') ?: 'true').toString().toBoolean().toString()
         minSdk = 26
@@ -42,6 +45,14 @@ android {
         }
     }
     buildTypes {
+        debug {
+            // Opt-in side-by-side install. Never use this property to replace a user's real app.
+            if ((project.findProperty('strideIsolatedQaInstall') ?: 'false').toString().toBoolean()) {
+                applicationIdSuffix '.qa'
+                versionNameSuffix '-qa'
+                manifestPlaceholders['strideAppLabel'] = 'StrideLab QA'
+            }
+        }
         release {
             minifyEnabled false
             buildConfigField 'boolean', 'ENGINE15_INDEPENDENT_RUNNING_ACTIVE', 'false'
