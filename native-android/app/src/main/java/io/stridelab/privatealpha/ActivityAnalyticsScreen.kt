@@ -167,6 +167,38 @@ internal fun ActivityAnalyticsScreen(
                 }
             }
         }
+        item(key = "analytics-distance-bests") {
+            SignalCard {
+                Text("BEST SAVED AVERAGE PACES", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary)
+                Text(
+                    "All saved runs matching these filters · within 2% of the named distance. " +
+                        "Not certified race personal records or proof of fitness improvement.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                RecordedDistanceBests.distanceTargets.forEach { (label, target) ->
+                    val result = RecordedDistanceBests.find(filtered, target)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(label, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            result?.activity?.recordedPace?.let { ActivityRecord.duration(it) + " /km" }
+                                ?: "Not recorded",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    if(result != null) {
+                        Text(
+                            "${result.activity.distanceLabel} · ${result.activity.dateLabel} · " +
+                                result.activity.sourceLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
         item(key = "analytics-chart") {
             SignalCard {
                 Text("DISTANCE BY PERIOD", style = MaterialTheme.typography.labelMedium,
