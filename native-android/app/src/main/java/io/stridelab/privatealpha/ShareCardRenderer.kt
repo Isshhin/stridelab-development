@@ -8,9 +8,9 @@ import kotlin.math.*
 
 internal object ShareCardPalette {
     const val LIME:Int = 0xFFD8FB70.toInt()
-    const val WHITE:Int = 0xFFF0F7F1.toInt()
-    const val MUTED:Int = 0xFFBFCFC4.toInt()
-    const val BLACK:Int = 0xFF080D0C.toInt()
+    const val WHITE:Int = 0xFFF7F7F5.toInt()
+    const val MUTED:Int = 0xFF9FA4AA.toInt()
+    const val BLACK:Int = 0xFF080B0A.toInt()
     fun colors(mode:ShareRouteMode):IntArray = when(mode) {
         ShareRouteMode.PACE -> intArrayOf(LIME,0xFFFFBE7A.toInt(),0xFFFF8C87.toInt())
         ShareRouteMode.ELEVATION -> intArrayOf(0xFF5EABD6.toInt(),0xFFC2A8FF.toInt(),0xFFFFBE7A.toInt())
