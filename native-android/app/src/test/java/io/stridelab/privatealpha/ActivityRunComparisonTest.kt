@@ -42,6 +42,17 @@ class ActivityRunComparisonTest {
         assertNull(result.recordedPaceChangePercent)
     }
 
+    @Test fun equivalentRunNamingIsComparableButTrailAndTreadmillRemainDistinct() {
+        assertNotNull(ActivityRunComparison.compare(
+            recent.copy(type = "running"), earlier(type = "run")))
+        assertNotNull(ActivityRunComparison.compare(
+            recent.copy(type = "trail_running"), earlier(type = "trailrun")))
+        assertNotNull(ActivityRunComparison.compare(
+            recent.copy(type = "virtual_run"), earlier(type = "treadmill")))
+        assertNull(ActivityRunComparison.compare(
+            recent.copy(type = "run"), earlier(type = "trail_run")))
+    }
+
     @Test fun rejectsOtherSourcesAndDifferentSports() {
         assertNull(ActivityRunComparison.compare(recent, earlier(source = "fit")))
         assertNull(ActivityRunComparison.compare(recent, earlier(type = "trailrun")))
