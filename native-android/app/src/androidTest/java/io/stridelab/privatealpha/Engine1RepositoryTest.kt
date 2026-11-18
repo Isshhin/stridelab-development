@@ -275,7 +275,7 @@ class Engine1RepositoryTest {
         assertFalse(repo.generatePlan(requested))
         assertTrue(repo.state.value.plans.isEmpty())
         assertTrue(repo.state.value.message.orEmpty().contains("QUALITY_GENERATION_NOT_QUALIFIED"))
-        assertTrue(repo.state.value.message.orEmpty().contains("two recent, distinct"))
+        assertTrue(repo.state.value.message.orEmpty().contains("not a coach-qualified choice"))
     }
     @Test fun repositoryMovementRejectsAnotherApprovedPlansIncompatibleSession()=runBlocking {
         assertTrue(repo.signIn("synthetic@example.invalid","fixture"))

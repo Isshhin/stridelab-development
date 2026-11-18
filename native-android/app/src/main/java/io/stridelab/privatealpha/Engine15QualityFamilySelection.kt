@@ -38,7 +38,7 @@ internal data class Engine15QualityFamilySelectionResult(
 
 /** Selects a family for review only; it deliberately does not construct a workout. */
 internal object Engine15QualityFamilySelection {
-    const val POLICY_ID = "stridelab.engine15.quality-family-selection-v1"
+    const val POLICY_ID = "stridelab.engine15.quality-family-selection-v2"
 
     private fun result(
         status: Engine15QualitySelectionStatus,
@@ -49,7 +49,8 @@ internal object Engine15QualityFamilySelection {
         rules: List<String> = emptyList(),
         provenance: String? = null,
         confidence: IndependentQualityExposureConfidence? = null,
-        repeatedWorkSeconds: Int? = null
+        repeatedWorkSeconds: Int? = null,
+        qualificationNotes: List<String> = emptyList()
     ) = Engine15QualityFamilySelectionResult(
         policyId = POLICY_ID,
         status = status,
@@ -63,9 +64,9 @@ internal object Engine15QualityFamilySelection {
         ruleIds = (listOf("NO_SELECTION_AUTHORIZATION") + rules).distinct(),
         qualificationNotes = listOf(
             "This family decision is provisional and is not a coach-qualified prescription.",
-            "Quality exposure provenance remains caller-asserted and is not verified.",
+            "Any supplied quality-exposure records remain caller-asserted and are not source-verified.",
             "No M2 template, work dose, recovery dose, pace, heart-rate or effort target was selected."
-        )
+        ) + qualificationNotes
     )
 
     fun select(
@@ -132,41 +133,54 @@ internal object Engine15QualityFamilySelection {
                     rules = listOf("CALENDAR_AND_LOCKS_CHECKED", "KNOWN_HARD_SESSION_SPACING_CHECKED"))
         }
 
-        val families = IndependentQualityFamily.entries.map { family ->
-            IndependentQualityExposure.assess(evidence, ownerId, family, asOf)
-        }.filter { assessment ->
-            assessment.provisionalRepeatedWorkSeconds != null &&
-                (request.allowedQualityTypes.isEmpty() || request.allowedQualityTypes.any {
-                    it.equals(assessment.family.name.lowercase().replaceFirstChar(Char::uppercase), ignoreCase = true)
-                })
-        }
-        if (families.isEmpty())
-            return result(Engine15QualitySelectionStatus.DEFERRED, "QUALITY_FAMILY_EVIDENCE_MISSING",
-                "No supported family has two recent, distinct, caller-asserted work-segment records. Missing or self-reported history cannot establish an automatic family choice.",
-                rules = listOf("M3_REPEATED_FAMILY_EXPOSURE_REQUIRED", "SOURCE_EVIDENCE_NOT_VERIFIED"))
-        if (families.size != 1)
-            return result(Engine15QualitySelectionStatus.DEFERRED, "QUALITY_FAMILY_AMBIGUOUS",
-                "Recent asserted exposure supports more than one family, and Engine 1.5 has no qualified goal-to-family rule to resolve the choice.",
-                rules = listOf("NO_GOAL_TO_FAMILY_POLICY", "FAMILY_EVIDENCE_AMBIGUOUS"))
+        val preferred = IndependentQualityFamily.entries.singleOrNull { family ->
+            family.name.equals(request.preferredQuality, ignoreCase = true)
+        } ?: return result(Engine15QualitySelectionStatus.UNSUPPORTED,
+            "QUALITY_PREFERRED_FAMILY_UNSUPPORTED",
+            "The preferred family has no supported Engine 1.5 family contract; no substitute was selected.")
+        val preferredName = preferred.name.lowercase().replaceFirstChar(Char::uppercase)
+        if (request.allowedQualityTypes.isNotEmpty() &&
+            request.allowedQualityTypes.none { it.equals(preferredName, ignoreCase = true) })
+            return result(Engine15QualitySelectionStatus.DEFERRED,
+                "QUALITY_PREFERRED_FAMILY_NOT_ALLOWED",
+                "The preferred family is excluded by the request's allowed-family set; no substitute was selected.")
 
-        val selected = families.single()
+        val exposure = IndependentQualityFamily.entries.map { family ->
+            IndependentQualityExposure.assess(evidence, ownerId, family, asOf)
+        }
+        if (exposure.any { it.confidence == IndependentQualityExposureConfidence.CONFLICT_REVIEW })
+            return result(Engine15QualitySelectionStatus.DEFERRED,
+                "QUALITY_EXPOSURE_CONFLICT_REVIEW",
+                "Recent quality records reuse a source or session identity inconsistently; resolve the evidence conflict before family review.",
+                rules = listOf("M3_EXPOSURE_CONFLICT_REQUIRES_REVIEW"))
+
+        val selected = exposure.single { it.family == preferred }
         return result(
             status = Engine15QualitySelectionStatus.PROVISIONAL_CANDIDATE,
             reason = null,
-            explanation = "${selected.family.name.lowercase().replaceFirstChar(Char::uppercase)} is a provisional family candidate because two recent same-family segment records and a schedulable weekday are present. The evidence source and session matching remain caller assertions; the selection is not authorized for template use or execution.",
-            family = selected.family,
+            explanation = "$preferredName is a provisional family candidate because it is the preferred supported family in the request and a schedulable weekday is available. Training background and weekly volume remain context, not validated eligibility thresholds; prior same-family exposure is reported separately and is not required. This is not a coach-qualified choice and is not authorized for template use or execution.",
+            family = preferred,
             evidenceIds = selected.evidenceSessionIds,
-            provenance = selected.provenance,
+            provenance = selected.provenance.takeIf {
+                selected.confidence == IndependentQualityExposureConfidence.REPEATED_DEVICE_RECORDS_ASSERTED
+            },
             confidence = selected.confidence,
             repeatedWorkSeconds = selected.provisionalRepeatedWorkSeconds,
             rules = listOf(
-                "M3_REPEATED_FAMILY_EXPOSURE_REQUIRED",
-                "CALLER_ASSERTED_EXPOSURE_ONLY",
+                "REQUEST_PREFERRED_FAMILY_REVIEW_ONLY",
+                "PRIOR_QUALITY_EXPOSURE_IS_CONTEXT_NOT_ELIGIBILITY",
+                "NO_ATHLETE_CAPACITY_THRESHOLD_APPLIED",
+                "ANY_REPORTED_EXPOSURE_NOT_SOURCE_VERIFIED",
                 "CALENDAR_AND_LOCKS_CHECKED",
                 "KNOWN_HARD_SESSION_SPACING_CHECKED",
                 "RECOVERY_WEEKS_EXCLUDED",
                 "M2_TEMPLATE_NOT_SELECTED"
-            ) + selected.ruleIds
+            ) + selected.ruleIds,
+            qualificationNotes = listOf(
+                "Family choice follows PlanRequest.preferredQuality; this request-constrained engineering policy is not a research-supported goal-to-family rule.",
+                "Goal '${request.goal}', experience code ${request.experience}, and declared recent running volume ${request.weeklyKm} km are retained as context; no reviewed threshold uses them to qualify a family.",
+                "Prior same-family exposure is descriptive context only and is not a family-eligibility requirement."
+            )
         )
     }
 
