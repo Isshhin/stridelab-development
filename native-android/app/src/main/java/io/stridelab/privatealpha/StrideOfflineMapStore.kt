@@ -108,6 +108,24 @@ internal class StrideOfflineMapStore private constructor(private val app: Contex
 
     fun initialize() { offlineManager }
 
+    /**
+     * Conservative basemap reuse: the entire visible (already privacy-trimmed)
+     * route must fit inside one completely downloaded map area. Never infer
+     * coverage from a partial map or silently mix nearby incomplete regions.
+     */
+    internal fun hasCompleteCoverage(route: RecordedGpsRoute): Boolean {
+        val points = route.allPoints
+        if(points.size < 2) return false
+        return maps.any { area ->
+            area.completed && points.all { point ->
+                val b = area.bounds
+                point.latitude.isFinite() && point.longitude.isFinite() &&
+                    point.latitude in b.latitudeSouth..b.latitudeNorth &&
+                    point.longitude in b.longitudeWest..b.longitudeEast
+            }
+        }
+    }
+
     fun onWifi(): Boolean {
         val network = connectivity.activeNetwork ?: return false
         val capabilities = connectivity.getNetworkCapabilities(network) ?: return false
