@@ -126,6 +126,9 @@ class ShareStudioUiTest {
         compose.onNodeWithTag("share-template-WORKOUT").performClick()
         // The status/provenance are in a LazyColumn item, which is only composed in view.
         compose.onNodeWithTag("share-studio-scroll").performScrollToNode(hasTestTag("share-status"))
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithTag("share-workout-provenance").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithTag("share-status")
             .assertTextContains("Recorded laps not classified as intervals", substring = true)
         compose.onNodeWithTag("share-workout-provenance")
