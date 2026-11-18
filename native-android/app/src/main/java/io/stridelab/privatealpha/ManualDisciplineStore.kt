@@ -141,8 +141,10 @@ internal object ManualDisciplineBackup {
 }
 
 /** Separate owner-scoped database. Never writes to TrainingStore or Garmin FIT records. */
-internal class ManualDisciplineStore(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, "stridelab-standalone-sessions-v1.db", null, 1) {
+internal class ManualDisciplineStore(
+    context: Context,
+    databaseName: String = "stridelab-standalone-sessions-v1.db"
+) : SQLiteOpenHelper(context.applicationContext, databaseName, null, 1) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE sessions(owner TEXT NOT NULL, record_id TEXT NOT NULL, performed_on TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(owner,record_id))")
         db.execSQL("CREATE INDEX session_owner_date ON sessions(owner,performed_on DESC)")
