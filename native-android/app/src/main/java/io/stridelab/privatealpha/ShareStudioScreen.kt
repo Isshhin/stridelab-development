@@ -61,6 +61,9 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
     val store=remember(context) { SharePresetStore(context) }
+    val offlineMaps=remember(context) {
+        StrideOfflineMapStore.get(context).also { it.initialize(); it.refresh() }
+    }
     var configJson by rememberSaveable(activity.id) { mutableStateOf(SharePresetCodec.encode(listOf(SharePreset("draft","Draft",ShareStudioState())))) }
     val config=remember(configJson) { SharePresetCodec.decode(configJson).single().state }
     // Keep the user's last nonzero trim choice when they explicitly reveal the full GPS route.
@@ -113,9 +116,13 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
     }
     // Never display/export a stale (less private) rendering after the privacy control changes.
     val source=renderable?.takeIf { it.id==activity.id && it.privacy==config.privacy }
+    // Reuse a downloaded map only if one complete area covers the exact
+    // already-trimmed displayed route. Otherwise use a clearly labeled trace.
+    val hasOfflineMap=source?.let { offlineMaps.hasCompleteCoverage(it.route) } == true
     val effective=source?.let { config.forActivity(it) }
     val geometry=effective?.let(ShareCardRenderer::geometry)
-    val request=if(source!=null && effective!=null && geometry!=null && online &&
+    val request=if(source!=null && effective!=null && geometry!=null &&
+        (online || hasOfflineMap) &&
         effective.template!=ShareTemplate.WORKOUT && effective.background==ShareBackground.MAP &&
         effective.routeMode!=ShareRouteMode.HIDDEN && source.route.pointCount>=2 && geometry.route.height()>0)
         ShareMapRequest(effective.routeMode,geometry.route.width().toInt(),geometry.route.height().toInt()) else null
@@ -285,7 +292,8 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                              "Personal photo background · kept on this device for this edit · ${config.ratio.label} PNG"
                         effective?.routeMode==ShareRouteMode.HIDDEN -> "Route hidden or too short to trim · Full activity stats · ${config.ratio.label} PNG"
                         map!=null -> "Activity Dark map · ${if(config.privacy==SharePrivacy.OFF) "Full GPS route" else "Route trimmed"} · ${config.ratio.label} PNG"
-                        effective?.background==ShareBackground.MAP -> "${if(online) "Activity Dark map unavailable" else "Activity Dark map needs internet"} · GPS trace only · ${config.ratio.label} PNG"
+                        effective?.background==ShareBackground.MAP ->
+                             "${if(online) "Activity Dark map unavailable" else if(hasOfflineMap) "Downloaded map snapshot unavailable" else "No downloaded map covers this full route"} · GPS trace only · ${config.ratio.label} PNG"
                         config.privacy==SharePrivacy.OFF && map==null -> "Full GPS route · trimming off · no basemap · ${config.ratio.label} PNG"
                         config.privacy==SharePrivacy.OFF -> "Full GPS route · trimming off · map · ${config.ratio.label} PNG"
                         map==null -> "Route trimmed · Full activity stats · no basemap · ${config.ratio.label} PNG"
