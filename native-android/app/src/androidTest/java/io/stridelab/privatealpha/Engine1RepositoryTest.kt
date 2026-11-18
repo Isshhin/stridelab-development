@@ -263,6 +263,20 @@ class Engine1RepositoryTest {
         assertEquals(plan.status,reopened.status)
         assertEquals(plan.sessions,reopened.sessions)
     }
+    @Test fun coachQualityRequestRemainsDeferredWithoutVerifiedFamilyEvidence()=runBlocking {
+        Assume.assumeTrue(BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)
+        val requested=PlanRequest(goal="Improve 10K",start=start,weeks=4,
+            days=setOf(1,2,3,5,6,7),runDays=6,longDay=6,qualityDays=setOf(2),qualityCount=1,
+            weeklyKm=45.0,longestKm=12.0,targetWeeklyKm=50.0,timeBudgetEnabled=false,
+            policyChoice="engine15",recentMileageBasis="SELF_REPORTED_AVERAGE")
+
+        assertFalse(repo.generatePlan(requested))
+        assertTrue(repo.state.value.plans.isEmpty())
+        assertTrue(repo.state.value.message.orEmpty().contains("QUALITY_GENERATION_NOT_QUALIFIED"))
+        assertTrue(repo.state.value.message.orEmpty().contains("two recent, distinct"))
+    }
     @Test fun repositoryMovementRejectsAnotherApprovedPlansIncompatibleSession()=runBlocking {
         assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
         val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)

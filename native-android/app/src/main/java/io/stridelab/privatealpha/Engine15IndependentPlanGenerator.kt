@@ -19,7 +19,11 @@ internal const val ENGINE15_INDEPENDENT_COMBINED_POLICY =
     "stridelab.engine15.independent-combined-20261117.1"
 
 internal sealed interface Engine15IndependentPlanDecision {
-    data class Deferred(val reasonCode: String, val explanation: String) : Engine15IndependentPlanDecision
+    data class Deferred(
+        val reasonCode: String,
+        val explanation: String,
+        val qualitySelection: Engine15QualityFamilySelectionResult? = null
+    ) : Engine15IndependentPlanDecision
 
     data class Candidate(
         val plan: PlanSnapshot,
@@ -85,7 +89,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         id: String = java.util.UUID.randomUUID().toString(),
         now: Instant = Instant.now(),
         exerciseLibrary: ExerciseLibraryV2? = null,
-        activityEvidence: ActivityAthleteEvidenceProfile? = null
+        activityEvidence: ActivityAthleteEvidenceProfile? = null,
+        qualityEvidence: List<IndependentQualitySegmentEvidence> = emptyList()
     ): PlanSnapshot {
         if (listOf("run", "str", "cal", "cond").count { request.disciplineSessionCount(it) > 0 } > 1) {
             val library = exerciseLibrary ?: throw PlanConstraint(
@@ -176,7 +181,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 name = "Engine 1.5 independent strength plan"
             )
         }
-        return appDraft(preview(request, owner, id, now, plans, activityEvidence))
+        return appDraft(preview(request, owner, id, now, plans, activityEvidence, qualityEvidence))
     }
 
     private fun appDraft(decision: Engine15IndependentPlanDecision): PlanSnapshot = when (decision) {
@@ -196,7 +201,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         id: String,
         now: Instant,
         existingPlans: List<PlanSnapshot>? = null,
-        activityEvidence: ActivityAthleteEvidenceProfile? = null
+        activityEvidence: ActivityAthleteEvidenceProfile? = null,
+        qualityEvidence: List<IndependentQualitySegmentEvidence> = emptyList()
     ): Engine15IndependentPlanDecision {
         fun defer(code: String, explanation: String) =
             Engine15IndependentPlanDecision.Deferred(code, explanation)
@@ -213,8 +219,6 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             return defer("RUNNING_RECOVERY_HOLD", "Running remains on hold until the recovery review is resolved.")
         if (request.qualityCount !in 0..2)
             return defer("QUALITY_FREQUENCY_UNSUPPORTED", "At most two quality sessions per loading week can be represented.")
-        if (request.qualityCount > 0 && request.userDefinedQualityWorkouts.isEmpty())
-            return defer("QUALITY_GENERATION_NOT_QUALIFIED", "Coach-generated family selection, athlete-specific dose progression, and intensity remain unqualified: quality templates are heuristic, source matching is caller-asserted, and no verified importer or reviewed dose policy authorizes them. Structured workouts can be authored in the private development Plan Builder; no coach-generated substitute was created.")
         if (request.userDefinedQualityWorkouts.isNotEmpty() && !request.userDirectedPlanning)
             return defer("USER_DEFINED_WORKOUT_DEBUG_ONLY", "User-defined quality workouts are available only in private development plans.")
         if (request.strengthDays != 0 || request.calDays != 0 || request.conditioningDays != 0 ||
@@ -348,6 +352,25 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         }.sortedWith(compareBy<PlannedSession> { it.date }.thenBy { it.id })
         if (sessions.size != request.weeks * request.runDays || sessions.map { it.id }.distinct().size != sessions.size)
             return defer("INCOMPLETE_PLAN_ASSEMBLY", "Independent output did not contain exactly one dated workout for every weekly running slot.")
+
+        if (request.qualityCount > 0 && request.userDefinedQualityWorkouts.isEmpty()) {
+            val selection = Engine15QualityFamilySelection.select(
+                request = request,
+                ownerId = owner,
+                asOf = now.atZone(java.time.ZoneId.systemDefault()).toLocalDate(),
+                evidence = qualityEvidence,
+                scheduledSessions = sessions,
+                recoveryWeeks = volume.weeks.filter {
+                    it.kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY
+                }.map { it.index }.toSet(),
+                externalSessions = external.sessions
+            )
+            return Engine15IndependentPlanDecision.Deferred(
+                "QUALITY_GENERATION_NOT_QUALIFIED",
+                "${selection.explanation} No coach-generated workout was added; family selection remains review-only until evidence and dose policies are qualified.",
+                selection
+            )
+        }
 
         val customPattern=Regex("w([1-9][0-9]*)-run(0|[1-9][0-9]*)")
         val mappedQuality=request.userDefinedQualityWorkouts.map { (key,workout) ->

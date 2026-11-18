@@ -165,12 +165,41 @@ class Engine15IndependentPlanGeneratorTest {
                 request().copy(qualityCount = qualityCount), owner, "quality-$qualityCount", now
             )
             assertTrue(decision is Engine15IndependentPlanDecision.Deferred)
-            assertEquals("QUALITY_GENERATION_NOT_QUALIFIED",
-                (decision as Engine15IndependentPlanDecision.Deferred).reasonCode)
-            assertTrue(decision.explanation.contains("heuristic"))
-            assertTrue(decision.explanation.contains("caller-asserted"))
-            assertTrue(decision.explanation.contains("no coach-generated substitute"))
+            val deferred = decision as Engine15IndependentPlanDecision.Deferred
+            assertEquals("QUALITY_GENERATION_NOT_QUALIFIED", deferred.reasonCode)
+            assertTrue(deferred.explanation.contains("No coach-generated workout was added"))
+            assertNotNull(deferred.qualitySelection)
+            assertFalse(deferred.qualitySelection!!.executable)
+            if (qualityCount == 1) assertTrue(deferred.explanation.contains("caller-asserted"))
+            else assertEquals(Engine15QualitySelectionStatus.UNSUPPORTED, deferred.qualitySelection!!.status)
         }
+    }
+
+    @Test fun repeatedQualityHistoryProducesReviewOnlyFamilyCandidateThroughGenerator() {
+        val evidence = listOf(
+            IndependentQualitySegmentEvidence(
+                owner, "source-old", "session-old", now.atZone(java.time.ZoneOffset.UTC).toLocalDate().minusDays(9),
+                IndependentQualityFamily.THRESHOLD, IndependentQualityEvidenceOrigin.DEVICE_SEGMENTS_ASSERTED,
+                true, listOf(240, 240, 240)
+            ),
+            IndependentQualitySegmentEvidence(
+                owner, "source-new", "session-new", now.atZone(java.time.ZoneOffset.UTC).toLocalDate().minusDays(2),
+                IndependentQualityFamily.THRESHOLD, IndependentQualityEvidenceOrigin.DEVICE_SEGMENTS_ASSERTED,
+                true, listOf(300, 300, 300)
+            )
+        )
+        val deferred = Engine15IndependentPlanGenerator.preview(
+            request().copy(qualityCount = 1), owner, "quality-candidate", now,
+            qualityEvidence = evidence
+        ) as Engine15IndependentPlanDecision.Deferred
+
+        val selection = deferred.qualitySelection!!
+        assertEquals(Engine15QualitySelectionStatus.PROVISIONAL_CANDIDATE, selection.status)
+        assertEquals(IndependentQualityFamily.THRESHOLD, selection.selectedFamily)
+        assertFalse(selection.sourceEvidenceVerified)
+        assertFalse(selection.authorizedForTemplateSelection)
+        assertNull(selection.templateId)
+        assertTrue(selection.explanation.contains("not authorized"))
     }
 
     @Test fun representativeGoalsProduceCompleteDeterministicEightToSixteenWeekPlans() {
@@ -632,7 +661,8 @@ class Engine15IndependentPlanGeneratorTest {
             "Engine15M6IndependentCalendar.kt",
             "Engine15M6IndependentInterferenceReview.kt",
             "Engine15M6IndependentPeriodizationReview.kt",
-            "Engine15M6IndependentQualitySpacing.kt"
+            "Engine15M6IndependentQualitySpacing.kt",
+            "Engine15QualityFamilySelection.kt"
         )
         val forbidden = Regex("\\b(?:Engine1\\.(?:generate|validate)|MultiSessionEngine1|CoordinatedEngine1|Engine15InterferenceScheduling|Engine1Engines)\\b")
         for (file in files) {

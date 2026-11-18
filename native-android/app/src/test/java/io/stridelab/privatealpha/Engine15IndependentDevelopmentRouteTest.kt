@@ -56,7 +56,7 @@ class Engine15IndependentDevelopmentRouteTest {
             "Engine15M6IndependentCalendar.kt", "Engine15M6IndependentInterferenceReview.kt",
             "Engine15M6IndependentPeriodizationReview.kt", "Engine15StrengthWorkoutComposer.kt",
             "Engine15CalisthenicsWorkoutComposer.kt", "Engine15ConditioningWorkoutComposer.kt",
-            "Engine15StaticMultiDisciplinePlanner.kt"
+            "Engine15StaticMultiDisciplinePlanner.kt", "Engine15QualityFamilySelection.kt"
         )
         independentCallGraph.forEach { source ->
             assertFalse("Legacy planning dependency in $source",
