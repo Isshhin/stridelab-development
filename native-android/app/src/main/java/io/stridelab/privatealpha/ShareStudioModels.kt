@@ -4,11 +4,12 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Locale
 
-internal enum class ShareTemplate(val label:String) { ROUTE("Route Focus"), STATS("Stats Focus"), MINIMAL("Minimal");
+internal enum class ShareTemplate(val label:String) { ROUTE("Route Focus"), STATS("Stats Focus"), MINIMAL("Minimal"), WORKOUT("Workout Recap");
     val variants:List<ShareVariant> get() = when(this) {
         ROUTE -> listOf(ShareVariant.CLEAN,ShareVariant.PERFORMANCE,ShareVariant.STORY)
         STATS -> listOf(ShareVariant.BALANCED,ShareVariant.RUN_RECAP,ShareVariant.PERFORMANCE)
         MINIMAL -> listOf(ShareVariant.POSTER,ShareVariant.SILHOUETTE,ShareVariant.DARK_CLEAN)
+        WORKOUT -> listOf(ShareVariant.RUN_RECAP,ShareVariant.BALANCED,ShareVariant.PERFORMANCE)
     }
 }
 internal enum class ShareVariant(val label:String) {
@@ -27,7 +28,9 @@ internal enum class ShareMetric(val label:String) {
     TITLE("Activity title"), DATE("Date"), LOCATION("Location"), DISTANCE("Distance"),
     DURATION("Duration"), PACE("Average pace"), HR("Average HR"), ELEVATION("Elevation gain")
 }
-internal enum class ShareBackground(val label:String) { MAP("Activity Dark Map"), DARK("Clean Dark"), GRADIENT("Soft Gradient") }
+internal enum class ShareBackground(val label:String) {
+    MAP("Activity Dark Map"), DARK("Clean Dark"), GRADIENT("Soft Gradient"), TRANSPARENT("Transparent")
+}
 internal enum class ShareBranding(val label:String) { SUBTLE("Subtle"), STANDARD("Standard"), MINIMAL("Minimal") }
 internal enum class SharePrivacy(val label:String, val meters:Double) {
     STANDARD("200 m",200.0), EXTRA("400 m",400.0), MAXIMUM("800 m",800.0),
@@ -41,7 +44,7 @@ internal data class ShareStudioState(
     val ratio:ShareRatio = ShareRatio.STORY,
     val routeMode:ShareRouteMode = ShareRouteMode.ROUTE,
     val metrics:Set<ShareMetric> = setOf(ShareMetric.TITLE,ShareMetric.DATE,ShareMetric.DISTANCE,ShareMetric.DURATION,ShareMetric.PACE,ShareMetric.HR),
-    val background:ShareBackground = ShareBackground.DARK,
+    val background:ShareBackground = ShareBackground.MAP,
     val branding:ShareBranding = ShareBranding.SUBTLE,
     val layout:ShareLayout = ShareLayout.AIRY,
     val privacy:SharePrivacy = SharePrivacy.STANDARD
@@ -52,11 +55,12 @@ internal data class ShareStudioState(
         val sparse = template==ShareTemplate.MINIMAL || value==ShareVariant.STORY
         return copy(variant=value,
             routeMode=if(value==ShareVariant.PERFORMANCE) ShareRouteMode.PACE else ShareRouteMode.ROUTE,
-            metrics=if(value==ShareVariant.SILHOUETTE) setOf(ShareMetric.DISTANCE)
+            metrics=if(template==ShareTemplate.WORKOUT)
+                setOf(ShareMetric.TITLE,ShareMetric.DATE,ShareMetric.DISTANCE,ShareMetric.DURATION,ShareMetric.PACE)
+                else if(value==ShareVariant.SILHOUETTE) setOf(ShareMetric.DISTANCE)
                 else if(sparse) setOf(ShareMetric.TITLE,ShareMetric.DISTANCE,ShareMetric.PACE)
                 else ShareStudioState().metrics + if(template==ShareTemplate.STATS) setOf(ShareMetric.ELEVATION) else emptySet(),
-            background=ShareBackground.DARK,
-            layout=if(value==ShareVariant.RUN_RECAP || value==ShareVariant.DARK_CLEAN) ShareLayout.COMPACT else ShareLayout.AIRY)
+            layout=if(template==ShareTemplate.WORKOUT || value==ShareVariant.RUN_RECAP || value==ShareVariant.DARK_CLEAN) ShareLayout.COMPACT else ShareLayout.AIRY)
     }
 
     /** Resolve unavailable fields for this render only; never rewrite a reusable preset. */
@@ -72,6 +76,58 @@ internal data class ShareStudioState(
     }
 }
 
+/** Recorded laps are factual, but FIT lap records do not classify work or recovery steps. */
+internal enum class ShareWorkoutSource(val label:String) {
+    USER_LABEL("User labeled"), DETECTED("Detected from activity"), LINKED_PLAN("Planned intent"),
+    RECORDED_ONLY("Unclassified recorded laps")
+}
+internal data class ShareWorkoutLap(
+    val index:Int, val distance:String?, val duration:String?, val pace:String?, val heartRate:String?
+)
+internal data class ShareWorkoutRecap(
+    val label:String?,
+    val provenance:ShareWorkoutSource,
+    val recordingSource:String,
+    val totalLaps:Int,
+    val laps:List<ShareWorkoutLap>
+) {
+    companion object {
+        fun from(activity:ActivityRecord, detail:ActivityDetail?, assessment:ActivityWorkoutAssessment?,
+                 userLabel:UserActivityWorkoutLabel?):ShareWorkoutRecap {
+            val eligible=DashboardSummary.isRun(activity)
+            val declared=if(eligible) userLabel else null
+            val detected=if(eligible && declared==null)
+                assessment?.detected?.takeIf { it.kind!=ActivityWorkoutKind.UNKNOWN } else null
+            val intended=if(eligible && declared==null && detected==null)
+                assessment?.intended?.takeIf { it.kind!=ActivityWorkoutKind.UNKNOWN } else null
+            val source=when {
+                declared!=null -> ShareWorkoutSource.USER_LABEL
+                detected!=null -> ShareWorkoutSource.DETECTED
+                intended!=null -> ShareWorkoutSource.LINKED_PLAN
+                else -> ShareWorkoutSource.RECORDED_ONLY
+            }
+            val name=declared?.qualitySubtype?.label ?: declared?.kind?.label
+                ?: detected?.qualitySubtype?.label ?: detected?.kind?.label
+                ?: intended?.qualitySubtype?.label ?: intended?.kind?.label
+            val raw=detail?.laps.orEmpty()
+            val laps=raw.take(6).map { lap ->
+                ShareWorkoutLap(lap.index+1,
+                    lap.distance?.takeIf { it.isFinite() && it>0.0 }?.let {
+                        String.format(Locale.ROOT,"%.2f km",it/1000.0)
+                    },
+                    lap.seconds?.takeIf { it.isFinite() && it>0.0 }?.let { ActivityRecord.duration(it) },
+                    lap.pace?.takeIf { it.isFinite() && it>0.0 }?.let {
+                        ActivityRecord.duration(it)+" /km"
+                    },
+                    lap.hr?.takeIf { it.isFinite() && it>0.0 }?.let {
+                        String.format(Locale.ROOT,"%.0f bpm",it)
+                    })
+            }
+            return ShareWorkoutRecap(name,source,activity.sourceLabel,raw.size,laps)
+        }
+    }
+}
+
 internal data class ShareRenderableActivity(
     val id:String,
     val activityType:String,
@@ -79,10 +135,12 @@ internal data class ShareRenderableActivity(
     val route:RecordedGpsRoute,
     val analysis:Map<ShareRouteMode,TracksideAnalysisRoute>,
     val availableModes:Set<ShareRouteMode>,
-    val privacy:SharePrivacy
+    val privacy:SharePrivacy,
+    val workout:ShareWorkoutRecap? = null
 ) {
     companion object {
-        fun from(activity:ActivityRecord, detail:ActivityDetail?, privacy:SharePrivacy=SharePrivacy.STANDARD):ShareRenderableActivity {
+        fun from(activity:ActivityRecord, detail:ActivityDetail?, privacy:SharePrivacy=SharePrivacy.STANDARD,
+                 assessment:ActivityWorkoutAssessment?=null, userLabel:UserActivityWorkoutLabel?=null):ShareRenderableActivity {
             val values=linkedMapOf(ShareMetric.TITLE to activity.title,ShareMetric.DATE to activity.dateLabel)
             fun add(metric:ShareMetric, value:Double?, positive:Boolean=false, format:(Double)->String) {
                 value?.takeIf { it.isFinite() && if(positive) it>0 else it>=0 }?.let { values[metric]=format(it) }
@@ -103,7 +161,8 @@ internal data class ShareRenderableActivity(
             if(route.pointCount>0) modes.add(ShareRouteMode.ROUTE)
             modes.addAll(analysis.filterValues { it.edges.isNotEmpty() }.keys)
             modes.add(ShareRouteMode.HIDDEN)
-            return ShareRenderableActivity(activity.id,activity.type,values,route,analysis,modes,privacy)
+            return ShareRenderableActivity(activity.id,activity.type,values,route,analysis,modes,privacy,
+                ShareWorkoutRecap.from(activity,detail,assessment,userLabel))
         }
     }
 }
