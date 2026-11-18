@@ -116,6 +116,10 @@ class ShareStudioUiTest {
         // intent. The activity-detail entry point is covered by separate navigation tests.
         val imported = activity.copy(id = "share-ui-unclassified-fit", source = "fit")
         val importedDetail = detail.copy(activityId = imported.id)
+        assertEquals(2, importedDetail.laps.size)
+        val recap = ShareWorkoutRecap.from(imported, importedDetail, null, null)
+        assertEquals(2, recap.totalLaps)
+        assertEquals(ShareWorkoutSource.RECORDED_ONLY, recap.provenance)
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
@@ -123,7 +127,10 @@ class ShareStudioUiTest {
                 }
             }
         }
-        compose.onNodeWithTag("share-template-WORKOUT").performClick()
+        compose.onNodeWithTag("share-studio-scroll")
+            .performScrollToNode(hasTestTag("share-template-WORKOUT"))
+        compose.onNodeWithTag("share-template-WORKOUT").assertIsDisplayed()
+            .performTouchInput { click() }
         compose.waitForIdle()
         // Verify the editor state independently from the gallery accessibility state.
         try {

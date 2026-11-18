@@ -80,7 +80,9 @@ internal enum class ShareWorkoutSource(val label:String) {
     USER_LABEL("User labeled"), DETECTED("Detected from activity"), LINKED_PLAN("Planned intent"),
     RECORDED_ONLY("Unclassified recorded laps")
 }
-internal data class ShareWorkoutLap(val index:Int, val distance:String?, val duration:String?, val pace:String?)
+internal data class ShareWorkoutLap(
+    val index:Int, val distance:String?, val duration:String?, val pace:String?, val heartRate:String?
+)
 internal data class ShareWorkoutRecap(
     val label:String?,
     val provenance:ShareWorkoutSource,
@@ -115,6 +117,9 @@ internal data class ShareWorkoutRecap(
                     lap.seconds?.takeIf { it.isFinite() && it>0.0 }?.let { ActivityRecord.duration(it) },
                     lap.pace?.takeIf { it.isFinite() && it>0.0 }?.let {
                         ActivityRecord.duration(it)+" /km"
+                    },
+                    lap.hr?.takeIf { it.isFinite() && it>0.0 }?.let {
+                        String.format(Locale.ROOT,"%.0f bpm",it)
                     })
             }
             return ShareWorkoutRecap(name,source,activity.sourceLabel,raw.size,laps)

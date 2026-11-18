@@ -115,7 +115,9 @@ class ShareStudioTest {
         assertEquals("1.00 km",recap.laps[0].distance)
         assertEquals("4:15",recap.laps[0].duration)
         assertEquals("4:15 /km",recap.laps[0].pace)
+        assertEquals("165 bpm",recap.laps[0].heartRate)
         assertNull(recap.laps[1].pace)
+        assertNull(recap.laps[1].heartRate)
         assertEquals(before,source)
     }
 

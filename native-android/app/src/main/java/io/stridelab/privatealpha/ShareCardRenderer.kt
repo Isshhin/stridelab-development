@@ -84,7 +84,8 @@ internal object ShareCardRenderer {
             recap?.laps?.take(visibleRows)?.forEachIndexed { index,lap ->
                 val y=r.top+215f+index*70f
                 text("LAP ${lap.index}",x,y,23f,ShareCardPalette.LIME,true,135f)
-                val summary=listOfNotNull(lap.distance,lap.duration,lap.pace).joinToString(" / ")
+                val summary=listOfNotNull(lap.distance,lap.duration,lap.pace,
+                    lap.heartRate.takeIf { ShareMetric.HR in state.metrics }).joinToString(" / ")
                     .ifBlank { "Not recorded" }
                 text(summary,x+158f,y,23f,ShareCardPalette.WHITE,maxWidth=r.width()-220f)
             }
@@ -101,9 +102,14 @@ internal object ShareCardRenderer {
             canvas.restore()
         }
         val fields=numeric.filter { it in state.metrics && it in activity.metrics }
+        val statsTop = if (state.routeMode == ShareRouteMode.HIDDEN &&
+            state.template in setOf(ShareTemplate.ROUTE, ShareTemplate.MINIMAL)) {
+            val gridHeight = ceil(fields.size / 2.0).toFloat() * g.rowHeight
+            270f + ((bitmap.height - 370f - gridHeight) / 2f).coerceAtLeast(0f)
+        } else g.statsTop
         fields.forEachIndexed { i,metric ->
             val x=56f+(i%2)*500f
-            val y=g.statsTop+(i/2)*g.rowHeight
+            val y=statsTop+(i/2)*g.rowHeight
             val value=activity.metrics.getValue(metric)
             val featured=state.template==ShareTemplate.STATS && i==0
             text(value,x,y+68f,if(featured) 88f else 62f,

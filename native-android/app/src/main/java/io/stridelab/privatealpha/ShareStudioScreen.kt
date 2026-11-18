@@ -28,6 +28,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
@@ -258,8 +260,6 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                     Surface(color=TracksidePalette.surface,shape=RoundedCornerShape(20.dp)) {
                         Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
                             Text(section.label,style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
-                            if(section==ShareSection.TEMPLATES) Text("Choose a route, stats, minimal, or recorded-workout composition.",
-                                style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted)
                             when(section) {
                                 ShareSection.TEMPLATES -> ShareTemplateGallery(config.template) { configure(config.selectTemplate(it)); activePreset=null }
                                 ShareSection.VARIANT -> ShareChoices(config.template.variants,config.variant,{it.label}) { configure(config.selectVariant(it)) }
@@ -412,34 +412,33 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ShareTemplateGallery(selected:ShareTemplate,onSelect:(ShareTemplate)->Unit) {
-    FlowRow(horizontalArrangement=Arrangement.spacedBy(10.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-        ShareTemplate.entries.forEach { template ->
-            val chosen=template==selected
-            val number=when(template) {
-                ShareTemplate.ROUTE -> "01 / ROUTE"
-                ShareTemplate.STATS -> "02 / STATS"
-                ShareTemplate.MINIMAL -> "03 / MINIMAL"
-                ShareTemplate.WORKOUT -> "04 / WORKOUT"
-            }
-            val explanation=when(template) {
-                ShareTemplate.ROUTE -> "Map-led"
-                ShareTemplate.STATS -> "Metrics-led"
-                ShareTemplate.MINIMAL -> "Clean typography"
-                ShareTemplate.WORKOUT -> "Recorded lap recap"
-            }
-            // A single selectable modifier owns both click handling and selected semantics.
-            // Avoid layering the clickable Surface semantics with a separate selected node.
-            Surface(shape=RoundedCornerShape(18.dp),
-                color=if(chosen) TracksidePalette.surfaceRaised else TracksidePalette.surfaceLow,
-                border=BorderStroke(1.dp,if(chosen) TracksidePalette.lime else TracksidePalette.outline),
-                modifier=Modifier.width(148.dp).heightIn(min=106.dp)
-                    .testTag("share-template-${template.name}")
-                    .selectable(selected=chosen,onClick={onSelect(template)})) {
-                Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
-                    Text(number,style=MaterialTheme.typography.labelSmall,color=TracksidePalette.lime)
-                    Text(template.label,style=MaterialTheme.typography.titleSmall,
-                        color=TracksidePalette.text,fontWeight=FontWeight.SemiBold)
-                    Text(explanation,style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted)
+    BoxWithConstraints(Modifier.fillMaxWidth().selectableGroup()) {
+        val columns = if (maxWidth >= 290.dp) 2 else 1
+        val tileWidth = (maxWidth - 10.dp * (columns - 1)) / columns
+        FlowRow(horizontalArrangement=Arrangement.spacedBy(10.dp),verticalArrangement=Arrangement.spacedBy(10.dp),
+            maxItemsInEachRow=columns) {
+            ShareTemplate.entries.forEach { template ->
+                val chosen=template==selected
+                val explanation=when(template) {
+                    ShareTemplate.ROUTE -> "Map-led"
+                    ShareTemplate.STATS -> "Metrics-led"
+                    ShareTemplate.MINIMAL -> "Clean typography"
+                    ShareTemplate.WORKOUT -> "Recorded lap recap"
+                }
+                // A single selectable modifier owns both click handling and selected semantics.
+                // Avoid layering the clickable Surface semantics with a separate selected node.
+                Surface(shape=RoundedCornerShape(18.dp),
+                    color=if(chosen) TracksidePalette.surfaceRaised else TracksidePalette.surfaceLow,
+                    border=BorderStroke(1.dp,if(chosen) TracksidePalette.lime else TracksidePalette.outline),
+                    modifier=Modifier.width(tileWidth).heightIn(min=80.dp)
+                        .testTag("share-template-${template.name}")
+                        .selectable(selected=chosen,role=Role.RadioButton,onClick={onSelect(template)})) {
+                    Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                        Text(template.label,style=MaterialTheme.typography.titleSmall,
+                            color=if(chosen) TracksidePalette.lime else TracksidePalette.text,
+                            fontWeight=FontWeight.SemiBold)
+                        Text(explanation,style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted)
+                    }
                 }
             }
         }
