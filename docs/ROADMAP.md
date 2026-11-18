@@ -1,5 +1,66 @@
 # StrideLab Development Roadmap
 
+**Updated: 2026-11-18.** Private, developer-only Android application; no public release authorized.
+
+**Authoritative coaching-engine roadmap:** the original 10 stages below. Historical October 26 Android/WebView milestones are retained at the bottom for provenance. A completed code candidate is **not** equivalent to accepted coaching quality or release readiness. Engine 1.0 remains the fallback; independent Engine 1.5 generation and experimental quality are private/debug-only.
+
+## Engine 1.5 and 2.x — 10-stage roadmap
+
+| Stage | Current status | Progress | Required outcome |
+| --- | --- | --- | --- |
+| 1. Structured workout authoring | Development candidate complete | Candidate complete | Typed warm-up/work/recovery/cooldown steps, serialization, editing and persistence integrity |
+| 2. Automatic workout selection | Tempo + Threshold functional in debug for eligible inputs | Partial | Goal/experience-specific decisions, safe deferral and more supported workout families |
+| 3. Intensity, dosage and progression | Introductory conservative policies | Partial | Evidence-bounded quality dosage and progression; no fabricated HR, pace or threshold |
+| 4. Complete-plan validation | Batch 27 Android acceptance underway | Partial | Whole-week/multiweek integrity, placement, recovery, approval, restart and offline reopening |
+| 5. Automatic workout detection | Manual evidence labeling foundation | Early | Reliable workout/activity linking, detection with ambiguity and correction safeguards |
+| 6. Effort and performance baselines | Some descriptive evidence available | Early | Grounded effort/performance baseline from sufficient observations, honest unknowns |
+| 7. History-informed planning | Initial evidence constraints implemented | Early | Reliable training-history coverage and progression/hold decisions backed by evidence |
+| 8. Training intensity distribution | Not yet implemented as a complete policy | Pending | Coherent easy/quality proportions, workload constraints and interference checks |
+| 9. Final stabilization | Not started as a complete milestone | Pending | Broad validation, rollback, offline reliability, private pilot and promotion review |
+| 10. Engine 2.x adaptation | Separate future development | Deferred | Dynamic workload/recovery adaptation only after Engine 1.5 is stable |
+
+### Current checkpoint: Batch 27 / draft PR #141
+
+- Experimental **eight-week Tempo and Threshold** candidates use runner-asserted segment distance, fixed quality durations, scheduled recovery weeks, weekday and hard-day spacing rules, plus explicit review/approval. This does **not** establish athlete-specific threshold physiology, pace, dosage progression or complete workout-library coverage.
+- At the Batch 27 source checkpoint: **54 focused JVM passed; 1,075 candidate JVM passed (1 skipped); 1,073 rollback JVM passed (3 skipped);** no reported failures. Final candidate repository instrumentation passed **24 tests**.
+- On [PR #141](https://github.com/Isshhin/stridelab-development/pull/141), the corrected Plan Builder Generate test passed **1** case, and the repository test class passed **24** cases on disposable Android 15 emulator `emulator-5554`.
+- The externally orchestrated **process-restart harness passed five of eight scenarios**: draft, approved, equal target, completed workout and feedback. **Accepted** failed while preparing because the expected coaching-adjustment preview was empty; **dismissed** and **activity-label** were not reached. A date-dependent synthetic fixture is a plausible explanation, not a verified fix.
+- Still open: rerun all eight restart scenarios, broader Android instrumentation by class (prior run ended after 19 of 250 discovered tests), and manual Tempo/Threshold full form → approval → restart → offline reopen. Keep Engine 1.0 rollback and the release-disabled guard intact.
+- The detailed [Engine 1.5 execution ledger](https://github.com/Isshhin/stridelab-development/blob/feature/engine15-batch27-android-acceptance-20261118/ENGINE15_EXECUTION.md) is on the **unmerged** Engine 1.5 branch. Its development notes should not be mistaken for code merged into `main`.
+
+## Proposed batch implementation sequence
+
+These batches are planning labels, **not claims that the work is done**. Multiple stages can advance concurrently; stage-completion status is defined by evidence and acceptance criteria.
+
+| Batch | Stage(s) | Scope | Acceptance gate |
+| --- | --- | --- | --- |
+| **27A — restart acceptance** (current) | 4 | Repair and validate accepted/dismissed adjustment test fixture; run all eight restart scenarios | All eight scenarios pass prepare, force-stop/relaunch and offline verification with no skips |
+| **27B — full acceptance checkpoint** (next) | 1–4, 9 groundwork | Shard Android UI tests; manual Tempo/Threshold switching/generation/approval/offline reopening; release/rollback controls | Reproducible green evidence and documented issues before feature-freeze checkpoint |
+| **Private integration checkpoint** (after 27B) | 4, 9 groundwork | Integrate the accepted Engine 1.5 candidate into the ordinary **private development app** behind an explicit switch, retaining Engine 1.0 | No default-coach promotion or release activation; verify rollback and real-history pilot |
+| **28 — workout selection and library** | 2 | Broaden goal-aware family selection; add Interval only where dosage, eligibility and plan integrity are supportable | Deterministic goal/family cases, complete segment fixtures, safe deferrals |
+| **29 — dosage and progression** | 3 | Evidence-backed work doses, effort/intensity guidance and hold/progression rules | No automatic increase from elapsed weeks or unsupported performance claims |
+| **30 — complete-plan robustness** | 4 | Larger scenario matrix across plan length, conflicts, rest, deload/taper, edits and approvals | Whole-plan consistency and lifecycle regression matrix |
+| **31 — automatic workout detection** | 5 | Garmin/manual/import linkage and classification suggestions with uncertainty, deduplication and override | Correct and reversible classification, offline and owner-isolation tests |
+| **32 — athlete effort baselines** | 6 | Auditable effort, performance and historical exposure summaries; explicit missing-data handling | Provenance and sufficient-evidence tests; no invented threshold/readiness values |
+| **33 — history-informed planning** | 7 | Better history coverage, progressive load under observed tolerance, persistent recovery hold | Traceable evidence decisions, conservative deferrals, no unauthorized changes |
+| **34 — intensity distribution** | 8 | Weekly/longitudinal easy vs quality distribution, constraints and interference checks | Coherent load distribution across supported plans and recovery weeks |
+| **35 — final stabilization** | 9 | End-to-end JVM/Android/manual QA, backup/offline/restart, rollback, private pilot and expert review | Separate documented go/no-go decision before replacing the default coach |
+| **36+ — Engine 2.x adaptation** (future label) | 10 | Garmin-style dynamic workload/recovery adaptation and broader workout variety | New research, safety gates and separate approval |
+
+### Decision gates
+
+1. **Now:** stop adding features until Batch 27A–27B acceptance is closed. This is a feature-freeze checkpoint, **not** completion of Stages 2–9.
+2. **After Batch 27B:** optional **experimental private integration** with a feature switch, realistic training-history testing and Engine 1.0 rollback. Additional batches may continue afterward.
+3. **After Stage 9:** consider promoting Engine 1.5 as the app's default coach, **only** with recorded acceptance and explicit approval. Engine 2.x remains future work.
+
+## Historical Android / WebView roadmap
+
+The October 26 milestones below are retained unchanged apart from the section heading. Their older “current” and “next” statements are not authoritative for the coaching roadmap above.
+
+---
+
+# Historical app roadmap (2026-10-26)
+
 Updated: 2026-10-26. **Private developer-only project. No public launch is planned.**
 
 ## Current milestone
