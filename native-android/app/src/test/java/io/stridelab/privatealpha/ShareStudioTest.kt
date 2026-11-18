@@ -144,6 +144,17 @@ class ShareStudioTest {
         assertTrue(source.workout!!.laps.isEmpty())
     }
 
+    @Test fun detectedWorkoutEvidenceIsPreferredToUnverifiedLinkedIntent() {
+        val assessment=ActivityWorkoutAssessment(
+            detected=ActivityWorkoutEvidence(ActivityWorkoutKind.QUALITY_RUN,
+                ActivityQualitySubtype.INTERVALS,listOf("Verified structured step source")),
+            intended=ActivityWorkoutEvidence(ActivityWorkoutKind.QUALITY_RUN,
+                ActivityQualitySubtype.TEMPO,listOf("Planned tempo")))
+        val recap=ShareRenderableActivity.from(activity,null,assessment=assessment).workout!!
+        assertEquals("Intervals",recap.label)
+        assertEquals(ShareWorkoutSource.DETECTED,recap.provenance)
+    }
+
     @Test fun workoutTemplatePersistsWithExistingPresetVersionOne() {
         val state=ShareStudioState().selectTemplate(ShareTemplate.WORKOUT)
         assertEquals(ShareVariant.RUN_RECAP,state.variant)
