@@ -383,6 +383,31 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                                                 label={ Text(metric.label) },modifier=Modifier.heightIn(min=48.dp))
                                         }
                                     }
+                                    val ordered=if(source!=null && effective!=null)
+                                        effective.visibleNumericMetrics(source.metrics.keys) else emptyList()
+                                    if(ordered.size>1) {
+                                        Text("Reorder displayed stats",style=MaterialTheme.typography.labelLarge)
+                                        Text("Your first stat is featured in Stats Focus; the order is saved with your preset.",
+                                            style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted)
+                                        ordered.forEachIndexed { index,metric ->
+                                            Row(Modifier.fillMaxWidth(),
+                                                verticalAlignment=Alignment.CenterVertically,
+                                                horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                                                Text(metric.label,style=MaterialTheme.typography.bodyMedium,
+                                                    modifier=Modifier.weight(1f))
+                                                TextButton(onClick={ configure(config.moveMetric(metric,-1)) },
+                                                    enabled=index>0 && !busy,
+                                                    modifier=Modifier.testTag("share-metric-up-" + metric.name)) {
+                                                    Text("Up")
+                                                }
+                                                TextButton(onClick={ configure(config.moveMetric(metric,1)) },
+                                                    enabled=index<ordered.lastIndex && !busy,
+                                                    modifier=Modifier.testTag("share-metric-down-" + metric.name)) {
+                                                    Text("Down")
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                                 ShareSection.STYLE -> {
                                     ShareChoices(ShareBackground.entries,config.background,{it.label}) { configure(config.copy(background=it)) }
