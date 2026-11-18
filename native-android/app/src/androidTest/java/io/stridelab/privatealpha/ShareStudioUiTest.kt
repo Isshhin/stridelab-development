@@ -287,4 +287,20 @@ class ShareStudioUiTest {
             }
         } finally { uri?.let { context.contentResolver.delete(it,null,null) }; bitmap.recycle() }
     }
+    @Test fun storyGuideIsOnlyEditorOverlayAndCanBeToggled() {
+        mountDetail()
+        compose.onNodeWithTag("activity-share").performClick()
+        compose.onNodeWithTag("share-studio-scroll")
+            .performScrollToNode(hasTestTag("share-section-STYLE"))
+        compose.onNodeWithTag("share-section-STYLE").performClick()
+        compose.onNodeWithTag("share-studio-scroll")
+            .performScrollToNode(hasTestTag("share-story-guide-switch"))
+        compose.onNodeWithTag("share-story-guide-switch").assertIsOff().performClick()
+        compose.onNodeWithTag("share-story-guide-switch").assertIsOn()
+        compose.onNodeWithTag("share-studio-scroll")
+            .performScrollToNode(hasTestTag("share-card-preview"))
+        compose.onNodeWithTag("share-story-safe-guides").assertExists()
+        compose.onNodeWithTag("share-export-png").assertIsEnabled()
+    }
+
 }
