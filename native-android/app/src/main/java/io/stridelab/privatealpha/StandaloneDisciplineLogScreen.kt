@@ -333,7 +333,8 @@ internal fun StandaloneDisciplineLogScreen(owner: String, onBack: () -> Unit) {
                 Text("BACKUP YOUR MANUAL LOGS", style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary)
                 Text("Export a checksummed JSON file with sessions and templates, or restore matching owner data. " +
-                    "Import is insert-only and never overwrites existing records.",
+                    "Import is insert-only and never overwrites existing records. " +
+                    "This file is not encrypted and may contain personal notes, so store it privately.",
                     style = MaterialTheme.typography.bodySmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
