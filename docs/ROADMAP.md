@@ -2,7 +2,7 @@
 
 **Updated: 2026-11-18.** Private, developer-only Android application; no public release authorized.
 
-**Authoritative coaching-engine roadmap:** the original 10 stages below. Historical October 26 Android/WebView milestones are retained at the bottom for provenance. A completed code candidate is **not** equivalent to accepted coaching quality or release readiness. Engine 1.0 remains the fallback; independent Engine 1.5 generation and experimental quality are private/debug-only.
+**Authoritative coaching-engine roadmap:** the original 10 stages below. Historical October 26 Android/WebView milestones are retained at the bottom for provenance. A completed code candidate is **not** equivalent to accepted coaching quality or release readiness. **Decision (2026-11-17): Engine 1.5 is the sole normal new-plan generator after integration. No user-facing or automatic Engine 1.0 fallback.** Until cutover, independent Engine 1.5 generation and experimental quality remain private/debug-only. Legacy Engine 1.0 code may remain only as needed to read historical plans and safely complete migration; it must not participate in new Engine 1.5 prescriptions.
 
 ## Engine 1.5 and 2.x — 10-stage roadmap
 
@@ -16,16 +16,16 @@
 | 6. Effort and performance baselines | Some descriptive evidence available | Early | Grounded effort/performance baseline from sufficient observations, honest unknowns |
 | 7. History-informed planning | Initial evidence constraints implemented | Early | Reliable training-history coverage and progression/hold decisions backed by evidence |
 | 8. Training intensity distribution | Not yet implemented as a complete policy | Pending | Coherent easy/quality proportions, workload constraints and interference checks |
-| 9. Final stabilization | Not started as a complete milestone | Pending | Broad validation, rollback, offline reliability, private pilot and promotion review |
+| 9. Final stabilization | Not started as a complete milestone | Pending | Broad validation, migration and historical-plan compatibility, offline reliability, private pilot and promotion review; **no live Engine 1.0 fallback** |
 | 10. Engine 2.x adaptation | Separate future development | Deferred | Dynamic workload/recovery adaptation only after Engine 1.5 is stable |
 
 ### Current checkpoint: Batch 27 / draft PR #141
 
 - Experimental **eight-week Tempo and Threshold** candidates use runner-asserted segment distance, fixed quality durations, scheduled recovery weeks, weekday and hard-day spacing rules, plus explicit review/approval. This does **not** establish athlete-specific threshold physiology, pace, dosage progression or complete workout-library coverage.
-- At the Batch 27 source checkpoint: **54 focused JVM passed; 1,075 candidate JVM passed (1 skipped); 1,073 rollback JVM passed (3 skipped);** no reported failures. Final candidate repository instrumentation passed **24 tests**.
+- At the Batch 27 source checkpoint: **54 focused JVM passed; 1,075 candidate JVM passed (1 skipped); 1,073 historical Engine 1.0 rollback-compatibility JVM tests passed (3 skipped);** no reported failures. Final candidate repository instrumentation passed **24 tests**.
 - On [PR #141](https://github.com/Isshhin/stridelab-development/pull/141), the corrected Plan Builder Generate test passed **1** case, and the repository test class passed **24** cases on disposable Android 15 emulator `emulator-5554`.
 - The externally orchestrated **process-restart harness passed five of eight scenarios**: draft, approved, equal target, completed workout and feedback. **Accepted** failed while preparing because the expected coaching-adjustment preview was empty; **dismissed** and **activity-label** were not reached. A date-dependent synthetic fixture is a plausible explanation, not a verified fix.
-- Still open: rerun all eight restart scenarios, broader Android instrumentation by class (prior run ended after 19 of 250 discovered tests), and manual Tempo/Threshold full form → approval → restart → offline reopen. Keep Engine 1.0 rollback and the release-disabled guard intact.
+- Still open: rerun all eight restart scenarios, broader Android instrumentation by class (prior run ended after 19 of 250 discovered tests), and manual Tempo/Threshold full form → approval → restart → offline reopen. Preserve historical-plan compatibility and the release-disabled guard while preparing Engine 1.5 as the sole new-plan generator; do not silently route unsupported plans into Engine 1.0.
 - The detailed [Engine 1.5 execution ledger](https://github.com/Isshhin/stridelab-development/blob/feature/engine15-batch27-android-acceptance-20261118/ENGINE15_EXECUTION.md) is on the **unmerged** Engine 1.5 branch. Its development notes should not be mistaken for code merged into `main`.
 
 ## Proposed batch implementation sequence
@@ -35,8 +35,8 @@ These batches are planning labels, **not claims that the work is done**. Multipl
 | Batch | Stage(s) | Scope | Acceptance gate |
 | --- | --- | --- | --- |
 | **27A — restart acceptance** (current) | 4 | Repair and validate accepted/dismissed adjustment test fixture; run all eight restart scenarios | All eight scenarios pass prepare, force-stop/relaunch and offline verification with no skips |
-| **27B — full acceptance checkpoint** (next) | 1–4, 9 groundwork | Shard Android UI tests; manual Tempo/Threshold switching/generation/approval/offline reopening; release/rollback controls | Reproducible green evidence and documented issues before feature-freeze checkpoint |
-| **Private integration checkpoint** (after 27B) | 4, 9 groundwork | Integrate the accepted Engine 1.5 candidate into the ordinary **private development app** behind an explicit switch, retaining Engine 1.0 | No default-coach promotion or release activation; verify rollback and real-history pilot |
+| **27B — full acceptance checkpoint** (next) | 1–4, 9 groundwork | Shard Android UI tests; manual Tempo/Threshold switching/generation/approval/offline reopening; release gating and historical-plan compatibility | Reproducible green evidence and documented issues before feature-freeze checkpoint |
+| **Private integration checkpoint** (after 27B) | 4, 9 groundwork | Integrate the accepted Engine 1.5 candidate into the ordinary **private development app** as the **only new-plan generator** in the activated test route, without an Engine 1.0 fallback; preserve historical-plan reading/migration as needed | No release activation before its separate gate; verify existing-plan compatibility, safe cutover and real-history pilot without silent fallback |
 | **28 — workout selection and library** | 2 | Broaden goal-aware family selection; add Interval only where dosage, eligibility and plan integrity are supportable | Deterministic goal/family cases, complete segment fixtures, safe deferrals |
 | **29 — dosage and progression** | 3 | Evidence-backed work doses, effort/intensity guidance and hold/progression rules | No automatic increase from elapsed weeks or unsupported performance claims |
 | **30 — complete-plan robustness** | 4 | Larger scenario matrix across plan length, conflicts, rest, deload/taper, edits and approvals | Whole-plan consistency and lifecycle regression matrix |
@@ -44,13 +44,13 @@ These batches are planning labels, **not claims that the work is done**. Multipl
 | **32 — athlete effort baselines** | 6 | Auditable effort, performance and historical exposure summaries; explicit missing-data handling | Provenance and sufficient-evidence tests; no invented threshold/readiness values |
 | **33 — history-informed planning** | 7 | Better history coverage, progressive load under observed tolerance, persistent recovery hold | Traceable evidence decisions, conservative deferrals, no unauthorized changes |
 | **34 — intensity distribution** | 8 | Weekly/longitudinal easy vs quality distribution, constraints and interference checks | Coherent load distribution across supported plans and recovery weeks |
-| **35 — final stabilization** | 9 | End-to-end JVM/Android/manual QA, backup/offline/restart, rollback, private pilot and expert review | Separate documented go/no-go decision before replacing the default coach |
+| **35 — final stabilization** | 9 | End-to-end JVM/Android/manual QA, backup/offline/restart, historical-plan compatibility and migration, no-fallback routing, private pilot and expert review | Separate documented go/no-go decision before replacing the default coach |
 | **36+ — Engine 2.x adaptation** (future label) | 10 | Garmin-style dynamic workload/recovery adaptation and broader workout variety | New research, safety gates and separate approval |
 
 ### Decision gates
 
 1. **Now:** stop adding features until Batch 27A–27B acceptance is closed. This is a feature-freeze checkpoint, **not** completion of Stages 2–9.
-2. **After Batch 27B:** optional **experimental private integration** with a feature switch, realistic training-history testing and Engine 1.0 rollback. Additional batches may continue afterward.
+2. **After Batch 27B:** optional **experimental private integration** with an explicitly activated Engine 1.5-only new-plan route and realistic training-history testing; **never silently fall back to Engine 1.0**. Additional batches may continue afterward.
 3. **After Stage 9:** consider promoting Engine 1.5 as the app's default coach, **only** with recorded acceptance and explicit approval. Engine 2.x remains future work.
 
 ## Historical Android / WebView roadmap
