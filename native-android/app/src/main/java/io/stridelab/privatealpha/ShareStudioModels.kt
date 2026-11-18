@@ -49,8 +49,11 @@ internal data class ShareStudioState(
     val layout:ShareLayout = ShareLayout.AIRY,
     val privacy:SharePrivacy = SharePrivacy.STANDARD,
     /** Preferred stat order only; empty means the original default enum order. */
-    val metricOrder:List<ShareMetric> = emptyList()
+    val metricOrder:List<ShareMetric> = emptyList(),
+    /** 0 = move route/stat split toward the header, 100 = toward the footer. */
+    val routeBalance:Int = 50
 ) {
+    init { require(routeBalance in 0..100) { "Unsupported share layout balance." } }
     /** Return metrics in deliberate user order without dropping newly enabled fields. */
     fun visibleNumericMetrics(available:Set<ShareMetric>):List<ShareMetric> {
         val numeric=ShareMetric.entries.filter {
@@ -197,6 +200,7 @@ internal object SharePresetCodec {
             put("route",s.routeMode.name); put("metrics",JSONArray(s.metrics.map { it.name }))
             put("background",s.background.name); put("branding",s.branding.name); put("layout",s.layout.name); put("privacy",s.privacy.name)
             put("metricOrder",JSONArray(s.metricOrder.map { it.name }))
+            put("routeBalance",s.routeBalance)
         }) }
     }).toString()
 
@@ -220,10 +224,12 @@ internal object SharePresetCodec {
                 (0 until orderJson.length()).map { ShareMetric.valueOf(orderJson.getString(it)) }
             }
             require(order.distinct().size==order.size) { "Duplicated share metric order" }
+            val balance=row.optInt("routeBalance",50)
+            require(balance in 0..100) { "Unsupported share layout balance." }
             SharePreset(id,name,ShareStudioState(template,variant,ShareRatio.valueOf(row.getString("ratio")),
                 ShareRouteMode.valueOf(row.getString("route")),metrics,ShareBackground.valueOf(row.getString("background")),
                 ShareBranding.valueOf(row.getString("branding")),ShareLayout.valueOf(row.getString("layout")),
-                SharePrivacy.valueOf(row.optString("privacy",SharePrivacy.STANDARD.name)),order))
+                SharePrivacy.valueOf(row.optString("privacy",SharePrivacy.STANDARD.name)),order,balance))
         }
         require(result.map { it.id }.distinct().size==result.size)
         return result
