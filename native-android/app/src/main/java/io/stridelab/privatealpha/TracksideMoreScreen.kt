@@ -262,6 +262,17 @@ internal fun TracksideMoreDetailScreen(
                 item(key = "detail-about") {
                     MoreInfoCard("StrideLab", "Private Preview · " + BuildConfig.VERSION_NAME)
                 }
+                item(key = "detail-build-identification") {
+                    MoreInfoCard(
+                        "Installed build",
+                        (if(BuildConfig.APPLICATION_ID.endsWith(".qa"))
+                            "Isolated QA application. Storage is separate from normal StrideLab."
+                        else "Standard StrideLab installation.") +
+                            "\nPackage: " + BuildConfig.APPLICATION_ID +
+                            "\nVersion code: " + BuildConfig.VERSION_CODE +
+                            "\nBuild type: " + BuildConfig.BUILD_TYPE
+                    )
+                }
             }
         }
     }
