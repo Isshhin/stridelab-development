@@ -675,6 +675,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                     throw PlanConstraint("Experimental quality must stay in its reviewed loading week.")
                 if (plan.sessions.any { it.id != quality.id && conflict(quality, it) })
                     throw PlanConstraint("Experimental quality must remain spaced from other quality and long runs.")
+                if (plan.request.qualityDays.isNotEmpty() && quality.date.dayOfWeek.value !in plan.request.qualityDays)
+                    throw PlanConstraint("Experimental quality must stay on a selected quality weekday.")
             }
         }
         val expectedTotals = expected.sessions.groupBy { ChronoUnit.DAYS.between(plan.request.start, it.date) / 7L }

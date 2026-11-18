@@ -112,6 +112,7 @@ import org.json.JSONObject
         }
     }
     var tempoEquivalents by rememberSaveable { mutableStateOf("") }
+    var thresholdEquivalents by rememberSaveable { mutableStateOf("") }
     val thresholdPilot = input.experience == 2 && input.goal in setOf("Improve 5K", "Improve 10K")
     val qualityLabels = if (thresholdPilot) listOf("Run slot", "Warm-up metres", "Work 1 metres", "Recovery 1 metres", "Work 2 metres", "Recovery 2 metres", "Work 3 metres", "Cooldown metres") else listOf("Run slot", "Warm-up metres", "Tempo metres", "Cooldown metres")
     fun request():PlanRequest=try {
@@ -128,7 +129,7 @@ import org.json.JSONObject
             reportedPeakWeeklyKm=peak,timeBudgetEnabled=false,
             qualityDistanceClaims = if (BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE &&
                 input.qualityCount == 1 && input.weeks == 8 && !input.userDirectedPlanning &&
-                input.userDefinedQualityWorkouts.isEmpty()) tempoEquivalents.lineSequence()
+                input.userDefinedQualityWorkouts.isEmpty()) (if (thresholdPilot) thresholdEquivalents else tempoEquivalents).lineSequence()
                 .filter { it.isNotBlank() }.map { row ->
                     val numbers = row.trim().split(Regex("\\s+")).map { it.toIntOrNull() }
                     if (numbers.size != qualityLabels.size + 1 || numbers.any { it == null || it <= 0 })
@@ -825,7 +826,7 @@ import org.json.JSONObject
                             input.strengthDays + input.calDays + input.conditioningDays == 0) {
                             Text(if (thresholdPilot) "Private Threshold distances" else "Private Tempo distances")
                             Text("Request a draft with the fields empty to see the suggested slots and distance budgets. Enter your own equivalents in metres.")
-                            val rows = tempoEquivalents.lines().filter { it.isNotBlank() }
+                            val rows = (if (thresholdPilot) thresholdEquivalents else tempoEquivalents).lines().filter { it.isNotBlank() }
                                 .associateBy { it.substringBefore(' ') }
                             for (week in listOf(1, 2, 3, 5, 6, 7)) {
                                 Text("Week $week")
@@ -839,7 +840,8 @@ import org.json.JSONObject
                                             val next = rows.toMutableMap()
                                             if (updated.all { it.isEmpty() }) next.remove(week.toString())
                                             else next[week.toString()] = "$week " + updated.joinToString(" ")
-                                            tempoEquivalents = next.values.joinToString("\n")
+                                            if (thresholdPilot) thresholdEquivalents = next.values.joinToString("\n")
+                                            else tempoEquivalents = next.values.joinToString("\n")
                                         },
                                         label = { Text(label) },
                                         supportingText = {

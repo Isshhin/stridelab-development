@@ -168,6 +168,30 @@ class Engine15QualityWorkoutDryRunTest {
             Engine15IndependentPlanGenerator.validateSaved(moved)
         }
         assertTrue(rejected.message.orEmpty().contains("spaced"))
+        fun swapped(a: PlannedSession, b: PlannedSession) = plan.copy(sessions = plan.sessions.map {
+            when (it.id) {
+                a.id -> it.copy(date = b.date)
+                b.id -> it.copy(date = a.date)
+                else -> it
+            }
+        })
+        fun rejectedBy(edited: PlanSnapshot, reason: String) {
+            val error = assertThrows(PlanConstraint::class.java) {
+                Engine15IndependentPlanGenerator.validateSaved(edited)
+            }
+            assertTrue(error.message, error.message.orEmpty().contains(reason))
+        }
+        val laterQuality = plan.sessions.filter { it.quality }
+        rejectedBy(swapped(laterQuality[4], laterQuality[5]), "reviewed loading week")
+        rejectedBy(swapped(quality, plan.sessions.single { it.date == monday.plusDays(2) }), "selected quality weekday")
+        rejectedBy(plan.copy(sessions = plan.sessions.dropLast(1)), "missing or duplicating")
+        rejectedBy(plan.copy(sessions = plan.sessions.dropLast(1) + quality), "missing or duplicating")
+        val rewritten = workout.copy(mixedSegments = workout.mixedSegments.mapIndexed { index, step ->
+            if (index == 1) step.copy(seconds = 300) else step
+        })
+        rejectedBy(plan.copy(sessions = plan.sessions.map {
+            if (it.id == quality.id) it.copy(runningPrescription = rewritten) else it
+        }), "reviewed workload")
     }
 
     @Test fun explicitTempoPreferenceIsNotLabeledCoachGenerated() {
