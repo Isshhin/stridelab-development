@@ -1,5 +1,6 @@
 package io.stridelab.privatealpha
 
+import java.time.Instant
 import java.util.Locale
 import kotlin.math.abs
 
@@ -23,8 +24,8 @@ internal object ActivityRunComparison {
         kind(record) in types &&
             record.distanceM?.let { it.isFinite() && it >= 1000.0 } == true
 
-    fun recentRuns(history: List<ActivityRecord>): List<ActivityRecord> =
-        history.asSequence().filter(::valid)
+    fun recentRuns(history: List<ActivityRecord>, asOf: Instant = Instant.now()): List<ActivityRecord> =
+        history.asSequence().filter { it.startedAt <= asOf }.filter(::valid)
             .distinctBy { it.source to it.id }
             .sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenBy { it.id })
             .toList()
