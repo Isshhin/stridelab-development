@@ -97,4 +97,60 @@ class ManualDisciplineStoreAndroidTest {
         assertEquals(listOf(first), store.list(owner))
     }
 
+    @Test fun tooManySavedSessionsCannotProduceSilentlyTruncatedArchive() = runBlocking {
+        val db = store.writableDatabase
+        db.beginTransaction()
+        try {
+            repeat(2001) { index ->
+                val record = first.copy(id = "bulk-$index")
+                val values = android.content.ContentValues().apply {
+                    put("owner",owner)
+                    put("record_id",record.id)
+                    put("performed_on",record.performedOn.toString())
+                    put("payload",ManualDisciplineCodec.encode(record))
+                }
+                db.insertOrThrow("sessions",null,values)
+            }
+            db.setTransactionSuccessful()
+        } finally { db.endTransaction() }
+        try {
+            store.export(owner)
+            fail("Export must reject incomplete manual history")
+        } catch(_: IllegalArgumentException) { }
+        db.rawQuery("SELECT count(*) FROM sessions WHERE owner=?",
+            arrayOf(owner)).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(2001,cursor.getInt(0))
+        }
+    }
+
+    @Test fun tooManySavedTemplatesCannotProduceSilentlyTruncatedArchive() = runBlocking {
+        val db = store.writableDatabase
+        db.beginTransaction()
+        try {
+            repeat(101) { index ->
+                val form = ManualWorkoutTemplate("form-$index",owner,"Form $index",
+                    ManualDiscipline.STRENGTH,
+                    listOf(ManualExerciseEntry("Squat",2,reps=10)))
+                val values = android.content.ContentValues().apply {
+                    put("owner",owner)
+                    put("record_id",form.id)
+                    put("name",form.name)
+                    put("payload",ManualWorkoutTemplateCodec.encode(form))
+                }
+                db.insertOrThrow("manual_templates",null,values)
+            }
+            db.setTransactionSuccessful()
+        } finally { db.endTransaction() }
+        try {
+            store.export(owner)
+            fail("Export must reject truncated template history")
+        } catch(_: IllegalArgumentException) { }
+        db.rawQuery("SELECT count(*) FROM manual_templates WHERE owner=?",
+            arrayOf(owner)).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(101,cursor.getInt(0))
+        }
+    }
+
 }
