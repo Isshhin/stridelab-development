@@ -57,7 +57,8 @@ class TracksideActivityScrollTest {
         compose.onNodeWithTag("activity-change-glass-variant").assertDoesNotExist()
         compose.onNodeWithTag("activity-expanded-back").assertDoesNotExist()
         compose.onNodeWithTag("activity-chart-pace").assertDoesNotExist()
-        compose.onNodeWithTag("activity-sheet-handle").performClick()
+        compose.onNodeWithTag("activity-sheet-handle")
+            .performTouchInput { swipeUp(startY = centerY, endY = centerY - 260f) }
         compose.waitUntil(timeoutMillis = 5_000) {
             compose.onAllNodesWithTag("activity-expanded-back").fetchSemanticsNodes().isNotEmpty()
         }

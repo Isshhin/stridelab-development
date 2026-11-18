@@ -2,9 +2,11 @@ package io.stridelab.privatealpha
 
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import org.junit.Rule
 import org.junit.Test
 import org.junit.Assert.assertEquals
@@ -29,7 +31,7 @@ class ActivityIntelligenceUiTest {
                 ActivitySample(1, 30.0, 390.0, 150.0, 12.0, null, null, 174.0),
                 ActivitySample(2, 60.0, 380.0, 160.0, 15.0, null, null, 176.0)
             ),
-            listOf(ActivityLap(0, 1000.0, 400.0, 400.0, 140.0)), 0L
+            (0 until 10).map { ActivityLap(it, 1000.0, 400.0, 400.0, 140.0) }, 0L
         )
         compose.runOnUiThread {
             compose.activity.setContent {
@@ -64,18 +66,44 @@ class ActivityIntelligenceUiTest {
         compose.onNodeWithTag("activity-tab-analysis").assertIsSelected()
         // Checkpoints navigate within the same continuous scroller.
         compose.onNodeWithTag("activity-tab-splits").performClick()
+        compose.waitUntil(5_000) {
+            compose.onNodeWithTag("activity-tab-splits").fetchSemanticsNode()
+                .config.getOrElse(SemanticsProperties.Selected) { false }
+        }
+        assertEquals(2, tab.intValue)
+        compose.onNodeWithTag("activity-tab-splits").assertIsSelected()
         compose.onNodeWithTag("activity-section-splits").assertExists()
         compose.onNodeWithTag("activity-tab-charts").performClick()
+        compose.waitUntil(5_000) {
+            compose.onNodeWithTag("activity-tab-charts").fetchSemanticsNode()
+                .config.getOrElse(SemanticsProperties.Selected) { false }
+        }
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag("activity-section-charts").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("activity-tab-charts").assertIsSelected()
         compose.onNodeWithTag("activity-section-charts").assertExists()
         compose.onNodeWithTag("activity-tab-overview").performClick()
         compose.onNodeWithTag("activity-section-overview").assertExists()
-        // Natural scrolling (rather than changing tabs) reaches Analysis.
-        compose.onNodeWithTag("activity-continuous-scroll")
-            .performScrollToNode(hasTestTag("activity-analysis-screen"))
+        // Short real scroll gestures verify active checkpoints as the same
+        // continuous list crosses Analysis and then Splits.
+        fun isSelected(name: String) = compose.onNodeWithTag("activity-tab-$name")
+            .fetchSemanticsNode().config.getOrElse(SemanticsProperties.Selected) { false }
+        fun scrollUntilSelected(name: String) {
+            repeat(24) {
+                if (!isSelected(name)) {
+                    compose.onNodeWithTag("activity-continuous-scroll").performTouchInput {
+                        swipeUp(startY = centerY, endY = centerY - 180f, durationMillis = 500)
+                    }
+                    compose.waitForIdle()
+                }
+            }
+        }
+        scrollUntilSelected("analysis")
         compose.onNodeWithTag("activity-analysis-headline").assertExists()
-        // The same scroller still contains Splits farther down.
-        compose.onNodeWithTag("activity-continuous-scroll")
-            .performScrollToNode(hasTestTag("activity-section-splits"))
+        compose.onNodeWithTag("activity-tab-analysis").assertIsSelected()
+        scrollUntilSelected("splits")
+        compose.onNodeWithTag("activity-tab-splits").assertIsSelected()
         compose.onNodeWithTag("activity-section-splits").assertExists()
     }
 
@@ -116,6 +144,7 @@ class ActivityIntelligenceUiTest {
     @Test fun userWorkoutLabelPersistsSeparatelyFromImportedActivity() {
         val tab = mutableIntStateOf(0)
         val owner = "analysis-user-label-owner"
+        val trainingState = mutableStateOf(TrainingState(initializing = false, account = owner))
         val run = ActivityRecord(
             "analysis-user-label", "Imported run", "run", "manual",
             Instant.parse("2026-10-26T00:00:00Z"), 5000.0, 1800.0, 1750.0,
@@ -129,7 +158,7 @@ class ActivityIntelligenceUiTest {
                     TracksideActivityDetailSurface(
                         activity = run, recorded = null, detailSource = run,
                         matchedSourceIds = setOf(run.id), history = emptyList(),
-                        state = TrainingState(initializing = false, account = owner),
+                        state = trainingState.value,
                         actions = NativeActions({}, {}, {}, {}, { _, _ -> }), online = false,
                         selectedTab = tab.intValue, onTab = { tab.intValue = it },
                         matte = false, onToggleMatte = {}, onBack = {}
@@ -150,6 +179,12 @@ class ActivityIntelligenceUiTest {
         compose.onNodeWithTag("activity-workout-user-label").assertTextEquals("Your label: Quality Run · Intervals")
         assertEquals(saved, UserActivityWorkoutLabelStore(compose.activity).load(owner, run.id))
         assertEquals(null, store.load("another-owner", run.id))
+        compose.runOnUiThread { trainingState.value = trainingState.value.copy(account = "another-owner") }
+        compose.waitForIdle()
+        compose.onNodeWithTag("activity-workout-user-label").assertDoesNotExist()
+        compose.runOnUiThread { trainingState.value = trainingState.value.copy(account = owner) }
+        compose.waitForIdle()
+        compose.onNodeWithTag("activity-workout-user-label").assertTextEquals("Your label: Quality Run · Intervals")
         assertEquals("Imported run", run.title)
         assertEquals(5000.0, run.distanceM!!, 0.0)
         store.clear(owner, run.id)
