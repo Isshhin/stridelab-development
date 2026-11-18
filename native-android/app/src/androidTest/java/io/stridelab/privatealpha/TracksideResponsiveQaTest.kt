@@ -1333,6 +1333,13 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
+        // The independent coach deliberately defers an unverified zero-mileage
+        // baseline. Enter plausible synthetic training inputs before asserting
+        // the Generate callback; this is a navigation test, not a no-history test.
+        compose.onNodeWithTag("builder-ability-weekly-slider")
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(30f) }
+        compose.onNodeWithTag("builder-ability-longest-slider")
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(10f) }
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-start-date").assertExists()
