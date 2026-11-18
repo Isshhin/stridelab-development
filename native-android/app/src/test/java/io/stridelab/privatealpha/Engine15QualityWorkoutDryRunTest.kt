@@ -255,6 +255,13 @@ class Engine15QualityWorkoutDryRunTest {
         assertEquals("QUALITY_SLOT_UNAVAILABLE", locked.qualitySelection!!.reasonCode)
         assertNull(locked.qualityDryRun)
     }
+    @Test fun tempoAndMileageBuildAreDeferredTogether() {
+        val input = request().copy(experience = 1, weeklyKm = 30.0, targetWeeklyKm = 35.0, longestKm = 12.0)
+        val result = deferred(input)
+        assertTrue(result.explanation, result.explanation.contains("beyond usual weekly mileage"))
+        assertTrue(result.qualityDryRun!!.weeklyDistance.any { it.budgetKm > 30.0 })
+    }
+
     @Test fun privateTempoDraftFitsEveryWeekAndRoundTripsThroughApproval() {
         org.junit.Assume.assumeTrue(BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
         val input = request().copy(experience = 1, weeklyKm = 30.0, targetWeeklyKm = 30.0, longestKm = 10.0)
