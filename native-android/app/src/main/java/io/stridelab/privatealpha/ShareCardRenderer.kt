@@ -37,7 +37,7 @@ internal object ShareCardRenderer {
         }
     }
 
-    fun render(activity:ShareRenderableActivity, state:ShareStudioState, map:Bitmap? = null):Bitmap {
+    fun render(activity:ShareRenderableActivity, state:ShareStudioState, map:Bitmap? = null, photo:Bitmap? = null):Bitmap {
         val bitmap=Bitmap.createBitmap(1080,state.ratio.height,Bitmap.Config.ARGB_8888)
         val canvas=Canvas(bitmap)
         val paint=Paint(Paint.ANTI_ALIAS_FLAG)
@@ -46,6 +46,23 @@ internal object ShareCardRenderer {
             paint.shader=LinearGradient(0f,0f,1080f,bitmap.height.toFloat(),
                 intArrayOf(0xFF1C2D28.toInt(),ShareCardPalette.BLACK,0xFF252032.toInt()),null,Shader.TileMode.CLAMP)
             canvas.drawPaint(paint); paint.shader=null
+        }
+        if(state.background==ShareBackground.PHOTO && photo!=null && photo.width>0 && photo.height>0) {
+            // Center-crop to the chosen story ratio. Never stretch a personal photo.
+            val targetRatio=bitmap.width.toFloat()/bitmap.height
+            val sourceRatio=photo.width.toFloat()/photo.height
+            val crop=if(sourceRatio>targetRatio) {
+                val w=(photo.height*targetRatio).toInt().coerceIn(1,photo.width)
+                Rect((photo.width-w)/2,0,(photo.width+w)/2,photo.height)
+            } else {
+                val h=(photo.width/targetRatio).toInt().coerceIn(1,photo.height)
+                Rect(0,(photo.height-h)/2,photo.width,(photo.height+h)/2)
+            }
+            paint.alpha=255; paint.isFilterBitmap=true
+            canvas.drawBitmap(photo,crop,Rect(0,0,bitmap.width,bitmap.height),paint)
+            paint.isFilterBitmap=false
+            paint.color=0x77000000
+            canvas.drawRect(0f,0f,bitmap.width.toFloat(),bitmap.height.toFloat(),paint)
         }
         val g=geometry(state)
         fun text(value:String,x:Float,y:Float,size:Float,color:Int=ShareCardPalette.WHITE,bold:Boolean=false,maxWidth:Float=968f) {
