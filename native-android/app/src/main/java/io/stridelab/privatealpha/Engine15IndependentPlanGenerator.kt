@@ -359,6 +359,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 ownerId = owner,
                 asOf = now.atZone(java.time.ZoneId.systemDefault()).toLocalDate(),
                 evidence = qualityEvidence,
+                athlete = athlete,
                 scheduledSessions = sessions,
                 recoveryWeeks = volume.weeks.filter {
                     it.kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY
