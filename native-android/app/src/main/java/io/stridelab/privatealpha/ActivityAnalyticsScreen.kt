@@ -25,7 +25,11 @@ import java.util.Locale
 
 /** Local, descriptive running totals. No remote analytics collection and no coaching decisions. */
 @Composable
-internal fun ActivityAnalyticsScreen(activities: List<ActivityRecord>, onBack: () -> Unit) {
+internal fun ActivityAnalyticsScreen(
+    activities: List<ActivityRecord>,
+    onBack: () -> Unit,
+    onCompare: (() -> Unit)? = null
+) {
     var period by rememberSaveable { mutableStateOf(ActivityAnalyticsPeriod.WEEK) }
     val zone = remember { ZoneId.systemDefault() }
     val series = remember(activities, period, zone) {
@@ -80,6 +84,19 @@ internal fun ActivityAnalyticsScreen(activities: List<ActivityRecord>, onBack: (
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+        if (onCompare != null) {
+            item(key = "analytics-compare") {
+                SignalCard {
+                    Text("COMPARE RECORDED RUNS", style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary)
+                    Text("Select two earlier and recent runs of similar recorded distance from the same provider and sport.",
+                        style = MaterialTheme.typography.bodyMedium)
+                    TextButton(onClick = onCompare, modifier = Modifier.testTag("analytics-compare-open")) {
+                        Text("Compare runs")
+                    }
+                }
             }
         }
         item(key = "analytics-range") {
