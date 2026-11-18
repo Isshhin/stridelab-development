@@ -100,6 +100,59 @@ class ShareStudioTest {
         } }
     }
 
+    @Test fun workoutRecapUsesUserLabelAndRecordedGarminLapsWithoutInventingSteps() {
+        val garmin=activity.copy(source="garmin")
+        val laps=listOf(ActivityLap(0, 1000.0, 255.0, 255.0, 165.0, 0.0),
+            ActivityLap(1, 350.0, 140.0, null, null, 255.0))
+        val source=ActivityDetail(garmin.id, emptyList(), laps, 0L)
+        val before=source.copy(laps=source.laps.toList())
+        val userLabel=UserActivityWorkoutLabel(ActivityWorkoutKind.QUALITY_RUN,ActivityQualitySubtype.INTERVALS)
+        val recap=ShareRenderableActivity.from(garmin,source,userLabel=userLabel).workout!!
+        assertEquals("Intervals",recap.label)
+        assertEquals(ShareWorkoutSource.USER_LABEL,recap.provenance)
+        assertEquals("Garmin",recap.recordingSource)
+        assertEquals(2,recap.totalLaps)
+        assertEquals("1.00 km",recap.laps[0].distance)
+        assertEquals("4:15",recap.laps[0].duration)
+        assertEquals("4:15 /km",recap.laps[0].pace)
+        assertNull(recap.laps[1].pace)
+        assertEquals(before,source)
+    }
+
+    @Test fun unlabeledFitLapsDoNotBecomeDetectedIntervals() {
+        val fit=activity.copy(source="fit")
+        val source=ActivityDetail(fit.id,emptyList(),
+            listOf(ActivityLap(0,400.0,95.0,null,null),
+                   ActivityLap(1,200.0,80.0,null,null)),0L)
+        val recap=ShareRenderableActivity.from(fit,source).workout!!
+        assertNull(recap.label)
+        assertEquals(ShareWorkoutSource.RECORDED_ONLY,recap.provenance)
+        assertEquals("FIT import",recap.recordingSource)
+        assertEquals(2,recap.totalLaps)
+        assertNull(recap.laps.first().pace)
+    }
+
+    @Test fun linkedPlanWorkoutLabelIsClearlyIntentNotPerformance() {
+        val assessment=ActivityWorkoutAssessment(
+            detected=ActivityWorkoutEvidence(ActivityWorkoutKind.UNKNOWN,
+                evidence=listOf("Unlabeled laps")),
+            intended=ActivityWorkoutEvidence(ActivityWorkoutKind.QUALITY_RUN,
+                ActivityQualitySubtype.THRESHOLD,listOf("Linked plan intent")))
+        val source=ShareRenderableActivity.from(activity,null,assessment=assessment)
+        assertEquals("Threshold",source.workout!!.label)
+        assertEquals(ShareWorkoutSource.LINKED_PLAN,source.workout!!.provenance)
+        assertTrue(source.workout!!.laps.isEmpty())
+    }
+
+    @Test fun workoutTemplatePersistsWithExistingPresetVersionOne() {
+        val state=ShareStudioState().selectTemplate(ShareTemplate.WORKOUT)
+        assertEquals(ShareVariant.RUN_RECAP,state.variant)
+        assertEquals(ShareLayout.COMPACT,state.layout)
+        assertTrue(ShareMetric.DISTANCE in state.metrics)
+        val preset=SharePreset("workout","Lap recap",state.copy(ratio=ShareRatio.SQUARE))
+        assertEquals(preset,SharePresetCodec.decode(SharePresetCodec.encode(listOf(preset))).single())
+    }
+
     @Test(expected=IllegalArgumentException::class)
     fun invalidTemplateVariantIsRejected() {
         ShareStudioState().selectVariant(ShareVariant.POSTER)
