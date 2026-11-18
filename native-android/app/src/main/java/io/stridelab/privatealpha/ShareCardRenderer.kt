@@ -36,18 +36,19 @@ internal object ShareCardRenderer {
             ShareTemplate.WORKOUT -> ShareCardGeometry(RectF(56f,270f,1024f,h-statsHeight-138f),h-statsHeight-112f,row)
         }
         // Bounded route-vs-stat split. Keep at least 152 px of map height,
-        // a 38 px separation, and numeric labels above the brand footer.
+        // the template's original separation, and labels above the brand footer.
         // Stats-first and workout cards keep their established safe geometry.
         if(state.template !in setOf(ShareTemplate.ROUTE, ShareTemplate.MINIMAL) ||
             state.routeMode==ShareRouteMode.HIDDEN) return base
         val rows=ceil(count/2.0).toFloat()
-        val minStatsTop=base.route.top+190f
+        val gap=if(state.template==ShareTemplate.MINIMAL) 58f else 38f
+        val minStatsTop=base.route.top+152f+gap
         val maxStatsTop=h-200f-(rows-1f)*row
         if(minStatsTop>maxStatsTop) return base
         val desired=base.statsTop+(state.routeBalance-50)*1.5f
         val statsTop=desired.coerceIn(minStatsTop,maxStatsTop)
         return base.copy(
-            route=RectF(base.route.left,base.route.top,base.route.right,statsTop-38f),
+            route=RectF(base.route.left,base.route.top,base.route.right,statsTop-gap),
             statsTop=statsTop
         )
     }
