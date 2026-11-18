@@ -72,6 +72,14 @@ class ActivityRunComparisonTest {
         assertEquals(5, ActivityRunComparison.recentRuns(list).size)
     }
 
+    @Test fun futureDatedRecordIsExcludedFromHistoricalSelection() {
+        val future = recent.copy(id = "future", startedAt = recent.startedAt.plusSeconds(1))
+        val result = ActivityRunComparison.recentRuns(
+            listOf(recent, future, earlier()), asOf = recent.startedAt
+        )
+        assertEquals(listOf("new", "old"), result.map { it.id })
+    }
+
     @Test fun missingSourceDistanceCannotBeCompared() {
         assertTrue(ActivityRunComparison.recentRuns(
             listOf(recent.copy(distanceM = null), recent.copy(type = "strength"), earlier())
