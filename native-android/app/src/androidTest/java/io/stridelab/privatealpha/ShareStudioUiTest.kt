@@ -77,10 +77,27 @@ class ShareStudioUiTest {
         compose.onNodeWithText("Trim distance from each endpoint").assertIsDisplayed()
         // The LazyColumn may clip choices below the viewport on a smaller emulator.
         // Verify the options and default selection via semantics, not pixel visibility.
+        compose.onNodeWithTag("share-trim-switch").assertIsOn()
         compose.onNodeWithText("200 m").assertExists().assertIsSelected()
         compose.onNodeWithText("400 m").assertExists().assertIsNotSelected()
         compose.onNodeWithText("800 m").assertExists().assertIsNotSelected()
-        compose.onNodeWithText("Off (full route)").assertExists().assertIsNotSelected()
+        compose.onNodeWithText("Off (full route)").assertDoesNotExist()
+    }
+
+    @Test fun routeTrimSwitchRestoresCustomDistanceAndWarnsOnFullGpsExposure() {
+        mountDetail()
+        compose.onNodeWithTag("activity-share").performClick()
+        compose.onNodeWithTag("share-studio-scroll").performScrollToNode(hasTestTag("share-section-ROUTE"))
+        compose.onNodeWithTag("share-section-ROUTE").performClick()
+        compose.onNodeWithTag("share-studio-scroll").performScrollToNode(hasTestTag("share-trim-switch"))
+        compose.onNodeWithText("400 m").performClick()
+        compose.onNodeWithText("400 m").assertIsSelected()
+        compose.onNodeWithTag("share-trim-switch").performClick().assertIsOff()
+        compose.onNodeWithTag("share-trim-off-warning").assertExists()
+        compose.onNodeWithText("400 m").assertDoesNotExist()
+        compose.onNodeWithTag("share-trim-switch").performClick().assertIsOn()
+        compose.onNodeWithText("400 m").assertExists().assertIsSelected()
+        compose.onNodeWithTag("share-trim-off-warning").assertDoesNotExist()
     }
 
     @Test fun exportPngActionAvailableForOfflineActivity() {
@@ -88,6 +105,7 @@ class ShareStudioUiTest {
         compose.onNodeWithTag("activity-share").performClick()
         compose.waitUntil(5000) { compose.onAllNodesWithTag("share-card-preview").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("share-export-png").assertExists().assertIsEnabled()
+        compose.onNodeWithTag("share-export-resolution").assertTextContains("1080 × 1920")
     }
 
     @Test fun presetsPersistUpdateAndDeleteOnDisk() {

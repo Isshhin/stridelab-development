@@ -55,7 +55,13 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
     val store=remember(context) { SharePresetStore(context) }
     var configJson by rememberSaveable(activity.id) { mutableStateOf(SharePresetCodec.encode(listOf(SharePreset("draft","Draft",ShareStudioState())))) }
     val config=remember(configJson) { SharePresetCodec.decode(configJson).single().state }
-    fun configure(value:ShareStudioState) { configJson=SharePresetCodec.encode(listOf(SharePreset("draft","Draft",value))) }
+    // Keep the user's last nonzero trim choice when they explicitly reveal the full GPS route.
+    // This is editor-only state; presets still store the actual privacy level, not activity data.
+    var lastTrimPrivacy by rememberSaveable(activity.id) { mutableStateOf(SharePrivacy.STANDARD.name) }
+    fun configure(value:ShareStudioState) {
+        if(value.privacy!=SharePrivacy.OFF) lastTrimPrivacy=value.privacy.name
+        configJson=SharePresetCodec.encode(listOf(SharePreset("draft","Draft",value)))
+    }
     var section by rememberSaveable { mutableStateOf(ShareSection.TEMPLATES) }
     var activePreset by rememberSaveable(activity.id) { mutableStateOf<String?>(null) }
     var presets by remember { mutableStateOf<List<SharePreset>>(emptyList()) }
@@ -210,6 +216,8 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                         else -> "Route trimmed · Full activity stats · map · ${config.ratio.label} PNG"
                     }
                     Text(status,style=MaterialTheme.typography.labelMedium,color=Color(ShareCardPalette.MUTED),modifier=Modifier.semantics { liveRegion=LiveRegionMode.Polite })
+                    Text("PNG export: 1080 × ${config.ratio.height} pixels",style=MaterialTheme.typography.labelSmall,
+                        color=Color(ShareCardPalette.MUTED),modifier=Modifier.testTag("share-export-resolution"))
                 }
                 item {
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -227,13 +235,28 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                                 ShareSection.VARIANT -> ShareChoices(config.template.variants,config.variant,{it.label}) { configure(config.selectVariant(it)) }
                                 ShareSection.RATIO -> ShareChoices(ShareRatio.entries,config.ratio,{it.label}) { configure(config.copy(ratio=it)) }
                                 ShareSection.ROUTE -> {
-                                    Text("Trim route endpoints before exporting. Stats always cover the full activity.",style=MaterialTheme.typography.bodyMedium,color=Color(ShareCardPalette.MUTED))
-                                    Text("Trim distance from each endpoint",style=MaterialTheme.typography.labelLarge)
-                                    ShareChoices(SharePrivacy.entries,config.privacy,{it.label}) { configure(config.copy(privacy=it)) }
+                                    Text("Choose whether to remove the start and finish of the GPS route. All stats still cover the full activity.",
+                                        style=MaterialTheme.typography.bodyMedium,color=Color(ShareCardPalette.MUTED))
+                                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,
+                                        horizontalArrangement=Arrangement.SpaceBetween) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text("Trim route endpoints",style=MaterialTheme.typography.labelLarge)
+                                            Text("On by default",style=MaterialTheme.typography.bodySmall,color=Color(ShareCardPalette.MUTED))
+                                        }
+                                        Switch(checked=config.privacy!=SharePrivacy.OFF,
+                                            onCheckedChange={ enabled ->
+                                                val next=if(enabled) SharePrivacy.valueOf(lastTrimPrivacy) else SharePrivacy.OFF
+                                                configure(config.copy(privacy=next))
+                                            },modifier=Modifier.testTag("share-trim-switch"))
+                                    }
                                     if(config.privacy==SharePrivacy.OFF) {
-                                        Text("Privacy warning: the full GPS route, including your exact start and finish, will appear in saved and shared PNG images.",
+                                        Text("Privacy warning: trimming is OFF. The full GPS route, including your exact start and finish, will appear in saved and shared PNG images.",
                                             style=MaterialTheme.typography.bodyMedium,color=Color(0xFFFFBE7A),modifier=Modifier.testTag("share-trim-off-warning"))
                                     } else {
+                                        Text("Trim distance from each endpoint",style=MaterialTheme.typography.labelLarge)
+                                        ShareChoices(SharePrivacy.entries.filterNot { it==SharePrivacy.OFF },config.privacy,{it.label}) {
+                                            configure(config.copy(privacy=it))
+                                        }
                                         Text("Trimming reduces endpoint exposure but does not guarantee location anonymity.",
                                             style=MaterialTheme.typography.bodySmall,color=Color(ShareCardPalette.MUTED))
                                     }
