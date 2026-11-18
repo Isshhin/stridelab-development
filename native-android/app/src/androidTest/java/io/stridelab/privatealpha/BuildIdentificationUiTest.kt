@@ -1,7 +1,6 @@
 package io.stridelab.privatealpha
 
 import androidx.activity.compose.setContent
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import org.junit.Rule
@@ -18,9 +17,8 @@ class BuildIdentificationUiTest {
                     page = MorePage.About,
                     state = TrainingState(initializing = false),
                     onBack = {},
-                    onSignIn = {},
-                    onSystemAppSettings = {},
-                    syncGarmin = null
+
+                    onSystemAppSettings = {}
                 )
             }
         }

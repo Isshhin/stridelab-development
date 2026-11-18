@@ -49,7 +49,7 @@ class TracksideGarminModalTest {
                 StrideTheme {
                     NativeStrideContent(
                         state=state,online=false,
-                        actions=NativeActions({}, {}, {}, {}, { _, _ -> })
+                        actions=NativeActions({}, { _, _ -> })
                     )
                 }
             }
@@ -82,7 +82,7 @@ class TracksideGarminModalTest {
             compose.activity.setContent {
                 StrideTheme {
                     NativeStrideContent(state, false,
-                        NativeActions({}, {}, {}, {}, { _, _ -> }))
+                        NativeActions({}, { _, _ -> }))
                 }
             }
         }
@@ -104,7 +104,7 @@ class TracksideGarminModalTest {
                     NativeStrideContent(
                         state = state,
                         online = false,
-                        actions = NativeActions({}, {}, {}, {}, { _, _ -> })
+                        actions = NativeActions({}, { _, _ -> })
                     )
                 }
             }

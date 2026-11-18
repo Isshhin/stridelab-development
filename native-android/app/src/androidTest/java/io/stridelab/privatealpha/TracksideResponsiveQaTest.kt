@@ -757,7 +757,7 @@ class TracksideResponsiveQaTest {
                         activity=recorded,recorded=null,detailSource=recorded,
                         matchedSourceIds=setOf(recorded.id),history=listOf(recorded),
                         state=state,
-                        actions=NativeActions({}, {}, {}, {}, { _, _ -> }),
+                        actions=NativeActions({}, { _, _ -> }),
                         online=false,selectedTab=tab.value,onTab={ tab.value=it },
                         matte=matte.value,onToggleMatte={matte.value=!matte.value},
                         onBack={}
@@ -1238,7 +1238,7 @@ class TracksideResponsiveQaTest {
                         state,
                         true,
                         NativeActions(
-                            {}, {}, {}, {}, { _, _ -> },
+                            {}, { _, _ -> },
                             planning = PlanActions(
                                 approve = { _, _ -> approvals++ }
                             )
@@ -1353,20 +1353,27 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithText("Your training blueprint").assertDoesNotExist()
     }
 
-    @Test fun todayHeroAtLargeFontPreservesTargetsAndVisibleAction() {
-        val run = snapshot().sessions.first()
-        var opened = false
+    @Test fun currentTodayWorkoutActionRemainsReachableAtLargeFont() {
+        val plan = snapshot()
+        val run = plan.sessions.first().copy(date = LocalDate.now())
+        var opened: String? = null
         show {
-            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-                TracksideTodayHero(run) { opened = true }
-            }
+            StrideLabTodayScreen(
+                state = TrainingState(initializing = false, account = plan.owner,
+                    plans = listOf(plan.copy(sessions = listOf(run)))),
+                visibleActivities = emptyList(), online = false,
+                onOpenTraining = {}, onOpenActivity = {},
+                onOpenWorkout = { _, sessionId -> opened = sessionId },
+                onOpenActivityDetail = {}, onOpenMore = {}, onSignIn = {}
+            )
         }
         compose.onNodeWithTag("today-hero").assertExists()
-        compose.onNodeWithTag("today-map-illustration", useUnmergedTree=true).assertExists()
-        compose.onNodeWithContentDescription("Open planned workout", useUnmergedTree = true).assertExists()
-        screenshot("today")
-        compose.onNodeWithTag("today-hero").performClick()
-        compose.runOnIdle { assertTrue("Hero action not usable", opened) }
+        compose.onNode(hasText(run.effectiveTitle) and hasAnyAncestor(hasTestTag("today-hero")),
+            useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("today-workout-action").assertIsDisplayed()
+        screenshot("today-current")
+        compose.onNodeWithTag("today-workout-action").performClick()
+        compose.runOnIdle { assertTrue("Saved workout action was not reached", opened == run.id) }
     }
 
     @Test fun trainingWeekRetainsReadableTouchTargetsAtScaledFont() {
@@ -1410,7 +1417,7 @@ class TracksideResponsiveQaTest {
             compose.activity.setContent {
                 StrideTheme {
                     NativeStrideContent(
-                        state, true, NativeActions({}, {}, {}, {}, { _, _ -> })
+                        state, true, NativeActions({}, { _, _ -> })
                     )
                 }
             }

@@ -26,41 +26,37 @@ class NativeVisualTest {
     private val activity = ActivityRecord("synthetic-visual", "Morning trail run", "Trail running", "manual",
         Instant.parse("2026-10-26T00:00:00Z"), 8750.0, 3210.0, 3100.0, 354.0, null, 124.0)
 
-    @Test fun activityCardIsActionableAndMissingMetricsRemainHonest() {
+    @Test fun activityCardShowsRecordedMetricsAndOpens() {
         var opened = false
         show {
             StrideTheme { Surface { Column(Modifier.padding(22.dp)) {
                 Text("UI SIMULATION · SYNTHETIC FIXTURE")
                 ActivityRow(activity) { opened = true }
-                MetricPair("Average heart rate" to "Not recorded", "Elevation gain" to "124 m")
             } } }
         }
         compose.onNodeWithText("8.75 km · 53:30").assertExists()
-        compose.onNodeWithText("Not recorded").assertExists()
         capture("simulation-recorded-activity")
         compose.onNodeWithText("Morning trail run").performClick()
         compose.runOnIdle { assertTrue(opened) }
     }
-    @Test fun narrowLargeFontMetricsReflowAndRemainReachable() {
+    @Test fun narrowLargeFontActivityTitleRemainsReachable() {
         show {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, 2f)) {
                 StrideTheme { Surface { Column(Modifier.width(280.dp).verticalScroll(rememberScrollState()).padding(16.dp)) {
                     Text("UI SIMULATION · 200% TEXT")
                     ActivityRow(activity.copy(title = "A long activity title that must wrap without hiding training details")) {}
-                    MetricPair("Average heart rate" to "Not recorded", "Maximum heart rate" to "Not recorded")
                 } } }
             }
         }
-        compose.onNodeWithText("Maximum heart rate").performScrollTo().assertIsDisplayed()
-        assertEquals(2, compose.onAllNodesWithText("Not recorded").fetchSemanticsNodes().size)
+        compose.onNodeWithText("A long activity title that must wrap without hiding training details").performScrollTo().assertIsDisplayed()
         capture("simulation-narrow-200pct")
     }
     @Test fun populatedScreensUseNativeNavigationAndRealActions() {
         val fixture = TrainingState(initializing = false, account = "synthetic-visual-account",
             activities = listOf(activity, activity.copy(id = "synthetic-second", title = "Evening walk", type = "Walking", distanceM = 2500.0, durationS = 1800.0)),
             lastSync = 1792972800000)
-        val actions = NativeActions({}, {}, {}, {}, { _, _ -> })
+        val actions = NativeActions({}, { _, _ -> })
         show { StrideTheme { NativeStrideContent(fixture, true, actions) } }
         capture("simulation-dashboard")
         compose.onNodeWithTag("nav-training").performClick()
@@ -86,7 +82,7 @@ class NativeVisualTest {
         val recentActivity=activity.copy(startedAt=Instant.now())
         val fixture = androidx.compose.runtime.mutableStateOf(TrainingState(initializing = false,
             account = "synthetic-visual-account", activities = listOf(recentActivity), busy = true, task = "Refreshing saved history"))
-        val actions = NativeActions({}, {}, {}, {}, { _, _ -> })
+        val actions = NativeActions({}, { _, _ -> })
         show { StrideTheme { NativeStrideContent(fixture.value, false, actions) } }
         compose.onNodeWithTag("loading").assertExists()
         capture("simulation-loading-offline")
@@ -98,51 +94,10 @@ class NativeVisualTest {
         capture("simulation-failure-with-cache")
     }
 
-    @Test fun recordedStreamsAndGpsHaveAccessibleUnitsAndOfflineProvenance() {
-        val points=(0..20).map { i -> ActivitySample(i,i*10.0,340.0+i*2,140.0+i,10.0+i,14.5+i*.0001,121.0+i*.00015) }
-        val detail=ActivityDetail("synthetic-visual",points,listOf(ActivityLap(0,1000.0,350.0,350.0,148.0)),1792972800000)
-        show { StrideTheme { Surface { Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp)) {
-            Text("UI SIMULATION · SYNTHETIC STREAMS")
-            RecordedActivityDetail(detail,true)
-        } } } }
-        compose.onNodeWithText("RECORDED STREAMS").assertIsDisplayed()
-        compose.onNodeWithTag("stream-Pace").performScrollTo().performTouchInput { click(center) }
-        compose.onNodeWithText("Selected source sample 10 · elapsed 1:40").assertExists()
-        compose.onNodeWithText("Selected: 6:00 /km at 1:40").assertExists()
-        compose.onNodeWithText("Heart rate",useUnmergedTree=true).performScrollTo().assertIsDisplayed()
-        capture("simulation-recorded-streams")
-        compose.onNodeWithText("Recorded GPS trace").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithContentDescription("Recorded GPS route trace",substring=true).performScrollTo().assertIsDisplayed()
-        capture("simulation-recorded-gps-trace")
-        compose.onNodeWithText("Source laps").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Lap 1 · 1.00 km · 5:50").performScrollTo().assertIsDisplayed()
-        capture("simulation-recorded-laps")
-    }
-    @Test fun weeklyDashboardAndSourceDatedWellnessRemainReadableAtLargeText() {
-        val now=Instant.parse("2026-10-26T02:00:00Z")
-        var refreshed=false
-        show {
-            val density=LocalDensity.current
-            CompositionLocalProvider(LocalDensity provides Density(density.density,2f)) {
-                StrideTheme { Surface { Column(Modifier.width(300.dp).verticalScroll(rememberScrollState()).padding(16.dp)) {
-                    Text("UI SIMULATION · SYNTHETIC DASHBOARD")
-                    WeeklyDashboard(listOf(activity),now,java.time.ZoneId.of("Asia/Manila"))
-                    WellnessOverview(listOf(WellnessRecord("synthetic-wellness","sleep_duration",7.5,"hours",now.minusSeconds(86400),"health_connect")),{refreshed=true},true)
-                } } }
-            }
-        }
-        compose.onNodeWithText("LAST 7 DAYS").assertExists()
-        compose.onNodeWithText("Running distance").performScrollTo().assertIsDisplayed()
-        capture("simulation-weekly-200pct")
-        compose.onNodeWithText("Sleep duration · 7.5 hours").performScrollTo().assertIsDisplayed()
-        capture("simulation-wellness-200pct")
-        compose.onNodeWithText("Refresh wellness").performScrollTo().performClick()
-        compose.runOnIdle { assertTrue(refreshed) }
-    }
     @Test fun widerLayoutKeepsContentBounded() {
         show {
             CompositionLocalProvider(LocalDensity provides Density(1f, 1f)) {
-                StrideTheme { NativeStrideContent(TrainingState(initializing = false),true,NativeActions({}, {}, {}, {}, { _, _ -> })) }
+                StrideTheme { NativeStrideContent(TrainingState(initializing = false),true,NativeActions({}, { _, _ -> })) }
             }
         }
         compose.onNodeWithTag("nav-training").performClick()
@@ -151,14 +106,6 @@ class NativeVisualTest {
         val viewport = compose.onRoot().fetchSemanticsNode().boundsInRoot
         assertTrue("Training content must stay within the display",bounds.left>=viewport.left && bounds.right<=viewport.right)
         capture("simulation-wide-layout")
-    }    @Test fun datedNativeWorkoutAppearsInDashboardAsUserConfirmationWithoutSourceActivityFabrication() {
-        val now=Instant.parse("2026-10-26T02:00:00Z");val date=java.time.LocalDate.parse("2026-10-25")
-        val session=PlannedSession("native-summary",date,"str","Confirmed strength",45,null,"practice",status="completed",log=WorkoutLog(now,minutes=20.0,performedOn=date))
-        val plan=PlanSnapshot("native-summary-plan","synthetic-dashboard",ENGINE1_VERSION,ENGINE1_POLICY,now,PlanRequest(start=date),listOf(session),emptyList())
-        show { StrideTheme { Surface { Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp)) { WeeklyDashboard(emptyList(),now,java.time.ZoneId.of("UTC"),listOf(plan)) } } } }
-        compose.onNodeWithText("1 active day · 1 activity").assertExists();compose.onNodeWithText("20:00").assertExists()
-        compose.onNodeWithText("1 dated, user-confirmed workout logs included.",substring=true).performScrollTo().assertExists()
-        capture("simulation-native-confirmed-volume")
     }
     private fun show(content: @androidx.compose.runtime.Composable () -> Unit) { compose.runOnUiThread { compose.activity.setContent(content = content) } }
     private fun capture(name: String) {

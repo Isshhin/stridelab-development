@@ -23,10 +23,10 @@ class LocalActivityArchiveScreenUiTest {
             }
         }
         compose.onNodeWithTag("screen")
-            .performScrollToNode(hasTestTag("archive-intro"))
+            .performScrollToNode(hasText("ZIP files are NOT encrypted", substring = true))
         compose.onNodeWithText("ZIP files are NOT encrypted", substring = true).assertExists()
         compose.onNodeWithTag("screen")
-            .performScrollToNode(hasTestTag("archive-source"))
+            .performScrollToNode(hasTestTag("archive-local-garmin"))
         compose.onNodeWithTag("archive-local-garmin").assertIsEnabled()
         compose.onNodeWithTag("archive-cloud-account").assertIsNotEnabled()
     }
@@ -43,7 +43,7 @@ class LocalActivityArchiveScreenUiTest {
             }
         }
         compose.onNodeWithTag("screen")
-            .performScrollToNode(hasTestTag("archive-source"))
+            .performScrollToNode(hasTestTag("archive-cloud-account"))
         compose.onNodeWithTag("archive-cloud-account").assertIsEnabled().performClick()
         compose.onNodeWithText(
             "Restore only while signed in to the same StrideLab account.",

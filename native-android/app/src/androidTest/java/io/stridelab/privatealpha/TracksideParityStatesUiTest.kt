@@ -92,7 +92,7 @@ class TracksideParityStatesUiTest {
                 StrideTheme {
                     NativeStrideContent(
                         state, false,
-                        NativeActions({}, {}, {}, {}, { _, _ -> },
+                        NativeActions({}, { _, _ -> },
                             renameActivity = { id, title ->
                                 renamed.set(id + ":" + title)
                                 true

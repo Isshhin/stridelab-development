@@ -260,20 +260,6 @@ import kotlinx.coroutines.withContext
     result?.let { Text(it,style=MaterialTheme.typography.bodySmall) }
 }
 
-@Composable internal fun HomePlanHero(plan:PlanSnapshot,onOpen:(String)->Unit) {
-    val next=plan.sessions.filter { it.date>=LocalDate.now() && it.status in setOf("planned","in_progress") }.minByOrNull { it.date }
-    if(next!=null) {
-        Text(if(next.date==LocalDate.now()) "TODAY" else "UP NEXT",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        PlannedWorkoutCard(plan.cardPresentation(next)) { onOpen(next.id) }
-        SignalCard { Text("COACH",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
-            Text(if(plan.cardPresentation(next)!=next) plan.cardPresentation(next).reason else if(next.suggestion!=null&&!next.suggestion.accepted) "Your recent missed-workout reason prompted a recovery suggestion. Review the shorter alternative or choose rest; there is no extra catch-up volume." else "Your next session is ${next.title.lowercase()} on ${next.date}. ${next.reason} Use the planned prescription as a starting point and record what you actually complete.",style=MaterialTheme.typography.bodyLarge)
-        }
-    }
-    val start=LocalDate.now().with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
-    val week=plan.sessions.filter { it.date in start..start.plusDays(6) }
-    if(week.isNotEmpty()) SignalCard { Text("THIS WEEK",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Text("${week.count { it.status=="completed" }} of ${week.size} sessions completed",style=MaterialTheme.typography.titleLarge);LinearProgressIndicator(progress={week.count { it.status=="completed" }.toFloat()/week.size},modifier=Modifier.fillMaxWidth());Text(week.groupingBy { disciplineLabel(it.discipline) }.eachCount().entries.joinToString(" · ") { "${it.value} ${it.key}" },style=MaterialTheme.typography.bodyMedium) }
-}
-
 @Composable internal fun NativePlanImport(state:TrainingState,actions:PlanActions) {
     val context=LocalContext.current;val scope=rememberCoroutineScope()
     var raw by remember { mutableStateOf<String?>(null) };var description by remember { mutableStateOf<String?>(null) };var error by remember { mutableStateOf<String?>(null) }

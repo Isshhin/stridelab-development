@@ -35,7 +35,7 @@ class TracksideManageNavigationTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    NativeStrideContent(state, true, NativeActions({}, {}, {}, {}, { _, _ -> }))
+                    NativeStrideContent(state, true, NativeActions({}, { _, _ -> }))
                 }
             }
         }

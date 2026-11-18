@@ -34,7 +34,7 @@ class ShareStudioUiTest {
         compose.runOnUiThread { compose.activity.setContent {
             StrideTheme { TracksideActivityDetailSurface(activity,detail,activity,setOf(activity.id),listOf(activity),
                 TrainingState(initializing=false,account="share-test",activities=listOf(activity)),
-                NativeActions({}, {}, {}, {}, { _, _ -> }),false,tab.intValue,{tab.intValue=it},false,{}, {}) }
+                NativeActions({}, { _, _ -> }),false,tab.intValue,{tab.intValue=it},false,{}, {}) }
         } }
     }
 

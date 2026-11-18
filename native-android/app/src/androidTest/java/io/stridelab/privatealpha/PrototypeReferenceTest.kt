@@ -22,7 +22,7 @@ class PrototypeReferenceTest {
                 StrideTheme {
                     NativeStrideContent(
                         state.value, false,
-                        NativeActions({}, {}, {}, {}, { _, _ -> })
+                        NativeActions({}, { _, _ -> })
                     )
                 }
             }

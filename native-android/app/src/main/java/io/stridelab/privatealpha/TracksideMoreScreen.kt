@@ -52,7 +52,7 @@ private val moreMuted = Color(0xFFAAB4AD)
 private val moreSecondary = Color(0xFF82918A)
 private val moreLime = Color(0xFFD8FB70)
 
-internal enum class MorePage { Garmin, Preferences, About }
+internal enum class MorePage { Preferences, About }
 
 /** Compact Trackside control centre. No placeholder toggles or fabricated account data. */
 @Composable
@@ -207,12 +207,9 @@ internal fun TracksideMoreDetailScreen(
     page: MorePage,
     state: TrainingState,
     onBack: () -> Unit,
-    onSignIn: () -> Unit,
-    onSystemAppSettings: () -> Unit,
-    syncGarmin: (suspend (GarminPersonalSource) -> GarminConnectionStatus)?
+    onSystemAppSettings: () -> Unit
 ) {
     val title = when (page) {
-        MorePage.Garmin -> "Garmin Connect"
         MorePage.Preferences -> "App preferences"
         MorePage.About -> "About StrideLab"
     }
@@ -239,15 +236,6 @@ internal fun TracksideMoreDetailScreen(
             }
         }
         when (page) {
-            MorePage.Garmin -> item(key = "detail-garmin") {
-                val account = state.localGarminOwner ?: state.account
-                if (account == null) {
-                    MoreGroup { MoreActionRow("Garmin unavailable", MoreSymbol.Watch, "connect-unavailable", onBack) }
-                } else {
-                    // Preserve existing secure credential, sync and disconnect behaviour.
-                    GarminSettingsCard(account, syncGarmin, allowCloudBackup = state.account != null && !state.needsSignIn, cloudPreferenceAccount = state.account)
-                }
-            }
             MorePage.Preferences -> {
                 item(key = "detail-athlete-hr") {
                     AthleteHeartRatePreferenceCard(state.account)

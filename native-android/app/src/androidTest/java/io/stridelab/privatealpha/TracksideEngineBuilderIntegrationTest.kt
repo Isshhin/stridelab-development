@@ -49,7 +49,7 @@ class TracksideEngineBuilderIntegrationTest {
                     )
                     StrideTheme {
                         NativeStrideContent(repository.state.collectAsState().value, false,
-                            NativeActions({}, {}, {}, {}, { _, _ -> }, planning = actions))
+                            NativeActions({}, { _, _ -> }, planning = actions))
                     }
                 }
             }

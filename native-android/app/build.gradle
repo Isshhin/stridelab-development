@@ -3,6 +3,8 @@ plugins {
     id 'org.jetbrains.kotlin.android'
     id 'org.jetbrains.kotlin.plugin.compose'
 }
+// Only the seeded upgrade harness renders the retired WebView to inspect its original storage origin.
+def legacyUpgradeProbe = project.findProperty('android.testInstrumentationRunnerArguments.expectLegacyUpgrade') == 'true'
 android {
     namespace = 'io.stridelab.privatealpha'
     compileSdk = 36
@@ -19,11 +21,16 @@ android {
         versionName = '0.6.6-guided-workout'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
-    // Reuse the exact database, encryption, backup codec and isolated legacy screen.
+    // Reuse the exact database, encryption and backup codec without shipping the legacy UI.
     // No legacy manifest is merged: Compose is the sole launcher.
     sourceSets {
         main.java.srcDirs += '../../android-app/android/app/src/main/java'
-        main.assets.srcDirs += '../../android-app/android/app/src/main/assets'
+        if (legacyUpgradeProbe) {
+            main.assets.srcDirs += '../../android-app/android/app/src/main/assets'
+        } else {
+            main.java.exclude '**/MainActivity.java'
+            androidTest.java.exclude '**/NativeUpgradeTest.java'
+        }
         main.res.srcDirs += '../../android-app/android/app/src/main/res'
         test.java.srcDirs += '../../android-app/android/app/src/test/java'
         androidTest.java.srcDirs += '../../android-app/android/app/src/androidTest/java'
@@ -51,6 +58,8 @@ android {
                 applicationIdSuffix '.qa'
                 versionNameSuffix '-qa'
                 manifestPlaceholders['strideAppLabel'] = 'StrideLab QA'
+                buildConfigField 'boolean', 'ENGINE15_ACTIVE', 'false'
+                buildConfigField 'boolean', 'ENGINE15_INDEPENDENT_RUNNING_ACTIVE', 'false'
             }
         }
         release {
