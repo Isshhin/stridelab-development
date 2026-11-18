@@ -1,6 +1,8 @@
 package io.stridelab.privatealpha
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
@@ -31,9 +33,17 @@ internal fun ActivityAnalyticsScreen(
     onCompare: (() -> Unit)? = null
 ) {
     var period by rememberSaveable { mutableStateOf(ActivityAnalyticsPeriod.WEEK) }
+    var provider by rememberSaveable { mutableStateOf<String?>(null) }
+    var discipline by rememberSaveable { mutableStateOf(ActivityAnalyticsKind.ALL) }
+    var distance by rememberSaveable { mutableStateOf(ActivityAnalyticsDistance.ALL) }
+    val providers = remember(activities) { ActivityAnalyticsFiltering.availableSources(activities) }
+    val filtered = remember(activities, provider, discipline, distance) {
+        ActivityAnalyticsFiltering.apply(activities,
+            ActivityAnalyticsFilter(provider, discipline, distance))
+    }
     val zone = remember { ZoneId.systemDefault() }
-    val series = remember(activities, period, zone) {
-        ActivityHistoryAnalytics.series(activities, Instant.now(), zone, period)
+    val series = remember(filtered, period, zone) {
+        ActivityHistoryAnalytics.series(filtered, Instant.now(), zone, period)
     }
     val count = series.sumOf { it.activityCount }
     val measured = series.sumOf { it.recordedDistanceCount }
@@ -111,12 +121,58 @@ internal fun ActivityAnalyticsScreen(
                 }
             }
         }
+        item(key = "analytics-filters") {
+            SignalCard {
+                Text("FILTER RECORDED RUNS", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary)
+                Text("Source", style = MaterialTheme.typography.bodyMedium)
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = provider == null, onClick = { provider = null },
+                        label = { Text("All sources") },
+                        modifier = Modifier.testTag("analytics-source-all"))
+                    providers.forEach { option ->
+                        FilterChip(selected = provider == option, onClick = { provider = option },
+                            label = { Text(if (option == "garmin") "Garmin" else option) },
+                            modifier = Modifier.testTag("analytics-source-" + option))
+                    }
+                }
+                Text("Discipline", style = MaterialTheme.typography.bodyMedium)
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ActivityAnalyticsKind.entries.forEach { option ->
+                        FilterChip(selected = discipline == option, onClick = { discipline = option },
+                            label = { Text(option.label) },
+                            modifier = Modifier.testTag("analytics-discipline-" + option.name.lowercase()))
+                    }
+                }
+                Text("Distance", style = MaterialTheme.typography.bodyMedium)
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ActivityAnalyticsDistance.entries.forEach { option ->
+                        FilterChip(selected = distance == option, onClick = { distance = option },
+                            label = { Text(option.label) },
+                            modifier = Modifier.testTag("analytics-distance-" + option.name.lowercase()))
+                    }
+                }
+                if (provider != null || discipline != ActivityAnalyticsKind.ALL ||
+                    distance != ActivityAnalyticsDistance.ALL) {
+                    TextButton(onClick = {
+                        provider = null
+                        discipline = ActivityAnalyticsKind.ALL
+                        distance = ActivityAnalyticsDistance.ALL
+                    }, modifier = Modifier.testTag("analytics-clear-filters")) {
+                        Text("Clear filters")
+                    }
+                }
+            }
+        }
         item(key = "analytics-chart") {
             SignalCard {
                 Text("DISTANCE BY PERIOD", style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary)
                 if (count == 0) Text(
-                    "No saved running activities in this period. Import or log a run to see recorded history.",
+                    "No saved running activities match this period and filters. Missing distance is excluded only when a distance band is selected.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium
                 )
