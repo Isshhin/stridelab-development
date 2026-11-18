@@ -35,7 +35,7 @@ internal object ActivityRunComparison {
         if (recent.id == earlier.id || earlier.startedAt >= recent.startedAt) return false
         // Same-source, same-sport and similar recorded distance do not establish
         // equivalent effort, terrain, sensor accuracy, or environmental conditions.
-        return abs(recent.distanceM!! - earlier.distanceM!!) / recent.distanceM <= .10
+        return abs(recent.distanceM!! - earlier.distanceM!!) / recent.distanceM!! <= .10
     }
 
     fun earlierCandidates(recent: ActivityRecord, history: List<ActivityRecord>): List<ActivityRecord> =
