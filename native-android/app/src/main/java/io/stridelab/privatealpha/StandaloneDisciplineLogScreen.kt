@@ -60,12 +60,14 @@ internal fun StandaloneDisciplineLogScreen(owner: String, onBack: () -> Unit) {
         val date = runCatching { LocalDate.parse(performedOn.trim()) }.getOrElse {
             throw IllegalArgumentException("Enter a valid date in YYYY-MM-DD format.")
         }
-        fun optionalInt(text: String, label: String): Int? =
-            if(text.isBlank()) null else text.toIntOrNull()
-                ?: throw IllegalArgumentException("Enter a valid $label.")
-        fun optionalWeight(text: String): Double? =
-            if(text.isBlank()) null else text.toDoubleOrNull()
-                ?: throw IllegalArgumentException("Enter a valid weight.")
+        fun optionalInt(text: String, label: String): Int? {
+            if(text.isBlank()) return null
+            return text.toIntOrNull() ?: throw IllegalArgumentException("Enter a valid $label.")
+        }
+        fun optionalWeight(text: String): Double? {
+            if(text.isBlank()) return null
+            return text.toDoubleOrNull() ?: throw IllegalArgumentException("Enter a valid weight.")
+        }
         val entries = drafts.map { item ->
             val sets = item.sets.toIntOrNull()
                 ?: throw IllegalArgumentException("Enter a valid set count.")
