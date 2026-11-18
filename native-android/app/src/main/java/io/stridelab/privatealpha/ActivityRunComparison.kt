@@ -17,8 +17,14 @@ internal data class RecordedRunPair(
 
 internal object ActivityRunComparison {
     private val types = setOf("run", "running", "trailrun", "trailrunning", "treadmill", "virtualrun")
-    private fun kind(record: ActivityRecord) =
+    private fun kind(record: ActivityRecord): String = when(
         record.type.lowercase(Locale.ROOT).replace(Regex("[ _-]"), "")
+    ) {
+        "run", "running" -> "run"
+        "trailrun", "trailrunning" -> "trailrun"
+        "treadmill", "virtualrun" -> "treadmill"
+        else -> "unsupported"
+    }
 
     private fun valid(record: ActivityRecord): Boolean =
         kind(record) in types &&
