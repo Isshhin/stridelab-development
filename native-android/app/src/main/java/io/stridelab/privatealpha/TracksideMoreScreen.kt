@@ -64,7 +64,8 @@ internal fun TracksideMoreScreen(
     onPreferences: () -> Unit,
     onAbout: () -> Unit,
     onSignOut: () -> Unit,
-    onAnalytics: (() -> Unit)? = null
+    onAnalytics: (() -> Unit)? = null,
+    onManualLogging: (() -> Unit)? = null
 ) {
     val signedIn = state.account != null
     LazyColumn(
@@ -149,6 +150,14 @@ internal fun TracksideMoreScreen(
             item(key = "more-analytics") {
                 MoreGroup {
                     MoreActionRow("Running analytics", MoreSymbol.Chart, "analytics", onAnalytics)
+                }
+            }
+        }
+        if(onManualLogging != null) {
+            item(key = "more-manual-logs") {
+                MoreGroup {
+                    MoreActionRow("Log strength and conditioning", MoreSymbol.Dumbbell,
+                        "manual-logs", onManualLogging)
                 }
             }
         }
