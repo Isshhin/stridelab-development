@@ -167,13 +167,18 @@ class Engine15IndependentPlanGeneratorTest {
             assertTrue(decision is Engine15IndependentPlanDecision.Deferred)
             val deferred = decision as Engine15IndependentPlanDecision.Deferred
             assertEquals("QUALITY_GENERATION_NOT_QUALIFIED", deferred.reasonCode)
-            assertTrue(deferred.explanation.contains("No coach-generated workout was added"))
+            assertTrue(deferred.explanation.contains("Coach-generated quality remains non-executable"))
             assertNotNull(deferred.qualitySelection)
             assertEquals(Engine15WorkoutExecutability.NON_EXECUTABLE,
                 deferred.qualitySelection!!.workoutExecutability)
-            if (qualityCount == 1) assertEquals(Engine15QualitySelectionDecision.FAMILY_CANDIDATE,
-                deferred.qualitySelection!!.decision)
-            else assertEquals(Engine15QualitySelectionDecision.UNSUPPORTED, deferred.qualitySelection!!.decision)
+            if (qualityCount == 1) {
+                assertEquals(Engine15QualitySelectionDecision.FAMILY_CANDIDATE,
+                    deferred.qualitySelection!!.decision)
+                assertNotNull(deferred.qualityDryRun)
+            } else {
+                assertEquals(Engine15QualitySelectionDecision.UNSUPPORTED, deferred.qualitySelection!!.decision)
+                assertNull(deferred.qualityDryRun)
+            }
         }
     }
 
@@ -206,6 +211,8 @@ class Engine15IndependentPlanGeneratorTest {
         assertEquals(Engine15WorkoutExecutability.NON_EXECUTABLE, selection.workoutExecutability)
         assertNull(selection.templateId)
         assertTrue(selection.explanation.contains("unqualified"))
+        assertNotNull(deferred.qualityDryRun)
+        assertFalse(deferred.qualityDryRun!!.executable)
     }
 
     @Test fun representativeGoalsProduceCompleteDeterministicEightToSixteenWeekPlans() {
