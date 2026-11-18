@@ -4,7 +4,7 @@ import java.util.Locale
 
 /** Filters only recorded activity summaries already visible to the current owner. */
 internal enum class ActivityAnalyticsKind(val label: String) {
-    ALL("All runs"), ROAD("Road"), TRAIL("Trail"), TREADMILL("Treadmill")
+    ALL("All runs"), ROAD("Standard run"), TRAIL("Trail run"), TREADMILL("Treadmill / virtual")
 }
 internal enum class ActivityAnalyticsDistance(val label: String) {
     ALL("Any distance"), SHORT("Under 5 km"), MID("5–10 km"), LONG("10 km+")
