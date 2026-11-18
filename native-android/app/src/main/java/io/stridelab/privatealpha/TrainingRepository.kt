@@ -375,6 +375,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             val service = LocalActivityArchive(appContext)
             try {
                 output.outputStream().buffered().use { service.export(owner,scope,it) }
+                require(output.length() > 0L &&
+                    output.length() <= LocalActivityArchive.MAX_ARCHIVE_BYTES) {
+                    "The complete archive exceeds the supported ZIP size; partial file removed."
+                }
                 output
             } catch(error: Exception) {
                 output.delete()
