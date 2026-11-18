@@ -357,6 +357,62 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         mutable.value = previous.copy(activities=activities, details=details,
             localGarminOwner=localGarminOwner, localGarminIds=ids)
     }
+    /**
+     * Private, owner-scoped activity archive. The repository lock prevents
+     * switching accounts or running a source sync during export/restore.
+     */
+    internal suspend fun exportLocalActivityArchive(
+        scope: LocalActivityArchiveScope
+    ): java.io.File = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val owner = when(scope) {
+                LocalActivityArchiveScope.LOCAL_GARMIN -> localGarminOwner
+                LocalActivityArchiveScope.CLOUD_ACCOUNT -> mutable.value.account
+                    ?: throw IllegalStateException("Sign in to export cloud-account activity data.")
+            }
+            val output = java.io.File.createTempFile(
+                "stridelab-activity-", ".zip", appContext.cacheDir)
+            val service = LocalActivityArchive(appContext)
+            try {
+                output.outputStream().buffered().use { service.export(owner,scope,it) }
+                require(output.length() > 0L &&
+                    output.length() <= LocalActivityArchive.MAX_ARCHIVE_BYTES) {
+                    "The complete archive exceeds the supported ZIP size; partial file removed."
+                }
+                output
+            } catch(error: Exception) {
+                output.delete()
+                throw error
+            } finally {
+                service.close()
+            }
+        }
+    }
+
+    internal suspend fun restoreLocalActivityArchive(
+        scope: LocalActivityArchiveScope, archive: java.io.File
+    ): LocalActivityArchiveCounts = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val owner = when(scope) {
+                LocalActivityArchiveScope.LOCAL_GARMIN -> localGarminOwner
+                LocalActivityArchiveScope.CLOUD_ACCOUNT -> mutable.value.account
+                    ?: throw IllegalStateException("Sign in to the matching cloud account before restore.")
+            }
+            val service = LocalActivityArchive(appContext)
+            try {
+                val result = service.restore(archive,owner,scope)
+                if(result.newlyRestored > 0) {
+                    if(scope == LocalActivityArchiveScope.LOCAL_GARMIN)
+                        loadLocalGarminCache()
+                    else loadCache(owner)
+                }
+                result
+            } finally {
+                service.close()
+            }
+        }
+    }
+
     suspend fun restorePlans(raw:String)=operation("Restoring reviewed plan backup…") {
         val account=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)
         val backup=PlanBackup.readBundle(raw,account)
@@ -1152,6 +1208,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         } else raw
         val checked = if (savedPayload != null)
             ActivityDetail.parse(storedPayload, account, id) else parsed
+        // Keep the validated original Garmin FIT bytes for future local backup.
+        // Old previously cached recordings may not have original FIT bytes.
+        // Never replace a different cached FIT source or modify a saved summary.
+        FitImportCache(appContext).saveSelected(bytes, account)
         store.applyRemotePage(
             account, "activity_detail",
             listOf(TrainingStore.RemoteRecord(id, storedPayload.toString(), null)),

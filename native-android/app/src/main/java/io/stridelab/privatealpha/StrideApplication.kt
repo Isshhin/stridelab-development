@@ -73,6 +73,11 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
     }
     internal suspend fun backupGarminCloud(): Int = repo.backupGarminCloud()
     internal suspend fun restoreGarminCloud(): Int = repo.restoreGarminCloud()
+    internal suspend fun exportLocalActivityArchive(scope: LocalActivityArchiveScope): java.io.File =
+        repo.exportLocalActivityArchive(scope)
+    internal suspend fun restoreLocalActivityArchive(
+        scope: LocalActivityArchiveScope, archive: java.io.File
+    ): LocalActivityArchiveCounts = repo.restoreLocalActivityArchive(scope,archive)
     /** UI-triggered foreground Garmin history import; completed pages remain offline. */
     internal suspend fun syncGarmin(source:GarminPersonalSource):GarminConnectionStatus =
         repo.syncGarmin(source)
