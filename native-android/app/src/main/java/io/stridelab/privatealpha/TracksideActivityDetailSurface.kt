@@ -545,7 +545,20 @@ internal fun TracksideActivityDetailSurface(
                 properties = DialogProperties(usePlatformDefaultWidth = false,
                     decorFitsSystemWindows = false, dismissOnClickOutside = false)
             ) {
-                ShareStudioScreen(activity, recorded, online, onBack = { shareOpen = false })
+                val shareContext = androidx.compose.ui.platform.LocalContext.current
+                val shareOwner = activityCorrectionOwner(activity.id, state)
+                val shareLabel = remember(shareContext, shareOwner, activity.id) {
+                    UserActivityWorkoutLabelStore(shareContext).load(shareOwner, activity.id)
+                }
+                val assessment = remember(activity, recorded, state.plans, matchedSourceIds,
+                    state.account, state.localPlanOwner) {
+                    ActivityWorkoutIntelligence.assess(
+                        activity, recorded, state.plans, matchedSourceIds,
+                        listOfNotNull(state.account, state.localPlanOwner).toSet()
+                    )
+                }
+                ShareStudioScreen(activity, recorded, online, onBack = { shareOpen = false },
+                    assessment = assessment, userLabel = shareLabel)
             }
         }
     }
