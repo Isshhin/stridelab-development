@@ -435,6 +435,31 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                                              modifier=Modifier.testTag("share-story-guide-switch"))
                                      }
                                     ShareChoices(ShareLayout.entries,config.layout,{it.label}) { configure(config.copy(layout=it)) }
+                                    if(config.template in setOf(ShareTemplate.ROUTE,ShareTemplate.MINIMAL)) {
+                                        Text("Route and statistics placement",
+                                            style=MaterialTheme.typography.labelLarge)
+                                        Slider(
+                                            value=config.routeBalance.toFloat(),
+                                            onValueChange={ configure(config.copy(routeBalance=it.toInt().coerceIn(0,100))) },
+                                            valueRange=0f..100f, steps=9,
+                                            enabled=effective?.routeMode!=ShareRouteMode.HIDDEN && !busy,
+                                            modifier=Modifier.fillMaxWidth().testTag("share-route-stats-balance"),
+                                            colors=SliderDefaults.colors(
+                                                thumbColor=Color(ShareCardPalette.LIME),
+                                                activeTrackColor=Color(ShareCardPalette.LIME))
+                                        )
+                                        Row(Modifier.fillMaxWidth(),
+                                            horizontalArrangement=Arrangement.SpaceBetween) {
+                                            Text("Stats higher",style=MaterialTheme.typography.labelSmall,
+                                                color=TracksidePalette.textMuted)
+                                            Text("Larger route",style=MaterialTheme.typography.labelSmall,
+                                                color=TracksidePalette.textMuted)
+                                        }
+                                        Text("Layout remains inside safe margins to protect stats and map attribution. " +
+                                            "The exported PNG matches the preview.",
+                                            style=MaterialTheme.typography.bodySmall,
+                                            color=TracksidePalette.textMuted)
+                                    }
                                 }
                                 ShareSection.BRANDING -> ShareChoices(ShareBranding.entries,config.branding,{it.label}) { configure(config.copy(branding=it)) }
                                 ShareSection.PRESETS -> {
