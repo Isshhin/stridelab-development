@@ -70,6 +70,21 @@ class ShareStudioTest {
         assertEquals(ShareBackground.MAP,decoded.state.background)
     }
 
+    @Test fun routeBalanceRoundTripAndLegacyDefaults() {
+        val original=ShareStudioState(routeBalance=80)
+        val raw=SharePresetCodec.encode(listOf(
+            SharePreset("route-balance","Route balance",original)))
+        assertEquals(80,SharePresetCodec.decode(raw).single().state.routeBalance)
+        val old=org.json.JSONObject(raw)
+        old.getJSONArray("presets").getJSONObject(0).remove("routeBalance")
+        assertEquals(50,SharePresetCodec.decode(old.toString()).single().state.routeBalance)
+        val corrupt=org.json.JSONObject(raw)
+        corrupt.getJSONArray("presets").getJSONObject(0).put("routeBalance",999)
+        assertThrows(IllegalArgumentException::class.java) {
+            SharePresetCodec.decode(corrupt.toString())
+        }
+    }
+
     @Test fun metricOrderingWorksAndPreservesLegacyPresetDefaults() {
         val defaults=ShareStudioState()
         val available=setOf(ShareMetric.DISTANCE,ShareMetric.DURATION,ShareMetric.PACE)
