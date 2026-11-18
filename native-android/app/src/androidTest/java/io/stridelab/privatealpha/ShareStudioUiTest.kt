@@ -124,20 +124,22 @@ class ShareStudioUiTest {
             }
         }
         compose.onNodeWithTag("share-template-WORKOUT").performClick()
-        // The status/provenance are in a LazyColumn item, which is only composed in view.
-        compose.onNodeWithTag("share-studio-scroll").performScrollToNode(hasTestTag("share-status"))
-        compose.waitUntil(5000) {
-            compose.onAllNodesWithTag("share-workout-provenance").fetchSemanticsNodes().isNotEmpty()
+        // Provenance is pinned above the export controls, never inside a virtualized item.
+        // Assert selection separately from asynchronously prepared activity evidence.
+        compose.onNodeWithTag("share-workout-provenance").assertExists()
+        compose.waitUntil(10000) {
+            compose.onAllNodesWithText("2 recorded laps", substring = true)
+                .fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithTag("share-status")
-            .assertTextContains("Recorded laps not classified as intervals", substring = true)
         compose.onNodeWithTag("share-workout-provenance")
             .assertTextContains("Unclassified", substring = true)
             .assertTextContains("2 recorded laps", substring = true)
+        compose.onNodeWithTag("share-studio-scroll").performScrollToNode(hasTestTag("share-status"))
+        compose.onNodeWithTag("share-status")
+            .assertTextContains("Recorded laps not classified as intervals", substring = true)
+        // An actual PNG render, not just the selected gallery item, must exist.
         compose.onNodeWithTag("share-studio-scroll").performScrollToIndex(0)
-        compose.waitUntil(5000) {
-            compose.onAllNodesWithTag("share-card-preview").fetchSemanticsNodes().isNotEmpty()
-        }
+        compose.onNodeWithTag("share-card-preview").assertExists()
         compose.onNodeWithTag("share-export-png").assertExists().assertIsEnabled()
     }
 
