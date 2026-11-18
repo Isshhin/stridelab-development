@@ -34,6 +34,10 @@ internal fun LocalActivityArchiveScreen(
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var pendingFile by remember { mutableStateOf<File?>(null) }
+    LaunchedEffect(cloudAvailable) {
+        if(!cloudAvailable && source == LocalActivityArchiveScope.CLOUD_ACCOUNT)
+            source = LocalActivityArchiveScope.LOCAL_GARMIN
+    }
 
     // A staged export is held in app-private cache, never saved in a preset.
     DisposableEffect(Unit) {
@@ -73,11 +77,14 @@ internal fun LocalActivityArchiveScreen(
         if(uri != null) {
             busy = true
             scope.launch {
-                val temp = File.createTempFile("stridelab-import-", ".zip", context.cacheDir)
+                var temp: File? = null
                 try {
+                    val staged = File.createTempFile(
+                        "stridelab-import-", ".zip", context.cacheDir)
+                    temp = staged
                     withContext(Dispatchers.IO) {
                         checkNotNull(context.contentResolver.openInputStream(uri)).use { input ->
-                            temp.outputStream().buffered().use { output ->
+                            staged.outputStream().buffered().use { output ->
                                 val buffer = ByteArray(65536)
                                 var total = 0L
                                 while(true) {
@@ -92,7 +99,7 @@ internal fun LocalActivityArchiveScreen(
                             }
                         }
                     }
-                    val result = onRestore(source, temp)
+                    val result = onRestore(source, staged)
                     message = if(result.newlyRestored == 0)
                         "Archive verified. All activities were already present and kept unchanged."
                     else "Recovered ${result.newlyRestored} source records. " +
@@ -102,7 +109,7 @@ internal fun LocalActivityArchiveScreen(
                     message = "Archive was rejected, incomplete, or conflicts with saved recordings. " +
                         "No existing activity was overwritten."
                 } finally {
-                    temp.delete()
+                    temp?.delete()
                     busy = false
                 }
             }
