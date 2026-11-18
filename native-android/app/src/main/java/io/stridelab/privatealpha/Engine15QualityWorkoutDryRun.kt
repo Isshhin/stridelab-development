@@ -112,6 +112,10 @@ internal object Engine15QualityWorkoutDryRunBuilder {
     const val POLICY_ID = "stridelab.engine15.tempo-structural-dry-run-v1"
     private const val EPS = 1e-6
 
+    // The current exposure contract cannot verify completed Tempo work.
+    // Keep the private dose at the lower pilot value across supported experience bands.
+    fun workSeconds(experience: Int) = if (experience in 1..2) 600 else 720
+
     fun build(
         request: PlanRequest,
         selection: Engine15QualityFamilySelectionResult,
@@ -145,10 +149,10 @@ internal object Engine15QualityWorkoutDryRunBuilder {
         val template = IndependentQualityTemplates.get(
             IndependentQualityFamily.TEMPO, IndependentQualityStage.INTRO
         )
-        val workout = if (request.experience == 1) IndependentWorkoutComposition(
+        val workout = if (workSeconds(request.experience) != template.workSeconds().toInt()) IndependentWorkoutComposition(
             template.workout.elements.map { element ->
                 if (element is IndependentWorkoutElement.Step && element.value.purpose == WorkoutPurpose.WORK)
-                    IndependentWorkoutElement.Step(element.value.copy(amount = 600.0))
+                    IndependentWorkoutElement.Step(element.value.copy(amount = workSeconds(request.experience).toDouble()))
                 else element
             }
         ) else template.workout

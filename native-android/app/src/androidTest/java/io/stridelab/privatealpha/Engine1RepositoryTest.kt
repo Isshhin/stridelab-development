@@ -275,9 +275,10 @@ class Engine1RepositoryTest {
             as Engine15IndependentPlanDecision.Deferred
         val claims=preview.qualitySelection!!.candidateSlots.map { slot ->
             val total=kotlin.math.round(slot.originalEasyDistanceKm*1000).toInt()
-            val easy=total/3
+            val warm=total*31/100
+            val cool=total*24/100
             Engine15M5SegmentDistanceClaim(slot.weekNumber,slot.slotNumber,
-                listOf(easy.toDouble(),(total-2*easy).toDouble(),easy.toDouble()),null,
+                listOf(warm.toDouble(),(total-warm-cool).toDouble(),cool.toDouble()),null,
                 Engine15M5DistanceClaimProvenance.USER_ASSERTED_EQUIVALENT)
         }
         assertTrue(repo.state.value.message,repo.generatePlan(request.copy(qualityDistanceClaims=claims)))
