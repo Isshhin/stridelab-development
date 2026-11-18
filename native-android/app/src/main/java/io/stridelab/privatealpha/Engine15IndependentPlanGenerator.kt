@@ -22,7 +22,8 @@ internal sealed interface Engine15IndependentPlanDecision {
     data class Deferred(
         val reasonCode: String,
         val explanation: String,
-        val qualitySelection: Engine15QualityFamilySelectionResult? = null
+        val qualitySelection: Engine15QualityFamilySelectionResult? = null,
+        val qualityDryRun: Engine15QualityWorkoutDryRun? = null
     ) : Engine15IndependentPlanDecision
 
     data class Candidate(
@@ -363,13 +364,29 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 scheduledSessions = sessions,
                 recoveryWeeks = volume.weeks.filter {
                     it.kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY
-                }.map { it.index }.toSet(),
+                }.map { it.index + 1 }.toSet(),
                 externalSessions = external.sessions
             )
+            val qualityDryRun = Engine15QualityWorkoutDryRunBuilder.build(
+                request, selection, volume, sessions
+            )
+            val dryRunNote = when {
+                selection.decision != Engine15QualitySelectionDecision.FAMILY_CANDIDATE ->
+                    "No family dry-run was constructed because selection deferred or is unsupported."
+                selection.selectionBasis != Engine15QualitySelectionBasis.GOAL_EXPERIENCE_MATRIX ->
+                    "No coach-generated dry-run was constructed because this family came from explicit user direction."
+                selection.selectedFamily != IndependentQualityFamily.TEMPO ->
+                    "The provisional family has no dry-run constructor in this batch; no Tempo substitution was made."
+                qualityDryRun == null ->
+                    "The Tempo structure could not be linked to a valid development calendar slot and complete base weekly-distance ledger."
+                else ->
+                    "A development-only Tempo Intro structure was dry-run for week ${qualityDryRun.weekNumber}: ${qualityDryRun.totalSeconds} seconds total, ${qualityDryRun.workSeconds} seconds work. Its time-based steps have no defensible distance conversion, so quality distance and post-replacement weekly mileage remain unknown; the base plan distance is unchanged and no session was scheduled or saved."
+            }
             return Engine15IndependentPlanDecision.Deferred(
                 "QUALITY_GENERATION_NOT_QUALIFIED",
-                "${selection.explanation} No coach-generated workout was added; family selection remains review-only until evidence and dose policies are qualified.",
-                selection
+                "${selection.explanation} This family choice remains a provisional engineering rule, not a qualified prescription. $dryRunNote Coach-generated quality remains non-executable until family, dose, intensity and distance policies are qualified.",
+                selection,
+                qualityDryRun
             )
         }
 

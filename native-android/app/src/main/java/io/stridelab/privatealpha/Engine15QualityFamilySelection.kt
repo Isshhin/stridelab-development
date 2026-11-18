@@ -9,12 +9,25 @@ internal enum class Engine15QualitySelectionBasis { EXPLICIT_USER_PREFERENCE, GO
 internal enum class Engine15TemplateAuthorization { NOT_AUTHORIZED, AUTHORIZED }
 internal enum class Engine15WorkoutExecutability { NON_EXECUTABLE, EXECUTABLE }
 
+internal data class Engine15QualityFamilyCandidateSlot(
+    val weekNumber: Int,
+    val sessionId: String,
+    val date: LocalDate,
+    val originalEasyDistanceKm: Double
+) {
+    init {
+        require(weekNumber > 0 && sessionId.isNotBlank())
+        require(originalEasyDistanceKm.isFinite() && originalEasyDistanceKm > 0.0)
+    }
+}
+
 internal data class Engine15QualityFamilySelectionResult(
     val policyId: String,
     val decision: Engine15QualitySelectionDecision,
     val familyPolicyQualification: Engine15FamilyPolicyQualification,
     val selectionBasis: Engine15QualitySelectionBasis? = null,
     val selectedFamily: IndependentQualityFamily? = null,
+    val candidateSlots: List<Engine15QualityFamilyCandidateSlot> = emptyList(),
     val athleteBaselineStatus: AthleteBaselineStatus? = null,
     val athleteBaselineConfidence: AthleteBaselineConfidence? = null,
     val evidenceProvenance: String? = null,
@@ -33,6 +46,7 @@ internal data class Engine15QualityFamilySelectionResult(
     init {
         require(policyId == Engine15QualityFamilySelection.POLICY_ID)
         require(evidenceSessionIds.distinct() == evidenceSessionIds)
+        require(candidateSlots.map { it.weekNumber }.distinct() == candidateSlots.map { it.weekNumber })
         require(ruleIds.distinct() == ruleIds && qualificationNotes.isNotEmpty())
         require(!sourceEvidenceVerified)
         require(templateAuthorization == Engine15TemplateAuthorization.NOT_AUTHORIZED)
@@ -41,10 +55,10 @@ internal data class Engine15QualityFamilySelectionResult(
         require(assertedRepeatedWorkSeconds == null || assertedRepeatedWorkSeconds in 1..14400)
         require((decision == Engine15QualitySelectionDecision.FAMILY_CANDIDATE) ==
             (selectedFamily != null && selectionBasis != null && reasonCode == null &&
-                familyPolicyQualification != Engine15FamilyPolicyQualification.NOT_ASSESSED))
+                familyPolicyQualification != Engine15FamilyPolicyQualification.NOT_ASSESSED && candidateSlots.isNotEmpty()))
         require((decision == Engine15QualitySelectionDecision.FAMILY_CANDIDATE) ||
             (selectedFamily == null && selectionBasis == null && reasonCode != null &&
-                familyPolicyQualification == Engine15FamilyPolicyQualification.NOT_ASSESSED))
+                familyPolicyQualification == Engine15FamilyPolicyQualification.NOT_ASSESSED && candidateSlots.isEmpty()))
     }
 }
 
@@ -59,6 +73,7 @@ internal object Engine15QualityFamilySelection {
         reason: String?,
         explanation: String,
         family: IndependentQualityFamily? = null,
+        candidateSlots: List<Engine15QualityFamilyCandidateSlot> = emptyList(),
         athlete: Engine15AthleteCapacity? = null,
         evidenceIds: List<String> = emptyList(),
         rules: List<String> = emptyList(),
@@ -72,6 +87,7 @@ internal object Engine15QualityFamilySelection {
         familyPolicyQualification = qualification,
         selectionBasis = basis,
         selectedFamily = family,
+        candidateSlots = candidateSlots,
         athleteBaselineStatus = athlete?.status,
         athleteBaselineConfidence = athlete?.confidence,
         evidenceProvenance = provenance,
@@ -136,12 +152,14 @@ internal object Engine15QualityFamilySelection {
             return result(Engine15QualitySelectionDecision.DEFERRED, reason = "NO_LOADING_WEEK_FOR_QUALITY",
                 explanation = "All requested weeks are recovery weeks; no quality-family slot was selected.",
                 athlete = athlete, rules = listOf("RECOVERY_WEEKS_EXCLUDED"))
+        val candidateSlots = mutableListOf<Engine15QualityFamilyCandidateSlot>()
         for (week in loadingWeeks) {
             val weekSessions = scheduledSessions.filter {
                 ChronoUnit.DAYS.between(request.start, it.date) / 7L == week - 1L
             }
             val candidates = weekSessions.filter { session ->
                 session.discipline == "run" && session.kind == "easy" &&
+                    session.distanceKm?.let { it.isFinite() && it > 0.0 } == true &&
                     (request.qualityDays.isEmpty() || session.date.dayOfWeek.value in request.qualityDays) &&
                     session.id !in request.lockedSessionDays &&
                     externalSessions.none { external ->
@@ -158,6 +176,11 @@ internal object Engine15QualityFamilySelection {
                 return result(Engine15QualitySelectionDecision.DEFERRED, reason = "QUALITY_SLOT_UNAVAILABLE",
                     explanation = "No unlocked, available easy-run slot in loading week $week satisfies the selected quality day and existing session-spacing checks.",
                     athlete = athlete, rules = listOf("CALENDAR_AND_LOCKS_CHECKED", "KNOWN_HARD_SESSION_SPACING_CHECKED"))
+            candidates.minWith(compareBy<PlannedSession> { it.date }.thenBy { it.id }).let { session ->
+                candidateSlots += Engine15QualityFamilyCandidateSlot(
+                    week, session.id, session.date, requireNotNull(session.distanceKm)
+                )
+            }
         }
 
         val supported = IndependentQualityFamily.entries.associateBy {
@@ -222,6 +245,7 @@ internal object Engine15QualityFamilySelection {
                 "$familyName is shown because the runner explicitly chose it. This records user direction only; it is not a coach recommendation or workout prescription."
             else "$familyName is a provisional family candidate from the Engine 1.5 goal/experience matrix for '${request.goal}' (experience ${request.experience}). The positive running baseline is ${athlete.typicalWeeklyKm} km/week ($baseline; ${athlete.confidence}); it supplies evidence context, not a mileage cutoff. This engineering rule is unqualified and does not prescribe a workout.",
             family = family,
+            candidateSlots = candidateSlots,
             athlete = athlete,
             evidenceIds = selectedExposure.evidenceSessionIds,
             provenance = selectedExposure.provenance.takeIf {
