@@ -1,0 +1,73 @@
+package io.stridelab.privatealpha
+
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.runBlocking
+import org.junit.After
+import org.junit.Assert.*
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import java.time.LocalDate
+import java.util.UUID
+
+/** Uses a disposable test database; never touches StrideLab's real activity store. */
+@RunWith(AndroidJUnit4::class)
+class ManualDisciplineStoreAndroidTest {
+    private val context = InstrumentationRegistry.getInstrumentation().targetContext
+    private val dbName = "manual-test-${UUID.randomUUID()}.db"
+    private lateinit var store: ManualDisciplineStore
+    private val owner = "test-manual-owner"
+    private val first = ManualDisciplineSession(
+        "first", owner, ManualDiscipline.CALISTHENICS, "Calisthenics",
+        LocalDate.parse("2026-11-18"),
+        listOf(ManualExerciseEntry("Pull-up", 3, reps=5))
+    )
+
+    @Before fun setup() { store = ManualDisciplineStore(context, dbName) }
+    @After fun cleanup() { store.close(); context.deleteDatabase(dbName) }
+
+    @Test fun saveListRestoreAndOwnerIsolation() = runBlocking {
+        store.save(first)
+        assertEquals(listOf(first), store.list(owner))
+        assertTrue(store.list("other-owner").isEmpty())
+
+        val second = first.copy(id = "second", discipline = ManualDiscipline.STRENGTH)
+        val backup = ManualDisciplineBackup.export(owner, listOf(first,second))
+        assertEquals(1, store.restore(owner, backup))
+        assertEquals(0, store.restore(owner, backup))
+        assertEquals(2, store.list(owner).size)
+        assertTrue(store.list("other-owner").isEmpty())
+    }
+
+    @Test fun conflictingDuplicateAbortsRestoreTransaction() = runBlocking {
+        store.save(first)
+        val new = first.copy(id = "new")
+        val changed = first.copy(title = "Conflicting overwrite")
+        val bad = ManualDisciplineBackup.export(owner, listOf(new, changed))
+        try {
+            store.restore(owner, bad)
+            fail("Conflicting record must reject the entire restore")
+        } catch(_: IllegalArgumentException) { }
+        assertEquals(listOf(first), store.list(owner))
+    }
+
+    @Test fun malformedChecksumLeavesOriginalRowsUnchanged() = runBlocking {
+        store.save(first)
+        val damaged = org.json.JSONObject(ManualDisciplineBackup.export(owner, listOf(first)))
+            .put("sha256", "wrong").toString()
+        try {
+            store.restore(owner, damaged)
+            fail("Bad checksum must be rejected")
+        } catch(_: IllegalArgumentException) { }
+        assertEquals(listOf(first), store.list(owner))
+    }
+
+    @Test fun deletionIsLimitedToTheSpecifiedOwner() = runBlocking {
+        store.save(first)
+        assertFalse(store.delete("other-owner", first.id))
+        assertEquals(listOf(first), store.list(owner))
+        assertTrue(store.delete(owner, first.id))
+        assertTrue(store.list(owner).isEmpty())
+    }
+}
