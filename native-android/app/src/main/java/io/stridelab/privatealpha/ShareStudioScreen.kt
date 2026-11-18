@@ -13,6 +13,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -30,7 +31,6 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
@@ -427,12 +427,14 @@ private fun ShareTemplateGallery(selected:ShareTemplate,onSelect:(ShareTemplate)
                 ShareTemplate.MINIMAL -> "Clean typography"
                 ShareTemplate.WORKOUT -> "Recorded lap recap"
             }
-            Surface(onClick={onSelect(template)},shape=RoundedCornerShape(18.dp),
+            // A single selectable modifier owns both click handling and selected semantics.
+            // Avoid layering the clickable Surface semantics with a separate selected node.
+            Surface(shape=RoundedCornerShape(18.dp),
                 color=if(chosen) TracksidePalette.surfaceRaised else TracksidePalette.surfaceLow,
                 border=BorderStroke(1.dp,if(chosen) TracksidePalette.lime else TracksidePalette.outline),
                 modifier=Modifier.width(148.dp).heightIn(min=106.dp)
                     .testTag("share-template-${template.name}")
-                    .semantics { this.selected = chosen }) {
+                    .selectable(selected=chosen,onClick={onSelect(template)})) {
                 Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                     Text(number,style=MaterialTheme.typography.labelSmall,color=TracksidePalette.lime)
                     Text(template.label,style=MaterialTheme.typography.titleSmall,
