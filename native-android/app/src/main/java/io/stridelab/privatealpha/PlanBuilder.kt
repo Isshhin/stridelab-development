@@ -111,6 +111,7 @@ import org.json.JSONObject
             }
         }
     }
+    var tempoEquivalents by rememberSaveable { mutableStateOf("") }
     fun request():PlanRequest=try {
         val peak=peakWeekKm.trim().takeIf { it.isNotEmpty() }?.toDouble()
         if(peak!=null && (!peak.isFinite() || peak !in 0.0..120.0))
@@ -122,7 +123,18 @@ import org.json.JSONObject
             dailyMinutes=if(input.policyChoice=="multi-session")dailyMinutes.toInt() else input.dailyMinutes,
             weeklyKm=km.toDouble(),targetWeeklyKm=if(targetSupplied) targetKm.toDouble() else null,
             longestKm=longest.toDouble(),planningPace=pace.toDouble()*60,
-            reportedPeakWeeklyKm=peak,timeBudgetEnabled=false
+            reportedPeakWeeklyKm=peak,timeBudgetEnabled=false,
+            qualityDistanceClaims = if (BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE &&
+                input.qualityCount == 1 && input.weeks == 8 && !input.userDirectedPlanning &&
+                input.userDefinedQualityWorkouts.isEmpty()) tempoEquivalents.lineSequence()
+                .filter { it.isNotBlank() }.map { row ->
+                    val numbers = row.trim().split(Regex("\\s+")).map { it.toIntOrNull() }
+                    if (numbers.size != 5 || numbers.any { it == null || it <= 0 })
+                        throw PlanConstraint("Enter five positive whole numbers per Tempo row: week, slot, warm-up metres, work metres, cooldown metres.")
+                    val values = numbers.filterNotNull()
+                    Engine15M5SegmentDistanceClaim(values[0], values[1], values.drop(2).map(Int::toDouble), null,
+                        Engine15M5DistanceClaimProvenance.USER_ASSERTED_EQUIVALENT)
+                }.toList() else emptyList()
         )
     } catch(e:PlanConstraint) { throw e }
       catch(e:Exception) {
@@ -805,6 +817,18 @@ import org.json.JSONObject
                         otherSelectedSlot=otherSelectedSlot.coerceIn(0,count-1)
                     },
                     researchContent={
+                        if (BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE &&
+                            weeks == "8" && input.qualityCount == 1 && !input.userDirectedPlanning &&
+                            input.userDefinedQualityWorkouts.isEmpty() &&
+                            input.strengthDays + input.calDays + input.conditioningDays == 0) {
+                            OutlinedTextField(
+                                value = tempoEquivalents,
+                                onValueChange = { tempoEquivalents = it.take(1024) },
+                                label = { Text("Private Tempo · asserted distances") },
+                                supportingText = { Text("One row per loading week: week, slot, warm-up metres, work metres, cooldown metres, separated by spaces. Request a draft with this field empty to see the available slots.") },
+                                modifier = Modifier.fillMaxWidth().testTag("private-tempo-distances")
+                            )
+                        }
                         IndependentAndroidResearchPreviewPanel(
                             request=runCatching { request() }.getOrDefault(input),
                             onSaveResearchReview=actions.saveResearchReview,

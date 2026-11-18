@@ -120,6 +120,10 @@ internal fun TracksideWeekReview(
         }
     ) {
 
+    if (plan?.sessions?.any { it.title == "Experimental Tempo" } == true) {
+        Text("Private debug Tempo pilot. The work duration and effort cue are provisional. Review the runner-supplied distances for every timed step before approving.",
+            color = PlanBuilderPalette.text, modifier = Modifier.testTag("private-tempo-review"))
+    }
     if(plan!=null && targetReview!=null) {
         Surface(
             modifier=Modifier.fillMaxWidth().testTag("builder-mileage-target-review"),

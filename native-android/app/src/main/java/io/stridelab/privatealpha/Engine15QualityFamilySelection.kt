@@ -11,12 +11,13 @@ internal enum class Engine15WorkoutExecutability { NON_EXECUTABLE, EXECUTABLE }
 
 internal data class Engine15QualityFamilyCandidateSlot(
     val weekNumber: Int,
+    val slotNumber: Int,
     val sessionId: String,
     val date: LocalDate,
     val originalEasyDistanceKm: Double
 ) {
     init {
-        require(weekNumber > 0 && sessionId.isNotBlank())
+        require(weekNumber > 0 && slotNumber > 0 && sessionId.isNotBlank())
         require(originalEasyDistanceKm.isFinite() && originalEasyDistanceKm > 0.0)
     }
 }
@@ -177,8 +178,11 @@ internal object Engine15QualityFamilySelection {
                     explanation = "No unlocked, available easy-run slot in loading week $week satisfies the selected quality day and existing session-spacing checks.",
                     athlete = athlete, rules = listOf("CALENDAR_AND_LOCKS_CHECKED", "KNOWN_HARD_SESSION_SPACING_CHECKED"))
             candidates.minWith(compareBy<PlannedSession> { it.date }.thenBy { it.id }).let { session ->
+                val slotNumber = weekSessions.filter { it.discipline == "run" }
+                    .sortedWith(compareBy<PlannedSession> { it.date }.thenBy { it.id })
+                    .indexOfFirst { it.id == session.id } + 1
                 candidateSlots += Engine15QualityFamilyCandidateSlot(
-                    week, session.id, session.date, requireNotNull(session.distanceKm)
+                    week, slotNumber, session.id, session.date, requireNotNull(session.distanceKm)
                 )
             }
         }
