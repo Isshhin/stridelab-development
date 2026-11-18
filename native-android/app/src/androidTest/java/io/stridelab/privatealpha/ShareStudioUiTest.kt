@@ -116,6 +116,8 @@ class ShareStudioUiTest {
         compose.onNodeWithTag("activity-share").performClick()
         compose.onNodeWithTag("share-template-WORKOUT").performClick()
         compose.onNodeWithText("Recorded laps not classified as intervals",substring=true).assertExists()
+        compose.onNodeWithTag("share-workout-provenance").assertTextContains("Unclassified")
+        compose.onNodeWithTag("share-workout-provenance").assertTextContains("2 recorded laps")
         compose.waitUntil(5000) {
             compose.onAllNodesWithTag("share-card-preview").fetchSemanticsNodes().isNotEmpty()
         }
