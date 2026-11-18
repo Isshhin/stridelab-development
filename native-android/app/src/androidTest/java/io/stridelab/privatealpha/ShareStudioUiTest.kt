@@ -90,13 +90,15 @@ class ShareStudioUiTest {
         compose.onNodeWithTag("share-studio-scroll").performScrollToNode(hasTestTag("share-section-ROUTE"))
         compose.onNodeWithTag("share-section-ROUTE").performClick()
         compose.onNodeWithTag("share-studio-scroll").performScrollToNode(hasTestTag("share-trim-switch"))
-        compose.onNodeWithText("400 m").performClick()
-        compose.onNodeWithText("400 m").assertIsSelected()
+        compose.onNodeWithTag("share-trim-400").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("share-trim-400").assertIsSelected()
         compose.onNodeWithTag("share-trim-switch").performClick().assertIsOff()
         compose.onNodeWithTag("share-trim-off-warning").assertExists()
-        compose.onNodeWithText("400 m").assertDoesNotExist()
+        compose.onNodeWithTag("share-trim-400").assertDoesNotExist()
         compose.onNodeWithTag("share-trim-switch").performClick().assertIsOn()
-        compose.onNodeWithText("400 m").assertExists().assertIsSelected()
+        compose.waitForIdle()
+        compose.onNodeWithTag("share-trim-400").assertExists().assertIsSelected()
         compose.onNodeWithTag("share-trim-off-warning").assertDoesNotExist()
     }
 
@@ -105,7 +107,18 @@ class ShareStudioUiTest {
         compose.onNodeWithTag("activity-share").performClick()
         compose.waitUntil(5000) { compose.onAllNodesWithTag("share-card-preview").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("share-export-png").assertExists().assertIsEnabled()
-        compose.onNodeWithTag("share-export-resolution").assertTextContains("1080 × 1920")
+        compose.onNodeWithTag("share-export-resolution").assertTextContains("1080 x 1920")
+    }
+
+    @Test fun workoutRecapAvailableForImportedLapsWithoutClaimingDetectedIntervals() {
+        mountDetail()
+        compose.onNodeWithTag("activity-share").performClick()
+        compose.onNodeWithText("Workout Recap").performClick()
+        compose.onNodeWithText("Workout recap · Recorded laps not classified as intervals · 9:16 PNG").assertExists()
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithTag("share-card-preview").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("share-export-png").assertExists().assertIsEnabled()
     }
 
     @Test fun presetsPersistUpdateAndDeleteOnDisk() {
