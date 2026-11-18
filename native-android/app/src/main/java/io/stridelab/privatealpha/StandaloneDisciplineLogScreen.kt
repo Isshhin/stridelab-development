@@ -37,9 +37,11 @@ internal fun StandaloneDisciplineLogScreen(owner: String, onBack: () -> Unit) {
     val store = remember(context) { ManualDisciplineStore(context) }
     val scope = rememberCoroutineScope()
     var sessions by remember(owner) { mutableStateOf<List<ManualDisciplineSession>>(emptyList()) }
+    var templates by remember(owner) { mutableStateOf<List<ManualWorkoutTemplate>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var deleting by remember { mutableStateOf<ManualDisciplineSession?>(null) }
+    var deletingTemplate by remember { mutableStateOf<ManualWorkoutTemplate?>(null) }
 
     var discipline by rememberSaveable { mutableStateOf(ManualDiscipline.STRENGTH) }
     var name by rememberSaveable { mutableStateOf("") }
@@ -48,7 +50,10 @@ internal fun StandaloneDisciplineLogScreen(owner: String, onBack: () -> Unit) {
     var drafts by remember { mutableStateOf(listOf(ManualEntryDraft())) }
 
     LaunchedEffect(owner) {
-        try { sessions = store.list(owner) }
+        try {
+            sessions = store.list(owner)
+            templates = store.listTemplates(owner)
+        }
         catch(error: Exception) {
             if(error is CancellationException) throw error
             message = "Some saved logs could not be opened. Existing records were retained."
@@ -128,8 +133,9 @@ internal fun StandaloneDisciplineLogScreen(owner: String, onBack: () -> Unit) {
                     }
                     val restored = store.restore(owner, backup)
                     sessions = store.list(owner)
-                    message = if(restored == 0) "Backup already imported; existing logs kept."
-                        else "Restored $restored manual activity logs."
+                    templates = store.listTemplates(owner)
+                    message = if(restored == 0) "Backup already imported; existing records kept."
+                        else "Restored $restored manual logs and templates."
                 } catch(error: Exception) {
                     if(error is CancellationException) throw error
                     message = "Backup rejected or unavailable. No saved records were changed."
@@ -152,6 +158,42 @@ internal fun StandaloneDisciplineLogScreen(owner: String, onBack: () -> Unit) {
                     "No sign-in or internet is required.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        item(key = "manual-templates") {
+            SignalCard {
+                Text("REUSABLE WORKOUT TEMPLATES", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary)
+                Text("Templates reuse exercise details without automatically recording a workout.",
+                    style = MaterialTheme.typography.bodySmall)
+                if(templates.isEmpty()) Text("No saved templates yet.")
+                templates.forEach { form ->
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Text("${form.name} · ${form.discipline.label}",
+                        style = MaterialTheme.typography.titleMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = {
+                            discipline = form.discipline
+                            name = form.name
+                            performedOn = LocalDate.now().toString()
+                            notes = ""
+                            drafts = form.exercises.map { exercise -> ManualEntryDraft(
+                                name = exercise.name,
+                                sets = exercise.sets.toString(),
+                                reps = exercise.reps?.toString().orEmpty(),
+                                seconds = exercise.seconds?.toString().orEmpty(),
+                                weightKg = exercise.weightKg?.toString().orEmpty()
+                            ) }
+                            message = "Template loaded. Review the details before saving a completed session."
+                        }, modifier = Modifier.testTag("manual-use-template-" + form.id)) {
+                            Text("Use template")
+                        }
+                        TextButton(onClick = { deletingTemplate = form },
+                            modifier = Modifier.testTag("manual-delete-template-" + form.id)) {
+                            Text("Delete")
+                        }
+                    }
+                }
             }
         }
         item(key = "manual-editor") {
@@ -258,14 +300,40 @@ internal fun StandaloneDisciplineLogScreen(owner: String, onBack: () -> Unit) {
                     modifier = Modifier.fillMaxWidth().testTag("manual-save")) {
                     Text("Save completed session")
                 }
+                OutlinedButton(onClick = {
+                    try {
+                        val record = asRecord()
+                        if(templates.size >= 100) throw IllegalArgumentException(
+                            "You can save up to 100 reusable templates.")
+                        val form = ManualWorkoutTemplate(
+                            UUID.randomUUID().toString(), owner, record.title,
+                            record.discipline, record.exercises)
+                        busy = true
+                        scope.launch {
+                            try {
+                                store.saveTemplate(form)
+                                templates = store.listTemplates(owner)
+                                message = "Reusable workout template saved."
+                            } catch(error: Exception) {
+                                if(error is CancellationException) throw error
+                                message = "Could not save the template. Existing templates remain."
+                            } finally { busy = false }
+                        }
+                    } catch(error: IllegalArgumentException) {
+                        message = error.message ?: "Correct the values before saving a template."
+                    }
+                }, enabled = !busy, modifier = Modifier.fillMaxWidth()
+                    .testTag("manual-save-template")) {
+                    Text("Save as reusable template")
+                }
             }
         }
         item(key = "manual-backup") {
             SignalCard {
                 Text("BACKUP YOUR MANUAL LOGS", style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary)
-                Text("Export a checksummed JSON file or restore matching owner data. " +
-                    "Import is insert-only and never overwrites existing sessions.",
+                Text("Export a checksummed JSON file with sessions and templates, or restore matching owner data. " +
+                    "Import is insert-only and never overwrites existing records.",
                     style = MaterialTheme.typography.bodySmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
@@ -316,6 +384,29 @@ internal fun StandaloneDisciplineLogScreen(owner: String, onBack: () -> Unit) {
         }
     }
 
+    deletingTemplate?.let { form ->
+        AlertDialog(
+            onDismissRequest = { if(!busy) deletingTemplate = null },
+            title = { Text("Delete workout template?") },
+            text = { Text(form.name + " · Completed manual sessions will remain saved.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    busy = true
+                    scope.launch {
+                        try {
+                            store.deleteTemplate(owner, form.id)
+                            templates = store.listTemplates(owner)
+                            message = "Workout template deleted."
+                        } catch(error: Exception) {
+                            if(error is CancellationException) throw error
+                            message = "Could not delete the template."
+                        } finally { deletingTemplate = null; busy = false }
+                    }
+                }) { Text("Delete template") }
+            },
+            dismissButton = { TextButton(onClick = { deletingTemplate = null }) { Text("Cancel") } }
+        )
+    }
     deleting?.let { record ->
         AlertDialog(
             onDismissRequest = { if(!busy) deleting = null },
