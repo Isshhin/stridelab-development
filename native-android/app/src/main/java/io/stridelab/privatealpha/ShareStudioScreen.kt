@@ -230,6 +230,14 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                     Text(status,style=MaterialTheme.typography.labelMedium,color=Color(ShareCardPalette.MUTED),modifier=Modifier.semantics { liveRegion=LiveRegionMode.Polite })
                     Text("PNG export: 1080 x ${config.ratio.height} pixels",style=MaterialTheme.typography.labelSmall,
                         color=TracksidePalette.textMuted,modifier=Modifier.testTag("share-export-resolution"))
+                    if(effective?.template==ShareTemplate.WORKOUT) {
+                        val workout=source?.workout
+                        val label=workout?.label ?: "Unclassified"
+                        val provenance=workout?.provenance?.label ?: "No workout evidence"
+                        Text("$label / $provenance / ${workout?.totalLaps ?: 0} recorded laps",
+                            style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted,
+                            modifier=Modifier.testTag("share-workout-provenance"))
+                    }
                 }
                 item {
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
