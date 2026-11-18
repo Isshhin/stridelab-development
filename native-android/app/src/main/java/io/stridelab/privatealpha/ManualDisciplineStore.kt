@@ -144,13 +144,18 @@ internal object ManualDisciplineBackup {
 internal class ManualDisciplineStore(
     context: Context,
     databaseName: String = "stridelab-standalone-sessions-v1.db"
-) : SQLiteOpenHelper(context.applicationContext, databaseName, null, 1) {
+) : SQLiteOpenHelper(context.applicationContext, databaseName, null, 2) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE sessions(owner TEXT NOT NULL, record_id TEXT NOT NULL, performed_on TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(owner,record_id))")
         db.execSQL("CREATE INDEX session_owner_date ON sessions(owner,performed_on DESC)")
+        createTemplates(db)
+    }
+    private fun createTemplates(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE manual_templates(owner TEXT NOT NULL, record_id TEXT NOT NULL, name TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(owner,record_id))")
     }
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        throw IllegalStateException("A non-destructive migration is required; existing logs retained.")
+        if(oldVersion == 1 && newVersion == 2) createTemplates(db)
+        else throw IllegalStateException("A non-destructive migration is required; existing logs retained.")
     }
 
     suspend fun save(record: ManualDisciplineSession) = withContext(Dispatchers.IO) {
@@ -175,8 +180,37 @@ internal class ManualDisciplineStore(
         result
     }
 
+    suspend fun saveTemplate(template: ManualWorkoutTemplate) = withContext(Dispatchers.IO) {
+        val payload = ManualWorkoutTemplateCodec.encode(template)
+        writableDatabase.insertOrThrow("manual_templates", null, ContentValues().apply {
+            put("owner", template.owner)
+            put("record_id", template.id)
+            put("name", template.name)
+            put("payload", payload)
+        })
+        Unit
+    }
+
+    suspend fun listTemplates(owner: String): List<ManualWorkoutTemplate> = withContext(Dispatchers.IO) {
+        RecordPolicy.identifier(owner)
+        val records = mutableListOf<ManualWorkoutTemplate>()
+        readableDatabase.query("manual_templates", arrayOf("payload"), "owner=?",
+            arrayOf(owner), null, null, "name COLLATE NOCASE", "100").use { cursor ->
+            while(cursor.moveToNext()) records += ManualWorkoutTemplateCodec.decode(
+                cursor.getString(0),owner)
+        }
+        records
+    }
+
+    suspend fun deleteTemplate(owner: String, id: String): Boolean = withContext(Dispatchers.IO) {
+        RecordPolicy.identifier(owner)
+        RecordPolicy.identifier(id)
+        writableDatabase.delete("manual_templates", "owner=? AND record_id=?",
+            arrayOf(owner,id)) > 0
+    }
+
     suspend fun export(owner: String): String =
-        ManualDisciplineBackup.export(owner, list(owner))
+        ManualDisciplineArchive.export(owner, list(owner), listTemplates(owner))
 
     suspend fun delete(owner: String, id: String): Boolean = withContext(Dispatchers.IO) {
         RecordPolicy.identifier(owner)
@@ -186,7 +220,8 @@ internal class ManualDisciplineStore(
 
     /** Transactional, insert-only recovery: duplicates with altered data abort everything. */
     suspend fun restore(owner: String, raw: String): Int = withContext(Dispatchers.IO) {
-        val records = ManualDisciplineBackup.import(raw, owner)
+        val archive = ManualDisciplineArchive.import(raw, owner)
+        val records = archive.sessions
         val db = writableDatabase
         var additions = 0
         db.beginTransaction()
@@ -209,6 +244,25 @@ internal class ManualDisciplineStore(
                     put("performed_on", row.performedOn.toString()); put("payload", incoming)
                 }
                 db.insertOrThrow("sessions", null, values)
+                additions++
+            }
+            for (form in archive.templates) {
+                val incoming = ManualWorkoutTemplateCodec.encode(form)
+                val old = db.query("manual_templates", arrayOf("payload"),
+                    "owner=? AND record_id=?", arrayOf(owner,form.id),
+                    null,null,null).use { cursor ->
+                    if(cursor.moveToFirst()) cursor.getString(0) else null
+                }
+                if(old != null) {
+                    require(old == incoming) {
+                        "A template with this ID has different contents; no records changed."
+                    }
+                    continue
+                }
+                db.insertOrThrow("manual_templates",null,ContentValues().apply {
+                    put("owner",owner);put("record_id",form.id)
+                    put("name",form.name);put("payload",incoming)
+                })
                 additions++
             }
             db.setTransactionSuccessful()
