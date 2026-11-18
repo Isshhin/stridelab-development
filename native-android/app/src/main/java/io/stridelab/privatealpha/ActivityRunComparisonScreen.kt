@@ -26,7 +26,7 @@ internal fun ActivityRunComparisonScreen(
     activities: List<ActivityRecord>,
     onBack: () -> Unit
 ) {
-    val runs = remember(activities) { ActivityRunComparison.recentRuns(activities).take(100) }
+    val runs = remember(activities) { ActivityRunComparison.recentRuns(activities) }
     fun idOf(record: ActivityRecord) = "${record.source}:${record.id}"
     var recentKey by rememberSaveable { mutableStateOf<String?>(null) }
     var earlierKey by rememberSaveable { mutableStateOf<String?>(null) }
