@@ -52,7 +52,7 @@ private enum class ShareSection(val label:String) {
 }
 private data class ShareMapRequest(val mode:ShareRouteMode, val width:Int, val height:Int)
 private data class ShareMapResult(val source:ShareRenderableActivity, val request:ShareMapRequest, val bitmap:Bitmap?, val loading:Boolean)
-private data class ShareCardResult(val source:ShareRenderableActivity, val state:ShareStudioState, val map:Bitmap?, val bitmap:Bitmap)
+private data class ShareCardResult(val source:ShareRenderableActivity, val state:ShareStudioState, val map:Bitmap?, val photo:Bitmap?, val bitmap:Bitmap)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -81,6 +81,23 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
     var name by rememberSaveable { mutableStateOf("") }
     var deleting by remember { mutableStateOf<SharePreset?>(null) }
     var pendingDocumentName by rememberSaveable { mutableStateOf<String?>(null) }
+    // User photos are editor-only and never embedded in saved presets or cloud records.
+    var selectedPhoto by remember(activity.id) { mutableStateOf<Bitmap?>(null) }
+    val photoLauncher=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if(uri!=null) {
+            busy=true
+            scope.launch {
+                try {
+                    selectedPhoto=withContext(Dispatchers.IO) { SharePhotoImport.decode(context,uri) }
+                    configure(config.copy(background=ShareBackground.PHOTO))
+                    message="Photo loaded for this edit. Presets never save its image."
+                } catch(error:Exception) {
+                    if(error is CancellationException) throw error
+                    message="Could not open this photo. Choose another image."
+                } finally { busy=false }
+            }
+        }
+    }
     val renderable by produceState<ShareRenderableActivity?>(null,activity,detail,config.privacy,assessment,userLabel) {
         value=withContext(Dispatchers.Default) {
             ShareRenderableActivity.from(activity,detail,config.privacy,assessment,userLabel)
@@ -116,16 +133,18 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
     }
     val map=mapResult?.takeIf { it.source===source && it.request==request }?.bitmap
     val mapLoading=request!=null && (mapResult?.source!==source || mapResult?.request!=request || mapResult?.loading==true)
-    val cardResult by produceState<ShareCardResult?>(null,source,effective,map) {
+    val cardResult by produceState<ShareCardResult?>(null,source,effective,map,selectedPhoto) {
         if(source!=null && effective!=null) {
-            try { value=withContext(Dispatchers.Default) { ShareCardResult(source,effective,map,ShareCardRenderer.render(source,effective,map)) } }
+            try { value=withContext(Dispatchers.Default) { ShareCardResult(source,effective,map,selectedPhoto,ShareCardRenderer.render(source,effective,map,selectedPhoto)) } }
             catch(error:Exception) {
                 if(error is CancellationException) throw error
                 value=null; message="Could not render the card. Try another template."
             }
         }
     }
-    val card=cardResult?.takeIf { it.source===source && it.state==effective && it.map===map }?.bitmap
+    val card=cardResult?.takeIf { it.source===source && it.state==effective &&
+        it.map===map && it.photo===selectedPhoto }?.bitmap
+        ?.takeIf { effective?.background!=ShareBackground.PHOTO || selectedPhoto!=null }
     val exportReady=card!=null && !mapLoading && !busy
     BackHandler { if(!busy) onBack() }
 
@@ -240,7 +259,13 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                                     }
                                 }
                             },contentAlignment=Alignment.Center) {
-                            if(card!=null) Image(card.asImageBitmap(),
+                            if(config.background==ShareBackground.PHOTO && selectedPhoto==null) {
+                                Text("Choose a photo under Style to preview or export.",
+                                    style=MaterialTheme.typography.bodyMedium,
+                                    color=TracksidePalette.textMuted,
+                                    modifier=Modifier.padding(20.dp).testTag("share-photo-required"))
+                            }
+                            else if(card!=null) Image(card.asImageBitmap(),
                                 contentDescription="Share card preview. "+source?.metrics?.filterKeys { it in effective?.metrics.orEmpty() }?.values?.joinToString(". "),
                                 contentScale=ContentScale.Fit,modifier=Modifier.fillMaxSize().testTag("share-card-preview"))
                             else CircularProgressIndicator(color=Color(ShareCardPalette.LIME))
@@ -254,6 +279,10 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                             "Workout recap · Recorded laps not classified as intervals · ${config.ratio.label} PNG"
                         effective?.template==ShareTemplate.WORKOUT -> "Workout recap · Label provenance shown · ${config.ratio.label} PNG"
                         effective?.background==ShareBackground.TRANSPARENT -> "Transparent background · ${config.ratio.label} PNG"
+                         effective?.background==ShareBackground.PHOTO && selectedPhoto==null ->
+                             "Choose a photo in Style before exporting · ${config.ratio.label} PNG"
+                         effective?.background==ShareBackground.PHOTO ->
+                             "Personal photo background · kept on this device for this edit · ${config.ratio.label} PNG"
                         effective?.routeMode==ShareRouteMode.HIDDEN -> "Route hidden or too short to trim · Full activity stats · ${config.ratio.label} PNG"
                         map!=null -> "Activity Dark map · ${if(config.privacy==SharePrivacy.OFF) "Full GPS route" else "Route trimmed"} · ${config.ratio.label} PNG"
                         effective?.background==ShareBackground.MAP -> "${if(online) "Activity Dark map unavailable" else "Activity Dark map needs internet"} · GPS trace only · ${config.ratio.label} PNG"
@@ -332,6 +361,16 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                                 }
                                 ShareSection.STYLE -> {
                                     ShareChoices(ShareBackground.entries,config.background,{it.label}) { configure(config.copy(background=it)) }
+                                     if(config.background==ShareBackground.PHOTO) {
+                                         Text("The original photo stays in memory for this editor session. Presets do not store its image.",
+                                             style=MaterialTheme.typography.bodySmall,
+                                             color=TracksidePalette.textMuted)
+                                         OutlinedButton(onClick={ photoLauncher.launch("image/*") },
+                                             enabled=!busy,
+                                             modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("share-choose-photo")) {
+                                             Text(if(selectedPhoto==null) "Choose photo" else "Change photo")
+                                         }
+                                     }
                                     Text("Composition",style=MaterialTheme.typography.labelLarge)
                                     ShareChoices(ShareLayout.entries,config.layout,{it.label}) { configure(config.copy(layout=it)) }
                                 }
