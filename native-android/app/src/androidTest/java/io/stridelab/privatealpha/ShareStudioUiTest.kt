@@ -124,12 +124,18 @@ class ShareStudioUiTest {
             }
         }
         compose.onNodeWithTag("share-template-WORKOUT").performClick()
-        // Check actual selection first. A missing provenance tag may otherwise conceal
-        // a gallery click that never updated the saved editor configuration.
-        compose.onNodeWithTag("share-template-WORKOUT").assertIsSelected()
-        compose.onNodeWithTag("share-active-template")
-            .assertTextContains("WORKOUT RECAP", substring = true)
-        compose.onNodeWithTag("share-workout-provenance").assertExists()
+        compose.waitForIdle()
+        // Verify the editor state independently from the gallery accessibility state.
+        try {
+            compose.onNodeWithTag("share-active-template")
+                .assertTextContains("WORKOUT RECAP", substring = true)
+            compose.onNodeWithTag("share-template-WORKOUT").assertIsSelected()
+            compose.onNodeWithTag("share-workout-provenance").assertExists()
+        } catch (error: AssertionError) {
+            throw AssertionError(
+                "Workout gallery did not expose the active template, selected semantics and provenance: " +
+                    compose.onRoot(useUnmergedTree = true).printToString(), error)
+        }
         try {
             compose.waitUntil(10000) {
                 compose.onAllNodesWithText("2 recorded laps", substring = true)
