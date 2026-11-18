@@ -150,7 +150,7 @@ private fun NavHostController.openTabRoot(path: String) {
     // tab is already visible. Repeated taps must not rebuild its destination
     // and interrupt the floating navigation pill's animation.
     if (currentDestination?.route == path) return
-    while(currentDestination?.route in setOf("activity/{id}", "auth", "auth/signup", "auth/reset", "more/garmin", "more/data", "more/offline-maps", "more/preferences", "more/about", "more/analytics", "builder/{discipline}", "workout/{planId}/{sessionId}", "practice/{key}", "manage/{planId}/{date}")) {
+    while(currentDestination?.route in setOf("activity/{id}", "auth", "auth/signup", "auth/reset", "more/garmin", "more/data", "more/offline-maps", "more/preferences", "more/about", "more/analytics", "more/analytics/compare", "builder/{discipline}", "workout/{planId}/{sessionId}", "practice/{key}", "manage/{planId}/{date}")) {
         if(!popBackStack()) break
     }
     navigate(path) {
@@ -498,7 +498,17 @@ private fun NavHostController.openActivity(id: String) {
                     TracksideOfflineMapsScreen(onBack = { nav.popBackStack() })
                 }
                 composable("more/analytics") {
-                    ActivityAnalyticsScreen(visibleActivities, onBack = { nav.popBackStack() })
+                    ActivityAnalyticsScreen(
+                        visibleActivities,
+                        onBack = { nav.popBackStack() },
+                        onCompare = { nav.navigate("more/analytics/compare") }
+                    )
+                }
+                composable("more/analytics/compare") {
+                    ActivityRunComparisonScreen(
+                        visibleActivities,
+                        onBack = { nav.popBackStack() }
+                    )
                 }
                 composable("more/preferences") {
                     TracksideMoreDetailDestination(MorePage.Preferences, nav, state, actions)
