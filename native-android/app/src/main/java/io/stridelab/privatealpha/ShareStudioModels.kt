@@ -77,7 +77,8 @@ internal data class ShareStudioState(
 
 /** Recorded laps are factual, but FIT lap records do not classify work or recovery steps. */
 internal enum class ShareWorkoutSource(val label:String) {
-    USER_LABEL("User labeled"), LINKED_PLAN("Planned intent"), RECORDED_ONLY("Unclassified recorded laps")
+    USER_LABEL("User labeled"), DETECTED("Detected from activity"), LINKED_PLAN("Planned intent"),
+    RECORDED_ONLY("Unclassified recorded laps")
 }
 internal data class ShareWorkoutLap(val index:Int, val distance:String?, val duration:String?, val pace:String?)
 internal data class ShareWorkoutRecap(
@@ -92,13 +93,18 @@ internal data class ShareWorkoutRecap(
                  userLabel:UserActivityWorkoutLabel?):ShareWorkoutRecap {
             val eligible=DashboardSummary.isRun(activity)
             val declared=if(eligible) userLabel else null
-            val intended=if(eligible && declared==null) assessment?.intended else null
+            val detected=if(eligible && declared==null)
+                assessment?.detected?.takeIf { it.kind!=ActivityWorkoutKind.UNKNOWN } else null
+            val intended=if(eligible && declared==null && detected==null)
+                assessment?.intended?.takeIf { it.kind!=ActivityWorkoutKind.UNKNOWN } else null
             val source=when {
                 declared!=null -> ShareWorkoutSource.USER_LABEL
-                intended!=null && intended.kind!=ActivityWorkoutKind.UNKNOWN -> ShareWorkoutSource.LINKED_PLAN
+                detected!=null -> ShareWorkoutSource.DETECTED
+                intended!=null -> ShareWorkoutSource.LINKED_PLAN
                 else -> ShareWorkoutSource.RECORDED_ONLY
             }
             val name=declared?.qualitySubtype?.label ?: declared?.kind?.label
+                ?: detected?.qualitySubtype?.label ?: detected?.kind?.label
                 ?: intended?.qualitySubtype?.label ?: intended?.kind?.label
             val raw=detail?.laps.orEmpty()
             val laps=raw.take(6).map { lap ->
