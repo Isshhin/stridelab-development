@@ -112,21 +112,25 @@ class ShareStudioUiTest {
     }
 
     @Test fun workoutRecapAvailableForImportedLapsWithoutClaimingDetectedIntervals() {
-        mountDetail()
-        compose.onNodeWithTag("activity-share").performClick()
-        compose.onNodeWithTag("share-template-WORKOUT").performClick()
-        // A LazyColumn may dispose status rows while the template gallery is scrolled into view.
-        // Bring the status item into composition, then await the asynchronously derived activity.
-        compose.onNodeWithTag("share-studio-scroll").performScrollToNode(hasTestTag("share-status"))
-        compose.waitUntil(5000) {
-            compose.onAllNodesWithText("Recorded laps not classified as intervals",substring=true)
-                .fetchSemanticsNodes().isNotEmpty()
+        // Isolate the imported-lap fixture from persisted user workout corrections and plan
+        // intent. The activity-detail entry point is covered by separate navigation tests.
+        val imported = activity.copy(id = "share-ui-unclassified-fit", source = "fit")
+        val importedDetail = detail.copy(activityId = imported.id)
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    ShareStudioScreen(imported, importedDetail, online = false, onBack = {})
+                }
+            }
         }
+        compose.onNodeWithTag("share-template-WORKOUT").performClick()
+        // The status/provenance are in a LazyColumn item, which is only composed in view.
+        compose.onNodeWithTag("share-studio-scroll").performScrollToNode(hasTestTag("share-status"))
         compose.onNodeWithTag("share-status")
-            .assertTextContains("Recorded laps not classified as intervals",substring=true)
+            .assertTextContains("Recorded laps not classified as intervals", substring = true)
         compose.onNodeWithTag("share-workout-provenance")
-            .assertTextContains("Unclassified",substring=true)
-            .assertTextContains("2 recorded laps",substring=true)
+            .assertTextContains("Unclassified", substring = true)
+            .assertTextContains("2 recorded laps", substring = true)
         compose.onNodeWithTag("share-studio-scroll").performScrollToIndex(0)
         compose.waitUntil(5000) {
             compose.onAllNodesWithTag("share-card-preview").fetchSemanticsNodes().isNotEmpty()
