@@ -84,15 +84,15 @@ internal data class Engine15QualityWorkoutDryRun(
         require(selectionPolicyId == Engine15QualityFamilySelection.POLICY_ID)
         require(familyPolicyQualification == Engine15FamilyPolicyQualification.PROVISIONAL_ENGINEERING_RULE)
         require(selectionBasis == Engine15QualitySelectionBasis.GOAL_EXPERIENCE_MATRIX)
-        require(family == IndependentQualityFamily.TEMPO)
-        require(templateId == "engine15-tempo-intro-v1" && templateEvidence == "HEURISTIC")
+
+        require(templateId == "engine15-${family.name.lowercase()}-intro-v1" && templateEvidence == "HEURISTIC")
         require(weekNumber > 0 && sessionId.isNotBlank())
         require(originalEasyDistanceKm.isFinite() && originalEasyDistanceKm > 0.0)
         require(totalSeconds > 0 && workSeconds > 0 && totalSeconds >= workSeconds)
         require(workout.total(WorkoutUnit.SECONDS)?.toInt() == totalSeconds)
         require(workout.dose(WorkoutUnit.SECONDS, WorkoutPurpose.WORK)?.toInt() == workSeconds)
         require(workout.total(WorkoutUnit.METERS) == null)
-        require((workout.dose(WorkoutUnit.SECONDS, WorkoutPurpose.RECOVERY) ?: 0.0) == 0.0)
+        require(((workout.dose(WorkoutUnit.SECONDS, WorkoutPurpose.RECOVERY) ?: 0.0) > 0.0) == (family == IndependentQualityFamily.THRESHOLD))
         require(weeklyDistance.isNotEmpty() && weeklyDistance.map { it.weekNumber } ==
             weeklyDistance.map { it.weekNumber }.distinct().sorted())
         require(weeklyDistance.any { it.weekNumber == weekNumber && it.kind == Engine15IndependentVolumePlanner.WeekKind.LOADING })
@@ -122,11 +122,13 @@ internal object Engine15QualityWorkoutDryRunBuilder {
         volume: Engine15IndependentVolumePlanner.Result,
         sessions: List<PlannedSession>
     ): Engine15QualityWorkoutDryRun? {
+        val family = selection.selectedFamily ?: return null
+        if (family == IndependentQualityFamily.THRESHOLD && (request.weeks != 8 || request.runDays < 4 || request.longestKm <= 0.0)) return null
         if (!BuildConfig.DEBUG ||
             selection.decision != Engine15QualitySelectionDecision.FAMILY_CANDIDATE ||
             selection.familyPolicyQualification != Engine15FamilyPolicyQualification.PROVISIONAL_ENGINEERING_RULE ||
-            selection.selectionBasis != Engine15QualitySelectionBasis.GOAL_EXPERIENCE_MATRIX ||
-            selection.selectedFamily != IndependentQualityFamily.TEMPO)
+            selection.selectionBasis != Engine15QualitySelectionBasis.GOAL_EXPERIENCE_MATRIX)
+
             return null
 
         val slot = selection.candidateSlots.firstOrNull() ?: return null
@@ -147,9 +149,9 @@ internal object Engine15QualityWorkoutDryRunBuilder {
             Engine15QualityDryRunWeekDistance(weekNumber, week.kind, budget, actual)
         }
         val template = IndependentQualityTemplates.get(
-            IndependentQualityFamily.TEMPO, IndependentQualityStage.INTRO
+            family, IndependentQualityStage.INTRO
         )
-        val workout = if (workSeconds(request.experience) != template.workSeconds().toInt()) IndependentWorkoutComposition(
+        val workout = if (family == IndependentQualityFamily.TEMPO && workSeconds(request.experience) != template.workSeconds().toInt()) IndependentWorkoutComposition(
             template.workout.elements.map { element ->
                 if (element is IndependentWorkoutElement.Step && element.value.purpose == WorkoutPurpose.WORK)
                     IndependentWorkoutElement.Step(element.value.copy(amount = workSeconds(request.experience).toDouble()))
@@ -185,7 +187,7 @@ internal object Engine15QualityWorkoutDryRunBuilder {
             selectionPolicyId = selection.policyId,
             familyPolicyQualification = selection.familyPolicyQualification,
             selectionBasis = selection.selectionBasis,
-            family = IndependentQualityFamily.TEMPO,
+            family = family,
             weekNumber = slot.weekNumber,
             sessionId = slot.sessionId,
             date = slot.date,

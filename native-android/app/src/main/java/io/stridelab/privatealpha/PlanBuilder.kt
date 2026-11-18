@@ -112,6 +112,9 @@ import org.json.JSONObject
         }
     }
     var tempoEquivalents by rememberSaveable { mutableStateOf("") }
+    var thresholdEquivalents by rememberSaveable { mutableStateOf("") }
+    val thresholdPilot = input.experience == 2 && input.goal in setOf("Improve 5K", "Improve 10K")
+    val qualityLabels = if (thresholdPilot) listOf("Run slot", "Warm-up metres", "Work 1 metres", "Recovery 1 metres", "Work 2 metres", "Recovery 2 metres", "Work 3 metres", "Cooldown metres") else listOf("Run slot", "Warm-up metres", "Tempo metres", "Cooldown metres")
     fun request():PlanRequest=try {
         val peak=peakWeekKm.trim().takeIf { it.isNotEmpty() }?.toDouble()
         if(peak!=null && (!peak.isFinite() || peak !in 0.0..120.0))
@@ -126,11 +129,11 @@ import org.json.JSONObject
             reportedPeakWeeklyKm=peak,timeBudgetEnabled=false,
             qualityDistanceClaims = if (BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE &&
                 input.qualityCount == 1 && input.weeks == 8 && !input.userDirectedPlanning &&
-                input.userDefinedQualityWorkouts.isEmpty()) tempoEquivalents.lineSequence()
+                input.userDefinedQualityWorkouts.isEmpty()) (if (thresholdPilot) thresholdEquivalents else tempoEquivalents).lineSequence()
                 .filter { it.isNotBlank() }.map { row ->
                     val numbers = row.trim().split(Regex("\\s+")).map { it.toIntOrNull() }
-                    if (numbers.size != 5 || numbers.any { it == null || it <= 0 })
-                        throw PlanConstraint("Enter five positive whole numbers per Tempo row: week, slot, warm-up metres, work metres, cooldown metres.")
+                    if (numbers.size != qualityLabels.size + 1 || numbers.any { it == null || it <= 0 })
+                        throw PlanConstraint("Complete the run slot and every segment distance for each entered quality week.")
                     val values = numbers.filterNotNull()
                     Engine15M5SegmentDistanceClaim(values[0], values[1], values.drop(2).map(Int::toDouble), null,
                         Engine15M5DistanceClaimProvenance.USER_ASSERTED_EQUIVALENT)
@@ -821,28 +824,29 @@ import org.json.JSONObject
                             weeks == "8" && input.qualityCount == 1 && !input.userDirectedPlanning &&
                             input.userDefinedQualityWorkouts.isEmpty() &&
                             input.strengthDays + input.calDays + input.conditioningDays == 0) {
-                            Text("Private Tempo distances")
+                            Text(if (thresholdPilot) "Private Threshold distances" else "Private Tempo distances")
                             Text("Request a draft with the fields empty to see the suggested slots and distance budgets. Enter your own equivalents in metres.")
-                            val rows = tempoEquivalents.lines().filter { it.isNotBlank() }
+                            val rows = (if (thresholdPilot) thresholdEquivalents else tempoEquivalents).lines().filter { it.isNotBlank() }
                                 .associateBy { it.substringBefore(' ') }
                             for (week in listOf(1, 2, 3, 5, 6, 7)) {
                                 Text("Week $week")
                                 val fields = rows[week.toString()]?.split(' ')?.drop(1).orEmpty()
-                                for ((index, label) in listOf("Run slot", "Warm-up metres", "Tempo metres", "Cooldown metres").withIndex()) {
+                                for ((index, label) in qualityLabels.withIndex()) {
                                     OutlinedTextField(
                                         value = fields.getOrElse(index) { "" },
                                         onValueChange = { value ->
-                                            val updated = MutableList(4) { fields.getOrElse(it) { "" } }
+                                            val updated = MutableList(qualityLabels.size) { fields.getOrElse(it) { "" } }
                                             updated[index] = value.filter { it in '0'..'9' }.take(6)
                                             val next = rows.toMutableMap()
                                             if (updated.all { it.isEmpty() }) next.remove(week.toString())
                                             else next[week.toString()] = "$week " + updated.joinToString(" ")
-                                            tempoEquivalents = next.values.joinToString("\n")
+                                            if (thresholdPilot) thresholdEquivalents = next.values.joinToString("\n")
+                                            else tempoEquivalents = next.values.joinToString("\n")
                                         },
                                         label = { Text(label) },
                                         supportingText = {
                                             val metres = fields.getOrNull(index)?.toIntOrNull()
-                                            val seconds = when (index) {
+                                            val seconds = if (thresholdPilot) listOf(null, 600, 240, 120, 240, 120, 240, 480)[index] else when (index) {
                                                 1 -> 600
                                                 2 -> Engine15QualityWorkoutDryRunBuilder.workSeconds(input.experience)
                                                 3 -> 480

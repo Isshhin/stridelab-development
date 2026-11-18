@@ -291,6 +291,34 @@ class Engine1RepositoryTest {
         repo.close();gateway.offline=true;open()
         assertEquals(approved,repo.state.value.plans.single())
     }
+    @Test fun privateThresholdDraftApprovesAndReopensOffline()=runBlocking {
+        Assume.assumeTrue(BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
+        assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
+        val start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).plusWeeks(1)
+        val request=PlanRequest(goal="Improve 5K", experience=2, start=start, weeks=8,
+            days=setOf(1,2,3,5,6,7),runDays=6,longDay=6,qualityDays=setOf(2),qualityCount=1,
+            weeklyKm=30.0,targetWeeklyKm=30.0,longestKm=10.0,timeBudgetEnabled=false,
+            policyChoice="engine15",recentMileageBasis="SELF_REPORTED_AVERAGE")
+        val preview=Engine15IndependentPlanGenerator.preview(request,owner,"fixture-threshold",java.time.Instant.now())
+            as Engine15IndependentPlanDecision.Deferred
+        val claims=preview.qualitySelection!!.candidateSlots.map { slot ->
+            val total=kotlin.math.round(slot.originalEasyDistanceKm*1000).toInt()
+            val metres=listOf(600,300,100,300,100,300).map { (it*total/2180).toDouble() }
+
+            Engine15M5SegmentDistanceClaim(slot.weekNumber,slot.slotNumber,
+                metres+(total-metres.sum()),null,
+                Engine15M5DistanceClaimProvenance.USER_ASSERTED_EQUIVALENT)
+        }
+        assertTrue(repo.state.value.message,repo.generatePlan(request.copy(qualityDistanceClaims=claims)))
+        val draft=repo.state.value.plans.single()
+        assertEquals("draft",draft.status)
+        assertEquals(6,draft.sessions.count { it.quality && it.title=="Experimental Threshold" })
+        assertTrue(repo.approvePlan(draft.id,draft.revision))
+        val approved=repo.state.value.plans.single()
+        assertEquals("approved",approved.status)
+        repo.close();gateway.offline=true;open()
+        assertEquals(approved,repo.state.value.plans.single())
+    }
     @Test fun coachQualityRequestRemainsDeferredWithoutVerifiedFamilyEvidence()=runBlocking {
         Assume.assumeTrue(BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
         assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
