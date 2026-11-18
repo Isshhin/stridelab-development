@@ -57,7 +57,7 @@ internal fun TracksideFloatingNavigation(route: String?, onTab: (String) -> Unit
             "missed/{planId}/{sessionId}"
         ) -> 1
         route == "activities" || route == "activity/{id}" -> 1
-        route == "settings" || route == "library" || route == "practice/{key}" -> 2
+        route == "settings" -> 2
         else -> -1
     }
     val context = LocalContext.current

@@ -64,7 +64,7 @@ class Engine1UiTest {
             move={id,_,sid,date->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.move(it,sid,date,state.value.plans).copy(revision=it.revision+1)else it })},
             record={id,_,sid,log,done->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.record(it,sid,log,done).copy(revision=it.revision+1)else it })}
         )
-        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,false,NativeActions({},{},{},{},{_,_->},planning=actions)) } } }
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,false,NativeActions({},{_,_->},planning=actions)) } } }
         openPlanBuilder()
         compose.onNodeWithTag("discipline-cal").performClick()
         fun next()=compose.onNodeWithTag("builder-figma-continue").performClick()
@@ -174,7 +174,7 @@ class Engine1UiTest {
             approve={id,_->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.approve(it,emptyList()).copy(revision=it.revision+1)else it })},
             record={id,_,sid,log,done->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.record(it,sid,log,done).copy(revision=it.revision+1)else it })}
         )
-        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,false,NativeActions({},{},{},{},{_,_->},planning=planning)) } } }
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,false,NativeActions({},{_,_->},planning=planning)) } } }
         openPlanBuilder()
         compose.onNodeWithText("Choose your",substring=true).assertExists()
         capture("phase1-builder-disciplines")
@@ -211,7 +211,7 @@ class Engine1UiTest {
         capture("phase1-workout-history")
     }
     @Test fun threePrimaryDestinationsAndAcceptedLibraryModalRemainFunctional() {
-        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(TrainingState(initializing=false,account="synthetic-roots-ui"),true,NativeActions({},{},{},{},{_,_->})) } } }
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(TrainingState(initializing=false,account="synthetic-roots-ui"),true,NativeActions({},{_,_->})) } } }
         openLibrary()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("curated entries",substring=true));compose.onNodeWithText("curated entries",substring=true).assertExists()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Search exercises"));compose.onNodeWithText("Search exercises").performTextInput("Incline");compose.onNodeWithText("Search exercises").performImeAction()
@@ -219,7 +219,7 @@ class Engine1UiTest {
         compose.waitUntil(10000) { compose.onAllNodesWithText("TECHNIQUE & STRUCTURE").fetchSemanticsNodes().isNotEmpty() }
         capture("phase1-library-modal")
         compose.onNodeWithText("Close",useUnmergedTree=true).performScrollTo().performClick()
-        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(TrainingState(initializing=false,account="synthetic-roots-ui"),true,NativeActions({},{},{},{},{_,_->})) } } }
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(TrainingState(initializing=false,account="synthetic-roots-ui"),true,NativeActions({},{_,_->})) } } }
         listOf("home" to "Today","training" to "Training","settings" to "More").forEach { (tag,title) ->
             compose.onNodeWithTag("nav-$tag").performClick()
             when(tag) {
@@ -236,7 +236,7 @@ class Engine1UiTest {
         compose.runOnUiThread { compose.activity.setContent {
             val density=androidx.compose.ui.platform.LocalDensity.current
             androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(density.density,2f)) {
-                StrideTheme { NativeStrideContent(TrainingState(initializing=false,account="synthetic-large-ui",plans=listOf(plan)),false,NativeActions({},{},{},{},{_,_->})) }
+                StrideTheme { NativeStrideContent(TrainingState(initializing=false,account="synthetic-large-ui",plans=listOf(plan)),false,NativeActions({},{_,_->})) }
             }
         } }
         compose.onNodeWithTag("nav-training").performClick()
@@ -254,7 +254,7 @@ class Engine1UiTest {
     @Test fun acceptedLibraryFiltersFavoritesCollectionsAndSessionsWorkNatively() {
         val state=mutableStateOf(TrainingState(initializing=false,account="synthetic-shelf-ui"))
         val actions=PlanActions(shelf={id,c,remove -> state.value=state.value.copy(shelf=state.value.shelf.change(id,c,remove)) })
-        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,true,NativeActions({},{},{},{},{_,_->},planning=actions)) } } }
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,true,NativeActions({},{_,_->},planning=actions)) } } }
         openLibrary(state.value, actions)
         compose.onNodeWithTag("screen").performScrollToNode(hasText("curated entries",substring=true));compose.onNodeWithText("curated entries",substring=true).assertExists()
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Search exercises"));compose.onNodeWithText("Search exercises").performTextInput("Incline");compose.onNodeWithText("Search exercises").performImeAction()
@@ -277,7 +277,7 @@ class Engine1UiTest {
         val p=PlanOperations.approve(generated.copy(sessions=generated.sessions.map { if(it.id==target.id) it.copy(exercises=listOf(it.exercises.first { ex -> ExerciseAlternatives.easier(ex)!=null })) else it }),emptyList())
         val state=mutableStateOf(TrainingState(initializing=false,account=p.owner,plans=listOf(p)))
         val actions=PlanActions(swap={id,_,sid,ex->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.swapExercise(it,sid,ex).copy(revision=it.revision+1)else it })})
-        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,true,NativeActions({},{},{},{},{_,_->},planning=actions)) } } }
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,true,NativeActions({},{_,_->},planning=actions)) } } }
         compose.onNodeWithTag("nav-training").performClick()
         openPlannedWorkout(target.id)
         assertTrue("The test fixture must be an approved, editable plan",Engine1Engines.canManage(p) && p.status=="approved" && target.status=="planned")
@@ -299,7 +299,7 @@ class Engine1UiTest {
                 StrideTheme {
                     NativeStrideContent(
                         TrainingState(initializing=false,account="synthetic-practice-ui"),
-                        true,NativeActions({},{},{},{},{_,_->})
+                        true,NativeActions({},{_,_->})
                     )
                 }
             }
@@ -314,7 +314,7 @@ class Engine1UiTest {
     @Test fun runningPrimaryAndStrengthSecondaryGoalProduceActualDifferentPrescriptions() {
         val state=mutableStateOf(TrainingState(initializing=false,account="synthetic-goals-ui"))
         val actions=PlanActions(generate={p->state.value=state.value.copy(plans=listOf(Engine1Engines.resolve(p).generate(p,"synthetic-goals-ui")))})
-        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,true,NativeActions({},{},{},{},{_,_->},planning=actions)) } } }
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,true,NativeActions({},{_,_->},planning=actions)) } } }
         openPlanBuilder()
         // The frozen Trackside wizard collects one discipline at a time. The old
         // combined goal chip page and coordinated-only policy are no longer its entry point.
@@ -338,7 +338,7 @@ class Engine1UiTest {
     @Test fun savedEducationalGuideRemainsVisibleWithoutBecomingAnExecutableWorkout() {
         val guide=readLibrary(InstrumentationRegistry.getInstrumentation().targetContext).first { it.guide }
         val state=TrainingState(initializing=false,account="synthetic-guide-ui",shelf=LibraryShelf(favorites=setOf(guide.id)))
-        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state,true,NativeActions({},{},{},{},{_,_->})) } } }
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state,true,NativeActions({},{_,_->})) } } }
         openLibrary(state)
         compose.onNodeWithTag("screen").performScrollToNode(hasText("Saved"));compose.onNodeWithText("Saved",useUnmergedTree=true).performClick()
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("library-entry-${guide.id}"));compose.onNodeWithTag("library-entry-${guide.id}").performClick()
@@ -349,7 +349,7 @@ class Engine1UiTest {
         val plan=PlanOperations.approve(Engine1.generate(PlanRequest(start=LocalDate.now(),weeks=1,runDays=0,strengthDays=1,days=(1..7).toSet()),"synthetic-entry-ui"),emptyList());val session=plan.sessions.single { it.status=="planned" && it.discipline!="rest" && it.exercises.isNotEmpty() }
         val state=mutableStateOf(TrainingState(initializing=false,account=plan.owner,plans=listOf(plan)))
         val actions=PlanActions(stageWorkoutDraft={draft -> state.value=state.value.copy(workoutDrafts=state.value.workoutDrafts+(draft.key to draft))})
-        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,true,NativeActions({},{},{},{},{_,_->},planning=actions)) } } }
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,true,NativeActions({},{_,_->},planning=actions)) } } }
         compose.onNodeWithTag("nav-training").performClick();openPlannedWorkout(session.id)
         compose.onNodeWithTag("workout-player").assertExists(compose.onRoot().printToString())
         compose.onNodeWithTag("workout-review").performClick()

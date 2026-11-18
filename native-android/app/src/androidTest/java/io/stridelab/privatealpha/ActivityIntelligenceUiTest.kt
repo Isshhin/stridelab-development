@@ -40,7 +40,7 @@ class ActivityIntelligenceUiTest {
                         activity = run, recorded = recorded, detailSource = run,
                         matchedSourceIds = setOf(run.id), history = emptyList(),
                         state = TrainingState(initializing = false, account = "analysis-tabs"),
-                        actions = NativeActions({}, {}, {}, {}, { _, _ -> }), online = false,
+                        actions = NativeActions({}, { _, _ -> }), online = false,
                         selectedTab = tab.intValue, onTab = { tab.intValue = it },
                         matte = false, onToggleMatte = {}, onBack = {}
                     )
@@ -120,7 +120,7 @@ class ActivityIntelligenceUiTest {
                         activity = run, recorded = null, detailSource = run,
                         matchedSourceIds = setOf(run.id), history = emptyList(),
                         state = TrainingState(initializing = false, account = "analysis-sparse"),
-                        actions = NativeActions({}, {}, {}, {}, { _, _ -> }), online = false,
+                        actions = NativeActions({}, { _, _ -> }), online = false,
                         selectedTab = tab.intValue, onTab = { tab.intValue = it },
                         matte = false, onToggleMatte = {}, onBack = {}
                     )
@@ -159,7 +159,7 @@ class ActivityIntelligenceUiTest {
                         activity = run, recorded = null, detailSource = run,
                         matchedSourceIds = setOf(run.id), history = emptyList(),
                         state = trainingState.value,
-                        actions = NativeActions({}, {}, {}, {}, { _, _ -> }), online = false,
+                        actions = NativeActions({}, { _, _ -> }), online = false,
                         selectedTab = tab.intValue, onTab = { tab.intValue = it },
                         matte = false, onToggleMatte = {}, onBack = {}
                     )
@@ -208,7 +208,7 @@ class ActivityIntelligenceUiTest {
         )
         var saved: List<Any?>? = null
         val actions = NativeActions(
-            {}, {}, {}, {}, { _, _ -> },
+            {}, { _, _ -> },
             planning = PlanActions(saveRunResponse = { planId, revision, sessionId, effort, difficulty, discomfort ->
                 saved = listOf(planId, revision, sessionId, effort, difficulty, discomfort)
             })
@@ -241,7 +241,7 @@ class ActivityIntelligenceUiTest {
     @Test fun comparisonIsReachableFromDetailAndCaveatsRemainVisible() {
         val run = ActivityRecord("analysis-current", "Recorded run", "run", "manual", Instant.parse("2026-10-26T00:00:00Z"),5000.0,1800.0,1750.0,360.0,145.0,0.0)
         val rows = listOf(run) + (1..3).map { run.copy(id="analysis-$it", startedAt=run.startedAt.minusSeconds(it*86400L),recordedPace=400.0) }
-        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(TrainingState(initializing=false,account="synthetic-analysis",activities=rows),false,NativeActions({},{},{},{},{_,_->})) } } }
+        compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(TrainingState(initializing=false,account="synthetic-analysis",activities=rows),false,NativeActions({},{_,_->})) } } }
         compose.onNodeWithTag("nav-training").performClick()
         compose.onNodeWithTag("training-unified-timeline")
             .performScrollToNode(hasTestTag("timeline-recorded-analysis-current"))

@@ -43,7 +43,7 @@ class TracksideActivityScrollTest {
                         activity = activity, recorded = recorded,
                         detailSource = activity, matchedSourceIds = setOf(activity.id),
                         history = listOf(activity), state = state,
-                        actions = NativeActions({}, {}, {}, {}, { _, _ -> },
+                        actions = NativeActions({}, { _, _ -> },
                             renameActivity = { _, _ -> true }),
                         online = false, selectedTab = tab.intValue, onTab = { tab.intValue = it },
                         matte = false, onToggleMatte = {}, onBack = {}
@@ -117,7 +117,7 @@ class TracksideActivityScrollTest {
                         detailSource = activity,
                         matchedSourceIds = setOf(activity.id),
                         history = listOf(activity),
-                        state = state, actions = NativeActions({}, {}, {}, {}, { _, _ -> }),
+                        state = state, actions = NativeActions({}, { _, _ -> }),
                         online = false, selectedTab = tab.intValue,
                         onTab = { tab.intValue = it },
                         matte = false, onToggleMatte = {}, onBack = {}
@@ -330,7 +330,7 @@ class TracksideActivityScrollTest {
                         matchedSourceIds = setOf(activity.id),
                         history = listOf(activity),
                         state = state,
-                        actions = NativeActions({}, {}, {}, {}, { _, _ -> }),
+                        actions = NativeActions({}, { _, _ -> }),
                         online = false, selectedTab = 0, onTab = {},
                         matte = false, onToggleMatte = {}, onBack = {}
                     )
@@ -491,7 +491,7 @@ class TracksideActivityScrollTest {
                         activity = activity, recorded = recorded,
                         detailSource = activity, matchedSourceIds = setOf(activity.id),
                         history = listOf(activity),
-                        state = state, actions = NativeActions({}, {}, {}, {}, { _, _ -> }),
+                        state = state, actions = NativeActions({}, { _, _ -> }),
                         online = false, selectedTab = tab.intValue, onTab = { tab.intValue = it },
                         matte = false, onToggleMatte = {}, onBack = {}
                     )
@@ -662,7 +662,7 @@ class TracksideActivityScrollTest {
                         activity = activity, recorded = null,
                         detailSource = activity, matchedSourceIds = setOf(activity.id),
                         history = listOf(activity),
-                        state = state, actions = NativeActions({}, {}, {}, {}, { _, _ -> }),
+                        state = state, actions = NativeActions({}, { _, _ -> }),
                         online = false, selectedTab = tab.intValue, onTab = { tab.intValue = it },
                         matte = false, onToggleMatte = {}, onBack = {}
                     )

@@ -1,5 +1,8 @@
 package io.stridelab.privatealpha
 
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.rememberNavController
+
 import android.view.KeyEvent
 import androidx.activity.compose.setContent
 import androidx.compose.ui.test.*
@@ -13,12 +16,35 @@ import java.time.Instant
 /** Native navigation with immutable synthetic records; no account or backend requests. */
 class NativeTabRootTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
+
+    @Test fun legacyDestinationsRedirectToCurrentRoots() {
+        lateinit var navigation: NavHostController
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                val nav = rememberNavController()
+                navigation = nav
+                StrideTheme {
+                    NativeStrideContent(TrainingState(initializing = false), false,
+                        NativeActions({}, { _, _ -> }), nav)
+                }
+            }
+        }
+        compose.onNodeWithTag("nav-home").assertExists()
+        for ((old, current) in listOf("activities" to "training", "more/garmin" to "settings",
+                                     "more/data" to "settings")) {
+            compose.runOnIdle { navigation.navigate(old) }
+            compose.waitUntil(5_000) {
+                compose.runOnIdle { navigation.currentDestination?.route == current }
+            }
+            compose.onNodeWithTag("nav-$current").assertIsSelected()
+        }
+    }
     private fun showHistory() {
         val rows = (0..39).map { index -> ActivityRecord("synthetic-tab-$index", "Saved walk $index", "Walking", "manual",
             Instant.now().minusSeconds(index * 3600L), 2500.0, 900.0, null, null, null, null) }
         val state = TrainingState(initializing = false, account = "synthetic-tabs", activities = rows)
         compose.runOnUiThread {
-            compose.activity.setContent { StrideTheme { NativeStrideContent(state, true, NativeActions({}, {}, {}, {}, { _, _ -> })) } }
+            compose.activity.setContent { StrideTheme { NativeStrideContent(state, true, NativeActions({}, { _, _ -> })) } }
         }
     }
     private fun tab(path: String, title: String) {

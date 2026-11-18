@@ -1228,30 +1228,6 @@ private fun SummaryMetricGlyph(glyph: ActivitySummaryGlyph) {
 }
 
 @Composable
-private fun SummarySourceGlyph() {
-    Canvas(Modifier.size(19.dp)) {
-        val sw = 1.6.dp.toPx()
-        drawRoundRect(
-            activityMuted,
-            topLeft = Offset(size.width * .28f, size.height * .18f),
-            size = androidx.compose.ui.geometry.Size(size.width * .44f, size.height * .64f),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(
-                size.width * .16f, size.width * .16f
-            ),
-            style = Stroke(sw)
-        )
-        drawLine(
-            activityMuted, Offset(size.width * .40f, size.height * .06f),
-            Offset(size.width * .60f, size.height * .06f), sw, StrokeCap.Round
-        )
-        drawLine(
-            activityMuted, Offset(size.width * .40f, size.height * .94f),
-            Offset(size.width * .60f, size.height * .94f), sw, StrokeCap.Round
-        )
-    }
-}
-
-@Composable
 private fun TracksideActivityIntelligenceCard(
     insight: ActivityInsightPresentation,
     heading: String = "Overall Analysis",

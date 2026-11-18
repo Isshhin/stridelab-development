@@ -379,31 +379,6 @@ internal fun TracksideRunningSetup(
     }
 }
 
-@Composable
-private fun RunningWeekLegendRow(
-    code: String, title: String, subtitle: String,
-    tileColor: Color, codeColor: Color
-) {
-    val fontScale=LocalDensity.current.fontScale
-    Row(if(fontScale<=1.01f) Modifier.fillMaxWidth().height(40.dp)
-        else Modifier.fillMaxWidth().heightIn(min=43.dp),
-        verticalAlignment=Alignment.CenterVertically,
-        horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-        Surface(modifier=Modifier.size(32.dp),color=tileColor,
-            shape=RoundedCornerShape(8.dp)) {
-            Box(contentAlignment=Alignment.Center) {
-                Text(code,fontSize=14.sp,color=codeColor,
-                    fontWeight=FontWeight.Bold)
-            }
-        }
-        Column(verticalArrangement=Arrangement.spacedBy(3.dp)) {
-            Text(title,fontSize=12.5f.sp,color=weekWhite,
-                fontWeight=FontWeight.Bold)
-            Text(subtitle,fontSize=10.5f.sp,color=weekMuted)
-        }
-    }
-}
-
 private data class RunningDayChoice(
     val code: String,
     val title: String,

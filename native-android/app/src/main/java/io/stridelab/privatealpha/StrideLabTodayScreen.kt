@@ -3265,36 +3265,3 @@ private fun todayTimeLabel(seconds: Double): String {
         (minutes % 60).toString() + "m"
     else minutes.toString() + "m"
 }
-
-@Composable
-private fun TodayStat(
-    label: String, value: String, tint: Color, modifier: Modifier = Modifier
-) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(value, color = tint, fontWeight = FontWeight.Bold, fontSize = 16.sp,
-            maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(label, color = TodayLook.muted, fontSize = 10.sp,
-            maxLines = 2, lineHeight = 13.sp)
-    }
-}
-
-@Composable
-private fun TodayDarkCard(
-    onClick: () -> Unit,
-    tag: String,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().testTag(tag),
-        color = TodayLook.card,
-        shape = RoundedCornerShape(18.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2B2E33))
-    ) {
-        Column(
-            Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            content = content
-        )
-    }
-}

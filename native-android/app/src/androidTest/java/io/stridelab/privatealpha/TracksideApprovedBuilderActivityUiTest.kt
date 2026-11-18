@@ -523,7 +523,7 @@ class TracksideApprovedBuilderActivityUiTest {
                 StrideTheme {
                     NativeStrideContent(
                         state,false,
-                        NativeActions({}, {}, {}, {}, { _, _ -> })
+                        NativeActions({}, { _, _ -> })
                     )
                 }
             }
@@ -560,7 +560,7 @@ class TracksideApprovedBuilderActivityUiTest {
                 StrideTheme {
                     NativeStrideContent(
                         state,false,
-                        NativeActions({}, {}, {}, {}, { _, _ -> })
+                        NativeActions({}, { _, _ -> })
                     )
                 }
             }
@@ -613,7 +613,7 @@ class TracksideApprovedBuilderActivityUiTest {
                 StrideTheme {
                     NativeStrideContent(
                         state,false,
-                        NativeActions({}, {}, {}, {}, { _, _ -> })
+                        NativeActions({}, { _, _ -> })
                     )
                 }
             }

@@ -20,7 +20,7 @@ class TracksideLoadingLayoutTest {
                     NativeStrideContent(
                         state = trainingState.value,
                         online = true,
-                        actions = NativeActions({}, {}, {}, {}, { _, _ -> })
+                        actions = NativeActions({}, { _, _ -> })
                     )
                 }
             }

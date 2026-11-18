@@ -19,26 +19,6 @@ import java.time.LocalDate
 class TracksideTodayTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
 
-    @Test fun plannedRunShowsOnlyKnownTargetsAndOpensExistingWorkoutAction() {
-        val session = PlannedSession(
-            id = "synthetic-today", date = LocalDate.now(), discipline = "run",
-            title = "Easy Run", minutes = 45, distanceKm = null, kind = "easy"
-        )
-        var opened = 0
-        compose.runOnUiThread {
-            compose.activity.setContent {
-                StrideTheme { TracksideTodayHero(session) { opened++ } }
-            }
-        }
-        compose.onNodeWithTag("today-hero").assertExists()
-        // Premium artwork is explicitly illustrative; the actual workout
-        // still uses only its saved duration and reports absent distance.
-        compose.onNodeWithTag("today-map-illustration", useUnmergedTree = true).assertExists()
-        compose.onNodeWithText("45", useUnmergedTree = true).assertExists()
-        compose.onNodeWithText("Distance not set", substring = true, useUnmergedTree = true).assertExists()
-        compose.onNodeWithTag("today-hero").performClick()
-        compose.runOnIdle { assertEquals(1, opened) }
-    }
     @Test fun signedOutTodayHeroKeepsSameDesignAcrossPastAndFutureWeeks() {
         var signInCount = 0
         var trainingOpenCount = 0
@@ -136,7 +116,7 @@ class TracksideTodayTest {
                     NativeStrideContent(
                         state = TrainingState(initializing = false, account = null),
                         online = true,
-                        actions = NativeActions({}, {}, {}, {}, { _, _ -> })
+                        actions = NativeActions({}, { _, _ -> })
                     )
                 }
             }
@@ -169,7 +149,7 @@ class TracksideTodayTest {
                     NativeStrideContent(
                         state = state,
                         online = false,
-                        actions = NativeActions({}, {}, {}, {}, { _, _ -> })
+                        actions = NativeActions({}, { _, _ -> })
                     )
                 }
             }
@@ -196,8 +176,7 @@ class TracksideTodayTest {
                         NativeStrideContent(
                             state = TrainingState(initializing = false, account = account),
                             online = false,
-                            actions = NativeActions({}, {}, {}, {}, { _, _ -> }),
-                            diagnosticTabs = true
+                            actions = NativeActions({}, { _, _ -> })
                         )
                     }
                 }
@@ -205,40 +184,11 @@ class TracksideTodayTest {
             compose.onNodeWithTag("nav-training").performClick()
             compose.onNodeWithTag("nav-home").performClick()
             compose.onNodeWithTag("nav-settings").performClick().assertIsSelected()
-            compose.onNodeWithTag("tab-diagnostic-More").assertExists()
-            compose.onNodeWithTag("tab-diagnostic-Today").assertDoesNotExist()
+            compose.onNodeWithTag("screen-title").assertExists()
+            compose.onNodeWithTag("today-day-0").assertDoesNotExist()
             compose.onNodeWithTag("nav-home").performClick().assertIsSelected()
-            compose.onNodeWithTag("tab-diagnostic-Today").assertExists()
+            compose.onNodeWithTag("today-day-0").assertExists()
         }
-    }
-
-    @Test fun diagnosticTabsUseNavigationWhenSignedOut() = checkDiagnosticTabs(null)
-
-    @Test fun diagnosticTabsUseNavigationWhenSignedIn() = checkDiagnosticTabs("test-account")
-
-    private fun checkDiagnosticTabs(account: String?) {
-        compose.runOnUiThread {
-            compose.activity.setContent {
-                StrideTheme {
-                    NativeStrideContent(
-                        state = TrainingState(initializing = false, account = account),
-                        online = true,
-                        actions = NativeActions({}, {}, {}, {}, { _, _ -> }),
-                        diagnosticTabs = true
-                    )
-                }
-            }
-        }
-        compose.onNodeWithTag("tab-diagnostic-Today").assertExists()
-        compose.onNodeWithTag("today-hero").assertDoesNotExist()
-        compose.onNodeWithTag("nav-training").performClick().assertIsSelected()
-        compose.onNodeWithTag("tab-diagnostic-Training").assertExists()
-        compose.onNodeWithTag("training-unified-timeline").assertDoesNotExist()
-        compose.onNodeWithTag("nav-settings").performClick().assertIsSelected()
-        compose.onNodeWithTag("tab-diagnostic-More").assertExists()
-        compose.onNodeWithText("Not signed in").assertDoesNotExist()
-        compose.onNodeWithTag("nav-home").performClick().assertIsSelected()
-        compose.onNodeWithTag("tab-diagnostic-Today").assertExists()
     }
 
 }
