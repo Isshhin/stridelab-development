@@ -86,6 +86,8 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
     var pendingDocumentName by rememberSaveable { mutableStateOf<String?>(null) }
     // User photos are editor-only and never embedded in saved presets or cloud records.
     var selectedPhoto by remember(activity.id) { mutableStateOf<Bitmap?>(null) }
+    // Guides are never drawn into the actual PNG bitmap.
+    var showStoryGuides by rememberSaveable(activity.id) { mutableStateOf(false) }
     val photoLauncher=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if(uri!=null) {
             busy=true
@@ -276,6 +278,21 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                                 contentDescription="Share card preview. "+source?.metrics?.filterKeys { it in effective?.metrics.orEmpty() }?.values?.joinToString(". "),
                                 contentScale=ContentScale.Fit,modifier=Modifier.fillMaxSize().testTag("share-card-preview"))
                             else CircularProgressIndicator(color=Color(ShareCardPalette.LIME))
+                            if(showStoryGuides && ratio==ShareRatio.STORY) {
+                                Column(Modifier.fillMaxSize().testTag("share-story-safe-guides")) {
+                                    Box(Modifier.fillMaxWidth().fillMaxHeight(.12f)
+                                        .background(Color(0x77000000)),contentAlignment=Alignment.Center) {
+                                        Text("STORY TOP GUIDE",color=Color.White,
+                                            style=MaterialTheme.typography.labelSmall)
+                                    }
+                                    Spacer(Modifier.weight(1f))
+                                    Box(Modifier.fillMaxWidth().height(64.dp)
+                                        .background(Color(0x77000000)),contentAlignment=Alignment.Center) {
+                                        Text("STORY BOTTOM GUIDE",color=Color.White,
+                                            style=MaterialTheme.typography.labelSmall)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -380,6 +397,18 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                                          }
                                      }
                                     Text("Composition",style=MaterialTheme.typography.labelLarge)
+                                     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,
+                                         horizontalArrangement=Arrangement.SpaceBetween) {
+                                         Column(Modifier.weight(1f)) {
+                                             Text("Instagram Story safe-area guides",style=MaterialTheme.typography.labelMedium)
+                                             Text("Preview only. Approximate areas; the exported PNG is unchanged.",
+                                                 style=MaterialTheme.typography.bodySmall,
+                                                 color=TracksidePalette.textMuted)
+                                         }
+                                         Switch(checked=showStoryGuides,onCheckedChange={ showStoryGuides=it },
+                                             enabled=config.ratio==ShareRatio.STORY,
+                                             modifier=Modifier.testTag("share-story-guide-switch"))
+                                     }
                                     ShareChoices(ShareLayout.entries,config.layout,{it.label}) { configure(config.copy(layout=it)) }
                                 }
                                 ShareSection.BRANDING -> ShareChoices(ShareBranding.entries,config.branding,{it.label}) { configure(config.copy(branding=it)) }
