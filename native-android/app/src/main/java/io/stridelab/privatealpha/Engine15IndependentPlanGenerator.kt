@@ -190,9 +190,10 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             throw PlanConstraint("${decision.reasonCode}: ${decision.explanation}")
         is Engine15IndependentPlanDecision.Candidate -> decision.plan.copy(
             policyId = policyId,
-            name = "Engine 1.5 independent running plan",
+            name = if (decision.plan.sessions.any { it.title == "Experimental Tempo" })
+                "Private debug · Experimental Tempo plan" else "Engine 1.5 independent running plan",
             explanations = decision.plan.explanations.filterNot { it.startsWith("Preview only:") } +
-                "Development-route draft. Review every session and explicitly approve before use; any quality workout is user-defined, not a coach prescription."
+                "Development-route draft. Review every session and explicitly approve before use."
         )
     }
 
@@ -354,6 +355,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         if (sessions.size != request.weeks * request.runDays || sessions.map { it.id }.distinct().size != sessions.size)
             return defer("INCOMPLETE_PLAN_ASSEMBLY", "Independent output did not contain exactly one dated workout for every weekly running slot.")
 
+        var experimentalTempo = emptyList<PlannedSession>()
         if (request.qualityCount > 0 && request.userDefinedQualityWorkouts.isEmpty()) {
             val selection = Engine15QualityFamilySelection.select(
                 request = request,
@@ -370,6 +372,43 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             val qualityDryRun = Engine15QualityWorkoutDryRunBuilder.build(
                 request, selection, volume, sessions
             )
+            if (BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE &&
+                request.weeks == 8 && request.experience in 1..2 && !request.userDirectedPlanning &&
+                qualityDryRun?.completePlanDistanceAccounting == true &&
+                (!request.timeBudgetEnabled || request.minutes * 60L >= qualityDryRun.totalSeconds)
+            ) {
+                experimentalTempo = qualityDryRun.alternatives.mapNotNull { alternative ->
+                    val match = requireNotNull(alternative.distanceMatch)
+                    val original = sessions.single { it.id == alternative.sessionId }
+                    if (match.segments.any { it.assertedMeters != it.assertedMeters.toInt().toDouble() })
+                        return@mapNotNull null
+                    val meters = match.segments.sumOf { it.assertedMeters.toInt() }
+                    if (kotlin.math.abs(meters / 1000.0 - alternative.originalEasyDistanceKm) > 1e-8)
+                        return@mapNotNull null
+                    val steps = match.segments.map { segment ->
+                        val work = segment.purpose == WorkoutPurpose.WORK
+                        RunningStepV2(segment.purpose.name,
+                            if (work) "Steady, controlled effort. Ease off if you cannot speak a short phrase."
+                            else "Easy conversational effort",
+                            seconds = segment.seconds.toInt(),
+                            distanceEquivalentMeters = segment.assertedMeters.toInt())
+                    }
+                    original.copy(kind = "quality", quality = true, title = "Experimental Tempo",
+                        minutes = steps.sumOf { requireNotNull(it.seconds) } / 60,
+                        runningPrescription = RunningPrescription("QUALITY", "Tempo", emptyList(),
+                            mixedSegments = steps, reconciledDistanceMeters = meters),
+                        steps = steps.map {
+                            "${it.seconds!! / 60} min ${it.purpose.lowercase().replace('_', ' ')} · ${it.distanceEquivalentMeters} m asserted · ${it.effort}"
+                        },
+                        reason = "Private Tempo pilot v1. Fixed loading-week dose based on declared experience. Review the supplied distance for each timed step and favor the effort cue. Pace and heart-rate targets are unset.")
+                }
+                if (experimentalTempo.size != qualityDryRun.alternatives.size ||
+                    experimentalTempo.any { quality ->
+                        sessions.any { it.id != quality.id && conflict(quality, it) } ||
+                            experimentalTempo.any { it.id != quality.id && conflict(quality, it) }
+                    }) experimentalTempo = emptyList()
+            }
+            if (experimentalTempo.isEmpty()) {
             val dryRunNote = when {
                 selection.decision != Engine15QualitySelectionDecision.FAMILY_CANDIDATE ->
                     "No family dry-run was constructed because selection deferred or is unsupported."
@@ -379,8 +418,10 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                     "The provisional family has no dry-run constructor in this batch; no Tempo substitution was made."
                 qualityDryRun == null ->
                     "The Tempo structure could not be linked to a valid development calendar slot and complete base weekly-distance ledger."
+                qualityDryRun.completePlanDistanceAccounting ->
+                    "Segment arithmetic reconciled. Private drafting requires an eight-week coached plan, experience level 1 or 2, whole-meter equivalents and a feasible schedule."
                 else ->
-                    "A development-only Tempo Intro structure was dry-run for week ${qualityDryRun.weekNumber}: ${qualityDryRun.totalSeconds} seconds total, ${qualityDryRun.workSeconds} seconds work. Its time-based steps have no defensible distance conversion, so quality distance and post-replacement weekly mileage remain unknown; the base plan distance is unchanged and no session was scheduled or saved."
+                    "A development-only Tempo Intro structure was dry-run for week ${qualityDryRun.weekNumber}: ${qualityDryRun.totalSeconds} seconds total, ${qualityDryRun.workSeconds} seconds work. For unresolved slots, quality distance and weekly mileage remain unknown. Tempo slots (week / slot / total metres): ${qualityDryRun.alternatives.joinToString { "${it.weekNumber} / ${it.slotNumber} / ${(it.originalEasyDistanceKm * 1000).toInt()}" + (it.distanceFailureCode?.let { code -> " ($code)" } ?: "") }}."
             }
             return Engine15IndependentPlanDecision.Deferred(
                 "QUALITY_GENERATION_NOT_QUALIFIED",
@@ -388,6 +429,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 selection,
                 qualityDryRun
             )
+            }
         }
 
         val customPattern=Regex("w([1-9][0-9]*)-run(0|[1-9][0-9]*)")
@@ -414,7 +456,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         }.toMap()
         for(week in 1..request.weeks) {
             val customCount=mappedQuality.keys.count { customPattern.matchEntire(it)?.groupValues?.get(1)?.toInt()==week }
-            val shouldHaveQuality=if((week-1)%4==3) 0 else request.qualityCount
+            val shouldHaveQuality=if(experimentalTempo.isNotEmpty() || (week-1)%4==3) 0 else request.qualityCount
             if(customCount!=shouldHaveQuality)
                 return defer("USER_WORKOUT_FREQUENCY_MISMATCH", "Provide exactly the requested number of user-defined workouts for each loading week and none for scheduled recovery weeks.")
         }
@@ -453,7 +495,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 other.hardLowerOrFull && kotlin.math.abs(ChronoUnit.DAYS.between(quality.date,other.date))<2
             } })
             return defer("USER_WORKOUT_EXTERNAL_SPACING_CONFLICT", "A user-defined quality workout is too close to a known external hard session.")
-        val assembledSessions=sessions.map { original -> qualitySessions.firstOrNull { it.id==original.id } ?: original }
+        val replacements = (qualitySessions + experimentalTempo).associateBy { it.id }
+        val assembledSessions=sessions.map { replacements[it.id] ?: it }
 
         val snapshot = PlanSnapshot(
             id = id,
@@ -473,6 +516,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 }
                 if(request.userDirectedPlanning)
                     add("Weekly volume follows the user-requested workload, with scheduled recovery weeks. This is not validated athlete capacity; coach-recommended progression remains available for comparison.")
+                if(experimentalTempo.isNotEmpty()) add("Private debug Tempo pilot v1. The fixed dose and perceived-effort cue are provisional. Each timed step uses a runner-asserted distance equivalent. Review each session and approve explicitly before use.")
                 if(qualityById.isNotEmpty()) add("Quality workout steps and any intensity targets were explicitly user-defined; no automatic coach selection or intensity prescription was used. Timed steps are included in mileage only when explicit per-step distance equivalents were supplied.")
                 if(request.userDirectedPlanning) volume.weeks.flatMap { it.constraintCodes }.distinct()
                     .filter { it in setOf("REQUESTED_TARGET_ABOVE_COACH_RECOMMENDED","PROVISIONAL_SESSION_EXPOSURE_WARNING","RETURN_FROM_BREAK_RECOMMENDATION_EXCEEDED") }

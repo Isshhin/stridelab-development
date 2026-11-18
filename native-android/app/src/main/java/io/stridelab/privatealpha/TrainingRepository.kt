@@ -470,6 +470,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         val owner=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)
         val state=mutable.value
         val selected=engine ?: Engine1Engines.resolve(request)
+        if (request.qualityDistanceClaims.isNotEmpty() &&
+            (!BuildConfig.DEBUG || !BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE ||
+                selected !== Engine15IndependentPlanGenerator))
+            throw PlanConstraint("Private Tempo distance entries require the independent debug route.")
         val activityEvidence = if (selected === Engine15IndependentPlanGenerator && request.runDays > 0 &&
             request.strengthDays == 0 && request.calDays == 0 && request.conditioningDays == 0 &&
             request.disciplineGoals.keys.all { it == "run" }) {

@@ -65,6 +65,24 @@ class Engine15ArchitectureTest {
         assertFalse(chosen.copy(policyChoice = "baseline").encode().has("preferredQualityExplicit"))
     }
 
+    @Test fun userAssertedQualityDistanceClaimsRoundTripAndOldRequestsDefaultEmpty() {
+        val claim = Engine15M5SegmentDistanceClaim(
+            weekNumber = 2,
+            slotNumber = 1,
+            assertedMetersByTimedSegment = listOf(900.0, 1_200.0, 900.0),
+            externalReviewReference = null,
+            provenance = Engine15M5DistanceClaimProvenance.USER_ASSERTED_EQUIVALENT
+        )
+        val requested = request().copy(qualityDistanceClaims = listOf(claim))
+        assertEquals(requested, PlanRequest.decode(requested.encode()))
+        assertEquals(emptyList<Engine15M5SegmentDistanceClaim>(),
+            PlanRequest.decode(request().encode()).qualityDistanceClaims)
+        assertEquals(emptyList<Engine15M5SegmentDistanceClaim>(),
+            PlanRequest.decode(request().encode().apply {
+                put("qualityDistanceClaims", JSONArray())
+            }).qualityDistanceClaims)
+    }
+
     @Test fun explicitTargetEqualToRecentMileageRemainsExplicitInSavedPlan() {
         for (km in listOf(0.0, 24.0)) {
             val requested = request().copy(weeklyKm = km, targetWeeklyKm = km)

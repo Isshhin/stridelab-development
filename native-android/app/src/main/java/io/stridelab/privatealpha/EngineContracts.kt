@@ -52,8 +52,17 @@ internal data class PlanRequest(
     /** Explicit user-authored workouts keyed by stable week/run-slot suffix, e.g. w2-run1. */
     val userDefinedQualityWorkouts:Map<String,RunningPrescription> = emptyMap(),
     /** True only after the runner chooses a family in Plan Builder; default Threshold is not intent. */
-    val preferredQualityExplicit:Boolean = false
+    val preferredQualityExplicit:Boolean = false,
+    /** User-asserted per-segment equivalents for debug-only quality alternatives. */
+    val qualityDistanceClaims:List<Engine15M5SegmentDistanceClaim> = emptyList()
 ) {
+    init {
+        require(qualityDistanceClaims.size <= 16)
+        require(qualityDistanceClaims.all {
+            it.provenance == Engine15M5DistanceClaimProvenance.USER_ASSERTED_EQUIVALENT &&
+                it.externalReviewReference == null
+        })
+    }
     fun disciplineSessionCount(discipline:String)=when(discipline) {
         "run"->runDays;"str"->strengthDays;"cal"->calDays;"cond"->conditioningDays;else->0
     }
@@ -91,6 +100,8 @@ internal data class PlanRequest(
         if(recentQualitySessionsPerWeek!=null)encoded.put("recentQualitySessionsPerWeek",recentQualitySessionsPerWeek)
         if(preferredQuality!="Threshold")encoded.put("preferredQuality",preferredQuality)
         if(policyChoice=="engine15" && preferredQualityExplicit)encoded.put("preferredQualityExplicit",true)
+        if(policyChoice=="engine15" && qualityDistanceClaims.isNotEmpty())
+            encoded.put("qualityDistanceClaims",JSONArray(qualityDistanceClaims.map { it.encode() }))
         if(allowedQualityTypes.isNotEmpty())
             encoded.put("allowedQualityTypes",JSONArray(allowedQualityTypes.sorted()))
         return encoded
@@ -121,7 +132,10 @@ internal data class PlanRequest(
                 j.nullDouble("reportedPeakWeeklyKm"),j.optBoolean("userDirectedPlanning",false),
                 j.optJSONObject("userDefinedQualityWorkouts")?.let { workouts ->
                     workouts.keys().asSequence().associateWith { RunningPrescription.decode(workouts.getJSONObject(it)) }
-                } ?: emptyMap(),j.optBoolean("preferredQualityExplicit",false))
+                } ?: emptyMap(),j.optBoolean("preferredQualityExplicit",false),
+                j.optJSONArray("qualityDistanceClaims")?.let { claims ->
+                    (0 until claims.length()).map { Engine15M5SegmentDistanceClaim.decode(claims.getJSONObject(it)) }
+                } ?: emptyList())
         }
     }
 }
