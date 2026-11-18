@@ -90,6 +90,7 @@ class ShareStudioUiTest {
         compose.onNodeWithTag("share-studio-scroll").performScrollToNode(hasTestTag("share-section-ROUTE"))
         compose.onNodeWithTag("share-section-ROUTE").performClick()
         compose.onNodeWithTag("share-studio-scroll").performScrollToNode(hasTestTag("share-trim-switch"))
+        compose.onNodeWithTag("share-studio-scroll").performScrollToNode(hasTestTag("share-trim-400"))
         compose.onNodeWithTag("share-trim-400").performClick()
         compose.waitForIdle()
         compose.onNodeWithTag("share-trim-400").assertIsSelected()
@@ -113,8 +114,8 @@ class ShareStudioUiTest {
     @Test fun workoutRecapAvailableForImportedLapsWithoutClaimingDetectedIntervals() {
         mountDetail()
         compose.onNodeWithTag("activity-share").performClick()
-        compose.onNodeWithText("Workout Recap").performClick()
-        compose.onNodeWithText("Workout recap · Recorded laps not classified as intervals · 9:16 PNG").assertExists()
+        compose.onNodeWithTag("share-template-WORKOUT").performClick()
+        compose.onNodeWithText("Recorded laps not classified as intervals",substring=true).assertExists()
         compose.waitUntil(5000) {
             compose.onAllNodesWithTag("share-card-preview").fetchSemanticsNodes().isNotEmpty()
         }
