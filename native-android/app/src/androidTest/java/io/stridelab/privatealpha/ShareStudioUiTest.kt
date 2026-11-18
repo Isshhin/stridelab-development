@@ -124,12 +124,22 @@ class ShareStudioUiTest {
             }
         }
         compose.onNodeWithTag("share-template-WORKOUT").performClick()
-        // Provenance is pinned above the export controls, never inside a virtualized item.
-        // Assert selection separately from asynchronously prepared activity evidence.
+        // Check actual selection first. A missing provenance tag may otherwise conceal
+        // a gallery click that never updated the saved editor configuration.
+        compose.onNodeWithTag("share-template-WORKOUT").assertIsSelected()
+        compose.onNodeWithTag("share-active-template")
+            .assertTextContains("WORKOUT RECAP", substring = true)
         compose.onNodeWithTag("share-workout-provenance").assertExists()
-        compose.waitUntil(10000) {
-            compose.onAllNodesWithText("2 recorded laps", substring = true)
-                .fetchSemanticsNodes().isNotEmpty()
+        try {
+            compose.waitUntil(10000) {
+                compose.onAllNodesWithText("2 recorded laps", substring = true)
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
+        } catch (error: Throwable) {
+            throw AssertionError(
+                "Workout source/lap summary was not populated after template selection. " +
+                    "Inspect the composed semantics tree: " +
+                    compose.onRoot(useUnmergedTree = true).printToString(), error)
         }
         compose.onNodeWithTag("share-workout-provenance")
             .assertTextContains("Unclassified", substring = true)
