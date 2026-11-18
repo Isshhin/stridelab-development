@@ -118,7 +118,9 @@ class NativeMainActivity: ComponentActivity() {
         backupGarminCloud=model::backupGarminCloud, restoreGarminCloud=model::restoreGarminCloud,
         signUp=model::signUp, requestPasswordReset=model::requestPasswordReset,
         loadCachedDetail=model::loadCachedDetail,
-        renameActivity=model::renameActivity) }
+        renameActivity=model::renameActivity,
+        exportLocalArchive=model::exportLocalActivityArchive,
+        restoreLocalArchive=model::restoreLocalActivityArchive) }
     NativeStrideContent(state, online, actions)
 }
 
@@ -134,7 +136,9 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
     val backupGarminCloud: (suspend () -> Int)? = null,
     val restoreGarminCloud: (suspend () -> Int)? = null,
     val loadCachedDetail: (suspend (String) -> Boolean)? = null,
-    val renameActivity: (suspend (String, String) -> Boolean)? = null)
+    val renameActivity: (suspend (String, String) -> Boolean)? = null,
+    val exportLocalArchive: (suspend (LocalActivityArchiveScope) -> java.io.File)? = null,
+    val restoreLocalArchive: (suspend (LocalActivityArchiveScope,java.io.File) -> LocalActivityArchiveCounts)? = null)
 
 /** Primary destinations switch immediately; the legacy Activity history route remains available.
  * retain the existing Navigation Compose transitions.
@@ -150,7 +154,7 @@ private fun NavHostController.openTabRoot(path: String) {
     // tab is already visible. Repeated taps must not rebuild its destination
     // and interrupt the floating navigation pill's animation.
     if (currentDestination?.route == path) return
-    while(currentDestination?.route in setOf("activity/{id}", "auth", "auth/signup", "auth/reset", "more/garmin", "more/data", "more/offline-maps", "more/preferences", "more/about", "more/analytics", "more/analytics/compare", "more/manual-logs", "builder/{discipline}", "workout/{planId}/{sessionId}", "practice/{key}", "manage/{planId}/{date}")) {
+    while(currentDestination?.route in setOf("activity/{id}", "auth", "auth/signup", "auth/reset", "more/garmin", "more/data", "more/offline-maps", "more/preferences", "more/about", "more/analytics", "more/analytics/compare", "more/manual-logs", "more/activity-backup", "builder/{discipline}", "workout/{planId}/{sessionId}", "practice/{key}", "manage/{planId}/{date}")) {
         if(!popBackStack()) break
     }
     navigate(path) {
@@ -519,6 +523,20 @@ private fun NavHostController.openActivity(id: String) {
                         item { Text("Local activity storage is initializing. Try again shortly.") }
                     }
                 }
+                composable("more/activity-backup") {
+                    val export = actions.exportLocalArchive
+                    val restore = actions.restoreLocalArchive
+                    if(export != null && restore != null && state.localGarminOwner != null) {
+                        LocalActivityArchiveScreen(
+                            cloudAvailable = state.account != null && !state.needsSignIn,
+                            onBack = { nav.popBackStack() },
+                            onExport = export,
+                            onRestore = restore
+                        )
+                    } else Screen("Activity backup", "OFFLINE RECOVERY") {
+                        item { Text("Archive storage is initializing. Try again shortly.") }
+                    }
+                }
                 composable("more/preferences") {
                     TracksideMoreDetailDestination(MorePage.Preferences, nav, state, actions)
                 }
@@ -617,7 +635,8 @@ private fun NavHostController.openActivity(id: String) {
                                 onAbout = { nav.navigate("more/about") },
                                 onSignOut = { confirmSignOut = true },
                                 onAnalytics = { nav.navigate("more/analytics") },
-                                onManualLogging = { nav.navigate("more/manual-logs") }
+                                onManualLogging = { nav.navigate("more/manual-logs") },
+                                onActivityBackup = { nav.navigate("more/activity-backup") }
                             )
                             if (confirmSignOut) {
                                 AlertDialog(
@@ -675,7 +694,8 @@ private fun NavHostController.openActivity(id: String) {
                         onAbout = { nav.navigate("more/about") },
                         onSignOut = {},
                         onAnalytics = { nav.navigate("more/analytics") },
-                        onManualLogging = { nav.navigate("more/manual-logs") }
+                        onManualLogging = { nav.navigate("more/manual-logs") },
+                        onActivityBackup = { nav.navigate("more/activity-backup") }
                     )
                 }
             }
