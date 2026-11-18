@@ -48,7 +48,7 @@ internal class LocalActivityArchive(
 
     companion object {
         private const val MAX_ITEMS = 30_000
-        private const val MAX_ARCHIVE_BYTES = 600L * 1024 * 1024
+        internal const val MAX_ARCHIVE_BYTES = 600L * 1024 * 1024
         private const val MAX_RAW_BYTES = 800L * 1024 * 1024
         private const val MAX_MANIFEST_BYTES = 8 * 1024 * 1024
         private const val MAX_SUMMARY_BYTES = 2 * 1024 * 1024
@@ -207,7 +207,8 @@ internal class LocalActivityArchive(
         archive: File, targetOwner: String, scope: LocalActivityArchiveScope
     ): LocalActivityArchiveCounts {
         validateScope(targetOwner, scope)
-        require(archive.isFile && archive.length() in 1..MAX_ARCHIVE_BYTES) {
+        require(archive.isFile && archive.length() > 0L &&
+            archive.length() <= MAX_ARCHIVE_BYTES) {
             "Archive file is missing or too large."
         }
         ZipFile(archive).use { zip ->
