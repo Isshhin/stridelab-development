@@ -305,14 +305,15 @@ internal object Engine15M5TimedDistanceReconciler {
 }
 
 /** Compare implied averages only. The margin allows small assertion errors without setting a pace target. */
-internal fun Engine15M5ArithmeticMatch.tempoPaceWarning(): String? {
-    if (family != IndependentQualityFamily.TEMPO) return null
-    val work = segments.single { it.purpose == WorkoutPurpose.WORK }
+internal fun Engine15M5ArithmeticMatch.qualityPaceWarning(): String? {
+    val familyName = family.name.lowercase().replaceFirstChar(Char::uppercase)
+    val work = segments.filter { it.purpose == WorkoutPurpose.WORK }
     fun Engine15M5TimedDistanceSegment.pace() = seconds * 1000 / assertedMeters
-    return segments.filter { it.target == WorkoutTarget.EASY && it.pace() * 1.05 < work.pace() }
+    val slowestWork = work.maxOf { it.pace() }
+    return segments.filter { it.target == WorkoutTarget.EASY && it.pace() * 1.05 < slowestWork }
         .joinToString(" ") { easy ->
             val phase = easy.purpose.name.lowercase().replace('_', ' ')
-            "The asserted $phase implies ${formatTempoImpliedPace(easy.pace())}, faster than Tempo at ${formatTempoImpliedPace(work.pace())}. Check the metres for both steps."
+            "The asserted $phase implies ${formatTempoImpliedPace(easy.pace())}, faster than $familyName work at ${formatTempoImpliedPace(slowestWork)}. Check the metres for both steps."
         }.ifEmpty { null }
 }
 

@@ -106,12 +106,49 @@ class Engine15QualityWorkoutDryRunTest {
             dryRun.status)
     }
 
-    @Test fun thresholdCandidateIsNotSilentlyChangedToTheOnlyDryRunFamily() {
+    @Test fun thresholdCandidateDefersUntilEverySegmentHasAnEquivalent() {
         val result = deferred(request().copy(goal = "Improve 5K", experience = 2))
         assertEquals(IndependentQualityFamily.THRESHOLD, result.qualitySelection!!.selectedFamily)
-        assertNull(result.qualityDryRun)
-        assertTrue(result.explanation.contains("no Tempo substitution"))
+        assertEquals(IndependentQualityFamily.THRESHOLD, result.qualityDryRun!!.family)
+        assertFalse(result.qualityDryRun.completePlanDistanceAccounting)
         assertEquals("QUALITY_GENERATION_NOT_QUALIFIED", result.reasonCode)
+    }
+
+    @Test fun thresholdIntroFitsEightWeeksWithoutInventingPriorExposure() {
+        org.junit.Assume.assumeTrue(BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
+        val input = request().copy(goal = "Improve 5K", experience = 2, weeklyKm = 30.0,
+            targetWeeklyKm = 30.0, longestKm = 10.0)
+        val reviewed = deferred(input)
+        assertEquals(IndependentQualityExposureConfidence.UNAVAILABLE, reviewed.qualitySelection!!.exposureConfidence)
+        assertNull(deferred(input.copy(runDays = 3)).qualityDryRun)
+        val claims = reviewed.qualitySelection.candidateSlots.map { slot ->
+            val total = kotlin.math.round(slot.originalEasyDistanceKm * 1000).toInt()
+            val metres = listOf(600, 300, 100, 300, 100, 300).map { (it * total / 2180).toDouble() }
+            Engine15M5SegmentDistanceClaim(slot.weekNumber, slot.slotNumber,
+                metres + (total - metres.sum()), null, Engine15M5DistanceClaimProvenance.USER_ASSERTED_EQUIVALENT)
+        }
+        val plan = Engine15IndependentPlanGenerator.generateWithHistory(
+            input.copy(qualityDistanceClaims = claims), owner, emptyList(), "tempo-dry-run", now)
+        val inconsistent = claims.first().assertedMetersByTimedSegment.toMutableList()
+        inconsistent[0] += inconsistent[1] - 1.0
+        inconsistent[1] = 1.0
+        val declined = deferred(input.copy(qualityDistanceClaims =
+            listOf(claims.first().copy(assertedMetersByTimedSegment = inconsistent)) + claims.drop(1)))
+        assertTrue(declined.explanation, declined.explanation.contains("faster than Threshold work"))
+        val base = Engine15IndependentPlanGenerator.generateWithHistory(
+            input.copy(qualityCount = 0), owner, emptyList(), "tempo-dry-run", now)
+        assertEquals(base.sessions.map { Triple(it.id, it.date, it.distanceKm) },
+            plan.sessions.map { Triple(it.id, it.date, it.distanceKm) })
+        assertEquals(listOf(1L, 2L, 3L, 5L, 6L, 7L), plan.sessions.filter { it.quality }.map {
+            java.time.temporal.ChronoUnit.DAYS.between(monday, it.date) / 7 + 1
+        })
+        val workout = plan.sessions.first { it.quality }.runningPrescription!!
+        assertEquals("Threshold", workout.family)
+        assertEquals(listOf("WARM_UP", "WORK", "RECOVERY", "WORK", "RECOVERY", "WORK", "COOL_DOWN"),
+            workout.mixedSegments!!.map { it.purpose })
+        assertEquals(listOf(600, 240, 120, 240, 120, 240, 480), workout.mixedSegments.map { it.seconds })
+        val approved = PlanOperations.approve(plan, listOf(plan))
+        assertEquals(approved, PlanSnapshot.decode(approved.encode(), owner))
     }
 
     @Test fun explicitTempoPreferenceIsNotLabeledCoachGenerated() {
@@ -299,5 +336,10 @@ class Engine15QualityWorkoutDryRunTest {
         val approved = PlanOperations.approve(draft, listOf(draft))
         assertEquals("approved", approved.status)
         assertEquals(approved, PlanSnapshot.decode(approved.encode(), owner))
+        assertEquals("stridelab.engine15.experimental-quality-v1", approved.experimentalQualityPolicy)
+        Engine15IndependentPlanGenerator.validateSaved(approved.copy(explanations = listOf("Edited display copy")))
+        val historical = PlanSnapshot.decode(approved.encode().apply { remove("experimentalQualityPolicy") }, owner)
+        assertNull(historical.experimentalQualityPolicy)
+        Engine15IndependentPlanGenerator.validateSaved(historical)
     }
 }
