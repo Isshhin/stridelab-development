@@ -29,7 +29,7 @@ internal enum class ShareMetric(val label:String) {
     DURATION("Duration"), PACE("Average pace"), HR("Average HR"), ELEVATION("Elevation gain")
 }
 internal enum class ShareBackground(val label:String) {
-    MAP("Activity Dark Map"), DARK("Clean Dark"), GRADIENT("Soft Gradient"), TRANSPARENT("Transparent")
+    MAP("Activity Dark Map"), DARK("Clean Dark"), GRADIENT("Soft Gradient"), TRANSPARENT("Transparent"), PHOTO("Your Photo")
 }
 internal enum class ShareBranding(val label:String) { SUBTLE("Subtle"), STANDARD("Standard"), MINIMAL("Minimal") }
 internal enum class SharePrivacy(val label:String, val meters:Double) {
