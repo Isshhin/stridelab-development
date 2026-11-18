@@ -170,7 +170,7 @@ class Engine15IndependentPlanGeneratorTest {
             assertTrue(deferred.explanation.contains("No coach-generated workout was added"))
             assertNotNull(deferred.qualitySelection)
             assertFalse(deferred.qualitySelection!!.executable)
-            if (qualityCount == 1) assertTrue(deferred.explanation.contains("caller-asserted"))
+            if (qualityCount == 1) assertTrue(deferred.explanation.contains("not a coach-qualified choice"))
             else assertEquals(Engine15QualitySelectionStatus.UNSUPPORTED, deferred.qualitySelection!!.status)
         }
     }

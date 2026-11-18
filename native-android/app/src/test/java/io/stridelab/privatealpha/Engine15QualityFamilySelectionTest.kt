@@ -61,28 +61,36 @@ class Engine15QualityFamilySelectionTest {
         assertFalse(result.authorizedForTemplateSelection)
         assertFalse(result.executable)
         assertNull(result.templateId)
-        assertTrue(result.ruleIds.contains("CALLER_ASSERTED_EXPOSURE_ONLY"))
+        assertTrue(result.ruleIds.contains("ANY_REPORTED_EXPOSURE_NOT_SOURCE_VERIFIED"))
     }
 
-    @Test fun missingOrAmbiguousFamilyEvidenceDefersInsteadOfGuessing() {
-        val missing = select(evidence = emptyList())
-        assertEquals(Engine15QualitySelectionStatus.DEFERRED, missing.status)
-        assertEquals("QUALITY_FAMILY_EVIDENCE_MISSING", missing.reasonCode)
+    @Test fun noExposureDoesNotBlockAReviewOnlyRequestPreferredFamilyCandidate() {
+        val missing = select(
+            input = request.copy(experience = 0, weeklyKm = 0.0), evidence = emptyList()
+        )
+        assertEquals(Engine15QualitySelectionStatus.PROVISIONAL_CANDIDATE, missing.status)
+        assertEquals(IndependentQualityFamily.THRESHOLD, missing.selectedFamily)
+        assertEquals(IndependentQualityExposureConfidence.UNAVAILABLE, missing.exposureConfidence)
+        assertTrue(missing.evidenceSessionIds.isEmpty())
+        assertNull(missing.assertedRepeatedWorkSeconds)
+        assertTrue(missing.ruleIds.contains("REQUEST_PREFERRED_FAMILY_REVIEW_ONLY"))
+        assertTrue(missing.qualificationNotes.any { it.contains("no reviewed threshold") })
+        assertFalse(missing.executable)
 
-        val ambiguous = select(evidence = listOf(
+        val twoFamilies = select(evidence = listOf(
             record(day = 9, id = "th-old"), record(day = 2, id = "th-new"),
             record(IndependentQualityFamily.TEMPO, day = 8, id = "tm-old"),
             record(IndependentQualityFamily.TEMPO, day = 1, id = "tm-new")
         ))
-        assertEquals(Engine15QualitySelectionStatus.DEFERRED, ambiguous.status)
-        assertEquals("QUALITY_FAMILY_AMBIGUOUS", ambiguous.reasonCode)
-        assertNull(ambiguous.selectedFamily)
+        assertEquals(Engine15QualitySelectionStatus.PROVISIONAL_CANDIDATE, twoFamilies.status)
+        assertEquals(IndependentQualityFamily.THRESHOLD, twoFamilies.selectedFamily)
 
         val novice = select(input = request.copy(experience = 0), evidence = listOf(
             record(day = 2, id = "single-recent")
         ))
-        assertEquals(Engine15QualitySelectionStatus.DEFERRED, novice.status)
-        assertEquals("QUALITY_FAMILY_EVIDENCE_MISSING", novice.reasonCode)
+        assertEquals(Engine15QualitySelectionStatus.PROVISIONAL_CANDIDATE, novice.status)
+        assertEquals(IndependentQualityExposureConfidence.INSUFFICIENT_MATCHED_DEVICE_RECORDS,
+            novice.exposureConfidence)
 
         val selfReportedOnly = select(evidence = listOf(
             record(day = 9, id = "self-old").copy(
@@ -92,8 +100,48 @@ class Engine15QualityFamilySelectionTest {
                 origin = IndependentQualityEvidenceOrigin.SELF_REPORTED_SEGMENTS
             )
         ))
-        assertEquals(Engine15QualitySelectionStatus.DEFERRED, selfReportedOnly.status)
-        assertEquals("QUALITY_FAMILY_EVIDENCE_MISSING", selfReportedOnly.reasonCode)
+        assertEquals(Engine15QualitySelectionStatus.PROVISIONAL_CANDIDATE, selfReportedOnly.status)
+        assertEquals(IndependentQualityExposureConfidence.SELF_REPORTED_ONLY,
+            selfReportedOnly.exposureConfidence)
+        assertNull(selfReportedOnly.assertedRepeatedWorkSeconds)
+    }
+
+    @Test fun conflictingExposureDefersButLowFrequencyCanUseItsOnlyAvailableQualitySlot() {
+        val conflicting = listOf(
+            record(day = 9, id = "same"),
+            record(IndependentQualityFamily.TEMPO, day = 2, id = "same")
+                .copy(sourceRecordId = "source-conflicting")
+        )
+        val conflictResult = select(evidence = conflicting)
+        assertEquals(Engine15QualitySelectionStatus.DEFERRED, conflictResult.status)
+        assertEquals("QUALITY_EXPOSURE_CONFLICT_REVIEW", conflictResult.reasonCode)
+
+        val lowFrequency = select(
+            input = request.copy(runDays = 2, days = setOf(2, 6), qualityDays = setOf(2)),
+            evidence = emptyList(),
+            scheduled = (1..4).flatMap { week -> listOf(2, 6).map { day ->
+                PlannedSession(
+                    id = "candidate-w$week-run${if (day == 6) 0 else day}",
+                    date = monday.plusWeeks((week - 1).toLong()).plusDays((day - 1).toLong()),
+                    discipline = "run", title = if (day == 6) "Long easy run" else "Easy run",
+                    minutes = 40, distanceKm = 7.0, kind = if (day == 6) "long" else "easy"
+                )
+            } }
+        )
+        assertEquals(Engine15QualitySelectionStatus.PROVISIONAL_CANDIDATE, lowFrequency.status)
+        assertEquals(IndependentQualityFamily.THRESHOLD, lowFrequency.selectedFamily)
+    }
+
+    @Test fun unsupportedOrExcludedPreferredFamilyIsNotSilentlySubstituted() {
+        val unsupported = select(input = request.copy(preferredQuality = "Fartlek"))
+        assertEquals(Engine15QualitySelectionStatus.UNSUPPORTED, unsupported.status)
+        assertEquals("QUALITY_PREFERRED_FAMILY_UNSUPPORTED", unsupported.reasonCode)
+
+        val excluded = select(input = request.copy(
+            preferredQuality = "Threshold", allowedQualityTypes = setOf("Tempo")
+        ))
+        assertEquals(Engine15QualitySelectionStatus.DEFERRED, excluded.status)
+        assertEquals("QUALITY_PREFERRED_FAMILY_NOT_ALLOWED", excluded.reasonCode)
     }
 
     @Test fun unsupportedFrequencyAndConflictingOwnerEvidenceAreExplicit() {
@@ -137,6 +185,6 @@ class Engine15QualityFamilySelectionTest {
         val second = select()
         assertEquals(Engine15QualityFamilySelection.POLICY_ID, first.policyId)
         assertEquals(first, second)
-        assertTrue(first.qualificationNotes.any { it.contains("not verified") })
+        assertTrue(first.qualificationNotes.any { it.contains("not source-verified") })
     }
 }
