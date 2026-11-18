@@ -33,6 +33,7 @@ internal object ShareCardRenderer {
             ShareTemplate.STATS -> ShareCardGeometry(RectF(56f,280f+statsHeight,1024f,h-104f),250f,row)
             ShareTemplate.ROUTE -> ShareCardGeometry(RectF(56f,246f,1024f,h-statsHeight-140f),h-statsHeight-102f,row)
             ShareTemplate.MINIMAL -> ShareCardGeometry(RectF(120f,270f,960f,h-statsHeight-170f),h-statsHeight-112f,row)
+            ShareTemplate.WORKOUT -> ShareCardGeometry(RectF(56f,270f,1024f,h-statsHeight-138f),h-statsHeight-112f,row)
         }
     }
 
@@ -66,7 +67,32 @@ internal object ShareCardRenderer {
         }
         if(ShareMetric.DATE in state.metrics) text(activity.metrics[ShareMetric.DATE].orEmpty(),56f,232f,28f,ShareCardPalette.MUTED)
 
-        if(state.routeMode!=ShareRouteMode.HIDDEN && g.route.height()>0) {
+        if(state.template==ShareTemplate.WORKOUT && g.route.height()>140f) {
+            val r=g.route
+            val recap=activity.workout
+            paint.color=0xFF181B1A.toInt()
+            canvas.drawRoundRect(r,28f,28f,paint)
+            val x=r.left+28f
+            text("WORKOUT RECAP",x,r.top+46f,24f,ShareCardPalette.LIME,true,r.width()-56f)
+            text(recap?.label ?: "Recorded laps",x,r.top+103f,48f,ShareCardPalette.WHITE,true,r.width()-56f)
+            val provenance=recap?.provenance?.label ?: "Unclassified recorded laps"
+            val origin=recap?.recordingSource ?: "Activity"
+            text("$provenance / $origin",x,r.top+138f,22f,ShareCardPalette.MUTED,maxWidth=r.width()-56f)
+            text("Laps below are not verified WORK/RECOVERY intervals",x,r.top+169f,20f,
+                ShareCardPalette.MUTED,maxWidth=r.width()-56f)
+            val visibleRows=((r.height()-210f)/70f).toInt().coerceIn(0,4)
+            recap?.laps?.take(visibleRows)?.forEachIndexed { index,lap ->
+                val y=r.top+215f+index*70f
+                text("LAP ${lap.index}",x,y,23f,ShareCardPalette.LIME,true,135f)
+                val summary=listOfNotNull(lap.distance,lap.duration,lap.pace).joinToString(" / ")
+                    .ifBlank { "Not recorded" }
+                text(summary,x+158f,y,23f,ShareCardPalette.WHITE,maxWidth=r.width()-220f)
+            }
+            if(recap!=null && recap.totalLaps>visibleRows) {
+                text("Showing ${minOf(visibleRows,recap.laps.size)} of ${recap.totalLaps} recorded laps",
+                    x,r.bottom-14f,19f,ShareCardPalette.MUTED,maxWidth=r.width()-56f)
+            }
+        } else if(state.routeMode!=ShareRouteMode.HIDDEN && g.route.height()>0) {
             canvas.save()
             // Keep the snapshot's native logo and attribution fully visible at its edges.
             canvas.clipRect(g.route)
