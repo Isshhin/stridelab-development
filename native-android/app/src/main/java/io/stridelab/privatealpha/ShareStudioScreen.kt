@@ -49,7 +49,8 @@ private data class ShareCardResult(val source:ShareRenderableActivity, val state
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, online:Boolean, onBack:()->Unit) {
+internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, online:Boolean, onBack:()->Unit,
+                               assessment:ActivityWorkoutAssessment?=null, userLabel:UserActivityWorkoutLabel?=null) {
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
     val store=remember(context) { SharePresetStore(context) }
@@ -73,8 +74,10 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
     var name by rememberSaveable { mutableStateOf("") }
     var deleting by remember { mutableStateOf<SharePreset?>(null) }
     var pendingDocumentName by rememberSaveable { mutableStateOf<String?>(null) }
-    val renderable by produceState<ShareRenderableActivity?>(null,activity,detail,config.privacy) {
-        value=withContext(Dispatchers.Default) { ShareRenderableActivity.from(activity,detail,config.privacy) }
+    val renderable by produceState<ShareRenderableActivity?>(null,activity,detail,config.privacy,assessment,userLabel) {
+        value=withContext(Dispatchers.Default) {
+            ShareRenderableActivity.from(activity,detail,config.privacy,assessment,userLabel)
+        }
     }
     LaunchedEffect(store) {
         try { presets=withContext(Dispatchers.IO) { store.load() }; presetsReady=true }
@@ -88,7 +91,8 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
     val source=renderable?.takeIf { it.id==activity.id && it.privacy==config.privacy }
     val effective=source?.let { config.forActivity(it) }
     val geometry=effective?.let(ShareCardRenderer::geometry)
-    val request=if(source!=null && effective!=null && geometry!=null && online && effective.background==ShareBackground.MAP &&
+    val request=if(source!=null && effective!=null && geometry!=null && online &&
+        effective.template!=ShareTemplate.WORKOUT && effective.background==ShareBackground.MAP &&
         effective.routeMode!=ShareRouteMode.HIDDEN && source.route.pointCount>=2 && geometry.route.height()>0)
         ShareMapRequest(effective.routeMode,geometry.route.width().toInt(),geometry.route.height().toInt()) else null
     // Template, metric-count and ratio changes may alter the map rectangle; unrelated controls reuse the map.
@@ -177,9 +181,11 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
         }
     }
 
-    MaterialTheme(colorScheme=MaterialTheme.colorScheme.copy(primary=Color(ShareCardPalette.LIME),onPrimary=Color.Black,
-        secondaryContainer=Color(0xFF26381C),onSecondaryContainer=Color(ShareCardPalette.WHITE))) {
-    Surface(color=Color.Black,contentColor=Color(ShareCardPalette.WHITE),modifier=Modifier.fillMaxSize().testTag("share-studio").semantics { paneTitle="Share Studio" }) {
+    MaterialTheme(colorScheme=MaterialTheme.colorScheme.copy(primary=TracksidePalette.lime,onPrimary=Color.Black,
+        secondaryContainer=TracksidePalette.surfaceRaised,onSecondaryContainer=TracksidePalette.text,
+        background=TracksidePalette.backgroundBottom,surface=TracksidePalette.surface,
+        onBackground=TracksidePalette.text,onSurface=TracksidePalette.text)) {
+    Surface(color=Color.Black,contentColor=TracksidePalette.text,modifier=Modifier.fillMaxSize().testTag("share-studio").semantics { paneTitle="Share Studio" }) {
         Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
             Row(Modifier.fillMaxWidth().padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically) {
                 IconButton(onClick=onBack,enabled=!busy,modifier=Modifier.testTag("share-studio-back")) {
@@ -187,6 +193,8 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                 }
                 Column(Modifier.weight(1f).padding(vertical=8.dp)) {
                     Text("Share Studio",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)
+                    Text("ACTIVITY DESIGN",style=MaterialTheme.typography.labelSmall,
+                        color=TracksidePalette.lime)
                     activePreset?.let { id -> presets.firstOrNull { it.id==id }?.let {
                         Text(it.name,style=MaterialTheme.typography.labelMedium,color=Color(ShareCardPalette.MUTED))
                     } }
@@ -198,7 +206,7 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                     BoxWithConstraints(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) {
                         val ratio=(effective?.ratio ?: config.ratio)
                         val width=minOf(maxWidth,420.dp*(1080f/ratio.height))
-                        Box(Modifier.width(width).aspectRatio(1080f/ratio.height).background(Color(0xFF101A15),RoundedCornerShape(12.dp)),contentAlignment=Alignment.Center) {
+                        Box(Modifier.width(width).aspectRatio(1080f/ratio.height).background(TracksidePalette.surfaceLow,RoundedCornerShape(12.dp)),contentAlignment=Alignment.Center) {
                             if(card!=null) Image(card.asImageBitmap(),
                                 contentDescription="Share card preview. "+source?.metrics?.filterKeys { it in effective?.metrics.orEmpty() }?.values?.joinToString(". "),
                                 contentScale=ContentScale.Fit,modifier=Modifier.fillMaxSize().testTag("share-card-preview"))
@@ -209,6 +217,9 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                 item {
                     val status=when {
                         mapLoading -> "Loading Activity Dark map…"
+                        effective?.template==ShareTemplate.WORKOUT && source?.workout?.provenance==ShareWorkoutSource.RECORDED_ONLY ->
+                            "Workout recap · Recorded laps not classified as intervals · ${config.ratio.label} PNG"
+                        effective?.template==ShareTemplate.WORKOUT -> "Workout recap · Label provenance shown · ${config.ratio.label} PNG"
                         effective?.routeMode==ShareRouteMode.HIDDEN -> "Route hidden or too short to trim · Full activity stats · ${config.ratio.label} PNG"
                         config.privacy==SharePrivacy.OFF && map==null -> "Full GPS route · trimming off · no basemap · ${config.ratio.label} PNG"
                         config.privacy==SharePrivacy.OFF -> "Full GPS route · trimming off · map · ${config.ratio.label} PNG"
@@ -216,8 +227,8 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                         else -> "Route trimmed · Full activity stats · map · ${config.ratio.label} PNG"
                     }
                     Text(status,style=MaterialTheme.typography.labelMedium,color=Color(ShareCardPalette.MUTED),modifier=Modifier.semantics { liveRegion=LiveRegionMode.Polite })
-                    Text("PNG export: 1080 × ${config.ratio.height} pixels",style=MaterialTheme.typography.labelSmall,
-                        color=Color(ShareCardPalette.MUTED),modifier=Modifier.testTag("share-export-resolution"))
+                    Text("PNG export: 1080 x ${config.ratio.height} pixels",style=MaterialTheme.typography.labelSmall,
+                        color=TracksidePalette.textMuted,modifier=Modifier.testTag("share-export-resolution"))
                 }
                 item {
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -227,9 +238,11 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                     }
                 }
                 item {
-                    Surface(color=Color(0xFF101A15),shape=RoundedCornerShape(20.dp)) {
+                    Surface(color=TracksidePalette.surface,shape=RoundedCornerShape(20.dp)) {
                         Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
                             Text(section.label,style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
+                            if(section==ShareSection.TEMPLATES) Text("Choose a route, stats, minimal, or recorded-workout composition.",
+                                style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted)
                             when(section) {
                                 ShareSection.TEMPLATES -> ShareChoices(ShareTemplate.entries,config.template,{it.label}) { configure(config.selectTemplate(it)); activePreset=null }
                                 ShareSection.VARIANT -> ShareChoices(config.template.variants,config.variant,{it.label}) { configure(config.selectVariant(it)) }
@@ -254,8 +267,14 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                                             style=MaterialTheme.typography.bodyMedium,color=Color(0xFFFFBE7A),modifier=Modifier.testTag("share-trim-off-warning"))
                                     } else {
                                         Text("Trim distance from each endpoint",style=MaterialTheme.typography.labelLarge)
-                                        ShareChoices(SharePrivacy.entries.filterNot { it==SharePrivacy.OFF },config.privacy,{it.label}) {
-                                            configure(config.copy(privacy=it))
+                                        FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                                            SharePrivacy.entries.filterNot { it==SharePrivacy.OFF }.forEach { level ->
+                                                FilterChip(selected=config.privacy==level,
+                                                    onClick={ configure(config.copy(privacy=level)) },
+                                                    label={ Text(level.label) },
+                                                    modifier=Modifier.heightIn(min=48.dp)
+                                                        .testTag("share-trim-${level.meters.toInt()}"))
+                                            }
                                         }
                                         Text("Trimming reduces endpoint exposure but does not guarantee location anonymity.",
                                             style=MaterialTheme.typography.bodySmall,color=Color(ShareCardPalette.MUTED))
