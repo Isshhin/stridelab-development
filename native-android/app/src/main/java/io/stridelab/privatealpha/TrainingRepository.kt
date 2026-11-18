@@ -1152,6 +1152,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         } else raw
         val checked = if (savedPayload != null)
             ActivityDetail.parse(storedPayload, account, id) else parsed
+        // Keep the validated original Garmin FIT bytes for future local backup.
+        // Old previously cached recordings may not have original FIT bytes.
+        // Never replace a different cached FIT source or modify a saved summary.
+        FitImportCache(appContext).saveSelected(bytes, account)
         store.applyRemotePage(
             account, "activity_detail",
             listOf(TrainingStore.RemoteRecord(id, storedPayload.toString(), null)),
