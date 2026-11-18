@@ -48,8 +48,9 @@ class Engine15ProcessRestartTest {
                 start=LocalDate.now().plusDays(1), weeks=4, days=(1..7).toSet(),
                 runDays=3, longDay=6, experience=1, weeklyKm=20.0, longestKm=8.0,
                 targetWeeklyKm=if (scenario == "equal") 20.0 else 25.0, qualityCount=0)
-            val recordedDay = LocalDate.now().minusDays(1)
-            val futureDay = LocalDate.now().with(TemporalAdjusters.next(DayOfWeek.MONDAY))
+            val feedbackAsOf = LocalDate.now()
+            val recordedDay = feedbackAsOf.minusDays(1)
+            val futureDay = feedbackAsOf.plusDays(2)
             val feedbackEngine = object : PlanGenerationEngine {
                 override val version = ENGINE15_VERSION
                 override val policyId = ENGINE15_POLICY
@@ -84,14 +85,20 @@ class Engine15ProcessRestartTest {
                 assertTrue(UserActivityWorkoutLabelStore(context).save(owner, "restart-activity-$runId", activityLabel))
             }
             if (scenario in setOf("accepted", "dismissed")) {
-                val proposal = repo.previewEngine15Adjustments(plan.id, LocalDate.now()).single()
-                assertTrue(repo.stageEngine15Adjustment(plan.id, plan.revision, proposal, LocalDate.now()))
+                val proposal = repo.previewEngine15Adjustments(plan.id, feedbackAsOf).single()
+                assertTrue(repo.stageEngine15Adjustment(plan.id, plan.revision, proposal, feedbackAsOf))
                 plan = repo.state.value.plans.single()
                 if (scenario == "accepted") assertTrue(repo.acceptSuggestion(plan.id, plan.revision, "future-run"))
                 else assertTrue(repo.dismissStagedEngine15Adjustment(plan.id, plan.revision, "future-run"))
                 plan = repo.state.value.plans.single()
                 if (scenario == "accepted") assertTrue(plan.sessions.last().suggestion!!.accepted)
-                else assertNull(plan.sessions.last().suggestion)
+                else {
+                    assertNull(plan.sessions.last().suggestion)
+                    assertTrue(plan.feedback.any {
+                        it.category == "Workout quality" && it.sessionId == "future-run" &&
+                            it.text.contains("dismissed")
+                    })
+                }
             }
             assertEquals(ENGINE15_POLICY, plan.policyId)
             val researchRequest = PlanRequest(
