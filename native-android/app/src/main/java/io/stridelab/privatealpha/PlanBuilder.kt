@@ -821,13 +821,42 @@ import org.json.JSONObject
                             weeks == "8" && input.qualityCount == 1 && !input.userDirectedPlanning &&
                             input.userDefinedQualityWorkouts.isEmpty() &&
                             input.strengthDays + input.calDays + input.conditioningDays == 0) {
-                            OutlinedTextField(
-                                value = tempoEquivalents,
-                                onValueChange = { tempoEquivalents = it.take(1024) },
-                                label = { Text("Private Tempo · asserted distances") },
-                                supportingText = { Text("One row per loading week: week, slot, warm-up metres, work metres, cooldown metres, separated by spaces. Request a draft with this field empty to see the available slots.") },
-                                modifier = Modifier.fillMaxWidth().testTag("private-tempo-distances")
-                            )
+                            Text("Private Tempo distances")
+                            Text("Request a draft with the fields empty to see the suggested slots and distance budgets. Enter your own equivalents in metres.")
+                            val rows = tempoEquivalents.lines().filter { it.isNotBlank() }
+                                .associateBy { it.substringBefore(' ') }
+                            for (week in listOf(1, 2, 3, 5, 6, 7)) {
+                                Text("Week $week")
+                                val fields = rows[week.toString()]?.split(' ')?.drop(1).orEmpty()
+                                for ((index, label) in listOf("Run slot", "Warm-up metres", "Tempo metres", "Cooldown metres").withIndex()) {
+                                    OutlinedTextField(
+                                        value = fields.getOrElse(index) { "" },
+                                        onValueChange = { value ->
+                                            val updated = MutableList(4) { fields.getOrElse(it) { "" } }
+                                            updated[index] = value.filter { it in '0'..'9' }.take(6)
+                                            val next = rows.toMutableMap()
+                                            if (updated.all { it.isEmpty() }) next.remove(week.toString())
+                                            else next[week.toString()] = "$week " + updated.joinToString(" ")
+                                            tempoEquivalents = next.values.joinToString("\n")
+                                        },
+                                        label = { Text(label) },
+                                        supportingText = {
+                                            val metres = fields.getOrNull(index)?.toIntOrNull()
+                                            val seconds = when (index) {
+                                                1 -> 600
+                                                2 -> Engine15QualityWorkoutDryRunBuilder.workSeconds(input.experience)
+                                                3 -> 480
+                                                else -> null
+                                            }
+                                            if (seconds != null && metres != null && metres > 0)
+                                                Text("Implied average ${formatTempoImpliedPace(seconds * 1000.0 / metres)}")
+                                        },
+                                        singleLine = true,
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier = Modifier.fillMaxWidth().testTag("private-tempo-$week-$index")
+                                    )
+                                }
+                            }
                         }
                         IndependentAndroidResearchPreviewPanel(
                             request=runCatching { request() }.getOrDefault(input),

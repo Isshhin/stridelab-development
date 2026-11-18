@@ -91,6 +91,7 @@ class Engine15QualityWorkoutDryRunTest {
         val dryRun = result.qualityDryRun!!
 
         assertEquals(16, dryRun.weeklyDistance.size)
+        assertEquals(600, dryRun.workSeconds)
         assertEquals((1..16).toList(), dryRun.weeklyDistance.map { it.weekNumber })
         assertEquals(listOf(4, 8, 12, 16), dryRun.weeklyDistance
             .filter { it.kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY }
@@ -259,10 +260,17 @@ class Engine15QualityWorkoutDryRunTest {
         val input = request().copy(experience = 1, weeklyKm = 30.0, targetWeeklyKm = 30.0, longestKm = 10.0)
         val claims = userAssertions(input).map { claim ->
             val total = kotlin.math.round(claim.assertedMetersByTimedSegment.sum()).toInt()
-            val easy = total / 3
-            claim.copy(assertedMetersByTimedSegment = listOf(easy.toDouble(),
-                (total - 2 * easy).toDouble(), easy.toDouble()))
+            val warm = total * 31 / 100
+            val cool = total * 24 / 100
+            claim.copy(assertedMetersByTimedSegment = listOf(warm.toDouble(),
+                (total - warm - cool).toDouble(), cool.toDouble()))
         }
+        val suspicious = claims.first().copy(assertedMetersByTimedSegment = listOf(1266.0, 1268.0, 1266.0))
+        val declined = deferred(input.copy(qualityDistanceClaims = listOf(suspicious) + claims.drop(1)))
+        assertTrue(declined.explanation, declined.explanation.contains("cool down implies"))
+        assertEquals(suspicious.assertedMetersByTimedSegment,
+            declined.qualityDryRun!!.alternatives.first().distanceMatch!!.segments.map { it.assertedMeters })
+
         val base = Engine15IndependentPlanGenerator.generateWithHistory(input.copy(qualityCount = 0),
             owner, emptyList(), "tempo-dry-run", now)
         val draft = Engine15IndependentPlanGenerator.generateWithHistory(input.copy(qualityDistanceClaims = claims),

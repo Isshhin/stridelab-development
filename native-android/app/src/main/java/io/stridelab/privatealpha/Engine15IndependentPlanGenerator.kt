@@ -372,7 +372,10 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             val qualityDryRun = Engine15QualityWorkoutDryRunBuilder.build(
                 request, selection, volume, sessions
             )
-            if (BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE &&
+            val paceWarnings = qualityDryRun?.alternatives.orEmpty().mapNotNull { alternative ->
+                alternative.distanceMatch?.tempoPaceWarning()?.let { "Week ${alternative.weekNumber}: $it" }
+            }
+            if (paceWarnings.isEmpty() && BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE &&
                 request.weeks == 8 && request.experience in 1..2 && !request.userDirectedPlanning &&
                 qualityDryRun?.completePlanDistanceAccounting == true &&
                 (!request.timeBudgetEnabled || request.minutes * 60L >= qualityDryRun.totalSeconds)
@@ -400,7 +403,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                         steps = steps.map {
                             "${it.seconds!! / 60} min ${it.purpose.lowercase().replace('_', ' ')} · ${it.distanceEquivalentMeters} m asserted · ${it.effort}"
                         },
-                        reason = "Private Tempo pilot v1. Fixed loading-week dose based on declared experience. Review the supplied distance for each timed step and favor the effort cue. Pace and heart-rate targets are unset.")
+                        reason = "Private Tempo pilot. Work time stays at 10 minutes in loading weeks because completed Tempo exposure is unverified. Review the supplied distance for each timed step and favor the effort cue. Pace and heart-rate targets are unset.")
                 }
                 if (experimentalTempo.size != qualityDryRun.alternatives.size ||
                     experimentalTempo.any { quality ->
@@ -418,6 +421,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                     "The provisional family has no dry-run constructor in this batch; no Tempo substitution was made."
                 qualityDryRun == null ->
                     "The Tempo structure could not be linked to a valid development calendar slot and complete base weekly-distance ledger."
+                paceWarnings.isNotEmpty() -> paceWarnings.joinToString(" ")
                 qualityDryRun.completePlanDistanceAccounting ->
                     "Segment arithmetic reconciled. Private drafting requires an eight-week coached plan, experience level 1 or 2, whole-meter equivalents and a feasible schedule."
                 else ->

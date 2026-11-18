@@ -303,3 +303,18 @@ internal object Engine15M5TimedDistanceReconciler {
         )
     }
 }
+
+/** Compare implied averages only. The margin allows small assertion errors without setting a pace target. */
+internal fun Engine15M5ArithmeticMatch.tempoPaceWarning(): String? {
+    if (family != IndependentQualityFamily.TEMPO) return null
+    val work = segments.single { it.purpose == WorkoutPurpose.WORK }
+    fun Engine15M5TimedDistanceSegment.pace() = seconds * 1000 / assertedMeters
+    return segments.filter { it.target == WorkoutTarget.EASY && it.pace() * 1.05 < work.pace() }
+        .joinToString(" ") { easy ->
+            val phase = easy.purpose.name.lowercase().replace('_', ' ')
+            "The asserted $phase implies ${formatTempoImpliedPace(easy.pace())}, faster than Tempo at ${formatTempoImpliedPace(work.pace())}. Check the metres for both steps."
+        }.ifEmpty { null }
+}
+
+internal fun formatTempoImpliedPace(secondsPerKm: Double) =
+    "%.2f min/km".format(java.util.Locale.US, secondsPerKm / 60)
