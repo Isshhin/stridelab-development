@@ -29,12 +29,28 @@ internal object ShareCardRenderer {
         val count=state.metrics.count { it in numeric }.coerceAtLeast(1)
         val row=if(state.layout==ShareLayout.COMPACT) 138f else 158f
         val statsHeight=ceil(count/2.0).toFloat()*row
-        return when(state.template) {
+        val base=when(state.template) {
             ShareTemplate.STATS -> ShareCardGeometry(RectF(56f,280f+statsHeight,1024f,h-104f),250f,row)
             ShareTemplate.ROUTE -> ShareCardGeometry(RectF(56f,246f,1024f,h-statsHeight-140f),h-statsHeight-102f,row)
             ShareTemplate.MINIMAL -> ShareCardGeometry(RectF(120f,270f,960f,h-statsHeight-170f),h-statsHeight-112f,row)
             ShareTemplate.WORKOUT -> ShareCardGeometry(RectF(56f,270f,1024f,h-statsHeight-138f),h-statsHeight-112f,row)
         }
+        // Bounded route-vs-stat split. Keep at least 152 px of map height,
+        // the template's original separation, and labels above the brand footer.
+        // Stats-first and workout cards keep their established safe geometry.
+        if(state.template !in setOf(ShareTemplate.ROUTE, ShareTemplate.MINIMAL) ||
+            state.routeMode==ShareRouteMode.HIDDEN) return base
+        val rows=ceil(count/2.0).toFloat()
+        val gap=if(state.template==ShareTemplate.MINIMAL) 58f else 38f
+        val minStatsTop=base.route.top+152f+gap
+        val maxStatsTop=h-200f-(rows-1f)*row
+        if(minStatsTop>maxStatsTop) return base
+        val desired=base.statsTop+(state.routeBalance-50)*1.5f
+        val statsTop=desired.coerceIn(minStatsTop,maxStatsTop)
+        return base.copy(
+            route=RectF(base.route.left,base.route.top,base.route.right,statsTop-gap),
+            statsTop=statsTop
+        )
     }
 
     fun render(activity:ShareRenderableActivity, state:ShareStudioState, map:Bitmap? = null, photo:Bitmap? = null):Bitmap {
