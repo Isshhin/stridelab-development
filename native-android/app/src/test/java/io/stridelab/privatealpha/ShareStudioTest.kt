@@ -70,6 +70,35 @@ class ShareStudioTest {
         assertEquals(ShareBackground.MAP,decoded.state.background)
     }
 
+    @Test fun metricOrderingWorksAndPreservesLegacyPresetDefaults() {
+        val defaults=ShareStudioState()
+        val available=setOf(ShareMetric.DISTANCE,ShareMetric.DURATION,ShareMetric.PACE)
+        assertEquals(listOf(ShareMetric.DISTANCE,ShareMetric.DURATION,ShareMetric.PACE),
+            defaults.visibleNumericMetrics(available))
+        val moved=defaults.moveMetric(ShareMetric.PACE,-1)
+            .moveMetric(ShareMetric.PACE,-1)
+        assertEquals(listOf(ShareMetric.PACE,ShareMetric.DISTANCE,ShareMetric.DURATION),
+            moved.visibleNumericMetrics(available))
+        assertEquals(moved,SharePresetCodec.decode(
+            SharePresetCodec.encode(listOf(SharePreset("metric-order","Metric order",moved)))
+        ).single().state)
+        val legacy=SharePreset("legacy","Unordered",defaults)
+        val json=org.json.JSONObject(SharePresetCodec.encode(listOf(legacy)))
+        json.getJSONArray("presets").getJSONObject(0).remove("metricOrder")
+        assertEquals(emptyList<ShareMetric>(),
+            SharePresetCodec.decode(json.toString()).single().state.metricOrder)
+        assertEquals(defaults,SharePresetCodec.decode(json.toString()).single().state)
+    }
+
+    @Test(expected=IllegalArgumentException::class)
+    fun duplicateMetricOrderIsRejectedWithoutTouchingSavedPresets() {
+        val raw=org.json.JSONObject(SharePresetCodec.encode(listOf(
+            SharePreset("duplicate-order","Duplicate",ShareStudioState()))))
+        raw.getJSONArray("presets").getJSONObject(0)
+            .put("metricOrder", org.json.JSONArray().put("PACE").put("PACE"))
+        SharePresetCodec.decode(raw.toString())
+    }
+
     @Test fun presetCodecRoundTripAndDeletion() {
         val preset = SharePreset("one","My poster",ShareStudioState(ratio=ShareRatio.PORTRAIT,
             background=ShareBackground.GRADIENT,branding=ShareBranding.MINIMAL,layout=ShareLayout.COMPACT))
