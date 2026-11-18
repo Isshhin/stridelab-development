@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -244,7 +245,7 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                             if(section==ShareSection.TEMPLATES) Text("Choose a route, stats, minimal, or recorded-workout composition.",
                                 style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted)
                             when(section) {
-                                ShareSection.TEMPLATES -> ShareChoices(ShareTemplate.entries,config.template,{it.label}) { configure(config.selectTemplate(it)); activePreset=null }
+                                ShareSection.TEMPLATES -> ShareTemplateGallery(config.template) { configure(config.selectTemplate(it)); activePreset=null }
                                 ShareSection.VARIANT -> ShareChoices(config.template.variants,config.variant,{it.label}) { configure(config.selectVariant(it)) }
                                 ShareSection.RATIO -> ShareChoices(ShareRatio.entries,config.ratio,{it.label}) { configure(config.copy(ratio=it)) }
                                 ShareSection.ROUTE -> {
@@ -389,6 +390,40 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
         confirmButton={ TextButton(enabled=!busy,onClick={
             savePresets(presets.filterNot { it.id==selected.id }) { deleting=null; activePreset=null; message="Preset deleted" }
         }) { Text("Delete") } },dismissButton={ TextButton(enabled=!busy,onClick={ deleting=null }) { Text("Cancel") } }) }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ShareTemplateGallery(selected:ShareTemplate,onSelect:(ShareTemplate)->Unit) {
+    FlowRow(horizontalArrangement=Arrangement.spacedBy(10.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+        ShareTemplate.entries.forEach { template ->
+            val chosen=template==selected
+            val number=when(template) {
+                ShareTemplate.ROUTE -> "01 / ROUTE"
+                ShareTemplate.STATS -> "02 / STATS"
+                ShareTemplate.MINIMAL -> "03 / MINIMAL"
+                ShareTemplate.WORKOUT -> "04 / WORKOUT"
+            }
+            val explanation=when(template) {
+                ShareTemplate.ROUTE -> "Map-led"
+                ShareTemplate.STATS -> "Metrics-led"
+                ShareTemplate.MINIMAL -> "Clean typography"
+                ShareTemplate.WORKOUT -> "Recorded lap recap"
+            }
+            Surface(onClick={onSelect(template)},shape=RoundedCornerShape(18.dp),
+                color=if(chosen) TracksidePalette.surfaceRaised else TracksidePalette.surfaceLow,
+                border=BorderStroke(1.dp,if(chosen) TracksidePalette.lime else TracksidePalette.outline),
+                modifier=Modifier.width(148.dp).heightIn(min=106.dp)
+                    .testTag("share-template-${template.name}")) {
+                Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                    Text(number,style=MaterialTheme.typography.labelSmall,color=TracksidePalette.lime)
+                    Text(template.label,style=MaterialTheme.typography.titleSmall,
+                        color=TracksidePalette.text,fontWeight=FontWeight.SemiBold)
+                    Text(explanation,style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted)
+                }
+            }
+        }
     }
 }
 
