@@ -129,6 +129,12 @@ class Engine15QualityWorkoutDryRunTest {
         }
         val plan = Engine15IndependentPlanGenerator.generateWithHistory(
             input.copy(qualityDistanceClaims = claims), owner, emptyList(), "tempo-dry-run", now)
+        assertEquals(plan, Engine15IndependentPlanGenerator.generateWithHistory(
+            input.copy(qualityDistanceClaims = claims), owner, emptyList(), "tempo-dry-run", now))
+        assertTrue(plan.sessions.filter { it.quality }.all { session ->
+            session.runningPrescription!!.mixedSegments!!.filter { it.purpose == "WORK" }
+                .sumOf { it.seconds!! } == 720
+        })
         val inconsistent = claims.first().assertedMetersByTimedSegment.toMutableList()
         inconsistent[0] += inconsistent[1] - 1.0
         inconsistent[1] = 1.0
@@ -149,6 +155,19 @@ class Engine15QualityWorkoutDryRunTest {
         assertEquals(listOf(600, 240, 120, 240, 120, 240, 480), workout.mixedSegments.map { it.seconds })
         val approved = PlanOperations.approve(plan, listOf(plan))
         assertEquals(approved, PlanSnapshot.decode(approved.encode(), owner))
+        val quality = plan.sessions.first { it.quality }
+        val friday = plan.sessions.single { it.date == monday.plusDays(4) }
+        val moved = plan.copy(sessions = plan.sessions.map {
+            when (it.id) {
+                quality.id -> it.copy(date = friday.date)
+                friday.id -> it.copy(date = quality.date)
+                else -> it
+            }
+        })
+        val rejected = assertThrows(PlanConstraint::class.java) {
+            Engine15IndependentPlanGenerator.validateSaved(moved)
+        }
+        assertTrue(rejected.message.orEmpty().contains("spaced"))
     }
 
     @Test fun explicitTempoPreferenceIsNotLabeledCoachGenerated() {

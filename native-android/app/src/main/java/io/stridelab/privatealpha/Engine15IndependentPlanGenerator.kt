@@ -666,6 +666,17 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         Engine15SessionLocks.validateOutput(plan.request, plan.sessions)
         if (plan.sessions.groupBy { it.date }.values.any { it.size > 1 })
             throw PlanConstraint("The independent running plan schedules more than one run on a date.")
+        if (plan.experimentalQualityPolicy == QUALITY_POLICY) {
+            for (quality in plan.sessions.filter { it.quality }) {
+                val original = expectedById.getValue(quality.id)
+                val originalWeek = ChronoUnit.DAYS.between(plan.request.start, original.date) / 7L
+                val actualWeek = ChronoUnit.DAYS.between(plan.request.start, quality.date) / 7L
+                if (actualWeek != originalWeek)
+                    throw PlanConstraint("Experimental quality must stay in its reviewed loading week.")
+                if (plan.sessions.any { it.id != quality.id && conflict(quality, it) })
+                    throw PlanConstraint("Experimental quality must remain spaced from other quality and long runs.")
+            }
+        }
         val expectedTotals = expected.sessions.groupBy { ChronoUnit.DAYS.between(plan.request.start, it.date) / 7L }
             .mapValues { (_, rows) -> rows.sumOf { it.distanceKm ?: 0.0 } }
         val actualTotals = plan.sessions.groupBy { ChronoUnit.DAYS.between(plan.request.start, it.date) / 7L }
