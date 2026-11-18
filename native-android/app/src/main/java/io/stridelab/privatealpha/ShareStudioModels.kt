@@ -47,8 +47,27 @@ internal data class ShareStudioState(
     val background:ShareBackground = ShareBackground.MAP,
     val branding:ShareBranding = ShareBranding.SUBTLE,
     val layout:ShareLayout = ShareLayout.AIRY,
-    val privacy:SharePrivacy = SharePrivacy.STANDARD
+    val privacy:SharePrivacy = SharePrivacy.STANDARD,
+    /** Preferred stat order only; empty means the original default enum order. */
+    val metricOrder:List<ShareMetric> = emptyList()
 ) {
+    /** Return metrics in deliberate user order without dropping newly enabled fields. */
+    fun visibleNumericMetrics(available:Set<ShareMetric>):List<ShareMetric> {
+        val numeric=ShareMetric.entries.filter {
+            it !in setOf(ShareMetric.TITLE,ShareMetric.DATE,ShareMetric.LOCATION)
+        }
+        return (metricOrder + numeric).distinct().filter { it in metrics && it in available && it in numeric }
+    }
+    fun moveMetric(metric:ShareMetric, direction:Int):ShareStudioState {
+        require(direction==1 || direction==-1)
+        val visible=visibleNumericMetrics(metrics)
+        val old=visible.indexOf(metric)
+        val next=old+direction
+        if(old<0 || next !in visible.indices) return this
+        val reordered=visible.toMutableList()
+        val swapped=reordered[next]; reordered[next]=metric; reordered[old]=swapped
+        return copy(metricOrder=(reordered + metricOrder).distinct())
+    }
     fun selectTemplate(value:ShareTemplate):ShareStudioState = copy(template=value).selectVariant(value.variants.first())
     fun selectVariant(value:ShareVariant):ShareStudioState {
         require(value in template.variants)
@@ -177,6 +196,7 @@ internal object SharePresetCodec {
             put("template",s.template.name); put("variant",s.variant.name); put("ratio",s.ratio.name)
             put("route",s.routeMode.name); put("metrics",JSONArray(s.metrics.map { it.name }))
             put("background",s.background.name); put("branding",s.branding.name); put("layout",s.layout.name); put("privacy",s.privacy.name)
+            put("metricOrder",JSONArray(s.metricOrder.map { it.name }))
         }) }
     }).toString()
 
@@ -194,10 +214,16 @@ internal object SharePresetCodec {
             val metrics=(0 until fields.length()).map { ShareMetric.valueOf(fields.getString(it)) }.toSet()
             val id=row.getString("id"); val name=row.getString("name")
             require(id.isNotBlank() && id.length<=100 && name.isNotBlank() && name.length<=60)
+            val orderJson=row.optJSONArray("metricOrder")
+            val order=if(orderJson==null) emptyList() else {
+                require(orderJson.length()<=ShareMetric.entries.size)
+                (0 until orderJson.length()).map { ShareMetric.valueOf(orderJson.getString(it)) }
+            }
+            require(order.distinct().size==order.size) { "Duplicated share metric order" }
             SharePreset(id,name,ShareStudioState(template,variant,ShareRatio.valueOf(row.getString("ratio")),
                 ShareRouteMode.valueOf(row.getString("route")),metrics,ShareBackground.valueOf(row.getString("background")),
                 ShareBranding.valueOf(row.getString("branding")),ShareLayout.valueOf(row.getString("layout")),
-                SharePrivacy.valueOf(row.optString("privacy",SharePrivacy.STANDARD.name))))
+                SharePrivacy.valueOf(row.optString("privacy",SharePrivacy.STANDARD.name)),order))
         }
         require(result.map { it.id }.distinct().size==result.size)
         return result
