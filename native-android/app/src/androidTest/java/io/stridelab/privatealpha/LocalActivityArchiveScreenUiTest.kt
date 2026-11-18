@@ -23,10 +23,12 @@ class LocalActivityArchiveScreenUiTest {
             }
         }
         compose.onNodeWithTag("screen")
+            .performScrollToNode(hasTestTag("archive-intro"))
+        compose.onNodeWithText("ZIP files are NOT encrypted", substring = true).assertExists()
+        compose.onNodeWithTag("screen")
             .performScrollToNode(hasTestTag("archive-source"))
         compose.onNodeWithTag("archive-local-garmin").assertIsEnabled()
         compose.onNodeWithTag("archive-cloud-account").assertIsNotEnabled()
-        compose.onNodeWithText("ZIP files are NOT encrypted", substring = true).assertExists()
     }
 
     @Test fun signedInUserCanExplicitlySelectCloudOwnedActivities() {
