@@ -231,14 +231,6 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                         modifier=Modifier.testTag("share-status").semantics { liveRegion=LiveRegionMode.Polite })
                     Text("PNG export: 1080 x ${config.ratio.height} pixels",style=MaterialTheme.typography.labelSmall,
                         color=TracksidePalette.textMuted,modifier=Modifier.testTag("share-export-resolution"))
-                    if(effective?.template==ShareTemplate.WORKOUT) {
-                        val workout=source?.workout
-                        val label=workout?.label ?: "Unclassified"
-                        val provenance=workout?.provenance?.label ?: "No workout evidence"
-                        Text("$label / $provenance / ${workout?.totalLaps ?: 0} recorded laps",
-                            style=MaterialTheme.typography.bodySmall,color=TracksidePalette.textMuted,
-                            modifier=Modifier.testTag("share-workout-provenance"))
-                    }
                 }
                 item {
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -332,6 +324,24 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                     OutlinedButton(onClick={ message=null; name=presets.firstOrNull { it.id==activePreset }?.name.orEmpty(); naming=true },
                         enabled=presetsReady && !busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("share-save-preset")) { Text("Save Preset") }
                 }
+            }
+            // Keep the source/provenance visible beside export, independent of LazyColumn
+            // virtualization. Do not suggest that FIT laps are classified intervals.
+            if(config.template==ShareTemplate.WORKOUT) {
+                val workout=source?.workout
+                val detailText=when {
+                    workout==null -> "Preparing workout recap…"
+                    else -> {
+                        val label=workout.label ?: "Unclassified"
+                        "$label / ${workout.provenance.label} / ${workout.totalLaps} recorded laps"
+                    }
+                }
+                Text(detailText,
+                    style=MaterialTheme.typography.bodySmall,
+                    color=TracksidePalette.textMuted,
+                    modifier=Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=4.dp)
+                        .testTag("share-workout-provenance")
+                        .semantics { liveRegion=LiveRegionMode.Polite })
             }
             message?.let { text ->
                 Text(text,color=Color(ShareCardPalette.LIME),modifier=Modifier.padding(horizontal=16.dp)
