@@ -30,6 +30,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
@@ -194,8 +195,22 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                 }
                 Column(Modifier.weight(1f).padding(vertical=8.dp)) {
                     Text("Share Studio",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)
-                    Text("ACTIVITY DESIGN",style=MaterialTheme.typography.labelSmall,
-                        color=TracksidePalette.lime)
+                    Text("ACTIVITY DESIGN · ${config.template.label.uppercase(java.util.Locale.ROOT)}",
+                        style=MaterialTheme.typography.labelSmall,color=TracksidePalette.lime,
+                        modifier=Modifier.testTag("share-active-template"))
+                    if(config.template==ShareTemplate.WORKOUT) {
+                        // Visible outside the virtualized editor, even on narrow screens.
+                        val workout=source?.workout
+                        val detailText=if(workout==null) "Preparing workout recap…"
+                            else {
+                                val label=workout.label ?: "Unclassified"
+                                "$label / ${workout.provenance.label} / ${workout.totalLaps} recorded laps"
+                            }
+                        Text(detailText,style=MaterialTheme.typography.bodySmall,
+                            color=TracksidePalette.textMuted,
+                            modifier=Modifier.testTag("share-workout-provenance")
+                                .semantics { liveRegion=LiveRegionMode.Polite })
+                    }
                     activePreset?.let { id -> presets.firstOrNull { it.id==id }?.let {
                         Text(it.name,style=MaterialTheme.typography.labelMedium,color=Color(ShareCardPalette.MUTED))
                     } }
@@ -325,24 +340,6 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                         enabled=presetsReady && !busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("share-save-preset")) { Text("Save Preset") }
                 }
             }
-            // Keep the source/provenance visible beside export, independent of LazyColumn
-            // virtualization. Do not suggest that FIT laps are classified intervals.
-            if(config.template==ShareTemplate.WORKOUT) {
-                val workout=source?.workout
-                val detailText=when {
-                    workout==null -> "Preparing workout recap…"
-                    else -> {
-                        val label=workout.label ?: "Unclassified"
-                        "$label / ${workout.provenance.label} / ${workout.totalLaps} recorded laps"
-                    }
-                }
-                Text(detailText,
-                    style=MaterialTheme.typography.bodySmall,
-                    color=TracksidePalette.textMuted,
-                    modifier=Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=4.dp)
-                        .testTag("share-workout-provenance")
-                        .semantics { liveRegion=LiveRegionMode.Polite })
-            }
             message?.let { text ->
                 Text(text,color=Color(ShareCardPalette.LIME),modifier=Modifier.padding(horizontal=16.dp)
                     .semantics { liveRegion=LiveRegionMode.Polite }.testTag("share-message"))
@@ -434,7 +431,8 @@ private fun ShareTemplateGallery(selected:ShareTemplate,onSelect:(ShareTemplate)
                 color=if(chosen) TracksidePalette.surfaceRaised else TracksidePalette.surfaceLow,
                 border=BorderStroke(1.dp,if(chosen) TracksidePalette.lime else TracksidePalette.outline),
                 modifier=Modifier.width(148.dp).heightIn(min=106.dp)
-                    .testTag("share-template-${template.name}")) {
+                    .testTag("share-template-${template.name}")
+                    .semantics { this.selected = chosen }) {
                 Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                     Text(number,style=MaterialTheme.typography.labelSmall,color=TracksidePalette.lime)
                     Text(template.label,style=MaterialTheme.typography.titleSmall,
