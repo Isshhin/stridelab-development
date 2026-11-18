@@ -50,7 +50,9 @@ internal data class PlanRequest(
     /** Private/debug plan preference; this remains a requested budget, not validated capacity. */
     val userDirectedPlanning:Boolean = false,
     /** Explicit user-authored workouts keyed by stable week/run-slot suffix, e.g. w2-run1. */
-    val userDefinedQualityWorkouts:Map<String,RunningPrescription> = emptyMap()
+    val userDefinedQualityWorkouts:Map<String,RunningPrescription> = emptyMap(),
+    /** True only after the runner chooses a family in Plan Builder; default Threshold is not intent. */
+    val preferredQualityExplicit:Boolean = false
 ) {
     fun disciplineSessionCount(discipline:String)=when(discipline) {
         "run"->runDays;"str"->strengthDays;"cal"->calDays;"cond"->conditioningDays;else->0
@@ -88,6 +90,7 @@ internal data class PlanRequest(
         if(runningRecoveryHold)encoded.put("runningRecoveryHold",true)
         if(recentQualitySessionsPerWeek!=null)encoded.put("recentQualitySessionsPerWeek",recentQualitySessionsPerWeek)
         if(preferredQuality!="Threshold")encoded.put("preferredQuality",preferredQuality)
+        if(policyChoice=="engine15" && preferredQualityExplicit)encoded.put("preferredQualityExplicit",true)
         if(allowedQualityTypes.isNotEmpty())
             encoded.put("allowedQualityTypes",JSONArray(allowedQualityTypes.sorted()))
         return encoded
@@ -118,7 +121,7 @@ internal data class PlanRequest(
                 j.nullDouble("reportedPeakWeeklyKm"),j.optBoolean("userDirectedPlanning",false),
                 j.optJSONObject("userDefinedQualityWorkouts")?.let { workouts ->
                     workouts.keys().asSequence().associateWith { RunningPrescription.decode(workouts.getJSONObject(it)) }
-                } ?: emptyMap())
+                } ?: emptyMap(),j.optBoolean("preferredQualityExplicit",false))
         }
     }
 }

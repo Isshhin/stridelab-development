@@ -169,13 +169,15 @@ class Engine15IndependentPlanGeneratorTest {
             assertEquals("QUALITY_GENERATION_NOT_QUALIFIED", deferred.reasonCode)
             assertTrue(deferred.explanation.contains("No coach-generated workout was added"))
             assertNotNull(deferred.qualitySelection)
-            assertFalse(deferred.qualitySelection!!.executable)
-            if (qualityCount == 1) assertTrue(deferred.explanation.contains("not a coach-qualified choice"))
-            else assertEquals(Engine15QualitySelectionStatus.UNSUPPORTED, deferred.qualitySelection!!.status)
+            assertEquals(Engine15WorkoutExecutability.NON_EXECUTABLE,
+                deferred.qualitySelection!!.workoutExecutability)
+            if (qualityCount == 1) assertEquals(Engine15QualitySelectionDecision.FAMILY_CANDIDATE,
+                deferred.qualitySelection!!.decision)
+            else assertEquals(Engine15QualitySelectionDecision.UNSUPPORTED, deferred.qualitySelection!!.decision)
         }
     }
 
-    @Test fun repeatedQualityHistoryProducesReviewOnlyFamilyCandidateThroughGenerator() {
+    @Test fun goalBasedFamilyCandidateRemainsNonExecutableThroughGenerator() {
         val evidence = listOf(
             IndependentQualitySegmentEvidence(
                 owner, "source-old", "session-old", now.atZone(java.time.ZoneOffset.UTC).toLocalDate().minusDays(9),
@@ -194,12 +196,16 @@ class Engine15IndependentPlanGeneratorTest {
         ) as Engine15IndependentPlanDecision.Deferred
 
         val selection = deferred.qualitySelection!!
-        assertEquals(Engine15QualitySelectionStatus.PROVISIONAL_CANDIDATE, selection.status)
-        assertEquals(IndependentQualityFamily.THRESHOLD, selection.selectedFamily)
+        assertEquals(Engine15QualitySelectionDecision.FAMILY_CANDIDATE, selection.decision)
+        assertEquals(IndependentQualityFamily.TEMPO, selection.selectedFamily)
+        assertEquals(Engine15QualitySelectionBasis.GOAL_EXPERIENCE_MATRIX, selection.selectionBasis)
+        assertEquals(Engine15FamilyPolicyQualification.PROVISIONAL_ENGINEERING_RULE,
+            selection.familyPolicyQualification)
         assertFalse(selection.sourceEvidenceVerified)
-        assertFalse(selection.authorizedForTemplateSelection)
+        assertEquals(Engine15TemplateAuthorization.NOT_AUTHORIZED, selection.templateAuthorization)
+        assertEquals(Engine15WorkoutExecutability.NON_EXECUTABLE, selection.workoutExecutability)
         assertNull(selection.templateId)
-        assertTrue(selection.explanation.contains("not authorized"))
+        assertTrue(selection.explanation.contains("unqualified"))
     }
 
     @Test fun representativeGoalsProduceCompleteDeterministicEightToSixteenWeekPlans() {

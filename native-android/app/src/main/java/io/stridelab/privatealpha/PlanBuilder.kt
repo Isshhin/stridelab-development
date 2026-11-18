@@ -524,7 +524,7 @@ import org.json.JSONObject
                 qualityPreference = qualityPreference,
                 onQualityPreference = { selected ->
                     qualityPreference=selected
-                    edit(input.copy(preferredQuality=selected))
+                    edit(input.copy(preferredQuality=selected, preferredQualityExplicit=true))
                 },
                 onQualityCount = { n ->
                     val allowed = minOf((input.runDays-2).coerceAtLeast(0),

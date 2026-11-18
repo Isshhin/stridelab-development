@@ -52,6 +52,19 @@ class Engine15ArchitectureTest {
         assertNull(PlanRequest.decode(legacy).targetWeeklyKm)
     }
 
+    @Test fun explicitQualityChoiceIsPersistedWithoutTreatingLegacyDefaultAsIntent() {
+        val implicit = request()
+        assertFalse(implicit.encode().has("preferredQualityExplicit"))
+        assertFalse(PlanRequest.decode(implicit.encode()).preferredQualityExplicit)
+        val oldSavedRequest = implicit.encode().apply { put("preferredQuality", "Threshold") }
+        assertFalse(PlanRequest.decode(oldSavedRequest).preferredQualityExplicit)
+
+        val chosen = implicit.copy(preferredQuality = "Tempo", preferredQualityExplicit = true)
+        assertTrue(chosen.encode().getBoolean("preferredQualityExplicit"))
+        assertEquals(chosen, PlanRequest.decode(chosen.encode()))
+        assertFalse(chosen.copy(policyChoice = "baseline").encode().has("preferredQualityExplicit"))
+    }
+
     @Test fun explicitTargetEqualToRecentMileageRemainsExplicitInSavedPlan() {
         for (km in listOf(0.0, 24.0)) {
             val requested = request().copy(weeklyKm = km, targetWeeklyKm = km)
@@ -74,6 +87,7 @@ class Engine15ArchitectureTest {
             dailyMinutes = 85,
             weeklySlots = mapOf("run" to listOf(6, 1, 2)),
             preferredQuality = "Intervals",
+            preferredQualityExplicit = true,
             allowedQualityTypes = setOf("Intervals")
         )
         val draft = Engine15.generate(original, owner, "trackside-lock", now)
@@ -82,6 +96,7 @@ class Engine15ArchitectureTest {
         val reopened = PlanSnapshot.decode(locked.encode(), owner)
         assertEquals(original.weeklySlots, reopened.request.weeklySlots)
         assertEquals(original.preferredQuality, reopened.request.preferredQuality)
+        assertTrue(reopened.request.preferredQualityExplicit)
         assertEquals(original.allowedQualityTypes, reopened.request.allowedQualityTypes)
         assertEquals(85, reopened.request.dailyMinutes)
         assertEquals(target.date.toString(), reopened.request.lockedSessionDays[target.id])
