@@ -174,8 +174,11 @@ internal class ManualDisciplineStore(
         RecordPolicy.identifier(owner)
         val result = mutableListOf<ManualDisciplineSession>()
         readableDatabase.query("sessions", arrayOf("payload"), "owner=?", arrayOf(owner),
-            null, null, "performed_on DESC,record_id DESC", "2000").use { cursor ->
+            null, null, "performed_on DESC,record_id DESC", "2001").use { cursor ->
             while (cursor.moveToNext()) result += ManualDisciplineCodec.decode(cursor.getString(0), owner)
+        }
+        require(result.size <= 2000) {
+            "Manual log count exceeds the supported archive size. No partial export was made."
         }
         result
     }
@@ -195,9 +198,12 @@ internal class ManualDisciplineStore(
         RecordPolicy.identifier(owner)
         val records = mutableListOf<ManualWorkoutTemplate>()
         readableDatabase.query("manual_templates", arrayOf("payload"), "owner=?",
-            arrayOf(owner), null, null, "name COLLATE NOCASE", "100").use { cursor ->
+            arrayOf(owner), null, null, "name COLLATE NOCASE", "101").use { cursor ->
             while(cursor.moveToNext()) records += ManualWorkoutTemplateCodec.decode(
                 cursor.getString(0),owner)
+        }
+        require(records.size <= 100) {
+            "Template count exceeds the supported archive size. No partial export was made."
         }
         records
     }

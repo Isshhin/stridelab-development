@@ -5,7 +5,7 @@ Owner direction: **implement the non-engine features first; do not install on an
 
 ## Implementation stack
 
-All PRs remain **draft and unmerged**, stacked serially. Current leaf: `feature/nonengine-offline-map-sizing-20261118` at `8ce535769df5ac951bf39f354f853b1c665ee354`. The stack begins from Share Studio draft PR #143, which itself is stacked on an unmerged Engine 1.5 development branch. **Do not merge the stack into production as an indirect coaching-engine cutover.** Preserve the no-engine-integration decision.
+All PRs remain **draft and unmerged**, stacked serially. Current leaf: `feature/nonengine-manual-backup-completeness-20261118` at `1c200eb27bbb6bf6902722ecea64fb86269b8e7e`. The stack begins from Share Studio draft PR #143, which itself is stacked on an unmerged Engine 1.5 development branch. **Do not merge the stack into production as an indirect coaching-engine cutover.** Preserve the no-engine-integration decision.
 
 | Phase | PR | Source delivered | Acceptance |
 | --- | --- | --- | --- |
@@ -22,6 +22,9 @@ All PRs remain **draft and unmerged**, stacked serially. Current leaf: `feature/
 | C3 | #155 | Optional, approximate Instagram Story safe-area overlays in editor only | Android UI test authored, not executed |
 | B5 | #156 | Lazy, filter-aware history browser with navigation to real Activity Detail | Android UI test authored, not executed |
 | C4 | #157 | Adjustable offline map-selection box, projection matched to the visible box | JVM test authored, not executed |
+| C5 | #158 | User-configurable metric order in Share Studio, saved with legacy-compatible presets | Tests authored, not executed |
+| B6 | #159 | Canonicalize equivalent run labels without asserting road terrain | Tests authored, not executed |
+| A4 | #160 | Reject over-limit manual-log/template backups instead of silently truncating; warn unencrypted JSON | Android tests authored, not executed |
 
 PR #145 is the tracking issue, not a pull request. The standalone original Share Studio fix is in PR #143.
 
@@ -38,7 +41,7 @@ PR #145 is the tracking issue, not a pull request. The standalone original Share
 1. Full local **activity/FIT stream** backup and cross-version recovery safety is **not** implemented by the new manual-session backup. Existing plans and optional Garmin cloud backups are different scopes. Full archive design must handle private credentials, large activity_detail payloads, owner isolation, partial failures and transactionality before any destructive update. Do not claim all user data are backed up.
 2. Garmin importer end-to-end failure, idempotency and owner-isolation fixture verification is pending; source has relevant safeguards but needs run evidence.
 3. Existing unified Training timeline, signed-out history, multi-run day cases and 360dp/412dp accessibility are not newly verified by these PRs.
-4. Share Studio freeform dragging/positioning and full third-party Instagram Story delivery were not implemented. The new optional safe-area guides are approximate and never exported.
+4. Share Studio now supports metric order (#158), but unrestricted drag-anywhere placement of map/stat blocks and full third-party Instagram Story delivery remain unfinished. Approximate guides are preview-only.
 5. Offline vector tile availability, style assets, attribution and cached snapshot behavior must be checked against real downloaded regions when emulator acceptance is authorized.
 6. Manual log history is independent of Garmin and coach plans; no automatic activity timeline/plan linking or fitness scores are invented.
 7. No analytics collection/upload toggle is needed for this local-only descriptive analytics implementation. Network telemetry remains unapproved.
@@ -47,7 +50,7 @@ PR #145 is the tracking issue, not a pull request. The standalone original Share
 ## Consolidated test gate — not run
 
 Before recommending any installation, check source/build with Windows JDK/Gradle and SDK configured in the isolated non-engine QA worktree:
-- Focused JVM classes: `ActivityHistoryAnalyticsTest`, `ActivityRunComparisonTest`, `ActivityAnalyticsFilteringTest`, `RecordedDistanceBestsTest`, `OfflineSelectionRectTest`, `ManualDisciplineCodecTest`, `ManualWorkoutTemplateTest`.
+- Focused JVM classes: `ActivityHistoryAnalyticsTest`, `ActivityRunComparisonTest`, `ActivityAnalyticsFilteringTest`, `RecordedDistanceBestsTest`, `OfflineSelectionRectTest`, `ManualDisciplineCodecTest`, `ManualWorkoutTemplateTest`, and `ShareStudioTest` (metric-order regressions).
 - Android classes: `ActivityRunComparisonUiTest`, `SharePhotoRendererAndroidTest`, `StrideOfflineCoverageAndroidTest`, `ManualDisciplineStoreAndroidTest`, `BuildIdentificationUiTest`, `ActivityAnalyticsBrowseUiTest`, and existing `ShareStudioUiTest`.
 - Compile all affected Kotlin sources and manifest merge; verify debug `-PstrideIsolatedQaInstall=true` resolves package `io.stridelab.privatealpha.qa`, with no normal-package replacement.
 - Emulator only when the owner authorizes the **single combined acceptance**; use separate QA package, disposable data, explicit `adb -s` serial, no physical-device automated tests.
@@ -55,4 +58,4 @@ Before recommending any installation, check source/build with Windows JDK/Gradle
 
 ## Release guardrails
 
-No Engine 1.5 code is intentionally changed in the non-engine PR diffs. No coaching release flag was promoted. No PR was merged, no APK installed, and no original app data was accessed by these GitHub connector edits. Real user-data recovery and signing compatibility remain release blockers until tested.
+No Engine 1.5 code is intentionally changed in the non-engine PR diffs. No coaching release flag was promoted. No PR was merged, no APK installed, and no original app data was accessed by these GitHub connector edits. **Do not proceed to QA yet:** full activity/FIT archival recovery and unrestricted layout controls are not implemented. Real user-data recovery and signing compatibility remain release blockers until tested.
