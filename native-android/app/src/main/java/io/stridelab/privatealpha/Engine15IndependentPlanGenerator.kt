@@ -9,6 +9,8 @@ internal const val ENGINE15_INDEPENDENT_CANDIDATE_POLICY =
     "stridelab.engine15.independent-running-candidate-20261117.1"
 internal const val ENGINE15_INDEPENDENT_RUNNING_POLICY =
     "stridelab.engine15.independent-running-20261117.1"
+private const val TEMPO_EXPOSURE_NOTE =
+    "Tempo exposure policy v1: loading mileage stays within the usual baseline and each Tempo slot fits the reported longest completed run."
 internal const val ENGINE15_INDEPENDENT_STRENGTH_POLICY =
     "stridelab.engine15.independent-strength-20261117.1"
 internal const val ENGINE15_INDEPENDENT_CALISTHENICS_POLICY =
@@ -204,7 +206,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         now: Instant,
         existingPlans: List<PlanSnapshot>? = null,
         activityEvidence: ActivityAthleteEvidenceProfile? = null,
-        qualityEvidence: List<IndependentQualitySegmentEvidence> = emptyList()
+        qualityEvidence: List<IndependentQualitySegmentEvidence> = emptyList(),
+        applyTempoExposureGate: Boolean = true
     ): Engine15IndependentPlanDecision {
         fun defer(code: String, explanation: String) =
             Engine15IndependentPlanDecision.Deferred(code, explanation)
@@ -375,7 +378,20 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             val paceWarnings = qualityDryRun?.alternatives.orEmpty().mapNotNull { alternative ->
                 alternative.distanceMatch?.tempoPaceWarning()?.let { "Week ${alternative.weekNumber}: $it" }
             }
-            if (paceWarnings.isEmpty() && BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE &&
+            val usualKm = athlete.typicalWeeklyKm
+            val tempoExposureHold = qualityDryRun
+                ?.takeIf { applyTempoExposureGate && request.weeks == 8 && request.experience in 1..2 && !request.userDirectedPlanning }
+                ?.let { dryRun ->
+                when {
+                    request.longestKm <= 0.0 -> "Enter a recent longest completed run before drafting Experimental Tempo."
+                    dryRun.alternatives.any { it.originalEasyDistanceKm > request.longestKm + 1e-6 } ->
+                        "An Experimental Tempo slot exceeds the reported longest completed run. Review the distance budget."
+                    usualKm != null && dryRun.weeklyDistance.any { it.budgetKm > usualKm + 1e-6 } ->
+                        "The pilot separates introducing Tempo from building beyond usual weekly mileage. Set a lower target or review an easy-only plan."
+                    else -> null
+                }
+            }
+            if (tempoExposureHold == null && paceWarnings.isEmpty() && BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE &&
                 request.weeks == 8 && request.experience in 1..2 && !request.userDirectedPlanning &&
                 qualityDryRun?.completePlanDistanceAccounting == true &&
                 (!request.timeBudgetEnabled || request.minutes * 60L >= qualityDryRun.totalSeconds)
@@ -403,7 +419,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                         steps = steps.map {
                             "${it.seconds!! / 60} min ${it.purpose.lowercase().replace('_', ' ')} · ${it.distanceEquivalentMeters} m asserted · ${it.effort}"
                         },
-                        reason = "Private Tempo pilot. Work time stays at 10 minutes in loading weeks because completed Tempo exposure is unverified. Review the supplied distance for each timed step and favor the effort cue. Pace and heart-rate targets are unset.")
+                        reason = "Private Tempo pilot. This slot fits reported recent run distance and the plan stays within usual weekly mileage. Work stays at 10 minutes because completed Tempo exposure is unverified. Favor the controlled effort cue and review your distance entries.")
                 }
                 if (experimentalTempo.size != qualityDryRun.alternatives.size ||
                     experimentalTempo.any { quality ->
@@ -422,6 +438,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 qualityDryRun == null ->
                     "The Tempo structure could not be linked to a valid development calendar slot and complete base weekly-distance ledger."
                 paceWarnings.isNotEmpty() -> paceWarnings.joinToString(" ")
+                tempoExposureHold != null -> tempoExposureHold
                 qualityDryRun.completePlanDistanceAccounting ->
                     "Segment arithmetic reconciled. Private drafting requires an eight-week coached plan, experience level 1 or 2, whole-meter equivalents and a feasible schedule."
                 else ->
@@ -521,6 +538,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 if(request.userDirectedPlanning)
                     add("Weekly volume follows the user-requested workload, with scheduled recovery weeks. This is not validated athlete capacity; coach-recommended progression remains available for comparison.")
                 if(experimentalTempo.isNotEmpty()) add("Private debug Tempo pilot v1. The fixed dose and perceived-effort cue are provisional. Each timed step uses a runner-asserted distance equivalent. Review each session and approve explicitly before use.")
+                if (experimentalTempo.isNotEmpty() && applyTempoExposureGate) add(TEMPO_EXPOSURE_NOTE)
                 if(qualityById.isNotEmpty()) add("Quality workout steps and any intensity targets were explicitly user-defined; no automatic coach selection or intensity prescription was used. Timed steps are included in mileage only when explicit per-step distance equivalents were supplied.")
                 if(request.userDirectedPlanning) volume.weeks.flatMap { it.constraintCodes }.distinct()
                     .filter { it in setOf("REQUESTED_TARGET_ABOVE_COACH_RECOMMENDED","PROVISIONAL_SESSION_EXPOSURE_WARNING","RETURN_FROM_BREAK_RECOMMENDATION_EXCEEDED") }
@@ -620,7 +638,9 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         }
         if (plan.engineVersion != version || plan.policyId != policyId)
             throw PlanConstraint("The independent running plan has an unsupported engine identity.")
-        val expected = when (val decision = preview(plan.request, plan.owner, plan.id, plan.createdAt)) {
+        // Historical pilots retain their original eligibility semantics during structural validation.
+        val expected = when (val decision = preview(plan.request, plan.owner, plan.id, plan.createdAt,
+            applyTempoExposureGate = TEMPO_EXPOSURE_NOTE in plan.explanations)) {
             is Engine15IndependentPlanDecision.Deferred ->
                 throw PlanConstraint("${decision.reasonCode}: ${decision.explanation}")
             is Engine15IndependentPlanDecision.Candidate -> decision.plan
