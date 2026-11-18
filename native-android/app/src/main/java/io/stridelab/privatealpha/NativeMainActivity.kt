@@ -501,7 +501,8 @@ private fun NavHostController.openActivity(id: String) {
                     ActivityAnalyticsScreen(
                         visibleActivities,
                         onBack = { nav.popBackStack() },
-                        onCompare = { nav.navigate("more/analytics/compare") }
+                        onCompare = { nav.navigate("more/analytics/compare") },
+                        onOpenActivity = { id -> nav.openActivity(id) }
                     )
                 }
                 composable("more/analytics/compare") {
