@@ -41,7 +41,7 @@ internal object ShareCardRenderer {
         val bitmap=Bitmap.createBitmap(1080,state.ratio.height,Bitmap.Config.ARGB_8888)
         val canvas=Canvas(bitmap)
         val paint=Paint(Paint.ANTI_ALIAS_FLAG)
-        canvas.drawColor(ShareCardPalette.BLACK)
+        if(state.background!=ShareBackground.TRANSPARENT) canvas.drawColor(ShareCardPalette.BLACK)
         if(state.background==ShareBackground.GRADIENT) {
             paint.shader=LinearGradient(0f,0f,1080f,bitmap.height.toFloat(),
                 intArrayOf(0xFF1C2D28.toInt(),ShareCardPalette.BLACK,0xFF252032.toInt()),null,Shader.TileMode.CLAMP)
@@ -97,7 +97,8 @@ internal object ShareCardRenderer {
             canvas.save()
             // Keep the snapshot's native logo and attribution fully visible at its edges.
             canvas.clipRect(g.route)
-            if(map!=null) canvas.drawBitmap(map,null,g.route,paint.apply { color=Color.WHITE; alpha=255 })
+            if(map!=null && state.background==ShareBackground.MAP)
+                canvas.drawBitmap(map,null,g.route,paint.apply { color=Color.WHITE; alpha=255 })
             else drawCoordinateRoute(canvas,g.route,activity,state)
             canvas.restore()
         }

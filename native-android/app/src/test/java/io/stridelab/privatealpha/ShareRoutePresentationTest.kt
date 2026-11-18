@@ -81,7 +81,7 @@ class ShareRoutePresentationTest {
 
     @Test fun defaultPrivacyAndLegacyPresetCompatibility() {
         val state=ShareStudioState()
-        assertEquals(ShareBackground.DARK,state.background)
+        assertEquals(ShareBackground.MAP,state.background)
         assertEquals(SharePrivacy.STANDARD,state.privacy)
         val encoded=SharePresetCodec.encode(listOf(SharePreset("old","Old",state.copy(background=ShareBackground.MAP))))
         val old=org.json.JSONObject(encoded)

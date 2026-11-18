@@ -24,6 +24,10 @@ class ShareStudioUiTest {
         ActivitySample(1,10.0,360.0,null,12.0,14.601,121.001),
         ActivitySample(2,20.0,370.0,null,11.0,14.602,121.002)),
         listOf(ActivityLap(0,1000.0,360.0,360.0,null,0.0),ActivityLap(1,1000.0,360.0,360.0,null,10.0)),0L)
+    private val cityDetail = detail.copy(samples = (0..14).map { index ->
+        ActivitySample(index, index * 30.0, 360.0, null, null,
+            37.775 + index * .0005, -122.425 + index * .0006)
+    })
 
     private fun mountDetail() {
         val tab=mutableIntStateOf(0)
@@ -184,15 +188,22 @@ class ShareStudioUiTest {
 
     @Test fun everyTemplateRatioProducesPngAtExpectedDimensionsAndSecureShareUri() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
-        val source=ShareRenderableActivity.from(activity,detail)
+        val source=ShareRenderableActivity.from(activity,cityDetail)
+        assertTrue(source.route.pointCount >= 2)
         ShareTemplate.entries.forEach { template -> ShareRatio.entries.forEach { ratio ->
-            val state=ShareStudioState().selectTemplate(template).copy(ratio=ratio).forActivity(source)
+            val state=ShareStudioState(background=ShareBackground.TRANSPARENT)
+                .selectTemplate(template).copy(ratio=ratio).forActivity(source)
             val bitmap=ShareCardRenderer.render(source,state)
             try {
                 val bytes=ByteArrayOutputStream()
                 ShareImageExport.writePng(bitmap,bytes)
+                if (InstrumentationRegistry.getArguments().getString("captureSharePng") == "true") {
+                    java.io.File(context.filesDir,"qa-share-alpha-${template.name}-${ratio.name}.png")
+                        .writeBytes(bytes.toByteArray())
+                }
                 val decoded=BitmapFactory.decodeByteArray(bytes.toByteArray(),0,bytes.size())
                 assertEquals(1080,decoded.width); assertEquals(ratio.height,decoded.height)
+                assertEquals(0,android.graphics.Color.alpha(decoded.getPixel(0,0)))
                 assertEquals(bitmap.getPixel(0,0),decoded.getPixel(0,0))
                 assertTrue(bitmap.sameAs(decoded))
                 decoded.recycle()
@@ -204,7 +215,10 @@ class ShareStudioUiTest {
                     val uri=intent.clipData!!.getItemAt(0).uri
                     assertEquals("content",uri.scheme)
                     assertEquals(context.packageName+".share-studio",uri.authority)
-                    context.contentResolver.openInputStream(uri)!!.use { assertTrue(it.read()>=0) }
+                    context.contentResolver.openInputStream(uri)!!.use {
+                        val shared=BitmapFactory.decodeStream(it)
+                        try { assertTrue(bitmap.sameAs(shared)) } finally { shared.recycle() }
+                    }
                     context.contentResolver.delete(uri,null,null)
                 }
             } finally { bitmap.recycle() }
@@ -225,16 +239,47 @@ class ShareStudioUiTest {
         } finally { file.delete() }
     }
 
+    @Test fun liveActivityDarkMapExportsStreetContext() = kotlinx.coroutines.runBlocking {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        org.junit.Assume.assumeTrue(
+            "Requires live OpenFreeMap access",
+            InstrumentationRegistry.getArguments().getString("liveShareMap") == "true"
+        )
+        val context = instrumentation.targetContext
+        val source = ShareRenderableActivity.from(activity, cityDetail)
+        assertTrue(source.route.pointCount >= 2)
+        for (ratio in ShareRatio.entries) {
+            val state = ShareStudioState(ratio=ratio).forActivity(source)
+            val map = shareMapSnapshot(context, source, state)
+            val card = ShareCardRenderer.render(source, state, map)
+            try {
+                val colors = (map.height / 8 until map.height * 7 / 8 step 12).flatMap { y ->
+                    (map.width / 8 until map.width * 7 / 8 step 12).map { x -> map.getPixel(x,y) }
+                }.toSet()
+                assertTrue("Expected rendered street tiles, found ${colors.size} colors", colors.size > 20)
+                val rect = ShareCardRenderer.geometry(state).route
+                assertEquals(map.getPixel(20,20),card.getPixel(rect.left.toInt()+20,rect.top.toInt()+20))
+                java.io.File(context.filesDir,"qa-share-map-${ratio.name}.png").outputStream().use {
+                    ShareImageExport.writePng(card,it)
+                }
+            } finally {
+                card.recycle()
+                map.recycle()
+            }
+        }
+    }
+
     @Test fun gallerySavePublishesExactPngAndCanBeRemoved() {
         org.junit.Assume.assumeTrue(android.os.Build.VERSION.SDK_INT>=29)
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val source=ShareRenderableActivity.from(activity,detail)
-        val bitmap=ShareCardRenderer.render(source,ShareStudioState().forActivity(source))
+        val bitmap=ShareCardRenderer.render(source,ShareStudioState(background=ShareBackground.TRANSPARENT).forActivity(source))
         var uri:android.net.Uri?=null
         try {
             uri=ShareImageExport.saveToGallery(context,bitmap)
             context.contentResolver.openInputStream(uri)!!.use {
                 val decoded=BitmapFactory.decodeStream(it)
+                assertEquals(0,android.graphics.Color.alpha(decoded.getPixel(0,0)))
                 assertTrue(bitmap.sameAs(decoded)); decoded.recycle()
             }
             context.contentResolver.query(uri,arrayOf(android.provider.MediaStore.Images.Media.IS_PENDING),null,null,null)!!.use {

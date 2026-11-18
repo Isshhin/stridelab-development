@@ -28,7 +28,9 @@ internal enum class ShareMetric(val label:String) {
     TITLE("Activity title"), DATE("Date"), LOCATION("Location"), DISTANCE("Distance"),
     DURATION("Duration"), PACE("Average pace"), HR("Average HR"), ELEVATION("Elevation gain")
 }
-internal enum class ShareBackground(val label:String) { MAP("Activity Dark Map"), DARK("Clean Dark"), GRADIENT("Soft Gradient") }
+internal enum class ShareBackground(val label:String) {
+    MAP("Activity Dark Map"), DARK("Clean Dark"), GRADIENT("Soft Gradient"), TRANSPARENT("Transparent")
+}
 internal enum class ShareBranding(val label:String) { SUBTLE("Subtle"), STANDARD("Standard"), MINIMAL("Minimal") }
 internal enum class SharePrivacy(val label:String, val meters:Double) {
     STANDARD("200 m",200.0), EXTRA("400 m",400.0), MAXIMUM("800 m",800.0),
@@ -42,7 +44,7 @@ internal data class ShareStudioState(
     val ratio:ShareRatio = ShareRatio.STORY,
     val routeMode:ShareRouteMode = ShareRouteMode.ROUTE,
     val metrics:Set<ShareMetric> = setOf(ShareMetric.TITLE,ShareMetric.DATE,ShareMetric.DISTANCE,ShareMetric.DURATION,ShareMetric.PACE,ShareMetric.HR),
-    val background:ShareBackground = ShareBackground.DARK,
+    val background:ShareBackground = ShareBackground.MAP,
     val branding:ShareBranding = ShareBranding.SUBTLE,
     val layout:ShareLayout = ShareLayout.AIRY,
     val privacy:SharePrivacy = SharePrivacy.STANDARD
@@ -58,7 +60,6 @@ internal data class ShareStudioState(
                 else if(value==ShareVariant.SILHOUETTE) setOf(ShareMetric.DISTANCE)
                 else if(sparse) setOf(ShareMetric.TITLE,ShareMetric.DISTANCE,ShareMetric.PACE)
                 else ShareStudioState().metrics + if(template==ShareTemplate.STATS) setOf(ShareMetric.ELEVATION) else emptySet(),
-            background=ShareBackground.DARK,
             layout=if(template==ShareTemplate.WORKOUT || value==ShareVariant.RUN_RECAP || value==ShareVariant.DARK_CLEAN) ShareLayout.COMPACT else ShareLayout.AIRY)
     }
 

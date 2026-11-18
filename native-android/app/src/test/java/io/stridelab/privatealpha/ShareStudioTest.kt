@@ -55,7 +55,13 @@ class ShareStudioTest {
 
     @Test fun defaultSharePrivacySurvivesLegacyPresets() {
         assertEquals(SharePrivacy.STANDARD,ShareStudioState().privacy)
-        assertEquals(ShareBackground.DARK,ShareStudioState().background)
+        assertEquals(ShareBackground.MAP,ShareStudioState().background)
+        ShareBackground.entries.forEach { background ->
+            val state=ShareStudioState(background=background)
+            assertEquals(background,state.selectTemplate(ShareTemplate.STATS).background)
+            val preset=SharePreset("background","Background",state)
+            assertEquals(preset,SharePresetCodec.decode(SharePresetCodec.encode(listOf(preset))).single())
+        }
         val original=SharePreset("one","Original",ShareStudioState(background=ShareBackground.MAP))
         val json=org.json.JSONObject(SharePresetCodec.encode(listOf(original)))
         json.getJSONArray("presets").getJSONObject(0).remove("privacy")

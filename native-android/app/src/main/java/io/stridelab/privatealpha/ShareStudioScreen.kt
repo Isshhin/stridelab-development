@@ -29,6 +29,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
@@ -224,7 +227,19 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                     BoxWithConstraints(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) {
                         val ratio=(effective?.ratio ?: config.ratio)
                         val width=minOf(maxWidth,420.dp*(1080f/ratio.height))
-                        Box(Modifier.width(width).aspectRatio(1080f/ratio.height).background(TracksidePalette.surfaceLow,RoundedCornerShape(12.dp)),contentAlignment=Alignment.Center) {
+                        Box(Modifier.width(width).aspectRatio(1080f/ratio.height)
+                            .background(TracksidePalette.surfaceLow)
+                            .drawBehind {
+                                if(config.background==ShareBackground.TRANSPARENT) {
+                                    val tile=12.dp.toPx().toInt().coerceAtLeast(1)
+                                    for(y in 0 until size.height.toInt() step tile) {
+                                        for(x in ((y/tile)%2)*tile until size.width.toInt() step tile*2) {
+                                            drawRect(TracksidePalette.surfaceRaised, Offset(x.toFloat(),y.toFloat()),
+                                                Size(minOf(tile.toFloat(),size.width-x),minOf(tile.toFloat(),size.height-y)))
+                                        }
+                                    }
+                                }
+                            },contentAlignment=Alignment.Center) {
                             if(card!=null) Image(card.asImageBitmap(),
                                 contentDescription="Share card preview. "+source?.metrics?.filterKeys { it in effective?.metrics.orEmpty() }?.values?.joinToString(". "),
                                 contentScale=ContentScale.Fit,modifier=Modifier.fillMaxSize().testTag("share-card-preview"))
@@ -238,7 +253,10 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                         effective?.template==ShareTemplate.WORKOUT && source?.workout?.provenance==ShareWorkoutSource.RECORDED_ONLY ->
                             "Workout recap · Recorded laps not classified as intervals · ${config.ratio.label} PNG"
                         effective?.template==ShareTemplate.WORKOUT -> "Workout recap · Label provenance shown · ${config.ratio.label} PNG"
+                        effective?.background==ShareBackground.TRANSPARENT -> "Transparent background · ${config.ratio.label} PNG"
                         effective?.routeMode==ShareRouteMode.HIDDEN -> "Route hidden or too short to trim · Full activity stats · ${config.ratio.label} PNG"
+                        map!=null -> "Activity Dark map · ${if(config.privacy==SharePrivacy.OFF) "Full GPS route" else "Route trimmed"} · ${config.ratio.label} PNG"
+                        effective?.background==ShareBackground.MAP -> "${if(online) "Activity Dark map unavailable" else "Activity Dark map needs internet"} · GPS trace only · ${config.ratio.label} PNG"
                         config.privacy==SharePrivacy.OFF && map==null -> "Full GPS route · trimming off · no basemap · ${config.ratio.label} PNG"
                         config.privacy==SharePrivacy.OFF -> "Full GPS route · trimming off · map · ${config.ratio.label} PNG"
                         map==null -> "Route trimmed · Full activity stats · no basemap · ${config.ratio.label} PNG"
