@@ -108,16 +108,26 @@ class ShareStudioUiTest {
         compose.onNodeWithTag("activity-share").performClick()
         compose.waitUntil(5000) { compose.onAllNodesWithTag("share-card-preview").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("share-export-png").assertExists().assertIsEnabled()
-        compose.onNodeWithTag("share-export-resolution").assertTextContains("1080 x 1920")
+        compose.onNodeWithTag("share-export-resolution").assertTextContains("1080 x 1920", substring = true)
     }
 
     @Test fun workoutRecapAvailableForImportedLapsWithoutClaimingDetectedIntervals() {
         mountDetail()
         compose.onNodeWithTag("activity-share").performClick()
         compose.onNodeWithTag("share-template-WORKOUT").performClick()
-        compose.onNodeWithText("Recorded laps not classified as intervals",substring=true).assertExists()
-        compose.onNodeWithTag("share-workout-provenance").assertTextContains("Unclassified")
-        compose.onNodeWithTag("share-workout-provenance").assertTextContains("2 recorded laps")
+        // A LazyColumn may dispose status rows while the template gallery is scrolled into view.
+        // Bring the status item into composition, then await the asynchronously derived activity.
+        compose.onNodeWithTag("share-studio-scroll").performScrollToNode(hasTestTag("share-status"))
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithText("Recorded laps not classified as intervals",substring=true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("share-status")
+            .assertTextContains("Recorded laps not classified as intervals",substring=true)
+        compose.onNodeWithTag("share-workout-provenance")
+            .assertTextContains("Unclassified",substring=true)
+            .assertTextContains("2 recorded laps",substring=true)
+        compose.onNodeWithTag("share-studio-scroll").performScrollToIndex(0)
         compose.waitUntil(5000) {
             compose.onAllNodesWithTag("share-card-preview").fetchSemanticsNodes().isNotEmpty()
         }
