@@ -63,7 +63,8 @@ internal fun TracksideMoreScreen(
     onOfflineMaps: () -> Unit,
     onPreferences: () -> Unit,
     onAbout: () -> Unit,
-    onSignOut: () -> Unit
+    onSignOut: () -> Unit,
+    onAnalytics: (() -> Unit)? = null
 ) {
     val signedIn = state.account != null
     LazyColumn(
@@ -141,6 +142,14 @@ internal fun TracksideMoreScreen(
                     "Garmin Connect", MoreSymbol.Watch, "garmin",
                     onClick = onGarmin
                 )
+            }
+        }
+        if (onAnalytics != null) {
+            item(key = "more-analytics-title") { MoreSection("ACTIVITIES") }
+            item(key = "more-analytics") {
+                MoreGroup {
+                    MoreActionRow("Running analytics", MoreSymbol.Chart, "analytics", onAnalytics)
+                }
             }
         }
         item(key = "more-data-title") { MoreSection("PREFERENCES") }
@@ -538,7 +547,7 @@ private fun AthleteHeartRatePreferenceCard(account: String?) {
     }
 }
 
-private enum class MoreSymbol { Person, Dumbbell, Watch, Map, Sliders, Info, Chevron }
+private enum class MoreSymbol { Person, Dumbbell, Watch, Map, Chart, Sliders, Info, Chevron }
 
 /** Simple static vector glyphs; no dynamic resources or animated draw operations. */
 @Composable private fun MoreIcon(
@@ -591,6 +600,12 @@ private enum class MoreSymbol { Person, Dumbbell, Watch, Map, Sliders, Info, Che
                 drawLine(color, Offset(a, bottom), Offset(b, h * .70f), stroke)
                 drawLine(color, Offset(b, h * .70f), Offset(c, h * .88f), stroke)
                 drawLine(color, Offset(c, h * .88f), Offset(d, bottom), stroke)
+            }
+            MoreSymbol.Chart -> {
+                drawLine(color, Offset(w * .12f, h * .86f), Offset(w * .88f, h * .86f), stroke)
+                drawLine(color, Offset(w * .20f, h * .78f), Offset(w * .20f, h * .53f), stroke * 3f)
+                drawLine(color, Offset(w * .46f, h * .78f), Offset(w * .46f, h * .35f), stroke * 3f)
+                drawLine(color, Offset(w * .72f, h * .78f), Offset(w * .72f, h * .19f), stroke * 3f)
             }
             MoreSymbol.Sliders -> {
                 for ((y, knob) in listOf(.25f to .32f, .50f to .67f, .75f to .42f)) {
