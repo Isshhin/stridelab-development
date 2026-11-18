@@ -28,6 +28,22 @@ internal data class StrideSavedMap(
     val completed: Boolean, val progress: Int, val downloadedBytes: Long
 )
 
+/** Testable, strict coverage check over the already privacy-trimmed route. */
+internal object StrideOfflineCoverage {
+    fun covers(maps: List<StrideSavedMap>, route: RecordedGpsRoute): Boolean {
+        val points = route.allPoints
+        if(points.size < 2) return false
+        return maps.any { area ->
+            area.completed && points.all { point ->
+                val b = area.bounds
+                point.latitude.isFinite() && point.longitude.isFinite() &&
+                    point.latitude in b.latitudeSouth..b.latitudeNorth &&
+                    point.longitude in b.longitudeWest..b.longitudeEast
+            }
+        }
+    }
+}
+
 /** Shared, on-device MapLibre areas. No activity ID or personal profile is uploaded. */
 internal class StrideOfflineMapStore private constructor(private val app: Context) {
     companion object {
@@ -107,6 +123,14 @@ internal class StrideOfflineMapStore private constructor(private val app: Contex
     }
 
     fun initialize() { offlineManager }
+
+    /**
+     * Conservative basemap reuse: the entire visible (already privacy-trimmed)
+     * route must fit inside one completely downloaded map area. Never infer
+     * coverage from a partial map or silently mix nearby incomplete regions.
+     */
+    internal fun hasCompleteCoverage(route: RecordedGpsRoute): Boolean =
+        StrideOfflineCoverage.covers(maps, route)
 
     fun onWifi(): Boolean {
         val network = connectivity.activeNetwork ?: return false
