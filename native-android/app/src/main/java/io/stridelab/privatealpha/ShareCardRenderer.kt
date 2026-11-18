@@ -119,7 +119,7 @@ internal object ShareCardRenderer {
             else drawCoordinateRoute(canvas,g.route,activity,state)
             canvas.restore()
         }
-        val fields=numeric.filter { it in state.metrics && it in activity.metrics }
+        val fields=state.visibleNumericMetrics(activity.metrics.keys)
         val statsTop = if (state.routeMode == ShareRouteMode.HIDDEN &&
             state.template in setOf(ShareTemplate.ROUTE, ShareTemplate.MINIMAL)) {
             val gridHeight = ceil(fields.size / 2.0).toFloat() * g.rowHeight
