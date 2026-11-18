@@ -88,11 +88,10 @@ internal object ManualDisciplineCodec {
                 ManualExerciseEntry(
                     name = entry.getString("name"),
                     sets = entry.getInt("sets"),
-                    reps = entry.optInt("reps").takeIf { entry.has("reps") && !entry.isNull("reps") },
-                    seconds = entry.optInt("seconds").takeIf { entry.has("seconds") && !entry.isNull("seconds") },
-                    weightKg = entry.optDouble("weightKg").takeIf {
-                        entry.has("weightKg") && !entry.isNull("weightKg") && it.isFinite()
-                    }
+                    reps = if (entry.has("reps") && !entry.isNull("reps")) entry.getInt("reps") else null,
+                    seconds = if (entry.has("seconds") && !entry.isNull("seconds")) entry.getInt("seconds") else null,
+                    weightKg = if (entry.has("weightKg") && !entry.isNull("weightKg"))
+                        entry.getDouble("weightKg") else null
                 )
             },
             notes = obj.optString("notes", "")
@@ -176,6 +175,12 @@ internal class ManualDisciplineStore(context: Context) :
 
     suspend fun export(owner: String): String =
         ManualDisciplineBackup.export(owner, list(owner))
+
+    suspend fun delete(owner: String, id: String): Boolean = withContext(Dispatchers.IO) {
+        RecordPolicy.identifier(owner)
+        RecordPolicy.identifier(id)
+        writableDatabase.delete("sessions", "owner=? AND record_id=?", arrayOf(owner,id)) > 0
+    }
 
     /** Transactional, insert-only recovery: duplicates with altered data abort everything. */
     suspend fun restore(owner: String, raw: String): Int = withContext(Dispatchers.IO) {
