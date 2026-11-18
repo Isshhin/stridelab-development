@@ -227,7 +227,8 @@ internal fun ShareStudioScreen(activity:ActivityRecord, detail:ActivityDetail?, 
                         map==null -> "Route trimmed · Full activity stats · no basemap · ${config.ratio.label} PNG"
                         else -> "Route trimmed · Full activity stats · map · ${config.ratio.label} PNG"
                     }
-                    Text(status,style=MaterialTheme.typography.labelMedium,color=Color(ShareCardPalette.MUTED),modifier=Modifier.semantics { liveRegion=LiveRegionMode.Polite })
+                    Text(status,style=MaterialTheme.typography.labelMedium,color=Color(ShareCardPalette.MUTED),
+                        modifier=Modifier.testTag("share-status").semantics { liveRegion=LiveRegionMode.Polite })
                     Text("PNG export: 1080 x ${config.ratio.height} pixels",style=MaterialTheme.typography.labelSmall,
                         color=TracksidePalette.textMuted,modifier=Modifier.testTag("share-export-resolution"))
                     if(effective?.template==ShareTemplate.WORKOUT) {
