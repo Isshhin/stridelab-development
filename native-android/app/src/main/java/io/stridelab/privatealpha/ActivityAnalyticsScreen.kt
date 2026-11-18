@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -30,7 +31,8 @@ import java.util.Locale
 internal fun ActivityAnalyticsScreen(
     activities: List<ActivityRecord>,
     onBack: () -> Unit,
-    onCompare: (() -> Unit)? = null
+    onCompare: (() -> Unit)? = null,
+    onOpenActivity: ((String) -> Unit)? = null
 ) {
     var period by rememberSaveable { mutableStateOf(ActivityAnalyticsPeriod.WEEK) }
     var provider by rememberSaveable { mutableStateOf<String?>(null) }
@@ -42,6 +44,13 @@ internal fun ActivityAnalyticsScreen(
             ActivityAnalyticsFilter(provider, discipline, distance))
     }
     val zone = remember { ZoneId.systemDefault() }
+    val browsable = remember(filtered) {
+        val now = Instant.now()
+        filtered.asSequence().filter { it.startedAt <= now }
+            .distinctBy { it.source to it.id }
+            .sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenBy { it.id })
+            .toList()
+    }
     val series = remember(filtered, period, zone) {
         ActivityHistoryAnalytics.series(filtered, Instant.now(), zone, period)
     }
@@ -251,5 +260,24 @@ internal fun ActivityAnalyticsScreen(
                 }
             }
         }
+        if(onOpenActivity != null) {
+            item(key = "analytics-history-heading") {
+                SignalCard {
+                    Text("BROWSE SAVED RUNS", style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.testTag("analytics-history-heading"))
+                    Text(
+                        "${browsable.size} running activities matching the selected filters, " +
+                            "across all saved dates. Open one for its actual GPS, splits and source measurements.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            items(browsable, key = { "analytics-record-${it.source}-${it.id}" }) { activity ->
+                ActivityRow(activity) { onOpenActivity(activity.id) }
+            }
+        }
+
     }
 }
