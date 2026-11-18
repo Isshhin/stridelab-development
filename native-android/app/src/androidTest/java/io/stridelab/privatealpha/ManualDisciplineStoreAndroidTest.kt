@@ -70,4 +70,31 @@ class ManualDisciplineStoreAndroidTest {
         assertTrue(store.delete(owner, first.id))
         assertTrue(store.list(owner).isEmpty())
     }
+    @Test fun workoutTemplatesPersistAndAreRecoveredByCombinedArchive() = runBlocking {
+        val form = ManualWorkoutTemplate(
+            "template-a", owner, "My strength", ManualDiscipline.STRENGTH,
+            listOf(ManualExerciseEntry("Squat",3,reps=12,weightKg=15.0))
+        )
+        store.saveTemplate(form)
+        assertEquals(listOf(form), store.listTemplates(owner))
+        val archive = store.export(owner)
+        assertEquals(0, store.restore(owner, archive))
+        assertEquals(1, store.listTemplates(owner).size)
+        assertTrue(store.listTemplates("other-owner").isEmpty())
+        assertTrue(store.deleteTemplate(owner, form.id))
+        assertEquals(1, store.restore(owner, archive))
+        assertEquals(listOf(form), store.listTemplates(owner))
+    }
+
+    @Test fun versionOneManualDatabaseMigratesWithoutDeletingSessionRows() = runBlocking {
+        // @Before constructed the helper but has not opened its database yet.
+        context.openOrCreateDatabase(dbName, android.content.Context.MODE_PRIVATE, null).use { db ->
+            db.execSQL("CREATE TABLE sessions(owner TEXT NOT NULL, record_id TEXT NOT NULL, performed_on TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(owner,record_id))")
+            db.setVersion(1)
+        }
+        assertTrue(store.listTemplates(owner).isEmpty())
+        store.save(first)
+        assertEquals(listOf(first), store.list(owner))
+    }
+
 }
