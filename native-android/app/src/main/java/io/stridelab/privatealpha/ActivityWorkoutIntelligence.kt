@@ -269,38 +269,85 @@ internal object ActivityWorkoutIntelligence {
         session: PlannedSession
     ): ActivityWorkoutAdherence {
         val prescription = session.runningPrescription
-        val steps = prescription?.mixedSegments?.map { it.purpose } ?:
+        val plannedPurposes = prescription?.mixedSegments?.map { it.purpose } ?:
             prescription?.segments?.map { it.purpose }.orEmpty()
-        val expectedWork = steps.count { it == "WORK" }
-        val expectedRecovery = steps.count { it == "RECOVERY" }
-        val observed = recorded?.laps.orEmpty().mapNotNull { lap ->
-            if (lap.seconds == null || lap.seconds <= 0) null
-            else recorded?.workoutSteps?.firstOrNull { it.index == lap.workoutStepIndex }
+        val expectedWork = plannedPurposes.count { it == "WORK" }
+        val expectedRecovery = plannedPurposes.count { it == "RECOVERY" }
+
+        val byStep = recorded?.workoutSteps.orEmpty().associateBy { it.index }
+        val executed = recorded?.laps.orEmpty().mapNotNull { lap ->
+            val step = lap.workoutStepIndex?.let { byStep[it] }
+            if (step == null || lap.seconds == null || lap.seconds <= 0.0) null
+            else lap to step
         }
-        val actualWork = observed.count { it.role == "WORK" }
-        val actualRecovery = observed.count { it.role == "RECOVERY" }
-        val summary = buildList {
-            add("Planned " + (session.distanceKm?.let {
+        val actualWork = executed.count { it.second.role == "WORK" }
+        val actualRecovery = executed.count { it.second.role == "RECOVERY" }
+        val summary = mutableListOf(
+            "Planned " + (session.distanceKm?.let {
                 String.format(java.util.Locale.ROOT, "%.2f km", it)
             } ?: "distance unavailable") +
-                "; recorded " + activity.distanceLabel + ".")
-            add("Planned " + session.effectiveMinutes + " min; recorded elapsed " +
-                activity.durationLabel + ". Elapsed and moving time are different.")
-        }
-        if (prescription == null || steps.isEmpty() || observed.isEmpty()) {
+                "; recorded " + activity.distanceLabel + ".",
+            "Planned " + session.effectiveMinutes + " min; recorded elapsed " +
+                activity.durationLabel + ". Elapsed and moving time are different."
+        )
+        if (prescription == null || plannedPurposes.isEmpty() || executed.isEmpty()) {
             return ActivityWorkoutAdherence("SUMMARY_ONLY", summary +
                 "No matched source-labelled work/recovery laps; planned intensity and steps cannot be verified.",
                 actualWork, actualRecovery)
         }
-        val exact = expectedWork == actualWork && expectedRecovery == actualRecovery
+        fun describeMeasured(purpose: String, plannedMeters: Int?, plannedSeconds: Int?) {
+            val matched = executed.filter { it.second.role == purpose }
+            if (matched.isEmpty()) return
+            val elapsed = matched.mapNotNull { it.first.seconds }.sum()
+            val distances = matched.map { it.first.distance }
+            val meters = if (distances.all { it != null }) distances.filterNotNull().sum()
+                else null
+            summary += purpose.lowercase().replaceFirstChar { it.uppercase() } +
+                " recorded: " + matched.size + " lap(s), " +
+                ActivityRecord.duration(elapsed) +
+                (meters?.let {
+                    ", " + String.format(java.util.Locale.ROOT, "%.0f m", it)
+                } ?: ", distance unavailable") + "."
+            if (plannedMeters != null && meters != null) {
+                val difference = meters - plannedMeters
+                summary += purpose.lowercase().replaceFirstChar { it.uppercase() } +
+                    " distance difference: " +
+                    String.format(java.util.Locale.ROOT, "%+.0f m", difference) +
+                    " compared with " + plannedMeters + " planned m."
+            }
+            if (plannedSeconds != null) {
+                summary += purpose.lowercase().replaceFirstChar { it.uppercase() } +
+                    " duration difference: " +
+                    String.format(java.util.Locale.ROOT, "%+.0f s",
+                        elapsed - plannedSeconds) +
+                    " compared with " + plannedSeconds + " planned s."
+            }
+        }
+        fun plannedDistance(purpose: String): Int? =
+            if (prescription.mixedSegments != null) {
+                val rows = prescription.mixedSegments.filter { it.purpose == purpose }
+                if (rows.isEmpty() || rows.any { it.meters == null }) null
+                else rows.sumOf { it.meters!! }
+            } else {
+                val rows = prescription.segments.filter { it.purpose == purpose }
+                rows.takeIf { it.isNotEmpty() }?.sumOf { it.meters }
+            }
+        fun plannedTime(purpose: String): Int? {
+            val rows = prescription.mixedSegments?.filter { it.purpose == purpose }
+                ?: return null
+            return if (rows.isNotEmpty() && rows.all { it.seconds != null })
+                rows.sumOf { it.seconds!! } else null
+        }
+        describeMeasured("WORK", plannedDistance("WORK"), plannedTime("WORK"))
+        describeMeasured("RECOVERY", plannedDistance("RECOVERY"), plannedTime("RECOVERY"))
+        val countsMatch = expectedWork == actualWork && expectedRecovery == actualRecovery
+        summary += "Planned " + expectedWork + " work / " + expectedRecovery +
+            " recovery step(s); observed FIT laps " + actualWork +
+            " work / " + actualRecovery + " recovery step(s)."
+        summary += "Matching recorded amounts do not prove prescribed pace, HR targets, or workout quality."
         return ActivityWorkoutAdherence(
-            if (exact) "STEP_COUNTS_MATCH" else "STEP_COUNTS_DIFFER",
-            summary + listOf(
-                "Planned " + expectedWork + " work / " + expectedRecovery +
-                    " recovery step(s); observed FIT laps " + actualWork +
-                    " work / " + actualRecovery + " recovery step(s).",
-                "Step counts are evidence only; matching counts do not verify prescribed pace, HR, distance or duration."
-            ), actualWork, actualRecovery
+            if (countsMatch) "STEP_COUNTS_MATCH" else "STEP_COUNTS_DIFFER",
+            summary, actualWork, actualRecovery
         )
     }
 
