@@ -167,6 +167,9 @@ private fun time(value: Double): String {
 internal fun TodayDisciplineDashboard(
     discipline: TodayDiscipline,
     trend: List<TodayDisciplineWeek>,
+    runningReview: List<RunningWeekCoach>,
+    plans: List<PlanSnapshot>,
+    today: LocalDate,
     reduceMotion: Boolean,
     onOpenActivity: (String) -> Unit,
     onOpenWorkout: (String, String) -> Unit
@@ -206,7 +209,7 @@ internal fun TodayDisciplineDashboard(
         }
 
         if (discipline == TodayDiscipline.RUNNING) {
-            RunningWeekOverview(week)
+            RunningWeekOverview(week, runningReview.lastOrNull())
         } else {
             DisciplinePanel {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -270,37 +273,33 @@ internal fun TodayDisciplineDashboard(
 
         }
 
-        DisciplinePanel {
-            Text(if (discipline == TodayDiscipline.RUNNING) "Your last 4 weeks" else "4-week trend",
-                color = DisciplineLook.ink,
-                fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            val distanceTrend = discipline == TodayDiscipline.RUNNING &&
-                trend.any { it.recordedDistanceM != null }
-            val values = trend.map {
-                if (distanceTrend) it.recordedDistanceM else
-                    it.recordedSeconds?.div(60.0)
-            }
-            DisciplineTrendLine(values, tint, reduceMotion)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                trend.forEachIndexed { index, item ->
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(item.start.format(DateTimeFormatter.ofPattern("d MMM",
-                            Locale.getDefault())), color = DisciplineLook.subdued,
-                            fontSize = 10.sp)
-                        Text(values[index]?.let {
-                            if (distanceTrend) String.format(Locale.getDefault(), "%.1f",
-                                it / 1000) else "${it.toLong()}"
-                        } ?: "—", color = if (index == 3) tint else DisciplineLook.ink,
-                            fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        if (discipline == TodayDiscipline.RUNNING) {
+            RunningWeekReview(runningReview, plans, today)
+        } else {
+            DisciplinePanel {
+                Text("4-week trend",
+                    color = DisciplineLook.ink,
+                    fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                val values = trend.map { it.recordedSeconds?.div(60.0) }
+                DisciplineTrendLine(values, tint, reduceMotion)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    trend.forEachIndexed { index, item ->
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(item.start.format(DateTimeFormatter.ofPattern("d MMM",
+                                Locale.getDefault())), color = DisciplineLook.subdued,
+                                fontSize = 10.sp)
+                            Text(values[index]?.toLong()?.toString() ?: "—", color = if (index == 3) tint else DisciplineLook.ink,
+                                fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
+                Text("Recorded minutes each week",
+                    color = DisciplineLook.subdued, fontSize = 11.sp)
             }
-            Text(if (distanceTrend) "Recorded kilometres each week"
-                else "Recorded minutes each week",
-                color = DisciplineLook.subdued, fontSize = 11.sp)
+
         }
 
         val recent = (
@@ -361,7 +360,7 @@ internal fun TodayDisciplineDashboard(
 }
 
 @Composable
-private fun RunningWeekOverview(week: TodayDisciplineWeek) {
+private fun RunningWeekOverview(week: TodayDisciplineWeek, review: RunningWeekCoach?) {
     var byDistance by rememberSaveable { mutableStateOf(true) }
     var selectedDay by rememberSaveable(week.start.toString()) {
         mutableStateOf(week.sessionsByDay.indexOfLast { it > 0 }.coerceAtLeast(0))
@@ -420,6 +419,9 @@ private fun RunningWeekOverview(week: TodayDisciplineWeek) {
             color = DisciplineLook.ink, fontSize = 36.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.testTag("today-discipline-primary"))
         Text("$sessions across $days", color = DisciplineLook.subdued, fontSize = 14.sp)
+        review?.mostPerformed?.let { type ->
+            Text("Most common among classified runs: ${type.label}", color = runTypeColor(type), fontSize = 13.sp)
+        }
         if (missing > 0) Text(
             if (total == null) "No $unit saved for these runs."
             else "$missing ${if (missing == 1) "run has" else "runs have"} no $unit recorded.",
@@ -458,7 +460,7 @@ private fun RunningWeekOverview(week: TodayDisciplineWeek) {
             .padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(week.start.plusDays(selectedDay.toLong()).format(dayLabel),
                 color = DisciplineLook.ink, modifier = Modifier.weight(1f), fontSize = 13.sp)
-            Text(dayValue(selectedDay), color = DisciplineLook.lime, modifier = Modifier.weight(1f),
+            Text(dayValue(selectedDay), color = DisciplineLook.lime, modifier = Modifier.weight(1f).testTag("today-running-day-value"),
                 fontSize = 13.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End)
         }
         week.averageRecordedHr?.let { hr ->
@@ -593,4 +595,153 @@ private fun DisciplineTrendLine(
             )
         }
     }
+}
+@Composable
+private fun RunningWeekReview(
+    reviews: List<RunningWeekCoach>,
+    plans: List<PlanSnapshot>,
+    today: LocalDate
+) {
+    val current = reviews.lastOrNull() ?: return
+    val week = current.week
+    val known = week.sessions - (current.types[WeeklyRunType.UNKNOWN] ?: 0)
+    if (week.sessions > 0) DisciplinePanel {
+        RunningReviewTitle("Training breakdown")
+        Text("$known of ${week.sessions} runs classified", color = DisciplineLook.subdued, fontSize = 13.sp)
+        Row(Modifier.fillMaxWidth().height(9.dp).clip(RoundedCornerShape(8.dp)),
+            horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            WeeklyRunType.entries.forEach { type ->
+                val count = current.types[type] ?: 0
+                if (count > 0) Box(Modifier.weight(count.toFloat()).fillMaxHeight().background(runTypeColor(type)))
+            }
+        }
+        WeeklyRunType.entries.forEach { type ->
+            val count = current.types[type] ?: 0
+            if (count > 0 || type in listOf(WeeklyRunType.EASY, WeeklyRunType.LONG, WeeklyRunType.QUALITY)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.size(8.dp).background(runTypeColor(type), CircleShape))
+                    Text(type.label, color = DisciplineLook.ink, modifier = Modifier.weight(1f))
+                    Text("$count", color = DisciplineLook.subdued)
+                }
+            }
+        }
+        current.qualityTypes.takeIf { it.isNotEmpty() }?.let { types ->
+            Text(types.entries.joinToString(" · ") { "${it.key} ${it.value}" },
+                color = DisciplineLook.subdued, fontSize = 13.sp)
+        }
+    }
+
+    DisciplinePanel {
+        RunningReviewTitle("Training weeks")
+        Text("8 weeks of recorded distance", color = DisciplineLook.subdued, fontSize = 13.sp)
+        val max = reviews.mapNotNull { it.week.recordedDistanceM }.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
+        val date = DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
+        reviews.reversed().forEach { review ->
+            val previous = reviews.firstOrNull { it.week.start == review.week.start.minusWeeks(1) }
+            val meters = review.week.recordedDistanceM
+            val label = runningPlanWeekLabel(review.week.start, plans)
+                ?: runningWeekVolumeLabel(review, previous, today)
+                ?: if (today in review.week.start..review.week.start.plusDays(6)) "Week in progress" else null
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(review.week.start.format(date), color = DisciplineLook.ink, modifier = Modifier.weight(1f))
+                    Text(meters?.let(::runningKm)?.let {
+                        if (review.week.missingDistance > 0) "$it · partial" else it
+                    } ?: if (review.week.sessions == 0) "No runs" else "Distance unavailable",
+                        color = if (review == current) DisciplineLook.lime else DisciplineLook.subdued, fontSize = 13.sp)
+                }
+                if (meters != null) RunningReviewBar(meters / max, if (review == current) DisciplineLook.lime else Color(0xFF779557))
+                if (label != null) Text(label, color = DisciplineLook.subdued, fontSize = 12.sp)
+            }
+        }
+    }
+
+    if (week.sessions > 0) DisciplinePanel {
+        RunningReviewTitle("Coach insights")
+        val dominant = current.mostPerformed?.label?.lowercase(Locale.getDefault())
+        Text(when {
+            known == 0 -> "You logged ${week.sessions} ${if (week.sessions == 1) "run" else "runs"}. The recordings don’t tell me what kind of running you did yet."
+            dominant == null -> "You had a mix of workout types across the runs I could classify."
+            else -> "Of the runs I could classify, $dominant came up most often."
+        }, color = DisciplineLook.ink)
+        val positives = listOfNotNull(
+            if (week.activeDays > 1) "You spread your running across ${week.activeDays} days." else null,
+            if (known == week.sessions && current.types[WeeklyRunType.EASY] != null &&
+                current.types[WeeklyRunType.QUALITY] != null)
+                "You made room for easy runs as well as harder sessions." else null
+        )
+        if (positives.isNotEmpty()) {
+            Text("What went well", color = DisciplineLook.lime, fontWeight = FontWeight.SemiBold)
+            positives.forEach { Text(it, color = DisciplineLook.subdued) }
+        }
+        if (week.missingDistance > 0) {
+            Text("Some runs are missing distance. Check those recordings before using this week’s total to plan next week.",
+                color = DisciplineLook.subdued)
+        }
+        Text("Next focus", color = DisciplineLook.lime, fontWeight = FontWeight.SemiBold)
+        Text(when {
+            known < week.sessions -> "Review any unclear workout types in Activity Analysis. That gives you a better picture of how much easy and harder running you did."
+            current.types[WeeklyRunType.QUALITY] != null -> "Think back to the last hard session. If you had to push earlier than planned, try a steadier start next time."
+            else -> "Let the next run’s purpose set the pace. If it’s an easy day, aim for an effort that lets you finish a full sentence."
+        }, color = DisciplineLook.ink)
+    }
+
+    val complete = reviews.filter { it.week.start.plusDays(6).isBefore(today) }
+    val recent = complete.takeLast(3)
+    val prior = complete.dropLast(3).takeLast(3)
+    if (recent.size == 3 && prior.size == 3 && (recent + prior).all { it.week.sessions > 0 }) {
+        val six = prior + recent
+        DisciplinePanel {
+            RunningReviewTitle("Training progression")
+            Text("Latest 3 completed weeks vs the previous 3", color = DisciplineLook.subdued, fontSize = 13.sp)
+            RunningProgressionRow("Days run per week", six.map { it.week.activeDays.toDouble() }) {
+                String.format(Locale.getDefault(), "%.1f days", it)
+            }
+            if (six.all { it.completeDistance != null }) {
+                RunningProgressionRow("Distance per week", six.map { it.completeDistance!! }, ::runningKm)
+                if (six.all { it.longestMeters != null }) {
+                    RunningProgressionRow("Longest run each week", six.map { it.longestMeters!! }, ::runningKm)
+                }
+            }
+            if (six.all { WeeklyRunType.UNKNOWN !in it.types } && six.any { WeeklyRunType.QUALITY in it.types }) {
+                RunningProgressionRow("Quality runs per week", six.map { (it.types[WeeklyRunType.QUALITY] ?: 0).toDouble() }) {
+                    String.format(Locale.getDefault(), "%.1f runs", it)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RunningProgressionRow(label: String, values: List<Double>, format: (Double) -> String) {
+    val earlier = values.take(3).average()
+    val latest = values.takeLast(3).average()
+    val peak = maxOf(earlier, latest, 1.0)
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, color = DisciplineLook.ink, fontWeight = FontWeight.SemiBold)
+        Text("${format(earlier)} → ${format(latest)}", color = DisciplineLook.subdued, fontSize = 13.sp)
+        RunningReviewBar(earlier / peak, Color(0xFF779557))
+        RunningReviewBar(latest / peak, DisciplineLook.lime)
+    }
+}
+
+@Composable
+private fun RunningReviewTitle(title: String) {
+    Text(title, color = DisciplineLook.ink, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+}
+
+@Composable
+private fun RunningReviewBar(fraction: Double, tint: Color) {
+    Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(6.dp))
+        .background(Color(0xFF272D2A))) {
+        Box(Modifier.fillMaxWidth(fraction.toFloat().coerceIn(0f, 1f)).fillMaxHeight().background(tint))
+    }
+}
+
+private fun runTypeColor(type: WeeklyRunType): Color = when (type) {
+    WeeklyRunType.EASY -> DisciplineLook.lime
+    WeeklyRunType.LONG -> Color(0xFF8ADECB)
+    WeeklyRunType.QUALITY -> Color(0xFFFFBE7A)
+    WeeklyRunType.OTHER -> Color(0xFFC8A8FF)
+    WeeklyRunType.UNKNOWN -> Color(0xFF616B70)
 }

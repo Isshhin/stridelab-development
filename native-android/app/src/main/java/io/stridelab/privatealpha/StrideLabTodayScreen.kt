@@ -500,9 +500,35 @@ internal fun StrideLabTodayScreen(
                                 weekStart, discipline
                             )
                         }
+                        val runningReview = remember(recentWeeks, state.details, state.account,
+                            state.localGarminOwner, state.localPlanOwner, state.localGarminIds) {
+                            if (discipline != TodayDiscipline.RUNNING) emptyList()
+                            else {
+                                val corrections = UserActivityWorkoutLabelStore(context)
+                                val preferences = AthleteHeartRatePreferences(context)
+                                val garminZones = GarminZonePreferenceStore(context)
+                                val manual = preferences.settings(state.account)
+                                recentWeeks.map { week ->
+                                    summarizeRunningWeek(week) { run ->
+                                        val owner = activityCorrectionOwner(run.id, state)
+                                        corrections.load(owner, run.id) ?: state.details[run.id]?.let { detail ->
+                                            val distribution = if (garminZones.source(owner) == DisplayHeartRateZoneSource.GARMIN)
+                                                garminZones.load(owner)?.let { HeartRateZoneAnalysis.distribute(detail.samples, it.profile) }
+                                            else HeartRateZoneAnalysis.distribute(detail.samples, manual)
+                                            val detected = ActivityWorkoutIntelligence.detect(run, detail, safeHistory, distribution)
+                                            if (detected.kind == ActivityWorkoutKind.UNKNOWN) null
+                                            else UserActivityWorkoutLabel(detected.kind, detected.qualitySubtype)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         TodayDisciplineDashboard(
                             discipline = discipline,
                             trend = recentWeeks,
+                            runningReview = runningReview,
+                            plans = safePlans,
+                            today = todayDate,
                             reduceMotion = reduceMotion,
                             onOpenActivity = onOpenActivityDetail,
                             onOpenWorkout = onOpenWorkout

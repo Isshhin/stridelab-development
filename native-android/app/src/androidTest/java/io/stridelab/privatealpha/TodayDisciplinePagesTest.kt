@@ -2,8 +2,10 @@ package io.stridelab.privatealpha
 
 import androidx.activity.compose.setContent
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -81,7 +83,9 @@ class TodayDisciplinePagesTest {
         today.performScrollToNode(hasTestTag("today-running-day-0"))
         monday.performSemanticsAction(SemanticsActions.OnClick)
         monday.assertIsSelected()
-        compose.onNodeWithText("No runs", ignoreCase = false).assertExists()
+        compose.onNodeWithTag("today-running-day-value").assertTextEquals("No runs")
+        today.performScrollToNode(hasText("Training weeks"))
+        compose.onNodeWithText("8 weeks of recorded distance").assertExists()
         compose.onNodeWithTag("today-hero").assertDoesNotExist()
         today.performScrollToNode(hasTestTag("today-discipline-pages"))
         compose.onNodeWithTag("today-page-running").assertIsSelected()
