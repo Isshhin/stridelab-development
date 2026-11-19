@@ -545,7 +545,8 @@ internal fun TracksideActivityContinuousSections(
                     }
                 if (chartAvailability.heartRate)
                     item(key = "chart-heart-rate-zones") {
-                        TracksideActivityHeartRateZones(recorded, activityCorrectionOwner(activity.id, state))
+                        TracksideActivityHeartRateZones(
+                            recorded, activityCorrectionOwner(activity.id, state), state.account)
                     }
                 if (chartAvailability.elevation)
                     item(key = "chart-elevation") {
@@ -656,8 +657,8 @@ private fun TracksideActivityAnalysisBody(
         mutableStateOf(labelStore.load(correctionOwner, activity.id))
     }
     var labelSaveFailed by remember(correctionOwner, activity.id) { mutableStateOf(false) }
-    val heartRateSettings = remember(context, correctionOwner) {
-        AthleteHeartRatePreferences(context).settings(correctionOwner)
+    val heartRateSettings = remember(context, state.account) {
+        AthleteHeartRatePreferences(context).settings(state.account)
     }
     val recordedZones = remember(context, correctionOwner, recorded, heartRateSettings) {
         recorded?.let { detail ->
@@ -841,7 +842,7 @@ private fun TracksideActivityAnalysisBody(
                     "Heart-rate zones are unavailable because this recording has fewer than two valid heart-rate samples.",
                     color = activityMuted, fontSize = 12.sp, lineHeight = 17.sp
                 )
-                else -> TracksideActivityHeartRateZones(recorded, correctionOwner)
+                else -> TracksideActivityHeartRateZones(recorded, correctionOwner, state.account)
             }
         }
         ActivityAnalysisSection("How Did It Feel?", "activity-analysis-feel") {
@@ -1506,11 +1507,13 @@ private fun TracksideActivitySplitRow(
  * A workout peak is never substituted for missing athlete settings.
  */
 @Composable
-private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, owner: String?) {
+private fun TracksideActivityHeartRateZones(
+    recorded: ActivityDetail, owner: String?, manualOwner: String? = owner
+) {
     val context = LocalContext.current
     val preferences = remember(context) { AthleteHeartRatePreferences(context) }
-    val settings = remember(recorded.activityId, owner) {
-        preferences.settings(owner)
+    val settings = remember(recorded.activityId, manualOwner) {
+        preferences.settings(manualOwner)
     }
     val zoneStore = remember(context) { GarminZonePreferenceStore(context) }
     val selectedSource = remember(recorded.activityId, owner) { zoneStore.source(owner) }
