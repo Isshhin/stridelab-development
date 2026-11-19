@@ -678,8 +678,8 @@ private fun TracksideActivityAnalysisBody(
     val insight = remember(activity, recorded, history) {
         ActivityIntelligence.presentation(activity, recorded, history)
     }
-    val coachNote = remember(activity, recorded, history, workoutAssessment) {
-        runCoachNote(activity, recorded, history, workoutAssessment)
+    val coachNote = remember(activity, recorded, history, workoutAssessment, userLabel) {
+        runCoachNote(activity, recorded, history, workoutAssessment, correction = userLabel)
     }
     val effort = remember(activity, recorded, history, state.plans, matchedSourceIds,
         heartRateSettings, correctionOwner) {
@@ -758,6 +758,32 @@ private fun TracksideActivityAnalysisBody(
             )
         }
         Spacer(Modifier.height(12.dp))
+        coachNote.finding?.let { finding ->
+            var showEvidence by rememberSaveable(activity.id) { mutableStateOf(false) }
+            TextButton(onClick = { showEvidence = !showEvidence }) {
+                Text(if (showEvidence) "Hide repeat details" else "See repeat details")
+            }
+            if (showEvidence) {
+                finding.evidence.forEach { Text(it, color = activityMuted) }
+                Text(finding.confidence, color = activityMuted)
+            }
+        }
+        workoutAssessment.intended?.let { intended ->
+            val purpose = when (intended.kind) {
+                ActivityWorkoutKind.EASY_RUN -> "Build aerobic endurance at a comfortable effort."
+                ActivityWorkoutKind.RECOVERY_RUN -> "Keep moving with very little extra strain."
+                ActivityWorkoutKind.LONG_RUN -> "Build endurance by spending longer on your feet."
+                ActivityWorkoutKind.QUALITY_RUN -> when (intended.qualitySubtype) {
+                    ActivityQualitySubtype.THRESHOLD -> "Practice holding a strong, controlled effort."
+                    ActivityQualitySubtype.INTERVALS -> "Practice repeating faster efforts with recoveries between them."
+                    else -> "Practice the faster or more demanding work prescribed for this session."
+                }
+                else -> null
+            }
+            if (purpose != null) ActivityAnalysisSection("What the plan was building", "activity-planned-purpose") {
+                Text(purpose, color = activityMuted)
+            }
+        }
         ActivityWorkoutClassificationCard(
             assessment = workoutAssessment,
             userLabel = userLabel,

@@ -15,6 +15,18 @@ class ActivityWorkoutIntelligenceTest {
         3500.0, 360.0, 190.0, null
     )
 
+    @Test fun relativeLongRunCanBeRecognizedWithoutFitButNeedsHistory() {
+        val current = activity().copy(distanceM = 16000.0, durationS = 5400.0, movingTimeS = null)
+        val history = (1..6).map { day ->
+            current.copy(id = "prior-$day", distanceM = 9000.0,
+                startedAt = current.startedAt.minusSeconds(day * 86400L))
+        }
+        assertEquals(ActivityWorkoutKind.LONG_RUN,
+            ActivityWorkoutIntelligence.detect(current, null, history).kind)
+        assertEquals(ActivityWorkoutKind.UNKNOWN,
+            ActivityWorkoutIntelligence.detect(current, null, history.take(5)).kind)
+    }
+
     @Test fun highAverageHeartRateAndUnlabelledLapsDoNotClassifyWorkoutPurpose() {
         val activity = activity()
         val detail = ActivityDetail(

@@ -122,7 +122,8 @@ internal object ActivityWorkoutIntelligence {
     ): ActivityWorkoutEvidence {
         if (!DashboardSummary.isRun(activity))
             return unknown("Workout classification is supported only for running activities.")
-        if (recorded == null) return unknown("I’d need the splits or full recording to call this one.")
+        if (recorded == null) return relativeLongRun(activity, history)
+            ?: unknown("I’d need the splits or full recording to call this one.")
 
         // WORKOUT_STEP describes a proposed structure. Only lap references
         // associated with the recorded activity establish execution.
@@ -240,24 +241,26 @@ internal object ActivityWorkoutIntelligence {
         val zoneSeconds = zones?.classifiedSeconds ?: 0.0
         val aerobic = duration != null && duration > 0 &&
             zoneSeconds >= duration * .55 && lowerZoneSeconds >= zoneSeconds * .85
-        val recent = history.filter {
-            it.id != activity.id && it.source == activity.source &&
-                DashboardSummary.isRun(it) && it.startedAt < activity.startedAt &&
-                Duration.between(it.startedAt, activity.startedAt).toDays() <= 90 &&
-                it.distanceM != null && it.distanceM.isFinite() && it.distanceM > 1000.0
-        }.distinctBy { it.id }.sortedByDescending { it.startedAt }.take(20)
-        if (aerobic && recent.size >= 6 && activity.distanceM != null &&
-            duration != null && duration >= 75 * 60) {
-            val distances = recent.mapNotNull { it.distanceM }.sorted()
-            val median = (distances[(distances.size - 1) / 2] + distances[distances.size / 2]) / 2
-            if (activity.distanceM >= median * 1.5) {
-                return ActivityWorkoutEvidence(ActivityWorkoutKind.LONG_RUN,
-                    evidence = listOf(
-                        "This was well over your usual distance, and most of the heart-rate data we could use stayed in your first two zones.",
-                        "I compared it with your ${recent.size} most recent runs from the same source."
-                    ), confidence = ActivityWorkoutConfidence.MODERATE)
+        // A named active step describes the kind of running recorded, not the actual effort.
+        if (duration != null && duration.isFinite() && duration > 0) {
+            val namedEasy = work.mapNotNull { (lap, step) ->
+                val name = step.name.orEmpty().trim().lowercase(java.util.Locale.ROOT)
+                val kind = when (name) {
+                    "easy", "easy run", "easy running" -> ActivityWorkoutKind.EASY_RUN
+                    "recovery", "recovery run", "recovery jog" -> ActivityWorkoutKind.RECOVERY_RUN
+                    else -> null
+                }
+                kind?.let { it to lap.seconds!! }
+            }.groupBy({ it.first }, { it.second })
+            val match = namedEasy.entries.singleOrNull()
+            if (match != null && match.value.sum() >= duration * .5 && recovery.isEmpty()) {
+                return ActivityWorkoutEvidence(match.key, evidence = listOf(
+                    "At least half of the run was recorded against a step named ${match.key.label.lowercase(java.util.Locale.ROOT)}.",
+                    "Use how the run felt to check whether you kept the effort easy."
+                ), confidence = ActivityWorkoutConfidence.MODERATE)
             }
         }
+        relativeLongRun(activity, history)?.let { return it }
         if (aerobic && duration != null && duration >= 20 * 60) {
             return ActivityWorkoutEvidence(ActivityWorkoutKind.EASY_RUN,
                 evidence = listOf(
@@ -271,6 +274,25 @@ internal object ActivityWorkoutIntelligence {
                 "There are saved workout steps, but I can’t see which ones you ran or how hard you ran them."
             else "There’s no clear workout pattern in these laps. Check the splits or choose the type yourself."
         )
+    }
+
+    private fun relativeLongRun(activity: ActivityRecord, history: List<ActivityRecord>): ActivityWorkoutEvidence? {
+        val duration = activity.movingTimeS ?: activity.durationS ?: return null
+        val distance = activity.distanceM ?: return null
+        if (!duration.isFinite() || duration < 75 * 60 || !distance.isFinite() || distance <= 0) return null
+        val recent = history.asSequence().filter {
+            it.id != activity.id && it.source == activity.source &&
+                it.type.equals(activity.type, ignoreCase = true) && it.startedAt < activity.startedAt &&
+                Duration.between(it.startedAt, activity.startedAt) <= Duration.ofDays(90) &&
+                it.distanceM?.let { meters -> meters.isFinite() && meters > 1000.0 } == true
+        }.distinctBy { it.id }.sortedByDescending { it.startedAt }.take(20).map { it.distanceM!! }.sorted().toList()
+        if (recent.size < 6) return null
+        val median = (recent[(recent.size - 1) / 2] + recent[recent.size / 2]) / 2
+        if (distance < median * 1.5) return null
+        return ActivityWorkoutEvidence(ActivityWorkoutKind.LONG_RUN, evidence = listOf(
+            "You ran for at least 75 minutes and covered at least half again as much distance as your typical run.",
+            "That comparison uses ${recent.size} earlier runs of the same recorded type. It describes distance and time. The effort could vary."
+        ), confidence = ActivityWorkoutConfidence.MODERATE)
     }
 
     private fun adherence(

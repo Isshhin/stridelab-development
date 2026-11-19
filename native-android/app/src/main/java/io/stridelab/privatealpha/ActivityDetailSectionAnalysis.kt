@@ -68,6 +68,26 @@ internal object ActivityDetailSectionAnalysis {
         val quarter = (values.size / 4).coerceAtLeast(1)
         val early = values.take(quarter).average()
         val late = values.takeLast(quarter).average()
+        if (title == "Heart rate" && values.size >= 4) {
+            val change = late - early
+            val finding = CoachingFinding(
+                observation = when {
+                    abs(change) < 5 -> "Heart rate was similar early and late"
+                    change > 0 -> "Heart rate was higher late in the run"
+                    else -> "Heart rate was lower late in the run"
+                },
+                interpretation = "The early readings averaged ${early.roundToInt()} bpm and the late readings averaged ${late.roundToInt()} bpm. " +
+                    if (abs(change) < 5) "That’s a small difference between those portions."
+                    else "Check whether the pace or terrain changed around the same time.",
+                evidence = listOf("Early and late use the first and last quarters of the saved heart-rate readings.",
+                    "Across the recording, the readings averaged ${average.roundToInt()} bpm."),
+                recommendation = "On your next easy run, compare heart rate at a similar pace on similar terrain.",
+                confidence = "Heart rate alone can’t show whether effort stayed the same or establish cardiac drift. Gaps and pauses can affect this comparison."
+            )
+            return ActivityInsightPresentation(finding.observation,
+                finding.interpretation + " " + finding.recommendation,
+                finding.evidence + finding.confidence, hasComparison = false)
+        }
         val name = when (title) {
             "Pace" -> "pace"
             "Heart rate" -> "heart rate"
@@ -95,13 +115,23 @@ internal object ActivityDetailSectionAnalysis {
             else -> "Check whether your step rate changed when your pace changed. There’s no target step rate to chase here."
         })
         val headline = when (title) {
-            "Pace" -> "Recorded pace ranged from ${display(low)} to ${display(high)}"
-            "Heart rate" -> "Recorded heart rate ranged from ${display(low)} to ${display(high)}"
-            "Elevation" -> "Elevation readings ranged from ${display(low)} to ${display(high)}"
-            else -> "Recorded cadence ranged from ${display(low)} to ${display(high)}"
+            "Pace" -> when {
+                abs(late - early) < 8 -> "Similar pace early and late"
+                late > early -> "Your pace was slower late in the run"
+                else -> "Your pace was quicker late in the run"
+            }
+            "Heart rate" -> "Too little heart-rate data to compare"
+            "Elevation" -> "See where the route climbed and dropped"
+            else -> if (abs(late - early) < 5) "Step rate was similar early and late"
+                else "Your step rate changed as the run went on"
         }
-        val summary = "Your saved readings averaged " +
-            "${display(average)}. Tap the chart to see where the changes happened."
+        val summary = when (title) {
+            "Pace" -> "Early and late readings averaged ${display(early)} and ${display(late)}. " +
+                "Check the route and any planned recoveries before treating the change as a pacing issue."
+            "Heart rate" -> "There are only a few readings. Use how the run felt as your main guide."
+            "Elevation" -> "Use the climbs to put slower splits in context. On an easy run, keeping effort steady matters more than holding pace uphill."
+            else -> "Compare step rate with pace on similar terrain. If the pace changed too, there’s no reason to chase a different step rate from this chart alone."
+        }
         return ActivityInsightPresentation(headline, summary, evidence, hasComparison = false)
     }
 }

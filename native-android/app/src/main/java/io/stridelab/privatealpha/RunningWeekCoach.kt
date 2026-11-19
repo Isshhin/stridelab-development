@@ -71,6 +71,22 @@ internal fun runningPlanWeekLabel(start: LocalDate, plans: List<PlanSnapshot>): 
     val selected = runs.filter { it.date in start..end }
     if (selected.any { it.kind.equals("race", true) }) return "Plan · Race"
     if (selected.isEmpty()) return "StrideLab plan"
+    // Only the baseline policy has a calendar rule we can read back with confidence.
+    if (plan.engineVersion == ENGINE1_VERSION && plan.policyId == ENGINE1_POLICY &&
+        plan.foreignSnapshot == null && plan.request.start.dayOfWeek == start.dayOfWeek &&
+        !start.isBefore(plan.request.start)) {
+        val index = java.time.temporal.ChronoUnit.WEEKS.between(plan.request.start, start).toInt()
+        if (index < plan.request.weeks) {
+            val taper = plan.request.goal in setOf("Half marathon", "Marathon") &&
+                plan.request.weeks >= 8 && index >= plan.request.weeks - 2
+            when {
+                taper -> return "Plan · Taper"
+                index % 4 == 3 && plan.request.weeklyKm > 0 -> return "Plan · Deload"
+                index < 2 && plan.request.returning -> return "Plan · Recovery"
+                index == 0 -> return "Plan · Base"
+            }
+        }
+    }
     val past = runs.filter { it.date in start.minusWeeks(1)..start.minusDays(1) }
     if (past.isEmpty() || (selected + past).any { it.distanceKm == null }) return "StrideLab plan"
     val currentKm = selected.sumOf { it.distanceKm!! }
@@ -84,3 +100,9 @@ internal fun runningPlanWeekLabel(start: LocalDate, plans: List<PlanSnapshot>): 
 
 internal fun runningKm(meters: Double): String =
     String.format(Locale.getDefault(), "%.1f km", meters / 1000.0)
+
+internal fun runningPercentChange(latest: Double, earlier: Double): Double? =
+    if (earlier > 0) ((latest - earlier) / earlier * 100).takeIf { it.isFinite() } else null
+
+internal fun runningPercentLabel(value: Double): String =
+    if (kotlin.math.abs(value) < .5) "0%" else String.format(Locale.getDefault(), "%+.0f%%", value)

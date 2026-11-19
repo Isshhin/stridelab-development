@@ -8,7 +8,8 @@ internal data class RunCoachNote(
     val headline: String,
     val observation: String,
     val dayContext: String?,
-    val nextFocus: String
+    val nextFocus: String,
+    val finding: CoachingFinding? = null
 )
 
 internal fun runCoachNote(
@@ -16,7 +17,8 @@ internal fun runCoachNote(
     recorded: ActivityDetail?,
     history: List<ActivityRecord>,
     workout: ActivityWorkoutAssessment,
-    zone: ZoneId = ZoneId.systemDefault()
+    zone: ZoneId = ZoneId.systemDefault(),
+    correction: UserActivityWorkoutLabel? = null
 ): RunCoachNote {
     val day = run.startedAt.atZone(zone).toLocalDate()
     val earlierToday = history.asSequence()
@@ -49,9 +51,36 @@ internal fun runCoachNote(
         "I don’t have enough pace data to judge how you paced this one. Did you finish feeling like you could keep going?"
     }
 
-    val quality = workout.intended?.kind == ActivityWorkoutKind.QUALITY_RUN ||
-        workout.detected.kind == ActivityWorkoutKind.QUALITY_RUN
+    val kind = correction?.kind ?: workout.intended?.kind ?: workout.detected.kind
+    val subtype = correction?.qualitySubtype ?: workout.intended?.qualitySubtype ?: workout.detected.qualitySubtype
+    val quality = kind == ActivityWorkoutKind.QUALITY_RUN
+    val workSteps = recorded?.workoutSteps.orEmpty().filter { it.role == "WORK" }.map { it.index }.toSet()
+    val comparable = recorded?.takeIf { it.pauseIntervals.isEmpty() }?.laps.orEmpty()
+        .filter { it.workoutStepIndex in workSteps && it.pace?.let { pace -> pace.isFinite() && pace in 120.0..900.0 } == true &&
+            it.distance?.let { distance -> distance.isFinite() && distance >= 100 } == true &&
+            it.seconds?.let { seconds -> seconds.isFinite() && seconds >= 30 } == true }
+        .groupBy { it.workoutStepIndex }.values.maxByOrNull { it.size }.orEmpty()
+    val repeats = comparable.takeIf { laps ->
+        laps.size >= 3 && laps.maxOf { it.distance!! } <= laps.minOf { it.distance!! } * 1.15
+    }?.map { it.pace!! }
+    val finding = if (quality && repeats != null) {
+        val spread = (repeats.max() - repeats.min()) / repeats.average()
+        CoachingFinding(
+            observation = if (spread <= .05) "You kept the repeats close together" else "Your repeat paces varied",
+            interpretation = if (spread <= .05)
+                "Across ${repeats.size} comparable repeats, the recorded paces stayed close."
+            else "Across ${repeats.size} comparable repeats, there was a noticeable spread from quickest to slowest.",
+            evidence = repeats.mapIndexed { i, value -> "Repeat ${i + 1}: ${ActivityRecord.duration(value)}/km" },
+            recommendation = if (spread <= .05) "Keep that rhythm next time and check that the last repeat feels as controlled as the first."
+                else "If these repeats had the same target, use a controlled first rep and try to match that effort on the rest.",
+            confidence = "Compared laps from the same recorded work step. Pace doesn’t verify effort or target intensity."
+        )
+    } else null
     val focus = when {
+        kind == ActivityWorkoutKind.RECOVERY_RUN -> "Keep your next recovery run relaxed from the start. Use full sentences as a check and let the pace drop on hills."
+        kind == ActivityWorkoutKind.EASY_RUN -> "On your next easy run, check that you can still talk in full sentences near the finish."
+        kind == ActivityWorkoutKind.LONG_RUN -> "On your next long run, compare the effort in the last stretch with the opening. If it got harder sooner than planned, try a gentler start."
+        quality && subtype == ActivityQualitySubtype.THRESHOLD -> "On your next threshold session, aim for a controlled effort you can hold through the final work block."
         quality -> "On your next harder session, compare how the effort felt early and late. If you had to push sooner than planned, try a more controlled start."
         earlierToday.isNotEmpty() -> "Take both the earlier running and this session into account. If the next run is meant to be easy, keep the effort low enough to talk in full sentences."
         character?.contains("Slower finish") == true -> "If this was meant to be steady, try starting a little easier on a similar route. See if you can finish at the same effort without having to push."
@@ -66,5 +95,6 @@ internal fun runCoachNote(
         earlierToday.isNotEmpty() -> "This run adds to your day"
         else -> "A look at your run"
     }
-    return RunCoachNote(headline, observation, dayContext, focus)
+    return RunCoachNote(finding?.observation ?: headline, finding?.interpretation ?: observation,
+        dayContext, finding?.recommendation ?: focus, finding)
 }

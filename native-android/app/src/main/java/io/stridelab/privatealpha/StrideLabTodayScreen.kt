@@ -511,10 +511,13 @@ internal fun StrideLabTodayScreen(
                                 recentWeeks.map { week ->
                                     summarizeRunningWeek(week) { run ->
                                         val owner = activityCorrectionOwner(run.id, state)
-                                        corrections.load(owner, run.id) ?: state.details[run.id]?.let { detail ->
-                                            val distribution = if (garminZones.source(owner) == DisplayHeartRateZoneSource.GARMIN)
-                                                garminZones.load(owner)?.let { HeartRateZoneAnalysis.distribute(detail.samples, it.profile) }
-                                            else HeartRateZoneAnalysis.distribute(detail.samples, manual)
+                                        corrections.load(owner, run.id) ?: kotlin.run {
+                                            val detail = state.details[run.id]
+                                            val distribution = detail?.let {
+                                                if (garminZones.source(owner) == DisplayHeartRateZoneSource.GARMIN)
+                                                    garminZones.load(owner)?.let { profile -> HeartRateZoneAnalysis.distribute(detail.samples, profile.profile) }
+                                                else HeartRateZoneAnalysis.distribute(detail.samples, manual)
+                                            }
                                             val detected = ActivityWorkoutIntelligence.detect(run, detail, safeHistory, distribution)
                                             if (detected.kind == ActivityWorkoutKind.UNKNOWN) null
                                             else UserActivityWorkoutLabel(detected.kind, detected.qualitySubtype)
