@@ -51,7 +51,8 @@ internal class GarminZonePreferenceStore(context: Context) {
         val profile = GarminHeartRateZoneProfile(
             json.getString("sport"),
             (0 until 5).map(floors::getInt),
-            json.optString("method").takeIf { it.isNotBlank() }
+            json.optString("method").takeIf { it.isNotBlank() && it != "null" },
+            if (json.isNull("max_hr")) null else json.getInt("max_hr")
         )
         CachedGarminHeartRateZones(profile, syncedAt)
     }.getOrNull()
@@ -66,6 +67,7 @@ internal class GarminZonePreferenceStore(context: Context) {
             .put("sport", profile.sport)
             .put("floors", JSONArray(profile.floorsBpm))
             .put("method", profile.trainingMethod ?: JSONObject.NULL)
+            .put("max_hr", profile.maxHeartRateUsed ?: JSONObject.NULL)
             .put("synced_at", syncedAtMillis)
         return preferences.edit().putString(prefix(owner) + "cached", json.toString()).commit()
     }
