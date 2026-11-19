@@ -66,15 +66,27 @@ internal object GarminHeartRateZones {
                     else -> null
                 }
             }
-            if (values.any { it == null }) continue
+            if (values.any { it == null }) {
+                if (sport == "RUNNING") throw GarminProtocolException(
+                    "Garmin running zones have missing BPM boundaries")
+                continue
+            }
             val floors = values.filterNotNull()
             if (floors.any { it !in 30..255 } ||
-                floors.zipWithNext().any { (a, b) -> b <= a }) continue
+                floors.zipWithNext().any { (a, b) -> b <= a }) {
+                if (sport == "RUNNING") throw GarminProtocolException(
+                    "Garmin running zones have invalid BPM boundaries")
+                continue
+            }
             val maxHeartRateUsed = row.opt("maxHeartRateUsed").let { value ->
                 if (value is Number && value.toDouble().isFinite() &&
                     value.toDouble() % 1.0 == 0.0) value.toInt() else null
             }
-            if (maxHeartRateUsed != null && maxHeartRateUsed !in floors.last()..255) continue
+            if (maxHeartRateUsed != null && maxHeartRateUsed !in floors.last()..255) {
+                if (sport == "RUNNING") throw GarminProtocolException(
+                    "Garmin running maximum is below Zone 5")
+                continue
+            }
             result += GarminHeartRateZoneProfile(
                 sport, floors,
                 row.optString("trainingMethod").trim().takeIf {
