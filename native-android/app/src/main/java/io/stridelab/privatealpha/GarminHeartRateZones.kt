@@ -91,7 +91,10 @@ internal object GarminHeartRateZones {
         fun unique(sport: String): GarminHeartRateZoneProfile? {
             val matching = profiles.filter { it.sport.equals(sport, ignoreCase = true) }
             return matching.firstOrNull()?.takeIf { candidate ->
-                matching.all { it.floorsBpm == candidate.floorsBpm }
+                matching.all {
+                    it.floorsBpm == candidate.floorsBpm &&
+                        it.maxHeartRateUsed == candidate.maxHeartRateUsed
+                }
             }
         }
         val running = profiles.filter { it.sport.equals("RUNNING", ignoreCase = true) }
