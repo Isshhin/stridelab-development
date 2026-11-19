@@ -39,10 +39,16 @@ internal fun ActivityWorkoutClassificationCard(
             val detectedLabel = assessment.detected.qualitySubtype?.label ?: assessment.detected.kind.label
             Text(if (userLabel == null) "DETECTED WORKOUT" else "YOUR CORRECTION",
                 color = activityLime, style = MaterialTheme.typography.labelMedium)
-            Text(userLabel?.let { "Your label: ${it.label}" } ?: "Detected: $detectedLabel",
+            Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Surface(color = Color(0xFF303C24), shape = RoundedCornerShape(10.dp)) {
+                    Text("↗", color = activityLime, modifier = Modifier.padding(10.dp))
+                }
+                Text(userLabel?.let { "Your label: ${it.label}" } ?: "Detected: $detectedLabel",
                 color = activityText, style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.testTag(if (userLabel == null) "activity-workout-detected"
                     else "activity-workout-user-label"))
+            }
             if (userLabel == null) {
                 Text("Detection confidence: " + assessment.detected.confidence.name.lowercase(Locale.ROOT),
                     color = activityMuted, modifier = Modifier.testTag("activity-workout-confidence"))
@@ -60,7 +66,7 @@ internal fun ActivityWorkoutClassificationCard(
                 assessment.detected.evidence.forEach { Text(it, color = activityMuted) }
             }
             OutlinedButton(onClick = { correctionOpen = true }, enabled = canSave,
-                modifier = Modifier.heightIn(min = 48.dp).testTag("activity-workout-label-edit")) {
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("activity-workout-label-edit")) {
                 Text("Correct workout type", color = if (canSave) activityLime else activityMuted)
             }
             assessment.intended?.let { intended ->
@@ -72,15 +78,6 @@ internal fun ActivityWorkoutClassificationCard(
             }
             assessment.intentWarning?.let {
                 Text(it, color = activityMuted, fontSize = 11.sp, lineHeight = 16.sp)
-            }
-            assessment.adherence?.let { adherence ->
-                Spacer(Modifier.height(5.dp))
-                Text("PLANNED VS COMPLETED · " + adherence.status.replace('_', ' '),
-                    color = activityLime, fontSize = 10.sp,
-                    modifier = Modifier.testTag("activity-workout-adherence"))
-                adherence.evidence.forEach { line ->
-                    Text(line, color = activityMuted, fontSize = 11.sp, lineHeight = 16.sp)
-                }
             }
             if (!canSave) Text("A local activity owner is needed to save a label offline.",
                 color = activityMuted, fontSize = 11.sp)

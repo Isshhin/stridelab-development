@@ -1,6 +1,10 @@
 package io.stridelab.privatealpha
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -98,44 +102,54 @@ internal fun AthleteHeartRatePreferenceCard(account: String?, garminOwner: Strin
                 "ZONE SOURCE",
                 color = moreMuted, fontSize = 12.sp, lineHeight = 18.sp
             )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(
-                    DisplayHeartRateZoneSource.MANUAL to "Manual zones",
-                    DisplayHeartRateZoneSource.GARMIN to "Garmin zones"
-                ).forEach { (source, label) ->
-                    FilterChip(
-                        selected = selectedSource == source,
-                        onClick = {
+            Row(Modifier.fillMaxWidth().selectableGroup()
+                .background(Color(0xFF242B22), RoundedCornerShape(14.dp)).padding(4.dp)) {
+                listOf(DisplayHeartRateZoneSource.GARMIN to "Garmin",
+                    DisplayHeartRateZoneSource.MANUAL to "Manual").forEach { (source, label) ->
+                    val selected = selectedSource == source
+                    Box(Modifier.weight(1f).heightIn(min = 48.dp)
+                        .background(if (selected) moreLime else Color.Transparent, RoundedCornerShape(10.dp))
+                        .selectable(selected, role = Role.RadioButton) {
                             if (zoneStore.select(garminOwner, source)) {
                                 selectedSource = source
                                 zoneSyncError = null
                             }
-                        },
-                        label = { Text(label, fontSize = 12.sp) },
-                        modifier = Modifier.weight(1f).testTag(
-                            "athlete-zone-source-" + source.name.lowercase(java.util.Locale.ROOT))
-                    )
+                        }.testTag("athlete-zone-source-" + source.name.lowercase(java.util.Locale.ROOT)),
+                        contentAlignment = Alignment.Center) {
+                        Text(label, color = if (selected) moreBlack else moreWhite)
+                    }
                 }
             }
             if (importedZones != null) {
                 val cache = importedZones!!
                 val date = java.time.Instant.ofEpochMilli(cache.syncedAtMillis)
                     .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-                Text("Garmin ${cache.profile.sport.lowercase(java.util.Locale.ROOT)} zones",
+                Text("Garmin zones available · Cached offline", color = moreLime)
+                Text(if (cache.profile.sport.equals("running", true)) "Running heart-rate zones"
+                    else "Garmin default heart-rate zones",
                     color = moreWhite, fontWeight = FontWeight.SemiBold)
                 Column(Modifier.fillMaxWidth().testTag("athlete-garmin-zone-bounds")) {
                     val floors = cache.profile.floorsBpm
+                    val zoneColors = listOf(Color(0xFFAAB3BF), Color(0xFF7CD9A3),
+                        Color(0xFF83D6E2), Color(0xFFF2C565), Color(0xFFF18D89))
                     floors.forEachIndexed { index, floor ->
                         val nextFloor = floors.getOrNull(index + 1)
                         Row(Modifier.fillMaxWidth().padding(vertical = 5.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Z${index + 1}", color = moreLime)
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            val tint = zoneColors[index]
+                            Text("Z${index + 1}", color = tint)
+                            Box(Modifier.weight(1f).height(6.dp)
+                                .background(Color(0xFF343D36), RoundedCornerShape(6.dp))) {
+                                Box(Modifier.fillMaxWidth((index + 1) / 5f).fillMaxHeight()
+                                    .background(tint, RoundedCornerShape(6.dp)))
+                            }
                             Text(if (nextFloor == null) "$floor+ bpm" else "$floor–${nextFloor - 1} bpm",
                                 color = moreWhite)
                         }
                     }
                 }
-                Text("Last synced: $date · Cached offline",
+                Text("Last synced: $date",
                     color = moreSecondary, fontSize = 10.sp,
                     modifier = Modifier.testTag("athlete-garmin-zone-synced"))
             } else {

@@ -745,6 +745,11 @@ private fun TracksideActivityAnalysisBody(
                 if (!labelSaveFailed) userLabel = null
             }
         )
+        workoutAssessment.adherence?.let { adherence ->
+            Spacer(Modifier.height(12.dp))
+            ActivityWorkoutComparisonCard(activity, workoutAssessment.linkedSession, adherence)
+        }
+        ActivityRecordedWorkoutTimeline(recorded)
         Spacer(Modifier.height(20.dp))
         val focusShape = RoundedCornerShape(14.dp)
         Column(

@@ -17,6 +17,35 @@ import java.time.Instant
 class ActivityIntelligenceUiTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
 
+    @Test fun comparisonAndTimelineShowOnlySupportedEvidence() {
+        val run = ActivityRecord("comparison", "Intervals", "run", "fit", Instant.EPOCH,
+            9800.0, 1800.0, null, null, null, null)
+        val session = PlannedSession("planned", java.time.LocalDate.of(2026, 10, 26),
+            "run", "Intervals", 30, 10.0, "quality")
+        val recorded = ActivityDetail(run.id, emptyList(),
+            listOf(ActivityLap(0, 800.0, 180.0, null, null, workoutStepIndex = 0)), 0L,
+            workoutSteps = listOf(
+                ActivityWorkoutStep(0, null, "active", null, null, null),
+                ActivityWorkoutStep(1, "Unexecuted step", "recovery", null, null, null)))
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    androidx.compose.foundation.layout.Column {
+                        ActivityWorkoutComparisonCard(run, session,
+                            ActivityWorkoutAdherence("SUMMARY_ONLY", listOf("Recorded evidence"), 1, 0))
+                        ActivityRecordedWorkoutTimeline(recorded)
+                    }
+                }
+            }
+        }
+        compose.onNodeWithText("98% of prescribed distance recorded").assertExists()
+        compose.onNodeWithText("Work").assertExists()
+        compose.onNodeWithText("Unexecuted step").assertDoesNotExist()
+        compose.onNodeWithText("Recorded evidence").assertDoesNotExist()
+        compose.onNodeWithText("View comparison").performClick()
+        compose.onNodeWithText("Recorded evidence").assertExists()
+    }
+
     @Test fun analysisCheckpointsScrollWithinOneContinuousSheet() {
         val tab = mutableIntStateOf(0)
         val run = ActivityRecord(
