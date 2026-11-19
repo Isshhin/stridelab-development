@@ -41,7 +41,8 @@ internal class GarminZonePreferenceStore(context: Context) {
             source.name.lowercase(java.util.Locale.ROOT)).commit()
 
     fun load(owner: String?): CachedGarminHeartRateZones? = runCatching {
-        val raw = preferences.getString(prefix(owner) + "cached", null) ?: return null
+        val raw = preferences.getString(prefix(owner) + "cached", null)
+            ?: return@runCatching null
         val json = JSONObject(raw)
         require(json.getInt("version") == 1)
         val syncedAt = json.getLong("synced_at")
