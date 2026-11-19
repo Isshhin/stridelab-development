@@ -101,6 +101,148 @@ class ActivityWorkoutIntelligenceTest {
         assertNull(UserActivityWorkoutLabelCodec.decode(encoded.replace("\"version\":1", "\"version\":9")))
     }
 
+
+    @Test fun executedFitThresholdStepProvidesLabeledButNotPhysiologicallyVerifiedEvidence() {
+        val a = activity()
+        val detail = ActivityDetail(a.id, emptyList(),
+            listOf(ActivityLap(0, 3000.0, 1080.0, 360.0, 173.0,
+                workoutStepIndex = 1)),
+            0L, workoutSteps = listOf(
+                ActivityWorkoutStep(0, "Warm up", "WARMUP", "TIME", 600L, "OPEN"),
+                ActivityWorkoutStep(1, "Threshold work", "ACTIVE", "DISTANCE", 300000L, "HEART_RATE")
+            ))
+        val detected = ActivityWorkoutIntelligence.assess(
+            a, detail, emptyList(), setOf(a.id), setOf("owner")).detected
+        assertEquals(ActivityWorkoutKind.QUALITY_RUN, detected.kind)
+        assertEquals(ActivityQualitySubtype.THRESHOLD, detected.qualitySubtype)
+        assertEquals(ActivityWorkoutConfidence.MODERATE, detected.confidence)
+        assertTrue(detected.evidence.any { it.contains("not verified") })
+    }
+
+    @Test fun workoutDefinitionWithoutRecordedLapReferencesIsNotCompletedEvidence() {
+        val a = activity()
+        val detail = ActivityDetail(a.id, emptyList(),
+            listOf(ActivityLap(0, 1000.0, 300.0, 300.0, 160.0)), 0L,
+            workoutSteps = listOf(ActivityWorkoutStep(1, "Threshold work",
+                "ACTIVE", "DISTANCE", 100000L, "HEART_RATE")))
+        val detected = ActivityWorkoutIntelligence.assess(
+            a, detail, emptyList(), setOf(a.id), setOf("owner")).detected
+        assertEquals(ActivityWorkoutKind.UNKNOWN, detected.kind)
+    }
+
+    @Test fun threeObservedFastSlowPairsClassifyIntervalsWithoutOriginalFitLabels() {
+        val a = activity()
+        val laps = (0 until 6).map { i ->
+            ActivityLap(i, 400.0, if (i % 2 == 0) 105.0 else 150.0,
+                if (i % 2 == 0) 262.5 else 375.0, null)
+        }
+        val detected = ActivityWorkoutIntelligence.detect(
+            a, ActivityDetail(a.id, emptyList(), laps, 0L))
+        assertEquals(ActivityQualitySubtype.INTERVALS, detected.qualitySubtype)
+        assertEquals(ActivityWorkoutConfidence.MODERATE, detected.confidence)
+    }
+
+    @Test fun unlabeledActiveFitStepDoesNotBlockMeasuredEasyRunDetection() {
+        val a = activity()
+        val samples = (0..260).map { i ->
+            ActivitySample(i, i * 10.0, 390.0, 135.0,
+                null, null, null)
+        }
+        val profile = GarminHeartRateZoneProfile("RUNNING",
+            listOf(100, 125, 145, 165, 180))
+        val zoneDistribution = HeartRateZoneAnalysis.distribute(samples, profile)!!
+        val detail = ActivityDetail(a.id, samples,
+            listOf(ActivityLap(0, 5000.0, 2600.0, 390.0, 135.0,
+                workoutStepIndex = 0)), 0L,
+            workoutSteps = listOf(ActivityWorkoutStep(0, null, "ACTIVE",
+                "TIME", 2600000L, null)))
+        val result = ActivityWorkoutIntelligence.detect(a, detail,
+            zones = zoneDistribution)
+        assertEquals(ActivityWorkoutKind.EASY_RUN, result.kind)
+        assertEquals(ActivityWorkoutConfidence.MODERATE, result.confidence)
+    }
+
+    @Test fun intervalRepeatsAfterTwoWarmupLapsStillCountAsMeasuredCycles() {
+        val a = activity()
+        val laps = listOf(
+            ActivityLap(0, 1000.0, 380.0, 380.0, 125.0),
+            ActivityLap(1, 1000.0, 380.0, 380.0, 135.0)
+        ) + (0 until 6).map { i ->
+            ActivityLap(i + 2, 400.0,
+                if (i % 2 == 0) 110.0 else 170.0,
+                if (i % 2 == 0) 275.0 else 425.0, null)
+        }
+        val result = ActivityWorkoutIntelligence.detect(a,
+            ActivityDetail(a.id, emptyList(), laps, 0L))
+        assertEquals(ActivityQualitySubtype.INTERVALS, result.qualitySubtype)
+    }
+
+    @Test fun linkedPlannedStepsAreComparedWithoutClaimingIntensityAdherence() {
+        val a = activity()
+        val session = PlannedSession(
+            id = "threshold", date = LocalDate.parse("2026-11-17"),
+            discipline = "run", title = "Threshold", minutes = 60, distanceKm = 10.0,
+            kind = "quality", quality = true, status = "completed",
+            linkedActivityId = a.id,
+            runningPrescription = RunningPrescription(
+                role = "QUALITY", family = "Threshold",
+                segments = listOf(
+                    RunningSegment("WARM_UP", 2000, "easy"),
+                    RunningSegment("WORK", 6000, "threshold"),
+                    RunningSegment("COOL_DOWN", 2000, "easy")
+                )
+            )
+        )
+        val plan = PlanSnapshot("plan", "owner", ENGINE15_VERSION, ENGINE15_POLICY,
+            started, PlanRequest(policyChoice = "engine15"),
+            listOf(session), emptyList(), status = "approved")
+        val detail = ActivityDetail(a.id, emptyList(),
+            listOf(ActivityLap(0, 6000.0, 1800.0, 300.0, null,
+                workoutStepIndex = 1)), 0L,
+            workoutSteps = listOf(ActivityWorkoutStep(1, "Threshold", "ACTIVE",
+                "DISTANCE", 600000L, "HEART_RATE")))
+        val assessed = ActivityWorkoutIntelligence.assess(a, detail,
+            listOf(plan), setOf(a.id), setOf("owner"))
+        assertEquals("STEP_COUNTS_MATCH", assessed.adherence?.status)
+        assertEquals(1, assessed.adherence?.observedWorkLaps)
+        assertTrue(assessed.adherence!!.evidence.any { it.contains("do not verify") })
+    }
+
+    @Test fun matchingWorkRecoveryCountsDoNotHideWrongExecutionOrder() {
+        val a = activity()
+        val session = PlannedSession(
+            id = "planned-intervals", date = LocalDate.parse("2026-11-17"),
+            discipline = "run", title = "Intervals", minutes = 60, distanceKm = 4.5,
+            kind = "quality", quality = true, status = "completed",
+            linkedActivityId = a.id,
+            runningPrescription = RunningPrescription(
+                "QUALITY", "Intervals", listOf(
+                    RunningSegment("WARM_UP", 1000, "easy"),
+                    RunningSegment("WORK", 1000, "fast"),
+                    RunningSegment("RECOVERY", 500, "easy"),
+                    RunningSegment("WORK", 1000, "fast"),
+                    RunningSegment("COOL_DOWN", 1000, "easy")
+                )
+            )
+        )
+        val plan = PlanSnapshot("order-plan", "owner", ENGINE15_VERSION, ENGINE15_POLICY,
+            started, PlanRequest(policyChoice = "engine15"),
+            listOf(session), emptyList(), status = "approved")
+        val actual = ActivityDetail(a.id, emptyList(), listOf(
+            ActivityLap(0, 500.0, 150.0, 300.0, 130.0, workoutStepIndex = 1),
+            ActivityLap(1, 1000.0, 240.0, 240.0, 168.0, workoutStepIndex = 2),
+            ActivityLap(2, 1000.0, 245.0, 245.0, 167.0, workoutStepIndex = 2)
+        ), 0L, workoutSteps = listOf(
+            ActivityWorkoutStep(1, "Recovery", "RECOVERY", "TIME", null, null),
+            ActivityWorkoutStep(2, "Repeat", "ACTIVE", "DISTANCE", null, null)
+        ))
+        val assessment = ActivityWorkoutIntelligence.assess(
+            a, actual, listOf(plan), setOf(a.id), setOf("owner"))
+        assertEquals("STEP_ORDER_DIFFERS", assessment.adherence?.status)
+        assertEquals(2, assessment.adherence?.observedWorkLaps)
+        assertEquals(1, assessment.adherence?.observedRecoveryLaps)
+    }
+
     @Test fun activityCorrectionOwnerKeepsLocalGarminAndPlanScopesSeparate() {
         val local = TrainingState(
             account = "cloud-account", localGarminOwner = "garmin-owner",

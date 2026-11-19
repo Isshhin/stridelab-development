@@ -161,6 +161,31 @@ class GarminGpsDetailTest {
         assertNull(ActivityDetail.parse(old,"owner",summary.id).samples.first().cadenceSpm)
     }
 
+    @Test fun fitStepsAndGarminReferenceRemainSeparateWhenEnrichingCachedActivity() {
+        val lap = FitActivityDecoder.Lap(whenRun, 600.0, 600.0, 2000.0, 169.0)
+        val original = fit().copy(laps = listOf(lap))
+        val old = GarminGpsDetail.payload("owner", summary, original, 1000L)
+        val newFit = original.copy(
+            laps = listOf(lap.copy(workoutStepIndex = 1)),
+            workoutSteps = listOf(FitActivityDecoder.WorkoutStep(
+                1, "Threshold work", "ACTIVE", "DISTANCE", 200000L, "HEART_RATE"
+            ))
+        )
+        val references = listOf(GarminActivityWorkoutReference(
+            "Threshold repeats", listOf(GarminActivityWorkoutStep(1, "Threshold", "active"))
+        ))
+        val newRaw = GarminGpsDetail.payload("owner", summary, newFit, 2000L, references)
+        val upgraded = GarminGpsDetail.mergeRecordedCadence(
+            old, newRaw, "owner", summary.id
+        )!!
+        val parsed = ActivityDetail.parse(upgraded, "owner", summary.id)
+        assertEquals(1, parsed.laps.single().workoutStepIndex)
+        assertEquals("Threshold work", parsed.workoutSteps.single().name)
+        assertEquals("Threshold repeats", parsed.sourceWorkoutReferences.single().name)
+        assertEquals(1000L, parsed.fetchedAt)
+        assertEquals(ActivityDetail.parse(old, "owner", summary.id).samples, parsed.samples)
+    }
+
     @Test fun pausedFitUsesTimerDurationForGarminSummaryValidation() {
         val pausedSummary=summary.copy(durationS=5841.134765625,movingTimeS=5831.903961181641)
         val raw=GarminGpsDetail.payload("owner",pausedSummary,

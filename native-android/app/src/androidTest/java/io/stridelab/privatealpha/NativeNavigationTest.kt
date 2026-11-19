@@ -70,11 +70,24 @@ class NativeNavigationTest {
         destinations.forEach { (entry, screen) ->
             val tag = "more-row-$entry"
             compose.onNodeWithTag("screen").performScrollToNode(hasTestTag(tag))
+            if (entry == "about") {
+                compose.onNodeWithTag("screen").performTouchInput {
+                    swipeUp(startY = height * .78f, endY = height * .55f)
+                }
+            }
             compose.onNodeWithTag(tag).performClick()
-            compose.onNodeWithTag(screen).assertExists()
+            compose.waitUntil(timeoutMillis = 5_000) {
+                compose.onAllNodesWithTag(screen, useUnmergedTree = true)
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag(screen, useUnmergedTree = true).assertExists()
             if (entry == "garmin") compose.onNodeWithTag("garmin-modal-close").performClick()
             else compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
-            compose.onNodeWithTag("screen-title").assertTextEquals("More")
+            compose.waitUntil(timeoutMillis = 5_000) {
+                compose.onAllNodesWithTag("more-row-about", useUnmergedTree = true)
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("more-row-about", useUnmergedTree = true).assertExists()
         }
     }
     @Test fun passwordIsNotRestoredAfterRecreation() {

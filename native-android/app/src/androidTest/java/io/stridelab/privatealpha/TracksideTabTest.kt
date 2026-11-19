@@ -6,8 +6,11 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import org.junit.Rule
 import org.junit.Test
 
@@ -25,10 +28,21 @@ class TracksideTabTest {
         compose.onNodeWithText("Workout library").assertDoesNotExist()
         compose.onNodeWithTag("more-row-library").assertDoesNotExist()
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("more-row-about"))
+        compose.onNodeWithTag("screen").performTouchInput {
+            swipeUp(startY = height * .78f, endY = height * .55f)
+        }
         compose.onNodeWithTag("more-row-about").performClick()
-        compose.onNodeWithTag("more-detail-title").assertTextEquals("About StrideLab")
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag("more-detail-title", useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("more-detail-title", useUnmergedTree = true)
+            .assertTextEquals("About StrideLab")
         compose.onNodeWithTag("more-back").performClick()
-        compose.onNodeWithTag("screen-title").assertTextEquals("More")
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag("more-row-about", useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithTag("nav-home").performClick()
         compose.onNodeWithTag("nav-home").assertIsSelected()
     }

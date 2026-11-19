@@ -9,7 +9,8 @@ import kotlin.math.max
 /** Verified FIT records become an ActivityDetail for the existing Garmin summary ID. */
 internal object GarminGpsDetail {
     fun payload(account:String,summary:ActivityRecord,fit:FitActivityDecoder.Activity,
-                fetchedAt:Long):JSONObject {
+                fetchedAt:Long,
+                workoutReferences: List<GarminActivityWorkoutReference> = emptyList()):JSONObject {
         require(summary.source=="garmin")
         require(fit.identity.accountId==account)
         require(DashboardSummary.isRun(summary) &&
@@ -68,7 +69,8 @@ internal object GarminGpsDetail {
                     lap.distanceM?.takeIf { it>0 }?.let { meters ->
                         (lap.timerS ?: lap.elapsedS)?.takeIf{it>0}?.let{1000.0*it/meters}
                     }))
-                .put("avg_hr",optional(lap.averageHr)))
+                .put("avg_hr",optional(lap.averageHr))
+                .put("workout_step_index", lap.workoutStepIndex ?: JSONObject.NULL))
         }
         val pauseIntervals = JSONArray()
         fit.timerPauses.forEach { pause ->
@@ -90,12 +92,38 @@ internal object GarminGpsDetail {
                 .put("calculation_type", zones.calculationType ?: JSONObject.NULL)
                 .put("high_bpms", JSONArray(zones.highBpms))
         }
+        val steps=JSONArray()
+        fit.workoutSteps.forEach { step ->
+            steps.put(JSONObject()
+                .put("index",step.index)
+                .put("name",step.name ?: JSONObject.NULL)
+                .put("intensity",step.intensity ?: JSONObject.NULL)
+                .put("duration_type",step.durationType ?: JSONObject.NULL)
+                .put("duration_value",step.durationValue ?: JSONObject.NULL)
+                .put("target_type",step.targetType ?: JSONObject.NULL))
+        }
+        val sourceWorkouts=JSONArray()
+        workoutReferences.forEach { workout ->
+            val workoutJson=JSONObject()
+                .put("workoutName",workout.name ?: JSONObject.NULL)
+            val sourceSteps=JSONArray()
+            workout.steps.forEach { step ->
+                sourceSteps.put(JSONObject()
+                    .put("stepOrder", step.order ?: JSONObject.NULL)
+                    .put("stepName", step.name ?: JSONObject.NULL)
+                    .put("intensity", step.intensity ?: JSONObject.NULL))
+            }
+            workoutJson.put("steps",sourceSteps)
+            sourceWorkouts.put(workoutJson)
+        }
         val raw=JSONObject()
             .put("user_id",account)
             .put("activity_id",summary.id)
             .put("fetched_at",fetchedAt)
             .put("samples",samples)
             .put("laps",laps)
+            .put("workout_steps",steps)
+            .put("garmin_workouts",sourceWorkouts)
             .put("pause_intervals", pauseIntervals)
         if (sourceZones != null) raw.put("source_hr_zones", sourceZones)
         val validated=ActivityDetail.parse(raw,account,summary.id)
@@ -108,11 +136,11 @@ internal object GarminGpsDetail {
         return raw
     }
     /**
-     * Upgrade only cadence in an already persisted Garmin recording. All
-     * previously saved samples, GPS, lap metrics and source metadata survive
-     * unchanged. A differently sampled FIT is NOT merged by index.
+     * Upgrade recorded cadence and verified workout-step metadata only when
+     * sample and lap identity match the previously saved FIT. Preserve all
+     * original timestamps, GPS, pace, heart-rate and lap measurements.
      *
-     * Returns null when the refreshed FIT has no recorded cadence.
+     * Returns null when the refreshed FIT offers no new verified fields.
      */
     fun mergeRecordedCadence(
         existing: JSONObject, refreshed: JSONObject, account: String, id: String
@@ -129,12 +157,39 @@ internal object GarminGpsDetail {
         }) {
             "Garmin FIT sample positions changed; saved recording was preserved"
         }
-        if (latest.samples.none { it.cadenceSpm != null }) return null
+        require(old.laps.zip(latest.laps).all { (previous, next) ->
+            previous.index == next.index &&
+                previous.distance == next.distance &&
+                previous.seconds == next.seconds &&
+                previous.startSeconds == next.startSeconds
+        }) { "Garmin FIT lap measurements changed; original recording was retained" }
+        val hasCadence=latest.samples.zip(old.samples).any { (latestSample,oldSample) ->
+            latestSample.cadenceSpm != null && oldSample.cadenceSpm == null
+        }
+        val hasSteps=latest.workoutSteps.isNotEmpty() && old.workoutSteps.isEmpty()
+        val hasSourceWorkouts=latest.sourceWorkoutReferences.isNotEmpty() &&
+            old.sourceWorkoutReferences.isEmpty()
+        val hasLapStepIndices=latest.laps.zip(old.laps).any { (new,previous) ->
+            new.workoutStepIndex != null && previous.workoutStepIndex == null
+        }
+        if (!hasCadence && !hasSteps && !hasLapStepIndices && !hasSourceWorkouts) return null
         val merged = JSONObject(existing.toString())
         val rows = merged.getJSONArray("samples")
         latest.samples.forEachIndexed { i, sample ->
             val cadence = sample.cadenceSpm
-            if (cadence != null) rows.getJSONObject(i).put("cadence_spm", cadence)
+            if (cadence != null && old.samples[i].cadenceSpm == null)
+                rows.getJSONObject(i).put("cadence_spm", cadence)
+        }
+        if (hasSteps) merged.put("workout_steps", refreshed.getJSONArray("workout_steps"))
+        if (hasSourceWorkouts)
+            merged.put("garmin_workouts", refreshed.getJSONArray("garmin_workouts"))
+        if (hasLapStepIndices) {
+            val oldLaps = merged.getJSONArray("laps")
+            latest.laps.forEachIndexed { i, lap ->
+                if (old.laps[i].workoutStepIndex == null && lap.workoutStepIndex != null) {
+                    oldLaps.getJSONObject(i).put("workout_step_index", lap.workoutStepIndex)
+                }
+            }
         }
         // Validate the merged result before it is offered to persistence.
         ActivityDetail.parse(merged, account, id)

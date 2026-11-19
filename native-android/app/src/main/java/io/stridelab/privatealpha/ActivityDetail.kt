@@ -9,8 +9,25 @@ internal data class ActivityLap(
     val seconds: Double?,
     val pace: Double?,
     val hr: Double?,
-    val startSeconds: Double? = null
+    val startSeconds: Double? = null,
+    val workoutStepIndex: Int? = null
 )
+internal data class ActivityWorkoutStep(
+    val index: Int,
+    val name: String?,
+    val intensity: String?,
+    val durationType: String?,
+    val durationValue: Long?,
+    val targetType: String?
+) {
+    val role: String? get() = when (intensity?.lowercase(java.util.Locale.ROOT)) {
+        "rest", "recovery" -> "RECOVERY"
+        "warmup" -> "WARM_UP"
+        "cooldown" -> "COOL_DOWN"
+        "active" -> "WORK"
+        else -> null
+    }
+}
 internal data class ActivityPauseInterval(val startSeconds: Double, val endSeconds: Double)
 internal data class ActivitySourceHeartRateZones(
     val maximumHr: Int?,
@@ -25,7 +42,9 @@ internal data class ActivityDetail(
     val laps: List<ActivityLap>,
     val fetchedAt: Long,
     val pauseIntervals: List<ActivityPauseInterval> = emptyList(),
-    val sourceHeartRateZones: ActivitySourceHeartRateZones? = null
+    val sourceHeartRateZones: ActivitySourceHeartRateZones? = null,
+    val workoutSteps: List<ActivityWorkoutStep> = emptyList(),
+    val sourceWorkoutReferences: List<GarminActivityWorkoutReference> = emptyList()
 ) {
     companion object {
         fun parse(raw: JSONObject, account: String, id: String): ActivityDetail {
@@ -59,7 +78,9 @@ internal data class ActivityDetail(
                     metric(row,"duration_s"),
                     metric(row,"avg_pace_sec_per_km",.001),
                     metric(row,"avg_hr",.001),
-                    metric(row,"start_s")
+                    metric(row,"start_s"),
+                    if (row.isNull("workout_step_index")) null
+                    else row.getInt("workout_step_index").also { require(it in 0..999) }
                 )
             }
             require(splits.zipWithNext().all { (a,b) -> b.index > a.index })
@@ -99,10 +120,31 @@ internal data class ActivityDetail(
                     highBpms = highs
                 )
             }
+            val stepArray = raw.optJSONArray("workout_steps")
+            require(stepArray == null || stepArray.length() <= 200)
+            val steps = (0 until (stepArray?.length() ?: 0)).map { index ->
+                val row = stepArray!!.getJSONObject(index)
+                fun shortText(key: String): String? = row.optString(key).trim()
+                    .takeIf { it.isNotEmpty() && it != "null" && it.length <= 128 }
+                ActivityWorkoutStep(
+                    index = row.getInt("index").also { require(it in 0..999) },
+                    name = shortText("name"),
+                    intensity = shortText("intensity"),
+                    durationType = shortText("duration_type"),
+                    durationValue = if (row.isNull("duration_value")) null
+                        else row.getLong("duration_value").also { require(it in 0..100_000_000L) },
+                    targetType = shortText("target_type")
+                )
+            }
+            require(steps.map { it.index }.distinct().size == steps.size)
             return ActivityDetail(
                 id, points, splits, raw.getLong("fetched_at"),
                 pauseIntervals = pauses,
-                sourceHeartRateZones = sourceZones
+                sourceHeartRateZones = sourceZones,
+                workoutSteps = steps,
+                sourceWorkoutReferences = raw.optJSONArray("garmin_workouts")?.let {
+                    GarminActivityWorkouts.parse(it.toString())
+                }.orEmpty()
             )
         }
     }

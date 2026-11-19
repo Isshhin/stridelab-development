@@ -545,7 +545,8 @@ internal fun TracksideActivityContinuousSections(
                     }
                 if (chartAvailability.heartRate)
                     item(key = "chart-heart-rate-zones") {
-                        TracksideActivityHeartRateZones(recorded, activityCorrectionOwner(activity.id, state))
+                        TracksideActivityHeartRateZones(
+                            recorded, activityCorrectionOwner(activity.id, state), state.account)
                     }
                 if (chartAvailability.elevation)
                     item(key = "chart-elevation") {
@@ -656,14 +657,26 @@ private fun TracksideActivityAnalysisBody(
         mutableStateOf(labelStore.load(correctionOwner, activity.id))
     }
     var labelSaveFailed by remember(correctionOwner, activity.id) { mutableStateOf(false) }
-    val workoutAssessment = remember(activity, recorded, state.plans, matchedSourceIds) {
+    val heartRateSettings = remember(context, state.account) {
+        AthleteHeartRatePreferences(context).settings(state.account)
+    }
+    val recordedZones = remember(context, correctionOwner, recorded, heartRateSettings) {
+        recorded?.let { detail ->
+            val sources = GarminZonePreferenceStore(context)
+            if (sources.source(correctionOwner) == DisplayHeartRateZoneSource.GARMIN)
+                sources.load(correctionOwner)?.let {
+                    HeartRateZoneAnalysis.distribute(detail.samples, it.profile)
+                }
+            else HeartRateZoneAnalysis.distribute(detail.samples, heartRateSettings)
+        }
+    }
+    val workoutAssessment = remember(activity, recorded, state.plans, matchedSourceIds,
+        history, recordedZones) {
         ActivityWorkoutIntelligence.assess(
             activity, recorded, state.plans, matchedSourceIds,
-            listOfNotNull(state.account, state.localPlanOwner).toSet()
+            listOfNotNull(state.account, state.localPlanOwner).toSet(),
+            history, recordedZones
         )
-    }
-    val heartRateSettings = remember(context, correctionOwner) {
-        AthleteHeartRatePreferences(context).settings(correctionOwner)
     }
     val effort = remember(activity, recorded, history, state.plans, matchedSourceIds,
         heartRateSettings, correctionOwner) {
@@ -829,7 +842,7 @@ private fun TracksideActivityAnalysisBody(
                     "Heart-rate zones are unavailable because this recording has fewer than two valid heart-rate samples.",
                     color = activityMuted, fontSize = 12.sp, lineHeight = 17.sp
                 )
-                else -> TracksideActivityHeartRateZones(recorded, correctionOwner)
+                else -> TracksideActivityHeartRateZones(recorded, correctionOwner, state.account)
             }
         }
         ActivityAnalysisSection("How Did It Feel?", "activity-analysis-feel") {
@@ -871,10 +884,19 @@ private fun ActivityWorkoutLabelEditor(
     Column(Modifier.fillMaxWidth().testTag("activity-workout-label")) {
         Text("WORKOUT TYPE", color = activityMuted, fontSize = 10.sp,
             fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
-        Text("Detected: ${assessment.detected.kind.label}", color = activityText,
+        Text("Detected: " +
+            (assessment.detected.qualitySubtype?.let { "Quality Run · " + it.label }
+                ?: assessment.detected.kind.label), color = activityText,
             fontSize = 13.sp, modifier = Modifier.testTag("activity-workout-detected"))
         Text(assessment.detected.evidence.first(), color = activityMuted,
             fontSize = 11.sp, lineHeight = 16.sp)
+        Text("Evidence confidence: " +
+            assessment.detected.confidence.name.lowercase(Locale.ROOT),
+            color = activityMuted, fontSize = 10.sp,
+            modifier = Modifier.testTag("activity-workout-confidence"))
+        assessment.detected.evidence.drop(1).forEach { line ->
+            Text(line, color = activityMuted, fontSize = 11.sp, lineHeight = 16.sp)
+        }
         assessment.intended?.let { intended ->
             Spacer(Modifier.height(4.dp))
             Text("Planned intent: ${intended.qualitySubtype?.label ?: intended.kind.label}",
@@ -884,6 +906,15 @@ private fun ActivityWorkoutLabelEditor(
         }
         assessment.intentWarning?.let {
             Text(it, color = activityMuted, fontSize = 11.sp, lineHeight = 16.sp)
+        }
+        assessment.adherence?.let { adherence ->
+            Spacer(Modifier.height(5.dp))
+            Text("PLANNED VS COMPLETED · " + adherence.status.replace('_', ' '),
+                color = activityLime, fontSize = 10.sp,
+                modifier = Modifier.testTag("activity-workout-adherence"))
+            adherence.evidence.forEach { line ->
+                Text(line, color = activityMuted, fontSize = 11.sp, lineHeight = 16.sp)
+            }
         }
         userLabel?.let { label ->
             Spacer(Modifier.height(4.dp))
@@ -1478,15 +1509,23 @@ private fun TracksideActivitySplitRow(
  * A workout peak is never substituted for missing athlete settings.
  */
 @Composable
-private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, owner: String?) {
+private fun TracksideActivityHeartRateZones(
+    recorded: ActivityDetail, owner: String?, manualOwner: String? = owner
+) {
     val context = LocalContext.current
     val preferences = remember(context) { AthleteHeartRatePreferences(context) }
-    val settings = remember(recorded.activityId, owner) {
-        preferences.settings(owner)
+    val settings = remember(recorded.activityId, manualOwner) {
+        preferences.settings(manualOwner)
     }
+    val zoneStore = remember(context) { GarminZonePreferenceStore(context) }
+    val selectedSource = remember(recorded.activityId, owner) { zoneStore.source(owner) }
+    val importedZones = remember(recorded.activityId, owner) { zoneStore.load(owner) }
+    val useGarmin = selectedSource == DisplayHeartRateZoneSource.GARMIN
     val sourceZones = recorded.sourceHeartRateZones
-    val zones = remember(recorded, settings) {
-        HeartRateZoneAnalysis.distribute(recorded.samples, settings)
+    val zones = remember(recorded, settings, selectedSource, importedZones) {
+        if (useGarmin) importedZones?.let {
+            HeartRateZoneAnalysis.distribute(recorded.samples, it.profile)
+        } else HeartRateZoneAnalysis.distribute(recorded.samples, settings)
     }
     val colors = listOf(
         Color(0xFF9FABBA), Color(0xFF79C9B3), activityLime,
@@ -1511,8 +1550,12 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, owner: Str
                         fontSize = 14.sp, fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        if (settings.ready)
-                            "Calculated from your saved athlete settings"
+                        if (useGarmin && importedZones != null)
+                            "Garmin Connect BPM floors · cached for offline display"
+                        else if (useGarmin)
+                            "Sync Garmin running zones in More > App preferences"
+                        else if (settings.ready)
+                            "Calculated from your saved manual athlete settings"
                         else
                             "Configure " + settings.method.displayName +
                                 " in More > App preferences",
@@ -1522,7 +1565,7 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, owner: Str
                 }
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    settings.method.displayName,
+                    if (useGarmin) "GARMIN" else settings.method.displayName,
                     color = activityLime, fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.testTag("activity-hr-zone-method")
@@ -1558,7 +1601,9 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, owner: Str
             Spacer(Modifier.height(11.dp))
             if (zones == null) {
                 Text(
-                    if (!settings.ready)
+                    if (useGarmin && importedZones == null)
+                        "Garmin running boundaries have not been synced. Select Manual zones or sync Garmin in App preferences."
+                    else if (!useGarmin && !settings.ready)
                         when (settings.method) {
                             HeartRateZoneMethod.MAX_BPM ->
                                 "Save your maximum heart rate to calculate zones."
@@ -1622,9 +1667,13 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, owner: Str
                 }
                 Spacer(Modifier.height(7.dp))
                 Text(
-                    HeartRateZoneAnalysis.methodSummary(settings) + ". " +
+                    (if (useGarmin)
+                        "Garmin Connect ${importedZones?.profile?.sport ?: "unavailable"} BPM zones. "
+                    else
+                        HeartRateZoneAnalysis.methodSummary(settings) +
+                            ". These are StrideLab estimates, not imported Garmin zones. ") +
                         "Percentage of classified recorded time, not total activity duration. " +
-                        "Gaps over 30 seconds are excluded; these are not imported Garmin zones.",
+                        "Gaps over 30 seconds are excluded.",
                     color = activityMuted, fontSize = 10.sp, lineHeight = 15.sp
                 )
             }

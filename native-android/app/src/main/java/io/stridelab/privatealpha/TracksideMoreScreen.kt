@@ -22,6 +22,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -238,7 +242,7 @@ internal fun TracksideMoreDetailScreen(
         when (page) {
             MorePage.Preferences -> {
                 item(key = "detail-athlete-hr") {
-                    AthleteHeartRatePreferenceCard(state.account)
+                    AthleteHeartRatePreferenceCard(state.account, state.localGarminOwner ?: state.account)
                 }
                 item(key = "detail-preferences") {
                     MoreGroup {
@@ -276,9 +280,20 @@ internal fun TracksideMoreDetailScreen(
 }
 
 @Composable
-private fun AthleteHeartRatePreferenceCard(account: String?) {
+private fun AthleteHeartRatePreferenceCard(account: String?, garminOwner: String?) {
     val context = LocalContext.current
     val preferences = remember(context) { AthleteHeartRatePreferences(context) }
+    val zoneStore = remember(context) { GarminZonePreferenceStore(context) }
+    var selectedSource by remember(garminOwner) {
+        mutableStateOf(zoneStore.source(garminOwner))
+    }
+    var importedZones by remember(garminOwner) {
+        mutableStateOf(zoneStore.load(garminOwner))
+    }
+    var zoneSyncing by remember(garminOwner) { mutableStateOf(false) }
+    var zoneSyncError by remember(garminOwner) { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+
     var saved by remember(account) {
         mutableStateOf(preferences.settings(account))
     }
@@ -318,9 +333,92 @@ private fun AthleteHeartRatePreferenceCard(account: String?) {
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                "Choose how StrideLab calculates five heart-rate zones. " +
-                    "These settings affect Activity Detail only and do not change Garmin or coaching.",
+                "Choose which boundaries Activity Detail uses. Garmin zones are synced from your account; manual settings remain available.",
                 color = moreMuted, fontSize = 12.sp, lineHeight = 18.sp
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(
+                    DisplayHeartRateZoneSource.MANUAL to "Manual zones",
+                    DisplayHeartRateZoneSource.GARMIN to "Garmin zones"
+                ).forEach { (source, label) ->
+                    FilterChip(
+                        selected = selectedSource == source,
+                        onClick = {
+                            if (zoneStore.select(garminOwner, source)) {
+                                selectedSource = source
+                                zoneSyncError = null
+                            }
+                        },
+                        label = { Text(label, fontSize = 12.sp) },
+                        modifier = Modifier.weight(1f).testTag(
+                            "athlete-zone-source-" + source.name.lowercase(java.util.Locale.ROOT))
+                    )
+                }
+            }
+            if (importedZones != null) {
+                val cache = importedZones!!
+                val date = java.time.Instant.ofEpochMilli(cache.syncedAtMillis)
+                    .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                Text(
+                    "Garmin ${cache.profile.sport.lowercase(java.util.Locale.ROOT)} · " +
+                        cache.profile.floorsBpm.mapIndexed { i, bpm ->
+                            "Z${i + 1} ${bpm}"
+                        }.joinToString(" · ") + " bpm",
+                    color = moreLime, fontSize = 11.sp, lineHeight = 16.sp,
+                    modifier = Modifier.testTag("athlete-garmin-zone-bounds")
+                )
+                Text("Last synced: $date · Cached offline",
+                    color = moreSecondary, fontSize = 10.sp,
+                    modifier = Modifier.testTag("athlete-garmin-zone-synced"))
+            } else {
+                Text("Garmin boundaries not yet downloaded. Manual settings will not be overwritten.",
+                    color = moreSecondary, fontSize = 11.sp)
+            }
+            Button(
+                onClick = {
+                    val owner = garminOwner ?: return@Button
+                    if (!zoneSyncing) {
+                        zoneSyncing = true
+                        zoneSyncError = null
+                        coroutineScope.launch {
+                            try {
+                                val profile = withContext(Dispatchers.IO) {
+                                    val source = GarminPersonalSource(
+                                        owner, GarminCredentialVault(context.applicationContext),
+                                        GarminPersonalClient())
+                                    GarminHeartRateZones.forRunning(source.heartRateZones(owner))
+                                        ?: throw GarminProtocolException(
+                                            "Garmin did not provide one valid running or default BPM profile")
+                                }
+                                val saved = withContext(Dispatchers.IO) {
+                                    zoneStore.save(owner, profile)
+                                }
+                                if (!saved) throw IllegalStateException("Could not cache Garmin zones")
+                                importedZones = zoneStore.load(owner)
+                            } catch (error: Exception) {
+                                zoneSyncError = when (error) {
+                                    is GarminException -> GarminConnectionStatus.fromError(error).error
+                                    else -> "Garmin zones could not be saved. Previous settings remain unchanged."
+                                }
+                            } finally {
+                                zoneSyncing = false
+                            }
+                        }
+                    }
+                },
+                enabled = garminOwner != null && !zoneSyncing,
+                modifier = Modifier.fillMaxWidth().testTag("athlete-garmin-zone-sync"),
+                colors = ButtonDefaults.buttonColors(containerColor = moreLime, contentColor = moreBlack)
+            ) { Text(if (zoneSyncing) "Syncing Garmin zones…" else "Sync Garmin HR zones") }
+            zoneSyncError?.let { error ->
+                Text(error, color = Color(0xFFF2AD96), fontSize = 11.sp,
+                    modifier = Modifier.testTag("athlete-garmin-zone-error"))
+            }
+            Text(
+                if (selectedSource == DisplayHeartRateZoneSource.GARMIN)
+                    "Using Garmin source boundaries when available. Below are your unchanged manual settings."
+                else "Using manual StrideLab boundaries. Garmin zone data is kept as a separate option.",
+                color = moreSecondary, fontSize = 11.sp
             )
 
             Row(

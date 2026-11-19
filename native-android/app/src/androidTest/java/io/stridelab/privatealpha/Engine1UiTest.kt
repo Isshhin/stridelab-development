@@ -1,6 +1,7 @@
 package io.stridelab.privatealpha
 
 import androidx.activity.compose.setContent
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -206,6 +207,11 @@ class Engine1UiTest {
         assertEquals(18.0,state.value.plans.single().sessions.single { it.id==session.id }.log!!.minutes!!,0.0)
         capture("phase1-saved-workout")
         compose.onNodeWithTag("nav-training").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodes(isSelected() and hasTestTag("nav-training"))
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("training-view-agenda").performSemanticsAction(SemanticsActions.OnClick)
         compose.onNodeWithTag("training-unified-timeline").performScrollToNode(hasTestTag("timeline-planned-${session.id}"))
         compose.onNodeWithTag("timeline-planned-${session.id}").assertExists()
         capture("phase1-workout-history")

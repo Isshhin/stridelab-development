@@ -152,6 +152,35 @@ internal class GarminPersonalSource(
             "The older Garmin source ID was not found in recent Garmin history. Sync Garmin to refresh it.")
     }
 
+    /** Fetch actual zone floors using the existing owner-scoped bearer lifecycle. */
+    fun heartRateZones(owner: String): List<GarminHeartRateZoneProfile> {
+        require(owner == accountId) { "Garmin zone owner does not match" }
+        return withBearer(owner) { token -> api.heartRateZones(token) }
+    }
+
+    /** Workout definitions are reference metadata; FIT lap indices prove execution. */
+    fun workoutDefinitionsForSource(
+        owner: String, externalId: String, numericHint: Long? = null
+    ): List<GarminActivityWorkoutReference> {
+        require(owner == accountId && externalId.isNotBlank())
+        require(numericHint == null || numericHint > 0L)
+        return withBearer(owner) { token ->
+            var numeric = numericHint ?: externalId.toLongOrNull()?.takeIf { it > 0L }
+            if (numeric == null) {
+                for (pageIndex in 0 until 20) {
+                    val page = api.activities(token, pageIndex * 100, 100)
+                    val activity = page.firstOrNull { it.externalId == externalId }
+                    if (activity != null) {
+                        numeric = activity.numericActivityId
+                        break
+                    }
+                    if (page.size < 100) break
+                }
+            }
+            numeric?.let { api.activityWorkouts(token, it) } ?: emptyList()
+        }
+    }
+
     /** A single owner's explicit activity detail fetch, never background bulk ingestion. */
     fun downloadFitForSource(accountId:String,externalId:String,numericHint:Long?=null):ByteArray {
         require(accountId==this.accountId)

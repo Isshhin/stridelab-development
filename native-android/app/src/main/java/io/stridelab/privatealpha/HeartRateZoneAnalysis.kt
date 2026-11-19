@@ -18,7 +18,8 @@ internal data class HeartRateZoneDistribution(
     val buckets: List<HeartRateZoneBucket>,
     val classifiedSeconds: Double,
     val classifiedIntervals: Int,
-    val excludedIntervals: Int
+    val excludedIntervals: Int,
+    val importedGarminProfile: GarminHeartRateZoneProfile? = null
 )
 
 internal object HeartRateZoneAnalysis {
@@ -28,8 +29,27 @@ internal object HeartRateZoneAnalysis {
         samples: List<ActivitySample>,
         settings: AthleteHeartRateZoneSettings
     ): HeartRateZoneDistribution? {
-        if (!settings.ready || samples.size < 2) return null
+        if (!settings.ready) return null
         val cutoffs = cutoffs(settings) ?: return null
+        return distributeUsingCutoffs(samples, cutoffs, settings, null)
+    }
+
+    fun distribute(
+        samples: List<ActivitySample>,
+        profile: GarminHeartRateZoneProfile
+    ): HeartRateZoneDistribution? =
+        distributeUsingCutoffs(
+            samples, profile.upperTransitionsBpm, AthleteHeartRateZoneSettings(), profile
+        )
+
+    private fun distributeUsingCutoffs(
+        samples: List<ActivitySample>,
+        cutoffs: List<Int>,
+        settings: AthleteHeartRateZoneSettings,
+        imported: GarminHeartRateZoneProfile?
+    ): HeartRateZoneDistribution? {
+        if (samples.size < 2 || cutoffs.size != 4 ||
+            cutoffs.zipWithNext().any { (a, b) -> b <= a }) return null
         val secondsPerZone = DoubleArray(5)
         var included = 0
         var excluded = 0
@@ -41,7 +61,10 @@ internal object HeartRateZoneAnalysis {
             if (!seconds.isFinite() || seconds <= 0.0 ||
                 seconds > MAX_RECORDED_GAP_SECONDS ||
                 fromHr == null || !fromHr.isFinite() || fromHr <= 0.0 ||
-                toHr == null || !toHr.isFinite() || toHr <= 0.0
+                toHr == null || !toHr.isFinite() || toHr <= 0.0 ||
+                (imported != null && (fromHr < imported.floorsBpm.first() ||
+                    (imported.maxHeartRateUsed != null &&
+                        fromHr > imported.maxHeartRateUsed)))
             ) {
                 excluded++
             } else {
@@ -60,15 +83,18 @@ internal object HeartRateZoneAnalysis {
             buckets = secondsPerZone.mapIndexed { index, seconds ->
                 HeartRateZoneBucket(
                     zone = index + 1,
-                    lowerBpm = if (index == 0) null else cutoffs[index - 1],
-                    upperBpm = cutoffs.getOrNull(index)?.minus(1),
+                    lowerBpm = if (index == 0) imported?.floorsBpm?.first()
+                        else cutoffs[index - 1],
+                    upperBpm = cutoffs.getOrNull(index)?.minus(1)
+                        ?: imported?.maxHeartRateUsed,
                     seconds = seconds,
                     fraction = seconds / total
                 )
             },
             classifiedSeconds = total,
             classifiedIntervals = included,
-            excludedIntervals = excluded
+            excludedIntervals = excluded,
+            importedGarminProfile = imported
         )
     }
 
@@ -140,13 +166,20 @@ internal object HeartRateZoneAnalysis {
             kotlin.math.abs(it.seconds - dominant.seconds) < 0.001
         } > 1
         val dominantPct = (dominant.fraction * 100).roundToInt()
+        val imported = distribution.importedGarminProfile
+        val sourceLabel = if (imported != null)
+            "Garmin Connect ${imported.sport.lowercase(Locale.ROOT)} · actual BPM floors"
+        else methodSummary(distribution.settings)
         val evidence = distribution.buckets.map { bucket ->
             "Zone ${bucket.zone}: ${ActivityRecord.duration(bucket.seconds)} " +
                 "(${(bucket.fraction * 100).roundToInt()}% of classified time)."
         } + listOf(
-            "Method: ${methodSummary(distribution.settings)}. " +
-                methodDefinition(distribution.settings) +
-                " These are StrideLab estimates, not imported Garmin zone boundaries.",
+            if (imported != null)
+                "Source: Garmin Connect ${imported.sport}; BPM floors ${imported.floorsBpm.joinToString(", ")}. Actual imported boundaries; samples outside the documented zone range are excluded and durations remain approximate."
+            else
+                "Method: ${methodSummary(distribution.settings)}. " +
+                    methodDefinition(distribution.settings) +
+                    " These are StrideLab estimates, not imported Garmin zone boundaries.",
             "Only ${distribution.classifiedIntervals} intervals between recorded HR " +
                 "samples lasting 30 seconds or less were classified; " +
                 "${distribution.excludedIntervals} missing, duplicate or longer " +
@@ -160,14 +193,14 @@ internal object HeartRateZoneAnalysis {
             summary = if (tied)
                 "Multiple zones share the largest portion of " +
                     "${ActivityRecord.duration(distribution.classifiedSeconds)} classified " +
-                    "recording time using ${distribution.method.displayName}."
+                    "recording time using ${sourceLabel}."
             else String.format(
                 Locale.getDefault(),
                 "About %d%% of %s classified recording time was in Zone %d using %s.",
                 dominantPct,
                 ActivityRecord.duration(distribution.classifiedSeconds),
                 dominant.zone,
-                distribution.method.displayName
+                sourceLabel
             ),
             evidence = evidence,
             hasComparison = false

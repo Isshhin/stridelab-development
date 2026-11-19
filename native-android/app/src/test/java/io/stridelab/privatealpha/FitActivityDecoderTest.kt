@@ -9,7 +9,8 @@ class FitActivityDecoderTest {
         sessions: Int = 1,
         missing: Boolean = false,
         withTimerPause: Boolean = false,
-        withZones: Boolean = false
+        withZones: Boolean = false,
+        withWorkoutSteps: Boolean = false
     ): ByteArray {
         val encoder = BufferEncoder(Fit.ProtocolVersion.V2_0)
         encoder.write(FileIdMesg().apply { type = com.garmin.fit.File.ACTIVITY })
@@ -41,6 +42,22 @@ class FitActivityDecoderTest {
                 })
             }
         }
+        if (withWorkoutSteps) {
+            encoder.write(WorkoutStepMesg().apply {
+                messageIndex = 1
+                wktStepName = "Threshold repeat"
+                intensity = Intensity.ACTIVE
+                durationType = WktStepDuration.DISTANCE
+                durationValue = 300000L
+            })
+            encoder.write(WorkoutStepMesg().apply {
+                messageIndex = 2
+                wktStepName = "Recovery jog"
+                intensity = Intensity.RECOVERY
+                durationType = WktStepDuration.TIME
+                durationValue = 60000L
+            })
+        }
         encoder.write(RecordMesg().apply {
             timestamp = DateTime(1_000_000_000L)
             if(!missing) { positionLat=536870912; positionLong=1073741824; heartRate=150; distance=1234.5f; speed=3.5f; altitude=42f; cadence=80; power=200 }
@@ -50,7 +67,12 @@ class FitActivityDecoderTest {
             totalDistance=1234.5f; totalElapsedTime=400f; totalTimerTime=350f
             if(!missing) { avgHeartRate=150; maxHeartRate=170 }
         }) }
-        encoder.write(LapMesg().apply { startTime=DateTime(1_000_000_000L); totalDistance=1234.5f; totalElapsedTime=400f })
+        encoder.write(LapMesg().apply {
+            startTime=DateTime(1_000_000_000L)
+            totalDistance=1234.5f
+            totalElapsedTime=400f
+            if (withWorkoutSteps) wktStepIndex=1
+        })
         return encoder.close()
     }
     @Test fun officialEncodedFixtureDecodesProfileUnitsAndProvenance() {
@@ -63,6 +85,15 @@ class FitActivityDecoderTest {
         assertEquals(200.0,p.powerW!!,0.01);assertEquals(1,a.laps.size)
         assertTrue(a.evidence().any { it.contains("not moving time") })
     }
+    @Test fun recordedFitWorkoutStepsAndLapReferencesArePreserved() {
+        val a = FitActivityDecoder.decode(fixture(withWorkoutSteps = true), "owner")
+        assertEquals(2, a.workoutSteps.size)
+        assertEquals(1, a.laps.single().workoutStepIndex)
+        assertEquals("Threshold repeat", a.workoutSteps.first().name)
+        assertEquals("ACTIVE", a.workoutSteps.first().intensity)
+        assertEquals("RECOVERY", a.workoutSteps.last().intensity)
+    }
+
     @Test fun timerStopAndStartBecomeExplicitPauseInterval() {
         val a=FitActivityDecoder.decode(fixture(withTimerPause=true),"owner")
         assertEquals(1,a.timerPauses.size)
