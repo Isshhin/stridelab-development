@@ -46,16 +46,16 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-running-day-2").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-start-date").assertExists()
-        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-inline-schedule").assertExists()
         compose.onNodeWithTag("available-day-6").assertExists()
-        compose.onNodeWithTag("builder-figma-continue").performClick()
-        compose.onNodeWithText("Your training blueprint").assertExists()
-        compose.onNodeWithText("Chosen weekdays are requests",
-            substring=true).assertExists()
+        compose.onNodeWithText("Generate My Plan").assertExists()
+        compose.onNodeWithTag("builder-generate-draft-note").assertExists()
+        compose.onNodeWithText("Your training blueprint").assertDoesNotExist()
+        // The real generated-plan review only follows successful generation.
         compose.onNodeWithTag("builder-figma-continue").assertExists()
     }
 
-    @Test fun aRunDayChosenInTheEditorAppearsInDraftReview() {
+    @Test fun aRunDayChosenInTheSheetAppearsInFinalAvailability() {
         val state=TrainingState(initializing=false,account="synthetic-ui")
         compose.runOnUiThread {
             compose.activity.setContent {
@@ -69,23 +69,16 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
-        // The approved compact weekly view opens its inline editor on day tap.
+        // Day-first assignment should carry the selected weekday into
+        // availability, without the removed pre-generation blueprint step.
         compose.onNodeWithTag("builder-running-day-6").performClick()
-        compose.onNodeWithTag("builder-run-session-2").performScrollTo()
-        compose.onNodeWithTag("builder-run-session-2").performClick()
-        // Reveal the nested weekday row via the outer vertical scroll first.
-        compose.onNodeWithTag("builder-run-editor-weekday-row").performScrollTo()
-        compose.onNodeWithTag("builder-run-editor-weekday-row").assertIsDisplayed()
-        compose.onNodeWithTag("builder-run-editor-day-6").performScrollTo()
-        compose.onNodeWithTag("builder-run-editor-day-6").assertIsDisplayed()
-        compose.onNodeWithTag("builder-run-editor-day-6").performClick()
+        compose.onNodeWithTag("builder-run-day-sheet").assertExists()
+        compose.onNodeWithTag("builder-run-sheet-option-easy").performClick()
         compose.onNodeWithTag("builder-running-assignment-progress").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
-        compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("available-day-6").assertIsEnabled()
-        compose.onNodeWithTag("builder-figma-continue").performClick()
-        compose.onNodeWithTag("builder-requested-day-6").assertExists()
-        compose.onNodeWithText("Easy 2 · requested",substring=true).assertExists()
+        compose.onNodeWithText("Generate My Plan").assertExists()
+        compose.onNodeWithText("Your training blueprint").assertDoesNotExist()
     }
 
     @Test fun pinnedWeekdayRemainsEditableWithAnExplicitClearConfirmation() {
@@ -96,7 +89,7 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    TracksideAvailabilityScreen(
+                    TracksideCompactScheduleEditor(
                         request=selected.value,
                         onDay={ day ->
                             selected.value=selected.value.copy(
@@ -108,21 +101,21 @@ class TracksideApprovedBuilderActivityUiTest {
                             selected.value=WeeklyPlacement.makeUnavailable(
                                 selected.value,day)
                         },
-                        onMultiSessionToggle={},onBack={},onContinue={}
+                        onMultiSessionToggle={}
                     )
                 }
             }
         }
         compose.onNodeWithTag("available-day-7").assertIsEnabled()
-        compose.onNodeWithTag("available-day-7").performClick()
-        compose.onNodeWithText("Change Sunday availability?").assertExists()
+        compose.onNodeWithTag("available-day-7").performScrollTo().performClick()
+        compose.onNodeWithText("Change Sunday?").assertExists()
         compose.onNodeWithText("Cancel").performClick()
         assertEquals(listOf(7,3,1),selected.value.weeklySlots["run"])
-        compose.onNodeWithTag("available-day-7").performClick()
+        compose.onNodeWithTag("available-day-7").performScrollTo().performClick()
         compose.onNodeWithTag("builder-confirm-remove-pinned-day").performClick()
         assertEquals(listOf(0,3,1),selected.value.weeklySlots["run"])
         assertEquals(false,7 in selected.value.days)
-        compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
+        assertTrue(compactScheduleError(selected.value)!=null)
     }
 
     @Test fun guidedGoalAndAdvancedPreferencesStayWithinApprovedBuilder() {
@@ -197,13 +190,15 @@ class TracksideApprovedBuilderActivityUiTest {
         compose.onNodeWithTag("builder-cali-weekly").assertExists()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-start-date").assertExists()
-        compose.onNodeWithTag("builder-figma-continue").performClick()
+        compose.onNodeWithTag("builder-inline-schedule").assertExists()
         compose.onNodeWithTag("available-day-6").assertIsEnabled()
         // The wizard must preserve the intended 3 running + 2 strength + 2
         // calisthenics sessions across its six default available weekdays.
         compose.onNodeWithTag("builder-capacity-count").assertTextEquals("7")
         compose.onNodeWithTag("builder-capacity-days").assertTextEquals("sessions across 6 days")
         compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
+        compose.onNodeWithTag("builder-advanced-scheduling")
+            .performScrollTo().performClick()
         // The policy control is below the capacity summary in a scrollable
         // builder body. Clicking an off-screen node may miss the actual Surface.
         compose.onNodeWithTag("builder-enable-multi-session")
@@ -253,7 +248,8 @@ class TracksideApprovedBuilderActivityUiTest {
         val saved=androidx.compose.runtime.mutableStateOf(
             PlanRequest(runDays=4,experience=2,weeklyKm=45.0,
                 days=setOf(1,2,3,4,5,7),longDay=7,
-                qualityCount=1,qualityDays=setOf(2))
+                qualityCount=1,qualityDays=setOf(2),
+                weeklySlots=mapOf("run" to listOf(7,2,3,4)))
         )
         val selected=androidx.compose.runtime.mutableIntStateOf(2)
         compose.runOnUiThread {
@@ -270,6 +266,14 @@ class TracksideApprovedBuilderActivityUiTest {
                             saved.value=WeeklyPlacement.put(
                                 saved.value,"run",selected.intValue,day)
                         },
+                        onAssignSlot={ index,day ->
+                            saved.value=WeeklyPlacement.put(saved.value,"run",index,day)
+                            selected.intValue=index
+                        },
+                        onClearDay={ index ->
+                            saved.value=WeeklyPlacement.clear(saved.value,"run",index)
+                            selected.intValue=index
+                        },
                         onClearSlot={
                             saved.value=WeeklyPlacement.clear(
                                 saved.value,"run",selected.intValue)
@@ -279,33 +283,29 @@ class TracksideApprovedBuilderActivityUiTest {
                 }
             }
         }
-        // First tap reveals the editor; second tap after selecting a workout
-        // performs the existing real WeekPlacement.put/slot-swap action.
+        // Weekday tap opens the day-first sheet rather than the old inline editor.
         compose.onNodeWithTag("builder-running-day-6").performClick()
-        compose.onNodeWithTag("builder-run-session-2").performScrollTo()
-        compose.onNodeWithTag("builder-run-session-2").performClick()
-        // Reveal the nested weekday row via the outer vertical scroll first.
-        compose.onNodeWithTag("builder-run-editor-weekday-row").performScrollTo()
-        compose.onNodeWithTag("builder-run-editor-weekday-row").assertIsDisplayed()
-        compose.onNodeWithTag("builder-run-editor-day-6").performScrollTo()
-        compose.onNodeWithTag("builder-run-editor-day-6").assertIsDisplayed()
-        compose.onNodeWithTag("builder-run-editor-day-6").performClick()
-        assertEquals(6,saved.value.weeklySlots["run"]!![2])
-        assertEquals(4,saved.value.weeklySlots["run"]!!.distinct().size)
-        assertEquals(true,6 in saved.value.days)
-        compose.onNodeWithTag("builder-run-session-3").performScrollTo()
-        compose.onNodeWithTag("builder-run-session-3").performClick()
-        // Reveal the nested weekday row via the outer vertical scroll first.
-        compose.onNodeWithTag("builder-run-editor-weekday-row").performScrollTo()
-        compose.onNodeWithTag("builder-run-editor-weekday-row").assertIsDisplayed()
-        compose.onNodeWithTag("builder-run-editor-day-6").performScrollTo()
-        compose.onNodeWithTag("builder-run-editor-day-6").assertIsDisplayed()
-        compose.onNodeWithTag("builder-run-editor-day-6").performClick()
-        assertEquals(6,saved.value.weeklySlots["run"]!![3])
-        assertEquals(4,saved.value.weeklySlots["run"]!!.distinct().size)
+        compose.onNodeWithTag("builder-run-day-sheet").assertExists()
+        compose.onNodeWithTag("builder-run-sheet-option-easy").performClick()
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertEquals(listOf(7,2,6,4),saved.value.weeklySlots["run"])
+            assertEquals(4,saved.value.runDays)
+            assertTrue(6 in saved.value.days)
+        }
+
+        // Choosing quality on an already occupied easy day must swap slots.
+        compose.onNodeWithTag("builder-running-day-6").performClick()
+        compose.onNodeWithTag("builder-run-sheet-option-quality").performClick()
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertEquals(listOf(7,6,2,4),saved.value.weeklySlots["run"])
+            assertEquals(4,saved.value.weeklySlots["run"]!!.distinct().size)
+            assertEquals(7,saved.value.longDay)
+        }
     }
 
-    @Test fun occupiedRunningDaySelectsItsOwningEasyRunBeforeMovingIt() {
+    @Test fun occupiedRunningDayKeepsItsSessionUntilSheetSelection() {
         val saved=androidx.compose.runtime.mutableStateOf(
             PlanRequest(
                 runDays=4,experience=2,weeklyKm=45.0,
@@ -329,6 +329,14 @@ class TracksideApprovedBuilderActivityUiTest {
                             saved.value=WeeklyPlacement.put(
                                 saved.value,"run",selected.intValue,day)
                         },
+                        onAssignSlot={ index,day ->
+                            saved.value=WeeklyPlacement.put(saved.value,"run",index,day)
+                            selected.intValue=index
+                        },
+                        onClearDay={ index ->
+                            saved.value=WeeklyPlacement.clear(saved.value,"run",index)
+                            selected.intValue=index
+                        },
                         onClearSlot={
                             saved.value=WeeklyPlacement.clear(
                                 saved.value,"run",selected.intValue)
@@ -339,32 +347,41 @@ class TracksideApprovedBuilderActivityUiTest {
             }
         }
 
-        // Open the editor through an empty day. The production state owner
-        // still has slot 0 (Long Run) selected at this point.
         compose.onNodeWithTag("builder-running-day-1").performClick()
-        assertEquals(0,selected.intValue)
+        compose.onNodeWithTag("builder-run-sheet-cancel").performClick()
+        compose.runOnIdle {
+            assertEquals(listOf(6,2,3,4),saved.value.weeklySlots["run"])
+            assertEquals(0,selected.intValue)
+        }
 
-        // Wednesday owns Easy 1. Selecting the occupied compact day must
-        // select that slot without immediately moving Long Run to Wednesday.
+        // Reading an occupied day's assignment must not move the long run.
         compose.onNodeWithTag("builder-running-day-3").performClick()
+        compose.onNodeWithTag("builder-run-sheet-option-easy").performClick()
         compose.runOnIdle {
             assertEquals(2,selected.intValue)
             assertEquals(listOf(6,2,3,4),saved.value.weeklySlots["run"])
             assertEquals(6,saved.value.longDay)
         }
 
-        // A separate destination tap moves only Easy 1 to Friday.
-        compose.onNodeWithTag("builder-run-editor-weekday-row").performScrollTo()
-        compose.onNodeWithTag("builder-run-editor-day-5").performScrollTo()
-        compose.onNodeWithTag("builder-run-editor-day-5").performClick()
+        // Picking an empty day moves an easy slot without changing frequency.
+        compose.onNodeWithTag("builder-running-day-5").performClick()
+        compose.onNodeWithTag("builder-run-sheet-option-easy").performClick()
         compose.runOnIdle {
             assertEquals(listOf(6,2,5,4),saved.value.weeklySlots["run"])
-            assertEquals(6,saved.value.longDay)
             assertEquals(setOf(2),saved.value.qualityDays)
+            assertEquals(4,saved.value.runDays)
+        }
+
+        // Removing that run leaves the slot unplaced, not silently deleted.
+        compose.onNodeWithTag("builder-running-day-5").performClick()
+        compose.onNodeWithTag("builder-run-sheet-clear").performClick()
+        compose.runOnIdle {
+            assertEquals(listOf(6,2,0,4),saved.value.weeklySlots["run"])
+            assertEquals(4,saved.value.runDays)
         }
     }
 
-    @Test fun occupiedRunningDaysSelectLongQualityAndEveryEasyIdentity() {
+    @Test fun occupiedRunningDaysRetainLongQualityAndEasyIdentities() {
         val original=listOf(6,2,4,1,3,5)
         val saved=androidx.compose.runtime.mutableStateOf(
             PlanRequest(
@@ -387,15 +404,24 @@ class TracksideApprovedBuilderActivityUiTest {
                             saved.value=WeeklyPlacement.put(
                                 saved.value,"run",selected.intValue,day)
                         },
+                        onAssignSlot={ index,day ->
+                            saved.value=WeeklyPlacement.put(saved.value,"run",index,day)
+                            selected.intValue=index
+                        },
+                        onClearDay={ index ->
+                            saved.value=WeeklyPlacement.clear(saved.value,"run",index)
+                            selected.intValue=index
+                        },
                         onClearSlot={},onBack={},onContinue={}
                     )
                 }
             }
         }
 
-        // Sunday is unavailable and unoccupied. It may reveal the editor but
-        // must not change any session or silently make Sunday available.
+        // Unavailable day opens a picker but makes no change until selection.
         compose.onNodeWithTag("builder-running-day-7").performClick()
+        compose.onNodeWithTag("builder-run-day-sheet").assertExists()
+        compose.onNodeWithTag("builder-run-sheet-cancel").performClick()
         compose.runOnIdle {
             assertEquals(original,saved.value.weeklySlots["run"])
             assertEquals(setOf(1,2,3,4,5,6),saved.value.days)
@@ -403,6 +429,12 @@ class TracksideApprovedBuilderActivityUiTest {
 
         original.forEachIndexed { expectedSlot,day ->
             compose.onNodeWithTag("builder-running-day-$day").performClick()
+            val tag=when {
+                expectedSlot==0 -> "long"
+                expectedSlot<=2 -> "quality"
+                else -> "easy"
+            }
+            compose.onNodeWithTag("builder-run-sheet-option-$tag").performClick()
             compose.runOnIdle {
                 assertEquals(expectedSlot,selected.intValue)
                 assertEquals(original,saved.value.weeklySlots["run"])
@@ -410,45 +442,6 @@ class TracksideApprovedBuilderActivityUiTest {
                 assertEquals(setOf(2,4),saved.value.qualityDays)
             }
         }
-    }
-
-    @Test fun strengthAndCaliUiDaySelectionPersistsPerDiscipline() {
-        val saved=androidx.compose.runtime.mutableStateOf(
-            PlanRequest(runDays=0,strengthDays=2,calDays=1,
-                days=setOf(1,2,3,4,5,7))
-        )
-        val discipline=androidx.compose.runtime.mutableStateOf("str")
-        val slot=androidx.compose.runtime.mutableIntStateOf(0)
-        compose.runOnUiThread {
-            compose.activity.setContent {
-                StrideTheme {
-                    TracksideOtherDisciplineSlots(
-                        request=saved.value,
-                        selectedDiscipline=discipline.value,
-                        selectedSlot=slot.intValue,
-                        onSelectDiscipline={ discipline.value=it },
-                        onSelectSlot={ slot.intValue=it },
-                        onAssignDay={ d,i,day ->
-                            saved.value=WeeklyPlacement.put(saved.value,d,i,day)
-                        },
-                        onClearSlot={ d,i ->
-                            saved.value=WeeklyPlacement.clear(saved.value,d,i)
-                        },
-                        onAuto={ d ->
-                            saved.value=saved.value.copy(
-                                weeklySlots=saved.value.weeklySlots-d)
-                        },
-                        onCount={ _,_ -> }
-                    )
-                }
-            }
-        }
-        compose.onNodeWithTag("builder-other-day-1").performClick()
-        assertEquals(1,saved.value.weeklySlots["str"]!![0])
-        compose.onNodeWithTag("builder-discipline-day-tab-cal").performClick()
-        compose.onNodeWithTag("builder-other-day-6").performClick()
-        assertEquals(6,saved.value.weeklySlots["cal"]!![0])
-        assertEquals(1,saved.value.weeklySlots["str"]!![0])
     }
 
     @Test fun strengthOnlyGoalsUseFullScreenCardsAndEditableStrengthAbility() {
@@ -530,7 +523,7 @@ class TracksideApprovedBuilderActivityUiTest {
                 StrideTheme {
                     NativeStrideContent(
                         state,false,
-                        NativeActions({}, {}, {}, {}, { _, _ -> })
+                        NativeActions({}, { _, _ -> })
                     )
                 }
             }
@@ -567,7 +560,7 @@ class TracksideApprovedBuilderActivityUiTest {
                 StrideTheme {
                     NativeStrideContent(
                         state,false,
-                        NativeActions({}, {}, {}, {}, { _, _ -> })
+                        NativeActions({}, { _, _ -> })
                     )
                 }
             }
@@ -620,7 +613,7 @@ class TracksideApprovedBuilderActivityUiTest {
                 StrideTheme {
                     NativeStrideContent(
                         state,false,
-                        NativeActions({}, {}, {}, {}, { _, _ -> })
+                        NativeActions({}, { _, _ -> })
                     )
                 }
             }

@@ -172,6 +172,43 @@ public final class TrainingStore extends SQLiteOpenHelper {
             db.setTransactionSuccessful();
         } finally {db.endTransaction();}
     }
+
+    /** Restore plans and non-executable reviews together or leave the profile untouched. */
+    public void restoreReviewedBackup(String account,List<RemoteRecord> plans,List<RemoteRecord> reviews,boolean syncPlans,long now) {
+        RecordPolicy.identifier(account);
+        if(plans==null||reviews==null||plans.size()>50||reviews.size()>20||plans.isEmpty()&&reviews.isEmpty())
+            throw new IllegalArgumentException("Backup record set is missing or too large");
+        Set<String> planIds=new HashSet<>(),reviewIds=new HashSet<>();
+        for(RemoteRecord row:plans) {
+            if(row==null)throw new IllegalArgumentException("Null plan in reviewed backup");
+            RecordPolicy.record(account,"plan",row.id,row.payload);
+            if(!planIds.add(row.id))throw new IllegalArgumentException("Duplicate plan in reviewed backup");
+        }
+        for(RemoteRecord row:reviews) {
+            if(row==null)throw new IllegalArgumentException("Null research review in reviewed backup");
+            RecordPolicy.record(account,"exercise",row.id,row.payload);
+            if(!reviewIds.add(row.id))throw new IllegalArgumentException("Duplicate research review in reviewed backup");
+        }
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();
+        try {
+            for(RemoteRecord row:plans) {
+                if(find(db,account,"plan",row.id)!=null||hasPending(db,account,"plan",row.id))
+                    throw new IllegalStateException("Plan identifier already exists");
+            }
+            for(RemoteRecord row:reviews) {
+                if(find(db,account,"exercise",row.id)!=null||hasPending(db,account,"exercise",row.id))
+                    throw new IllegalStateException("Research review identifier already exists");
+            }
+            for(RemoteRecord row:plans) {
+                if(syncPlans)enqueueInside(db,account,"plan",row.id,java.util.UUID.randomUUID().toString(),row.payload,null,now);
+                else replace(db,"records",recordValues(account,"plan",row.id,row.payload,null,now));
+            }
+            for(RemoteRecord row:reviews)
+                replace(db,"records",recordValues(account,"exercise",row.id,row.payload,null,now));
+            db.setTransactionSuccessful();
+        } finally {db.endTransaction();}
+    }
+
     public String cursor(String account,String kind) {
         RecordPolicy.identifier(account);RecordPolicy.kind(kind);
         try(Cursor c=getReadableDatabase().query("cursors",new String[]{"cursor"},"account=? AND scope=?",new String[]{account,kind},null,null,null)) {return c.moveToFirst()?c.getString(0):null;}

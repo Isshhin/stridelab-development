@@ -25,7 +25,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.text.input.ImeAction
@@ -49,9 +48,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.*
 import androidx.navigation.NavHostController
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 class NativeMainActivity: ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -114,19 +110,20 @@ class NativeMainActivity: ComponentActivity() {
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    val actions = remember(model) { NativeActions(model::refresh, {}, {}, model::signOut, model::signIn, model::loadDetail, model::refreshWellness, model.planActions(), syncGarmin=model::syncGarmin, loadGarminGps=model::loadGarminGps,
+    val actions = remember(model) { NativeActions(model::signOut, model::signIn, model::loadDetail, model.planActions(), syncGarmin=model::syncGarmin, loadGarminGps=model::loadGarminGps,
         backupGarminCloud=model::backupGarminCloud, restoreGarminCloud=model::restoreGarminCloud,
         signUp=model::signUp, requestPasswordReset=model::requestPasswordReset,
         loadCachedDetail=model::loadCachedDetail,
-        renameActivity=model::renameActivity) }
+        renameActivity=model::renameActivity,
+        exportLocalArchive=model::exportLocalActivityArchive,
+        restoreLocalArchive=model::restoreLocalActivityArchive) }
     NativeStrideContent(state, online, actions)
 }
 
 /** Presentation boundary allows isolated screenshots without a real session or fake production data. */
 // Two retired-source callback slots are inert, kept temporarily so older
 // Android UI fixtures compile. No production provider or control uses them.
-internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: () -> Unit,
-    val syncIntervals: () -> Unit, val signOut: () -> Unit, val signIn: (String, String) -> Unit, val loadDetail: (String) -> Unit = {}, val refreshWellness: () -> Unit = {}, val planning:PlanActions = PlanActions(),
+internal data class NativeActions(val signOut: () -> Unit, val signIn: (String, String) -> Unit, val loadDetail: (String) -> Unit = {}, val planning:PlanActions = PlanActions(),
     val syncGarmin: (suspend (GarminPersonalSource) -> GarminConnectionStatus)? = null,
     val loadGarminGps: ((String,GarminPersonalSource)->Unit)?=null,
     val signUp: (String, String, String) -> Unit = { _, _, _ -> },
@@ -134,15 +131,14 @@ internal data class NativeActions(val refresh: () -> Unit, val checkIntervals: (
     val backupGarminCloud: (suspend () -> Int)? = null,
     val restoreGarminCloud: (suspend () -> Int)? = null,
     val loadCachedDetail: (suspend (String) -> Boolean)? = null,
-    val renameActivity: (suspend (String, String) -> Boolean)? = null)
+    val renameActivity: (suspend (String, String) -> Boolean)? = null,
+    val exportLocalArchive: (suspend (LocalActivityArchiveScope) -> java.io.File)? = null,
+    val restoreLocalArchive: (suspend (LocalActivityArchiveScope,java.io.File) -> LocalActivityArchiveCounts)? = null)
 
 /** Primary destinations switch immediately; the legacy Activity history route remains available.
  * retain the existing Navigation Compose transitions.
  */
-private val mainTabRoutes = setOf("home", "training", "activities", "settings")
-
-// Temporarily set to true in Android Studio to isolate tab content from navigation.
-private const val TAB_SWITCH_DIAGNOSTIC = false
+private val mainTabRoutes = setOf("home", "training", "settings")
 
 /** Save each tab's root state, never its transient detail/auth destination. */
 private fun NavHostController.openTabRoot(path: String) {
@@ -150,7 +146,7 @@ private fun NavHostController.openTabRoot(path: String) {
     // tab is already visible. Repeated taps must not rebuild its destination
     // and interrupt the floating navigation pill's animation.
     if (currentDestination?.route == path) return
-    while(currentDestination?.route in setOf("activity/{id}", "auth", "auth/signup", "auth/reset", "more/garmin", "more/data", "more/offline-maps", "more/preferences", "more/about", "builder/{discipline}", "workout/{planId}/{sessionId}", "practice/{key}", "manage/{planId}/{date}")) {
+    while(currentDestination?.route in setOf("activities", "activity/{id}", "auth", "auth/signup", "auth/reset", "more/garmin", "more/data", "more/offline-maps", "more/preferences", "more/about", "more/analytics", "more/analytics/compare", "more/manual-logs", "more/activity-backup", "builder/{discipline}", "workout/{planId}/{sessionId}", "manage/{planId}/{date}")) {
         if(!popBackStack()) break
     }
     navigate(path) {
@@ -163,7 +159,7 @@ private fun NavHostController.openTabRoot(path: String) {
 }
 
 private fun NavHostController.openWorkout(planId:String,sessionId:String) {
-    if(currentDestination?.route!="activities") openTabRoot("training")
+    openTabRoot("training")
     navigate("workout/${android.net.Uri.encode(planId)}/${android.net.Uri.encode(sessionId)}")
 }
 
@@ -176,8 +172,12 @@ private fun NavHostController.openActivity(id: String) {
     }
 }
 
-@Composable internal fun NativeStrideContent(state: TrainingState, online: Boolean, actions: NativeActions, diagnosticTabs: Boolean = TAB_SWITCH_DIAGNOSTIC) {
-    val nav = rememberNavController()
+@Composable internal fun NativeStrideContent(
+    state: TrainingState,
+    online: Boolean,
+    actions: NativeActions,
+    nav: NavHostController = rememberNavController()
+) {
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
     // Immediate visual acknowledgement of a bottom-tab press. NavController
@@ -268,24 +268,7 @@ private fun NavHostController.openActivity(id: String) {
             ) {
                 composable("home") { /* Root content is retained below NavHost. */ }
                 composable("activities") {
-                    Screen("Activities", "YOUR HISTORY") {
-                        item { SyncStatus(state) }
-                        if(visibleActivities.isNotEmpty())
-                            item { HistoryOverview(visibleActivities) }
-                        run {
-                            if(state.account != null)
-                                item { OutlinedButton(onClick = actions.refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Refresh cloud history") } }
-                            if(visibleActivities.isEmpty()) item { EmptyState("No activities saved yet", "Connect Garmin in More to import activities without signing in.") }
-                            val logged=state.plans.flatMap { p -> p.sessions.filter { it.status=="completed" && (it.linkedActivityId==null || state.activities.none { a->a.id==it.linkedActivityId }) }.map { p to it } }.sortedByDescending { it.second.log?.at }
-                            if(logged.isNotEmpty()) item { Text("WORKOUT LOGS · ON THIS DEVICE",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary) }
-                            logged.forEach { (p,s) -> item(key="logged-${s.id}") { PlannedWorkoutCard(s) { nav.openWorkout(p.id,s.id) } } }
-                            items(groupedActivities, key = { it.primary.id }) { group ->
-                                ActivityRow(group.primary, sourceLabel=group.sourceLabel) {
-                                    nav.openActivity(group.primary.id)
-                                }
-                            }
-                        }
-                    }
+                    LaunchedEffect(Unit) { nav.openTabRoot("training") }
                 }
                 composable("activity/{id}") { detail ->
                     val activity = state.activities.firstOrNull {
@@ -497,11 +480,47 @@ private fun NavHostController.openActivity(id: String) {
                 composable("more/offline-maps") {
                     TracksideOfflineMapsScreen(onBack = { nav.popBackStack() })
                 }
+                composable("more/analytics") {
+                    ActivityAnalyticsScreen(
+                        visibleActivities,
+                        onBack = { nav.popBackStack() },
+                        onCompare = { nav.navigate("more/analytics/compare") },
+                        onOpenActivity = { id -> nav.openActivity(id) }
+                    )
+                }
+                composable("more/analytics/compare") {
+                    ActivityRunComparisonScreen(
+                        visibleActivities,
+                        onBack = { nav.popBackStack() }
+                    )
+                }
+                composable("more/manual-logs") {
+                    val owner = state.account ?: state.localPlanOwner
+                    if(owner != null) {
+                        StandaloneDisciplineLogScreen(owner, onBack = { nav.popBackStack() })
+                    } else Screen("Activity logging", "OFFLINE LOGS") {
+                        item { Text("Local activity storage is initializing. Try again shortly.") }
+                    }
+                }
+                composable("more/activity-backup") {
+                    val export = actions.exportLocalArchive
+                    val restore = actions.restoreLocalArchive
+                    if(export != null && restore != null && state.localGarminOwner != null) {
+                        LocalActivityArchiveScreen(
+                            cloudAvailable = state.account != null && !state.needsSignIn,
+                            onBack = { nav.popBackStack() },
+                            onExport = export,
+                            onRestore = restore
+                        )
+                    } else Screen("Activity backup", "OFFLINE RECOVERY") {
+                        item { Text("Archive storage is initializing. Try again shortly.") }
+                    }
+                }
                 composable("more/preferences") {
-                    TracksideMoreDetailDestination(MorePage.Preferences, nav, state, actions)
+                    TracksideMoreDetailDestination(MorePage.Preferences, nav, state)
                 }
                 composable("more/about") {
-                    TracksideMoreDetailDestination(MorePage.About, nav, state, actions)
+                    TracksideMoreDetailDestination(MorePage.About, nav, state)
                 }
                 composable("auth") {
                     val initialGeneration = rememberSaveable { state.loginGeneration }
@@ -559,7 +578,7 @@ private fun NavHostController.openActivity(id: String) {
                 // The keyed group is disposed if the account changes.
                 key(state.account) {
                     PersistentTabSurface(active = visibleRoot == null || visibleRoot == "home") {
-                        if (diagnosticTabs) TabDiagnosticPlaceholder("Today") else StrideLabTodayScreen(
+                        StrideLabTodayScreen(
                             state = state,
                             visibleActivities = visibleActivities,
                             online = online,
@@ -572,8 +591,7 @@ private fun NavHostController.openActivity(id: String) {
                         )
                     }
                     PersistentTabSurface(active = visibleRoot == "training") {
-                        if (diagnosticTabs) TabDiagnosticPlaceholder("Training")
-                        else StrideLabUnifiedTrainingTimeline(
+                        StrideLabUnifiedTrainingTimeline(
                             state, groupedActivities, actions.planning,
                             { nav.navigate("builder/all") },
                             { p, session -> nav.openWorkout(p, session) },
@@ -584,7 +602,7 @@ private fun NavHostController.openActivity(id: String) {
                         )
                     }
                     PersistentTabSurface(active = visibleRoot == "settings") {
-                        if (diagnosticTabs) TabDiagnosticPlaceholder("More") else {
+                        run {
                             var confirmSignOut by remember { mutableStateOf(false) }
                             TracksideMoreScreen(
                                 state = state,
@@ -593,7 +611,10 @@ private fun NavHostController.openActivity(id: String) {
                                 onOfflineMaps = { nav.navigate("more/offline-maps") },
                                 onPreferences = { nav.navigate("more/preferences") },
                                 onAbout = { nav.navigate("more/about") },
-                                onSignOut = { confirmSignOut = true }
+                                onSignOut = { confirmSignOut = true },
+                                onAnalytics = { nav.navigate("more/analytics") },
+                                onManualLogging = { nav.navigate("more/manual-logs") },
+                                onActivityBackup = { nav.navigate("more/activity-backup") }
                             )
                             if (confirmSignOut) {
                                 AlertDialog(
@@ -619,7 +640,7 @@ private fun NavHostController.openActivity(id: String) {
             } else {
                 // Guest roots stay retained and account content is removed.
                 PersistentTabSurface(active = visibleRoot == null || visibleRoot == "home") {
-                    if (diagnosticTabs) TabDiagnosticPlaceholder("Today") else StrideLabTodayScreen(
+                    StrideLabTodayScreen(
                         state = state, visibleActivities = visibleActivities,
                         online = online,
                         onOpenTraining = { nav.openTabRoot("training") },
@@ -631,7 +652,7 @@ private fun NavHostController.openActivity(id: String) {
                     )
                 }
                 PersistentTabSurface(active = visibleRoot == "training") {
-                    if (diagnosticTabs) TabDiagnosticPlaceholder("Training") else StrideLabUnifiedTrainingTimeline(
+                    StrideLabUnifiedTrainingTimeline(
                         state, groupedActivities, actions.planning,
                         { nav.navigate("builder/all") },
                         { p, session -> nav.openWorkout(p, session) },
@@ -642,14 +663,17 @@ private fun NavHostController.openActivity(id: String) {
                     )
                 }
                 PersistentTabSurface(active = visibleRoot == "settings") {
-                    if (diagnosticTabs) TabDiagnosticPlaceholder("More") else TracksideMoreScreen(
+                    TracksideMoreScreen(
                         state = state,
                         onSignIn = { nav.navigate("auth") },
                         onGarmin = { garminSheetOpen = true },
                         onOfflineMaps = { nav.navigate("more/offline-maps") },
                         onPreferences = { nav.navigate("more/preferences") },
                         onAbout = { nav.navigate("more/about") },
-                        onSignOut = {}
+                        onSignOut = {},
+                        onAnalytics = { nav.navigate("more/analytics") },
+                        onManualLogging = { nav.navigate("more/manual-logs") },
+                        onActivityBackup = { nav.navigate("more/activity-backup") }
                     )
                 }
             }
@@ -700,18 +724,6 @@ private fun NavHostController.openActivity(id: String) {
 
 }
 
-@Composable
-private fun TabDiagnosticPlaceholder(label: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(
-            text = "Tab diagnostic: $label",
-            color = Color(0xFFE7ECED),
-            modifier = Modifier.testTag("tab-diagnostic-$label")
-        )
-    }
-}
-
-
 /**
  * Keeps tab state alive while inactive content is not measured or placed.
  */
@@ -741,15 +753,13 @@ private fun PersistentTabSurface(
 private fun TracksideMoreDetailDestination(
     page: MorePage,
     nav: NavHostController,
-    state: TrainingState,
-    actions: NativeActions
+    state: TrainingState
 ) {
     val context = LocalContext.current
     TracksideMoreDetailScreen(
         page = page,
         state = state,
         onBack = { nav.popBackStack() },
-        onSignIn = { nav.navigate("auth") },
         onSystemAppSettings = {
             context.startActivity(
                 Intent(
@@ -757,8 +767,7 @@ private fun TracksideMoreDetailDestination(
                     android.net.Uri.parse("package:" + context.packageName)
                 )
             )
-        },
-        syncGarmin = actions.syncGarmin
+        }
     )
 }
 
@@ -768,6 +777,7 @@ internal val LocalFloatingDockVisible=staticCompositionLocalOf { false }
 @Composable internal fun Screen(title: String, eyebrow: String, compactTitle: Boolean = false,
     dense: Boolean = false, edgeToEdge: Boolean = false, titleBadge: String? = null,
     bottomOverlayPadding: androidx.compose.ui.unit.Dp = 0.dp,
+    hideHeader: Boolean = false,
     content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     Box(
         Modifier.fillMaxSize().padding(bottom = bottomOverlayPadding),
@@ -785,7 +795,7 @@ internal val LocalFloatingDockVisible=staticCompositionLocalOf { false }
             ),
             verticalArrangement = Arrangement.spacedBy(gap)
         ) {
-            if (!edgeToEdge) item {
+            if (!edgeToEdge && !hideHeader) item {
                 TracksideScreenHeader(
                     title, eyebrow, compactTitle, LocalProfileAction.current,
                     dense = dense, titleBadge = titleBadge
@@ -816,31 +826,6 @@ internal val LocalFloatingDockVisible=staticCompositionLocalOf { false }
         Text(description, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
-@Composable internal fun HistoryOverview(activities: List<ActivityRecord>) {
-    SignalCard {
-        Text("ON THIS DEVICE", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-        Text(if(activities.size == 1) "1 saved activity" else "${activities.size} saved activities", style = MaterialTheme.typography.headlineMedium)
-        Text("Activity summaries saved on this device. Open a record to inspect available source details.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-/** Only recorded elapsed durations. No target, trend, readiness or missing-value inference. */
-@Composable internal fun RecordedDurationChart(activities: List<ActivityRecord>) {
-    val records = remember(activities) { activities.filter { it.durationS != null }.take(5) }
-    val maximum = records.maxOfOrNull { it.durationS!! } ?: 0.0
-    SignalCard {
-        Text("RECENT TRAINING TIME", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-        Text("Elapsed time · recent saved activities", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        records.forEach { activity ->
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(activity.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                Text("${activity.dateLabel} · ${activity.durationLabel}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Box(Modifier.fillMaxWidth().height(5.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(3.dp))) {
-                    if(maximum > 0 && activity.durationS!! > 0) Box(Modifier.fillMaxWidth((activity.durationS / maximum).toFloat()).fillMaxHeight().background(MaterialTheme.colorScheme.secondary, RoundedCornerShape(3.dp)))
-                }
-            }
-        }
-    }
-}
 @Composable internal fun ActivityRow(
     activity: ActivityRecord, sourceLabel:String=activity.sourceLabel, onClick: () -> Unit
 ) {
@@ -861,30 +846,3 @@ internal val LocalFloatingDockVisible=staticCompositionLocalOf { false }
         }
     }
 }
-@Composable internal fun MetricPair(first: Pair<String,String>?, second: Pair<String,String>) {
-    val enlarged = LocalDensity.current.fontScale > 1.15f
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        if(enlarged || maxWidth < 340.dp) Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            first?.let { Metric(it.first,it.second, Modifier.fillMaxWidth()) }; Metric(second.first,second.second, Modifier.fillMaxWidth())
-        } else Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            first?.let { Metric(it.first,it.second,Modifier.weight(1f)) }
-            Metric(second.first,second.second,Modifier.weight(1f))
-        }
-    }
-}
-@Composable internal fun Metric(label: String, value: String, modifier: Modifier = Modifier.fillMaxWidth()) {
-    Surface(modifier, shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
-        Column(Modifier.padding(16.dp),verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.titleLarge)
-        }
-    }
-}
-@Composable private fun SyncStatus(state: TrainingState) {
-    val last = state.lastSync?.let(::timestamp)
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(14.dp)) {
-        Text(if(state.busy) state.task ?: "Working… Saved data remains on this device." else if(last != null) "Saved offline · refreshed $last" else "No completed history refresh recorded", Modifier.fillMaxWidth().padding(14.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-private fun timestamp(value: Long): String = DateTimeFormatter.ofPattern("d MMM, HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(value))
-

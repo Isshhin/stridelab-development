@@ -139,13 +139,21 @@ internal fun StrideLabUnifiedTrainingTimeline(
 ) {
     val account = state.account
     val hasLocalGarmin = state.localGarminIds.isNotEmpty()
-    val hasHistory = account != null || hasLocalGarmin
-    val plans = if (account == null) emptyList() else state.plans
+    // The repository exposes only the active account's plans or the local
+    // device-only plan namespace. Never hide the latter in guest mode.
+    val plans = state.plans
+    val hasHistory = account != null || hasLocalGarmin || plans.isNotEmpty()
     val approved = plans.filter { it.status == "approved" }
-    var selectedPlanId by rememberSaveable(account) { mutableStateOf<String?>(null) }
-    var showTools by rememberSaveable(account) { mutableStateOf(false) }
+    val planProfile = account ?: state.localPlanOwner
+    var selectedPlanId by rememberSaveable(planProfile) { mutableStateOf<String?>(null) }
+    var showTools by rememberSaveable(planProfile) { mutableStateOf(false) }
     val active = approved.firstOrNull { it.id == selectedPlanId } ?: approved.firstOrNull()
     val pendingReview = plans.any { it.status == "draft" || it.status == "paused" }
+    val pendingDrafts=plans.count { it.status=="draft" }
+    var agendaView by rememberSaveable(planProfile) { mutableStateOf(false) }
+    var selectedDayText by rememberSaveable(planProfile,active?.id) {
+        mutableStateOf(LocalDate.now().toString())
+    }
 
     if (showTools) {
         Column(Modifier.fillMaxSize().background(TimelineStyle.background)) {
@@ -172,17 +180,23 @@ internal fun StrideLabUnifiedTrainingTimeline(
             zone = zone
         )
     }
+    val focusedDate=active?.let { plan ->
+        val start=plan.request.start
+        val end=start.plusWeeks(plan.request.weeks.toLong()).minusDays(1)
+        runCatching { LocalDate.parse(selectedDayText) }.getOrDefault(today).coerceIn(start,end)
+    } ?: today
+    val visibleDays=if(active!=null && !agendaView) {
+        listOf(days.firstOrNull { it.date==focusedDate }
+            ?: UnifiedTrainingDay(focusedDate,emptyList(),emptyList()))
+    } else days
     val todayIndex = days.indexOfFirst { it.date == today }.coerceAtLeast(0)
-    val scroll = rememberLazyListState(initialFirstVisibleItemIndex = todayIndex)
-    // Re-center when the Training tab is entered again. Keep the position
-    // while this screen remains open so scrolling into history still works.
-    var initialAnchorSet by remember(account, today, active?.id) {
-        mutableStateOf(false)
-    }
-    LaunchedEffect(account, today, state.initializing, days, initialAnchorSet) {
-        if (!initialAnchorSet && !state.initializing) {
-            scroll.scrollToItem(todayIndex)
-            initialAnchorSet = true
+    val scroll = rememberLazyListState()
+    // Day starts at the overview. Agenda preserves the historical timeline
+    // and anchors at Today; returning to Day restores the selected date.
+    LaunchedEffect(agendaView,active?.id) {
+        if(!state.initializing) {
+            if(agendaView)scroll.scrollToItem(todayIndex+if(active!=null)1 else 0)
+            else scroll.scrollToItem(0)
         }
     }
     val context = LocalContext.current
@@ -207,7 +221,7 @@ internal fun StrideLabUnifiedTrainingTimeline(
             )
             Surface(
                 onClick = {
-                    if (account == null) onSignIn() else showTools = true
+                    showTools = true
                 },
                 modifier = Modifier.size(48.dp)
                     .testTag("training-plan-tools")
@@ -224,34 +238,12 @@ internal fun StrideLabUnifiedTrainingTimeline(
                 }
             }
         }
-        if (approved.size > 1) {
-            androidx.compose.foundation.lazy.LazyRow(
-                modifier = Modifier.padding(horizontal = 18.dp, vertical = 5.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(approved, key = { it.id }) { candidate ->
-                    Surface(
-                        onClick = { selectedPlanId = candidate.id },
-                        shape = RoundedCornerShape(22.dp),
-                        color = if (candidate.id == active?.id) Color(0xFF303930)
-                            else TimelineStyle.card,
-                        border = BorderStroke(1.dp, TimelineStyle.border)
-                    ) {
-                        Text(
-                            candidate.name ?: candidate.request.goal,
-                            color = TimelineStyle.ink, fontSize = 12.sp,
-                            modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
-                            maxLines = 1, overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-        }
         // A final date needs enough height to be top-aligned, but NOT so
         // much that the user can scroll below its last real card. Subtract
         // the list's 10dp top and 116dp bottom insets from the viewport.
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-        val lastDateMinHeight = (maxHeight - 126.dp).coerceAtLeast(0.dp)
+        val lastDateMinHeight = if(agendaView)(maxHeight - 126.dp).coerceAtLeast(0.dp)
+            else 0.dp
         LazyColumn(
             state = scroll,
             modifier = Modifier.fillMaxSize()
@@ -261,14 +253,39 @@ internal fun StrideLabUnifiedTrainingTimeline(
             ),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            itemsIndexed(days, key = { _, day -> "timeline-date-${day.date}" }) { position, day ->
+            if(active!=null) item(key="training-hub-overview") {
+                Column(Modifier.fillMaxWidth().testTag("training-hub-overview"),
+                    verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                    TracksideTrainingHubHeader(
+                        active=active,
+                        approvedPlans=approved,
+                        pendingDrafts=pendingDrafts,
+                        selectedDate=focusedDate,
+                        agenda=agendaView,
+                        busy=state.busy,
+                        actions=actions,
+                        onAgenda={ agendaView=it },
+                        onSelectedDate={ date ->
+                            selectedDayText=date.toString()
+                            agendaView=false
+                        },
+                        onPlanSelected={ id ->
+                            selectedPlanId=id
+                            selectedDayText=today.toString()
+                        },
+                        onManage={ onManage(active.id,focusedDate) },
+                        onPlanTools={ showTools=true }
+                    )
+                }
+            }
+            itemsIndexed(visibleDays, key = { _, day -> "timeline-date-${day.date}" }) { position, day ->
                 Column(
-                    modifier = if (position == days.lastIndex)
+                    modifier = if (position == visibleDays.lastIndex)
                         Modifier.heightIn(min = lastDateMinHeight) else Modifier,
                     verticalArrangement = Arrangement.spacedBy(11.dp)
                 ) {
                     if (day.date != today &&
-                        unifiedTimelineMonthHeading(days, position)
+                        unifiedTimelineMonthHeading(visibleDays, position)
                     ) {
                         Text(
                             day.date.format(month),
@@ -327,22 +344,13 @@ internal fun StrideLabUnifiedTrainingTimeline(
                     // The prompt is an independent full-width timeline card.
                     // It deliberately sits OUTSIDE the 48dp date rail + card
                     // row, aligned with the screen's 18dp horizontal margins.
-                    if (day.date == today && account == null && !hasLocalGarmin) {
-                        TimelinePromptCard(
-                            title = "Keep your training private.",
-                            description = "Connect Garmin in More to import local activities. StrideLab sign-in is optional.",
-                            action = "Sign in for cloud",
-                            onAction = onSignIn
-                        )
-                    } else if (day.date == today && account != null &&
-                        active == null && !state.initializing
-                    ) {
+                    if (day.date == today && active == null && !state.initializing) {
                         TimelinePromptCard(
                             title = if (pendingReview) "Your plan needs a review."
                                 else "Your training starts here.",
                             description = if (pendingReview)
                                 "Continue reviewing your saved training plan."
-                            else "Create a schedule built around your goals, disciplines, and availability.",
+                            else "Create an offline training plan. Sign-in is optional for cloud features.",
                             action = if (pendingReview) "Review saved plan"
                                 else "Create training plan",
                             onAction = {
@@ -620,10 +628,17 @@ private fun TimelinePlannedCard(
     val recorded = session.status == "completed"
     val details = buildList {
         add(disciplineLabel(session.discipline))
-        val distance = if (recorded) session.log?.distanceKm else session.distanceKm
+        val reviewedTimeOnly=session.suggestion?.let { it.accepted && it.minutes<session.minutes }==true
+        val distance = if(recorded) session.log?.distanceKm
+            else if(reviewedTimeOnly) null else session.distanceKm
+        val estimated=if(!recorded && !reviewedTimeOnly && distance==null)
+            session.runningPrescription?.estimatedDistanceKm else null
         distance?.takeIf { it.isFinite() && it >= 0 }?.let {
             add((if (recorded) "" else "Target ") +
                 String.format(Locale.getDefault(), "%.1f km", it))
+        }
+        estimated?.let {
+            add(String.format(Locale.getDefault(),"~%.1f km estimated",it))
         }
         val minutes = if (recorded) session.log?.minutes else session.effectiveMinutes.toDouble()
         minutes?.takeIf { it.isFinite() && it > 0 }?.let {

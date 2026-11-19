@@ -56,7 +56,7 @@ class Engine15ValidationMatrixTest {
                             val run = dates.filter { it.discipline == "run" }
                             assertEquals(4, run.size)
                             assertEquals(1, run.count { it.kind == "long" })
-                            val volume = run.sumOf { it.distanceKm ?: 0.0 }
+                            val volume = run.sumOf { it.distanceKm ?: it.runningPrescription?.estimatedDistanceKm ?: 0.0 }
                             assertTrue("$id week $w volume cap", volume <=
                                 Engine15.runningCeiling(w, weekly) + 1e-6)
                             assertTrue("$id week $w no invented speed", run.all {
@@ -65,12 +65,22 @@ class Engine15ValidationMatrixTest {
                             val long = run.single { it.kind == "long" }
                             if (long.distanceKm != null) assertTrue(
                                 "$id week $w long cap", long.distanceKm <= 0.4 * volume + 1e-6)
-                            for (i in dates.indices) {
-                                assertTrue("$id week $w time", dates[i].minutes <= baseline[i].minutes)
-                                val km = dates[i].distanceKm
-                                if (km != null) assertTrue("$id week $w distance",
-                                    km <= (baseline[i].distanceKm ?: 0.0) + 1e-8)
+                            assertEquals(baseline.filter { it.discipline!="run" },dates.filter { it.discipline!="run" })
+                            assertTrue(volume<=baseline.filter { it.discipline=="run" }.sumOf { it.distanceKm ?: 0.0 }+1e-8)
+                            for (session in run) {
+                                if(req.timeBudgetEnabled) assertTrue("$id availability",session.minutes<=req.minutes)
+                                val distance=session.distanceKm ?: session.runningPrescription?.estimatedDistanceKm
+                                distance?.let { km ->
+                                    assertTrue("$id exposure",km<=req.longestKm+1.0+1e-8)
+                                }
+                                if(session.runningPrescription?.mixedSegments!=null) {
+                                    assertNull("$id v2 must not pretend to know exact distance",session.distanceKm)
+                                    assertTrue(session.runningPrescription!!.estimatedDistanceKm!!>0.0)
+                                } else if(session.distanceKm!=null) {
+                                    assertEquals(session.distanceKm*1000,session.runningPrescription!!.meters.toDouble(),0.001)
+                                }
                             }
+                            assertTrue(run.sumOf { it.runningPrescription?.workMeters ?: 0 }<=volume*1000*0.2+1e-8)
                             if (experience == 0 || weekly < 20.0 ||
                                 (returning && w < 3) || w % 4 == 3 ||
                                 (goal in setOf("Half marathon", "Marathon") && w >= 6))

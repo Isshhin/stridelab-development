@@ -2,7 +2,6 @@ package io.stridelab.privatealpha
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import kotlin.math.ceil
 import kotlin.math.floor
 
 internal const val ENGINE15_VERSION = "1.5.0"
@@ -17,8 +16,17 @@ internal object Engine15 : PlanGenerationEngine {
     override val policyId = ENGINE15_POLICY
 
     internal fun validate(request: PlanRequest) {
+        if (request.recentQualitySessionsPerWeek != null && request.recentQualitySessionsPerWeek !in 0..2)
+            throw PlanConstraint("Recent quality frequency must be unknown, zero, one or two sessions per week.")
+        if (request.runDays > 0 && request.runningRecoveryHold)
+            throw PlanConstraint("Running is on hold for recovery review. Resolve the pain, illness or return concern before requesting a running prescription.")
         if (request.policyChoice != "engine15")
             throw PlanConstraint("Engine 1.5 must be selected explicitly.")
+        if (request.targetWeeklyKm != null &&
+            (!request.targetWeeklyKm.isFinite() || request.targetWeeklyKm !in 0.0..120.0))
+            throw PlanConstraint("Target weekly mileage must be between 0 and 120 km.")
+        if (request.runDays > 0 && request.targetWeeklyKm == 0.0)
+            throw PlanConstraint("For no running, switch running off. Otherwise enter a positive weekly target.")
         if (request.disciplineGoals.any { (d, goal) -> goal !in Engine1Engines.goals[d].orEmpty() })
             throw PlanConstraint("Choose supported goals for each discipline.")
         Engine15SessionLocks.validateRequest(request)
@@ -33,68 +41,12 @@ internal object Engine15 : PlanGenerationEngine {
             assigned.distinct().size != assigned.size
     }
 
-    private data class QualityStructure(
-        val title: String, val instructions: String, val requiredMinutes: Int
-    )
-
-    private fun structure(goal: String): QualityStructure = when (goal) {
-        "Improve 5K" -> QualityStructure(
-            "Controlled 5K intervals",
-            "3 × 3 min comfortably hard (effort 6–7/10); 2 min easy between repetitions; never sprint",
-            35
-        )
-        "Improve 10K" -> QualityStructure(
-            "Controlled 10K intervals",
-            "2 × 6 min comfortably hard (effort 6–7/10); 3 min easy between repetitions; never sprint",
-            35
-        )
-        "Half marathon" -> QualityStructure(
-            "Controlled sustained intervals",
-            "2 × 8 min steady controlled effort (6/10); 3 min easy between repetitions",
-            40
-        )
-        "Marathon" -> QualityStructure(
-            "Steady aerobic intervals",
-            "2 × 8 min steady, not racing (effort 5–6/10); 3 min easy between repetitions",
-            40
-        )
-        else -> QualityStructure(
-            "Controlled aerobic intervals",
-            "2 × 6 min comfortably steady (effort 5–6/10); 3 min easy between repetitions",
-            35
-        )
-    }
-
-    private fun qualitySteps(minutes: Int, spec: QualityStructure): List<String> = listOf(
-        "10 min easy warm-up using conversational effort",
-        spec.instructions,
-        "At least 8 min easy cool-down; use remaining time for easy running or walking; " +
-            "finish within the planned $minutes min"
-    )
-
-    private fun easySteps(minutes: Int, beginners: Boolean): List<String> {
-        val warmUp = minOf(5, minutes / 3)
-        return listOf(
-            "Start with $warmUp min comfortable walk or easy jog",
-            if (beginners) "Alternate easy running and walking; shorten running portions as needed"
-            else "Keep the effort conversational. No unmeasured HR zone or race pace is assumed",
-            "Finish with an easy walk or jog; total session $minutes min"
-        )
-    }
-
     /**
-     * Planned-mileage ceiling from athlete-supplied weekly mileage.
-     * Three staged loading weeks followed by a lighter fourth week.
-     * No catch-up mileage is added after deload weeks.
+     * Compatibility entry point. M4 owns this unchanged numeric formula.
+     * Legacy callers and existing tests continue using the same API.
      */
-    internal fun runningCeiling(week: Int, recentKm: Double): Double {
-        require(week >= 0 && recentKm.isFinite() && recentKm >= 0.0)
-        val block = week / 4
-        val part = week % 4
-        val factor = if (part == 3) minOf(0.90, 0.76 + block * 0.04)
-            else minOf(1.10, 0.90 + part * 0.05 + block * 0.045)
-        return recentKm * factor
-    }
+    internal fun runningCeiling(week: Int, recentKm: Double, targetKm: Double? = null): Double =
+        Engine15WeeklyVolumeSkeleton.ceiling(week,recentKm,targetKm)
 
     private fun weekIndex(request: PlanRequest, session: PlannedSession) =
         (ChronoUnit.DAYS.between(request.start, session.date) / 7L).toInt()
@@ -103,8 +55,14 @@ internal object Engine15 : PlanGenerationEngine {
 
     override fun generate(
         request: PlanRequest, owner: String, id: String, now: Instant
-    ): PlanSnapshot {
+    ): PlanSnapshot = generateProgram(request,owner,id,now,null)
+
+    private fun generateProgram(request:PlanRequest,owner:String,id:String,now:Instant,
+        review:Engine15Feedback.DraftReview?,pattern:Engine15RunHistory?=null,
+        includeAlternatives:Boolean=true,ledger:Engine15WorkloadLedger?=null):PlanSnapshot {
         validate(request)
+        if(request.runDays>0 && review?.illnessThrough!=null && request.start<=review.illnessThrough && request.start.plusWeeks(request.weeks.toLong())>review.asOf)
+            throw PlanConstraint("Recent reported pain or illness needs recovery review before a new immediate running plan. Choose a later start or review your current records; no catch-up training is prescribed.")
         // Keep the original generator, calendar, multi-discipline recipes and
         // saved-plan contract unchanged; only refine proposed RUNNING sessions.
         val multi = requiresMulti(request)
@@ -116,85 +74,26 @@ internal object Engine15 : PlanGenerationEngine {
                 request.copy(policyChoice = "coordinated"), owner, id, now)
             else -> Engine1.generate(request.copy(policyChoice = "baseline"), owner, id, now)
         }
-        val weekly = baseline.sessions.groupBy { weekIndex(request, it) }
-        val adapted = baseline.sessions.map { original ->
-            if (original.discipline != "run") return@map original
-
-            val week = weekIndex(request, original)
-            val runs = weekly.getValue(week).filter { it.discipline == "run" }
-            val originalKm = runs.sumOf { it.distanceKm ?: 0.0 }
-            val ceiling = runningCeiling(week, request.weeklyKm)
-            val scale = if (originalKm > 0.0) minOf(1.0, ceiling / originalKm) else 1.0
-            var distance = original.distanceKm?.times(scale)
-
-            if (original.kind == "long" && distance != null && request.runDays >= 3) {
-                // Cap the long run against the FINAL, not the pre-adjusted,
-                // weekly total: long <= 2/3 of other run distances means <=40%.
-                val otherKm = runs.filter { it.id != original.id }
-                    .sumOf { roundDownKm((it.distanceKm ?: 0.0) * scale) }
-                distance = minOf(distance, otherKm * (2.0 / 3.0))
-                if (request.longestKm > 0.0) {
-                    val increase = if (request.returning && week < 2) 0.0 else 1.0
-                    distance = minOf(distance, request.longestKm + increase)
-                }
-            }
-            distance = distance?.let(::roundDownKm)
-            val minutes = if (distance == null || original.distanceKm == null ||
-                distance >= original.distanceKm
-            ) original.minutes else minOf(
-                original.minutes,
-                maxOf(10, ceil(distance * request.planningPace / 60.0).toInt())
-            )
-
-            val spec = structure(request.goal)
-            val taper = request.goal in setOf("Half marathon", "Marathon") &&
-                request.weeks >= 8 && week >= request.weeks - 2
-            val allowedQuality = when {
-                request.experience == 0 || request.weeklyKm < 20.0 -> 0
-                request.returning && week < 3 -> 0
-                week % 4 == 3 || taper -> 0
-                request.weeklyKm < 40.0 -> minOf(1, request.qualityCount)
-                else -> request.qualityCount
-            }
-            val position = runs.filter { it.kind == "quality" }.sortedBy { it.id }
-                .indexOfFirst { it.id == original.id }
-            val quality = original.kind == "quality" && original.quality &&
-                position in 0 until allowedQuality && minutes >= spec.requiredMinutes
-
-            when {
-                quality -> original.copy(
-                    minutes = minutes, distanceKm = distance, title = spec.title,
-                    quality = true, steps = qualitySteps(minutes, spec),
-                    reason = "Controlled goal-specific quality with easy recovery. " +
-                        "Effort is descriptive; no measured threshold or pace was inferred."
-                )
-                original.kind == "quality" -> original.copy(
-                    kind = "easy", title = "Easy aerobic run", quality = false,
-                    minutes = minutes, distanceKm = distance,
-                    steps = easySteps(minutes, request.experience == 0 || request.weeklyKm == 0.0),
-                    reason = "Requested quality was replaced by an easier run because " +
-                        "mileage, time, a lighter week, a return or a taper did not support it."
-                )
-                else -> original.copy(
-                    minutes = minutes, distanceKm = distance,
-                    steps = if (minutes == original.minutes) original.steps
-                        else easySteps(minutes, request.experience == 0 || request.weeklyKm == 0.0),
-                    reason = original.reason + if (distance != original.distanceKm)
-                        " Distance was bounded against the reported recent mileage; " +
-                            "removed distance is not added to another workout." else ""
-                )
-            }
-        }
+        val adapted = Engine15RunningProgram.compose(request,baseline.sessions,review,pattern,ledger)
         Engine15SessionLocks.validateOutput(request, adapted)
         check(adapted.map { it.id to it.date } == baseline.sessions.map { it.id to it.date })
-        val originalById = baseline.sessions.associateBy { it.id }
-        check(adapted.all { s ->
-            val previous = originalById.getValue(s.id)
-            s.minutes <= previous.minutes &&
-                (s.distanceKm == null ||
-                    (previous.distanceKm != null && s.distanceKm <= previous.distanceKm + 1e-8)) &&
-                (!s.quality || previous.quality)
-        })
+        val originalById=baseline.sessions.associateBy { it.id }
+        check(adapted.filter { it.discipline!="run" }.all { it==originalById.getValue(it.id) })
+        for ((week,sessions) in adapted.groupBy { weekIndex(request,it) }) {
+            val original=baseline.sessions.filter { weekIndex(request,it)==week && it.discipline=="run" }
+            check(sessions.filter { it.discipline=="run" }.sumOf { it.distanceKm ?: it.runningPrescription?.estimatedDistanceKm ?: 0.0 } <= original.sumOf { it.distanceKm ?: 0.0 }+1e-8)
+        }
+        val options=if(includeAlternatives && request.targetWeeklyKm!=null && adapted.filter { it.discipline=="run" }.all { it.distanceKm!=null }) {
+            val peak=adapted.filter { it.discipline=="run" }.groupBy { weekIndex(request,it) }.values.maxOfOrNull { rows -> rows.sumOf { it.distanceKm ?: 0.0 } } ?: 0.0
+            if(request.runDays>0 && peak+0.01<request.targetWeeklyKm) {
+                val longer=((request.weeks+1)..16).firstOrNull { weeks ->
+                    val candidateRequest=request.copy(weeks=weeks)
+                    val candidate=try { generateProgram(candidateRequest,owner,id,now,review,pattern,includeAlternatives=false) } catch(_:PlanConstraint) { return@firstOrNull false }
+                    candidate.sessions.filter { it.discipline=="run" }.groupBy { weekIndex(candidateRequest,it) }.values.any { rows -> rows.sumOf { it.distanceKm ?: 0.0 }+0.01>=request.targetWeeklyKm }
+                }
+                Engine15MileageOptions(roundDownKm(peak),request.targetWeeklyKm,longer)
+            } else null
+        } else null
         return baseline.copy(
             engineVersion = version,
             policyId = when {
@@ -203,25 +102,85 @@ internal object Engine15 : PlanGenerationEngine {
                 else -> policyId
             },
             request = request,
+            // Manual mileage plans and explicitly accepted foundation plans
+            // must not be presented under an inherited race-goal title.
+            name = Engine15MileageTargetIntegrity.displayName(request) ?: baseline.name,
+            mileageOptions = options,
             sessions = adapted,
             explanations = listOf(
-                "Engine 1.5 policy (${if (interference) ENGINE15_INTERFERENCE_POLICY else if (multi) ENGINE15_MULTI_POLICY else policyId}): the verified baseline " +
+                "Engine 1.5 policy (${if (interference) ENGINE15_INTERFERENCE_POLICY else if (multi) ENGINE15_MULTI_POLICY else policyId}): the scheduling baseline " +
                     "still supplies scheduled days, disciplines and equipment prescriptions.",
                 "Running volume has staged loading ceilings and lighter fourth weeks " +
-                    "based on manually supplied recent mileage. Removed mileage is never " +
-                    "redistributed or made up after a missed workout.",
+                    "based on manually supplied recent mileage. The week is allocated by session purpose; missed work is never made up.",
                 "With at least three weekly runs, long-run distance is capped to 40% " +
                     "of final planned weekly distance. Missing mileage remains time-based.",
-                "Quality running is limited by supplied mileage, experience, return " +
+                "Quality running is limited by recent mileage, experience, return " +
                     "status, lighter weeks, race taper and available time. Effort " +
                     "descriptions are not measured thresholds, zones or target paces.",
+                "Target weekly mileage is a capped goal; progression remains bounded by the reported recent mileage and includes a fourth-week recovery reduction.",
                 if(multi) "Multi-session days use the existing conservative easy-run + calisthenics pairing and daily budget. Incompatible schedules are rejected." else "Single-session Engine 1.0 calendar rules remain unchanged.",
                 "Review every workout before approval; no existing saved plan, " +
                     "completed activity or athlete record has been changed."
-            ) + baseline.explanations.filterNot {
+            ) + (options?.explanations(request.weeks) ?: emptyList()) + (pattern?.let { observed ->
+                buildList {
+                    if(observed.easyKm!=null || observed.longKm!=null)
+                        add("OBSERVED_RUN_PATTERN: Repeated logged easy/long exposures inform session allocation. Weekly coverage is unknown; logged totals do not replace reported weekly mileage. Sources: ${observed.evidenceIds.joinToString()}.")
+                    if(observed.qualityWorkKmByFamily.isNotEmpty())
+                        add("REPEATED_REPORTED_QUALITY_HISTORY: Self-reported completed work, repeated across weeks, bounds future matching quality families (${observed.qualityWorkKmByFamily.entries.joinToString { "${it.key}: ${it.value} km" }}). Logs are not source-authenticated; work is never increased beyond them and they do not establish a measured threshold, pace, readiness score or approval to advance. Logs: ${observed.evidenceIds.joinToString()}.")
+                }
+            } ?: emptyList()) + coachingReview(request, adapted) + (if(review!=null && request.start<=review.recoveryThrough)
+                listOf("RECENT_RESPONSE_REVIEW: Recent explicit difficulty limits upcoming running to shorter easy roles through ${review.recoveryThrough}. Evidence: ${review.evidenceIds.joinToString()}. No fitness or recovery score is inferred.") else emptyList()) + baseline.explanations.filterNot {
                 it.startsWith("Engine 1.0 uses ") ||
                     it.startsWith("Every fourth week is lighter.")
             }
         )
+    }
+
+    fun generateWithHistory(request:PlanRequest,owner:String,history:List<PlanSnapshot>,
+        id:String=java.util.UUID.randomUUID().toString(),now:Instant=Instant.now()):PlanSnapshot =
+        generateProgram(request,owner,id,now,Engine15Feedback.reviewForNewDraft(owner,history,now),Engine15RunHistory.assess(owner,history,now))
+
+    /**
+     * R0 read-only diagnostic path: same engine and policies, deterministic ID.
+     * No change to saved plans or production generate/generateWithHistory paths.
+     * The ledger contains modeled prescriptions, never athlete outcomes.
+     */
+    internal fun diagnoseWorkload(
+        request:PlanRequest,owner:String,id:String,now:Instant,
+        history:List<PlanSnapshot> = emptyList()
+    ):Pair<PlanSnapshot,Engine15WorkloadLedger> {
+        val ledger=Engine15WorkloadLedger()
+        val review=if(history.isEmpty())null else Engine15Feedback.reviewForNewDraft(owner,history,now)
+        val pattern=if(history.isEmpty())null else Engine15RunHistory.assess(owner,history,now)
+        val plan=generateProgram(request,owner,id,now,review,pattern,ledger=ledger)
+        return plan to ledger
+    }
+
+    private fun coachingReview(request: PlanRequest, sessions: List<PlannedSession>): List<String> {
+        if (request.runDays == 0) return emptyList()
+        val notes = mutableListOf(
+            "PROVISIONAL_SCHEDULE: Future weeks are projections, not demonstrated tolerance. Review actual completion and response before advancing.",
+            "SESSION_EXPOSURE_BOUND: Every run is bounded by reported or repeated observed session exposure; removed distance is not redistributed. This provisional limit is not an injury-risk estimate."
+        )
+        if (request.qualityCount > (request.recentQualitySessionsPerWeek ?: 1))
+            notes += "QUALITY_FREQUENCY_REVIEW: Requested quality exceeds the reported recent weekly pattern. Unknown history supports at most one introductory controlled session, not an inferred twice-weekly tolerance."
+        val runs = sessions.filter { it.discipline == "run" }
+        val peak = runs.groupBy { weekIndex(request,it) }.values.maxOfOrNull { week ->
+            week.sumOf { it.distanceKm ?: it.runningPrescription?.estimatedDistanceKm ?: 0.0 }
+        } ?: 0.0
+        if(runs.any { it.runningPrescription?.mixedSegments!=null })
+            notes += "MIXED_UNIT_ESTIMATES: Planned warm-up/cool-down are timed. Mixed workout distance is estimated from planning pace, not an exact target. Unused allocated mileage is not redistributed. Estimated peak is about ${roundDownKm(peak)} km/week."
+        request.targetWeeklyKm?.let { target ->
+            if(runs.any { it.distanceKm==null && it.runningPrescription?.mixedSegments==null })
+                notes += "TARGET_FEASIBILITY_UNKNOWN: Time-only running cannot establish progress toward a kilometre target."
+            else if(runs.any { it.runningPrescription?.mixedSegments!=null }) {
+                if(peak+0.01<target) notes += "ESTIMATED_TARGET_SHORTFALL: Target $target km/week; mixed-unit estimated peak is ${roundDownKm(peak)} km/week. This is not an exact distance target and no catch-up running is prescribed."
+            } else if(peak+0.01<target)
+                notes += "TARGET_NOT_REACHED: Requested $target km/week; this constrained schedule peaks at ${roundDownKm(peak)} km. Review recent session exposure, running days and actual completed weeks before choosing a new build or timeline."
+        }
+        if (request.returning) notes += "RETURN_REASSESSMENT: This reduced return schedule does not establish regained capacity. Review completed easy weeks and symptoms before regenerating with a current baseline; do not automatically remove the return restriction."
+        if (request.goal in setOf("Improve 5K","Improve 10K","Half marathon","Marathon"))
+            notes += "RACE_READINESS_UNASSESSED: The race label selects workout style only. Event readiness and a feasible preparation timeline have not been established; this is provisional conditioning, not confirmed race preparation."
+        return notes
     }
 }

@@ -40,17 +40,42 @@ class NativeNavigationTest {
         }
         compose.onNodeWithTag("nav-home").performClick()
     }
-    @Test fun nativeEmptyStateAndNavigationSurviveRecreation() {
+    @Test fun todayTrainingAndMoreNavigationSurvivesRecreation() {
+        compose.onAllNodesWithTag("nav-home").assertCountEquals(1)
+        compose.onAllNodesWithTag("nav-training").assertCountEquals(1)
+        compose.onAllNodesWithTag("nav-settings").assertCountEquals(1)
+        compose.onNodeWithTag("nav-activities").assertDoesNotExist()
         capture("home")
-        compose.onNodeWithTag("nav-activities").performClick()
-        compose.onNodeWithTag("screen-title").assertTextEquals("Activities")
-        compose.onNodeWithText("Sign in to view your history").assertExists()
+        compose.onNodeWithTag("nav-training").performClick()
+        compose.onNodeWithTag("training-unified-timeline").assertExists()
         compose.activityRule.scenario.recreate()
-        compose.onNodeWithTag("screen-title").assertTextEquals("Activities")
-        capture("activities")
+        compose.onNodeWithTag("training-unified-timeline").assertExists()
+        capture("training")
         compose.onNodeWithTag("nav-settings").performClick()
         compose.onNodeWithTag("screen-title").assertTextEquals("More")
         capture("settings")
+    }
+
+    @Test fun moreOpensCurrentGuestDestinations() {
+        compose.onNodeWithTag("nav-settings").performClick()
+        val destinations = listOf(
+            "garmin" to "garmin-modal-sheet",
+            "offline-maps" to "offline-maps-screen",
+            "analytics" to "analytics-back",
+            "manual-logs" to "manual-log-back",
+            "activity-archive" to "archive-back",
+            "preferences" to "more-detail-title",
+            "about" to "more-detail-title"
+        )
+        destinations.forEach { (entry, screen) ->
+            val tag = "more-row-$entry"
+            compose.onNodeWithTag("screen").performScrollToNode(hasTestTag(tag))
+            compose.onNodeWithTag(tag).performClick()
+            compose.onNodeWithTag(screen).assertExists()
+            if (entry == "garmin") compose.onNodeWithTag("garmin-modal-close").performClick()
+            else compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+            compose.onNodeWithTag("screen-title").assertTextEquals("More")
+        }
     }
     @Test fun passwordIsNotRestoredAfterRecreation() {
         compose.onNodeWithTag("nav-settings").performClick()

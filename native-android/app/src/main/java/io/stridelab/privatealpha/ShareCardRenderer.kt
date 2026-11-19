@@ -8,9 +8,9 @@ import kotlin.math.*
 
 internal object ShareCardPalette {
     const val LIME:Int = 0xFFD8FB70.toInt()
-    const val WHITE:Int = 0xFFF0F7F1.toInt()
-    const val MUTED:Int = 0xFFBFCFC4.toInt()
-    const val BLACK:Int = 0xFF080D0C.toInt()
+    const val WHITE:Int = 0xFFF7F7F5.toInt()
+    const val MUTED:Int = 0xFF9FA4AA.toInt()
+    const val BLACK:Int = 0xFF080B0A.toInt()
     fun colors(mode:ShareRouteMode):IntArray = when(mode) {
         ShareRouteMode.PACE -> intArrayOf(LIME,0xFFFFBE7A.toInt(),0xFFFF8C87.toInt())
         ShareRouteMode.ELEVATION -> intArrayOf(0xFF5EABD6.toInt(),0xFFC2A8FF.toInt(),0xFFFFBE7A.toInt())
@@ -29,22 +29,56 @@ internal object ShareCardRenderer {
         val count=state.metrics.count { it in numeric }.coerceAtLeast(1)
         val row=if(state.layout==ShareLayout.COMPACT) 138f else 158f
         val statsHeight=ceil(count/2.0).toFloat()*row
-        return when(state.template) {
+        val base=when(state.template) {
             ShareTemplate.STATS -> ShareCardGeometry(RectF(56f,280f+statsHeight,1024f,h-104f),250f,row)
             ShareTemplate.ROUTE -> ShareCardGeometry(RectF(56f,246f,1024f,h-statsHeight-140f),h-statsHeight-102f,row)
             ShareTemplate.MINIMAL -> ShareCardGeometry(RectF(120f,270f,960f,h-statsHeight-170f),h-statsHeight-112f,row)
+            ShareTemplate.WORKOUT -> ShareCardGeometry(RectF(56f,270f,1024f,h-statsHeight-138f),h-statsHeight-112f,row)
         }
+        // Bounded route-vs-stat split. Keep at least 152 px of map height,
+        // the template's original separation, and labels above the brand footer.
+        // Stats-first and workout cards keep their established safe geometry.
+        if(state.template !in setOf(ShareTemplate.ROUTE, ShareTemplate.MINIMAL) ||
+            state.routeMode==ShareRouteMode.HIDDEN) return base
+        val rows=ceil(count/2.0).toFloat()
+        val gap=if(state.template==ShareTemplate.MINIMAL) 58f else 38f
+        val minStatsTop=base.route.top+152f+gap
+        val maxStatsTop=h-200f-(rows-1f)*row
+        if(minStatsTop>maxStatsTop) return base
+        val desired=base.statsTop+(state.routeBalance-50)*1.5f
+        val statsTop=desired.coerceIn(minStatsTop,maxStatsTop)
+        return base.copy(
+            route=RectF(base.route.left,base.route.top,base.route.right,statsTop-gap),
+            statsTop=statsTop
+        )
     }
 
-    fun render(activity:ShareRenderableActivity, state:ShareStudioState, map:Bitmap? = null):Bitmap {
+    fun render(activity:ShareRenderableActivity, state:ShareStudioState, map:Bitmap? = null, photo:Bitmap? = null):Bitmap {
         val bitmap=Bitmap.createBitmap(1080,state.ratio.height,Bitmap.Config.ARGB_8888)
         val canvas=Canvas(bitmap)
         val paint=Paint(Paint.ANTI_ALIAS_FLAG)
-        canvas.drawColor(ShareCardPalette.BLACK)
+        if(state.background!=ShareBackground.TRANSPARENT) canvas.drawColor(ShareCardPalette.BLACK)
         if(state.background==ShareBackground.GRADIENT) {
             paint.shader=LinearGradient(0f,0f,1080f,bitmap.height.toFloat(),
                 intArrayOf(0xFF1C2D28.toInt(),ShareCardPalette.BLACK,0xFF252032.toInt()),null,Shader.TileMode.CLAMP)
             canvas.drawPaint(paint); paint.shader=null
+        }
+        if(state.background==ShareBackground.PHOTO && photo!=null && photo.width>0 && photo.height>0) {
+            // Center-crop to the chosen story ratio. Never stretch a personal photo.
+            val targetRatio=bitmap.width.toFloat()/bitmap.height
+            val sourceRatio=photo.width.toFloat()/photo.height
+            val crop=if(sourceRatio>targetRatio) {
+                val w=(photo.height*targetRatio).toInt().coerceIn(1,photo.width)
+                Rect((photo.width-w)/2,0,(photo.width+w)/2,photo.height)
+            } else {
+                val h=(photo.width/targetRatio).toInt().coerceIn(1,photo.height)
+                Rect(0,(photo.height-h)/2,photo.width,(photo.height+h)/2)
+            }
+            paint.alpha=255; paint.isFilterBitmap=true
+            canvas.drawBitmap(photo,crop,Rect(0,0,bitmap.width,bitmap.height),paint)
+            paint.isFilterBitmap=false
+            paint.color=0x77000000
+            canvas.drawRect(0f,0f,bitmap.width.toFloat(),bitmap.height.toFloat(),paint)
         }
         val g=geometry(state)
         fun text(value:String,x:Float,y:Float,size:Float,color:Int=ShareCardPalette.WHITE,bold:Boolean=false,maxWidth:Float=968f) {
@@ -66,18 +100,50 @@ internal object ShareCardRenderer {
         }
         if(ShareMetric.DATE in state.metrics) text(activity.metrics[ShareMetric.DATE].orEmpty(),56f,232f,28f,ShareCardPalette.MUTED)
 
-        if(state.routeMode!=ShareRouteMode.HIDDEN && g.route.height()>0) {
+        if(state.template==ShareTemplate.WORKOUT && g.route.height()>140f) {
+            val r=g.route
+            val recap=activity.workout
+            paint.color=0xFF181B1A.toInt()
+            canvas.drawRoundRect(r,28f,28f,paint)
+            val x=r.left+28f
+            text("WORKOUT RECAP",x,r.top+46f,24f,ShareCardPalette.LIME,true,r.width()-56f)
+            text(recap?.label ?: "Recorded laps",x,r.top+103f,48f,ShareCardPalette.WHITE,true,r.width()-56f)
+            val provenance=recap?.provenance?.label ?: "Unclassified recorded laps"
+            val origin=recap?.recordingSource ?: "Activity"
+            text("$provenance / $origin",x,r.top+138f,22f,ShareCardPalette.MUTED,maxWidth=r.width()-56f)
+            text("Laps below are not verified WORK/RECOVERY intervals",x,r.top+169f,20f,
+                ShareCardPalette.MUTED,maxWidth=r.width()-56f)
+            val visibleRows=((r.height()-210f)/70f).toInt().coerceIn(0,4)
+            recap?.laps?.take(visibleRows)?.forEachIndexed { index,lap ->
+                val y=r.top+215f+index*70f
+                text("LAP ${lap.index}",x,y,23f,ShareCardPalette.LIME,true,135f)
+                val summary=listOfNotNull(lap.distance,lap.duration,lap.pace,
+                    lap.heartRate.takeIf { ShareMetric.HR in state.metrics }).joinToString(" / ")
+                    .ifBlank { "Not recorded" }
+                text(summary,x+158f,y,23f,ShareCardPalette.WHITE,maxWidth=r.width()-220f)
+            }
+            if(recap!=null && recap.totalLaps>visibleRows) {
+                text("Showing ${minOf(visibleRows,recap.laps.size)} of ${recap.totalLaps} recorded laps",
+                    x,r.bottom-14f,19f,ShareCardPalette.MUTED,maxWidth=r.width()-56f)
+            }
+        } else if(state.routeMode!=ShareRouteMode.HIDDEN && g.route.height()>0) {
             canvas.save()
             // Keep the snapshot's native logo and attribution fully visible at its edges.
             canvas.clipRect(g.route)
-            if(map!=null) canvas.drawBitmap(map,null,g.route,paint.apply { color=Color.WHITE; alpha=255 })
+            if(map!=null && state.background==ShareBackground.MAP)
+                canvas.drawBitmap(map,null,g.route,paint.apply { color=Color.WHITE; alpha=255 })
             else drawCoordinateRoute(canvas,g.route,activity,state)
             canvas.restore()
         }
-        val fields=numeric.filter { it in state.metrics && it in activity.metrics }
+        val fields=state.visibleNumericMetrics(activity.metrics.keys)
+        val statsTop = if (state.routeMode == ShareRouteMode.HIDDEN &&
+            state.template in setOf(ShareTemplate.ROUTE, ShareTemplate.MINIMAL)) {
+            val gridHeight = ceil(fields.size / 2.0).toFloat() * g.rowHeight
+            270f + ((bitmap.height - 370f - gridHeight) / 2f).coerceAtLeast(0f)
+        } else g.statsTop
         fields.forEachIndexed { i,metric ->
             val x=56f+(i%2)*500f
-            val y=g.statsTop+(i/2)*g.rowHeight
+            val y=statsTop+(i/2)*g.rowHeight
             val value=activity.metrics.getValue(metric)
             val featured=state.template==ShareTemplate.STATS && i==0
             text(value,x,y+68f,if(featured) 88f else 62f,

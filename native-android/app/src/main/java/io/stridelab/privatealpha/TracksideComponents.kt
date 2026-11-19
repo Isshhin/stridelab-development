@@ -146,22 +146,3 @@ internal fun TracksideScreenHeader(
 }
 
 /** Small section caption for training graphs, lists, and activity groups. */
-@Composable
-internal fun TracksideSectionHeader(
-    label: String,
-    modifier: Modifier = Modifier,
-    detail: String? = null
-) {
-    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            label.uppercase(),
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFFB4C6D3)
-        )
-        if (detail != null) {
-            Text(detail, style = MaterialTheme.typography.bodySmall, color = TracksidePalette.textMuted)
-        }
-    }
-}

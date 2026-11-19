@@ -26,9 +26,8 @@ class AthleteHeartRatePreferencesUiTest {
                         page = MorePage.Preferences,
                         state = TrainingState(initializing = false, account = account),
                         onBack = {},
-                        onSignIn = {},
-                        onSystemAppSettings = {},
-                        syncGarmin = null
+
+                        onSystemAppSettings = {}
                     )
                 }
             }

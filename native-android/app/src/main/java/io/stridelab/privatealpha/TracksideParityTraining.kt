@@ -203,7 +203,9 @@ private fun TracksideParityAgendaWorkoutRow(
         listOfNotNull(
             session.distanceKm?.let {
                 String.format(Locale.getDefault(), "%.0f km", it)
-            },
+            } ?: session.runningPrescription?.estimatedDistanceKm?.takeIf {
+                session.suggestion?.accepted!=true
+            }?.let { String.format(Locale.getDefault(),"~%.1f km est.",it) },
             session.effectiveMinutes.toString() + " min"
         ).joinToString(" · ")
     } else {
@@ -300,7 +302,10 @@ internal fun TracksideParityWorkoutCard(
     val isRun = session.discipline == "run"
     val detail = if (isRun) {
         listOfNotNull(
-            session.distanceKm?.let { String.format(Locale.getDefault(), "%.1f km", it) },
+            session.distanceKm?.let { String.format(Locale.getDefault(), "%.1f km", it) }
+                ?: session.runningPrescription?.estimatedDistanceKm?.takeIf {
+                    session.suggestion?.accepted!=true
+                }?.let { String.format(Locale.getDefault(),"~%.1f km est.",it) },
             session.effectiveMinutes.toString() + " min",
             session.kind.replace('_', ' ')
         ).joinToString(" · ")

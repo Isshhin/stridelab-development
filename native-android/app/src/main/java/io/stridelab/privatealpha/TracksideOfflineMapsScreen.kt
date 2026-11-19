@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -43,13 +44,27 @@ private val offlineBorder = Color(0xFF364039)
 private val offlineGreen = Color(0xFFD8FB70)
 private val offlineSecondary = Color(0xFFAAB4AD)
 
+/** Shared geometry for visible selection box and geographic projection. */
+internal data class OfflineSelectionRect(
+    val left: Float, val top: Float, val right: Float, val bottom: Float
+)
+internal fun offlineSelectionRect(scale: Float): OfflineSelectionRect {
+    val shrink = 1f - scale.coerceIn(.3f, 1f)
+    return OfflineSelectionRect(
+        left = .11f + shrink * .24f,
+        top = .20f + shrink * .18f,
+        right = .89f - shrink * .24f,
+        bottom = .80f - shrink * .18f
+    )
+}
+
 /**
  * The green rectangle stays fixed over the map. Camera gestures move the
  * map underneath it. Its exact pixel corners are projected to geographic
  * bounds and passed unchanged to the offline-region downloader.
  */
 @Composable
-private fun OfflineBoxMap(onSelection: (LatLngBounds?) -> Unit) {
+private fun OfflineBoxMap(selectionScale: Float, onSelection: (LatLngBounds?) -> Unit) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
     val preferences = remember(context) {
@@ -67,8 +82,9 @@ private fun OfflineBoxMap(onSelection: (LatLngBounds?) -> Unit) {
         val height = mapView.height.toFloat()
         if (width <= 0f || height <= 0f || measured.width <= 0) return null
         // Must exactly match the Canvas rectangle fractions below.
-        val nw = m.projection.fromScreenLocation(PointF(width * .11f, height * .20f))
-        val se = m.projection.fromScreenLocation(PointF(width * .89f, height * .80f))
+        val rect = offlineSelectionRect(selectionScale)
+        val nw = m.projection.fromScreenLocation(PointF(width * rect.left, height * rect.top))
+        val se = m.projection.fromScreenLocation(PointF(width * rect.right, height * rect.bottom))
         if (!nw.latitude.isFinite() || !se.latitude.isFinite() ||
             !nw.longitude.isFinite() || !se.longitude.isFinite() ||
             se.longitude <= nw.longitude || nw.latitude <= se.latitude) return null
@@ -109,7 +125,7 @@ private fun OfflineBoxMap(onSelection: (LatLngBounds?) -> Unit) {
         }
     }
 
-    DisposableEffect(map, measured) {
+    DisposableEffect(map, measured, selectionScale) {
         val current = map
         if (current == null || measured.width <= 0) {
             onDispose { }
@@ -146,10 +162,11 @@ private fun OfflineBoxMap(onSelection: (LatLngBounds?) -> Unit) {
         Canvas(Modifier.fillMaxSize().testTag("offline-selection-box")) {
             val w = size.width
             val h = size.height
-            val left = w * .11f
-            val right = w * .89f
-            val top = h * .20f
-            val bottom = h * .80f
+            val rect = offlineSelectionRect(selectionScale)
+            val left = w * rect.left
+            val right = w * rect.right
+            val top = h * rect.top
+            val bottom = h * rect.bottom
             val tint = Color(0x91000000)
             drawRect(tint, Offset.Zero, Size(w, top))
             drawRect(tint, Offset(0f, bottom), Size(w, h - bottom))
@@ -178,6 +195,7 @@ internal fun TracksideOfflineMapsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val store = remember(context) { StrideOfflineMapStore.get(context).also { it.initialize() } }
     var selected by remember { mutableStateOf<LatLngBounds?>(null) }
+    var selectionScale by rememberSaveable { mutableStateOf(1f) }
     var name by remember { mutableStateOf("") }
     var deleting by remember { mutableStateOf<StrideSavedMap?>(null) }
     val tileEstimate = selected?.let(StrideOfflineMapStore::estimatedTiles)
@@ -206,12 +224,22 @@ internal fun TracksideOfflineMapsScreen(onBack: () -> Unit) {
         }
         item {
             Text(
-                "Move and zoom the map beneath the green box. Only the area inside the box will be downloaded. Save it once and reuse it for any run nearby.",
+                "Move and zoom the map beneath the green box, then adjust its size. Only the selected area is downloaded; nearby runs can reuse it.",
                 color = offlineSecondary, style = MaterialTheme.typography.bodyMedium
             )
         }
         item {
-            OfflineBoxMap(onSelection = { selected = it })
+            OfflineBoxMap(selectionScale = selectionScale, onSelection = { selected = it })
+        }
+        item {
+            Text("Selection box size", color = Color.White,
+                style = MaterialTheme.typography.labelMedium)
+            Slider(value = selectionScale, onValueChange = { selectionScale = it },
+                valueRange = .3f..1f,
+                modifier = Modifier.fillMaxWidth().testTag("offline-map-box-size"),
+                colors = SliderDefaults.colors(thumbColor = offlineGreen, activeTrackColor = offlineGreen))
+            Text("Resize the box to adjust exactly which map area will be downloaded.",
+                color = offlineSecondary, style = MaterialTheme.typography.bodySmall)
         }
         item {
             val bounds = selected

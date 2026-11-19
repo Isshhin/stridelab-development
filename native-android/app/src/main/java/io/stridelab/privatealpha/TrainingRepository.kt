@@ -21,6 +21,8 @@ internal data class TrainingState(
     val account: String? = null,
     /** Persistent on-device Garmin namespace, independent of cloud sign-in. */
     val localGarminOwner: String? = null,
+    /** Stable on-device plan namespace, distinct from cloud and local Garmin. */
+    val localPlanOwner: String? = null,
     val localGarminIds: Set<String> = emptySet(),
     val activities: List<ActivityRecord> = emptyList(),
     val busy: Boolean = false,
@@ -29,6 +31,8 @@ internal data class TrainingState(
     val needsSignIn: Boolean = false,
     val loginGeneration: Long = 0,
     val plans: List<PlanSnapshot> = emptyList(),
+    /** Owner-scoped research reviews, explicitly never executable plans. */
+    val researchDrafts: List<IndependentResearchDraft> = emptyList(),
     val shelf:LibraryShelf = LibraryShelf(),
     val templates:List<SessionTemplate> = emptyList(),
     val workoutDrafts:Map<Pair<String,String>,WorkoutEntryDraft> = emptyMap(),
@@ -42,6 +46,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     databaseName: String = TrainingStore.DATABASE, preferencesName: String = "native-account-v1") {
     private val store = TrainingStore(context, databaseName)
     private val appContext = context.applicationContext
+    private val engine15ExerciseLibrary by lazy {
+        try { ExerciseLibraryV2.load { path -> appContext.assets.open(path) } }
+        catch (_: Exception) { throw PlanConstraint("STRENGTH_CATALOG_UNAVAILABLE: The shared offline exercise catalog could not be read; no substitute was generated.") }
+    }
     private val vault = SessionVault(context)
     internal val garminSyncPreferences = GarminSyncPreferences(context)
     private val garminCloud = GarminCloudBackupGateway()
@@ -51,6 +59,13 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         ?: ("local-garmin-" + java.util.UUID.randomUUID().toString()).also {
             check(preferences.edit().putString("local-garmin-owner-v1", it).commit())
         }
+    private val localPlanOwner: String = preferences.getString(LocalPlanOwnership.PREF_KEY, null)
+        ?.takeIf(LocalPlanOwnership::isLocalPlanOwner)
+        ?: LocalPlanOwnership.create().also {
+            // Keep all existing records untouched if a preference is corrupt.
+            // A replacement identity is isolated; no owner migration is attempted.
+            check(preferences.edit().putString(LocalPlanOwnership.PREF_KEY, it).commit())
+        }
     private val mutex = Mutex()
     private val mutable = MutableStateFlow(TrainingState())
     val state = mutable.asStateFlow()
@@ -58,7 +73,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     init { scope.launch { mutex.withLock {
         val account = preferences.getString("active", null)
         try {
-            mutable.value = TrainingState(initializing = true, account = account, localGarminOwner = localGarminOwner)
+            mutable.value = TrainingState(initializing = true, account = account,
+                localGarminOwner = localGarminOwner, localPlanOwner = localPlanOwner)
             if (account != null) {
                 loadCache(account)
                 // Retired Intervals.icu connection settings remain untouched on
@@ -68,11 +84,13 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 else mutable.value = mutable.value.copy(needsSignIn = true,
                     message = "Sign in again for cloud features. Saved Garmin activities remain available.")
             } else {
+                loadLocalPlanCache()
                 loadLocalGarminCache()
             }
             mutable.value = mutable.value.copy(initializing = false)
         } catch (_: Exception) {
-            mutable.value = mutable.value.copy(initializing = false, localGarminOwner = localGarminOwner,
+            mutable.value = mutable.value.copy(initializing = false,
+                localGarminOwner = localGarminOwner, localPlanOwner = localPlanOwner,
                 needsSignIn = account != null,
                 message = "Some saved data could not be loaded. Existing files were retained.")
             runCatching { loadLocalGarminCache() }
@@ -177,9 +195,119 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         store.readableDatabase.query("records",arrayOf("record_id","payload"),"account=? AND kind=? AND record_id LIKE ?",arrayOf(account,"workout","entry-draft-%"),null,null,null).use { c -> while(c.moveToNext())runCatching { WorkoutEntryDraft.decode(JSONObject(c.getString(1)),account).also { require(it.recordId==c.getString(0)) } }.onSuccess { if(validDraft(it,plans))drafts[it.key]=it } }
         val cursor = store.cursor(account, "activity")
         val last = cursor?.let { runCatching { JSONObject(it).getLong("completedAt") }.getOrNull() }
-        mutable.value = mutable.value.copy(activities = titledRecords, lastSync = last, details = details, wellness = wellness, shelf=shelf, templates=templates, workoutDrafts=drafts, plans = plans.sortedByDescending { it.createdAt },
+        mutable.value = mutable.value.copy(activities = titledRecords, lastSync = last, details = details, wellness = wellness, shelf=shelf, templates=templates, workoutDrafts=drafts, plans = plans.sortedByDescending { it.createdAt }, researchDrafts=loadResearchDrafts(account),
             message = if(unsupportedPlans>0) "$unsupportedPlans saved plans require a supported contract and were retained for review." else if(rejected > 0) "$rejected saved activities contain unsupported data and were retained for review." else mutable.value.message)
         loadLocalGarminCache()
+    }
+
+
+    /**
+     * Guest mode reads ONLY the device's local plan namespace.
+     * Cloud-account plans are never shown or reparented after sign-out.
+     * Garmin activities are independently merged by loadLocalGarminCache().
+     */
+    /** Read only exact-current-owner non-executable research records. */
+    private fun loadResearchDrafts(owner: String): List<IndependentResearchDraft> {
+        val drafts = mutableListOf<IndependentResearchDraft>()
+        store.readableDatabase.query(
+            "records", arrayOf("record_id","payload"),
+            "account=? AND kind=? AND record_id LIKE ?",
+            arrayOf(owner,"exercise","engine15-research-%"),
+            null,null,null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                runCatching {
+                    IndependentResearchDraft.decode(
+                        JSONObject(cursor.getString(1)), owner
+                    ).also { require(it.recordId == cursor.getString(0)) }
+                }.onSuccess { drafts.add(it) }
+                // Unsupported or corrupt records remain on disk; do not
+                // fabricate a substitute or migrate owners automatically.
+            }
+        }
+        return drafts.sortedByDescending { it.createdAt }
+    }
+
+    private fun loadLocalPlanCache() {
+        val owner = localPlanOwner
+        val plans = mutableListOf<PlanSnapshot>()
+        var unsupported = 0
+        store.readableDatabase.query(
+            "records", arrayOf("payload"), "account=? AND kind=?",
+            arrayOf(owner, "plan"), null, null, null
+        ).use { c ->
+            while (c.moveToNext()) {
+                runCatching { PlanSnapshot.decode(JSONObject(c.getString(0)), owner) }
+                    .onSuccess { plans.add(it) }.onFailure { unsupported++ }
+            }
+        }
+        val templates = mutableListOf<SessionTemplate>()
+        store.readableDatabase.query(
+            "records", arrayOf("payload"),
+            "account=? AND kind=? AND record_id LIKE ?",
+            arrayOf(owner, "exercise", "session-template-%"),
+            null, null, null
+        ).use { c ->
+            while (c.moveToNext()) {
+                runCatching { SessionTemplate.decode(JSONObject(c.getString(0)), owner) }
+                    .onSuccess { templates.add(it) }
+            }
+        }
+        val shelf = runCatching {
+            store.readableDatabase.query(
+                "records", arrayOf("payload"),
+                "account=? AND kind=? AND record_id=?",
+                arrayOf(owner, "exercise", "library-shelf-v1"),
+                null, null, null
+            ).use { c ->
+                if (c.moveToFirst()) LibraryShelf.decode(JSONObject(c.getString(0)), owner)
+                else LibraryShelf()
+            }
+        }.getOrDefault(LibraryShelf())
+        val drafts = mutableMapOf<Pair<String, String>, WorkoutEntryDraft>()
+        store.readableDatabase.query(
+            "records", arrayOf("record_id", "payload"),
+            "account=? AND kind=? AND record_id LIKE ?",
+            arrayOf(owner, "workout", "entry-draft-%"),
+            null, null, null
+        ).use { c ->
+            while (c.moveToNext()) {
+                runCatching {
+                    WorkoutEntryDraft.decode(JSONObject(c.getString(1)), owner)
+                        .also { require(it.recordId == c.getString(0)) }
+                }.onSuccess {
+                    if (validDraft(it, plans)) drafts[it.key] = it
+                }
+            }
+        }
+        mutable.value = mutable.value.copy(
+            localPlanOwner = localPlanOwner,
+            plans = plans.sortedByDescending { it.createdAt },
+            templates = templates, shelf = shelf, workoutDrafts = drafts,
+            researchDrafts = loadResearchDrafts(owner),
+            message = if (unsupported > 0)
+                "$unsupported locally saved plans require a supported version; their records were retained."
+                else mutable.value.message
+        )
+    }
+
+    /**
+     * Local-only writes never enter the cloud outbox, even if the user signs in
+     * later. Cloud-account writes keep their existing transactional outbox path.
+     */
+    private fun saveOwnedRecord(owner: String, kind: String, id: String, payload: String) {
+        check(owner == LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner))
+        if (mutable.value.account == null) {
+            store.applyRemotePage(
+                owner, kind, listOf(TrainingStore.RemoteRecord(id, payload, null)),
+                null, System.currentTimeMillis()
+            )
+        } else {
+            store.enqueue(
+                owner, kind, id, java.util.UUID.randomUUID().toString(),
+                payload, null, System.currentTimeMillis()
+            )
+        }
     }
 
     /** Reads only on-device Garmin history. Cloud-user records remain isolated. */
@@ -229,46 +357,100 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         mutable.value = previous.copy(activities=activities, details=details,
             localGarminOwner=localGarminOwner, localGarminIds=ids)
     }
-    suspend fun restorePlans(raw:String)=operation("Restoring reviewed plan backup…") {
-        val account=mutable.value.account ?: throw PlanConstraint("Sign in to the backup's original account before restoring.")
-        val additions=PlanBackup.additions(PlanBackup.read(raw,account),mutable.value.plans)
-        val db=store.writableDatabase
-        db.beginTransaction()
-        try {
-            // Some stored plan formats intentionally remain on disk when this build cannot
-            // decode them. Such IDs are absent from mutable.value.plans and must never
-            // be overwritten by a backup with the same ID.
-            additions.forEach { p ->
-                db.query("records",arrayOf("record_id"),"account=? AND kind=? AND record_id=?",
-                    arrayOf(account,"plan",p.id),null,null,null).use { cursor ->
-                    if(cursor.moveToFirst())throw PlanConstraint(
-                        "A saved plan already uses this ID but could not be restored into the current view. " +
-                            "Its original record was retained; no backup records were changed."
-                    )
-                }
+    /**
+     * Private, owner-scoped activity archive. The repository lock prevents
+     * switching accounts or running a source sync during export/restore.
+     */
+    internal suspend fun exportLocalActivityArchive(
+        scope: LocalActivityArchiveScope
+    ): java.io.File = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val owner = when(scope) {
+                LocalActivityArchiveScope.LOCAL_GARMIN -> localGarminOwner
+                LocalActivityArchiveScope.CLOUD_ACCOUNT -> mutable.value.account
+                    ?: throw IllegalStateException("Sign in to export cloud-account activity data.")
             }
-            additions.forEach { p -> store.enqueue(account,"plan",p.id,java.util.UUID.randomUUID().toString(),p.encode().toString(),null,System.currentTimeMillis()) }
-            db.setTransactionSuccessful()
-        } finally { db.endTransaction() }
-        loadCache(account)
-        mutable.value=mutable.value.copy(message="Restored ${additions.size} new plans. Existing plan IDs and all saved records were kept unchanged.")
+            val output = java.io.File.createTempFile(
+                "stridelab-activity-", ".zip", appContext.cacheDir)
+            val service = LocalActivityArchive(appContext)
+            try {
+                output.outputStream().buffered().use { service.export(owner,scope,it) }
+                require(output.length() > 0L &&
+                    output.length() <= LocalActivityArchive.MAX_ARCHIVE_BYTES) {
+                    "The complete archive exceeds the supported ZIP size; partial file removed."
+                }
+                output
+            } catch(error: Exception) {
+                output.delete()
+                throw error
+            } finally {
+                service.close()
+            }
+        }
+    }
+
+    internal suspend fun restoreLocalActivityArchive(
+        scope: LocalActivityArchiveScope, archive: java.io.File
+    ): LocalActivityArchiveCounts = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val owner = when(scope) {
+                LocalActivityArchiveScope.LOCAL_GARMIN -> localGarminOwner
+                LocalActivityArchiveScope.CLOUD_ACCOUNT -> mutable.value.account
+                    ?: throw IllegalStateException("Sign in to the matching cloud account before restore.")
+            }
+            val service = LocalActivityArchive(appContext)
+            try {
+                val result = service.restore(archive,owner,scope)
+                if(result.newlyRestored > 0) {
+                    if(scope == LocalActivityArchiveScope.LOCAL_GARMIN)
+                        loadLocalGarminCache()
+                    else loadCache(owner)
+                }
+                result
+            } finally {
+                service.close()
+            }
+        }
+    }
+
+    suspend fun restorePlans(raw:String)=operation("Restoring reviewed plan backup…") {
+        val account=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)
+        val backup=PlanBackup.readBundle(raw,account)
+        val additions=PlanBackup.additions(backup.plans,mutable.value.plans)
+        val reviewAdditions=PlanBackup.researchAdditions(
+            backup.researchReviews,mutable.value.researchDrafts
+        )
+        if(additions.isEmpty() && reviewAdditions.isEmpty()) {
+            mutable.value=mutable.value.copy(message="This backup contains no new records. Existing records were kept unchanged.")
+            return@operation
+        }
+        val now=System.currentTimeMillis()
+        store.restoreReviewedBackup(
+            account,
+            additions.map { TrainingStore.RemoteRecord(it.id,it.encode().toString(),null) },
+            reviewAdditions.map { TrainingStore.RemoteRecord(it.recordId,it.encode().toString(),null) },
+            mutable.value.account!=null,
+            now
+        )
+        if(mutable.value.account==null)loadLocalPlanCache() else loadCache(account)
+        mutable.value=mutable.value.copy(message="Restored ${additions.size} new plans and ${reviewAdditions.size} non-executable research reviews. Existing records were kept unchanged.")
     }
     suspend fun changeShelf(id:String,collection:String?=null,remove:Boolean=false)=operation("Saving your library…") {
-        val account=mutable.value.account ?: throw PlanConstraint("Sign in once to keep your saved library isolated to your account; it then works offline.")
+        val owner=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)
         val shelf=mutable.value.shelf.change(id,collection,remove)
-        store.enqueue(account,"exercise","library-shelf-v1",java.util.UUID.randomUUID().toString(),shelf.encode(account).toString(),null,System.currentTimeMillis())
+        saveOwnedRecord(owner,"exercise","library-shelf-v1",shelf.encode(owner).toString())
         mutable.value=mutable.value.copy(shelf=shelf)
     }
     suspend fun saveTemplate(template:SessionTemplate)=operation("Saving your session template…") {
-        val account=mutable.value.account ?: throw PlanConstraint("Sign in once to keep templates private to your account.")
+        val owner=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)
         template.validate()
-        if(mutable.value.templates.size>=50 && mutable.value.templates.none { it.id==template.id })throw PlanConstraint("This account has fifty saved templates. Reuse an existing template.")
-        store.enqueue(account,"exercise","session-template-${template.id}",java.util.UUID.randomUUID().toString(),template.encode(account).toString(),null,System.currentTimeMillis())
+        if(mutable.value.templates.size>=50 && mutable.value.templates.none { it.id==template.id })throw PlanConstraint("This profile has fifty saved templates. Reuse an existing template.")
+        saveOwnedRecord(owner,"exercise","session-template-${template.id}",template.encode(owner).toString())
         mutable.value=mutable.value.copy(templates=mutable.value.templates.filterNot { it.id==template.id }+template)
     }
     suspend fun prepareSession(template:SessionTemplate,request:PlanRequest,date:java.time.LocalDate)=operation("Preparing your reviewed session…") {
-        val account=mutable.value.account ?: throw PlanConstraint("Sign in once to create account-isolated workouts.")
-        savePlan(template.draft(account,request,date))
+        val owner=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)
+        savePlan(template.draft(owner,request,date))
     }
     private fun validDraft(draft:WorkoutEntryDraft,plans:List<PlanSnapshot>):Boolean {
         val p=plans.find { it.id==draft.planId && it.owner==draft.owner } ?: return false
@@ -277,8 +459,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     }
     /** Local input staging is deliberately not a confirmed workout or a cloud mutation. */
     suspend fun stageWorkoutDraft(draft:WorkoutEntryDraft):Boolean=withContext(Dispatchers.IO) { mutex.withLock {
-        val account=mutable.value.account
-        if(account==null || draft.owner!=account || !validDraft(draft,mutable.value.plans))return@withLock false
+        val account=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)
+        if(draft.owner!=account || !validDraft(draft,mutable.value.plans))return@withLock false
         try {
             draft.validate()
             val previous=store.get(account,"workout",draft.recordId)
@@ -294,21 +476,88 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         }
     } }
     private fun savePlan(plan:PlanSnapshot) {
-        val account=mutable.value.account ?: throw PlanConstraint("Sign in once to keep plans isolated to your account. Planning and logging then work offline.")
-        if(plan.owner!=account)throw PlanConstraint("The plan belongs to a different account.")
-        // Existing transactional local-record/outbox contract. No cloud replay is claimed here.
+        val owner=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)
+        if(plan.owner!=owner)throw PlanConstraint("The plan belongs to a different local profile or cloud account.")
         val encoded=plan.encode()
-        require(encoded.getString("id")==plan.id && encoded.getString("user_id")==account)
-        store.enqueue(account,"plan",plan.id,java.util.UUID.randomUUID().toString(),encoded.toString(),null,System.currentTimeMillis())
+        require(encoded.getString("id")==plan.id && encoded.getString("user_id")==owner)
+        saveOwnedRecord(owner,"plan",plan.id,encoded.toString())
         val all=(mutable.value.plans.filterNot { it.id==plan.id }+plan).sortedByDescending { it.createdAt }
         mutable.value=mutable.value.copy(plans=all,workoutDrafts=mutable.value.workoutDrafts.filterValues { validDraft(it,all) })
     }
+    /**
+     * Unlike a PlanSnapshot, a research review is saved only under kind=exercise
+     * and never added to the cloud outbox, executable calendar or plan list.
+     * Recompute inside the serialized repository operation: never trust a
+     * client-supplied preview as proof that limits were checked.
+     */
+    suspend fun saveResearchReview(
+        request: PlanRequest,
+        constraints: IndependentAndroidPreviewConstraints
+    ) = operation("Saving non-executable research comparison…") {
+        val owner=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)
+        if(mutable.value.researchDrafts.size >= 20)
+            throw PlanConstraint("Research comparison limit reached. Existing reviews were retained.")
+        val preview=when (val result =
+            IndependentAndroidResearchBridge.preview(request,constraints)) {
+            is IndependentAndroidPreviewDecision.Deferred ->
+                throw PlanConstraint("Research comparison held: " + result.ruleId + ". " + result.explanation)
+            is IndependentAndroidPreviewDecision.ReadOnly -> result
+        }
+        val draft=IndependentResearchDraft.fromPreview(
+            owner,request,preview,constraints
+        )
+        val raw=draft.encode().toString()
+        RecordPolicy.record(owner,"exercise",draft.recordId,raw)
+        // Deliberate local cache write for both signed-in and signed-out
+        // profiles. Cloud account selection does NOT authorize upload.
+        store.applyRemotePage(
+            owner,"exercise",listOf(
+                TrainingStore.RemoteRecord(draft.recordId,raw,null)
+            ),null,System.currentTimeMillis()
+        )
+        mutable.value=mutable.value.copy(
+            researchDrafts=(mutable.value.researchDrafts+draft)
+                .sortedByDescending { it.createdAt },
+            message="Research comparison saved privately on this device. No workouts or approved plan changed."
+        )
+    }
+
     suspend fun generatePlan(request:PlanRequest,engine:PlanGenerationEngine?=null) = operation("Building your plan…") {
-        val account=mutable.value.account ?: throw PlanConstraint("Sign in once to create an account-isolated plan. A watch is not required; planning works offline.")
-        savePlan((engine ?: Engine1Engines.resolve(request)).generate(request,account))
+        val owner=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)
+        val state=mutable.value
+        val selected=engine ?: Engine1Engines.resolve(request)
+        if (request.qualityDistanceClaims.isNotEmpty() &&
+            (!BuildConfig.DEBUG || !BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE ||
+                selected !== Engine15IndependentPlanGenerator))
+            throw PlanConstraint("Private Tempo distance entries require the independent debug route.")
+        val activityEvidence = if (selected === Engine15IndependentPlanGenerator && request.runDays > 0 &&
+            request.strengthDays == 0 && request.calDays == 0 && request.conditioningDays == 0 &&
+            request.disciplineGoals.keys.all { it == "run" }) {
+            val rows = state.activities.filter { activityCorrectionOwner(it.id, state) == owner }
+            if (rows.isEmpty()) null else {
+                val labels = UserActivityWorkoutLabelStore(appContext)
+                ActivityAthleteEvidence.profile(
+                    owner, rows, rows.mapTo(mutableSetOf()) { it.id },
+                    rows.mapNotNull { row -> labels.load(owner, row.id)?.let { row.id to it } }.toMap(),
+                    java.time.Instant.now()
+                )
+            }
+        } else null
+        savePlan(when(selected) {
+            Engine15 -> Engine15.generateWithHistory(request,owner,mutable.value.plans)
+            Engine15IndependentPlanGenerator -> Engine15IndependentPlanGenerator.generateWithHistory(
+                request, owner, mutable.value.plans,
+                exerciseLibrary = if (request.strengthDays > 0 || request.calDays > 0 || request.conditioningDays > 0)
+                    engine15ExerciseLibrary else null,
+                activityEvidence = activityEvidence
+            )
+            else -> selected.generate(request,owner)
+        })
     }
     suspend fun changePlan(id:String,revision:Int,action:(PlanSnapshot)->PlanSnapshot) = operation("Saving your plan…") {
-        val plan=mutable.value.plans.find { it.id==id } ?: throw PlanConstraint("This plan is unavailable for the current account.")
+        val activeOwner=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)
+        val plan=mutable.value.plans.find { it.id==id && it.owner==activeOwner }
+            ?: throw PlanConstraint("This plan is unavailable for the current local profile or account.")
         if(!Engine1Engines.canManage(plan))throw PlanConstraint("This saved plan needs its compatible engine before editing. Its original snapshot is retained.")
         if(plan.revision!=revision)throw PlanConstraint("The saved plan changed. Reopen it before editing.")
         val updated=action(plan)
@@ -330,8 +579,9 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     suspend fun moveSession(id:String,revision:Int,sessionId:String,date:java.time.LocalDate)=changePlan(id,revision) { plan->PlanOperations.move(plan,sessionId,date,mutable.value.plans) }
     suspend fun setSessionLock(id:String,revision:Int,sessionId:String,locked:Boolean)=changePlan(id,revision) { plan->PlanOperations.setSessionLock(plan,sessionId,locked) }
     fun previewAvailabilityChange(id:String,newDays:Set<Int>):Engine15Availability.Impact? {
-        val plan=mutable.value.plans.find { it.id==id && it.owner==mutable.value.account }
-            ?: return null
+        val plan=mutable.value.plans.find {
+            it.id==id && LocalPlanOwnership.isVisibleOwner(it.owner,mutable.value.account,localPlanOwner)
+        } ?: return null
         return Engine15Availability.preview(plan,newDays,mutable.value.plans)
     }
     suspend fun updateAvailability(id:String,revision:Int,days:Set<Int>,expectedImpact:Engine15Availability.Impact?=null)=changePlan(id,revision) { plan->
@@ -344,6 +594,11 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     suspend fun setLongRunDay(id:String,revision:Int,day:Int)=changePlan(id,revision) { plan->PlanOperations.setLongRunDay(plan,day) }
     suspend fun setQualityDays(id:String,revision:Int,days:Set<Int>)=changePlan(id,revision) { plan->PlanOperations.setQualityDays(plan,days) }
     suspend fun recordWorkout(id:String,revision:Int,sessionId:String,log:WorkoutLog,complete:Boolean)=changePlan(id,revision) { PlanOperations.record(it,sessionId,log,complete) }
+    suspend fun saveRunResponse(id:String,revision:Int,sessionId:String,effort:Int?,difficulty:String?,discomfort:String?)=changePlan(id,revision) { plan ->
+        val session=plan.sessions.singleOrNull { it.id==sessionId } ?: throw PlanConstraint("This workout is unavailable.")
+        val performed=session.log?.performedOn ?: mutable.value.activities.singleOrNull { it.id==session.linkedActivityId }?.startedAt?.atZone(java.time.ZoneId.systemDefault())?.toLocalDate()
+        PlanOperations.runResponse(plan,sessionId,effort,difficulty,discomfort,performed)
+    }
     suspend fun markMissed(id:String,revision:Int,sessionId:String,reason:String,skipped:Boolean)=changePlan(id,revision) { PlanOperations.missed(it,sessionId,reason,skipped) }
     suspend fun acceptSuggestion(id:String,revision:Int,sessionId:String)=changePlan(id,revision) { plan ->
         Engine15Feedback.requireCurrentPendingAcceptance(
@@ -359,10 +614,20 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     fun previewEngine15Adjustments(
         id:String, asOf:java.time.LocalDate=java.time.LocalDate.now()
     ):List<Engine15Feedback.Proposal> {
-        val p=mutable.value.plans.find { it.id==id && it.owner==mutable.value.account }
-            ?: return emptyList()
+        val p=mutable.value.plans.find {
+            it.id==id && LocalPlanOwnership.isVisibleOwner(it.owner,mutable.value.account,localPlanOwner)
+        } ?: return emptyList()
         return Engine15Feedback.preview(p,asOf,mutable.value.plans)
     }
+    fun previewEngine15Week(id:String,asOf:java.time.LocalDate=java.time.LocalDate.now(),input:Engine15WeeklyReview.Input=Engine15WeeklyReview.Input()):Engine15WeeklyReview.Review {
+        val p=mutable.value.plans.find { it.id==id && LocalPlanOwnership.isVisibleOwner(it.owner,mutable.value.account,localPlanOwner) }
+            ?: throw PlanConstraint("This plan is unavailable.")
+        return Engine15WeeklyReview.preview(p,asOf,input,mutable.value.plans)
+    }
+    suspend fun acceptEngine15Week(id:String,revision:Int,review:Engine15WeeklyReview.Review)=changePlan(id,revision) { p ->
+        Engine15WeeklyReview.accept(p,review,java.time.LocalDate.now(),java.time.Instant.now(),mutable.value.plans)
+    }
+
     suspend fun stageEngine15Adjustment(
         id:String,revision:Int,proposal:Engine15Feedback.Proposal,
         asOf:java.time.LocalDate=java.time.LocalDate.now()
@@ -503,7 +768,9 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         vault.save(session) // No account activation unless encryption succeeds.
         copyLegacyGarminConnection(session.account)
         check(preferences.edit().putString("active", session.account).commit())
-        mutable.value = TrainingState(initializing = false, account = session.account, busy = true, loginGeneration = mutable.value.loginGeneration + 1)
+        mutable.value = TrainingState(initializing = false, account = session.account,
+            localPlanOwner = localPlanOwner, busy = true,
+            loginGeneration = mutable.value.loginGeneration + 1)
         loadCache(session.account)
         // Authentication is complete even if this first cache refresh fails.
         fetchActivities()
@@ -941,6 +1208,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         } else raw
         val checked = if (savedPayload != null)
             ActivityDetail.parse(storedPayload, account, id) else parsed
+        // Keep the validated original Garmin FIT bytes for future local backup.
+        // Old previously cached recordings may not have original FIT bytes.
+        // Never replace a different cached FIT source or modify a saved summary.
+        FitImportCache(appContext).saveSelected(bytes, account)
         store.applyRemotePage(
             account, "activity_detail",
             listOf(TrainingStore.RemoteRecord(id, storedPayload.toString(), null)),
@@ -962,8 +1233,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         vault.clear(account)
         check(preferences.edit().remove("active").commit())
         mutable.value = TrainingState(initializing = false,busy = true,
-            localGarminOwner=localGarminOwner,task = "Finishing sign-out…")
-        loadLocalGarminCache() // Hide cloud records, retain local Garmin history.
+            localGarminOwner=localGarminOwner,localPlanOwner=localPlanOwner,
+            task = "Finishing sign-out…")
+        loadLocalPlanCache() // Show only local plans; cloud plans remain under their cloud owner.
+        loadLocalGarminCache() // Hide cloud activities, retain local Garmin history.
         val revoked = saved != null && runCatching { gateway.signOut(saved); true }.getOrDefault(false)
         mutable.value = mutable.value.copy(message = if(revoked) null else "Signed out on this device. Server session revocation was unavailable; saved files were retained.")
     }

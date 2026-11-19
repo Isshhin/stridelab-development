@@ -36,6 +36,33 @@ internal class FitImportCache(context: Context) {
         }
         FitActivityDecoder.decode(bytes,account).also { require(it.identity.sha256==hash) }
     }
+
+    /** Only app-private, owner-scoped originals are eligible for local archive. */
+    fun archivedHashes(account: String): List<String> = synchronized(lock) {
+        val example = file(account,"0".repeat(64))
+        val directory = example.baseFile.parentFile ?: return@synchronized emptyList()
+        directory.listFiles().orEmpty().asSequence()
+            .mapNotNull { entry ->
+                when {
+                    entry.name.matches(Regex("[0-9a-f]{64}\\.fit")) ->
+                        entry.name.removeSuffix(".fit")
+                    entry.name.matches(Regex("[0-9a-f]{64}\\.fit\\.bak")) ->
+                        entry.name.removeSuffix(".fit.bak")
+                    else -> null
+                }
+            }
+            .distinct().sorted().toList()
+    }
+
+    fun originalBytes(account: String, hash: String): ByteArray = synchronized(lock) {
+        val bytes = file(account,hash).openRead().use { it.readBytesBounded() }
+        val actual = MessageDigest.getInstance("SHA-256")
+            .digest(bytes).joinToString("") { "%02x".format(it) }
+        require(actual == hash) { "Saved original FIT checksum differs; original file retained." }
+        FitActivityDecoder.decode(bytes,account).also { require(it.identity.sha256 == hash) }
+        bytes
+    }
+
     companion object { private val lock=Any() }
 }
 

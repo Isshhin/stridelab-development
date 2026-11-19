@@ -16,8 +16,33 @@ import java.time.ZoneId
 import org.json.JSONObject
 
 @Composable internal fun PlanBuilder(state:TrainingState,actions:PlanActions,discipline:String="all",onDone:()->Unit,onSignIn:()->Unit,onPreview:(String,String)->Unit) {
-    if(state.account==null) { Screen("Create a plan","TRAINING") { item { SignalCard { Text("A watch is optional.",style=MaterialTheme.typography.headlineSmall);Text("Sign in once to keep plans and logs private to your account. You can then build, approve and manage plans offline.");SignalButton("Sign in",onSignIn) } } };return }
-    val baseline=remember { state.plans.firstOrNull { Engine1Engines.canManage(it) && it.policyId != SessionTemplate.POLICY_ID }?.let(TracksideCoaching::setupFor) ?: PlanRequest(policyChoice="coordinated",weeklyKm=historyWeeklyKm(state.activities,plans=state.plans) ?: 0.0,longestKm=state.activities.filter { DashboardSummary.isRun(it) }.mapNotNull { it.distanceM }.maxOrNull()?.div(1000) ?: 0.0) }
+    // Signed-out plans are persisted under an isolated on-device owner.
+    // Cloud sign-in remains optional for backup; generating does not need it.
+    val observedBaseline=remember(state.activities,state.plans) {
+        automaticRunningBaseline(state.activities,plans=state.plans)
+    }
+    val baseline=remember {
+        val existing=state.plans.firstOrNull {
+            Engine1Engines.canManage(it) && it.policyId != SessionTemplate.POLICY_ID
+        }?.let(TracksideCoaching::setupFor)
+        if(existing!=null) {
+            // Keep a previously chosen nonzero mileage baseline. Sparse
+            // imported history must not silently raise an athlete's load.
+            // When no baseline was supplied, use the eligible recorded estimate.
+            if(existing.weeklyKm>0.0 || existing.recentMileageBasis in setOf(
+                    "UNKNOWN","CONFIRMED_ZERO","PEAK_WEEK_ONLY"
+                )) existing
+            else observedBaseline?.let {
+                existing.copy(weeklyKm=it.weeklyKm,recentMileageBasis="RECORDED_PARTIAL")
+            } ?: existing
+        } else {
+            PlanRequest(policyChoice="coordinated",
+                weeklyKm=observedBaseline?.weeklyKm ?: 0.0,
+                recentMileageBasis=if(observedBaseline==null) "LEGACY_UNSPECIFIED" else "RECORDED_PARTIAL",
+                longestKm=state.activities.filter { DashboardSummary.isRun(it) }
+                    .mapNotNull { it.distanceM }.maxOrNull()?.div(1000) ?: 0.0)
+        }
+    }
     val initial=remember {
         when(discipline) {
             "run" -> baseline.copy(
@@ -48,7 +73,10 @@ import org.json.JSONObject
     var step by rememberSaveable { mutableIntStateOf(0) }
     val input=PlanRequest.decode(JSONObject(encoded))
     fun edit(p:PlanRequest) { encoded=p.encode().toString() }
-    var km by rememberSaveable { mutableStateOf(initial.weeklyKm.toString()) };var longest by rememberSaveable { mutableStateOf(initial.longestKm.toString()) }
+    var km by rememberSaveable { mutableStateOf(initial.weeklyKm.toString()) };var targetKm by rememberSaveable { mutableStateOf((initial.targetWeeklyKm ?: initial.weeklyKm).toString()) };var targetSupplied by rememberSaveable { mutableStateOf(initial.targetWeeklyKm != null) };var longest by rememberSaveable { mutableStateOf(initial.longestKm.toString()) }
+    var peakWeekKm by rememberSaveable {
+        mutableStateOf(initial.reportedPeakWeeklyKm?.toString() ?: "")
+    }
     var pace by rememberSaveable { mutableStateOf((initial.planningPace/60).toString()) };var start by rememberSaveable { mutableStateOf(maxOf(initial.start,LocalDate.now()).toString()) }
     var weeks by rememberSaveable { mutableStateOf(initial.weeks.toString()) };var minutes by rememberSaveable { mutableStateOf(initial.minutes.toString()) };var dailyMinutes by rememberSaveable { mutableStateOf(initial.dailyMinutes.toString()) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
@@ -83,7 +111,38 @@ import org.json.JSONObject
             }
         }
     }
-    fun request():PlanRequest=try { input.copy(start=LocalDate.parse(start),weeks=weeks.toInt(),minutes=minutes.toInt(),dailyMinutes=if(input.policyChoice=="multi-session")dailyMinutes.toInt() else input.dailyMinutes,weeklyKm=km.toDouble(),longestKm=longest.toDouble(),planningPace=pace.toDouble()*60,timeBudgetEnabled=false) } catch(e:Exception) { throw PlanConstraint("Enter a valid YYYY-MM-DD date and numeric mileage, pace, weeks, minutes, and daily budget if enabled.") }
+    var tempoEquivalents by rememberSaveable { mutableStateOf("") }
+    var thresholdEquivalents by rememberSaveable { mutableStateOf("") }
+    val thresholdPilot = input.experience == 2 && input.goal in setOf("Improve 5K", "Improve 10K")
+    val qualityLabels = if (thresholdPilot) listOf("Run slot", "Warm-up metres", "Work 1 metres", "Recovery 1 metres", "Work 2 metres", "Recovery 2 metres", "Work 3 metres", "Cooldown metres") else listOf("Run slot", "Warm-up metres", "Tempo metres", "Cooldown metres")
+    fun request():PlanRequest=try {
+        val peak=peakWeekKm.trim().takeIf { it.isNotEmpty() }?.toDouble()
+        if(peak!=null && (!peak.isFinite() || peak !in 0.0..120.0))
+            throw PlanConstraint("Enter a valid recent peak between 0 and 120 km/week.")
+        if(input.recentMileageBasis=="PEAK_WEEK_ONLY" && (peak==null || peak<=0.0))
+            throw PlanConstraint("Enter your peak weekly mileage, or select Unknown if you cannot estimate it.")
+        input.copy(
+            start=LocalDate.parse(start),weeks=weeks.toInt(),minutes=minutes.toInt(),
+            dailyMinutes=if(input.policyChoice=="multi-session")dailyMinutes.toInt() else input.dailyMinutes,
+            weeklyKm=km.toDouble(),targetWeeklyKm=if(targetSupplied) targetKm.toDouble() else null,
+            longestKm=longest.toDouble(),planningPace=pace.toDouble()*60,
+            reportedPeakWeeklyKm=peak,timeBudgetEnabled=false,
+            qualityDistanceClaims = if (BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE &&
+                input.qualityCount == 1 && input.weeks == 8 && !input.userDirectedPlanning &&
+                input.userDefinedQualityWorkouts.isEmpty()) (if (thresholdPilot) thresholdEquivalents else tempoEquivalents).lineSequence()
+                .filter { it.isNotBlank() }.map { row ->
+                    val numbers = row.trim().split(Regex("\\s+")).map { it.toIntOrNull() }
+                    if (numbers.size != qualityLabels.size + 1 || numbers.any { it == null || it <= 0 })
+                        throw PlanConstraint("Complete the run slot and every segment distance for each entered quality week.")
+                    val values = numbers.filterNotNull()
+                    Engine15M5SegmentDistanceClaim(values[0], values[1], values.drop(2).map(Int::toDouble), null,
+                        Engine15M5DistanceClaimProvenance.USER_ASSERTED_EQUIVALENT)
+                }.toList() else emptyList()
+        )
+    } catch(e:PlanConstraint) { throw e }
+      catch(e:Exception) {
+        throw PlanConstraint("Enter valid dates and numeric recent average, peak, target mileage, pace and weeks.")
+    }
     var previewWeek by rememberSaveable { mutableIntStateOf(0) }
     var runningSubPage by rememberSaveable { mutableIntStateOf(0) }
     var scheduleSubPage by rememberSaveable { mutableIntStateOf(0) }
@@ -118,7 +177,7 @@ import org.json.JSONObject
             else -> "Build Strength"
         })
     }
-    var runningRoute by rememberSaveable { mutableStateOf("race") }
+    var runningRoute by rememberSaveable { mutableStateOf(if(initial.trainYourWay) "custom" else "race") }
     var raceIntent by rememberSaveable { mutableStateOf("pr") }
     var raceDistance by rememberSaveable { mutableStateOf(when(input.goal) {
         "Improve 10K" -> "10K"
@@ -131,8 +190,20 @@ import org.json.JSONObject
         TracksideWeekReview(
             request = preview.request,
             plan = preview,
-            busy = state.busy || pendingApprovalId != null,
-            onBack = { step = 3 },
+            busy = state.busy || awaiting || pendingApprovalId != null,
+            onBack = {
+                // A large target mismatch needs actual baseline input, not
+                // another pass through the date/availability editor.
+                if(Engine15MileageTargetIntegrity.review(preview)?.requiresFoundationDecision==true &&
+                    !preview.request.foundationAcknowledged) {
+                    step=1
+                    runningSubPage=2
+                    advancedBackPage=0
+                } else {
+                    step=2
+                    scheduleSubPage=0
+                }
+            },
             onContinue = {
                 if(!state.busy && pendingApprovalId==null) {
                     error=null
@@ -143,7 +214,12 @@ import org.json.JSONObject
             onOpenSession = { sessionId -> onPreview(preview.id, sessionId) },
             weekIndex = previewWeek,
             onWeekChange = { previewWeek = it },
-            error = error
+            error = error,
+            onChooseGoalOption = { chosen ->
+                error=null;beforeId=state.plans.firstOrNull()?.id;awaiting=true
+                weeks=chosen.weeks.toString();targetKm=chosen.targetWeeklyKm.toString();targetSupplied=true;edit(chosen)
+                actions.generate(chosen)
+            }
         )
         return
     }
@@ -225,6 +301,13 @@ import org.json.JSONObject
                     when (runningRoute) {
                         "race" -> runningSubPage = 1
                         "custom" -> {
+                            // Train Your Way is mileage-led, not an inherited 5K race plan.
+                            edit(input.copy(
+                                goal="Aerobic foundation",
+                                disciplineGoals=input.disciplineGoals+("run" to "Aerobic foundation"),
+                                trainYourWay=true,
+                                foundationAcknowledged=false
+                            ))
                             advancedBackPage = 0
                             runningSubPage = 3
                         }
@@ -244,7 +327,8 @@ import org.json.JSONObject
                         else -> "Improve 5K"
                     }
                     edit(input.copy(goal=goal,
-                        disciplineGoals=input.disciplineGoals+("run" to goal)))
+                        disciplineGoals=input.disciplineGoals+("run" to goal),
+                        trainYourWay=false,foundationAcknowledged=false))
                     runningSubPage = 2
                 }
             )
@@ -252,10 +336,91 @@ import org.json.JSONObject
                 experience = input.experience,
                 weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0,120.0) ?: 0.0,
                 longestKm = longest.toDoubleOrNull()?.coerceIn(0.0,42.0) ?: 0.0,
+                historyContent = {
+                    RunningHistoryConfirmation(state) { value ->
+                        km="%.1f".format(java.util.Locale.US,value)
+                        edit(input.copy(weeklyKm=value,recentMileageBasis="RECORDED_PARTIAL",
+                            foundationAcknowledged=false))
+                    }
+                    CoachFeedbackChoices(
+                        "Your recent weekly mileage",
+                        listOf("Usual average","Peak week only","No recent running","Unknown") +
+                            if(observedBaseline!=null) listOf("Recorded estimate") else emptyList(),
+                        when(input.recentMileageBasis) {
+                            "SELF_REPORTED_AVERAGE" -> "Usual average"
+                            "PEAK_WEEK_ONLY" -> "Peak week only"
+                            "CONFIRMED_ZERO" -> "No recent running"
+                            "UNKNOWN" -> "Unknown"
+                            "RECORDED_PARTIAL" -> if(observedBaseline!=null) "Recorded estimate" else null
+                            else -> null
+                        }
+                    ) { choice ->
+                        when(choice) {
+                            "Usual average" -> edit(input.copy(
+                                recentMileageBasis="SELF_REPORTED_AVERAGE",foundationAcknowledged=false))
+                            "Peak week only" -> {
+                                km="0"
+                                edit(input.copy(weeklyKm=0.0,recentMileageBasis="PEAK_WEEK_ONLY",
+                                    foundationAcknowledged=false))
+                            }
+                            "No recent running" -> {
+                                km="0"
+                                edit(input.copy(weeklyKm=0.0,recentMileageBasis="CONFIRMED_ZERO",
+                                    foundationAcknowledged=false))
+                            }
+                            "Recorded estimate" -> observedBaseline?.let { observed ->
+                                km="%.1f".format(java.util.Locale.US,observed.weeklyKm)
+                                edit(input.copy(weeklyKm=observed.weeklyKm,
+                                    recentMileageBasis="RECORDED_PARTIAL",foundationAcknowledged=false))
+                            }
+                            else -> {
+                                km="0"
+                                edit(input.copy(weeklyKm=0.0,recentMileageBasis="UNKNOWN",
+                                    foundationAcknowledged=false))
+                            }
+                        }
+                    }
+                    FormText("Highest recent week (optional, km)",peakWeekKm,{
+                        peakWeekKm=it
+                    },numeric=true)
+                    Text(
+                        "Use your usual weekly average, not your biggest week, as the " +
+                            "starting mileage. Self-reported data is provisional. " +
+                            "Recorded estimates may have incomplete coverage; Garmin import is optional.",
+                        style=MaterialTheme.typography.bodySmall,
+                        modifier=Modifier.testTag("builder-mileage-provenance-note")
+                    )
+                    if(input.trainYourWay &&
+                        (input.recentMileageBasis in setOf("UNKNOWN","PEAK_WEEK_ONLY","LEGACY_UNSPECIFIED") &&
+                            (km.toDoubleOrNull() ?: 0.0)==0.0 ||
+                            input.recentMileageBasis=="CONFIRMED_ZERO") &&
+                        (targetKm.toDoubleOrNull() ?: 0.0)>0.0) {
+                        Text(
+                            "Recent weekly average is missing or zero. The " +
+                            "${targetKm} km/week value is a future target, not a training " +
+                            "baseline. Enter your actual recent mileage here. Leaving it " +
+                            "at zero requires explicitly choosing a foundation plan " +
+                            "before approval.",
+                            color=TracksidePalette.lime,
+                            style=MaterialTheme.typography.bodySmall,
+                            modifier=Modifier.testTag("builder-running-baseline-warning")
+                        )
+                    }
+                    if(input.policyChoice=="engine15") {
+                        if(BuildConfig.DEBUG) CoachFeedbackChoices(
+                            "Weekly volume policy",
+                            listOf("Coach recommended","User directed"),
+                            if(input.userDirectedPlanning) "User directed" else "Coach recommended"
+                        ) { selected -> edit(input.copy(userDirectedPlanning=selected=="User directed")) }
+                        CoachFeedbackChoices("Usual quality sessions per week",listOf("0","1","2"),input.recentQualitySessionsPerWeek?.toString()) { edit(input.copy(recentQualitySessionsPerWeek=it?.toInt())) }
+                    }
+                },
                 onExperience = { edit(input.copy(experience=it)) },
                 onWeeklyKm = { value ->
                     km=value.toInt().toString()
-                    edit(input.copy(weeklyKm=value))
+                    edit(input.copy(weeklyKm=value,
+                        recentMileageBasis="SELF_REPORTED_AVERAGE",
+                        foundationAcknowledged=false))
                 },
                 onLongestKm = { value ->
                     longest=value.toInt().toString()
@@ -279,23 +444,27 @@ import org.json.JSONObject
             )
             3 -> TracksideAdvancedRunning(
                 guided = advancedBackPage != 0,
-                weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0, 120.0) ?: 0.0,
+                weeks = input.weeks,
+                userDirectedPlanning = input.userDirectedPlanning,
+                userDefinedQualityWorkouts = input.userDefinedQualityWorkouts,
+                weeklyKm = targetKm.toDoubleOrNull()?.coerceIn(0.0, 120.0) ?: 0.0,
                 qualityCount = input.qualityCount.coerceIn(0, 2),
                 maxQualityCount = minOf(
                     (input.runDays-2).coerceAtLeast(0),
                     if(input.experience==2 && input.runDays>=4 &&
-                        (km.toDoubleOrNull() ?: 0.0)>=30.0) 2 else 1
+                        (targetKm.toDoubleOrNull() ?: km.toDoubleOrNull() ?: 0.0)>=40.0) 2 else 1
                 ),
                 selectedQualityTypes = advancedQualityTypes,
                 onWeeklyKm = { value ->
-                    km=value.toInt().toString()
-                    edit(input.copy(weeklyKm=value))
+                    targetKm=value.toInt().toString()
+                    targetSupplied=true
+                    edit(input.copy(targetWeeklyKm=value,foundationAcknowledged=false))
                 },
                 onQualityCount = { n ->
                     val allowed = minOf(
                         (input.runDays-2).coerceAtLeast(0),
                         if(input.experience==2 && input.runDays>=4 &&
-                            (km.toDoubleOrNull() ?: 0.0)>=30.0) 2 else 1
+                            (targetKm.toDoubleOrNull() ?: km.toDoubleOrNull() ?: 0.0)>=40.0) 2 else 1
                     )
                     edit(input.copy(qualityCount=n.coerceAtMost(allowed)))
                 },
@@ -306,6 +475,12 @@ import org.json.JSONObject
                     advancedQualityCsv = updated.sorted().joinToString("|")
                     edit(input.copy(allowedQualityTypes=updated))
                 },
+                onSaveQualityWorkouts = { workouts ->
+                    edit(input.copy(userDefinedQualityWorkouts=workouts))
+                },
+                onRemoveQualityWorkout = { key ->
+                    edit(input.copy(userDefinedQualityWorkouts=input.userDefinedQualityWorkouts-key))
+                },
                 onBack = { runningSubPage = advancedBackPage },
                 onContinue = {
                     runningSubPage = if (advancedBackPage == 5) 5 else 2
@@ -315,7 +490,7 @@ import org.json.JSONObject
                 route = runningRoute,
                 selectedFocus = guidedFocus,
                 onFocus = { guidedFocus = it },
-                weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0,120.0) ?: 0.0,
+                weeklyKm = targetKm.toDoubleOrNull()?.coerceIn(0.0,120.0) ?: 0.0,
                 experience = input.experience,
                 onEditAbility = {
                     editingAbilityFromGuided = true
@@ -342,7 +517,8 @@ import org.json.JSONObject
                     }
                     edit(input.copy(
                         goal=goal,
-                        disciplineGoals=input.disciplineGoals+("run" to goal)
+                        disciplineGoals=input.disciplineGoals+("run" to goal),
+                        trainYourWay=false,foundationAcknowledged=false
                     ))
                     runningSubPage = 2
                 }
@@ -363,12 +539,12 @@ import org.json.JSONObject
                 qualityPreference = qualityPreference,
                 onQualityPreference = { selected ->
                     qualityPreference=selected
-                    edit(input.copy(preferredQuality=selected))
+                    edit(input.copy(preferredQuality=selected, preferredQualityExplicit=true))
                 },
                 onQualityCount = { n ->
                     val allowed = minOf((input.runDays-2).coerceAtLeast(0),
                         if(input.experience==2 && input.runDays>=4 &&
-                            input.weeklyKm>=30.0) 2 else 1)
+                            (targetKm.toDoubleOrNull() ?: input.weeklyKm)>=40.0) 2 else 1)
                     if(n<=allowed) {
                         val slots=WeeklyPlacement.days(input,"run")
                         edit(input.copy(
@@ -388,7 +564,7 @@ import org.json.JSONObject
                     )
                     val allowed=minOf((n-2).coerceAtLeast(0),
                         if(changed.experience==2 && n>=4 &&
-                            changed.weeklyKm>=30.0) 2 else 1)
+                            (targetKm.toDoubleOrNull() ?: changed.weeklyKm)>=40.0) 2 else 1)
                     val q=changed.qualityCount.coerceAtMost(allowed)
                     val slots=WeeklyPlacement.days(changed,"run")
                     edit(changed.copy(
@@ -402,6 +578,19 @@ import org.json.JSONObject
                 onAssignDay = { day ->
                     edit(WeeklyPlacement.put(input,"run",
                         runningSelectedSlot.coerceIn(0,input.runDays-1),day))
+                },
+                onAssignSlot = { index,day ->
+                    // Tap day -> choose type is a single atomic placement.
+                    // WeeklyPlacement handles occupied-day swaps and preserves
+                    // long/quality ordinals and workout counts.
+                    runningCustom=true
+                    edit(WeeklyPlacement.put(input,"run",index,day))
+                    runningSelectedSlot=index
+                },
+                onClearDay = { index ->
+                    runningCustom=true
+                    edit(WeeklyPlacement.clear(input,"run",index))
+                    runningSelectedSlot=index
                 },
                 onClearSlot = {
                     edit(WeeklyPlacement.clear(input,"run",
@@ -570,107 +759,162 @@ import org.json.JSONObject
         }
         return
     }
-    if (step == 2 && scheduleSubPage < 2) {
-        if(scheduleSubPage == 0) {
-            TracksidePlanDetailsScreen(
-                start = start, weeks = weeks, minutes = minutes,
-                onStart = { start = it },
-                onWeeks = { weeks = it },
-                onMinutes = { minutes = it },
-                dailyBudget = dailyMinutes,
-                multiSession = input.policyChoice=="multi-session",
-                onDailyBudget = { dailyMinutes=it },
-                onBack = {
-                    step = 1
-                    if(input.runDays > 0) {
-                        if(input.strengthDays+input.calDays+input.conditioningDays>0) {
-                            crossTrainingGoals=true
-                            strengthGoalSaved=true
-                            strengthSetupSaved=true
-                        } else runningSubPage = 4
+    if (step == 2) {
+        // One Plan Dates screen: all availability, capacity and remaining
+        // discipline placement controls are inline instead of a second page.
+        // The composer still generates a draft; only explicit approval
+        // activates a plan.
+        TracksidePlanDetailsScreen(
+            start=start,weeks=weeks,minutes=minutes,
+            onStart={ start=it },onWeeks={ weeks=it },onMinutes={ minutes=it },
+            dailyBudget=dailyMinutes,
+            multiSession=input.policyChoice=="multi-session",
+            onDailyBudget={ dailyMinutes=it },
+            generationBusy=state.busy || awaiting,
+            scheduleValid=compactScheduleError(input)==null,
+            scheduleContent={
+                TracksideCompactScheduleEditor(
+                    request=input,
+                    onDay={ day ->
+                        val pinned=input.weeklySlots.values.flatten().contains(day)
+                        if(day !in input.days || !pinned) {
+                            val days=if(day in input.days)input.days-day else input.days+day
+                            edit(input.copy(
+                                days=days,
+                                longDay=if(input.longDay in days)input.longDay
+                                    else (days.maxOrNull() ?: input.longDay),
+                                qualityDays=input.qualityDays.intersect(days)
+                            ))
+                        }
+                    },
+                    onRemovePinnedDay={ day ->
+                        edit(WeeklyPlacement.makeUnavailable(input,day))
+                    },
+                    onMultiSessionToggle={ enabled ->
+                        edit(input.copy(policyChoice=
+                            if(enabled)"multi-session" else "coordinated"))
+                    },
+                    selectedOtherDiscipline=otherSelectedDiscipline,
+                    selectedOtherSlot=otherSelectedSlot,
+                    onSelectOtherDiscipline={ otherSelectedDiscipline=it },
+                    onSelectOtherSlot={ otherSelectedSlot=it },
+                    onAssignOtherDay={ discipline,index,day ->
+                        edit(WeeklyPlacement.put(input,discipline,index,day))
+                    },
+                    onClearOtherSlot={ discipline,index ->
+                        edit(WeeklyPlacement.clear(input,discipline,index))
+                    },
+                    onAutoOther={ discipline ->
+                        edit(input.copy(weeklySlots=input.weeklySlots-discipline))
+                    },
+                    onCountOther={ discipline,count ->
+                        if(discipline in input.weeklySlots) {
+                            edit(WeeklyPlacement.resize(input,discipline,count))
+                        } else {
+                            edit(when(discipline) {
+                                "str" -> input.copy(strengthDays=count)
+                                "cal" -> input.copy(calDays=count)
+                                else -> input.copy(conditioningDays=count)
+                            })
+                        }
+                        otherSelectedSlot=otherSelectedSlot.coerceIn(0,count-1)
+                    },
+                    researchContent={
+                        if (BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE &&
+                            weeks == "8" && input.qualityCount == 1 && !input.userDirectedPlanning &&
+                            input.userDefinedQualityWorkouts.isEmpty() &&
+                            input.strengthDays + input.calDays + input.conditioningDays == 0) {
+                            Text(if (thresholdPilot) "Private Threshold distances" else "Private Tempo distances")
+                            Text("Request a draft with the fields empty to see the suggested slots and distance budgets. Enter your own equivalents in metres.")
+                            val rows = (if (thresholdPilot) thresholdEquivalents else tempoEquivalents).lines().filter { it.isNotBlank() }
+                                .associateBy { it.substringBefore(' ') }
+                            for (week in listOf(1, 2, 3, 5, 6, 7)) {
+                                Text("Week $week")
+                                val fields = rows[week.toString()]?.split(' ')?.drop(1).orEmpty()
+                                for ((index, label) in qualityLabels.withIndex()) {
+                                    OutlinedTextField(
+                                        value = fields.getOrElse(index) { "" },
+                                        onValueChange = { value ->
+                                            val updated = MutableList(qualityLabels.size) { fields.getOrElse(it) { "" } }
+                                            updated[index] = value.filter { it in '0'..'9' }.take(6)
+                                            val next = rows.toMutableMap()
+                                            if (updated.all { it.isEmpty() }) next.remove(week.toString())
+                                            else next[week.toString()] = "$week " + updated.joinToString(" ")
+                                            if (thresholdPilot) thresholdEquivalents = next.values.joinToString("\n")
+                                            else tempoEquivalents = next.values.joinToString("\n")
+                                        },
+                                        label = { Text(label) },
+                                        supportingText = {
+                                            val metres = fields.getOrNull(index)?.toIntOrNull()
+                                            val seconds = if (thresholdPilot) listOf(null, 600, 240, 120, 240, 120, 240, 480)[index] else when (index) {
+                                                1 -> 600
+                                                2 -> Engine15QualityWorkoutDryRunBuilder.workSeconds(input.experience)
+                                                3 -> 480
+                                                else -> null
+                                            }
+                                            if (seconds != null && metres != null && metres > 0)
+                                                Text("Implied average ${formatTempoImpliedPace(seconds * 1000.0 / metres)}")
+                                        },
+                                        singleLine = true,
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier = Modifier.fillMaxWidth().testTag("private-tempo-$week-$index")
+                                    )
+                                }
+                            }
+                        }
+                        IndependentAndroidResearchPreviewPanel(
+                            request=runCatching { request() }.getOrDefault(input),
+                            onSaveResearchReview=actions.saveResearchReview,
+                            savedResearchCount=state.researchDrafts.size,
+                            savedResearchReviews=state.researchDrafts
+                        )
                     }
-                    crossGoalsSaved=input.calDays>0
-                },
-                onContinue = { scheduleSubPage = 1 }
-            )
-        } else {
-            TracksideAvailabilityScreen(
-                request = input,
-                onMultiSessionToggle = { enabled ->
-                    edit(input.copy(
-                        policyChoice = if(enabled) "multi-session" else "coordinated"
-                    ))
-                },
-                dailyBudget = dailyMinutes,
-                onDailyBudget = { dailyMinutes=it },
-                onDay = { day ->
-                    val pinned = input.weeklySlots.values.flatten().contains(day)
-                    if(day !in input.days || !pinned) {
-                        val days = if(day in input.days) input.days-day
-                            else input.days+day
-                        edit(input.copy(
-                            days=days,
-                            longDay=if(input.longDay in days)input.longDay
-                                else (days.maxOrNull() ?: input.longDay),
-                            qualityDays=input.qualityDays.intersect(days)
-                        ))
-                    }
-                },
-                onRemovePinnedDay = { day ->
-                    edit(WeeklyPlacement.makeUnavailable(input,day))
-                },
-                selectedOtherDiscipline = otherSelectedDiscipline,
-                selectedOtherSlot = otherSelectedSlot,
-                onSelectOtherDiscipline = { otherSelectedDiscipline=it },
-                onSelectOtherSlot = { otherSelectedSlot=it },
-                onAssignOtherDay = { discipline,index,day ->
-                    edit(WeeklyPlacement.put(input,discipline,index,day))
-                },
-                onClearOtherSlot = { discipline,index ->
-                    edit(WeeklyPlacement.clear(input,discipline,index))
-                },
-                onAutoOther = { discipline ->
-                    edit(input.copy(weeklySlots=input.weeklySlots-discipline))
-                },
-                onCountOther = { discipline,count ->
-                    if(discipline in input.weeklySlots) {
-                        edit(WeeklyPlacement.resize(input,discipline,count))
-                    } else {
-                        edit(when(discipline) {
-                            "str" -> input.copy(strengthDays=count)
-                            "cal" -> input.copy(calDays=count)
-                            else -> input.copy(conditioningDays=count)
-                        })
-                    }
-                    otherSelectedSlot=otherSelectedSlot.coerceIn(0,count-1)
-                },
-                onBack = { scheduleSubPage = 0 },
-                onContinue = { step = 3 }
-            )
-        }
+                )
+                error?.let { message ->
+                    Text(message,color=MaterialTheme.colorScheme.error,
+                        modifier=Modifier.testTag("plan-form-error"))
+                }
+            },
+            onBack={
+                step=1
+                if(input.runDays>0) {
+                    if(input.strengthDays+input.calDays+input.conditioningDays>0) {
+                        crossTrainingGoals=true
+                        strengthGoalSaved=true
+                        strengthSetupSaved=true
+                    } else runningSubPage=4
+                }
+                crossGoalsSaved=input.calDays>0
+            },
+            onContinue={
+                if(!state.busy && !awaiting) {
+                    error=null
+                    try {
+                        val p=request()
+                        if(p.start<LocalDate.now())
+                            throw PlanConstraint("Choose today or a future start date.")
+                        val conflict=compactScheduleError(p)
+                        if(conflict!=null)throw PlanConstraint(conflict)
+                        IndependentEngineRouteGate.requireProduction(
+                            IndependentEngineRoute.EXISTING_COACH
+                        )
+                        val selected=TracksideCoaching.request(p)
+                        beforeId=state.plans.firstOrNull()?.id
+                        awaiting=true
+                        actions.generate(selected)
+                    } catch(e:PlanConstraint) { error=e.message }
+                }
+            }
+        )
         return
     }
-    if (step == 3) {
-        val previewInputs = runCatching { request() }.getOrDefault(input)
-        TracksideWeekReview(
-            request = previewInputs,
-            plan = null,
-            busy = state.busy || awaiting,
-            onBack = { step = 2; scheduleSubPage = 1 },
-            onContinue = {
-                error = null
-                try {
-                    val p = request()
-                    if (p.start < LocalDate.now())
-                        throw PlanConstraint("Choose today or a future start date.")
-                    val selected = TracksideCoaching.request(p)
-                    beforeId = state.plans.firstOrNull()?.id
-                    awaiting = true
-                    actions.generate(selected)
-                } catch(e: PlanConstraint) { error = e.message }
-            },
-            error = error
-        )
+    if(step==3) {
+        // Older builder state may resume at an obsolete page.
+        // Return to the combined plan dates and availability screen.
+        LaunchedEffect(Unit) {
+            scheduleSubPage=0
+            step=2
+        }
         return
     }
     // An orphaned draft after process restore must never reveal the removed
@@ -683,16 +927,17 @@ import org.json.JSONObject
         description = if(missingDraft)
             "The draft is no longer available. Your choices are still here."
             else "This step could not be restored. Your plan inputs are preserved.",
-        ctaLabel = if(missingDraft) "Review your choices" else "Return to setup",
+        ctaLabel = if(missingDraft) "Review plan dates" else "Return to setup",
         onBack = {
-            if(missingDraft) step = 3 else step = 0
+            if(missingDraft) { step=2; scheduleSubPage=0 } else step = 0
         },
         onContinue = {
             error = null
             if(missingDraft) {
                 previewId = null
                 pendingApprovalId = null
-                step = 3
+                step = 2
+                scheduleSubPage = 0
             } else {
                 step = 0
                 runningSubPage = 0
@@ -727,15 +972,8 @@ import org.json.JSONObject
     }
 }
 @Composable internal fun FormText(label:String,value:String,onChange:(String)->Unit,numeric:Boolean=false) { OutlinedTextField(value,onChange,label={Text(label)},modifier=Modifier.fillMaxWidth().padding(vertical=4.dp),shape=androidx.compose.foundation.shape.RoundedCornerShape(18.dp),keyboardOptions=KeyboardOptions(keyboardType=if(numeric)KeyboardType.Decimal else KeyboardType.Text)) }
-@Composable internal fun FrequencyChips(value:Int,max:Int,tagPrefix:String?=null,onSelect:(Int)->Unit) { FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) { (0..max).forEach { n -> SignalChip(value==n,{onSelect(n)},label={Text(if(n==0) "Off" else "$n / week")},modifier=if(tagPrefix==null)Modifier else Modifier.testTag("$tagPrefix-$n")) } } }
 @Composable internal fun ChoiceChips(values:List<String>,selected:Int,onSelect:(Int)->Unit) { FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) { values.forEachIndexed { i,label -> SignalChip(i==selected,{onSelect(i)},label={Text(label)}) } } }
-@Composable internal fun DayChoices(selected:Set<Int>,tagPrefix:String?=null,onSelect:(Int)->Unit) { FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) { (1..7).forEach { d -> SignalChip(d in selected,{onSelect(d)},label={Text(dayName(d))},modifier=if(tagPrefix==null)Modifier else Modifier.testTag("$tagPrefix-$d")) } } }
 internal fun dayName(day:Int)=java.time.DayOfWeek.of(day).getDisplayName(java.time.format.TextStyle.SHORT,java.util.Locale.getDefault())
-internal fun historyWeeklyKm(history:List<ActivityRecord>,now:Instant=Instant.now(),plans:List<PlanSnapshot> = emptyList(),zone:ZoneId=ZoneId.systemDefault()):Double? {
-    val rows=ActivityDisplayConsolidation.visible(history).filter { DashboardSummary.isRun(it)&&it.startedAt<=now&&it.startedAt>=now.minusSeconds(28*86400L)&&it.distanceM!=null }
-    val end=now.atZone(zone).toLocalDate();val native=DashboardSummary.confirmedWorkouts(plans,history,now).filter { it.discipline=="run" && it.distanceM!=null && it.date in end.minusDays(27)..end }
-    return if(rows.size+native.size>=3)(rows.sumOf { it.distanceM!! }+native.sumOf { it.distanceM!! })/4000.0 else null
-}
 
 @Composable internal fun NativeDateField(label:String,value:String,onChange:(String)->Unit,enabled:Boolean=true) {
     val context=androidx.compose.ui.platform.LocalContext.current

@@ -36,14 +36,14 @@ class TracksideBatch345UiTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    NativeStrideContent(state, true, NativeActions({}, {}, {}, {}, { _, _ -> },
+                    NativeStrideContent(state, true, NativeActions({}, { _, _ -> },
                         loadDetail = { automaticLoads += 1 }))
                 }
             }
         }
-        compose.onNodeWithTag("nav-activities").assertIsDisplayed().performClick()
-        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("activity-synthetic-activity"))
-        compose.onNodeWithTag("activity-synthetic-activity").performClick()
+        compose.onNodeWithTag("nav-training").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("training-unified-timeline").performScrollToNode(hasTestTag("timeline-recorded-synthetic-activity"))
+        compose.onNodeWithTag("timeline-recorded-synthetic-activity").performClick()
         compose.runOnIdle { assertEquals("Recorded source detail should be requested once", 1, automaticLoads) }
         compose.onNodeWithTag("activity-parity-overview").assertExists()
         compose.onNodeWithTag("activity-map-hero").assertExists()
@@ -51,8 +51,8 @@ class TracksideBatch345UiTest {
         // Detail is intentionally full screen in the approved Figma gallery.
         compose.onNodeWithTag("activity-map-back").performClick()
         compose.onNodeWithTag("nav-settings").assertIsDisplayed().performClick()
-        compose.onNodeWithText("Settings").assertExists()
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("DEVICE & DATA"))
-        compose.onNodeWithText("DEVICE & DATA").assertExists()
+        compose.onNodeWithTag("screen-title").assertTextEquals("More")
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("CONNECTIONS"))
+        compose.onNodeWithText("CONNECTIONS").assertExists()
     }
 }

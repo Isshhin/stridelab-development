@@ -64,4 +64,27 @@ class ActivityDetailSectionAnalysisTest {
             "Unknown", listOf(sample to 170.0, sample.copy(index = 1) to 171.0)
         ))
     }
+
+    @Test fun activityFeedbackTargetsOnlyOneLinkedCompletedEngine15Run() {
+        val now = java.time.Instant.parse("2026-11-17T00:00:00Z")
+        val session = PlannedSession(
+            "linked-run", java.time.LocalDate.parse("2026-11-16"), "run", "Easy run", 30, 5.0, "easy",
+            status = "completed", linkedActivityId = "source-activity"
+        )
+        val plan = PlanSnapshot(
+            "plan", "owner", ENGINE15_VERSION, ENGINE15_POLICY, now,
+            PlanRequest(policyChoice = "engine15"), listOf(session), emptyList(), status = "approved"
+        )
+        assertEquals(session, findLinkedCompletedActivityRun(listOf(plan), setOf("source-activity"))?.second)
+        assertNull(findLinkedCompletedActivityRun(listOf(plan), setOf("other-source")))
+        assertNull(findLinkedCompletedActivityRun(
+            listOf(plan.copy(sessions = listOf(session.copy(status = "planned")))), setOf("source-activity")
+        ))
+        assertNull(findLinkedCompletedActivityRun(
+            listOf(plan.copy(engineVersion = ENGINE1_VERSION)), setOf("source-activity")
+        ))
+        assertNull(findLinkedCompletedActivityRun(
+            listOf(plan, plan.copy(id = "duplicate")), setOf("source-activity")
+        ))
+    }
 }

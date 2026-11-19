@@ -128,9 +128,9 @@ class TracksideResponsiveQaTest {
         }
     }
 
-    @Test fun disciplineSelectionMatchesApprovedFigmaAtCurrentViewport() {
-        // Figma 551:580: Running and Strength selected, two of four disciplines.
-        // Test this matched state rather than the strength-only builder screenshot.
+    @Test fun disciplineSelectionUsesResponsiveCurrentLayout() {
+        // Use the modern Android screen as the layout authority; archived Figma
+        // coordinates do not define this screen's current vertical spacing.
         val request=PlanRequest(
             runDays=3,strengthDays=2,calDays=0,conditioningDays=0,
             days=setOf(1,2,3,4,5,7)
@@ -151,12 +151,13 @@ class TracksideResponsiveQaTest {
                 useUnmergedTree=true)
             icon.assertExists()
             val bounds=card.getUnclippedBoundsInRoot()
-            // At larger accessibility fonts the card must be allowed to grow,
-            // while retaining the original compact-height contract at 1.0x.
+            // Cards remain large enough to tap and may grow with accessibility text.
             val scale = compose.activity.resources.configuration.fontScale
             val maxHeight = if (scale <= 1.01f) 90f else 90f * scale
             assertTrue("Discipline card too tall: "+discipline,
                 (bounds.bottom-bounds.top).value <= maxHeight)
+            assertTrue("Discipline card is below the minimum touch size: "+discipline,
+                (bounds.bottom-bounds.top).value >= 48f)
         }
         compose.onNodeWithText("2 selected").assertExists()
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
@@ -166,17 +167,14 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("discipline-cond").performScrollTo()
         compose.onNodeWithTag("discipline-cond").assertIsDisplayed()
         screenshot("builder-disciplines-last-card-reachable")
-        val config=compose.activity.resources.configuration
-        if(config.screenWidthDp >= 400 && config.fontScale <= 1.01f) {
-            val running=compose.onNodeWithTag("discipline-run")
-                .getUnclippedBoundsInRoot()
-            assertTrue("Discipline cards deviate from approved vertical rhythm",
-                running.top.value in 300f..336f)
+        listOf("run","str","cal","cond").forEach { discipline ->
+            compose.onNodeWithTag("discipline-"+discipline).performScrollTo()
+                .assertIsDisplayed()
         }
+        compose.onNodeWithTag("builder-figma-continue").assertIsDisplayed()
     }
 
-    @Test fun runningGoalSelectionMatchesApprovedFigmaAtCurrentViewport() {
-        // Figma 551:603: Train for a race selected and five reusable goal cards.
+    @Test fun runningGoalSelectionUsesResponsiveLayoutAndRemainsInteractive() {
         val selected=mutableStateOf("race")
         compose.runOnUiThread {
             compose.activity.setContent {
@@ -195,17 +193,20 @@ class TracksideResponsiveQaTest {
         }
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
         screenshot("builder-running-goal-figma-reference")
-        val config=compose.activity.resources.configuration
-        if(config.screenWidthDp>=400 && config.fontScale<=1.01f) {
-            val first=compose.onNodeWithTag("builder-option-race")
-                .getUnclippedBoundsInRoot()
-            assertTrue("Running Goal card vertical rhythm deviates from Figma",
-                first.top.value in 278f..325f)
-            assertTrue("Running Goal card exceeds baseline Figma height",
-                (first.bottom-first.top).value <= 90f)
+        val orderedGoals = listOf("race","faster","endurance","fitness","custom")
+        val goalBounds = orderedGoals.map { goal ->
+            val node=compose.onNodeWithTag("builder-option-"+goal)
+            node.getUnclippedBoundsInRoot()
         }
-        compose.onNodeWithTag("builder-option-custom").performScrollTo()
-        compose.onNodeWithTag("builder-option-custom").assertIsDisplayed()
+        assertTrue("Goal choices must retain a usable touch area",
+            goalBounds.all { (it.bottom-it.top).value >= 48f })
+        assertTrue("Goal choices must remain in their intended order",
+            goalBounds.zipWithNext().all { (above,below) -> above.top < below.top })
+        orderedGoals.forEach { goal ->
+            compose.onNodeWithTag("builder-option-"+goal).performScrollTo()
+                .assertIsDisplayed()
+        }
+        compose.onNodeWithTag("builder-figma-continue").assertIsDisplayed()
         screenshot("builder-running-goal-last-card-reachable")
         compose.onNodeWithTag("builder-option-faster").performScrollTo()
         compose.onNodeWithTag("builder-option-faster").performClick()
@@ -280,7 +281,7 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
     }
 
-    @Test fun runningAbilityMatchesFigmaAndRemainsInteractiveAtCurrentViewport() {
+    @Test fun runningAbilityLayoutFitsCurrentViewportAndRemainsInteractive() {
         // Figma 551:865: Intermediate, 30 km/week, longest recent run 14 km.
         val experience=mutableStateOf(1)
         val weekly=mutableStateOf(30.0)
@@ -326,14 +327,10 @@ class TracksideResponsiveQaTest {
                 (longestCard.bottom-longestCard.top).value<=137f)
             assertTrue("Optional result panel exceeds Figma tolerance",
                 (optional.bottom-optional.top).value<=85f)
-            // Reference 551:865: baseline positions are 392, 570 and 741dp.
-            // Keep enough tolerance for device font rasterization, not large drift.
-            assertTrue("Weekly ability card drifts from Figma",
-                weeklyCard.top.value in 379f..407f)
-            assertTrue("Longest-run card drifts from Figma",
-                longestCard.top.value in 556f..584f)
-            assertTrue("Optional result panel drifts from Figma",
-                optional.top.value in 728f..758f)
+            assertTrue("Ability cards must remain in weekly/longest/optional order",
+                weeklyCard.bottom < longestCard.top && longestCard.bottom < optional.top)
+            assertTrue("Optional result card must not overlap the fixed action",
+                optional.bottom <= cta.top - 2.dp)
         }
         compose.onNodeWithTag("builder-ability-optional-card").performScrollTo()
         compose.onNodeWithTag("builder-ability-optional-card").assertIsDisplayed()
@@ -361,8 +358,8 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
     }
 
-    @Test fun runningWeekMatchesFigmaAndKeepsWeekdayEditingUsable() {
-        // Figma 548:95: five sessions Tue–Fri plus Sunday long; Saturday closed.
+    @Test fun runningWeekLayoutKeepsWeekdayEditingUsable() {
+        // Five sessions Tue–Fri plus Sunday long; Saturday closed.
         val saved=mutableStateOf(PlanRequest(
             runDays=5, experience=1, weeklyKm=30.0,
             days=setOf(2,3,4,5,7), longDay=7,
@@ -397,6 +394,16 @@ class TracksideResponsiveQaTest {
                             saved.value=WeeklyPlacement.put(saved.value,"run",
                                 selected.value,day)
                         },
+                        onAssignSlot={ index,day ->
+                            custom.value=true
+                            saved.value=WeeklyPlacement.put(saved.value,"run",index,day)
+                            selected.value=index
+                        },
+                        onClearDay={ index ->
+                            custom.value=true
+                            saved.value=WeeklyPlacement.clear(saved.value,"run",index)
+                            selected.value=index
+                        },
                         onClearSlot={
                             saved.value=WeeklyPlacement.clear(saved.value,"run",
                                 selected.value)
@@ -424,12 +431,10 @@ class TracksideResponsiveQaTest {
                 .getUnclippedBoundsInRoot()
             val legend=compose.onNodeWithTag("builder-running-legend")
                 .getUnclippedBoundsInRoot()
-            assertTrue("Running weekly card starts away from Figma 548:95",
-                week.top.value in 255f..288f)
-            assertTrue("Running weekly card too tall for 227dp reference",
+            assertTrue("Running weekly card exceeds a usable compact layout",
                 (week.bottom-week.top).value <= 241f)
-            assertTrue("Running legend starts away from Figma 548:95",
-                legend.top.value in 530f..571f)
+            assertTrue("Weekly summary and legend must not overlap",
+                week.bottom < legend.top)
             val lastDescription=compose.onNodeWithText(
                 "Endurance session on one preferred day"
             ).getUnclippedBoundsInRoot()
@@ -438,14 +443,56 @@ class TracksideResponsiveQaTest {
         }
         // The final weekday must be reachable even on 360dp screens without
         // shrinking below the existing 46dp day-cell hit area.
-        compose.onNodeWithTag("builder-running-day-7").performScrollTo()
+        compose.onNodeWithTag("builder-running-day-row")
+            .performTouchInput { swipeLeft() }
         compose.onNodeWithTag("builder-running-day-7").assertIsDisplayed()
         screenshot("builder-running-week-last-day-reachable")
 
-        // A first tap reveals the non-modal editor, rather than secretly moving
-        // a workout; explicit selection and the second day tap perform the move.
-        compose.onNodeWithTag("builder-running-day-6").performScrollTo()
+        // The primary flow opens a picker immediately without searching for
+        // the old below-the-fold editor. A type selection assigns that day.
+        compose.onNodeWithTag("builder-running-day-6").assertIsDisplayed()
         compose.onNodeWithTag("builder-running-day-6").performClick()
+        compose.onNodeWithTag("builder-run-day-sheet").assertExists()
+        compose.onNodeWithTag("builder-run-sheet-option-easy").assertIsEnabled()
+        compose.onNodeWithTag("builder-run-sheet-option-easy").performClick()
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertTrue("Day-first assignment must activate manual placement",custom.value)
+            assertTrue("Easy session was not assigned to Saturday",
+                saved.value.weeklySlots["run"]?.get(2)==6)
+            assertTrue("Saturday was not made available",6 in saved.value.days)
+            assertTrue("Session count changed unexpectedly",saved.value.runDays==5)
+        }
+        // The same day can be reassigned to quality by swapping the occupied
+        // weekday, rather than silently dropping an existing run.
+        compose.onNodeWithTag("builder-running-day-6").performClick()
+        compose.onNodeWithTag("builder-run-sheet-option-quality").performClick()
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertTrue("Quality session was not swapped to Saturday",
+                saved.value.weeklySlots["run"]?.get(1)==6)
+            assertTrue("Displaced easy session should move to Tuesday",
+                saved.value.weeklySlots["run"]?.get(2)==2)
+            assertTrue("Long-run weekday changed unexpectedly",
+                saved.value.weeklySlots["run"]?.get(0)==7)
+        }
+        compose.onNodeWithTag("builder-running-day-6").performClick()
+        compose.onNodeWithTag("builder-run-sheet-clear").performClick()
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertTrue("Clearing should unplace quality, not remove it",
+                saved.value.weeklySlots["run"]?.get(1)==0)
+            assertTrue("Weekly run count must remain five",saved.value.runDays==5)
+        }
+        compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
+        compose.onNodeWithTag("builder-running-day-6").performClick()
+        compose.onNodeWithTag("builder-run-sheet-option-quality").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+
+        // Advanced session-ordinal and quality controls remain usable.
+        compose.onNodeWithTag("builder-running-advanced-toggle").performScrollTo()
+        compose.onNodeWithTag("builder-running-advanced-toggle").performClick()
         compose.onNodeWithTag("builder-running-custom").performScrollTo()
         compose.onNodeWithTag("builder-running-custom").performClick()
         // This guidance text is immediately below the horizontally scrollable
@@ -710,7 +757,7 @@ class TracksideResponsiveQaTest {
                         activity=recorded,recorded=null,detailSource=recorded,
                         matchedSourceIds=setOf(recorded.id),history=listOf(recorded),
                         state=state,
-                        actions=NativeActions({}, {}, {}, {}, { _, _ -> }),
+                        actions=NativeActions({}, { _, _ -> }),
                         online=false,selectedTab=tab.value,onTab={ tab.value=it },
                         matte=matte.value,onToggleMatte={matte.value=!matte.value},
                         onBack={}
@@ -1010,6 +1057,93 @@ class TracksideResponsiveQaTest {
 
     @Test fun engine15WeekPreviewSeparatesRequestedStateFromGeneratedNineSessionDraft() = verifyWeekPreview(engine15 = true)
 
+    @Test fun weekPreviewShowsSelectedWeekDistanceAndKeepsNavigation() {
+        val base=matchedNineSessionDraft("week-preview-distance")
+        val plan=base.copy(
+            request=base.request.copy(weeks=2,weeklyKm=40.0,targetWeeklyKm=80.0),
+            sessions=base.sessions+base.sessions.first { it.discipline=="run" }.copy(
+                id="week-two-unknown",date=base.request.start.plusWeeks(1),distanceKm=null
+            )
+        )
+        val selected=mutableStateOf(0)
+        val firstWeek=weekReviewDistance(plan.sessions.filter { it.date in plan.request.start..plan.request.start.plusDays(6) })
+        show { TracksideWeekReview(plan.request,plan,false,{}, {},weekIndex=selected.value,onWeekChange={selected.value=it}) }
+        compose.onNodeWithText("planned km").assertExists()
+        compose.onNodeWithText(String.format(java.util.Locale.getDefault(),"%.1f",requireNotNull(firstWeek))).assertExists()
+        compose.onNodeWithText("Requested target:",substring=true).assertExists()
+        compose.onNodeWithTag("builder-previous-week").assertIsNotEnabled()
+        compose.onNodeWithTag("builder-next-week").performClick()
+        compose.onNodeWithText("distance unknown").assertExists()
+        compose.onNodeWithTag("builder-next-week").assertIsNotEnabled()
+        compose.onNodeWithTag("builder-previous-week").performClick()
+        compose.onNodeWithText("planned km").assertExists()
+    }
+
+    @Test fun weekPreviewKeepsNoRunningStateInsteadOfShowingZeroKilometers() {
+        val base=matchedNineSessionDraft("week-preview-no-running")
+        val plan=base.copy(request=base.request.copy(runDays=0,targetWeeklyKm=80.0),sessions=base.sessions.filter { it.discipline!="run" })
+        val generated=mutableStateOf(false)
+        show { TracksideWeekReview(plan.request,if(generated.value)plan else null,false,{}, {}) }
+        compose.onNodeWithText("no running").assertExists()
+        compose.runOnIdle { generated.value=true }
+        compose.onNodeWithText("no running").assertExists()
+        compose.onNodeWithText("planned km").assertDoesNotExist()
+        compose.onNodeWithText("Requested target:",substring=true).assertDoesNotExist()
+    }
+
+    @Test fun researchRouteIsExplicitSelectedAndCannotSubmitAsPlan() {
+        val request=PlanRequest(runDays=3,days=setOf(1,3,5),qualityCount=0)
+        val selected=mutableStateOf(false)
+        show {
+            TracksideWeekReview(request,null,false,{}, {},experimentalSelected=selected.value,
+                onExperimentalSelected={selected.value=it})
+        }
+        compose.onNodeWithTag("builder-route-existing").assertIsSelected()
+        compose.onNodeWithTag("builder-route-research").assertIsNotSelected()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+        compose.onNodeWithTag("builder-route-research").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-route-research").assertIsSelected()
+        compose.onNodeWithTag("builder-figma-continue").assertIsNotEnabled()
+        compose.onNodeWithText("Experimental mileage calendar").assertExists()
+        compose.onNodeWithTag("builder-route-existing").performScrollTo().performClick()
+        compose.onNodeWithTag("builder-route-existing").assertIsSelected()
+        compose.onNodeWithTag("builder-figma-continue").assertIsEnabled()
+    }
+
+    @Test fun savedResearchReviewCanBeReopenedWithoutPlanActions() {
+        val request=PlanRequest(
+            goal="General fitness",experience=2,start=LocalDate.of(2026,11,16),weeks=5,
+            days=setOf(1,2,3,5,6,7),runDays=6,longDay=6,qualityCount=1,
+            qualityDays=setOf(2),weeklyKm=60.0,targetWeeklyKm=80.0
+        )
+        val limits=IndependentAndroidPreviewConstraints(
+            selectedRunDays=request.days,
+            explicitlyEnteredStartingWeeklyKm=60.0,
+            explicitlyEnteredWeeklyCeilingKm=80.0,
+            explicitlyEnteredMaxKmByDay=request.days.associateWith { if(it==1)5.0 else 25.0 },
+            explicitlyEnteredPreviousLongRunKm=17.0,
+            explicitlyEnteredLongRunCeilingKm=25.0,
+            explicitlyEnteredMaxLongRunIncreaseKm=2.0
+        )
+        val preview=IndependentAndroidResearchBridge.preview(request,limits)
+            as IndependentAndroidPreviewDecision.ReadOnly
+        val saved=IndependentResearchDraft.fromPreview(
+            "synthetic-responsive",request,preview,limits,
+            id="0fa768cd-1f1a-47f8-85fb-4c4d6514dce7",createdAt=Instant.EPOCH
+        )
+        show {
+            IndependentAndroidResearchPreviewPanel(
+                request=request,savedResearchReviews=listOf(saved)
+            )
+        }
+        compose.onNodeWithTag("builder-research-open-${saved.id}").performClick()
+        compose.onNodeWithTag("builder-research-reopened").assertExists()
+        compose.onNodeWithText("Research comparison · not executable").assertExists()
+        compose.onNodeWithText("Week 1:",substring=true).assertExists()
+        compose.onNodeWithText("Finalize Plan").assertDoesNotExist()
+        compose.onNodeWithText("Approve plan").assertDoesNotExist()
+    }
+
     private fun verifyWeekPreview(engine15: Boolean) {
         val plan = matchedNineSessionDraft("week-preview-matched", engine15)
         val prefix = if (engine15) "engine15-" else ""
@@ -1104,7 +1238,7 @@ class TracksideResponsiveQaTest {
                         state,
                         true,
                         NativeActions(
-                            {}, {}, {}, {}, { _, _ -> },
+                            {}, { _, _ -> },
                             planning = PlanActions(
                                 approve = { _, _ -> approvals++ }
                             )
@@ -1184,44 +1318,62 @@ class TracksideResponsiveQaTest {
         }
     }
 
-    @Test fun builderAvailabilityAndDraftReviewRenderAtCurrentViewport() {
+    @Test fun builderGeneratesFromAvailabilityWithoutRedundantBlueprintPage() {
         val state=TrainingState(initializing=false,account="synthetic-responsive")
+        var generatedRequests=0
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
-                    PlanBuilder(state=state,actions=PlanActions(),
-                        onDone={},onSignIn={},onPreview={_,_->})
+                    PlanBuilder(state=state,actions=PlanActions(
+                        generate={ generatedRequests++ }
+                    ),onDone={},onSignIn={},onPreview={_,_->})
                 }
             }
         }
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
+        // The independent coach deliberately defers an unverified zero-mileage
+        // baseline. Enter plausible synthetic training inputs before asserting
+        // the Generate callback; this is a navigation test, not a no-history test.
+        compose.onNodeWithTag("builder-ability-weekly-slider")
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(30f) }
+        compose.onNodeWithTag("builder-ability-longest-slider")
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(10f) }
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("builder-start-date").assertExists()
-        compose.onNodeWithTag("builder-figma-continue").performClick()
         compose.onNodeWithTag("available-day-6").assertExists()
-        screenshot("builder-availability")
+        compose.onNodeWithText("Generate My Plan").assertExists()
+        compose.onNodeWithText("Your training blueprint").assertDoesNotExist()
+        compose.onNodeWithTag("builder-generate-draft-note").assertExists()
+        screenshot("builder-availability-final-generate")
         compose.onNodeWithTag("builder-figma-continue").performClick()
-        compose.onNodeWithTag("builder-figma-continue").assertExists()
-        screenshot("builder-draft-review")
+        compose.runOnIdle { assertTrue("Generate should be called once",generatedRequests==1) }
+        compose.onNodeWithText("Your training blueprint").assertDoesNotExist()
     }
 
-    @Test fun todayHeroAtLargeFontPreservesTargetsAndVisibleAction() {
-        val run = snapshot().sessions.first()
-        var opened = false
+    @Test fun currentTodayWorkoutActionRemainsReachableAtLargeFont() {
+        val plan = snapshot()
+        val run = plan.sessions.first().copy(date = LocalDate.now())
+        var opened: String? = null
         show {
-            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-                TracksideTodayHero(run) { opened = true }
-            }
+            StrideLabTodayScreen(
+                state = TrainingState(initializing = false, account = plan.owner,
+                    plans = listOf(plan.copy(sessions = listOf(run)))),
+                visibleActivities = emptyList(), online = false,
+                onOpenTraining = {}, onOpenActivity = {},
+                onOpenWorkout = { _, sessionId -> opened = sessionId },
+                onOpenActivityDetail = {}, onOpenMore = {}, onSignIn = {}
+            )
         }
         compose.onNodeWithTag("today-hero").assertExists()
-        compose.onNodeWithTag("today-map-illustration", useUnmergedTree=true).assertExists()
-        compose.onNodeWithContentDescription("Open planned workout", useUnmergedTree = true).assertExists()
-        screenshot("today")
-        compose.onNodeWithTag("today-hero").performClick()
-        compose.runOnIdle { assertTrue("Hero action not usable", opened) }
+        compose.onNode(hasText(run.effectiveTitle) and hasAnyAncestor(hasTestTag("today-hero")),
+            useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("today-workout-action").assertIsDisplayed()
+        screenshot("today-current")
+        compose.onNodeWithTag("today-workout-action").performClick()
+        compose.runOnIdle { assertTrue("Saved workout action was not reached", opened == run.id) }
     }
 
     @Test fun trainingWeekRetainsReadableTouchTargetsAtScaledFont() {
@@ -1265,7 +1417,7 @@ class TracksideResponsiveQaTest {
             compose.activity.setContent {
                 StrideTheme {
                     NativeStrideContent(
-                        state, true, NativeActions({}, {}, {}, {}, { _, _ -> })
+                        state, true, NativeActions({}, { _, _ -> })
                     )
                 }
             }

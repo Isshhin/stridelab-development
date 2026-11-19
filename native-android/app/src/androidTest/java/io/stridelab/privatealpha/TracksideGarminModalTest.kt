@@ -49,7 +49,7 @@ class TracksideGarminModalTest {
                 StrideTheme {
                     NativeStrideContent(
                         state=state,online=false,
-                        actions=NativeActions({}, {}, {}, {}, { _, _ -> })
+                        actions=NativeActions({}, { _, _ -> })
                     )
                 }
             }
@@ -82,7 +82,7 @@ class TracksideGarminModalTest {
             compose.activity.setContent {
                 StrideTheme {
                     NativeStrideContent(state, false,
-                        NativeActions({}, {}, {}, {}, { _, _ -> }))
+                        NativeActions({}, { _, _ -> }))
                 }
             }
         }
@@ -92,7 +92,7 @@ class TracksideGarminModalTest {
         compose.onNodeWithTag("timeline-recorded-garmin-local-guest-run")
             .assertExists().performClick()
         compose.onNodeWithTag("activity-map-hero").assertExists()
-        compose.onNodeWithText("Guest Garmin Run").assertExists()
+        compose.onNodeWithTag("activity-preview-title").assertTextContains("Guest Garmin Run")
     }
 
     @Test fun garminOpensAboveMoreAndClosesWithoutCreatingAnotherPage() {
@@ -104,7 +104,7 @@ class TracksideGarminModalTest {
                     NativeStrideContent(
                         state = state,
                         online = false,
-                        actions = NativeActions({}, {}, {}, {}, { _, _ -> })
+                        actions = NativeActions({}, { _, _ -> })
                     )
                 }
             }

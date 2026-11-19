@@ -6,6 +6,9 @@ package io.stridelab.privatealpha
  * Historical original targets remain in the persisted PlanSnapshot and export.
  */
 internal object Engine15SessionPresentation {
+    fun currentDistance(session:PlannedSession):Double? =
+        if(session.suggestion?.let { it.accepted && it.reason.startsWith(Engine15Feedback.RULE_ID) && it.minutes<session.minutes }==true)null else session.distanceKm
+
     enum class State { ORIGINAL, PENDING_REVIEW, ACCEPTED_TIME_ONLY, ACCEPTED_REST }
 
     data class Target(
@@ -23,7 +26,7 @@ internal object Engine15SessionPresentation {
             ?: throw PlanConstraint("The workout is not part of this saved plan.")
         val proposed = session.suggestion
         val supported = plan.engineVersion == ENGINE15_VERSION &&
-            plan.policyId in setOf(ENGINE15_POLICY, ENGINE15_MULTI_POLICY, ENGINE15_INTERFERENCE_POLICY)
+            plan.policyId in setOf(ENGINE15_POLICY, ENGINE15_MULTI_POLICY, ENGINE15_INTERFERENCE_POLICY, ENGINE15_INDEPENDENT_RUNNING_POLICY)
         // Other engine versions, historical snapshots and unrelated suggestions
         // keep their existing display contract without migration or reinterpretation.
         val reviewed = supported && proposed != null &&
@@ -39,7 +42,7 @@ internal object Engine15SessionPresentation {
             )
         }
         if (reviewed && proposed!!.accepted && proposed.minutes in 1 until session.minutes &&
-            session.status == "planned" && session.log == null
+            session.status in setOf("planned","in_progress")
         ) {
             return Target(
                 State.ACCEPTED_TIME_ONLY, proposed.minutes, null,
@@ -52,8 +55,7 @@ internal object Engine15SessionPresentation {
             )
         }
         if (reviewed && proposed!!.accepted) {
-            // Invalid or already-started transitions are not silently treated as a
-            // current time-only target. Keep the original prescription visible.
+            // Invalid transitions and completed history retain the original prescription.
             return Target(
                 State.ORIGINAL, session.minutes, session.distanceKm, session.steps,
                 session.minutes, session.distanceKm,

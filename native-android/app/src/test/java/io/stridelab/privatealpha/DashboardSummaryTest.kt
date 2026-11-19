@@ -70,7 +70,8 @@ class DashboardSummaryTest {
         val plan=native("run",distance=4.0)
         val sessions=(0..2).map { i -> plan.sessions.first().copy(id="logged-$i",date=java.time.LocalDate.parse("2026-11-02"),distanceKm=99.0,log=plan.sessions.first().log!!.copy(performedOn=java.time.LocalDate.parse("2026-10-25").minusDays(i.toLong()))) }
         val history=listOf(plan.copy(sessions=sessions))
-        assertEquals(3.0,historyWeeklyKm(emptyList(),now,history,ZoneId.of("UTC"))!!,0.0)
+        assertNull(historyWeeklyKm(emptyList(),now,history,ZoneId.of("UTC")))
+        assertEquals(12.0,historyWeeklyKm(emptyList(),now,history,ZoneId.of("UTC"),setOf(java.time.LocalDate.parse("2026-10-19")))!!,0.0)
         assertNull(historyWeeklyKm(emptyList(),now,listOf(plan.copy(sessions=sessions.map { it.copy(log=it.log!!.copy(performedOn=null)) })),ZoneId.of("UTC")))
     }
 }

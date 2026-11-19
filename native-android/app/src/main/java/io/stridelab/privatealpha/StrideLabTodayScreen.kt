@@ -210,18 +210,18 @@ internal fun StrideLabTodayScreen(
         ) == 0f
     }
     val weekStart = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-    // Only the local Garmin namespace is visible without StrideLab sign-in.
-    // Cloud plans and records remain hidden after sign-out.
+    // Repository state is already owner-scoped: cloud plans while signed
+    // in, device-only plans while signed out, and local Garmin either way.
+    // Never infer plan visibility from cloud authentication alone.
     val hasLocalGarmin = state.localGarminIds.isNotEmpty()
-    val hasHistory = state.account != null || hasLocalGarmin
-    val plan = if (state.account == null) null else
-        state.plans.firstOrNull { it.status == "approved" }
+    val safePlans = state.plans
+    val hasHistory = state.account != null || hasLocalGarmin || safePlans.isNotEmpty()
+    val plan = safePlans.firstOrNull { it.status == "approved" }
     val safeActivities = if (hasHistory) visibleActivities else emptyList()
     val safeHistory = if (hasHistory) state.activities else emptyList()
-    val safePlans = if (state.account == null) emptyList() else state.plans
     // Tabs and charts remain presentation-only. Eligibility depends on actual
     // distinct training dates, not prescriptions or daily login streaks.
-    var chosenPage by rememberSaveable(state.account,hasHistory) { mutableStateOf("all") }
+    var chosenPage by rememberSaveable(state.account ?: state.localPlanOwner,hasHistory) { mutableStateOf("all") }
     val eligiblePages = remember(todayDate, safeHistory, safePlans) {
         TodayDisciplineAnalytics.available(
             safeHistory, safePlans, Instant.now(), ZoneId.systemDefault()
@@ -280,8 +280,8 @@ internal fun StrideLabTodayScreen(
     val hasUnfinishedWorkout = schedule.any { it.status in setOf("planned", "in_progress") }
     val mixedToday = date == todayDate && hasUnfinishedWorkout &&
         (recordedOnDate.isNotEmpty() || confirmedOnDate.isNotEmpty())
-    // Historical/recorded styles belong only to authenticated data. A
-    // signed-out athlete must see the same sign-in hero on every date.
+    // Historical/recorded styling uses only currently visible persisted
+    // records; a local plan is sufficient without cloud authentication.
     val showRecorded = hasHistory && (isPastDate ||
         (date == todayDate && !hasUnfinishedWorkout &&
             (recordedOnDate.isNotEmpty() || confirmedOnDate.isNotEmpty())))
@@ -294,7 +294,7 @@ internal fun StrideLabTodayScreen(
         showRecorded && confirmedOnDate.isNotEmpty() ->
             todayDisciplineColor(confirmedOnDate.first().discipline)
         showRecorded -> TodayLook.teal
-        state.account == null || plan == null -> TodayLook.lime
+        plan == null -> TodayLook.lime
         schedule.size > 1 ->
             if (schedule.map { todayHeroDiscipline(it.discipline) }.distinct().size == 1)
                 todayDisciplineColor(schedule.first().discipline)
@@ -380,12 +380,17 @@ internal fun StrideLabTodayScreen(
                 onNext = { selectedDay = date.plusWeeks(1).toEpochDay() }
             )
         }
+        state.message?.takeIf(String::isNotBlank)?.let { message ->
+            item(key = "today-status-message") {
+                SignalCard { Text(message, style = MaterialTheme.typography.bodyMedium) }
+            }
+        }
         if (selectedPage == "all") {
         item(key = "today-hero") {
             if (!hasHistory) {
                 // Stable, draw-only animated notch. Do not recompose a
                 // complex hero card for every spring animation frame.
-                TodaySignedOutHero(notchPosition, onSignIn)
+                TodaySignedOutHero(notchPosition, onOpenTraining)
             } else if (mixedToday) {
                 TodayMixedDayCard(
                     date = date,
@@ -461,7 +466,7 @@ internal fun StrideLabTodayScreen(
                 completed = todayCompleted,
                 total = todaySchedule.size,
                 onOpen = {
-                    if (!hasHistory) onSignIn()
+                    if (!hasHistory) onOpenTraining()
                     else if (plan != null && future != null) onOpenWorkout(plan.id, future.id)
                     else onOpenTraining()
                 }
@@ -1588,6 +1593,7 @@ private fun TodayCompactEmptyDay(online: Boolean) {
             Text(
                 "Nothing scheduled or saved",
                 color = TodayLook.text, fontSize = 14.sp,
+                lineHeight = 18.sp,
                 fontWeight = FontWeight.SemiBold
             )
         }
@@ -1595,6 +1601,7 @@ private fun TodayCompactEmptyDay(online: Boolean) {
             if (online) "No activity or workout for this date."
             else "Offline · based on saved records and schedule.",
             color = TodayLook.muted, fontSize = 11.sp,
+            lineHeight = 14.sp,
             modifier = Modifier.padding(start = 16.dp)
         )
     }
@@ -2314,7 +2321,7 @@ private fun TodayMultiPlannedCard(
 @Composable
 private fun TodaySignedOutHero(
     notchPosition: State<Float>,
-    onSignIn: () -> Unit
+    onCreatePlan: () -> Unit
 ) {
     val accent = TodayLook.lime
     val cardShape = remember { RoundedCornerShape(19.dp) }
@@ -2363,7 +2370,7 @@ private fun TodaySignedOutHero(
                 modifier = Modifier.fillMaxWidth(.83f)
             )
             Text(
-                "Sign in to see your own training schedule.",
+                "Create your training schedule offline. Cloud backup is optional.",
                 color = TodayLook.black.copy(alpha = .82f),
                 fontSize = 12.sp, lineHeight = 17.sp,
                 modifier = Modifier.fillMaxWidth(.75f),
@@ -2377,7 +2384,7 @@ private fun TodaySignedOutHero(
             )
             Spacer(Modifier.height(6.dp))
             Surface(
-                onClick = onSignIn,
+                onClick = onCreatePlan,
                 shape = RoundedCornerShape(28.dp),
                 color = Color(0xFFEAFB77),
                 modifier = Modifier.height(42.dp).testTag("today-workout-action")
@@ -2389,7 +2396,7 @@ private fun TodaySignedOutHero(
                 ) {
                     Text("▶", color = TodayLook.black, fontSize = 12.sp)
                     Text(
-                        "Sign in", color = TodayLook.black,
+                        "Create plan", color = TodayLook.black,
                         fontSize = 13.sp, fontWeight = FontWeight.Bold
                     )
                 }
@@ -2672,7 +2679,7 @@ private fun TodayWaveWorkout(
 
 private fun todaySessionDetails(session: PlannedSession): String {
     val parts = mutableListOf<String>()
-    session.distanceKm?.let { parts.add(String.format(Locale.getDefault(), "%.1f km", it)) }
+    Engine15SessionPresentation.currentDistance(session)?.let { parts.add(String.format(Locale.getDefault(), "%.1f km", it)) }
     if (session.effectiveMinutes > 0) parts.add(session.effectiveMinutes.toString() + " min")
     if (session.discipline != "run" && session.effectiveExercises.isNotEmpty()) {
         parts.add(session.effectiveExercises.size.toString() + " exercises")
@@ -3014,7 +3021,7 @@ private fun TodayNextSession(
                     )
                 } else {
                     Text(
-                        if (signedOut) "Sign in to see your training history."
+                        if (signedOut) "Create a plan on this device without signing in."
                         else if (plan == null) "Create an approved schedule to get started."
                         else "Check your training schedule for future workouts.",
                         color = TodayLook.muted, fontSize = 11.sp
@@ -3257,37 +3264,4 @@ private fun todayTimeLabel(seconds: Double): String {
     return if (minutes >= 60L) (minutes / 60).toString() + "h " +
         (minutes % 60).toString() + "m"
     else minutes.toString() + "m"
-}
-
-@Composable
-private fun TodayStat(
-    label: String, value: String, tint: Color, modifier: Modifier = Modifier
-) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(value, color = tint, fontWeight = FontWeight.Bold, fontSize = 16.sp,
-            maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(label, color = TodayLook.muted, fontSize = 10.sp,
-            maxLines = 2, lineHeight = 13.sp)
-    }
-}
-
-@Composable
-private fun TodayDarkCard(
-    onClick: () -> Unit,
-    tag: String,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().testTag(tag),
-        color = TodayLook.card,
-        shape = RoundedCornerShape(18.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2B2E33))
-    ) {
-        Column(
-            Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            content = content
-        )
-    }
 }

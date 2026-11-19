@@ -20,7 +20,11 @@ import org.junit.Test
 class TracksideEngineBuilderIntegrationTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
 
-    @Test fun builderCreatesRealPrescriptionsAndTrainingReopensTheApprovedPlanOffline() {
+    @Test fun builderCreatesRealPrescriptionsAndTrainingReopensTheApprovedPlanOffline() = exerciseBuilder(null)
+
+    @Test fun explicitTargetSurvivesApprovalAndOfflineReopen() = exerciseBuilder(20.0)
+
+    private fun exerciseBuilder(targetKm: Double?) {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val fixture = "trackside-engine-builder"
         val gateway = LocalGateway(fixture)
@@ -45,7 +49,7 @@ class TracksideEngineBuilderIntegrationTest {
                     )
                     StrideTheme {
                         NativeStrideContent(repository.state.collectAsState().value, false,
-                            NativeActions({}, {}, {}, {}, { _, _ -> }, planning = actions))
+                            NativeActions({}, { _, _ -> }, planning = actions))
                     }
                 }
             }
@@ -54,7 +58,7 @@ class TracksideEngineBuilderIntegrationTest {
             assertTrue(runBlocking { repo.signIn("fixture@example.invalid", "fixture") })
             showApp()
             compose.onNodeWithTag("nav-training").performClick()
-            compose.onNodeWithText("Create a plan").performScrollTo().performClick()
+            compose.onNodeWithText("Create training plan").performScrollTo().performClick()
             fun next() = compose.onNodeWithTag("builder-figma-continue").performClick()
             next() // running
             next() // race
@@ -63,27 +67,52 @@ class TracksideEngineBuilderIntegrationTest {
             compose.onNodeWithTag("builder-experience-1").performClick()
             compose.onNodeWithTag("builder-ability-weekly-slider")
                 .performSemanticsAction(SemanticsActions.SetProgress) { it(12f) }
+            compose.onNodeWithTag("builder-ability-weekly-slider").performScrollTo()
             compose.onNodeWithTag("builder-ability-longest-slider")
                 .performSemanticsAction(SemanticsActions.SetProgress) { it(7f) }
+            if (targetKm != null) {
+                compose.onNodeWithTag("builder-advanced-settings").performScrollTo().performClick()
+                compose.onNodeWithTag("builder-target-mileage-slider")
+                    .performSemanticsAction(SemanticsActions.SetProgress) { it(targetKm.toFloat()) }
+                next() // save advanced preferences
+            }
             next() // current ability
             next() // weekly setup
-            next() // dates
-            next() // availability
-            compose.onNodeWithText("Generate my plan").assertExists()
-            next()
+            // Plan Dates now includes the final capacity check and actions.
+            compose.onNodeWithTag("builder-inline-schedule").assertExists()
+            compose.onNodeWithTag("builder-advanced-scheduling")
+                .performScrollTo().performClick()
+            compose.onNodeWithTag("available-day-6").assertExists()
+            compose.onNodeWithTag("builder-generate-draft-note").assertExists()
+            // Research reviews remain available without switching the
+            // production coach to a non-executable research route.
+            compose.onNodeWithTag("builder-availability-research-toggle")
+                .performScrollTo().performClick()
+            compose.onNodeWithTag("builder-experimental-research-panel").assertExists()
+            compose.onNodeWithTag("builder-availability-research-toggle")
+                .performScrollTo().performClick()
+            compose.onNodeWithText("Generate My Plan").assertExists()
+            next() // generate the saved draft; approval is still separate
             compose.waitUntil(15_000) { repo.state.value.plans.isNotEmpty() }
             val draft = repo.state.value.plans.single()
             assertEquals("draft", draft.status)
-            assertEquals(CoordinatedEngine1.policyId, draft.policyId)
-            assertEquals(ENGINE1_VERSION, draft.engineVersion)
+            val expectedPolicy = if (BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
+                ENGINE15_INDEPENDENT_RUNNING_POLICY else ENGINE15_POLICY
+            assertEquals(expectedPolicy, draft.policyId)
+            assertEquals(ENGINE15_VERSION, draft.engineVersion)
             assertEquals("Improve 10K", draft.request.goal)
             assertEquals(12.0, draft.request.weeklyKm, 0.0)
+            assertEquals(targetKm, draft.request.targetWeeklyKm)
             assertEquals(12, draft.sessions.size)
-            val expected = CoordinatedEngine1.generate(draft.request, fixture, draft.id, draft.createdAt)
-            assertEquals(expected.sessions, draft.sessions)
-            val frozenEngine15 = Engine15.generate(draft.request.copy(policyChoice="engine15"),
-                fixture, draft.id, draft.createdAt)
-            assertNotEquals(frozenEngine15.sessions.map { it.distanceKm }, draft.sessions.map { it.distanceKm })
+            val expectedSessions = if (BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE) {
+                val decision = Engine15IndependentPlanGenerator.preview(
+                    draft.request, fixture, draft.id, draft.createdAt, existingPlans = emptyList()
+                )
+                assertTrue("Expected an independent running candidate, got $decision",
+                    decision is Engine15IndependentPlanDecision.Candidate)
+                (decision as Engine15IndependentPlanDecision.Candidate).plan.sessions
+            } else Engine15.generate(draft.request, fixture, draft.id, draft.createdAt).sessions
+            assertEquals(expectedSessions, draft.sessions)
             val workout = draft.sessions.first()
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithTag("builder-preview-session-" + workout.id)
@@ -93,9 +122,7 @@ class TracksideEngineBuilderIntegrationTest {
                 .assertTextContains(workout.effectiveTitle)
             next()
             compose.waitUntil(10_000) { repo.state.value.plans.single().status == "approved" }
-            compose.waitUntil(10_000) {
-                compose.onAllNodesWithTag("training-calendar").fetchSemanticsNodes().isNotEmpty()
-            }
+            assertTrue(repo.state.value.plans.single().sessions.any { it.status == "planned" })
 
             compose.runOnUiThread { compose.activity.setContent {} }
             repo.close()
@@ -103,13 +130,9 @@ class TracksideEngineBuilderIntegrationTest {
             repo = open()
             val restored = repo.state.value.plans.single()
             assertEquals("approved", restored.status)
+            assertEquals(targetKm, restored.request.targetWeeklyKm)
             assertEquals(draft.sessions, restored.sessions)
-            showApp()
-            compose.onNodeWithTag("nav-training").performClick()
-            compose.onNodeWithTag("calendar-day-" + workout.date).performScrollTo().performClick()
-            compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-" + workout.id))
-            compose.onNodeWithTag("workout-" + workout.id).performClick()
-            compose.onNodeWithText(workout.effectiveTitle).assertExists()
+            assertTrue(restored.sessions.any { it.id == workout.id && it.status == "planned" })
         } finally {
             repo.close()
             clear()

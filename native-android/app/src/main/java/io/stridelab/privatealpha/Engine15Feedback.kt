@@ -14,6 +14,20 @@ import kotlin.math.floor
 internal object Engine15Feedback {
     const val RULE_ID = "stridelab.engine15.feedback-20261103.1"
 
+    internal data class DraftReview(val asOf:LocalDate,val recoveryThrough:LocalDate,val illnessThrough:LocalDate?,val evidenceIds:List<String>)
+
+    /** Reuse the same explicit negative evidence for a new draft, never infer successful work dose. */
+    fun reviewForNewDraft(owner:String,plans:List<PlanSnapshot>,now:Instant):DraftReview? {
+        val asOf=now.atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+        val owned=plans.filter { it.owner==owner && Engine1Engines.canManage(it) }
+        val sessions=owned.flatMap { it.sessions }
+        val duplicates=sessions.mapNotNull { it.linkedActivityId }.groupingBy { it }.eachCount().filterValues { it>1 }.keys
+        val signals=sessions.filter { it.coachingLog()?.at?.isAfter(now)!=true }.mapNotNull { evidence(it,asOf,duplicates) }
+        if(signals.isEmpty())return null
+        return DraftReview(asOf,signals.maxOf { it.date.plusDays(if(it.category=="Pain")7 else 4) },signals.filter { it.category in setOf("Illness","Pain") }.maxOfOrNull { it.date.plusDays(if(it.category=="Pain")7 else 4) },
+            signals.map { "${it.session.id}@${it.session.logRevision}:${it.category}" }.distinct().sorted())
+    }
+
     internal data class Proposal(
         val planId: String,
         val planRevision: Int,
@@ -48,7 +62,7 @@ internal object Engine15Feedback {
         // A duplicate source link, even from imported records, is ambiguous.
         if (session.linkedActivityId != null && session.linkedActivityId in duplicateLinks)
             return null
-        if (session.status in setOf("missed", "skipped") && session.log == null &&
+        if (session.status in setOf("missed", "skipped") && session.coachingLog() == null &&
             session.date <= asOf && ChronoUnit.DAYS.between(session.date, asOf) in 0L..3L
         ) {
             val category = session.missedReason
@@ -56,27 +70,35 @@ internal object Engine15Feedback {
                 return Evidence(session, session.date, category!!,
                     "Explicitly marked ${session.status.lowercase()} ($category)")
         }
-        val log = session.log ?: return null
+        val log = session.coachingLog() ?: return null
         if (session.status != "completed" || session.logRevision <= 0) return null
         // A linked run without an actual WorkoutLog has no recorded effort;
         // missing RPE, partial progress and zero-set strength logs do not imply readiness.
         val performed = log.performedOn ?: return null
-        if (performed > asOf || ChronoUnit.DAYS.between(performed, asOf) !in 0L..3L ||
+        if (performed > asOf || ChronoUnit.DAYS.between(performed, asOf) !in 0L..(if(log.discomfort=="Pain")6L else 3L) ||
             kotlin.math.abs(ChronoUnit.DAYS.between(session.date, performed)) > 2 ||
             log.at.isAfter(asOf.plusDays(2).atStartOfDay(java.time.ZoneOffset.UTC).toInstant())
         ) return null
         if (session.discipline in setOf("str", "cal") &&
             !WorkoutLogValidation.hasPerformedSet(session, log)) return null
+        if(log.discomfort=="Pain") return Evidence(session,performed,"Pain","Reported pain during the completed run")
+        if(log.discomfort=="Soreness" || log.completionDifficulty in setOf("Harder","Could not finish"))
+            return Evidence(session,performed,"Reported difficulty","Reported ${log.completionDifficulty ?: log.discomfort}; no fitness inference")
         val effort = log.effort ?: return null
         if (effort !in 1..10) return null
         val minutes = log.minutes
         val durationSpike = minutes != null && minutes.isFinite() &&
             minutes > session.minutes * 1.35 && effort >= 7
-        if (effort >= 8 || durationSpike)
+        if (effort >= 8 || durationSpike) {
+            val partial = minutes != null && minutes.isFinite() &&
+                minutes < session.minutes * 0.75
             return Evidence(session, performed, "High reported effort",
-                if (durationSpike)
+                if (partial)
+                    "Partial workout (${minutes!!.toInt()} of ${session.minutes} planned minutes) with recorded effort $effort/10"
+                else if (durationSpike)
                     "Recorded effort $effort/10 and duration ${minutes!!.toInt()} min vs planned ${session.minutes} min"
                 else "Recorded effort $effort/10")
+        }
         return null
     }
 
@@ -106,7 +128,7 @@ internal object Engine15Feedback {
                 .filter { it.discipline == "run" && it.id !in reserved && it.date > asOf && it.date > source.date }
                 .filter { ChronoUnit.DAYS.between(source.date, it.date) in 1L..4L }
                 .filter {
-                    it.status == "planned" && it.log == null &&
+                    it.status == "planned" && it.coachingLog() == null &&
                         it.linkedActivityId == null && it.suggestion == null &&
                         !dismissed(plan, it.id)
                 }
@@ -114,7 +136,7 @@ internal object Engine15Feedback {
                 .firstOrNull() ?: continue
             // An explicit illness or high effort before quality suggests reviewed
             // rest, never an automatically rewritten "easy" workout with hard steps.
-            val rest = source.category == "Illness" || target.quality
+            val rest = source.category in setOf("Illness","Pain") || target.quality
             val adjusted = if (rest) 0 else floor(
                 target.minutes * if (source.category in setOf("Fatigue", "Soreness")) 0.70 else 0.75
             ).toInt().coerceAtLeast(10).coerceAtMost(target.minutes)
@@ -142,7 +164,7 @@ internal object Engine15Feedback {
             proposal !in preview(plan, asOf, allPlans))
             throw PlanConstraint("The training suggestion is stale. Review current workout records and preview it again.")
         val session = plan.sessions.single { it.id == proposal.targetSessionId }
-        if (session.status != "planned" || session.log != null || session.suggestion != null)
+        if (session.status != "planned" || session.coachingLog() != null || session.suggestion != null)
             throw PlanConstraint("Only an unstarted workout without another suggestion may be reviewed.")
         val note = "${proposal.reason} ${proposal.uncertainty} " +
             "Evidence: session ${proposal.sourceSessionId}, log revision ${proposal.sourceLogRevision}."

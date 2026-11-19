@@ -54,7 +54,8 @@ class ActivityDisplayConsolidationTest {
             row("i-third","intervals",start.minusSeconds(172800),2000.0,6000.0)
         )
         val actual=historyWeeklyKm(garmin+retired,now)
-        assertEquals((9560.0+5000.0+6000.0)/4000.0,actual!!,0.00001)
+        assertNull(actual)
+        assertEquals((9560.0+5000.0+6000.0)/1000.0,observedRunningWeeks(garmin+retired,now).sumOf { it.distanceKm ?: 0.0 },0.00001)
     }
 
     @Test fun distinctGarminRunsRemainDistinctWithoutCrossProviderPairing() {

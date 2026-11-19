@@ -102,7 +102,7 @@ class TracksideEngine15ManagementUiTest {
             } }
         }
         val weekday = dayName(target.date.dayOfWeek.value)
-        compose.onNodeWithText("Review schedule").performClick()
+        compose.onNodeWithText("Edit").performClick()
         compose.onNodeWithText(weekday).performScrollTo().performClick()
         compose.onNodeWithText("Preview availability change").performScrollTo().performClick()
         compose.onNodeWithText("A locked workout falls", substring = true).assertExists()
@@ -147,8 +147,8 @@ class TracksideEngine15ManagementUiTest {
                 TracksideManagePlanScreen(paused, today, false, PlanActions(), {}, {}, {})
             } }
         }
-        compose.onNodeWithTag("screen").performScrollToNode(hasText("Workouts needing placement before approval · 1"))
-        compose.onNodeWithText("Workouts needing placement before approval · 1").assertExists()
+        compose.onNodeWithTag("screen").performScrollToNode(hasText("1 workouts require placement"))
+        compose.onNodeWithText("1 workouts require placement").assertExists()
         compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("manage-resume"))
         compose.onNodeWithTag("manage-resume").assertIsNotEnabled()
     }

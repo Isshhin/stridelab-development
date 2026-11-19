@@ -52,7 +52,7 @@ private fun PlanDatesIconTile(icon: Int, tag: String) {
     }
 }
 
-/** Approved 720:546 Plan details, kept separate from the availability screen. */
+/** Plan dates and inline schedule validation, before generating an unapproved draft. */
 @Composable
 internal fun TracksidePlanDetailsScreen(
     start: String, weeks: String, minutes: String,
@@ -61,7 +61,10 @@ internal fun TracksidePlanDetailsScreen(
     onBack: () -> Unit, onContinue: () -> Unit,
     dailyBudget: String = "90",
     multiSession: Boolean = false,
-    onDailyBudget: (String) -> Unit = {}
+    onDailyBudget: (String) -> Unit = {},
+    generationBusy: Boolean = false,
+    scheduleValid: Boolean = true,
+    scheduleContent: (@Composable () -> Unit)? = null
 ) {
     val context = LocalContext.current
     val panelBrush = Brush.horizontalGradient(listOf(PlanBuilderPalette.surface, PlanBuilderPalette.surfaceRaised))
@@ -72,11 +75,12 @@ internal fun TracksidePlanDetailsScreen(
         progressStep = 4,
         eyebrow = "PLAN / DETAILS", toolbarTitle = "Plan details",
         headline = "Set your plan dates",
-        description = "Choose when to start and how long to train.",
+        description = "Set dates and check your schedule before generating a draft.",
+        ctaLabel = if(generationBusy) "Generating plan…" else "Generate My Plan",
         onBack = onBack,
         onContinue = onContinue,
-        continueEnabled = weeks.toIntOrNull() in 1..16 &&
-            !date.isBefore(LocalDate.now())
+        continueEnabled = scheduleValid && !generationBusy &&
+            weeks.toIntOrNull() in 1..16 && !date.isBefore(LocalDate.now())
     ) {
         Surface(
             Modifier.fillMaxWidth(), shape=RoundedCornerShape(14.dp),
@@ -163,11 +167,16 @@ internal fun TracksidePlanDetailsScreen(
                 Box(Modifier.fillMaxWidth().height(1.dp)
                     .background(PlanBuilderPalette.accent))
                 TextButton(onClick={goalDateInfo=true}) {
-                    Text("Have a goal date? Use that instead  ›",
+                    Text("Why can't I select a race date?",
                         fontSize=11.sp,color=PlanBuilderPalette.accent)
                 }
             }
         }
+        scheduleContent?.invoke()
+        Spacer(Modifier.height(10.dp))
+        Text("Generating creates a draft. Review workouts before final approval.",
+            fontSize=11.sp,color=PlanBuilderPalette.secondary,
+            modifier=Modifier.testTag("builder-generate-draft-note"))
     }
     if(goalDateInfo) AlertDialog(
         onDismissRequest={goalDateInfo=false},
@@ -197,8 +206,12 @@ internal fun TracksideAvailabilityScreen(
     onAutoOther: (String) -> Unit = {},
     onCountOther: (String,Int) -> Unit = { _,_ -> },
     dailyBudget: String = "90",
-    onDailyBudget: (String) -> Unit = {}
+    onDailyBudget: (String) -> Unit = {},
+    generationBusy: Boolean = false,
+    generationError: String? = null,
+    researchContent: (@Composable () -> Unit)? = null
 ) {
+    var researchExpanded by rememberSaveable { mutableStateOf(false) }
     var pendingRemovalDay by rememberSaveable { mutableIntStateOf(0) }
     val daysBrush=Brush.horizontalGradient(listOf(PlanBuilderPalette.surface, PlanBuilderPalette.surfaceRaised))
     val capacityBrush=Brush.horizontalGradient(listOf(PlanBuilderPalette.surface, PlanBuilderPalette.surfaceRaised))
@@ -242,9 +255,10 @@ internal fun TracksideAvailabilityScreen(
         eyebrow = "PLAN / AVAILABILITY",
         toolbarTitle = "Availability",
         headline="Your weekly availability",
-        description="Tell us which days you can train.",
+        description="Choose your training days, then generate a draft to review.",
+        ctaLabel=if(generationBusy) "Generating plan…" else "Generate My Plan",
         onBack=onBack,onContinue=onContinue,
-        continueEnabled=capacityFits
+        continueEnabled=capacityFits && !generationBusy
     ) {
 
         Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -415,8 +429,33 @@ internal fun TracksideAvailabilityScreen(
                     color=Color(0xFFC5C5C5))
             }
         }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "Generation creates a draft, not an approved plan. Review the real workouts and recovery schedule before finalizing.",
+            color=PlanBuilderPalette.secondary,fontSize=11.sp,lineHeight=16.sp,
+            modifier=Modifier.testTag("builder-generate-draft-note")
+        )
+        if(researchContent!=null) {
+            TextButton(
+                onClick={ researchExpanded=!researchExpanded },
+                modifier=Modifier.fillMaxWidth()
+                    .testTag("builder-availability-research-toggle")
+            ) {
+                Text(
+                    if(researchExpanded) "Hide experimental research"
+                    else "Experimental research review (read-only)",
+                    color=PlanBuilderPalette.accent,fontSize=12.sp
+                )
+            }
+            if(researchExpanded) researchContent()
+        }
+        generationError?.let {
+            Spacer(Modifier.height(9.dp))
+            Text(it,color=Color(0xFFFF9DA7),fontSize=12.sp,lineHeight=17.sp,
+                modifier=Modifier.testTag("plan-form-error"))
+        }
         // Local scroll clearance keeps the final coaching label above the
-        // fixed Continue dock even with extra same-day and placement controls.
+        // fixed generate dock even with extra same-day and placement controls.
         Spacer(Modifier.fillMaxWidth().height(24.dp)
             .testTag("builder-availability-coaching-clearance"))
     }

@@ -25,8 +25,12 @@ class Engine15ArchitectureTest {
     )
 
     @Test fun policyIsExplicitAndAllEngine10FallbacksRemainStable() {
-        val candidate = request()
-        assertSame(Engine15, Engine1Engines.resolve(candidate))
+        val candidate = request().let {
+            if (BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
+                it.copy(recentMileageBasis = "SELF_REPORTED_AVERAGE", timeBudgetEnabled = false) else it
+        }
+        assertSame(if (BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
+            Engine15IndependentPlanGenerator else Engine15, Engine1Engines.resolve(candidate))
         assertSame(Engine1, Engine1Engines.resolve(candidate.copy(policyChoice = "baseline")))
         assertSame(CoordinatedEngine1, Engine1Engines.resolve(candidate.copy(policyChoice = "coordinated")))
         assertSame(MultiSessionEngine1, Engine1Engines.resolve(candidate.copy(policyChoice = "multi-session")))
@@ -41,11 +45,67 @@ class Engine15ArchitectureTest {
         }
     }
 
+    @Test fun targetMileageRoundTripsAndLegacyRequestsUseRecentMileageAsTarget() {
+        val request = request().copy(weeklyKm = 42.0, targetWeeklyKm = 65.0)
+        assertEquals(request, PlanRequest.decode(request.encode()))
+        val legacy = request.encode().apply { remove("targetWeeklyKm") }
+        assertNull(PlanRequest.decode(legacy).targetWeeklyKm)
+    }
+
+    @Test fun explicitQualityChoiceIsPersistedWithoutTreatingLegacyDefaultAsIntent() {
+        val implicit = request()
+        assertFalse(implicit.encode().has("preferredQualityExplicit"))
+        assertFalse(PlanRequest.decode(implicit.encode()).preferredQualityExplicit)
+        val oldSavedRequest = implicit.encode().apply { put("preferredQuality", "Threshold") }
+        assertFalse(PlanRequest.decode(oldSavedRequest).preferredQualityExplicit)
+
+        val chosen = implicit.copy(preferredQuality = "Tempo", preferredQualityExplicit = true)
+        assertTrue(chosen.encode().getBoolean("preferredQualityExplicit"))
+        assertEquals(chosen, PlanRequest.decode(chosen.encode()))
+        assertFalse(chosen.copy(policyChoice = "baseline").encode().has("preferredQualityExplicit"))
+    }
+
+    @Test fun userAssertedQualityDistanceClaimsRoundTripAndOldRequestsDefaultEmpty() {
+        val claim = Engine15M5SegmentDistanceClaim(
+            weekNumber = 2,
+            slotNumber = 1,
+            assertedMetersByTimedSegment = listOf(900.0, 1_200.0, 900.0),
+            externalReviewReference = null,
+            provenance = Engine15M5DistanceClaimProvenance.USER_ASSERTED_EQUIVALENT
+        )
+        val requested = request().copy(qualityDistanceClaims = listOf(claim))
+        assertEquals(requested, PlanRequest.decode(requested.encode()))
+        assertEquals(emptyList<Engine15M5SegmentDistanceClaim>(),
+            PlanRequest.decode(request().encode()).qualityDistanceClaims)
+        assertEquals(emptyList<Engine15M5SegmentDistanceClaim>(),
+            PlanRequest.decode(request().encode().apply {
+                put("qualityDistanceClaims", JSONArray())
+            }).qualityDistanceClaims)
+    }
+
+    @Test fun explicitTargetEqualToRecentMileageRemainsExplicitInSavedPlan() {
+        for (km in listOf(0.0, 24.0)) {
+            val requested = request().copy(weeklyKm = km, targetWeeklyKm = km)
+            assertTrue(requested.encode().has("targetWeeklyKm"))
+            assertEquals(requested, PlanRequest.decode(requested.encode()))
+            if (km == 0.0) {
+                try { Engine15.generate(requested,owner,"zero",now); fail("Zero target needs explicit no-running choice") }
+                catch (_: PlanConstraint) { }
+                continue
+            }
+            val snapshot = Engine15.generate(requested, owner, "target-$km", now)
+            assertEquals(snapshot, PlanSnapshot.decode(snapshot.encode(), owner))
+        }
+        assertFalse(request().encode().has("targetWeeklyKm"))
+        assertNull(PlanRequest.decode(request().encode()).targetWeeklyKm)
+    }
+
     @Test fun tracksidePreferencesAndExactSessionLocksSurviveTheSameSnapshot() {
         val original = request().copy(
             dailyMinutes = 85,
             weeklySlots = mapOf("run" to listOf(6, 1, 2)),
             preferredQuality = "Intervals",
+            preferredQualityExplicit = true,
             allowedQualityTypes = setOf("Intervals")
         )
         val draft = Engine15.generate(original, owner, "trackside-lock", now)
@@ -54,6 +114,7 @@ class Engine15ArchitectureTest {
         val reopened = PlanSnapshot.decode(locked.encode(), owner)
         assertEquals(original.weeklySlots, reopened.request.weeklySlots)
         assertEquals(original.preferredQuality, reopened.request.preferredQuality)
+        assertTrue(reopened.request.preferredQualityExplicit)
         assertEquals(original.allowedQualityTypes, reopened.request.allowedQualityTypes)
         assertEquals(85, reopened.request.dailyMinutes)
         assertEquals(target.date.toString(), reopened.request.lockedSessionDays[target.id])

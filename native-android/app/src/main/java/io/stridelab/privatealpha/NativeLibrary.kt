@@ -233,8 +233,8 @@ internal fun disciplineColor(id:String)=when(id) { "run"->TracksidePalette.runni
 @Composable internal fun SignalButton(text:String,onClick:()->Unit,enabled:Boolean=true) { Button(onClick=onClick,enabled=enabled,shape=RoundedCornerShape(50),contentPadding=PaddingValues(20.dp,16.dp),modifier=Modifier.fillMaxWidth().heightIn(min=54.dp)) { Text(text,style=MaterialTheme.typography.titleMedium) } }
 
 
-@Composable internal fun SignalChip(selected:Boolean,onClick:()->Unit,label:@Composable ()->Unit,modifier:Modifier=Modifier) {
-    FilterChip(selected,onClick,label=label,modifier=modifier,shape=RoundedCornerShape(50),border=androidx.compose.foundation.BorderStroke(1.dp,if(selected)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),colors=FilterChipDefaults.filterChipColors(containerColor=androidx.compose.ui.graphics.Color.Transparent,labelColor=MaterialTheme.colorScheme.onSurface,selectedContainerColor=MaterialTheme.colorScheme.primary,selectedLabelColor=MaterialTheme.colorScheme.onPrimary))
+@Composable internal fun SignalChip(selected:Boolean,onClick:()->Unit,label:@Composable ()->Unit,modifier:Modifier=Modifier,enabled:Boolean=true) {
+    FilterChip(selected,onClick,enabled=enabled,label=label,modifier=modifier,shape=RoundedCornerShape(50),border=androidx.compose.foundation.BorderStroke(1.dp,if(selected)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),colors=FilterChipDefaults.filterChipColors(containerColor=androidx.compose.ui.graphics.Color.Transparent,labelColor=MaterialTheme.colorScheme.onSurface,selectedContainerColor=MaterialTheme.colorScheme.primary,selectedLabelColor=MaterialTheme.colorScheme.onPrimary))
 }
 
 @Composable internal fun ShelfFilter(label:String,options:List<String>,selected:String,onSelect:(String)->Unit) {
