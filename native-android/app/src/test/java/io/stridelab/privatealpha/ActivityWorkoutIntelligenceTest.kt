@@ -32,7 +32,7 @@ class ActivityWorkoutIntelligenceTest {
 
         assertEquals(ActivityWorkoutKind.UNKNOWN, result.detected.kind)
         assertNull(result.detected.qualitySubtype)
-        assertTrue(result.detected.evidence.any { it.contains("WORK/RECOVERY") })
+        assertTrue(result.detected.evidence.any { it.contains("no clear workout pattern") })
     }
 
     @Test fun linkedPrescriptionIsReportedAsIntentNotDetectedExecution() {
@@ -140,6 +140,31 @@ class ActivityWorkoutIntelligenceTest {
             a, ActivityDetail(a.id, emptyList(), laps, 0L))
         assertEquals(ActivityQualitySubtype.INTERVALS, detected.qualitySubtype)
         assertEquals(ActivityWorkoutConfidence.MODERATE, detected.confidence)
+    }
+
+    @Test fun unusableLapCannotJoinSeparateFastSlowPairs() {
+        val a = activity()
+        val pairs = (0 until 6).map { i ->
+            ActivityLap(i, 400.0, 120.0, if (i % 2 == 0) 260.0 else 400.0, null)
+        }
+        val laps = (pairs.take(2) + ActivityLap(2, null, null, null, null) +
+            pairs.drop(2)).mapIndexed { index, lap -> lap.copy(index = index) }
+        val result = ActivityWorkoutIntelligence.detect(a,
+            ActivityDetail(a.id, emptyList(), laps, 0L))
+        assertEquals(ActivityWorkoutKind.UNKNOWN, result.kind)
+    }
+
+    @Test fun groupedFitWorkAndRecoveryLapsDoNotProveIntervals() {
+        val a = activity()
+        val laps = (0 until 5).map { index ->
+            ActivityLap(index, 400.0, 90.0, null, null,
+                workoutStepIndex = if (index < 3) 0 else 1)
+        }
+        val steps = listOf(ActivityWorkoutStep(0, null, "active", null, null, null),
+            ActivityWorkoutStep(1, null, "recovery", null, null, null))
+        val result = ActivityWorkoutIntelligence.detect(a,
+            ActivityDetail(a.id, emptyList(), laps, 0L, workoutSteps = steps))
+        assertEquals(ActivityWorkoutKind.UNKNOWN, result.kind)
     }
 
     @Test fun unlabeledActiveFitStepDoesNotBlockMeasuredEasyRunDetection() {

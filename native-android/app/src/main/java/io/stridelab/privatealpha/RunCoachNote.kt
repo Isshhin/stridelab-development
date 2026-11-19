@@ -28,9 +28,9 @@ internal fun runCoachNote(
         val count = runs.size + 1
         if (distances.all { it != null }) {
             String.format(Locale.getDefault(),
-                "%d runs that day up to this one, covering %.1f km in total.",
+                "This was run %d that day, bringing you to %.1f km.",
                 count, distances.filterNotNull().sum() / 1000)
-        } else "$count runs recorded that day up to this one."
+        } else "This was run $count that day."
     }
 
     val comparison = ActivityIntelligence.comparison(run, history)
@@ -42,11 +42,11 @@ internal fun runCoachNote(
             else "${ActivityRecord.duration(abs(delta))} per km " +
                 if (delta < 0) "quicker than usual" else "slower than usual"
         "You averaged ${ActivityRecord.duration(pace)} per km, $change over " +
-            "${comparison.count} similar runs. Think about the route and how hard you were working before reading too much into the difference."
+            "${comparison.count} similar runs. Was the route or the effort different this time?"
     } else if (pace != null) {
-        "You averaged ${ActivityRecord.duration(pace)} per km. You’ll get a better sense of what’s typical as you record more runs of a similar distance."
+        "You averaged ${ActivityRecord.duration(pace)} per km. Use that as a reference when you run a similar distance at a similar effort."
     } else {
-        "More recorded activity data would help here. Without a reliable pace, how the run felt is the best place to start."
+        "I don’t have enough pace data to judge how you paced this one. Did you finish feeling like you could keep going?"
     }
 
     val quality = workout.intended?.kind == ActivityWorkoutKind.QUALITY_RUN ||
@@ -64,7 +64,7 @@ internal fun runCoachNote(
         character?.contains("Faster finish") == true -> "You picked up the pace late"
         character?.contains("Steady pacing") == true -> "You kept the pace steady"
         earlierToday.isNotEmpty() -> "This run adds to your day"
-        else -> "Here’s what this run tells us"
+        else -> "A look at your run"
     }
     return RunCoachNote(headline, observation, dayContext, focus)
 }

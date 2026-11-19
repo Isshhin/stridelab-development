@@ -784,74 +784,49 @@ private fun TracksideActivityAnalysisBody(
             } else {
                 Text(
                     if (recorded == null)
-                        "Recorded splits and sensor samples aren't available for this activity."
-                    else "Not enough recorded detail to describe pacing or cadence reliably.",
+                        "I don’t have the splits for this run yet."
+                    else "There isn’t enough here to tell how your pace changed.",
                     color = activityMuted, fontSize = 13.sp, lineHeight = 19.sp,
                     modifier = Modifier.padding(vertical = 6.dp)
                 )
             }
-            val measured = remember(activity, recorded, history) {
-                ActivityIntelligence.briefInsights(activity, recorded, history)
-                    .filterNot { it.startsWith("No reliable pace comparison") }
-                    .take(3)
-            }
-            measured.forEach { line ->
-                HorizontalDivider(color = activityBorder.copy(alpha = .6f), thickness = .7.dp)
-                Row(Modifier.fillMaxWidth().padding(vertical = 10.dp),
-                    verticalAlignment = Alignment.Top) {
-                    Box(Modifier.padding(top = 7.dp).size(5.dp)
-                        .background(activityLime, RoundedCornerShape(3.dp)))
-                    Spacer(Modifier.width(10.dp))
-                    Text(line, color = activityMuted, fontSize = 12.sp, lineHeight = 18.sp)
-                }
-            }
             athleteEvidence?.longestRecordedRunLast28DaysKm?.let { distance ->
                 Text(
-                    "Your longest recorded run in the last four weeks was " +
-                        "${String.format(Locale.ROOT, "%.1f", distance)} km. Saved activity history may be incomplete.",
+                    "Your longest saved run in the past four weeks: " +
+                        "${String.format(Locale.ROOT, "%.1f", distance)} km.",
                     color = activityMuted, fontSize = 12.sp, lineHeight = 18.sp,
                     modifier = Modifier.padding(vertical = 6.dp)
                         .testTag("activity-longest-recorded-run")
                 )
             }
             HorizontalDivider(color = activityBorder.copy(alpha = .6f), thickness = .7.dp)
-            Text("SESSION EFFORT", color = activityLime, fontSize = 10.sp,
+            Text("HOW HARD IT FELT", color = activityLime, fontSize = 10.sp,
                 fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp))
             Text(
                 effort.reportedEffort?.let { "You rated this session $it out of 10." }
-                    ?: "No post-run effort rating is available for this session.",
+                    ?: "You haven’t rated this run yet.",
                 color = if (effort.reportedEffort == null) activityMuted else activityText,
                 fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 5.dp)
             )
-            Text(
-                effort.comparison?.let {
-                    "Compared with ${it.sessionCount} similar completed runs, your median reported effort was " +
-                        "${String.format(Locale.ROOT, "%.1f", it.medianReportedEffort)} out of 10."
-                } ?: "A comparison needs at least three comparable past runs with saved effort ratings.",
+            effort.comparison?.let {
+                Text(
+                    "You usually rate similar runs around " +
+                        "${String.format(Locale.ROOT, "%.1f", it.medianReportedEffort)} out of 10, based on ${it.sessionCount} runs.",
                 color = activityMuted, fontSize = 12.sp, lineHeight = 18.sp,
                 modifier = Modifier.padding(top = 4.dp).testTag("activity-effort-comparison")
-            )
-            Text(
-                when (effort.confidence) {
-                    ActivityEffortConfidence.USER_REPORTED -> "Based on your saved feedback."
-                    ActivityEffortConfidence.RECORDED_HR_WITH_GAPS -> "Heart-rate evidence is approximate; some recording intervals were excluded."
-                    ActivityEffortConfidence.RECORDED_HR_WITHOUT_GAPS -> "Heart-rate evidence is approximate and uses your saved zone settings."
-                    ActivityEffortConfidence.USER_REPORTED_AND_HR -> "Uses your saved feedback and approximate heart-rate data as separate evidence."
-                    ActivityEffortConfidence.INSUFFICIENT -> "There isn't enough reliable effort evidence to assess this session."
-                },
-                color = activityMuted, fontSize = 11.sp, lineHeight = 16.sp,
-                modifier = Modifier.padding(top = 4.dp).testTag("activity-effort-confidence")
-            )
+                )
+            }
+
         }
-        ActivityAnalysisSection("Time in Each Zone", "activity-analysis-heart-rate-zones") {
+        ActivityAnalysisSection("Where your heart rate sat", "activity-analysis-heart-rate-zones") {
             val hrSamples = recorded?.samples.orEmpty().count { it.hr?.isFinite() == true && it.hr > 0.0 }
             when {
                 recorded == null -> Text(
-                    "No recorded heart-rate stream is available for this activity.",
+                    "This run doesn’t have a heart-rate recording.",
                     color = activityMuted, fontSize = 12.sp, lineHeight = 17.sp
                 )
                 hrSamples < 2 -> Text(
-                    "Heart-rate zones are unavailable because this recording has fewer than two valid heart-rate samples.",
+                    "There isn’t enough heart-rate data to show time in zones.",
                     color = activityMuted, fontSize = 12.sp, lineHeight = 17.sp
                 )
                 else -> TracksideActivityHeartRateZones(recorded, correctionOwner, state.account)
@@ -869,8 +844,8 @@ private fun TracksideActivityAnalysisBody(
                 heading = "Detailed Analysis",
                 tag = "activity-analysis-detailed",
                 descriptor = character,
-                collapsedLabel = "Show technical details",
-                expandedLabel = "Hide technical details",
+                collapsedLabel = "See the numbers",
+                expandedLabel = "Hide the numbers",
                 technicalOnly = true
             )
         } else {
@@ -908,7 +883,7 @@ private fun TracksideActivityFeedbackEditor(
     }
     if (target == null) {
         Text(
-            "This activity is not linked to one completed StrideLab run. Link it to its workout in Overview to record feedback there.",
+            "Want to save how this run felt? Link it to your planned workout in Overview first.",
             color = activityMuted, fontSize = 12.sp, lineHeight = 17.sp,
             modifier = Modifier.testTag("activity-feedback-unavailable")
         )
@@ -1288,8 +1263,7 @@ private fun TracksideActivityIntelligenceCard(
             }
             Spacer(Modifier.height(1.dp))
             Text(
-                "These are observations from saved activity data, not a fitness, " +
-                    "recovery or training-readiness assessment.",
+                "Use these numbers alongside how the run felt. One run can’t tell you how recovered you are.",
                 color = activityMuted.copy(alpha = .8f),
                 fontSize = 10.sp, lineHeight = 14.sp
             )

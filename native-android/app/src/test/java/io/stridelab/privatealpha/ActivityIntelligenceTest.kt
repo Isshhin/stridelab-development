@@ -37,9 +37,9 @@ class ActivityIntelligenceTest {
             run, recorded, listOf(prior("1"),prior("2"),prior("3"))
         )
         assertEquals(3,lines.size)
-        assertTrue(lines[0].contains("comparable earlier runs"))
+        assertTrue(lines[0].contains("similar earlier runs"))
         assertTrue(lines[1].contains("140 to 160 bpm"))
-        assertTrue(lines[2].contains("172 to 184 spm"))
+        assertTrue(lines[2].contains("172 to 184 steps per minute"))
         assertFalse(lines.joinToString(" ").contains("readiness score"))
     }
 

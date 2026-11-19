@@ -16,7 +16,7 @@ class RunCoachNoteTest {
         val prior = run.copy(id = "prior", startedAt = run.startedAt.minusSeconds(3600))
         val later = prior.copy(id = "later", startedAt = run.startedAt.plusSeconds(3600))
         val yesterday = prior.copy(id = "yesterday", startedAt = run.startedAt.minusSeconds(86400))
-        assertEquals("2 runs that day up to this one, covering 10.0 km in total.",
+        assertEquals("This was run 2 that day, bringing you to 10.0 km.",
             runCoachNote(run, null, listOf(prior, prior, later, yesterday), workout, ZoneOffset.UTC)
                 .dayContext)
         assertNull(runCoachNote(run, null, listOf(later, yesterday), workout, ZoneOffset.UTC).dayContext)

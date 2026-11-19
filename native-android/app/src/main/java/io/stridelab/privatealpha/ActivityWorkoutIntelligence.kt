@@ -122,14 +122,14 @@ internal object ActivityWorkoutIntelligence {
     ): ActivityWorkoutEvidence {
         if (!DashboardSummary.isRun(activity))
             return unknown("Workout classification is supported only for running activities.")
-        if (recorded == null) return unknown("Saved workout-step detail is unavailable for this activity.")
+        if (recorded == null) return unknown("I’d need the splits or full recording to call this one.")
 
         // WORKOUT_STEP describes a proposed structure. Only lap references
         // associated with the recorded activity establish execution.
         val byStep = recorded.workoutSteps.associateBy { it.index }
         val executed = recorded.laps.mapNotNull { lap ->
             val step = lap.workoutStepIndex?.let(byStep::get)
-            if (step == null || lap.seconds == null || lap.seconds < 10.0) null
+            if (step == null || lap.seconds == null || !lap.seconds.isFinite() || lap.seconds < 10.0) null
             else lap to step
         }
         val work = executed.filter { (_, step) -> step.role == "WORK" }
@@ -150,27 +150,30 @@ internal object ActivityWorkoutIntelligence {
                 }
             }
             val workSeconds = work.sumOf { it.first.seconds ?: 0.0 }
-            if (hinted.size == 1 && workSeconds >= 120.0) {
+            if (hinted.size == 1 && (workSeconds >= 120.0 ||
+                (hinted.single() == ActivityQualitySubtype.STRIDES && work.size >= 3))) {
                 return ActivityWorkoutEvidence(ActivityWorkoutKind.QUALITY_RUN, hinted.single(),
                     listOf(
-                        "Recorded FIT laps reference " + work.size +
-                            " executed work step(s) for a named " + hinted.single().label + " workout.",
-                        "Verified work-lap duration: " +
+                        "Your recording links the work laps to steps marked ${hinted.single().label}.",
+                        "Time in those work laps: " +
                             ActivityRecord.duration(workSeconds) +
                             "; recorded recovery laps: " + recovery.size + ".",
-                        "The step name identifies workout intent; actual threshold/tempo intensity is not verified by that name alone."
+                        "The name tells us what the work was meant to be. The actual effort is not verified by the label."
                     ), ActivityWorkoutConfidence.MODERATE)
             }
-            if (work.size >= 3 && recovery.size >= 2 && workSeconds >= 180.0) {
+            if (hinted.size > 1)
+                return unknown("The recorded steps point to more than one workout type.")
+            val alternatingWork = executed.windowed(5).any { window ->
+                window.map { it.second.role } == listOf("WORK", "RECOVERY", "WORK", "RECOVERY", "WORK") &&
+                    window.zipWithNext().all { (a, b) -> b.first.index == a.first.index + 1 }
+            }
+            if (alternatingWork && workSeconds >= 180.0) {
                 return ActivityWorkoutEvidence(ActivityWorkoutKind.QUALITY_RUN,
                     ActivityQualitySubtype.INTERVALS, listOf(
-                        "FIT lap indices match " + work.size +
-                            " recorded active steps and " + recovery.size + " recovery steps.",
-                        "The executed structure is repeated work and recovery; no specific pace target is inferred."
+                        "You went back and forth between recorded work and recovery laps.",
+                        "That’s a clear interval pattern. Check Planned vs completed if you want to compare it with your session."
                     ), ActivityWorkoutConfidence.HIGH)
             }
-            if (hinted.size > 1)
-                return unknown("Multiple workout families appear in executed FIT steps. The performed type is ambiguous.")
             // An unlabelled ACTIVE step is not proof of hard running.
             // Continue to measured lap patterns and selected-zone evidence.
         }
@@ -194,22 +197,22 @@ internal object ActivityWorkoutIntelligence {
 
         // Unlabelled auto-laps: require repeatable measured fast/slow cycles,
         // not merely variable pace, stopping, GPS pauses or activity title.
-        val laps = recorded.laps.filter {
-            it.seconds != null && it.seconds in 30.0..1200.0 &&
-                it.pace != null && it.pace in 120.0..900.0 &&
-                it.distance != null && it.distance > 70.0
-        }
-        if (laps.size >= 6 && recorded.pauseIntervals.isEmpty()) {
-            val repeatFound = laps.windowed(size = 6).any { window ->
-                window.chunked(2).all { pair ->
-                    pair.size == 2 && pair[0].pace!! * 1.18 <= pair[1].pace!!
+        if (recorded.pauseIntervals.isEmpty()) {
+            val repeatFound = recorded.laps.windowed(size = 6).any { window ->
+                val usable = window.all {
+                    it.seconds != null && it.seconds in 30.0..1200.0 &&
+                        it.pace != null && it.pace in 120.0..900.0 &&
+                        it.distance != null && it.distance.isFinite() && it.distance > 70.0
                 }
+                usable && window.zipWithNext().all { (a, b) -> b.index == a.index + 1 } &&
+                    window.filterIndexed { index, _ -> index % 2 == 0 }.maxOf { it.pace!! } * 1.18 <=
+                    window.filterIndexed { index, _ -> index % 2 == 1 }.minOf { it.pace!! }
             }
             if (repeatFound) {
                 return ActivityWorkoutEvidence(ActivityWorkoutKind.QUALITY_RUN,
                     ActivityQualitySubtype.INTERVALS, listOf(
-                        "At least three recorded fast/slow lap pairs show distinct effort and recovery pacing.",
-                        "FIT WORK/RECOVERY labels are unavailable; classification is based on repeated measured lap patterns."
+                        "Three quicker laps each had a slower lap right after them.",
+                        "That looks like intervals from the splits. The recording does not say what pace you were aiming for."
                     ), ActivityWorkoutConfidence.MODERATE)
             }
         }
@@ -219,14 +222,15 @@ internal object ActivityWorkoutIntelligence {
             it.distance != null && it.distance in 800.0..1200.0 &&
                 it.pace != null && it.pace in 120.0..900.0
         }
-        if (kmLaps.size >= 5 && recorded.pauseIntervals.isEmpty()) {
+        if (kmLaps.size >= 5 && recorded.pauseIntervals.isEmpty() &&
+            kmLaps.zipWithNext().all { (a, b) -> b.index == a.index + 1 }) {
             val paces = kmLaps.map { it.pace!! }
             val faster = paces.zipWithNext().count { (a, b) -> b < a * .995 }
             if (faster >= paces.size - 2 && paces.last() < paces.first() * .92) {
                 return ActivityWorkoutEvidence(ActivityWorkoutKind.QUALITY_RUN,
                     ActivityQualitySubtype.PROGRESSION, listOf(
-                        "Recorded kilometre splits show sustained faster pacing from early to late laps.",
-                        "This is a measured progression pattern, not proof of a prescribed intensity target."
+                        "Your kilometer splits got quicker as the run went on.",
+                        "That’s a build in pace. How hard you meant to finish is a separate question."
                     ), ActivityWorkoutConfidence.MODERATE)
             }
         }
@@ -240,33 +244,32 @@ internal object ActivityWorkoutIntelligence {
             it.id != activity.id && it.source == activity.source &&
                 DashboardSummary.isRun(it) && it.startedAt < activity.startedAt &&
                 Duration.between(it.startedAt, activity.startedAt).toDays() <= 90 &&
-                it.distanceM != null && it.distanceM > 1000.0
-        }.take(20)
+                it.distanceM != null && it.distanceM.isFinite() && it.distanceM > 1000.0
+        }.distinctBy { it.id }.sortedByDescending { it.startedAt }.take(20)
         if (aerobic && recent.size >= 6 && activity.distanceM != null &&
             duration != null && duration >= 75 * 60) {
             val distances = recent.mapNotNull { it.distanceM }.sorted()
-            val median = distances[distances.size / 2]
+            val median = (distances[(distances.size - 1) / 2] + distances[distances.size / 2]) / 2
             if (activity.distanceM >= median * 1.5) {
                 return ActivityWorkoutEvidence(ActivityWorkoutKind.LONG_RUN,
                     evidence = listOf(
-                        "A sustained aerobic recording was at least 50% longer than median recent distance.",
-                        "Comparison uses " + recent.size +
-                            " earlier same-source running records; conditions and history completeness may differ."
+                        "This was well over your usual distance, and most of the heart-rate data we could use stayed in your first two zones.",
+                        "I compared it with your ${recent.size} most recent runs from the same source."
                     ), confidence = ActivityWorkoutConfidence.MODERATE)
             }
         }
         if (aerobic && duration != null && duration >= 20 * 60) {
             return ActivityWorkoutEvidence(ActivityWorkoutKind.EASY_RUN,
                 evidence = listOf(
-                    "At least 85% of classified HR recording time was in the selected first two zones.",
-                    "Measured time covered at least 55% of moving duration. Easy describes observed intensity, not a Garmin workout label."
+                    "Most of the heart-rate data we could use stayed in your first two zones.",
+                    "That supports an easy effort. Check it against how the run felt and whether your zones are set correctly."
                 ), confidence = ActivityWorkoutConfidence.MODERATE)
         }
 
         return unknown(
             if (recorded.workoutSteps.isNotEmpty())
-                "FIT workout definitions exist but no reliable executed WORK/RECOVERY labels or sufficient intensity evidence were found."
-            else "Recorded laps contain no WORK/RECOVERY step labels, so workout purpose cannot be verified."
+                "There are saved workout steps, but I can’t see which ones you ran or how hard you ran them."
+            else "There’s no clear workout pattern in these laps. Check the splits or choose the type yourself."
         )
     }
 

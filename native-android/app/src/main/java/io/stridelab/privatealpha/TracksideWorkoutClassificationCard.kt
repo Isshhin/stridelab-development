@@ -15,7 +15,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import java.util.Locale
 
 private val activityLime = Color(0xFFD8FB70)
 private val activityText = Color(0xFFF3F6F3)
@@ -36,21 +35,31 @@ internal fun ActivityWorkoutClassificationCard(
     Surface(color = Color(0xFF151917), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.fillMaxWidth().testTag("activity-workout-label").padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            val detectedLabel = assessment.detected.qualitySubtype?.label ?: assessment.detected.kind.label
+            val detectedLabel = assessment.detected.qualitySubtype?.let {
+                if (it == ActivityQualitySubtype.TEMPO || it == ActivityQualitySubtype.THRESHOLD)
+                    "${it.label} Run" else it.label
+            } ?: assessment.detected.kind.label
             Text(if (userLabel == null) "DETECTED WORKOUT" else "YOUR CORRECTION",
                 color = activityLime, style = MaterialTheme.typography.labelMedium)
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Surface(color = Color(0xFF303C24), shape = RoundedCornerShape(10.dp)) {
-                    Text("↗", color = activityLime, modifier = Modifier.padding(10.dp))
+                    Icon(androidx.compose.ui.res.painterResource(R.drawable.trackside_discipline_running),
+                        contentDescription = null, tint = activityLime,
+                        modifier = Modifier.padding(10.dp).size(20.dp))
                 }
-                Text(userLabel?.let { "Your label: ${it.label}" } ?: "Detected: $detectedLabel",
+                Text(userLabel?.let { "Your label: ${it.label}" } ?:
+                    if (assessment.detected.kind == ActivityWorkoutKind.UNKNOWN) "Workout type unclear" else detectedLabel,
                 color = activityText, style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.testTag(if (userLabel == null) "activity-workout-detected"
                     else "activity-workout-user-label"))
             }
             if (userLabel == null) {
-                Text("Detection confidence: " + assessment.detected.confidence.name.lowercase(Locale.ROOT),
+                Text(when (assessment.detected.confidence) {
+                    ActivityWorkoutConfidence.HIGH -> "Clear workout pattern"
+                    ActivityWorkoutConfidence.MODERATE -> "Best match from the recording"
+                    else -> "Too little detail to call it"
+                },
                     color = activityMuted, modifier = Modifier.testTag("activity-workout-confidence"))
             } else {
                 Text("Saved on this device. The imported activity is unchanged.", color = activityMuted)
