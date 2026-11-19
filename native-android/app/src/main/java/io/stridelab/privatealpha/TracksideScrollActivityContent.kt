@@ -656,14 +656,26 @@ private fun TracksideActivityAnalysisBody(
         mutableStateOf(labelStore.load(correctionOwner, activity.id))
     }
     var labelSaveFailed by remember(correctionOwner, activity.id) { mutableStateOf(false) }
-    val workoutAssessment = remember(activity, recorded, state.plans, matchedSourceIds) {
-        ActivityWorkoutIntelligence.assess(
-            activity, recorded, state.plans, matchedSourceIds,
-            listOfNotNull(state.account, state.localPlanOwner).toSet()
-        )
-    }
     val heartRateSettings = remember(context, correctionOwner) {
         AthleteHeartRatePreferences(context).settings(correctionOwner)
+    }
+    val recordedZones = remember(context, correctionOwner, recorded, heartRateSettings) {
+        recorded?.let { detail ->
+            val sources = GarminZonePreferenceStore(context)
+            if (sources.source(correctionOwner) == DisplayHeartRateZoneSource.GARMIN)
+                sources.load(correctionOwner)?.let {
+                    HeartRateZoneAnalysis.distribute(detail.samples, it.profile)
+                }
+            else HeartRateZoneAnalysis.distribute(detail.samples, heartRateSettings)
+        }
+    }
+    val workoutAssessment = remember(activity, recorded, state.plans, matchedSourceIds,
+        history, recordedZones) {
+        ActivityWorkoutIntelligence.assess(
+            activity, recorded, state.plans, matchedSourceIds,
+            listOfNotNull(state.account, state.localPlanOwner).toSet(),
+            history, recordedZones
+        )
     }
     val effort = remember(activity, recorded, history, state.plans, matchedSourceIds,
         heartRateSettings, correctionOwner) {
@@ -875,6 +887,13 @@ private fun ActivityWorkoutLabelEditor(
             fontSize = 13.sp, modifier = Modifier.testTag("activity-workout-detected"))
         Text(assessment.detected.evidence.first(), color = activityMuted,
             fontSize = 11.sp, lineHeight = 16.sp)
+        Text("Evidence confidence: " +
+            assessment.detected.confidence.name.lowercase(Locale.ROOT),
+            color = activityMuted, fontSize = 10.sp,
+            modifier = Modifier.testTag("activity-workout-confidence"))
+        assessment.detected.evidence.drop(1).forEach { line ->
+            Text(line, color = activityMuted, fontSize = 11.sp, lineHeight = 16.sp)
+        }
         assessment.intended?.let { intended ->
             Spacer(Modifier.height(4.dp))
             Text("Planned intent: ${intended.qualitySubtype?.label ?: intended.kind.label}",
@@ -884,6 +903,15 @@ private fun ActivityWorkoutLabelEditor(
         }
         assessment.intentWarning?.let {
             Text(it, color = activityMuted, fontSize = 11.sp, lineHeight = 16.sp)
+        }
+        assessment.adherence?.let { adherence ->
+            Spacer(Modifier.height(5.dp))
+            Text("PLANNED VS COMPLETED · " + adherence.status.replace('_', ' '),
+                color = activityLime, fontSize = 10.sp,
+                modifier = Modifier.testTag("activity-workout-adherence"))
+            adherence.evidence.forEach { line ->
+                Text(line, color = activityMuted, fontSize = 11.sp, lineHeight = 16.sp)
+            }
         }
         userLabel?.let { label ->
             Spacer(Modifier.height(4.dp))
