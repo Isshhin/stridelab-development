@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -73,211 +74,213 @@ internal fun ActivityAnalyticsScreen(
         }, Locale.getDefault()
     )
 
-    Screen("Running analytics", "RECORDED HISTORY", compactTitle = true) {
-        item(key = "analytics-back") {
-            TextButton(onClick = onBack, modifier = Modifier.testTag("analytics-back")) {
-                Text("← Back to More")
-            }
-        }
+
+    MoreFeatureScreen("Running analytics", onBack, "analytics-back") {
         item(key = "analytics-window") {
-            SignalCard {
-                Text(heading, style = MaterialTheme.typography.titleMedium)
-                Text("$count recorded runs", style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.testTag("analytics-run-count"))
-                Text(
-                    if (measured == 0) "Distance not recorded"
-                    else String.format(Locale.getDefault(), "%.2f km recorded", totalMeters / 1000.0),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.testTag("analytics-distance")
-                )
-                Text(
-                    "$measured of $count runs have recorded distance. " +
-                        "$elapsedCount have recorded elapsed duration" +
-                        (if (elapsedCount > 0) " (${ActivityRecord.duration(elapsedSeconds)} total)." else "."),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    "Recorded data only · no estimated fitness, effort, or missing measurements.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-        if (onCompare != null) {
-            item(key = "analytics-compare") {
-                SignalCard {
-                    Text("COMPARE RECORDED RUNS", style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary)
-                    Text("Select two earlier and recent runs of similar recorded distance from the same provider and sport.",
-                        style = MaterialTheme.typography.bodyMedium)
-                    TextButton(onClick = onCompare, modifier = Modifier.testTag("analytics-compare-open")) {
-                        Text("Compare runs")
+            MoreFeatureCard {
+                MoreFeatureEyebrow("RECORDED HISTORY")
+                MoreFeatureMuted(heading)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("$count", fontSize = 30.sp, lineHeight = 36.sp,
+                            fontWeight = FontWeight.Bold, color = MoreFeatureColors.lime,
+                            modifier = Modifier.testTag("analytics-run-count"))
+                        MoreFeatureMuted("Recorded runs")
+                    }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            if (measured == 0) "—"
+                            else String.format(Locale.getDefault(), "%.2f km", totalMeters / 1000.0),
+                            fontSize = 24.sp, lineHeight = 33.sp, fontWeight = FontWeight.SemiBold,
+                            color = MoreFeatureColors.text,
+                            modifier = Modifier.testTag("analytics-distance")
+                        )
+                        MoreFeatureMuted("Recorded distance")
                     }
                 }
+                MoreFeatureDivider()
+                MoreFeatureMuted(
+                    "$measured of $count runs have recorded distance. " +
+                        "$elapsedCount have recorded elapsed duration" +
+                        (if (elapsedCount > 0) " (${ActivityRecord.duration(elapsedSeconds)} total)." else ".")
+                )
+                MoreFeatureMuted("Saved source records only · no estimated fitness or missing measurements.")
             }
         }
         item(key = "analytics-range") {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ActivityAnalyticsPeriod.entries.forEach { option ->
-                    FilterChip(
+                    MoreFeatureChip(
+                        text = option.name.lowercase().replaceFirstChar { it.uppercase() },
                         selected = period == option,
                         onClick = { period = option },
-                        label = { Text(option.name.lowercase().replaceFirstChar { it.uppercase() }) },
-                        modifier = Modifier.weight(1f).testTag("analytics-period-${option.name.lowercase()}")
+                        modifier = Modifier.weight(1f)
+                            .testTag("analytics-period-${option.name.lowercase()}")
+                    )
+                }
+            }
+        }
+        if (onCompare != null) {
+            item(key = "analytics-compare") {
+                MoreFeatureCard {
+                    MoreFeatureEyebrow("RUN COMPARISON")
+                    Text("Compare recorded runs", fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold, color = MoreFeatureColors.text)
+                    MoreFeatureMuted("Compare two saved runs from the same source and sport at similar distances.")
+                    MoreFeatureSecondaryAction(
+                        "Compare runs", onCompare, enabled = true,
+                        modifier = Modifier.fillMaxWidth().testTag("analytics-compare-open")
                     )
                 }
             }
         }
         item(key = "analytics-filters") {
-            SignalCard {
-                Text("FILTER RECORDED RUNS", style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary)
-                Text("Source", style = MaterialTheme.typography.bodyMedium)
+            MoreFeatureCard {
+                MoreFeatureEyebrow("FILTER RECORDED RUNS")
+                MoreFeatureMuted("Source")
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = provider == null, onClick = { provider = null },
-                        label = { Text("All sources") },
-                        modifier = Modifier.testTag("analytics-source-all"))
+                    MoreFeatureChip(
+                        "All sources", provider == null, onClick = { provider = null },
+                        modifier = Modifier.testTag("analytics-source-all")
+                    )
                     providers.forEach { option ->
-                        FilterChip(selected = provider == option, onClick = { provider = option },
-                            label = { Text(if (option == "garmin") "Garmin" else option) },
-                            modifier = Modifier.testTag("analytics-source-" + option))
+                        MoreFeatureChip(
+                            if (option == "garmin") "Garmin" else option,
+                            selected = provider == option,
+                            onClick = { provider = option },
+                            modifier = Modifier.testTag("analytics-source-" + option)
+                        )
                     }
                 }
-                Text("Discipline", style = MaterialTheme.typography.bodyMedium)
+                MoreFeatureDivider()
+                MoreFeatureMuted("Discipline")
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ActivityAnalyticsKind.entries.forEach { option ->
-                        FilterChip(selected = discipline == option, onClick = { discipline = option },
-                            label = { Text(option.label) },
-                            modifier = Modifier.testTag("analytics-discipline-" + option.name.lowercase()))
+                        MoreFeatureChip(
+                            option.label, selected = discipline == option,
+                            onClick = { discipline = option },
+                            modifier = Modifier.testTag("analytics-discipline-" + option.name.lowercase())
+                        )
                     }
                 }
-                Text("Distance", style = MaterialTheme.typography.bodyMedium)
+                MoreFeatureDivider()
+                MoreFeatureMuted("Distance")
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ActivityAnalyticsDistance.entries.forEach { option ->
-                        FilterChip(selected = distance == option, onClick = { distance = option },
-                            label = { Text(option.label) },
-                            modifier = Modifier.testTag("analytics-distance-" + option.name.lowercase()))
+                        MoreFeatureChip(
+                            option.label, selected = distance == option,
+                            onClick = { distance = option },
+                            modifier = Modifier.testTag("analytics-distance-" + option.name.lowercase())
+                        )
                     }
                 }
                 if (provider != null || discipline != ActivityAnalyticsKind.ALL ||
                     distance != ActivityAnalyticsDistance.ALL) {
-                    TextButton(onClick = {
-                        provider = null
-                        discipline = ActivityAnalyticsKind.ALL
-                        distance = ActivityAnalyticsDistance.ALL
-                    }, modifier = Modifier.testTag("analytics-clear-filters")) {
-                        Text("Clear filters")
-                    }
-                }
-            }
-        }
-        item(key = "analytics-distance-bests") {
-            SignalCard {
-                Text("BEST SAVED AVERAGE PACES", style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary)
-                Text(
-                    "All saved runs matching these filters · within 2% of the named distance. " +
-                        "Not certified race personal records or proof of fitness improvement.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                RecordedDistanceBests.distanceTargets.forEach { (label, target) ->
-                    val result = RecordedDistanceBests.find(filtered, target)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(label, style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            result?.activity?.recordedPace?.let { ActivityRecord.duration(it) + " /km" }
-                                ?: "Not recorded",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    if(result != null) {
-                        Text(
-                            "${result.activity.distanceLabel} · ${result.activity.dateLabel} · " +
-                                result.activity.sourceLabel,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    MoreFeatureSecondaryAction(
+                        "Clear filters",
+                        onClick = {
+                            provider = null
+                            discipline = ActivityAnalyticsKind.ALL
+                            distance = ActivityAnalyticsDistance.ALL
+                        },
+                        enabled = true,
+                        modifier = Modifier.fillMaxWidth().testTag("analytics-clear-filters")
+                    )
                 }
             }
         }
         item(key = "analytics-chart") {
-            SignalCard {
-                Text("DISTANCE BY PERIOD", style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary)
-                if (count == 0) Text(
-                    "No saved running activities match this period and filters. Missing distance is excluded only when a distance band is selected.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                series.forEachIndexed { index, bucket ->
-                    if (index != 0) HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f)
+            MoreFeatureCard {
+                MoreFeatureEyebrow("DISTANCE BY PERIOD")
+                if (count == 0) {
+                    MoreFeatureMuted(
+                        "No runs match these filters in this period. Missing distance is excluded only when you select a distance band."
                     )
+                }
+                series.forEachIndexed { index, bucket ->
+                    if (index != 0) MoreFeatureDivider()
                     Column(
                         Modifier.fillMaxWidth().testTag("analytics-bucket-${bucket.start}"),
                         verticalArrangement = Arrangement.spacedBy(7.dp)
                     ) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(bucket.start.format(labelFormat),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold)
+                                fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                color = MoreFeatureColors.text)
                             Text(
                                 when {
                                     bucket.activityCount == 0 -> "No runs"
                                     bucket.recordedDistanceM == null -> "Distance not recorded"
-                                    else -> String.format(Locale.getDefault(), "%.2f km", bucket.recordedDistanceM / 1000.0)
+                                    else -> String.format(Locale.getDefault(), "%.2f km",
+                                        bucket.recordedDistanceM / 1000.0)
                                 },
-                                style = MaterialTheme.typography.bodyMedium
+                                fontSize = 13.sp, color = MoreFeatureColors.text
                             )
                         }
-                        Box(
-                            Modifier.fillMaxWidth().height(6.dp)
-                                .background(MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(3.dp))
-                        ) {
+                        Box(Modifier.fillMaxWidth().height(6.dp)
+                            .background(MoreFeatureColors.divider, RoundedCornerShape(3.dp))) {
                             if (maxMeters > 0 && bucket.recordedDistanceM != null) {
                                 Box(
                                     Modifier.fillMaxWidth(
                                         (bucket.recordedDistanceM / maxMeters).toFloat().coerceIn(0f, 1f)
                                     ).fillMaxHeight()
-                                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(3.dp))
+                                        .background(MoreFeatureColors.lime, RoundedCornerShape(3.dp))
                                 )
                             }
                         }
+                        MoreFeatureMuted("${bucket.activityCount} runs · ${bucket.recordedDistanceCount} with distance")
+                    }
+                }
+            }
+        }
+        item(key = "analytics-distance-bests") {
+            MoreFeatureCard {
+                MoreFeatureEyebrow("BEST RECORDED AVERAGE PACES")
+                MoreFeatureMuted("Saved activity averages within 2% of each distance. Not certified race PRs.")
+                RecordedDistanceBests.distanceTargets.forEachIndexed { index, (label, target) ->
+                    if (index > 0) MoreFeatureDivider()
+                    val result = RecordedDistanceBests.find(filtered, target)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(label, fontSize = 13.sp, color = MoreFeatureColors.text)
                         Text(
-                            "${bucket.activityCount} runs · ${bucket.recordedDistanceCount} with distance",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            result?.activity?.recordedPace?.let { ActivityRecord.duration(it) + " /km" }
+                                ?: "Not recorded",
+                            fontSize = 13.sp,
+                            color = if (result == null) MoreFeatureColors.muted else MoreFeatureColors.lime,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    if (result != null) {
+                        MoreFeatureMuted(
+                            "${result.activity.distanceLabel} · ${result.activity.dateLabel} · " +
+                                result.activity.sourceLabel
                         )
                     }
                 }
             }
         }
-        if(onOpenActivity != null) {
+        if (onOpenActivity != null) {
             item(key = "analytics-history-heading") {
-                SignalCard {
-                    Text("BROWSE SAVED RUNS", style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.testTag("analytics-history-heading"))
-                    Text(
-                        "${browsable.size} running activities matching the selected filters, " +
-                            "across all saved dates. Open one for its actual GPS, splits and source measurements.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                MoreFeatureCard {
+                    MoreFeatureEyebrow(
+                        "BROWSE SAVED RUNS",
+                        modifier = Modifier.testTag("analytics-history-heading")
+                    )
+                    MoreFeatureMuted(
+                        "${browsable.size} runs match these filters across all saved dates. " +
+                            "Open an activity to inspect its recorded GPS, splits, and metrics."
                     )
                 }
             }
             items(browsable, key = { "analytics-record-${it.source}-${it.id}" }) { activity ->
-                ActivityRow(activity) { onOpenActivity(activity.id) }
+                MoreFeatureActivityRow(
+                    activity, tag = "activity-${activity.id}",
+                    onClick = { onOpenActivity(activity.id) }
+                )
             }
         }
-
     }
 }
