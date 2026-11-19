@@ -21,6 +21,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.TextFieldColors
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -214,6 +216,22 @@ internal fun MoreFeatureSecondaryAction(
         modifier = modifier.heightIn(min = 48.dp)
     ) { Text(text, fontWeight = FontWeight.Medium, fontSize = 14.sp) }
 }
+
+/** Dark text fields used by the standalone manual activity editor. */
+@Composable
+internal fun moreFeatureInputColors(): TextFieldColors = OutlinedTextFieldDefaults.colors(
+    focusedContainerColor = MoreFeatureColors.surface,
+    unfocusedContainerColor = MoreFeatureColors.surface,
+    disabledContainerColor = MoreFeatureColors.surface,
+    focusedTextColor = MoreFeatureColors.text,
+    unfocusedTextColor = MoreFeatureColors.text,
+    disabledTextColor = MoreFeatureColors.subdued,
+    focusedLabelColor = MoreFeatureColors.lime,
+    unfocusedLabelColor = MoreFeatureColors.muted,
+    focusedBorderColor = MoreFeatureColors.lime,
+    unfocusedBorderColor = MoreFeatureColors.border,
+    cursorColor = MoreFeatureColors.lime
+)
 
 @Composable
 internal fun MoreFeatureDivider() {
