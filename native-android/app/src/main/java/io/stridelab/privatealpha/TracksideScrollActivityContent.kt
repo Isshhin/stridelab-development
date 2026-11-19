@@ -884,7 +884,9 @@ private fun ActivityWorkoutLabelEditor(
     Column(Modifier.fillMaxWidth().testTag("activity-workout-label")) {
         Text("WORKOUT TYPE", color = activityMuted, fontSize = 10.sp,
             fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
-        Text("Detected: ${assessment.detected.kind.label}", color = activityText,
+        Text("Detected: " +
+            (assessment.detected.qualitySubtype?.let { "Quality Run · " + it.label }
+                ?: assessment.detected.kind.label), color = activityText,
             fontSize = 13.sp, modifier = Modifier.testTag("activity-workout-detected"))
         Text(assessment.detected.evidence.first(), color = activityMuted,
             fontSize = 11.sp, lineHeight = 16.sp)
