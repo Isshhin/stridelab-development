@@ -96,7 +96,10 @@ class StationaryActivityDetailUiTest {
         compose.onNodeWithTag("activity-rename-field").assertExists()
         compose.onNodeWithTag("activity-rename-field").performTextReplacement("Gym session")
         compose.onNodeWithTag("activity-rename-save").performClick()
-        compose.waitForIdle()
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithTag("activity-rename-field")
+                .fetchSemanticsNodes().isEmpty()
+        }
         compose.onNodeWithTag("activity-rename-field").assertDoesNotExist()
         compose.onNodeWithTag("activity-back").performClick()
         compose.runOnIdle { assertEquals(1, exits) }
