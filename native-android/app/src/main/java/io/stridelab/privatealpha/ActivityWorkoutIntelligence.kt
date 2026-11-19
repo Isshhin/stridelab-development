@@ -185,8 +185,11 @@ internal object ActivityWorkoutIntelligence {
                 step.name?.contains("recovery run", ignoreCase = true) == true
             }) {
             return ActivityWorkoutEvidence(ActivityWorkoutKind.RECOVERY_RUN,
-                evidence = listOf("Recorded FIT laps reference a named Recovery Run step."),
-                confidence = ActivityWorkoutConfidence.HIGH)
+                evidence = listOf(
+                    "Recorded FIT laps reference a named Recovery Run step.",
+                    "This establishes the performed step structure, not recovery-level intensity."
+                ),
+                confidence = ActivityWorkoutConfidence.MODERATE)
         }
 
         // Unlabelled auto-laps: require repeatable measured fast/slow cycles,
