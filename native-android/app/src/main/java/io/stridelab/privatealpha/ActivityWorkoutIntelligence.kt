@@ -344,7 +344,7 @@ internal object ActivityWorkoutIntelligence {
         summary += "Planned " + expectedWork + " work / " + expectedRecovery +
             " recovery step(s); observed FIT laps " + actualWork +
             " work / " + actualRecovery + " recovery step(s)."
-        summary += "Matching recorded amounts do not prove prescribed pace, HR targets, or workout quality."
+        summary += "Matching recorded amounts do not verify prescribed pace, HR targets, or workout quality."
         return ActivityWorkoutAdherence(
             if (countsMatch) "STEP_COUNTS_MATCH" else "STEP_COUNTS_DIFFER",
             summary, actualWork, actualRecovery
