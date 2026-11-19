@@ -24,7 +24,7 @@ internal fun activityHasDisplayDistance(activity: ActivityRecord): Boolean =
     !activityUsesStationaryDetail(activity) &&
         activity.distanceM?.let { it.isFinite() && it > 0.0 } == true
 
-/** Prefer actual moving duration when available, otherwise recorded elapsed duration. */
+/** Show the source's elapsed duration first; moving time is a fallback only. */
 internal fun activityDisplayDurationSeconds(activity: ActivityRecord): Double? =
-    activity.movingTimeS?.takeIf { it.isFinite() && it > 0.0 }
-        ?: activity.durationS?.takeIf { it.isFinite() && it > 0.0 }
+    activity.durationS?.takeIf { it.isFinite() && it > 0.0 }
+        ?: activity.movingTimeS?.takeIf { it.isFinite() && it > 0.0 }
