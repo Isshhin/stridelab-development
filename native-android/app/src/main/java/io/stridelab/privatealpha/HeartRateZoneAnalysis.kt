@@ -61,7 +61,10 @@ internal object HeartRateZoneAnalysis {
             if (!seconds.isFinite() || seconds <= 0.0 ||
                 seconds > MAX_RECORDED_GAP_SECONDS ||
                 fromHr == null || !fromHr.isFinite() || fromHr <= 0.0 ||
-                toHr == null || !toHr.isFinite() || toHr <= 0.0
+                toHr == null || !toHr.isFinite() || toHr <= 0.0 ||
+                (imported != null && (fromHr < imported.floorsBpm.first() ||
+                    (imported.maxHeartRateUsed != null &&
+                        fromHr > imported.maxHeartRateUsed)))
             ) {
                 excluded++
             } else {
@@ -80,8 +83,10 @@ internal object HeartRateZoneAnalysis {
             buckets = secondsPerZone.mapIndexed { index, seconds ->
                 HeartRateZoneBucket(
                     zone = index + 1,
-                    lowerBpm = if (index == 0) null else cutoffs[index - 1],
-                    upperBpm = cutoffs.getOrNull(index)?.minus(1),
+                    lowerBpm = if (index == 0) imported?.floorsBpm?.first()
+                        else cutoffs[index - 1],
+                    upperBpm = cutoffs.getOrNull(index)?.minus(1)
+                        ?: imported?.maxHeartRateUsed,
                     seconds = seconds,
                     fraction = seconds / total
                 )
@@ -170,7 +175,7 @@ internal object HeartRateZoneAnalysis {
                 "(${(bucket.fraction * 100).roundToInt()}% of classified time)."
         } + listOf(
             if (imported != null)
-                "Source: Garmin Connect ${imported.sport}; BPM floors ${imported.floorsBpm.joinToString(", ")}. Actual imported boundaries; sample durations remain approximate."
+                "Source: Garmin Connect ${imported.sport}; BPM floors ${imported.floorsBpm.joinToString(", ")}. Actual imported boundaries; samples outside the documented zone range are excluded and durations remain approximate."
             else
                 "Method: ${methodSummary(distribution.settings)}. " +
                     methodDefinition(distribution.settings) +
