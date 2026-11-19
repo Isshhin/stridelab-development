@@ -157,8 +157,9 @@ internal object ActivityWorkoutIntelligence {
                             " executed work step(s) for a named " + hinted.single().label + " workout.",
                         "Verified work-lap duration: " +
                             ActivityRecord.duration(workSeconds) +
-                            "; recorded recovery laps: " + recovery.size + "."
-                    ), ActivityWorkoutConfidence.HIGH)
+                            "; recorded recovery laps: " + recovery.size + ".",
+                        "The step name identifies workout intent; actual threshold/tempo intensity is not verified by that name alone."
+                    ), ActivityWorkoutConfidence.MODERATE)
             }
             if (work.size >= 3 && recovery.size >= 2 && workSeconds >= 180.0) {
                 return ActivityWorkoutEvidence(ActivityWorkoutKind.QUALITY_RUN,
@@ -290,7 +291,8 @@ internal object ActivityWorkoutIntelligence {
             "Planned " + session.effectiveMinutes + " min; recorded elapsed " +
                 activity.durationLabel + ". Elapsed and moving time are different."
         )
-        if (prescription == null || plannedPurposes.isEmpty() || executed.isEmpty()) {
+        if (prescription == null || plannedPurposes.isEmpty() || executed.isEmpty() ||
+            (actualWork == 0 && actualRecovery == 0)) {
             return ActivityWorkoutAdherence("SUMMARY_ONLY", summary +
                 "No matched source-labelled work/recovery laps; planned intensity and steps cannot be verified.",
                 actualWork, actualRecovery)
