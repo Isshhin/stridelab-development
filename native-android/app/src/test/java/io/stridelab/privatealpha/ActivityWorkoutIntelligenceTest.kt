@@ -102,7 +102,7 @@ class ActivityWorkoutIntelligenceTest {
     }
 
 
-    @Test fun executedFitThresholdStepProvidesHighConfidencePerformedLabel() {
+    @Test fun executedFitThresholdStepProvidesLabeledButNotPhysiologicallyVerifiedEvidence() {
         val a = activity()
         val detail = ActivityDetail(a.id, emptyList(),
             listOf(ActivityLap(0, 3000.0, 1080.0, 360.0, 173.0,
@@ -115,7 +115,8 @@ class ActivityWorkoutIntelligenceTest {
             a, detail, emptyList(), setOf(a.id), setOf("owner")).detected
         assertEquals(ActivityWorkoutKind.QUALITY_RUN, detected.kind)
         assertEquals(ActivityQualitySubtype.THRESHOLD, detected.qualitySubtype)
-        assertEquals(ActivityWorkoutConfidence.HIGH, detected.confidence)
+        assertEquals(ActivityWorkoutConfidence.MODERATE, detected.confidence)
+        assertTrue(detected.evidence.any { it.contains("not verified") })
     }
 
     @Test fun workoutDefinitionWithoutRecordedLapReferencesIsNotCompletedEvidence() {
