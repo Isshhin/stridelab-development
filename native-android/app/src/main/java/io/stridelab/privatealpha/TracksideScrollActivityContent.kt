@@ -102,16 +102,34 @@ private data class ActivityMetricItem(
 internal fun TracksidePrimaryActivityMetrics(activity: ActivityRecord) {
     val recordedHr = activity.averageHr?.takeIf { it.isFinite() && it > 0.0 }
     val metrics = buildList {
-        add(ActivityMetricItem("DISTANCE", activity.distanceM?.let {
-            String.format(Locale.getDefault(), "%.2f", it / 1000.0)
-        } ?: "—", if (activity.distanceM != null) "km" else "", ActivityMetricGlyph.Route))
-        add(ActivityMetricItem("AVG PACE",
-            if (activity.supportsPace && activity.detailPaceLabel != "Not recorded")
-                activity.detailPaceLabel.removeSuffix(" /km").trim() else "—",
-            if (activity.supportsPace && activity.detailPaceLabel != "Not recorded") "/km" else "",
-            ActivityMetricGlyph.Shoe))
-        if (recordedHr != null) add(ActivityMetricItem("AVG HR",
-            recordedHr.roundToInt().toString(), "bpm", ActivityMetricGlyph.Heart))
+        if (activityUsesStationaryDetail(activity)) {
+            add(ActivityMetricItem(
+                "DURATION",
+                activityDisplayDurationSeconds(activity)?.let { ActivityRecord.duration(it) } ?: "—",
+                "", ActivityMetricGlyph.Duration
+            ))
+            if (recordedHr != null) add(ActivityMetricItem(
+                "AVG HR", recordedHr.roundToInt().toString(), "bpm",
+                ActivityMetricGlyph.Heart
+            ))
+            activity.maximumHr?.takeIf { it.isFinite() && it > 0.0 }?.let {
+                add(ActivityMetricItem(
+                    "MAX HR", it.roundToInt().toString(), "bpm",
+                    ActivityMetricGlyph.Heart
+                ))
+            }
+        } else {
+            add(ActivityMetricItem("DISTANCE", activity.distanceM?.let {
+                String.format(Locale.getDefault(), "%.2f", it / 1000.0)
+            } ?: "—", if (activity.distanceM != null) "km" else "", ActivityMetricGlyph.Route))
+            add(ActivityMetricItem("AVG PACE",
+                if (activity.supportsPace && activity.detailPaceLabel != "Not recorded")
+                    activity.detailPaceLabel.removeSuffix(" /km").trim() else "—",
+                if (activity.supportsPace && activity.detailPaceLabel != "Not recorded") "/km" else "",
+                ActivityMetricGlyph.Shoe))
+            if (recordedHr != null) add(ActivityMetricItem("AVG HR",
+                recordedHr.roundToInt().toString(), "bpm", ActivityMetricGlyph.Heart))
+        }
     }
     BoxWithConstraints(Modifier.fillMaxWidth().testTag("activity-primary-metrics")) {
         // Keep the map-dominant collapsed sheet compact on regular phones.
@@ -167,7 +185,7 @@ private fun CenteredActivityMetricSections(
     }
 }
 
-private enum class ActivityMetricGlyph { Route, Shoe, Heart }
+private enum class ActivityMetricGlyph { Route, Duration, Shoe, Heart }
 
 @Composable
 private fun PrimaryActivityMetric(
@@ -184,6 +202,19 @@ private fun PrimaryActivityMetric(
             val h = size.height
             val sw = 2.3.dp.toPx()
             when (symbol) {
+                ActivityMetricGlyph.Duration -> {
+                    drawCircle(activityLime, radius = w * .35f,
+                        center = Offset(w * .5f, h * .55f), style = Stroke(sw))
+                    drawLine(activityLime,
+                        Offset(w * .5f, h * .55f), Offset(w * .5f, h * .33f),
+                        sw, StrokeCap.Round)
+                    drawLine(activityLime,
+                        Offset(w * .5f, h * .55f), Offset(w * .66f, h * .62f),
+                        sw, StrokeCap.Round)
+                    drawLine(activityLime,
+                        Offset(w * .37f, h * .10f), Offset(w * .63f, h * .10f),
+                        sw, StrokeCap.Round)
+                }
                 ActivityMetricGlyph.Route -> {
                     drawCircle(activityLime, radius = w * .12f,
                         center = Offset(w * .16f, h * .65f), style = Stroke(sw))
@@ -1066,10 +1097,11 @@ private enum class ActivitySummaryGlyph {
 @Composable
 private fun TracksideActivitySummary(activity: ActivityRecord, heading: String = "Summary") {
     val metrics = buildList {
-        activity.distanceM?.let {
+        if (activityHasDisplayDistance(activity)) {
             add(ActivitySummaryMetric("Distance", activity.distanceLabel, ActivitySummaryGlyph.Distance))
         }
-        activity.movingTimeS?.let {
+        (activity.movingTimeS?.takeIf { it.isFinite() && it > 0.0 }
+            ?: activityDisplayDurationSeconds(activity))?.let {
             add(ActivitySummaryMetric("Duration", ActivityRecord.duration(it), ActivitySummaryGlyph.Duration))
         }
         if (activity.supportsPace && activity.detailPaceLabel != "Not recorded") {
@@ -1862,4 +1894,21 @@ private fun TracksideActivitySourceChart(
             )
         }
     }
+}
+
+/** Existing source-only heart rate chart reused by stationary activity details. */
+@Composable
+internal fun TracksideStationaryHeartRateCharts(
+    recorded: ActivityDetail,
+    owner: String?
+) {
+    val count = remember(recorded) {
+        recorded.samples.count { it.hr?.isFinite() == true && it.hr > 0.0 }
+    }
+    if (count < 2) return
+    TracksideActivitySourceChart(
+        "Heart rate", "bpm", recorded.samples, { it.hr },
+        pauseIntervals = recorded.pauseIntervals
+    )
+    TracksideActivityHeartRateZones(recorded, owner)
 }

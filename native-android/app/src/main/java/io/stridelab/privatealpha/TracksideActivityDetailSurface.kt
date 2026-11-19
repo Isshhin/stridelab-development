@@ -93,6 +93,7 @@ internal fun TracksideActivityDetailSurface(
         // viewport fraction. Otherwise the sheet has a large empty tail.
         // This also grows correctly for a two-line title or large fonts.
         val density = LocalDensity.current
+        val stationaryDetail = activityUsesStationaryDetail(activity)
         val uriHandler = LocalUriHandler.current
         var showMapCredits by remember(activity.id) { androidx.compose.runtime.mutableStateOf(false) }
         var previewHeightPx by remember(activity.id) { mutableIntStateOf(0) }
@@ -201,6 +202,23 @@ internal fun TracksideActivityDetailSurface(
             scope.launch { settleSheet(SheetValue.PartiallyExpanded) }
         }
 
+        if (stationaryDetail) {
+            val refreshSource: (() -> Unit)? = if (detailSource.source == "garmin") {
+                onLoadGarminGps
+            } else {
+                { actions.loadDetail(detailSource.id) }
+            }
+            TracksideStationaryActivityDetail(
+                activity = activity,
+                recorded = recorded,
+                owner = activityCorrectionOwner(activity.id, state),
+                onBack = onBack,
+                onShare = { shareOpen = true },
+                onEdit = onEdit,
+                onRefreshSource = refreshSource,
+                refreshEnabled = online && !state.busy && !state.needsSignIn
+            )
+        } else {
         BottomSheetScaffold(
             scaffoldState = scaffoldState,
             sheetPeekHeight = effectivePeekHeight,
@@ -358,12 +376,14 @@ internal fun TracksideActivityDetailSurface(
             )
         }
 
+        }
+
         // Single compact, clickable credit. Its Y position follows the sheet
         // anchor in the DRAW layer (no per-frame Compose remeasurement).
         // When fully hidden, it settles just above the narrow full-width grip.
         // The MapLibre-native watermark/attribution is disabled only because
         // this visible source-owned attribution remains accessible.
-        if (mapCreditVisible) {
+        if (!stationaryDetail && mapCreditVisible) {
             Text(
                 TracksideMapTiles.ATTRIBUTION,
                 modifier = Modifier.align(Alignment.TopStart)
@@ -389,7 +409,7 @@ internal fun TracksideActivityDetailSurface(
         // A thin, full-width sheet lip makes the hidden anchor look like the
         // SAME sheet at the bottom, rather than a floating black bubble.
         // The map remains freely pannable everywhere outside this 24dp strip.
-        if (showMapLip) {
+        if (!stationaryDetail && showMapLip) {
             val openSummary: () -> Unit = {
                 mapMode = TracksideActivityMapMode.ROUTE
                 scope.launch { settleSheet(SheetValue.PartiallyExpanded) }

@@ -477,15 +477,18 @@ private fun TimelinePromptCard(
 
 /** Recorded-only visual labels. Missing values remain absent, not estimated. */
 internal fun timelineRecordedMetrics(activity: ActivityRecord): Pair<String, String> {
-    val hasDistance = activity.distanceM?.let { it.isFinite() && it >= 0.0 } == true
-    val hasDuration = activity.durationS?.let { it.isFinite() && it >= 0.0 } == true
+    val hasDistance = activityHasDisplayDistance(activity)
+    val duration = activityDisplayDurationSeconds(activity)
+    val stationary = activityUsesStationaryDetail(activity)
     val primary = when {
+        stationary && duration != null -> ActivityRecord.duration(duration)
         hasDistance -> activity.distanceLabel
-        hasDuration -> activity.durationLabel
+        duration != null -> ActivityRecord.duration(duration)
+        stationary -> "Recorded workout"
         else -> "Completed activity"
     }
     val secondary = buildList {
-        if (hasDistance && hasDuration) add(activity.durationLabel)
+        if (hasDistance && duration != null) add(ActivityRecord.duration(duration))
         if (activity.supportsPace) {
             if (activity.recordedPace != null) add(activity.paceLabel)
             else if (activity.garminMovingPaceSPerKm != null) add(activity.detailPaceLabel)
@@ -526,8 +529,9 @@ private fun TimelineRecordedCard(
         else -> R.drawable.trackside_discipline_conditioning
     }
     val (primary, secondary) = timelineRecordedMetrics(activity)
-    val gps = remember(cachedDetail) {
-        cachedDetail?.let { RecordedGpsRoute.from(it.samples) }
+    val gps = remember(cachedDetail, activity.type) {
+        if (activityUsesStationaryDetail(activity)) null
+        else cachedDetail?.let { RecordedGpsRoute.from(it.samples) }
             ?.takeIf { it.pointCount >= 2 }
     }
     Surface(
