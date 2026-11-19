@@ -58,6 +58,7 @@ internal fun MoreFeatureScreen(
     title: String,
     onBack: () -> Unit,
     backTag: String,
+    backEnabled: Boolean = true,
     content: LazyListScope.() -> Unit
 ) {
     LazyColumn(
@@ -79,6 +80,7 @@ internal fun MoreFeatureScreen(
             ) {
                 TextButton(
                     onClick = onBack,
+                    enabled = backEnabled,
                     modifier = Modifier.size(48.dp).testTag(backTag),
                     contentPadding = PaddingValues(0.dp),
                     colors = ButtonDefaults.textButtonColors(contentColor = MoreFeatureColors.lime)
