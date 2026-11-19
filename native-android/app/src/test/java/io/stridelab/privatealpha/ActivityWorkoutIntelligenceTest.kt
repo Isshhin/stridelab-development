@@ -208,6 +208,41 @@ class ActivityWorkoutIntelligenceTest {
         assertTrue(assessed.adherence!!.evidence.any { it.contains("do not verify") })
     }
 
+    @Test fun matchingWorkRecoveryCountsDoNotHideWrongExecutionOrder() {
+        val a = activity()
+        val session = PlannedSession(
+            id = "planned-intervals", date = LocalDate.parse("2026-11-17"),
+            discipline = "run", title = "Intervals", minutes = 60, distanceKm = 5.0,
+            kind = "quality", quality = true, status = "completed",
+            linkedActivityId = a.id,
+            runningPrescription = RunningPrescription(
+                "QUALITY", "Intervals", listOf(
+                    RunningSegment("WARM_UP", 1000, "easy"),
+                    RunningSegment("WORK", 1000, "fast"),
+                    RunningSegment("RECOVERY", 500, "easy"),
+                    RunningSegment("WORK", 1000, "fast"),
+                    RunningSegment("COOL_DOWN", 1000, "easy")
+                )
+            )
+        )
+        val plan = PlanSnapshot("order-plan", "owner", ENGINE15_VERSION, ENGINE15_POLICY,
+            started, PlanRequest(policyChoice = "engine15"),
+            listOf(session), emptyList(), status = "approved")
+        val actual = ActivityDetail(a.id, emptyList(), listOf(
+            ActivityLap(0, 500.0, 150.0, 300.0, 130.0, workoutStepIndex = 1),
+            ActivityLap(1, 1000.0, 240.0, 240.0, 168.0, workoutStepIndex = 2),
+            ActivityLap(2, 1000.0, 245.0, 245.0, 167.0, workoutStepIndex = 2)
+        ), 0L, workoutSteps = listOf(
+            ActivityWorkoutStep(1, "Recovery", "RECOVERY", "TIME", null, null),
+            ActivityWorkoutStep(2, "Repeat", "ACTIVE", "DISTANCE", null, null)
+        ))
+        val assessment = ActivityWorkoutIntelligence.assess(
+            a, actual, listOf(plan), setOf(a.id), setOf("owner"))
+        assertEquals("STEP_ORDER_DIFFERS", assessment.adherence?.status)
+        assertEquals(2, assessment.adherence?.observedWorkLaps)
+        assertEquals(1, assessment.adherence?.observedRecoveryLaps)
+    }
+
     @Test fun activityCorrectionOwnerKeepsLocalGarminAndPlanScopesSeparate() {
         val local = TrainingState(
             account = "cloud-account", localGarminOwner = "garmin-owner",
