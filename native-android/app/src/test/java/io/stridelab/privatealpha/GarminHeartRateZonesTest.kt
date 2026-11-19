@@ -38,13 +38,14 @@ class GarminHeartRateZonesTest {
     }
 
     @Test fun malformedFloorsNeverBecomeEstimatedHeartRateZones() {
-        val invalid = GarminHeartRateZones.parse(
-            """[{"sport":"RUNNING","zone1Floor":90,"zone2Floor":130,
-                "zone3Floor":125,"zone4Floor":150,"zone5Floor":175},
-               {"sport":"RUNNING","zone1Floor":90,"zone2Floor":105,
-                "zone3Floor":125,"zone4Floor":150}]"""
-        )
-        assertNull(GarminHeartRateZones.forRunning(invalid))
+        assertFails<GarminProtocolException> {
+            GarminHeartRateZones.parse(
+                """[{"sport":"RUNNING","zone1Floor":90,"zone2Floor":130,
+                    "zone3Floor":125,"zone4Floor":150,"zone5Floor":175},
+                   {"sport":"DEFAULT","zone1Floor":90,"zone2Floor":105,
+                    "zone3Floor":125,"zone4Floor":150,"zone5Floor":175}]"""
+            )
+        }
         assertFails<GarminProtocolException> { GarminHeartRateZones.parse("{}") }
         assertFails<GarminProtocolException> { GarminHeartRateZones.parse("broken") }
     }
