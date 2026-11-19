@@ -1484,9 +1484,15 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, owner: Str
     val settings = remember(recorded.activityId, owner) {
         preferences.settings(owner)
     }
+    val zoneStore = remember(context) { GarminZonePreferenceStore(context) }
+    val selectedSource = remember(recorded.activityId, owner) { zoneStore.source(owner) }
+    val importedZones = remember(recorded.activityId, owner) { zoneStore.load(owner) }
+    val useGarmin = selectedSource == DisplayHeartRateZoneSource.GARMIN
     val sourceZones = recorded.sourceHeartRateZones
-    val zones = remember(recorded, settings) {
-        HeartRateZoneAnalysis.distribute(recorded.samples, settings)
+    val zones = remember(recorded, settings, selectedSource, importedZones) {
+        if (useGarmin) importedZones?.let {
+            HeartRateZoneAnalysis.distribute(recorded.samples, it.profile)
+        } else HeartRateZoneAnalysis.distribute(recorded.samples, settings)
     }
     val colors = listOf(
         Color(0xFF9FABBA), Color(0xFF79C9B3), activityLime,
@@ -1511,8 +1517,12 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, owner: Str
                         fontSize = 14.sp, fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        if (settings.ready)
-                            "Calculated from your saved athlete settings"
+                        if (useGarmin && importedZones != null)
+                            "Garmin Connect BPM floors · cached for offline display"
+                        else if (useGarmin)
+                            "Sync Garmin running zones in More > App preferences"
+                        else if (settings.ready)
+                            "Calculated from your saved manual athlete settings"
                         else
                             "Configure " + settings.method.displayName +
                                 " in More > App preferences",
@@ -1522,7 +1532,7 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, owner: Str
                 }
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    settings.method.displayName,
+                    if (useGarmin) "GARMIN" else settings.method.displayName,
                     color = activityLime, fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.testTag("activity-hr-zone-method")
@@ -1558,7 +1568,9 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, owner: Str
             Spacer(Modifier.height(11.dp))
             if (zones == null) {
                 Text(
-                    if (!settings.ready)
+                    if (useGarmin && importedZones == null)
+                        "Garmin running boundaries have not been synced. Select Manual zones or sync Garmin in App preferences."
+                    else if (!useGarmin && !settings.ready)
                         when (settings.method) {
                             HeartRateZoneMethod.MAX_BPM ->
                                 "Save your maximum heart rate to calculate zones."
@@ -1622,9 +1634,13 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, owner: Str
                 }
                 Spacer(Modifier.height(7.dp))
                 Text(
-                    HeartRateZoneAnalysis.methodSummary(settings) + ". " +
+                    (if (useGarmin)
+                        "Garmin Connect ${importedZones?.profile?.sport ?: "unavailable"} BPM zones. "
+                    else
+                        HeartRateZoneAnalysis.methodSummary(settings) +
+                            ". These are StrideLab estimates, not imported Garmin zones. ") +
                         "Percentage of classified recorded time, not total activity duration. " +
-                        "Gaps over 30 seconds are excluded; these are not imported Garmin zones.",
+                        "Gaps over 30 seconds are excluded.",
                     color = activityMuted, fontSize = 10.sp, lineHeight = 15.sp
                 )
             }
