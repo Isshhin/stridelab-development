@@ -212,7 +212,7 @@ class ActivityWorkoutIntelligenceTest {
         val a = activity()
         val session = PlannedSession(
             id = "planned-intervals", date = LocalDate.parse("2026-11-17"),
-            discipline = "run", title = "Intervals", minutes = 60, distanceKm = 5.0,
+            discipline = "run", title = "Intervals", minutes = 60, distanceKm = 4.5,
             kind = "quality", quality = true, status = "completed",
             linkedActivityId = a.id,
             runningPrescription = RunningPrescription(
