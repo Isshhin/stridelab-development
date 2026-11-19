@@ -244,6 +244,25 @@ class GarminPersonalSourceTest {
         assertFalse(malformedToken.heading().contains("activity",ignoreCase=true))
     }
 
+    @Test fun heartRateZonesAreReadWithOwnerScopedBearerAndNoCrossOwnerAccess() {
+        val store=Store()
+        store.save(GarminCredentialRecord("owner-a","key-a","bearer",now.plusSeconds(7200)))
+        val api=object:GarminApi {
+            override fun exchange(apiKey:String):GarminBearerToken =
+                throw AssertionError("Fresh bearer should not be required")
+            override fun activities(token:GarminBearerToken,start:Int,limit:Int) =
+                emptyList<GarminActivity>()
+            override fun heartRateZones(token:GarminBearerToken):List<GarminHeartRateZoneProfile> {
+                assertEquals("bearer",token.value)
+                return listOf(GarminHeartRateZoneProfile("RUNNING",
+                    listOf(110,130,145,165,180),"LTHR"))
+            }
+        }
+        val source=GarminPersonalSource("owner-a",store,api){now}
+        assertEquals(130,source.heartRateZones("owner-a").single().floorsBpm[1])
+        assertFails<IllegalArgumentException> { source.heartRateZones("owner-b") }
+    }
+
     private inline fun <reified T:Throwable> assertFails(block:()->Unit) {
         try { block() } catch(error:Throwable) { if(error is T)return;throw error }
         fail("Expected ${T::class.java.simpleName}")
