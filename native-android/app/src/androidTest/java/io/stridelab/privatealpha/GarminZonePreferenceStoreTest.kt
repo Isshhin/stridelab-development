@@ -16,7 +16,7 @@ class GarminZonePreferenceStoreTest {
         val store = GarminZonePreferenceStore(context)
         val owner = "garmin-zones-qa-" + UUID.randomUUID()
         val other = "garmin-zones-other-" + UUID.randomUUID()
-        manual.save(null, AthleteHeartRateZoneSettings(
+        manual.save(owner, AthleteHeartRateZoneSettings(
             maximumHr = 197, method = HeartRateZoneMethod.MAX_BPM))
         try {
             assertEquals(DisplayHeartRateZoneSource.MANUAL, store.source(owner))
@@ -32,15 +32,15 @@ class GarminZonePreferenceStoreTest {
             assertEquals(DisplayHeartRateZoneSource.GARMIN,
                 GarminZonePreferenceStore(context).source(owner))
             assertEquals(DisplayHeartRateZoneSource.MANUAL, store.source(other))
-            assertEquals(197, manual.settings(null).maximumHr)
+            assertEquals(197, manual.settings(owner).maximumHr)
 
             assertTrue(store.clearCache(owner))
             assertNull(store.load(owner))
             // Losing the Garmin cache does not modify the manual maximum.
-            assertEquals(197, manual.settings(null).maximumHr)
+            assertEquals(197, manual.settings(owner).maximumHr)
             assertTrue(store.select(owner, DisplayHeartRateZoneSource.MANUAL))
         } finally {
-            manual.clear(null)
+            manual.clear(owner)
             store.select(owner, DisplayHeartRateZoneSource.MANUAL)
             store.clearCache(owner)
         }
