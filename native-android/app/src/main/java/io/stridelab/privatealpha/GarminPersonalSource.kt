@@ -152,6 +152,12 @@ internal class GarminPersonalSource(
             "The older Garmin source ID was not found in recent Garmin history. Sync Garmin to refresh it.")
     }
 
+    /** Fetch actual zone floors using the existing owner-scoped bearer lifecycle. */
+    fun heartRateZones(owner: String): List<GarminHeartRateZoneProfile> {
+        require(owner == accountId) { "Garmin zone owner does not match" }
+        return withBearer(owner) { token -> api.heartRateZones(token) }
+    }
+
     /** A single owner's explicit activity detail fetch, never background bulk ingestion. */
     fun downloadFitForSource(accountId:String,externalId:String,numericHint:Long?=null):ByteArray {
         require(accountId==this.accountId)
