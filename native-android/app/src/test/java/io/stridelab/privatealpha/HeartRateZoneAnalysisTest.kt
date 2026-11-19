@@ -143,6 +143,27 @@ class HeartRateZoneAnalysisTest {
         )
     }
 
+    @Test fun garminZoneFloorsAreUsedWithoutCalculatingFromMaximumHeartRate() {
+        val profile = GarminHeartRateZoneProfile("RUNNING",
+            listOf(105, 132, 145, 168, 182))
+        val samples = listOf(
+            sample(0, 0.0, 120.0),
+            sample(1, 10.0, 135.0),
+            sample(2, 20.0, 150.0),
+            sample(3, 30.0, 175.0),
+            sample(4, 40.0, 188.0),
+            sample(5, 50.0, 190.0))
+        val result = HeartRateZoneAnalysis.distribute(samples, profile)!!
+        assertEquals(132, result.buckets[1].lowerBpm)
+        assertEquals(144, result.buckets[1].upperBpm)
+        assertEquals(168, result.buckets[3].lowerBpm)
+        assertEquals(182, result.buckets[4].lowerBpm)
+        assertEquals(10.0, result.buckets[0].seconds, 0.001)
+        assertTrue(HeartRateZoneAnalysis.presentation(result).evidence.any {
+            it.contains("Actual imported boundaries")
+        })
+    }
+
     @Test fun zoneAnalysisExplicitlyQualifiesEstimatedSourceAndMethod() {
         val samples = listOf(
             sample(0, 0.0, 130.0),
