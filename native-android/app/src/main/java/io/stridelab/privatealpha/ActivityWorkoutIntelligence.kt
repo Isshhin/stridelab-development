@@ -1,6 +1,8 @@
 package io.stridelab.privatealpha
 
 import org.json.JSONObject
+import java.time.Duration
+import kotlin.math.abs
 
 internal enum class ActivityWorkoutKind(val label: String) {
     EASY_RUN("Easy Run"),
@@ -27,45 +29,50 @@ internal enum class ActivityQualitySubtype(val label: String) {
     }
 }
 
+internal enum class ActivityWorkoutConfidence { HIGH, MODERATE, INSUFFICIENT }
+
 internal data class ActivityWorkoutEvidence(
     val kind: ActivityWorkoutKind,
     val qualitySubtype: ActivityQualitySubtype? = null,
-    val evidence: List<String>
+    val evidence: List<String>,
+    val confidence: ActivityWorkoutConfidence = ActivityWorkoutConfidence.INSUFFICIENT
+)
+internal data class ActivityWorkoutAdherence(
+    val status: String,
+    val evidence: List<String>,
+    val observedWorkLaps: Int,
+    val observedRecoveryLaps: Int
 )
 
 internal data class ActivityWorkoutAssessment(
     val detected: ActivityWorkoutEvidence,
     val intended: ActivityWorkoutEvidence? = null,
     val intentWarning: String? = null,
-    val linkedSession: PlannedSession? = null
+    val linkedSession: PlannedSession? = null,
+    val adherence: ActivityWorkoutAdherence? = null
 )
 
-/** Current FIT/Garmin detail has unlabelled laps, so it can establish intent but not performed steps. */
+
+/**
+ * Report source-observed execution separately from linked plan intention.
+ * An unexecuted FIT WorkoutStep list or a session title never proves performance.
+ */
 internal object ActivityWorkoutIntelligence {
     fun assess(
         activity: ActivityRecord,
         recorded: ActivityDetail?,
         plans: List<PlanSnapshot>,
         matchedSourceIds: Set<String>,
-        allowedPlanOwners: Set<String>
+        allowedPlanOwners: Set<String>,
+        history: List<ActivityRecord> = emptyList(),
+        zoneDistribution: HeartRateZoneDistribution? = null
     ): ActivityWorkoutAssessment {
-        val isRun = DashboardSummary.isRun(activity)
-        val detected = ActivityWorkoutEvidence(
-            ActivityWorkoutKind.UNKNOWN,
-            evidence = listOf(
-                when {
-                    !isRun -> "Workout classification is supported only for running activities."
-                    recorded == null -> "Saved workout-step detail is unavailable for this activity."
-                    recorded.laps.isEmpty() -> "Recorded samples do not identify performed workout steps."
-                    else -> "Recorded laps contain no WORK/RECOVERY step labels, so workout purpose cannot be verified."
-                }
-            )
-        )
-        if (!isRun || matchedSourceIds.isEmpty()) return ActivityWorkoutAssessment(detected)
+        val detected = detect(activity, recorded, history, zoneDistribution)
+        if (!DashboardSummary.isRun(activity) || matchedSourceIds.isEmpty())
+            return ActivityWorkoutAssessment(detected)
 
         val links = completedRunLinks(plans, allowedPlanOwners)
-            .filter { it.second.linkedActivityId in matchedSourceIds }
-            .take(2)
+            .filter { it.second.linkedActivityId in matchedSourceIds }.take(2)
         if (links.size > 1) {
             return ActivityWorkoutAssessment(detected, intentWarning =
                 "More than one completed plan session links to this activity; planned intent is ambiguous.")
@@ -74,7 +81,7 @@ internal object ActivityWorkoutIntelligence {
         val prescription = session.runningPrescription
         val kind = when (prescription?.role) {
             "RECOVERY" -> ActivityWorkoutKind.RECOVERY_RUN
-            "EASY" -> ActivityWorkoutKind.EASY_RUN
+            "EASY", "ENDURANCE" -> ActivityWorkoutKind.EASY_RUN
             "LONG" -> ActivityWorkoutKind.LONG_RUN
             "QUALITY" -> ActivityWorkoutKind.QUALITY_RUN
             else -> when (session.kind.lowercase()) {
@@ -95,9 +102,205 @@ internal object ActivityWorkoutIntelligence {
             detected,
             intended = ActivityWorkoutEvidence(
                 kind, subtype,
-                listOf("The linked plan records this as intended ${subtype?.label ?: kind.label}. This does not confirm which steps were performed.")
+                listOf("The linked plan records this as intended " +
+                    (subtype?.label ?: kind.label) +
+                    ". This does not confirm which steps were performed.")
             ),
-            linkedSession = session
+            linkedSession = session,
+            adherence = adherence(activity, recorded, session)
+        )
+    }
+
+    private fun unknown(reason: String) = ActivityWorkoutEvidence(
+        ActivityWorkoutKind.UNKNOWN, evidence = listOf(reason))
+
+    fun detect(
+        activity: ActivityRecord,
+        recorded: ActivityDetail?,
+        history: List<ActivityRecord> = emptyList(),
+        zones: HeartRateZoneDistribution? = null
+    ): ActivityWorkoutEvidence {
+        if (!DashboardSummary.isRun(activity))
+            return unknown("Workout classification is supported only for running activities.")
+        if (recorded == null) return unknown("Saved workout-step detail is unavailable for this activity.")
+
+        // WORKOUT_STEP describes a proposed structure. Only lap references
+        // associated with the recorded activity establish execution.
+        val byStep = recorded.workoutSteps.associateBy { it.index }
+        val executed = recorded.laps.mapNotNull { lap ->
+            val step = lap.workoutStepIndex?.let(byStep::get)
+            if (step == null || lap.seconds == null || lap.seconds < 10.0) null
+            else lap to step
+        }
+        val work = executed.filter { (_, step) -> step.role == "WORK" }
+        val recovery = executed.filter { (_, step) -> step.role == "RECOVERY" }
+        if (work.isNotEmpty()) {
+            val names = work.mapNotNull { (_, step) -> step.name?.lowercase() }
+            val hinted = ActivityQualitySubtype.entries.filter { family ->
+                names.any { name ->
+                    when (family) {
+                        ActivityQualitySubtype.INTERVALS -> "interval" in name || "repeat" in name
+                        ActivityQualitySubtype.THRESHOLD -> "threshold" in name || "lthr" in name
+                        ActivityQualitySubtype.TEMPO -> "tempo" in name
+                        ActivityQualitySubtype.FARTLEK -> "fartlek" in name
+                        ActivityQualitySubtype.PROGRESSION -> "progression" in name
+                        ActivityQualitySubtype.HILLS -> "hill" in name
+                        ActivityQualitySubtype.STRIDES -> "stride" in name
+                    }
+                }
+            }
+            val workSeconds = work.sumOf { it.first.seconds ?: 0.0 }
+            if (hinted.size == 1 && workSeconds >= 120.0) {
+                return ActivityWorkoutEvidence(ActivityWorkoutKind.QUALITY_RUN, hinted.single(),
+                    listOf(
+                        "Recorded FIT laps reference " + work.size +
+                            " executed work step(s) for a named " + hinted.single().label + " workout.",
+                        "Verified work-lap duration: " +
+                            ActivityRecord.duration(workSeconds) +
+                            "; recorded recovery laps: " + recovery.size + "."
+                    ), ActivityWorkoutConfidence.HIGH)
+            }
+            if (work.size >= 3 && recovery.size >= 2 && workSeconds >= 180.0) {
+                return ActivityWorkoutEvidence(ActivityWorkoutKind.QUALITY_RUN,
+                    ActivityQualitySubtype.INTERVALS, listOf(
+                        "FIT lap indices match " + work.size +
+                            " recorded active steps and " + recovery.size + " recovery steps.",
+                        "The executed structure is repeated work and recovery; no specific pace target is inferred."
+                    ), ActivityWorkoutConfidence.HIGH)
+            }
+            if (hinted.size > 1)
+                return unknown("Multiple workout families appear in executed FIT steps. The performed type is ambiguous.")
+            return unknown("FIT work steps were recorded, but their purpose cannot be distinguished safely.")
+        }
+
+        // A workout definition on its own is NOT evidence of execution.
+        // When the FIT has labelled laps with no work, recovery-only sessions
+        // need an explicit executed Recovery Run label.
+        if (executed.isNotEmpty() && executed.all { (_, step) ->
+                step.role == "RECOVERY" || step.role == "WARM_UP" ||
+                    step.role == "COOL_DOWN"
+            } && executed.any { (_, step) ->
+                step.name?.contains("recovery run", ignoreCase = true) == true
+            }) {
+            return ActivityWorkoutEvidence(ActivityWorkoutKind.RECOVERY_RUN,
+                evidence = listOf("Recorded FIT laps reference a named Recovery Run step."),
+                confidence = ActivityWorkoutConfidence.HIGH)
+        }
+
+        // Unlabelled auto-laps: require repeatable measured fast/slow cycles,
+        // not merely variable pace, stopping, GPS pauses or activity title.
+        val laps = recorded.laps.filter {
+            it.seconds != null && it.seconds in 30.0..1200.0 &&
+                it.pace != null && it.pace in 120.0..900.0 &&
+                it.distance != null && it.distance > 70.0
+        }
+        if (laps.size >= 6 && recorded.pauseIntervals.isEmpty()) {
+            val alternating = laps.take(6).chunked(2)
+            if (alternating.size == 3 && alternating.all { pair ->
+                    pair.size == 2 && pair[0].pace!! * 1.18 <= pair[1].pace!!
+                }) {
+                return ActivityWorkoutEvidence(ActivityWorkoutKind.QUALITY_RUN,
+                    ActivityQualitySubtype.INTERVALS, listOf(
+                        "At least three recorded fast/slow lap pairs show distinct effort and recovery pacing.",
+                        "FIT WORK/RECOVERY labels are unavailable; classification is based on repeated measured lap patterns."
+                    ), ActivityWorkoutConfidence.MODERATE)
+            }
+        }
+
+        // Sustained progression uses consecutive source laps, not title hints.
+        val kmLaps = recorded.laps.filter {
+            it.distance != null && it.distance in 800.0..1200.0 &&
+                it.pace != null && it.pace in 120.0..900.0
+        }
+        if (kmLaps.size >= 5 && recorded.pauseIntervals.isEmpty()) {
+            val paces = kmLaps.map { it.pace!! }
+            val faster = paces.zipWithNext().count { (a, b) -> b < a * .995 }
+            if (faster >= paces.size - 2 && paces.last() < paces.first() * .92) {
+                return ActivityWorkoutEvidence(ActivityWorkoutKind.QUALITY_RUN,
+                    ActivityQualitySubtype.PROGRESSION, listOf(
+                        "Recorded kilometre splits show sustained faster pacing from early to late laps.",
+                        "This is a measured progression pattern, not proof of a prescribed intensity target."
+                    ), ActivityWorkoutConfidence.MODERATE)
+            }
+        }
+
+        val duration = activity.movingTimeS ?: activity.durationS
+        val lowerZoneSeconds = zones?.buckets?.take(2)?.sumOf { it.seconds } ?: 0.0
+        val zoneSeconds = zones?.classifiedSeconds ?: 0.0
+        val aerobic = duration != null && duration > 0 &&
+            zoneSeconds >= duration * .55 && lowerZoneSeconds >= zoneSeconds * .85
+        val recent = history.filter {
+            it.id != activity.id && it.source == activity.source &&
+                DashboardSummary.isRun(it) && it.startedAt < activity.startedAt &&
+                Duration.between(it.startedAt, activity.startedAt).toDays() <= 90 &&
+                it.distanceM != null && it.distanceM > 1000.0
+        }.take(20)
+        if (aerobic && recent.size >= 6 && activity.distanceM != null &&
+            duration != null && duration >= 75 * 60) {
+            val distances = recent.mapNotNull { it.distanceM }.sorted()
+            val median = distances[distances.size / 2]
+            if (activity.distanceM >= median * 1.5) {
+                return ActivityWorkoutEvidence(ActivityWorkoutKind.LONG_RUN,
+                    evidence = listOf(
+                        "A sustained aerobic recording was at least 50% longer than median recent distance.",
+                        "Comparison uses " + recent.size +
+                            " earlier same-source running records; conditions and history completeness may differ."
+                    ), confidence = ActivityWorkoutConfidence.MODERATE)
+            }
+        }
+        if (aerobic && duration != null && duration >= 20 * 60) {
+            return ActivityWorkoutEvidence(ActivityWorkoutKind.EASY_RUN,
+                evidence = listOf(
+                    "At least 85% of classified HR recording time was in the selected first two zones.",
+                    "Measured time covered at least 55% of moving duration. Easy describes observed intensity, not a Garmin workout label."
+                ), confidence = ActivityWorkoutConfidence.MODERATE)
+        }
+
+        return unknown(
+            if (recorded.workoutSteps.isNotEmpty())
+                "FIT workout definitions exist but no reliable executed WORK/RECOVERY labels or sufficient intensity evidence were found."
+            else "Recorded laps contain no WORK/RECOVERY step labels, so workout purpose cannot be verified."
+        )
+    }
+
+    private fun adherence(
+        activity: ActivityRecord,
+        recorded: ActivityDetail?,
+        session: PlannedSession
+    ): ActivityWorkoutAdherence {
+        val prescription = session.runningPrescription
+        val steps = prescription?.mixedSegments?.map { it.purpose } ?:
+            prescription?.segments?.map { it.purpose }.orEmpty()
+        val expectedWork = steps.count { it == "WORK" }
+        val expectedRecovery = steps.count { it == "RECOVERY" }
+        val observed = recorded?.laps.orEmpty().mapNotNull { lap ->
+            if (lap.seconds == null || lap.seconds <= 0) null
+            else recorded?.workoutSteps?.firstOrNull { it.index == lap.workoutStepIndex }
+        }
+        val actualWork = observed.count { it.role == "WORK" }
+        val actualRecovery = observed.count { it.role == "RECOVERY" }
+        val summary = buildList {
+            add("Planned " + (session.distanceKm?.let {
+                String.format(java.util.Locale.ROOT, "%.2f km", it)
+            } ?: "distance unavailable") +
+                "; recorded " + activity.distanceLabel + ".")
+            add("Planned " + session.effectiveMinutes + " min; recorded elapsed " +
+                activity.durationLabel + ". Elapsed and moving time are different.")
+        }
+        if (prescription == null || steps.isEmpty() || observed.isEmpty()) {
+            return ActivityWorkoutAdherence("SUMMARY_ONLY", summary +
+                "No matched source-labelled work/recovery laps; planned intensity and steps cannot be verified.",
+                actualWork, actualRecovery)
+        }
+        val exact = expectedWork == actualWork && expectedRecovery == actualRecovery
+        return ActivityWorkoutAdherence(
+            if (exact) "STEP_COUNTS_MATCH" else "STEP_COUNTS_DIFFER",
+            summary + listOf(
+                "Planned " + expectedWork + " work / " + expectedRecovery +
+                    " recovery step(s); observed FIT laps " + actualWork +
+                    " work / " + actualRecovery + " recovery step(s).",
+                "Step counts are evidence only; matching counts do not verify prescribed pace, HR, distance or duration."
+            ), actualWork, actualRecovery
         )
     }
 
@@ -108,7 +311,8 @@ internal object ActivityWorkoutIntelligence {
         .filter { it.owner in allowedOwners && it.status in setOf("approved", "paused") &&
             Engine1Engines.supports(it.engineVersion, it.policyId) }
         .flatMap { plan -> plan.sessions.asSequence()
-            .filter { it.discipline == "run" && it.status == "completed" && it.linkedActivityId != null }
+            .filter { it.discipline == "run" && it.status == "completed" &&
+                it.linkedActivityId != null }
             .map { plan to it }
         }.toList()
 }
