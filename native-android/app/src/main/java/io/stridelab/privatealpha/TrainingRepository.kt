@@ -851,6 +851,18 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             val account=source.accountId
             if(account!=localGarminOwner && account!=mutable.value.account)
                 throw GarminAuthenticationException("Garmin connection does not belong to this local profile")
+            // Zone refresh is independent from activity import and manual zone settings.
+            // A failed request retains cached BPM floors and cannot fail the run sync.
+            val zoneStore=GarminZonePreferenceStore(appContext)
+            val lastZoneSync=zoneStore.load(account)?.syncedAtMillis ?: 0L
+            val now=System.currentTimeMillis()
+            if(now-lastZoneSync>=24L*60*60*1000) {
+                runCatching {
+                    GarminHeartRateZones.forRunning(source.heartRateZones(account))?.let {
+                        zoneStore.save(account,it,now)
+                    }
+                }
+            }
             var cursor:String?=null
             var pages=0
             var imported=0
@@ -1145,7 +1157,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             }
         } else null
         if(previous != null && (!upgradeCadence ||
-            previous.samples.any { it.cadenceSpm != null })) {
+            (previous.samples.any { it.cadenceSpm != null } &&
+                previous.workoutSteps.isNotEmpty()))) {
             mutable.value = mutable.value.copy(
                 details = mutable.value.details + (id to previous))
             return previous
@@ -1189,8 +1202,9 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             throw GarminProtocolException("Garmin recording samples failed validation")
         }
         val storedPayload = if (savedPayload != null) {
-            // Only cadence may be added to an existing cache. If the FIT
-            // sample identity or timestamps differ, keep the original intact.
+            // Cadence or actual FIT workout-step evidence may be added to an existing
+            // cache, but only when its sample/lap identity matches exactly.
+            // Previously imported GPS, pace, HR and source summaries remain untouched.
             val oldRaw = JSONObject(savedPayload)
             val merged = try {
                 GarminGpsDetail.mergeRecordedCadence(oldRaw, raw, account, id)
