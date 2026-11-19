@@ -77,7 +77,8 @@ class MoreSubpageUiParityTest {
             }
         }
         compose.onNodeWithTag("screen")
-            .performScrollToNode(hasTestTag("archive-intro"))
+            .performScrollToNode(androidx.compose.ui.test.hasText(
+                "ZIP files are NOT encrypted", substring = true))
         compose.onNodeWithText("ZIP files are NOT encrypted", substring = true).assertExists()
         compose.onNodeWithTag("screen")
             .performScrollToNode(hasTestTag("archive-local-garmin"))
