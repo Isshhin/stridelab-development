@@ -203,13 +203,20 @@ internal fun TracksideActivityDetailSurface(
         }
 
         if (stationaryDetail) {
+            val refreshSource: (() -> Unit)? = if (detailSource.source == "garmin") {
+                onLoadGarminGps
+            } else {
+                { actions.loadDetail(detailSource.id) }
+            }
             TracksideStationaryActivityDetail(
                 activity = activity,
                 recorded = recorded,
                 owner = activityCorrectionOwner(activity.id, state),
                 onBack = onBack,
                 onShare = { shareOpen = true },
-                onEdit = onEdit
+                onEdit = onEdit,
+                onRefreshSource = refreshSource,
+                refreshEnabled = online && !state.busy && !state.needsSignIn
             )
         } else {
         BottomSheetScaffold(
