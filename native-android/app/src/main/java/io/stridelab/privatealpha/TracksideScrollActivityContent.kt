@@ -641,9 +641,6 @@ private fun TracksideActivityAnalysisBody(
     actions: NativeActions,
     matchedSourceIds: Set<String>
 ) {
-    val insight = remember(activity, recorded, history) {
-        ActivityIntelligence.presentation(activity, recorded, history)
-    }
     val character = remember(activity, recorded) {
         ActivityIntelligence.workoutCharacter(activity, recorded)
     }
@@ -677,6 +674,12 @@ private fun TracksideActivityAnalysisBody(
             listOfNotNull(state.account, state.localPlanOwner).toSet(),
             history, recordedZones
         )
+    }
+    val insight = remember(activity, recorded, history) {
+        ActivityIntelligence.presentation(activity, recorded, history)
+    }
+    val coachNote = remember(activity, recorded, history, workoutAssessment) {
+        runCoachNote(activity, recorded, history, workoutAssessment)
     }
     val effort = remember(activity, recorded, history, state.plans, matchedSourceIds,
         heartRateSettings, correctionOwner) {
@@ -713,12 +716,12 @@ private fun TracksideActivityAnalysisBody(
             return@Column
         }
         Text(
-            "YOUR RUN, EXPLAINED",
+            "COACH’S NOTES",
             color = activityLime, fontSize = 10.sp, fontWeight = FontWeight.SemiBold
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            insight?.headline ?: "A record of your run.",
+            coachNote.headline,
             color = activityText, fontSize = 23.sp, lineHeight = 29.sp,
             fontFamily = FontFamily.Serif, fontWeight = FontWeight.SemiBold,
             modifier = Modifier.fillMaxWidth().testTag("activity-analysis-headline")
@@ -726,10 +729,34 @@ private fun TracksideActivityAnalysisBody(
         )
         Spacer(Modifier.height(9.dp))
         Text(
-            insight?.summary ?: "There isn't enough recorded information for a meaningful comparison yet.",
+            coachNote.observation,
             color = Color(0xFFCBD7CF), fontSize = 13.sp, lineHeight = 20.sp,
             modifier = Modifier.testTag("activity-analysis-explained")
         )
+        coachNote.dayContext?.let {
+            Text(it, color = activityMuted, fontSize = 13.sp,
+                modifier = Modifier.padding(top = 8.dp).testTag("activity-analysis-day-context"))
+        }
+        Spacer(Modifier.height(20.dp))
+        val focusShape = RoundedCornerShape(14.dp)
+        Column(
+            Modifier.fillMaxWidth()
+                .background(Color(0xFF181C12), focusShape)
+                .border(1.dp, Color(0xFF444329), focusShape)
+                .testTag("activity-analysis-focus")
+                .padding(horizontal = 15.dp, vertical = 14.dp)
+        ) {
+            Text(
+                "FOCUS FOR YOUR NEXT RUN",
+                color = activityLime, fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(7.dp))
+            Text(
+                coachNote.nextFocus,
+                color = activityText, fontSize = 13.sp, lineHeight = 19.sp
+            )
+        }
         Spacer(Modifier.height(12.dp))
         ActivityWorkoutClassificationCard(
             assessment = workoutAssessment,
@@ -750,26 +777,6 @@ private fun TracksideActivityAnalysisBody(
             ActivityWorkoutComparisonCard(activity, workoutAssessment.linkedSession, adherence)
         }
         ActivityRecordedWorkoutTimeline(recorded)
-        Spacer(Modifier.height(20.dp))
-        val focusShape = RoundedCornerShape(14.dp)
-        Column(
-            Modifier.fillMaxWidth()
-                .background(Color(0xFF181C12), focusShape)
-                .border(1.dp, Color(0xFF444329), focusShape)
-                .testTag("activity-analysis-focus")
-                .padding(horizontal = 15.dp, vertical = 14.dp)
-        ) {
-            Text(
-                "FOCUS FOR YOUR NEXT RUN",
-                color = activityLime, fontSize = 10.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(Modifier.height(7.dp))
-            Text(
-                "Use your next planned session and how you feel to guide effort. One recorded run alone can't establish fitness, fatigue or recovery.",
-                color = activityText, fontSize = 13.sp, lineHeight = 19.sp
-            )
-        }
         ActivityAnalysisSection("How It Went", "activity-analysis-how-it-went") {
             if (character != null) {
                 Text(character, color = activityText, fontSize = 13.sp, lineHeight = 19.sp,
