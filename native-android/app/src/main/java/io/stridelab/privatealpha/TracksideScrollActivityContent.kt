@@ -1894,3 +1894,20 @@ private fun TracksideActivitySourceChart(
         }
     }
 }
+
+/** Existing source-only heart rate chart reused by stationary activity details. */
+@Composable
+internal fun TracksideStationaryHeartRateCharts(
+    recorded: ActivityDetail,
+    owner: String?
+) {
+    val count = remember(recorded) {
+        recorded.samples.count { it.hr?.isFinite() == true && it.hr > 0.0 }
+    }
+    if (count < 2) return
+    TracksideActivitySourceChart(
+        "Heart rate", "bpm", recorded.samples, { it.hr },
+        pauseIntervals = recorded.pauseIntervals
+    )
+    TracksideActivityHeartRateZones(recorded, owner)
+}
