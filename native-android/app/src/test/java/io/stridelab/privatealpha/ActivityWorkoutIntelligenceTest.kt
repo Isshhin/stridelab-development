@@ -142,6 +142,41 @@ class ActivityWorkoutIntelligenceTest {
         assertEquals(ActivityWorkoutConfidence.MODERATE, detected.confidence)
     }
 
+    @Test fun unlabeledActiveFitStepDoesNotBlockMeasuredEasyRunDetection() {
+        val a = activity()
+        val samples = (0..260).map { i ->
+            ActivitySample(i, i * 10.0, 390.0, 135.0,
+                null, null, null)
+        }
+        val profile = GarminHeartRateZoneProfile("RUNNING",
+            listOf(100, 125, 145, 165, 180))
+        val zoneDistribution = HeartRateZoneAnalysis.distribute(samples, profile)!!
+        val detail = ActivityDetail(a.id, samples,
+            listOf(ActivityLap(0, 5000.0, 2600.0, 390.0, 135.0,
+                workoutStepIndex = 0)), 0L,
+            workoutSteps = listOf(ActivityWorkoutStep(0, null, "ACTIVE",
+                "TIME", 2600000L, null)))
+        val result = ActivityWorkoutIntelligence.detect(a, detail,
+            zones = zoneDistribution)
+        assertEquals(ActivityWorkoutKind.EASY_RUN, result.kind)
+        assertEquals(ActivityWorkoutConfidence.MODERATE, result.confidence)
+    }
+
+    @Test fun intervalRepeatsAfterTwoWarmupLapsStillCountAsMeasuredCycles() {
+        val a = activity()
+        val laps = listOf(
+            ActivityLap(0, 1000.0, 380.0, 380.0, 125.0),
+            ActivityLap(1, 1000.0, 380.0, 380.0, 135.0)
+        ) + (0 until 6).map { i ->
+            ActivityLap(i + 2, 400.0,
+                if (i % 2 == 0) 110.0 else 170.0,
+                if (i % 2 == 0) 275.0 else 425.0, null)
+        }
+        val result = ActivityWorkoutIntelligence.detect(a,
+            ActivityDetail(a.id, emptyList(), laps, 0L))
+        assertEquals(ActivityQualitySubtype.INTERVALS, result.qualitySubtype)
+    }
+
     @Test fun linkedPlannedStepsAreComparedWithoutClaimingIntensityAdherence() {
         val a = activity()
         val session = PlannedSession(
