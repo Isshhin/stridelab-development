@@ -9,7 +9,8 @@ import kotlin.math.max
 /** Verified FIT records become an ActivityDetail for the existing Garmin summary ID. */
 internal object GarminGpsDetail {
     fun payload(account:String,summary:ActivityRecord,fit:FitActivityDecoder.Activity,
-                fetchedAt:Long):JSONObject {
+                fetchedAt:Long,
+                workoutReferences: List<GarminActivityWorkoutReference> = emptyList()):JSONObject {
         require(summary.source=="garmin")
         require(fit.identity.accountId==account)
         require(DashboardSummary.isRun(summary) &&
@@ -101,6 +102,20 @@ internal object GarminGpsDetail {
                 .put("duration_value",step.durationValue ?: JSONObject.NULL)
                 .put("target_type",step.targetType ?: JSONObject.NULL))
         }
+        val sourceWorkouts=JSONArray()
+        workoutReferences.forEach { workout ->
+            val workoutJson=JSONObject()
+                .put("workoutName",workout.name ?: JSONObject.NULL)
+            val sourceSteps=JSONArray()
+            workout.steps.forEach { step ->
+                sourceSteps.put(JSONObject()
+                    .put("stepOrder", step.order ?: JSONObject.NULL)
+                    .put("stepName", step.name ?: JSONObject.NULL)
+                    .put("intensity", step.intensity ?: JSONObject.NULL))
+            }
+            workoutJson.put("steps",sourceSteps)
+            sourceWorkouts.put(workoutJson)
+        }
         val raw=JSONObject()
             .put("user_id",account)
             .put("activity_id",summary.id)
@@ -108,6 +123,7 @@ internal object GarminGpsDetail {
             .put("samples",samples)
             .put("laps",laps)
             .put("workout_steps",steps)
+            .put("garmin_workouts",sourceWorkouts)
             .put("pause_intervals", pauseIntervals)
         if (sourceZones != null) raw.put("source_hr_zones", sourceZones)
         val validated=ActivityDetail.parse(raw,account,summary.id)
@@ -144,10 +160,12 @@ internal object GarminGpsDetail {
         val hasCadence=latest.samples.any { it.cadenceSpm != null &&
             old.samples.getOrNull(it.index)?.cadenceSpm == null }
         val hasSteps=latest.workoutSteps.isNotEmpty() && old.workoutSteps.isEmpty()
+        val hasSourceWorkouts=latest.sourceWorkoutReferences.isNotEmpty() &&
+            old.sourceWorkoutReferences.isEmpty()
         val hasLapStepIndices=latest.laps.zip(old.laps).any { (new,previous) ->
             new.workoutStepIndex != null && previous.workoutStepIndex == null
         }
-        if (!hasCadence && !hasSteps && !hasLapStepIndices) return null
+        if (!hasCadence && !hasSteps && !hasLapStepIndices && !hasSourceWorkouts) return null
         val merged = JSONObject(existing.toString())
         val rows = merged.getJSONArray("samples")
         latest.samples.forEachIndexed { i, sample ->
@@ -156,6 +174,8 @@ internal object GarminGpsDetail {
                 rows.getJSONObject(i).put("cadence_spm", cadence)
         }
         if (hasSteps) merged.put("workout_steps", refreshed.getJSONArray("workout_steps"))
+        if (hasSourceWorkouts)
+            merged.put("garmin_workouts", refreshed.getJSONArray("garmin_workouts"))
         if (hasLapStepIndices) {
             val oldLaps = merged.getJSONArray("laps")
             latest.laps.forEachIndexed { i, lap ->
