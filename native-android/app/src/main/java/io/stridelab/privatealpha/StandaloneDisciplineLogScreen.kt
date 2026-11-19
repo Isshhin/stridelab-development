@@ -5,6 +5,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -144,31 +145,27 @@ internal fun StandaloneDisciplineLogScreen(owner: String, onBack: () -> Unit) {
         }
     }
 
-    Screen("Activity logging", "OFFLINE · MANUAL", compactTitle = true) {
-        item(key = "manual-back") {
-            TextButton(onClick = onBack, modifier = Modifier.testTag("manual-log-back")) {
-                Text("← Back to More")
-            }
-        }
+    MoreFeatureScreen("Activity logging", onBack, "manual-log-back", backEnabled = !busy) {
         item(key = "manual-intro") {
-            SignalCard {
-                Text("Record your workout", style = MaterialTheme.typography.titleLarge)
+            MoreFeatureCard {
+                MoreFeatureEyebrow("OFFLINE · MANUAL")
+                Text("Record your workout", style = MaterialTheme.typography.titleLarge,
+                    color = MoreFeatureColors.text)
                 Text("Log completed strength, calisthenics or conditioning sessions. " +
                     "Manual entries stay separate from Garmin recordings and generated plans. " +
                     "No sign-in or internet is required.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    color = MoreFeatureColors.muted)
             }
         }
         item(key = "manual-templates") {
-            SignalCard {
-                Text("REUSABLE WORKOUT TEMPLATES", style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary)
+            MoreFeatureCard {
+                MoreFeatureEyebrow("REUSABLE WORKOUT TEMPLATES")
                 Text("Templates reuse exercise details without automatically recording a workout.",
                     style = MaterialTheme.typography.bodySmall)
                 if(templates.isEmpty()) Text("No saved templates yet.")
                 templates.forEach { form ->
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    MoreFeatureDivider()
                     Text("${form.name} · ${form.discipline.label}",
                         style = MaterialTheme.typography.titleMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -197,27 +194,31 @@ internal fun StandaloneDisciplineLogScreen(owner: String, onBack: () -> Unit) {
             }
         }
         item(key = "manual-editor") {
-            SignalCard {
-                Text("DISCIPLINE", style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary)
+            MoreFeatureCard {
+                MoreFeatureEyebrow("DISCIPLINE")
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ManualDiscipline.entries.forEach { option ->
-                        FilterChip(
+                        MoreFeatureChip(
+                            text = option.label,
                             selected = discipline == option,
                             onClick = { discipline = option },
-                            label = { Text(option.label) },
+                            enabled = !busy,
                             modifier = Modifier.testTag("manual-discipline-" + option.name.lowercase())
                         )
                     }
                 }
                 OutlinedTextField(
+                    colors = moreFeatureInputColors(),
+                    shape = RoundedCornerShape(14.dp),
                     value = name, onValueChange = { if(it.length <= 100) name = it },
                     label = { Text("Session name") },
                     placeholder = { Text("Evening strength session") },
                     modifier = Modifier.fillMaxWidth().testTag("manual-title")
                 )
                 OutlinedTextField(
+                    colors = moreFeatureInputColors(),
+                    shape = RoundedCornerShape(14.dp),
                     value = performedOn,
                     onValueChange = { if(it.length <= 10) performedOn = it },
                     label = { Text("Performed on (YYYY-MM-DD)") },
@@ -225,33 +226,43 @@ internal fun StandaloneDisciplineLogScreen(owner: String, onBack: () -> Unit) {
                     modifier = Modifier.fillMaxWidth().testTag("manual-date")
                 )
                 drafts.forEachIndexed { index, row ->
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    MoreFeatureDivider()
                     Text("Exercise ${index + 1}", fontWeight = FontWeight.SemiBold,
                         style = MaterialTheme.typography.titleMedium)
                     fun edit(next: ManualEntryDraft) {
                         drafts = drafts.toMutableList().also { it[index] = next }
                     }
                     OutlinedTextField(
+                    colors = moreFeatureInputColors(),
+                    shape = RoundedCornerShape(14.dp),
                         value = row.name, onValueChange = { if(it.length <= 100) edit(row.copy(name = it)) },
                         label = { Text("Exercise name") },
                         modifier = Modifier.fillMaxWidth().testTag("manual-exercise-name-$index")
                     )
                     OutlinedTextField(
+                    colors = moreFeatureInputColors(),
+                    shape = RoundedCornerShape(14.dp),
                         value = row.sets, onValueChange = { if(it.length <= 2) edit(row.copy(sets = it)) },
                         label = { Text("Sets or rounds") },
                         modifier = Modifier.fillMaxWidth().testTag("manual-sets-$index")
                     )
                     OutlinedTextField(
+                    colors = moreFeatureInputColors(),
+                    shape = RoundedCornerShape(14.dp),
                         value = row.reps, onValueChange = { if(it.length <= 3) edit(row.copy(reps = it)) },
                         label = { Text("Repetitions (optional)") },
                         modifier = Modifier.fillMaxWidth().testTag("manual-reps-$index")
                     )
                     OutlinedTextField(
+                    colors = moreFeatureInputColors(),
+                    shape = RoundedCornerShape(14.dp),
                         value = row.seconds, onValueChange = { if(it.length <= 4) edit(row.copy(seconds = it)) },
                         label = { Text("Seconds per set (optional)") },
                         modifier = Modifier.fillMaxWidth().testTag("manual-seconds-$index")
                     )
                     OutlinedTextField(
+                    colors = moreFeatureInputColors(),
+                    shape = RoundedCornerShape(14.dp),
                         value = row.weightKg,
                         onValueChange = { if(it.length <= 9) edit(row.copy(weightKg = it)) },
                         label = { Text("Weight in kg (optional)") },
@@ -271,6 +282,8 @@ internal fun StandaloneDisciplineLogScreen(owner: String, onBack: () -> Unit) {
                     ) { Text("Add exercise") }
                 }
                 OutlinedTextField(
+                    colors = moreFeatureInputColors(),
+                    shape = RoundedCornerShape(14.dp),
                     value = notes, onValueChange = { if(it.length <= 1000) notes = it },
                     label = { Text("Personal notes (optional)") },
                     modifier = Modifier.fillMaxWidth().testTag("manual-notes")
@@ -297,6 +310,11 @@ internal fun StandaloneDisciplineLogScreen(owner: String, onBack: () -> Unit) {
                         message = error.message ?: "Please correct the recorded values."
                     }
                 }, enabled = !busy,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MoreFeatureColors.lime,
+                        contentColor = MoreFeatureColors.background
+                    ),
                     modifier = Modifier.fillMaxWidth().testTag("manual-save")) {
                     Text("Save completed session")
                 }
@@ -322,16 +340,18 @@ internal fun StandaloneDisciplineLogScreen(owner: String, onBack: () -> Unit) {
                     } catch(error: IllegalArgumentException) {
                         message = error.message ?: "Correct the values before saving a template."
                     }
-                }, enabled = !busy, modifier = Modifier.fillMaxWidth()
-                    .testTag("manual-save-template")) {
+                }, enabled = !busy,
+                    shape = RoundedCornerShape(14.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MoreFeatureColors.border),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MoreFeatureColors.text),
+                    modifier = Modifier.fillMaxWidth().testTag("manual-save-template")) {
                     Text("Save as reusable template")
                 }
             }
         }
         item(key = "manual-backup") {
-            SignalCard {
-                Text("BACKUP YOUR MANUAL LOGS", style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary)
+            MoreFeatureCard {
+                MoreFeatureEyebrow("BACKUP YOUR MANUAL LOGS")
                 Text("Export a checksummed JSON file with sessions and templates, or restore matching owner data. " +
                     "Import is insert-only and never overwrites existing records. " +
                     "This file is not encrypted and may contain personal notes, so store it privately.",
@@ -340,11 +360,17 @@ internal fun StandaloneDisciplineLogScreen(owner: String, onBack: () -> Unit) {
                     OutlinedButton(
                         onClick = { exportPicker.launch("StrideLab-manual-logs-${LocalDate.now()}.json") },
                         enabled = !busy,
+                        shape = RoundedCornerShape(14.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MoreFeatureColors.border),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MoreFeatureColors.text),
                         modifier = Modifier.testTag("manual-export")
                     ) { Text("Export") }
                     OutlinedButton(
                         onClick = { importPicker.launch(arrayOf("application/json", "text/plain")) },
                         enabled = !busy,
+                        shape = RoundedCornerShape(14.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MoreFeatureColors.border),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MoreFeatureColors.text),
                         modifier = Modifier.testTag("manual-import")
                     ) { Text("Restore") }
                 }
@@ -352,7 +378,7 @@ internal fun StandaloneDisciplineLogScreen(owner: String, onBack: () -> Unit) {
         }
         message?.let { note ->
             item(key = "manual-feedback") {
-                Text(note, color = MaterialTheme.colorScheme.primary,
+                Text(note, color = MoreFeatureColors.lime,
                     modifier = Modifier.testTag("manual-feedback"))
             }
         }
@@ -360,11 +386,11 @@ internal fun StandaloneDisciplineLogScreen(owner: String, onBack: () -> Unit) {
             Text("SAVED MANUAL SESSIONS · ${sessions.size}",
                 style = MaterialTheme.typography.titleMedium)
             if(sessions.isEmpty()) Text("No manual sessions saved yet.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                color = MoreFeatureColors.muted)
         }
         items(sessions.size, key = { "manual-log-${sessions[it].id}" }) { index ->
             val item = sessions[index]
-            SignalCard {
+            MoreFeatureCard {
                 Text(item.title, style = MaterialTheme.typography.titleMedium)
                 Text("${item.discipline.label} · ${item.performedOn}",
                     style = MaterialTheme.typography.bodyMedium)
@@ -387,6 +413,9 @@ internal fun StandaloneDisciplineLogScreen(owner: String, onBack: () -> Unit) {
 
     deletingTemplate?.let { form ->
         AlertDialog(
+            containerColor = MoreFeatureColors.surface,
+            titleContentColor = MoreFeatureColors.text,
+            textContentColor = MoreFeatureColors.muted,
             onDismissRequest = { if(!busy) deletingTemplate = null },
             title = { Text("Delete workout template?") },
             text = { Text(form.name + " · Completed manual sessions will remain saved.") },
@@ -410,6 +439,9 @@ internal fun StandaloneDisciplineLogScreen(owner: String, onBack: () -> Unit) {
     }
     deleting?.let { record ->
         AlertDialog(
+            containerColor = MoreFeatureColors.surface,
+            titleContentColor = MoreFeatureColors.text,
+            textContentColor = MoreFeatureColors.muted,
             onDismissRequest = { if(!busy) deleting = null },
             title = { Text("Delete manual session?") },
             text = { Text(record.title + " · This only deletes this manually entered log.") },
