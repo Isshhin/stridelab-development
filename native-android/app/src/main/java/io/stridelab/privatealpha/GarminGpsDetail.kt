@@ -68,7 +68,8 @@ internal object GarminGpsDetail {
                     lap.distanceM?.takeIf { it>0 }?.let { meters ->
                         (lap.timerS ?: lap.elapsedS)?.takeIf{it>0}?.let{1000.0*it/meters}
                     }))
-                .put("avg_hr",optional(lap.averageHr)))
+                .put("avg_hr",optional(lap.averageHr))
+                .put("workout_step_index", lap.workoutStepIndex ?: JSONObject.NULL))
         }
         val pauseIntervals = JSONArray()
         fit.timerPauses.forEach { pause ->
@@ -90,12 +91,23 @@ internal object GarminGpsDetail {
                 .put("calculation_type", zones.calculationType ?: JSONObject.NULL)
                 .put("high_bpms", JSONArray(zones.highBpms))
         }
+        val steps=JSONArray()
+        fit.workoutSteps.forEach { step ->
+            steps.put(JSONObject()
+                .put("index",step.index)
+                .put("name",step.name ?: JSONObject.NULL)
+                .put("intensity",step.intensity ?: JSONObject.NULL)
+                .put("duration_type",step.durationType ?: JSONObject.NULL)
+                .put("duration_value",step.durationValue ?: JSONObject.NULL)
+                .put("target_type",step.targetType ?: JSONObject.NULL))
+        }
         val raw=JSONObject()
             .put("user_id",account)
             .put("activity_id",summary.id)
             .put("fetched_at",fetchedAt)
             .put("samples",samples)
             .put("laps",laps)
+            .put("workout_steps",steps)
             .put("pause_intervals", pauseIntervals)
         if (sourceZones != null) raw.put("source_hr_zones", sourceZones)
         val validated=ActivityDetail.parse(raw,account,summary.id)
@@ -129,12 +141,28 @@ internal object GarminGpsDetail {
         }) {
             "Garmin FIT sample positions changed; saved recording was preserved"
         }
-        if (latest.samples.none { it.cadenceSpm != null }) return null
+        val hasCadence=latest.samples.any { it.cadenceSpm != null &&
+            old.samples.getOrNull(it.index)?.cadenceSpm == null }
+        val hasSteps=latest.workoutSteps.isNotEmpty() && old.workoutSteps.isEmpty()
+        val hasLapStepIndices=latest.laps.zip(old.laps).any { (new,previous) ->
+            new.workoutStepIndex != null && previous.workoutStepIndex == null
+        }
+        if (!hasCadence && !hasSteps && !hasLapStepIndices) return null
         val merged = JSONObject(existing.toString())
         val rows = merged.getJSONArray("samples")
         latest.samples.forEachIndexed { i, sample ->
             val cadence = sample.cadenceSpm
-            if (cadence != null) rows.getJSONObject(i).put("cadence_spm", cadence)
+            if (cadence != null && old.samples[i].cadenceSpm == null)
+                rows.getJSONObject(i).put("cadence_spm", cadence)
+        }
+        if (hasSteps) merged.put("workout_steps", refreshed.getJSONArray("workout_steps"))
+        if (hasLapStepIndices) {
+            val oldLaps = merged.getJSONArray("laps")
+            latest.laps.forEachIndexed { i, lap ->
+                if (old.laps[i].workoutStepIndex == null && lap.workoutStepIndex != null) {
+                    oldLaps.getJSONObject(i).put("workout_step_index", lap.workoutStepIndex)
+                }
+            }
         }
         // Validate the merged result before it is offered to persistence.
         ActivityDetail.parse(merged, account, id)
