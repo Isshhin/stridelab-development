@@ -117,6 +117,8 @@ internal interface GarminApi {
     fun activities(token:GarminBearerToken,start:Int,limit:Int):List<GarminActivity>
     fun downloadActivity(token:GarminBearerToken,numericId:Long):ByteArray =
         throw GarminProtocolException("Garmin FIT download is unavailable from this provider")
+    fun heartRateZones(token: GarminBearerToken): List<GarminHeartRateZoneProfile> =
+        throw GarminProtocolException("Garmin heart-rate zone import is unavailable from this provider")
 }
 
 /** Official Garmin Connect Personal API boundary. It neither persists nor alters coaching. */
@@ -129,6 +131,7 @@ internal class GarminPersonalClient(
         const val TOKEN_PATH="/personalapitoken-service/personal-api/personal-api-key/token"
         const val SEARCH_PATH="/activitylist-service/activities/search/activities"
         const val FIT_DOWNLOAD_PATH="/download-service/files/activity/"
+        const val HEART_RATE_ZONES_PATH="/biometric-service/heartRateZones/v2"
     }
 
     override fun exchange(apiKey:String):GarminBearerToken {
@@ -157,6 +160,17 @@ internal class GarminPersonalClient(
             (0 until array.length()).map { decodeActivity(array.getJSONObject(it)) }
         } catch(error:GarminException) { throw error }
         catch(error:Exception) { throw GarminProtocolException("Garmin returned malformed activity data") }
+    }
+
+    override fun heartRateZones(token: GarminBearerToken): List<GarminHeartRateZoneProfile> {
+        if (!token.expiresAt.isAfter(clock()))
+            throw GarminAuthenticationException("Garmin authentication has expired")
+        val response = execute(GarminHttpRequest("GET",
+            BASE_URL + HEART_RATE_ZONES_PATH,
+            mapOf("Accept" to "application/json",
+                "Authorization" to "Bearer ${token.value}")))
+        validate(response)
+        return GarminHeartRateZones.parse(response.body)
     }
 
     override fun downloadActivity(token:GarminBearerToken,numericId:Long):ByteArray {
