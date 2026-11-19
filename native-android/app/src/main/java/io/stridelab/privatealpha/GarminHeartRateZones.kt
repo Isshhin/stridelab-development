@@ -12,13 +12,16 @@ import java.util.Locale
 internal data class GarminHeartRateZoneProfile(
     val sport: String,
     val floorsBpm: List<Int>,
-    val trainingMethod: String? = null
+    val trainingMethod: String? = null,
+    val maxHeartRateUsed: Int? = null
 ) {
     init {
         require(sport.isNotBlank())
         require(floorsBpm.size == 5)
         require(floorsBpm.all { it in 30..255 })
         require(floorsBpm.zipWithNext().all { (a, b) -> b > a })
+        require(maxHeartRateUsed == null ||
+            maxHeartRateUsed in floorsBpm.last()..255)
     }
 
     /** The lower limits of zones 2 through 5, for five ordered buckets. */
@@ -67,9 +70,17 @@ internal object GarminHeartRateZones {
             val floors = values.filterNotNull()
             if (floors.any { it !in 30..255 } ||
                 floors.zipWithNext().any { (a, b) -> b <= a }) continue
+            val maxHeartRateUsed = row.opt("maxHeartRateUsed").let { value ->
+                if (value is Number && value.toDouble().isFinite() &&
+                    value.toDouble() % 1.0 == 0.0) value.toInt() else null
+            }
+            if (maxHeartRateUsed != null && maxHeartRateUsed !in floors.last()..255) continue
             result += GarminHeartRateZoneProfile(
                 sport, floors,
-                row.optString("trainingMethod").trim().takeIf { it.isNotEmpty() }
+                row.optString("trainingMethod").trim().takeIf {
+                    it.isNotEmpty() && it != "null"
+                },
+                maxHeartRateUsed
             )
         }
         return result
