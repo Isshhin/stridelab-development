@@ -1158,7 +1158,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         } else null
         if(previous != null && (!upgradeCadence ||
             (previous.samples.any { it.cadenceSpm != null } &&
-                previous.workoutSteps.isNotEmpty()))) {
+                previous.workoutSteps.isNotEmpty() &&
+                previous.sourceWorkoutReferences.isNotEmpty()))) {
             mutable.value = mutable.value.copy(
                 details = mutable.value.details + (id to previous))
             return previous
@@ -1191,8 +1192,14 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         } catch (_: Exception) {
             throw GarminProtocolException("Garmin FIT file failed validation; existing history was retained")
         }
+        // The separate Garmin workout endpoint is reference context, not proof
+        // that any defined step was actually completed. Never block FIT
+        // import if optional workout metadata is unavailable.
+        val workoutRefs = if (upgradeCadence) runCatching {
+            source.workoutDefinitionsForSource(account, externalId, numericId)
+        }.getOrDefault(emptyList()) else emptyList()
         val raw = try {
-            GarminGpsDetail.payload(account, activity, fit, System.currentTimeMillis())
+            GarminGpsDetail.payload(account, activity, fit, System.currentTimeMillis(), workoutRefs)
         } catch (_: Exception) {
             throw GarminProtocolException("Garmin FIT source, timing or distance could not be verified")
         }
