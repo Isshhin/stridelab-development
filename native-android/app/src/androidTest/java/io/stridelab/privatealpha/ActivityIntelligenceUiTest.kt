@@ -170,9 +170,7 @@ class ActivityIntelligenceUiTest {
             .performSemanticsAction(SemanticsActions.Expand)
         compose.onNodeWithTag("activity-tab-analysis").performClick()
         compose.onNodeWithTag("activity-workout-label-edit").performClick()
-        compose.onNodeWithText("Quality Run").performClick()
-        compose.onNodeWithTag("activity-workout-subtype-edit").performClick()
-        compose.onNodeWithText("Intervals").performClick()
+        compose.onNodeWithText("Intervals").performScrollTo().performClick()
 
         val saved = UserActivityWorkoutLabel(ActivityWorkoutKind.QUALITY_RUN,
             ActivityQualitySubtype.INTERVALS)

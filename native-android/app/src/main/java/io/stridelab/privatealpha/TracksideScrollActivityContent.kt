@@ -731,7 +731,7 @@ private fun TracksideActivityAnalysisBody(
             modifier = Modifier.testTag("activity-analysis-explained")
         )
         Spacer(Modifier.height(12.dp))
-        ActivityWorkoutLabelEditor(
+        ActivityWorkoutClassificationCard(
             assessment = workoutAssessment,
             userLabel = userLabel,
             canSave = correctionOwner != null,
@@ -867,105 +867,6 @@ private fun TracksideActivityAnalysisBody(
                     color = activityMuted, fontSize = 12.sp)
             }
         }
-    }
-}
-
-@Composable
-private fun ActivityWorkoutLabelEditor(
-    assessment: ActivityWorkoutAssessment,
-    userLabel: UserActivityWorkoutLabel?,
-    canSave: Boolean,
-    saveFailed: Boolean,
-    onSelect: (UserActivityWorkoutLabel) -> Unit,
-    onClear: () -> Unit
-) {
-    var labelsExpanded by remember { mutableStateOf(false) }
-    var subtypeExpanded by remember { mutableStateOf(false) }
-    Column(Modifier.fillMaxWidth().testTag("activity-workout-label")) {
-        Text("WORKOUT TYPE", color = activityMuted, fontSize = 10.sp,
-            fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
-        Text("Detected: " +
-            (assessment.detected.qualitySubtype?.let { "Quality Run · " + it.label }
-                ?: assessment.detected.kind.label), color = activityText,
-            fontSize = 13.sp, modifier = Modifier.testTag("activity-workout-detected"))
-        Text(assessment.detected.evidence.first(), color = activityMuted,
-            fontSize = 11.sp, lineHeight = 16.sp)
-        Text("Evidence confidence: " +
-            assessment.detected.confidence.name.lowercase(Locale.ROOT),
-            color = activityMuted, fontSize = 10.sp,
-            modifier = Modifier.testTag("activity-workout-confidence"))
-        assessment.detected.evidence.drop(1).forEach { line ->
-            Text(line, color = activityMuted, fontSize = 11.sp, lineHeight = 16.sp)
-        }
-        assessment.intended?.let { intended ->
-            Spacer(Modifier.height(4.dp))
-            Text("Planned intent: ${intended.qualitySubtype?.label ?: intended.kind.label}",
-                color = activityText, fontSize = 12.sp,
-                modifier = Modifier.testTag("activity-workout-intended"))
-            Text(intended.evidence.first(), color = activityMuted, fontSize = 11.sp, lineHeight = 16.sp)
-        }
-        assessment.intentWarning?.let {
-            Text(it, color = activityMuted, fontSize = 11.sp, lineHeight = 16.sp)
-        }
-        assessment.adherence?.let { adherence ->
-            Spacer(Modifier.height(5.dp))
-            Text("PLANNED VS COMPLETED · " + adherence.status.replace('_', ' '),
-                color = activityLime, fontSize = 10.sp,
-                modifier = Modifier.testTag("activity-workout-adherence"))
-            adherence.evidence.forEach { line ->
-                Text(line, color = activityMuted, fontSize = 11.sp, lineHeight = 16.sp)
-            }
-        }
-        userLabel?.let { label ->
-            Spacer(Modifier.height(4.dp))
-            Text("Your label: ${label.label}", color = activityLime, fontSize = 12.sp,
-                modifier = Modifier.testTag("activity-workout-user-label"))
-            Text("User-reported; the imported activity remains unchanged.",
-                color = activityMuted, fontSize = 11.sp)
-        }
-        Box {
-            OutlinedButton(
-                onClick = { labelsExpanded = true }, enabled = canSave,
-                modifier = Modifier.heightIn(min = 48.dp).testTag("activity-workout-label-edit")
-            ) { Text(if (userLabel == null) "Set workout label" else "Correct workout label") }
-            DropdownMenu(expanded = labelsExpanded, onDismissRequest = { labelsExpanded = false }) {
-                ActivityWorkoutKind.entries.filter { it != ActivityWorkoutKind.UNKNOWN }.forEach { kind ->
-                    DropdownMenuItem(text = { Text(kind.label) }, onClick = {
-                        labelsExpanded = false
-                        onSelect(UserActivityWorkoutLabel(kind))
-                    })
-                }
-            }
-        }
-        if (userLabel?.kind == ActivityWorkoutKind.QUALITY_RUN && canSave) {
-            Box {
-                TextButton(onClick = { subtypeExpanded = true },
-                    modifier = Modifier.heightIn(min = 48.dp).testTag("activity-workout-subtype-edit")) {
-                    Text(userLabel.qualitySubtype?.let { "Quality subtype: ${it.label}" }
-                        ?: "Add a quality subtype")
-                }
-                DropdownMenu(expanded = subtypeExpanded, onDismissRequest = { subtypeExpanded = false }) {
-                    ActivityQualitySubtype.entries.forEach { subtype ->
-                        DropdownMenuItem(text = { Text(subtype.label) }, onClick = {
-                            subtypeExpanded = false
-                            onSelect(userLabel.copy(qualitySubtype = subtype))
-                        })
-                    }
-                    DropdownMenuItem(text = { Text("No subtype") }, onClick = {
-                        subtypeExpanded = false
-                        onSelect(userLabel.copy(qualitySubtype = null))
-                    })
-                }
-            }
-        }
-        if (userLabel != null && canSave) {
-            TextButton(onClick = onClear, modifier = Modifier.heightIn(min = 48.dp)
-                .testTag("activity-workout-label-clear")) { Text("Clear my label") }
-        }
-        if (!canSave) Text("A local activity owner is needed to save a label offline.",
-            color = activityMuted, fontSize = 11.sp)
-        if (saveFailed) Text("Couldn't save the label on this device. Your previous label is unchanged.",
-            color = Color(0xFFFF8C87), fontSize = 11.sp, modifier = Modifier.testTag("activity-workout-label-error"))
     }
 }
 

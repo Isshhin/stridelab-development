@@ -37,6 +37,7 @@ class AthleteHeartRatePreferencesUiTest {
         }
 
         compose.onNodeWithTag("athlete-hr-preference").assertExists()
+        compose.onNodeWithTag("athlete-manual-config").performScrollTo().performClick()
         compose.onNodeWithTag("athlete-hr-method-max_bpm").assertExists()
         compose.onNodeWithTag("athlete-hr-method-lthr_percent").assertExists()
         compose.onNodeWithTag("athlete-hr-method-hrr_percent").assertExists()
