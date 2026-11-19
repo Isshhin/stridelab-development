@@ -11,6 +11,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
@@ -21,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,6 +38,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -42,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -200,68 +205,74 @@ internal fun TodayDisciplineDashboard(
             }
         }
 
-        DisciplinePanel {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(if (showDistance) "WEEKLY DISTANCE" else "RECORDED TRAINING TIME",
-                    Modifier.weight(1f), color = DisciplineLook.subdued, fontSize = 11.sp)
-                Text("${week.sessions} sessions", color = tint, fontSize = 11.sp)
+        if (discipline == TodayDiscipline.RUNNING) {
+            RunningWeekOverview(week)
+        } else {
+            DisciplinePanel {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (showDistance) "WEEKLY DISTANCE" else "RECORDED TRAINING TIME",
+                        Modifier.weight(1f), color = DisciplineLook.subdued, fontSize = 11.sp)
+                    Text("${week.sessions} sessions", color = tint, fontSize = 11.sp)
+                }
+                Text(primary, color = tint, fontSize = 39.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.testTag("today-discipline-primary"))
+                // One compact chart with animated bars. Zero duration/distance is
+                // not drawn as a fabricated effort score.
+                DisciplineWeekBars(
+                    data = if (showDistance) week.distanceByDay else week.secondsByDay,
+                    presence = week.sessionsByDay,
+                    tint = tint,
+                    reduceMotion = reduceMotion
+                )
+                if (week.sessions == 0) {
+                    Text("No recorded ${discipline.title.lowercase(Locale.ROOT)} this week",
+                        color = DisciplineLook.subdued, fontSize = 12.sp)
+                } else if (week.missingDuration > 0 ||
+                    (showDistance && week.missingDistance > 0)) {
+                    Text("Partial totals · some sessions have missing metrics",
+                        color = DisciplineLook.subdued, fontSize = 11.sp)
+                }
             }
-            Text(primary, color = tint, fontSize = 39.sp,
-                fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.testTag("today-discipline-primary"))
-            // One compact chart with animated bars. Zero duration/distance is
-            // not drawn as a fabricated effort score.
-            DisciplineWeekBars(
-                data = if (showDistance) week.distanceByDay else week.secondsByDay,
-                presence = week.sessionsByDay,
-                tint = tint,
-                reduceMotion = reduceMotion
-            )
-            if (week.sessions == 0) {
-                Text("No recorded ${discipline.title.lowercase(Locale.ROOT)} this week",
-                    color = DisciplineLook.subdued, fontSize = 12.sp)
-            } else if (week.missingDuration > 0 ||
-                (showDistance && week.missingDistance > 0)) {
-                Text("Partial totals · some sessions have missing metrics",
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                DisciplineMetric("TRAINING DAYS", "${week.activeDays}", tint, Modifier.weight(1f))
+                DisciplineMetric("SESSIONS", "${week.sessions}", tint, Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                DisciplineMetric("RECORDED TIME",
+                    week.recordedSeconds?.let(::time) ?: "—", tint, Modifier.weight(1f))
+                DisciplineMetric(
+                    if (discipline == TodayDiscipline.RUNNING) "AVG RUN HR" else "AVG SESSION",
+                    if (discipline == TodayDiscipline.RUNNING)
+                        week.averageRecordedHr?.let { "${it.toInt()} bpm" } ?: "—"
+                    else {
+                        val timedSessions = week.sessions - week.missingDuration
+                        if (timedSessions > 0 && week.recordedSeconds != null)
+                            time(week.recordedSeconds / timedSessions)
+                        else "—"
+                    },
+                    tint, Modifier.weight(1f)
+                )
+            }
+
+            DisciplinePanel {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Training effort", color = DisciplineLook.ink,
+                        modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp)
+                    Text("TIME", color = tint, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                }
+                DisciplineWeekBars(week.secondsByDay, week.sessionsByDay, tint, reduceMotion)
+                Text("Recorded duration by day · not an intensity or load score",
                     color = DisciplineLook.subdued, fontSize = 11.sp)
             }
-        }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            DisciplineMetric("TRAINING DAYS", "${week.activeDays}", tint, Modifier.weight(1f))
-            DisciplineMetric("SESSIONS", "${week.sessions}", tint, Modifier.weight(1f))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            DisciplineMetric("RECORDED TIME",
-                week.recordedSeconds?.let(::time) ?: "—", tint, Modifier.weight(1f))
-            DisciplineMetric(
-                if (discipline == TodayDiscipline.RUNNING) "AVG RUN HR" else "AVG SESSION",
-                if (discipline == TodayDiscipline.RUNNING)
-                    week.averageRecordedHr?.let { "${it.toInt()} bpm" } ?: "—"
-                else {
-                    val timedSessions = week.sessions - week.missingDuration
-                    if (timedSessions > 0 && week.recordedSeconds != null)
-                        time(week.recordedSeconds / timedSessions)
-                    else "—"
-                },
-                tint, Modifier.weight(1f)
-            )
         }
 
         DisciplinePanel {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Training effort", color = DisciplineLook.ink,
-                    modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp)
-                Text("TIME", color = tint, fontWeight = FontWeight.Bold, fontSize = 10.sp)
-            }
-            DisciplineWeekBars(week.secondsByDay, week.sessionsByDay, tint, reduceMotion)
-            Text("Recorded duration by day · not an intensity or load score",
-                color = DisciplineLook.subdued, fontSize = 11.sp)
-        }
-
-        DisciplinePanel {
-            Text("4-week trend", color = DisciplineLook.ink,
+            Text(if (discipline == TodayDiscipline.RUNNING) "Your last 4 weeks" else "4-week trend",
+                color = DisciplineLook.ink,
                 fontSize = 16.sp, fontWeight = FontWeight.Bold)
             val distanceTrend = discipline == TodayDiscipline.RUNNING &&
                 trend.any { it.recordedDistanceM != null }
@@ -302,16 +313,16 @@ internal fun TodayDisciplineDashboard(
         ).sortedByDescending { it.first }.take(4)
         if (recent.isNotEmpty()) {
             DisciplinePanel {
-                Text("Saved sessions", color = DisciplineLook.ink,
+                Text(if (discipline == TodayDiscipline.RUNNING) "Runs this week" else "Saved sessions",
+                    color = DisciplineLook.ink,
                     fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 recent.forEach { (date, label, id) ->
+                    val source = week.sourceActivities.firstOrNull { it.id == id }
+                    val workout = week.nativeWorkouts.firstOrNull { it.planId + "|" + it.sessionId == id }
                     Surface(
                         onClick = {
-                            val source = week.sourceActivities.firstOrNull { it.id == id }
                             if (source != null) onOpenActivity(source.id)
-                            else week.nativeWorkouts.firstOrNull {
-                                it.planId + "|" + it.sessionId == id
-                            }?.let { onOpenWorkout(it.planId, it.sessionId) }
+                            else workout?.let { onOpenWorkout(it.planId, it.sessionId) }
                         },
                         color = Color(0xFF1B1E20),
                         shape = RoundedCornerShape(13.dp),
@@ -323,9 +334,20 @@ internal fun TodayDisciplineDashboard(
                         ) {
                             Box(Modifier.size(7.dp).background(tint, CircleShape))
                             Spacer(Modifier.width(10.dp))
-                            Text(label, color = DisciplineLook.ink, fontSize = 12.sp,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f))
+                            Column(Modifier.weight(1f)) {
+                                Text(label, color = DisciplineLook.ink,
+                                    fontSize = if (discipline == TodayDiscipline.RUNNING) 13.sp else 12.sp,
+                                    maxLines = if (discipline == TodayDiscipline.RUNNING) 2 else 1,
+                                    overflow = TextOverflow.Ellipsis)
+                                if (discipline == TodayDiscipline.RUNNING) {
+                                    val metrics = listOfNotNull(
+                                        (source?.distanceM ?: workout?.distanceM)?.takeIf { it.isFinite() && it >= 0 }?.let(::km),
+                                        (source?.durationS ?: workout?.durationSeconds)?.takeIf { it.isFinite() && it >= 0 }?.let(::time)
+                                    )
+                                    if (metrics.isNotEmpty()) Text(metrics.joinToString(" · "),
+                                        color = DisciplineLook.subdued, fontSize = 11.sp)
+                                }
+                            }
                             Spacer(Modifier.width(8.dp))
                             Text(date.format(DateTimeFormatter.ofPattern("d MMM",
                                 Locale.getDefault())), color = DisciplineLook.subdued,
@@ -334,6 +356,114 @@ internal fun TodayDisciplineDashboard(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun RunningWeekOverview(week: TodayDisciplineWeek) {
+    var byDistance by rememberSaveable { mutableStateOf(true) }
+    var selectedDay by rememberSaveable(week.start.toString()) {
+        mutableStateOf(week.sessionsByDay.indexOfLast { it > 0 }.coerceAtLeast(0))
+    }
+    val unit = if (byDistance) "distance" else "time"
+    val total = if (byDistance) week.recordedDistanceM else week.recordedSeconds
+    val format: (Double) -> String = if (byDistance) ::km else ::time
+    val values = if (byDistance) week.distanceByDay else week.secondsByDay
+    val missing = if (byDistance) week.missingDistance else week.missingDuration
+    val peak = values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
+    val zone = ZoneId.systemDefault()
+    val metricsByDay = remember(week, byDistance, zone) {
+        val imported = week.sourceActivities.map {
+            it.startedAt.atZone(zone).toLocalDate() to if (byDistance) it.distanceM else it.durationS
+        }
+        val logged = week.nativeWorkouts.map {
+            it.date to if (byDistance) it.distanceM else it.durationSeconds
+        }
+        (imported + logged).groupBy({ it.first }, { it.second })
+    }
+    val dayLabel = DateTimeFormatter.ofPattern("EEEE", Locale.getDefault())
+    val sessions = if (week.sessions == 1) "1 run" else "${week.sessions} runs"
+    val days = if (week.activeDays == 1) "1 day" else "${week.activeDays} days"
+
+    fun dayValue(index: Int): String {
+        val count = week.sessionsByDay[index]
+        if (count == 0) return "No runs"
+        val known = metricsByDay[week.start.plusDays(index.toLong())].orEmpty()
+            .count { it != null && it.isFinite() && it >= 0 }
+        return when {
+            known == 0 -> "${if (byDistance) "Distance" else "Time"} unavailable"
+            known < count -> "${format(values[index])} recorded · partial"
+            else -> format(values[index])
+        }
+    }
+
+    DisciplinePanel {
+        Text("Your week in running", color = DisciplineLook.ink,
+            fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+        Row(Modifier.selectableGroup().fillMaxWidth()
+            .background(Color(0xFF232728), RoundedCornerShape(14.dp)).padding(4.dp)) {
+            listOf(true to "Distance", false to "Time").forEach { (distance, title) ->
+                val active = distance == byDistance
+                Box(Modifier.weight(1f).heightIn(min = 48.dp)
+                    .background(if (active) DisciplineLook.lime else Color.Transparent,
+                        RoundedCornerShape(10.dp))
+                    .selectable(active, role = Role.Tab) { byDistance = distance }
+                    .testTag("today-running-metric-${title.lowercase(Locale.ROOT)}"),
+                    contentAlignment = Alignment.Center) {
+                    Text(title, color = if (active) DisciplineLook.black else DisciplineLook.ink,
+                        fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(6.dp))
+                }
+            }
+        }
+        Text(total?.let(format) ?: if (week.sessions == 0) "No runs yet" else "—",
+            color = DisciplineLook.ink, fontSize = 36.sp, fontWeight = FontWeight.Bold,
+            modifier = Modifier.testTag("today-discipline-primary"))
+        Text("$sessions across $days", color = DisciplineLook.subdued, fontSize = 14.sp)
+        if (missing > 0) Text(
+            if (total == null) "No $unit saved for these runs."
+            else "$missing ${if (missing == 1) "run has" else "runs have"} no $unit recorded.",
+            color = DisciplineLook.subdued, fontSize = 12.sp)
+
+        Row(Modifier.fillMaxWidth().selectableGroup().testTag("today-discipline-week-bars")) {
+            values.forEachIndexed { index, value ->
+                val date = week.start.plusDays(index.toLong())
+                val active = index == selectedDay
+                Column(
+                    Modifier.weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (active) Color(0xFF222A1D) else Color.Transparent)
+                        .selectable(active, role = Role.Tab) { selectedDay = index }
+                        .testTag("today-running-day-$index")
+                        .semantics { contentDescription = "${date.format(dayLabel)}, ${dayValue(index)}" }
+                        .padding(vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(Modifier.height(92.dp).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+                        Box(Modifier.fillMaxWidth(.54f).fillMaxHeight()
+                            .background(Color(0xFF272D2A), RoundedCornerShape(6.dp)))
+                        if (value > 0) Box(Modifier.fillMaxWidth(.54f)
+                            .height((92 * value / peak).dp)
+                            .background(if (active) DisciplineLook.lime else Color(0xFF7D9F50),
+                                RoundedCornerShape(6.dp)))
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(date.format(DateTimeFormatter.ofPattern("EEEEE", Locale.getDefault())),
+                        color = if (active) DisciplineLook.lime else DisciplineLook.subdued, fontSize = 12.sp)
+                }
+            }
+        }
+
+        Row(Modifier.fillMaxWidth().background(Color(0xFF1B201B), RoundedCornerShape(12.dp))
+            .padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(week.start.plusDays(selectedDay.toLong()).format(dayLabel),
+                color = DisciplineLook.ink, modifier = Modifier.weight(1f), fontSize = 13.sp)
+            Text(dayValue(selectedDay), color = DisciplineLook.lime, modifier = Modifier.weight(1f),
+                fontSize = 13.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+        }
+        week.averageRecordedHr?.let { hr ->
+            Text("Average run heart rate: ${hr.toInt()} bpm across ${week.hrCoverage} of ${week.sessions} runs",
+                color = DisciplineLook.subdued, fontSize = 12.sp)
         }
     }
 }

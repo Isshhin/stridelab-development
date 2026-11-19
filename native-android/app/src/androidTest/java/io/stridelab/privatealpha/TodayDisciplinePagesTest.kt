@@ -9,6 +9,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.semantics.SemanticsActions
 import org.junit.Rule
 import org.junit.Test
 import org.junit.Assert.assertTrue
@@ -70,7 +72,16 @@ class TodayDisciplinePagesTest {
         compose.onNodeWithTag("today-page-running").performClick()
         compose.waitForIdle()
         compose.onNodeWithTag("today-discipline-running").assertExists()
-        compose.onNodeWithText("Training effort").assertExists()
+        compose.onNodeWithText("Your week in running").assertExists()
+        val time = compose.onNodeWithTag("today-running-metric-time")
+        today.performScrollToNode(hasTestTag("today-running-metric-time"))
+        time.performSemanticsAction(SemanticsActions.OnClick)
+        time.assertIsSelected()
+        val monday = compose.onNodeWithTag("today-running-day-0")
+        today.performScrollToNode(hasTestTag("today-running-day-0"))
+        monday.performSemanticsAction(SemanticsActions.OnClick)
+        monday.assertIsSelected()
+        compose.onNodeWithText("No runs", ignoreCase = false).assertExists()
         compose.onNodeWithTag("today-hero").assertDoesNotExist()
         today.performScrollToNode(hasTestTag("today-discipline-pages"))
         compose.onNodeWithTag("today-page-running").assertIsSelected()
