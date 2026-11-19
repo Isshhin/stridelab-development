@@ -86,6 +86,22 @@ class MoreSubpageUiParityTest {
         compose.onNodeWithTag("archive-cloud-account").assertIsNotEnabled()
     }
 
+    @Test fun manualEditorKeepsSignedOutDisciplineAndFormControls() {
+        compose.activity.setContent {
+            StrideTheme {
+                StandaloneDisciplineLogScreen(
+                    owner = "qa-parity-manual-owner",
+                    onBack = {}
+                )
+            }
+        }
+        compose.onNodeWithTag("screen-title").assertExists()
+        compose.onNodeWithTag("screen")
+            .performScrollToNode(hasTestTag("manual-discipline-strength"))
+        compose.onNodeWithTag("manual-discipline-strength").assertIsEnabled()
+        compose.onNodeWithTag("manual-title").assertExists()
+    }
+
     @Test fun compareEmptyStateUsesCurrentMoreSubpageHeader() {
         compose.activity.setContent {
             StrideTheme { ActivityRunComparisonScreen(emptyList(), onBack = {}) }
