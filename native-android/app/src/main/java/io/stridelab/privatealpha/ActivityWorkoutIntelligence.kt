@@ -171,7 +171,8 @@ internal object ActivityWorkoutIntelligence {
             }
             if (hinted.size > 1)
                 return unknown("Multiple workout families appear in executed FIT steps. The performed type is ambiguous.")
-            return unknown("FIT work steps were recorded, but their purpose cannot be distinguished safely.")
+            // An unlabelled ACTIVE step is not proof of hard running.
+            // Continue to measured lap patterns and selected-zone evidence.
         }
 
         // A workout definition on its own is NOT evidence of execution.
@@ -196,10 +197,12 @@ internal object ActivityWorkoutIntelligence {
                 it.distance != null && it.distance > 70.0
         }
         if (laps.size >= 6 && recorded.pauseIntervals.isEmpty()) {
-            val alternating = laps.take(6).chunked(2)
-            if (alternating.size == 3 && alternating.all { pair ->
+            val repeatFound = laps.windowed(size = 6).any { window ->
+                window.chunked(2).all { pair ->
                     pair.size == 2 && pair[0].pace!! * 1.18 <= pair[1].pace!!
-                }) {
+                }
+            }
+            if (repeatFound) {
                 return ActivityWorkoutEvidence(ActivityWorkoutKind.QUALITY_RUN,
                     ActivityQualitySubtype.INTERVALS, listOf(
                         "At least three recorded fast/slow lap pairs show distinct effort and recovery pacing.",
