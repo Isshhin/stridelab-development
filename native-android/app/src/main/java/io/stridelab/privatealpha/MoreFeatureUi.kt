@@ -157,7 +157,7 @@ internal fun MoreFeatureChip(
     Surface(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.heightIn(min = 44.dp),
+        modifier = modifier.heightIn(min = 48.dp),
         color = if (selected) MoreFeatureColors.lime else MoreFeatureColors.surface,
         contentColor = if (selected) MoreFeatureColors.background else
             if (enabled) MoreFeatureColors.text else MoreFeatureColors.subdued,
