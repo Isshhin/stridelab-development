@@ -13,8 +13,8 @@ android {
         // An explicit QA build uses its own package, storage and file-provider authority.
         // Normal debug and release APK identifiers stay unchanged.
         manifestPlaceholders['strideAppLabel'] = 'StrideLab'
-        buildConfigField 'boolean', 'ENGINE15_ACTIVE', (project.findProperty('strideEngine15Active') ?: 'true').toString().toBoolean().toString()
-        buildConfigField 'boolean', 'ENGINE15_INDEPENDENT_RUNNING_ACTIVE', (project.findProperty('strideEngine15IndependentRunningActive') ?: 'true').toString().toBoolean().toString()
+        buildConfigField 'boolean', 'ENGINE15_ACTIVE', (project.findProperty('strideEngine15Active') ?: 'false').toString().toBoolean().toString()
+        buildConfigField 'boolean', 'ENGINE15_INDEPENDENT_RUNNING_ACTIVE', (project.findProperty('strideEngine15IndependentRunningActive') ?: 'false').toString().toBoolean().toString()
         minSdk = 26
         targetSdk = 35
         versionCode = (project.findProperty('strideVersionCode') ?: '15').toInteger()
@@ -64,6 +64,8 @@ android {
         }
         release {
             minifyEnabled false
+            // Experimental coaching remains unavailable to production builds.
+            buildConfigField 'boolean', 'ENGINE15_ACTIVE', 'false'
             buildConfigField 'boolean', 'ENGINE15_INDEPENDENT_RUNNING_ACTIVE', 'false'
             if (System.getenv('STRIDELAB_KEYSTORE_FILE')) signingConfig signingConfigs.privateAlpha
         }
