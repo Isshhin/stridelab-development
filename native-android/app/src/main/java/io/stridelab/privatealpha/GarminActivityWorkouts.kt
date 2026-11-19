@@ -31,8 +31,8 @@ internal object GarminActivityWorkouts {
             val steps = workout.optJSONArray("steps") ?: workout.optJSONArray("workoutSteps")
             if (steps != null && steps.length() > 200)
                 throw GarminProtocolException("Garmin returned too many workout steps")
-            val normalized = (0 until (steps?.length() ?: 0)).mapNotNull { i ->
-                val row = steps!!.optJSONObject(i) ?: return@mapNotNull null
+            val normalized = (0 until (steps?.length() ?: 0)).mapNotNull stepLoop@{ i ->
+                val row = steps!!.optJSONObject(i) ?: return@stepLoop null
                 val order = when {
                     row.has("stepOrder") && !row.isNull("stepOrder") ->
                         row.optInt("stepOrder", -1)
@@ -41,11 +41,11 @@ internal object GarminActivityWorkouts {
                     else -> -1
                 }.takeIf { it in 0..999 }
                 val name = row.optString("stepName").takeIf {
-                    it.isNotBlank() && it.length <= 128
+                    it.isNotBlank() && it != "null" && it.length <= 128
                 }
                 val intensity = row.optJSONObject("intensityType")
                     ?.optString("intensityTypeKey")
-                    ?.takeIf { it.isNotBlank() && it.length <= 48 }
+                    ?.takeIf { it.isNotBlank() && it != "null" && it.length <= 48 }
                     ?: row.optString("intensity").takeIf {
                         it.isNotBlank() && it.length <= 48
                     }
