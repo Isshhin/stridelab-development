@@ -346,13 +346,23 @@ internal object ActivityWorkoutIntelligence {
         describeMeasured("WORK", plannedDistance("WORK"), plannedTime("WORK"))
         describeMeasured("RECOVERY", plannedDistance("RECOVERY"), plannedTime("RECOVERY"))
         val countsMatch = expectedWork == actualWork && expectedRecovery == actualRecovery
+        val plannedWorkOrder = plannedPurposes.filter { it == "WORK" || it == "RECOVERY" }
+        val actualWorkOrder = executed.mapNotNull { it.second.role }
+            .filter { it == "WORK" || it == "RECOVERY" }
+        val orderMatches = plannedWorkOrder == actualWorkOrder
         summary += "Planned " + expectedWork + " work / " + expectedRecovery +
             " recovery step(s); observed FIT laps " + actualWork +
             " work / " + actualRecovery + " recovery step(s)."
+        if (countsMatch && !orderMatches) summary +=
+            "Work/recovery counts match, but their recorded order differs from the plan."
+        summary += "Only labelled FIT laps are compared. Missing warm-up, cool-down or repeated segments cannot be assumed completed."
         summary += "Matching recorded amounts do not verify prescribed pace, HR targets, or workout quality."
         return ActivityWorkoutAdherence(
-            if (countsMatch) "STEP_COUNTS_MATCH" else "STEP_COUNTS_DIFFER",
-            summary, actualWork, actualRecovery
+            when {
+                !countsMatch -> "STEP_COUNTS_DIFFER"
+                !orderMatches -> "STEP_ORDER_DIFFERS"
+                else -> "STEP_COUNTS_MATCH"
+            }, summary, actualWork, actualRecovery
         )
     }
 
