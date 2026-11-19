@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -40,7 +41,9 @@ internal fun TracksideStationaryActivityDetail(
     owner: String?,
     onBack: () -> Unit,
     onShare: () -> Unit,
-    onEdit: (() -> Unit)?
+    onEdit: (() -> Unit)?,
+    onRefreshSource: (() -> Unit)? = null,
+    refreshEnabled: Boolean = false
 ) {
     val type = activity.type.lowercase(Locale.ROOT)
     val discipline = when {
@@ -157,6 +160,24 @@ internal fun TracksideStationaryActivityDetail(
                     fontSize = 12.sp,
                     lineHeight = 18.sp
                 )
+            }
+        }
+        if (onRefreshSource != null) {
+            item(key = "stationary-refresh-source") {
+                OutlinedButton(
+                    onClick = onRefreshSource,
+                    enabled = refreshEnabled,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .testTag("activity-stationary-refresh"),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, Color(0xFF364039))
+                ) {
+                    Text(
+                        if (recorded == null) "Load recorded sensors" else "Refresh recorded sensors",
+                        color = if (refreshEnabled) TracksidePalette.lime
+                            else TracksidePalette.textMuted
+                    )
+                }
             }
         }
         if (recorded != null && hrCount >= 2) {
