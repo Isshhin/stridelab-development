@@ -1100,7 +1100,8 @@ private fun TracksideActivitySummary(activity: ActivityRecord, heading: String =
         if (activityHasDisplayDistance(activity)) {
             add(ActivitySummaryMetric("Distance", activity.distanceLabel, ActivitySummaryGlyph.Distance))
         }
-        activityDisplayDurationSeconds(activity)?.let {
+        (activity.movingTimeS?.takeIf { it.isFinite() && it > 0.0 }
+            ?: activityDisplayDurationSeconds(activity))?.let {
             add(ActivitySummaryMetric("Duration", ActivityRecord.duration(it), ActivitySummaryGlyph.Duration))
         }
         if (activity.supportsPace && activity.detailPaceLabel != "Not recorded") {
