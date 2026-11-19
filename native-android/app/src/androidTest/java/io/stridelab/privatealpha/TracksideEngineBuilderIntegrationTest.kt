@@ -14,15 +14,22 @@ import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 
 class TracksideEngineBuilderIntegrationTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
 
-    @Test fun builderCreatesRealPrescriptionsAndTrainingReopensTheApprovedPlanOffline() = exerciseBuilder(null)
+    @Test fun builderCreatesRealPrescriptionsAndTrainingReopensTheApprovedPlanOffline() {
+        assumeTrue("Engine 1.5 acceptance is disabled in this build", BuildConfig.ENGINE15_ACTIVE)
+        exerciseBuilder(null)
+    }
 
-    @Test fun explicitTargetSurvivesApprovalAndOfflineReopen() = exerciseBuilder(20.0)
+    @Test fun explicitTargetSurvivesApprovalAndOfflineReopen() {
+        assumeTrue("Engine 1.5 acceptance is disabled in this build", BuildConfig.ENGINE15_ACTIVE)
+        exerciseBuilder(20.0)
+    }
 
     private fun exerciseBuilder(targetKm: Double?) {
         val context = ApplicationProvider.getApplicationContext<Context>()

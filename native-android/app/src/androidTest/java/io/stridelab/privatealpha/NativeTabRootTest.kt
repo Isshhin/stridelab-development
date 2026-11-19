@@ -3,12 +3,10 @@ package io.stridelab.privatealpha
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 
-import android.view.KeyEvent
 import androidx.activity.compose.setContent
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Rule
 import org.junit.Test
 import java.time.Instant
@@ -53,12 +51,20 @@ class NativeTabRootTest {
         // was an invalid test locator and never exercised the More destination.
         compose.onNodeWithTag("nav-$path").assertIsDisplayed().performClick()
         when(path) {
-            "training" -> compose.onNodeWithTag("training-unified-timeline").assertExists()
+            "training" -> {
+                compose.onNodeWithTag("nav-training").assertIsSelected()
+                compose.onNodeWithTag("training-unified-timeline").assertExists()
+            }
             "home" -> compose.onNodeWithTag("today-week-swipe").assertExists()
             else -> compose.onNode(hasTestTag("screen") and SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, title)).assertExists()
         }
     }
-    private fun back() = InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+    private fun backToHistory() {
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.waitUntil(5_000) {
+            compose.onNodeWithTag("nav-training").isDisplayed()
+        }
+    }
 
     @Test fun trainingHistoryOpensDetailAndPreservesListPositionAcrossRootSwitches() {
         showHistory()
@@ -66,8 +72,8 @@ class NativeTabRootTest {
         compose.onNodeWithTag("training-unified-timeline", useUnmergedTree = true).performScrollToNode(hasTestTag("timeline-recorded-synthetic-tab-39"))
         compose.onNodeWithTag("timeline-recorded-synthetic-tab-39").performClick()
         compose.onNodeWithTag("activity-parity-overview").assertExists()
-        back()
-        compose.onNodeWithTag("training-unified-timeline").assertExists()
+        backToHistory()
+        compose.onNodeWithTag("training-unified-timeline", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("timeline-recorded-synthetic-tab-39").assertIsDisplayed()
         repeat(3) {
             tab("settings", "More")
@@ -86,8 +92,8 @@ class NativeTabRootTest {
         timeline.performTouchInput { swipeUp(startY=height*.8f,endY=height*.35f) }
         compose.onNodeWithTag("timeline-recorded-synthetic-tab-0").assertIsDisplayed().performClick()
         compose.onNodeWithTag("activity-parity-overview").assertExists()
-        back()
-        compose.onNodeWithTag("training-unified-timeline").assertExists()
+        backToHistory()
+        compose.onNodeWithTag("training-unified-timeline", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("nav-training").assertIsSelected()
         compose.onNodeWithTag("timeline-recorded-synthetic-tab-0").assertIsDisplayed()
     }
