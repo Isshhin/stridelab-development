@@ -136,11 +136,11 @@ internal object GarminGpsDetail {
         return raw
     }
     /**
-     * Upgrade only cadence in an already persisted Garmin recording. All
-     * previously saved samples, GPS, lap metrics and source metadata survive
-     * unchanged. A differently sampled FIT is NOT merged by index.
+     * Upgrade recorded cadence and verified workout-step metadata only when
+     * sample and lap identity match the previously saved FIT. Preserve all
+     * original timestamps, GPS, pace, heart-rate and lap measurements.
      *
-     * Returns null when the refreshed FIT has no recorded cadence.
+     * Returns null when the refreshed FIT offers no new verified fields.
      */
     fun mergeRecordedCadence(
         existing: JSONObject, refreshed: JSONObject, account: String, id: String
@@ -157,8 +157,15 @@ internal object GarminGpsDetail {
         }) {
             "Garmin FIT sample positions changed; saved recording was preserved"
         }
-        val hasCadence=latest.samples.any { it.cadenceSpm != null &&
-            old.samples.getOrNull(it.index)?.cadenceSpm == null }
+        require(old.laps.zip(latest.laps).all { (previous, next) ->
+            previous.index == next.index &&
+                previous.distance == next.distance &&
+                previous.seconds == next.seconds &&
+                previous.startSeconds == next.startSeconds
+        }) { "Garmin FIT lap measurements changed; original recording was retained" }
+        val hasCadence=latest.samples.zip(old.samples).any { (latestSample,oldSample) ->
+            latestSample.cadenceSpm != null && oldSample.cadenceSpm == null
+        }
         val hasSteps=latest.workoutSteps.isNotEmpty() && old.workoutSteps.isEmpty()
         val hasSourceWorkouts=latest.sourceWorkoutReferences.isNotEmpty() &&
             old.sourceWorkoutReferences.isEmpty()
