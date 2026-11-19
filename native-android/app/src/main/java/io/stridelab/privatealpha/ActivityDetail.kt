@@ -43,7 +43,8 @@ internal data class ActivityDetail(
     val fetchedAt: Long,
     val pauseIntervals: List<ActivityPauseInterval> = emptyList(),
     val sourceHeartRateZones: ActivitySourceHeartRateZones? = null,
-    val workoutSteps: List<ActivityWorkoutStep> = emptyList()
+    val workoutSteps: List<ActivityWorkoutStep> = emptyList(),
+    val sourceWorkoutReferences: List<GarminActivityWorkoutReference> = emptyList()
 ) {
     companion object {
         fun parse(raw: JSONObject, account: String, id: String): ActivityDetail {
@@ -140,7 +141,10 @@ internal data class ActivityDetail(
                 id, points, splits, raw.getLong("fetched_at"),
                 pauseIntervals = pauses,
                 sourceHeartRateZones = sourceZones,
-                workoutSteps = steps
+                workoutSteps = steps,
+                sourceWorkoutReferences = raw.optJSONArray("garmin_workouts")?.let {
+                    GarminActivityWorkouts.parse(it.toString())
+                }.orEmpty()
             )
         }
     }
