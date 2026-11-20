@@ -35,41 +35,11 @@ import java.time.DayOfWeek
 internal fun compactScheduleError(request: PlanRequest): String? {
     val chosen=request.days.size
     val total=request.runDays+request.strengthDays+request.calDays+request.conditioningDays
-    val capacity=chosen * if(request.policyChoice=="multi-session") 2 else 1
-    val requiredDoubleDays=(total-chosen).coerceAtLeast(0)
-    val easyRunCandidates=(request.runDays-
-        (if(request.runDays>0) 1 else 0)-request.qualityCount).coerceAtLeast(0)
-    val upperStrengthSlots=if(BuildConfig.ENGINE15_ACTIVE) request.strengthDays/2 else 0
-    val compatibleDoubleLimit=minOf(easyRunCandidates,request.calDays+upperStrengthSlots)
-    val placements=request.weeklySlots.flatMap { (discipline,slots) ->
-        slots.mapIndexedNotNull { index,day ->
-            if(day in 1..7) Triple(day,discipline,index) else null
-        }
-    }
-    val byDay=placements.groupBy { it.first }
-    val overlap=byDay.values.any { it.size>1 }
-    val invalidPair=byDay.values.any { day ->
-        if(day.size<=1) false
-        else if(day.size!=2) true
-        else {
-            val easy=day.any { it.second=="run" && it.third>request.qualityCount }
-            val partner=day.any {
-                it.second=="cal" ||
-                    (upperStrengthSlots>0 && it.second=="str" && it.third%2==1)
-            }
-            !easy || !partner
-        }
-    }
     return when {
         WeeklyPlacement.validationError(request)!=null ->
             WeeklyPlacement.validationError(request)
         chosen==0 -> "Select at least one available day."
-        overlap && request.policyChoice!="multi-session" ->
-            "Two workouts share a weekday. Move one or enable compatible same-day training."
-        invalidPair -> "Only compatible easy-run and calisthenics or upper-strength pairs can share a day."
-        requiredDoubleDays>compatibleDoubleLimit ->
-            "This schedule requires more compatible double days than the selected sessions allow."
-        total>capacity -> "There are $total sessions but only $capacity available slots."
+        total==0 -> "Select at least one weekly workout."
         else -> null
     }
 }

@@ -218,15 +218,7 @@ internal fun TracksideAvailabilityScreen(
     val coachingBrush=Brush.horizontalGradient(listOf(PlanBuilderPalette.surface, PlanBuilderPalette.surfaceRaised))
     val chosen=request.days.size
     val total=request.runDays+request.strengthDays+request.calDays+request.conditioningDays
-    val maxPerDay=if(request.policyChoice=="multi-session") 2 else 1
-    val capacity=chosen*maxPerDay
-    // Check the available prescription types; the engine verifies actual spacing and time.
     val requiredDoubleDays=(total-chosen).coerceAtLeast(0)
-    val easyRunCandidates=(request.runDays -
-        (if(request.runDays>0) 1 else 0) - request.qualityCount).coerceAtLeast(0)
-    val upperStrengthSlots = if (BuildConfig.ENGINE15_ACTIVE) request.strengthDays / 2 else 0
-    val compatibleDoubleLimit=minOf(easyRunCandidates,request.calDays + upperStrengthSlots)
-    val insufficientPairCapacity=requiredDoubleDays>compatibleDoubleLimit
     val assignments=request.weeklySlots.flatMap { (discipline,slots) ->
         slots.mapIndexedNotNull { index,day ->
             if(day in 1..7) Triple(day,discipline,index) else null
@@ -235,21 +227,8 @@ internal fun TracksideAvailabilityScreen(
     val pinned=assignments.map { it.first }
     val byDay=assignments.groupBy { it.first }
     val overlap=byDay.values.any { it.size>1 }
-    val unsupportedOverlap=overlap && request.policyChoice!="multi-session"
-    val invalidPair=byDay.values.any { placed ->
-        if(placed.size<=1) false
-        else if(placed.size!=2) true
-        else {
-            val easy = placed.any { it.second=="run" && it.third>request.qualityCount }
-            val partner = placed.any { it.second=="cal" ||
-                (upperStrengthSlots>0 && it.second=="str" && it.third%2==1) }
-            !easy || !partner
-        }
-    }
     val placementError=WeeklyPlacement.validationError(request)
-    val capacityFits=chosen>0 && total<=capacity &&
-        placementError==null && !unsupportedOverlap &&
-        !invalidPair && !insufficientPairCapacity
+    val capacityFits=chosen>0 && total>0 && placementError==null
     TracksideBuilderFrame(
         progressStep = 5,
         eyebrow = "PLAN / AVAILABILITY",
@@ -352,20 +331,16 @@ internal fun TracksideAvailabilityScreen(
                 Spacer(Modifier.height(14.dp))
                 Text(when {
                     placementError!=null -> placementError
-                    unsupportedOverlap -> "Two workouts share a weekday. Enable compatible same-day sessions or move one."
-                    invalidPair -> if(upperStrengthSlots>0)
-                        "This engine allows only easy running with calisthenics or upper-body strength on the same day."
-                        else "This engine allows only easy running with calisthenics on the same day."
-                    insufficientPairCapacity -> "This request needs $requiredDoubleDays compatible double days, but these sessions allow at most $compatibleDoubleLimit easy-run pairs."
-                    capacityFits && requiredDoubleDays>0 -> "Compatible double-day slots may fit; final recovery checks run on generation."
-                    capacityFits -> "✓ Requested weekdays are recorded; recovery checks run on generation"
                     chosen == 0 -> "Select at least one available training day."
-                    total > capacity -> "$total weekly sessions exceed $capacity available slots across $chosen days (" +
-                        (if (request.policyChoice == "multi-session") "same-day sessions enabled" else "one session per day") + ")."
-                    else -> "Capacity check is unresolved; review your weekly session assignments."
+                    total == 0 -> "Select at least one weekly workout."
+                    requiredDoubleDays > 0 || overlap -> "✓ Adapted schedule: StrideLab will smart-stack multi-discipline days (AM/PM cues added)."
+                    else -> "✓ Balanced week ready; recovery spacing runs automatically on generation."
                 },
-                    fontSize=11.sp,color=if(capacityFits)
-                        PlanBuilderPalette.accent else Color(0xFFFF9DA7),
+                    fontSize=11.sp,color=when {
+                        !capacityFits -> Color(0xFFFF9DA7)
+                        requiredDoubleDays > 0 || overlap -> StrideLabVisualPalette.moderateAmber
+                        else -> PlanBuilderPalette.accent
+                    },
                     modifier=Modifier.testTag("builder-capacity-status"))
                 if(total>chosen || overlap || request.policyChoice=="multi-session") {
                     Spacer(Modifier.height(12.dp))

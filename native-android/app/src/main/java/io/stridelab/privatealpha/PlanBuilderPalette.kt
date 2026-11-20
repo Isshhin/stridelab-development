@@ -1,6 +1,7 @@
 package io.stridelab.privatealpha
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -40,27 +41,58 @@ internal object PlanBuilderPalette {
 }
 
 @Composable
-internal fun PlanBuilderStageProgress(step: Int, total: Int = 6) {
+internal fun PlanBuilderStageProgress(
+    step: Int,
+    total: Int = 6,
+    onSelectStage: ((Int) -> Unit)? = null
+) {
     val safeStep = step.coerceIn(1, total)
-    Row(
+    val stageLabels = listOf("Focus", "Goal", "Level", "Dates", "Week", "Review")
+    androidx.compose.foundation.layout.Column(
         modifier = Modifier.fillMaxWidth().testTag("builder-stage-progress"),
-        horizontalArrangement = Arrangement.spacedBy(5.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        repeat(total) { index ->
-            Spacer(
-                Modifier.weight(1f).height(3.dp)
-                    .background(
-                        if (index < safeStep) PlanBuilderPalette.accent
-                        else PlanBuilderPalette.border,
-                        RoundedCornerShape(10.dp)
-                    )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            repeat(total) { index ->
+                val stage = index + 1
+                val clickable = onSelectStage != null && stage < safeStep
+                Spacer(
+                    Modifier.weight(1f).height(4.dp)
+                        .background(
+                            if (index < safeStep) PlanBuilderPalette.accent
+                            else PlanBuilderPalette.border,
+                            RoundedCornerShape(10.dp)
+                        )
+                        .then(if (clickable) Modifier.clickable { onSelectStage?.invoke(stage) } else Modifier)
+                )
+            }
+            Text(
+                "$safeStep/$total",
+                fontSize = 10.sp,
+                color = PlanBuilderPalette.secondary,
+                fontWeight = FontWeight.Medium
             )
         }
-        Text(
-            "$safeStep/$total",
-            fontSize = 10.sp,
-            color = PlanBuilderPalette.secondary,
-            fontWeight = FontWeight.Medium
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                stageLabels.getOrElse(safeStep - 1) { "Step $safeStep" }.uppercase(),
+                fontSize = 9.5.sp,
+                color = PlanBuilderPalette.accent,
+                fontWeight = FontWeight.Bold
+            )
+            if (onSelectStage != null && safeStep > 1) {
+                Text(
+                    "Tap bar to jump back",
+                    fontSize = 9.sp,
+                    color = PlanBuilderPalette.muted
+                )
+            }
+        }
     }
 }

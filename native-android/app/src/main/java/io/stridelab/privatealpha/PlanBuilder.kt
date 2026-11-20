@@ -330,6 +330,33 @@ import org.json.JSONObject
                         disciplineGoals=input.disciplineGoals+("run" to goal),
                         trainYourWay=false,foundationAcknowledged=false))
                     runningSubPage = 2
+                },
+                targetRaceDate = input.targetRaceDate,
+                onTargetRaceDate = { chosenDate ->
+                    if (chosenDate != null) {
+                        val startDate = runCatching { LocalDate.parse(start) }.getOrDefault(LocalDate.now())
+                        val computedWeeks = java.time.temporal.ChronoUnit.WEEKS.between(startDate, chosenDate).toInt().coerceIn(4, 16)
+                        weeks = computedWeeks.toString()
+                        edit(input.copy(targetRaceDate = chosenDate, weeks = computedWeeks))
+                    } else {
+                        edit(input.copy(targetRaceDate = null))
+                    }
+                },
+                benchmarkSeconds = input.benchmarkDurationSeconds,
+                onBenchmarkSeconds = { seconds ->
+                    val distMeters = when (raceDistance) {
+                        "10K" -> 10_000
+                        "21K" -> 21_097
+                        "42K" -> 42_195
+                        else -> 5_000
+                    }
+                    edit(input.copy(
+                        benchmarkDistanceMeters = if (seconds != null) distMeters else null,
+                        benchmarkDurationSeconds = seconds
+                    ))
+                },
+                paceZones = remember(input.benchmarkDistanceMeters, input.benchmarkDurationSeconds, input.planningPace) {
+                    Engine15PaceZoneEstimator.estimate(input)
                 }
             )
             2 -> TracksideRunningAbilityScreen(
@@ -821,44 +848,75 @@ import org.json.JSONObject
                     },
                     researchContent={
                         if (BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE &&
-                            weeks == "8" && input.qualityCount == 1 && !input.userDirectedPlanning &&
+                            (weeks.toIntOrNull() in 8..16) && input.qualityCount == 1 && !input.userDirectedPlanning &&
                             input.userDefinedQualityWorkouts.isEmpty() &&
                             input.strengthDays + input.calDays + input.conditioningDays == 0) {
-                            Text(if (thresholdPilot) "Private Threshold distances" else "Private Tempo distances")
-                            Text("Request a draft with the fields empty to see the suggested slots and distance budgets. Enter your own equivalents in metres.")
-                            val rows = (if (thresholdPilot) thresholdEquivalents else tempoEquivalents).lines().filter { it.isNotBlank() }
-                                .associateBy { it.substringBefore(' ') }
-                            for (week in listOf(1, 2, 3, 5, 6, 7)) {
-                                Text("Week $week")
-                                val fields = rows[week.toString()]?.split(' ')?.drop(1).orEmpty()
-                                for ((index, label) in qualityLabels.withIndex()) {
-                                    OutlinedTextField(
-                                        value = fields.getOrElse(index) { "" },
-                                        onValueChange = { value ->
-                                            val updated = MutableList(qualityLabels.size) { fields.getOrElse(it) { "" } }
-                                            updated[index] = value.filter { it in '0'..'9' }.take(6)
-                                            val next = rows.toMutableMap()
-                                            if (updated.all { it.isEmpty() }) next.remove(week.toString())
-                                            else next[week.toString()] = "$week " + updated.joinToString(" ")
-                                            if (thresholdPilot) thresholdEquivalents = next.values.joinToString("\n")
-                                            else tempoEquivalents = next.values.joinToString("\n")
-                                        },
-                                        label = { Text(label) },
-                                        supportingText = {
-                                            val metres = fields.getOrNull(index)?.toIntOrNull()
-                                            val seconds = if (thresholdPilot) listOf(null, 600, 240, 120, 240, 120, 240, 480)[index] else when (index) {
-                                                1 -> 600
-                                                2 -> Engine15QualityWorkoutDryRunBuilder.workSeconds(input.experience)
-                                                3 -> 480
-                                                else -> null
+                            var manualDistanceEditorOpen by rememberSaveable { mutableStateOf(false) }
+                            val zones = remember(input) { Engine15PaceZoneEstimator.estimate(input) }
+                            ProvisionalPaceZoneStrip(zones)
+                            Spacer(Modifier.height(8.dp))
+                            Surface(
+                                onClick = {
+                                    runCatching {
+                                        val req = request().copy(qualityDistanceClaims = emptyList())
+                                        val prev = Engine15IndependentPlanGenerator.preview(req, "auto-estimate-owner", "auto-est", java.time.Instant.now())
+                                        val dryRun = (prev as? Engine15IndependentPlanDecision.Deferred)?.qualityDryRun
+                                        if (dryRun != null) {
+                                            val autoClaims = Engine15PaceZoneEstimator.estimateSegmentClaims(dryRun, zones)
+                                            val encoded = autoClaims.joinToString("\n") { claim ->
+                                                "${claim.weekNumber} ${claim.slotNumber} " + claim.assertedMetersByTimedSegment.joinToString(" ") { it.toInt().toString() }
                                             }
-                                            if (seconds != null && metres != null && metres > 0)
-                                                Text("Implied average ${formatTempoImpliedPace(seconds * 1000.0 / metres)}")
-                                        },
-                                        singleLine = true,
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                        modifier = Modifier.fillMaxWidth().testTag("private-tempo-$week-$index")
-                                    )
+                                            if (thresholdPilot) thresholdEquivalents = encoded else tempoEquivalents = encoded
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp).testTag("builder-auto-estimate-quality"),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                                color = StrideLabVisualPalette.limeTint,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, StrideLabVisualPalette.lime)
+                            ) {
+                                Box(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                                    Text("Auto-fill segment distances from pace zones (Est.)", color = StrideLabVisualPalette.lime, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                }
+                            }
+                            TextButton(onClick = { manualDistanceEditorOpen = !manualDistanceEditorOpen }) {
+                                Text(if (manualDistanceEditorOpen) "Hide manual segment distances −" else "Customize segment distances ›", color = PlanBuilderPalette.secondary)
+                            }
+                            if (manualDistanceEditorOpen) {
+                                val rows = (if (thresholdPilot) thresholdEquivalents else tempoEquivalents).lines().filter { it.isNotBlank() }
+                                    .associateBy { it.substringBefore(' ') }
+                                for (week in listOf(1, 2, 3, 5, 6, 7)) {
+                                    Text("Week $week")
+                                    val fields = rows[week.toString()]?.split(' ')?.drop(1).orEmpty()
+                                    for ((index, label) in qualityLabels.withIndex()) {
+                                        OutlinedTextField(
+                                            value = fields.getOrElse(index) { "" },
+                                            onValueChange = { value ->
+                                                val updated = MutableList(qualityLabels.size) { fields.getOrElse(it) { "" } }
+                                                updated[index] = value.filter { it in '0'..'9' }.take(6)
+                                                val next = rows.toMutableMap()
+                                                if (updated.all { it.isEmpty() }) next.remove(week.toString())
+                                                else next[week.toString()] = "$week " + updated.joinToString(" ")
+                                                if (thresholdPilot) thresholdEquivalents = next.values.joinToString("\n")
+                                                else tempoEquivalents = next.values.joinToString("\n")
+                                            },
+                                            label = { Text(label) },
+                                            supportingText = {
+                                                val metres = fields.getOrNull(index)?.toIntOrNull()
+                                                val seconds = if (thresholdPilot) listOf(null, 600, 240, 120, 240, 120, 240, 480)[index] else when (index) {
+                                                    1 -> 600
+                                                    2 -> Engine15QualityWorkoutDryRunBuilder.workSeconds(input.experience)
+                                                    3 -> 480
+                                                    else -> null
+                                                }
+                                                if (seconds != null && metres != null && metres > 0)
+                                                    Text("Implied average ${formatTempoImpliedPace(seconds * 1000.0 / metres)}")
+                                            },
+                                            singleLine = true,
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                            modifier = Modifier.fillMaxWidth().testTag("private-tempo-$week-$index")
+                                        )
+                                    }
                                 }
                             }
                         }

@@ -120,7 +120,26 @@ internal fun TracksideWeekReview(
         }
     ) {
 
-    if (plan?.sessions?.any { it.title == "Experimental Tempo" || it.title == "Experimental Threshold" } == true) {
+    if (plan != null && request.runDays > 0) {
+        val tidEval = androidx.compose.runtime.remember(plan.id, plan.revision) {
+            Engine15MarathonTidEvaluator.evaluate(plan)
+        }
+        val paceZones = androidx.compose.runtime.remember(plan.request) {
+            Engine15PaceZoneEstimator.estimate(plan.request)
+        }
+        PlanPeriodizationChart(
+            plan = plan,
+            selectedWeekIndex = weekIndex,
+            onSelectWeek = onWeekChange
+        )
+        Spacer(Modifier.height(10.dp))
+        TidIntensityBar(evaluation = tidEval)
+        Spacer(Modifier.height(10.dp))
+        ProvisionalPaceZoneStrip(zones = paceZones)
+        Spacer(Modifier.height(12.dp))
+    }
+
+    if (plan?.sessions?.any { it.title.startsWith("Experimental ") } == true) {
         Text("Private debug quality pilot. The work duration and effort cue are provisional. Review the runner-supplied distances for every timed step before approving.",
             color = PlanBuilderPalette.text, modifier = Modifier.testTag("private-tempo-review"))
     }

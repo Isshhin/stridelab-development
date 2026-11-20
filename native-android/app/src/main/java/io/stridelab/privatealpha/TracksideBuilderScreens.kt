@@ -1,17 +1,20 @@
 package io.stridelab.privatealpha
 
+import android.app.DatePickerDialog
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
@@ -25,13 +28,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.Locale
 
 /**
@@ -66,6 +74,7 @@ internal fun TracksideBuilderFrame(
     contentTopPadding: Int = 14,
     headlineLineHeight: Int = 30,
     progressStep: Int = 2,
+    onSelectStage: ((Int) -> Unit)? = null,
     body: @Composable ColumnScope.() -> Unit
 ) {
     Column(Modifier.fillMaxSize().background(black).testTag("figma-builder-frame")) {
@@ -82,7 +91,7 @@ internal fun TracksideBuilderFrame(
                 Text("‹", color = white, fontSize = 29.sp, lineHeight = 30.sp)
             }
             Box(Modifier.weight(1f)) {
-                PlanBuilderStageProgress(progressStep)
+                PlanBuilderStageProgress(progressStep, onSelectStage = onSelectStage)
             }
         }
         Column(
@@ -356,9 +365,22 @@ private fun TracksideRaceOption(
 internal fun TracksideRaceGoalScreen(
     intent: String, distance: String,
     onIntent: (String) -> Unit, onDistance: (String) -> Unit,
-    onBack: () -> Unit, onContinue: () -> Unit
+    onBack: () -> Unit, onContinue: () -> Unit,
+    targetRaceDate: LocalDate? = null,
+    onTargetRaceDate: ((LocalDate?) -> Unit)? = null,
+    benchmarkSeconds: Int? = null,
+    onBenchmarkSeconds: ((Int?) -> Unit)? = null,
+    paceZones: Engine15ProvisionalPaceZones? = null
 ) {
-    var unsupportedAction by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    var benchmarkDialogOpen by remember { mutableStateOf(false) }
+    var hText by remember(benchmarkSeconds) { mutableStateOf(benchmarkSeconds?.let { (it / 3600).toString() } ?: "0") }
+    var mText by remember(benchmarkSeconds) { mutableStateOf(benchmarkSeconds?.let { ((it % 3600) / 60).toString().padStart(2, '0') } ?: "25") }
+    var sText by remember(benchmarkSeconds) { mutableStateOf(benchmarkSeconds?.let { (it % 60).toString().padStart(2, '0') } ?: "00") }
+    fun formatBenchmark(sec: Int): String {
+        val h = sec / 3600; val m = (sec % 3600) / 60; val s = sec % 60
+        return if (h > 0) "%d:%02d:%02d".format(Locale.US, h, m, s) else "%d:%02d".format(Locale.US, m, s)
+    }
     val intents = listOf(
         Triple("pr", "Beat my personal best", "Train to improve your existing PR"),
         Triple("time", "Reach a target time", "Work toward a specific finish time"),
@@ -371,11 +393,9 @@ internal fun TracksideRaceGoalScreen(
         description = "Choose what success looks like for you.",
         onBack = onBack,
         onContinue = onContinue,
-        // Race reference is more compact than other builder stages.
         descriptionBottomGap = 10,
-        // Never silently accept a target-time instruction that the current
-        // PlanRequest contract cannot represent or apply.
-        continueEnabled = intent != "time"
+        progressStep = 2,
+        continueEnabled = true
     ) {
         intents.forEachIndexed { i,(id,title,desc) ->
             TracksideRaceOption(title,desc,intent==id,
@@ -402,7 +422,8 @@ internal fun TracksideRaceGoalScreen(
                         .testTag("builder-distance-"+dist),
                     onClick={onDistance(dist)},
                     color=if(distance==dist) Color(0xFF1D240B) else Color.Transparent,
-                    shape=RoundedCornerShape(22.dp)
+                    shape=RoundedCornerShape(22.dp),
+                    border=BorderStroke(1.dp, if(distance==dist) PlanBuilderPalette.accent else Color.Transparent)
                 ) {
                     Box(contentAlignment=Alignment.Center) {
                         Text(dist,fontSize=13.sp,
@@ -414,127 +435,139 @@ internal fun TracksideRaceGoalScreen(
         }
         Spacer(Modifier.height(12.dp))
         when(intent) {
-            "pr" -> Surface(
-                modifier=Modifier.fillMaxWidth().heightIn(min=116.dp)
+            "pr", "time" -> Surface(
+                modifier=Modifier.fillMaxWidth().heightIn(min=104.dp)
                     .testTag("builder-race-pr-panel"),
                 color=Color(0xFF171717), shape=RoundedCornerShape(13.dp),
-                border=BorderStroke(1.dp,Color(0xFF2B2B2B))
+                border=BorderStroke(1.dp, if(benchmarkSeconds!=null) PlanBuilderPalette.accent else Color(0xFF2B2B2B))
             ) {
-                Column(Modifier.padding(11.dp),
-                    verticalArrangement=Arrangement.spacedBy(5.dp)) {
+                Column(Modifier.padding(12.dp),
+                    verticalArrangement=Arrangement.spacedBy(6.dp)) {
                     Row(Modifier.fillMaxWidth(),
                         horizontalArrangement=Arrangement.SpaceBetween) {
-                        Text("Your current $distance PR",fontSize=15.sp,
-                            color=white,fontWeight=FontWeight.Bold)
-                        Text("OPTIONAL",fontSize=10.sp,color=muted)
+                        Text(if(intent=="time") "Target $distance finish time" else "Your current $distance PR",
+                            fontSize=14.sp, color=white, fontWeight=FontWeight.Bold)
+                        Text(if(benchmarkSeconds!=null) "SET" else "OPTIONAL",
+                            fontSize=10.sp, color=if(benchmarkSeconds!=null) PlanBuilderPalette.accent else muted,
+                            fontWeight=FontWeight.Bold)
                     }
                     Row(Modifier.fillMaxWidth(),
                         verticalAlignment=Alignment.CenterVertically) {
-                        Text("Not entered",fontSize=13.sp,color=muted,
+                        Text(benchmarkSeconds?.let(::formatBenchmark) ?: "Not entered",
+                            fontSize=16.sp,
+                            fontWeight=if(benchmarkSeconds!=null) FontWeight.Bold else FontWeight.Normal,
+                            color=if(benchmarkSeconds!=null) PlanBuilderPalette.accent else muted,
                             modifier=Modifier.weight(1f))
                         Surface(
-                            onClick={unsupportedAction="PR entry"},
+                            onClick={benchmarkDialogOpen=true},
                             shape=RoundedCornerShape(9.dp),
-                            color=Color(0xFF171717),
-                            border=BorderStroke(1.dp,Color(0xFF50606D)),
-                            modifier=Modifier.heightIn(min=44.dp)
+                            color=Color(0xFF1D240B),
+                            border=BorderStroke(1.dp, PlanBuilderPalette.accent),
+                            modifier=Modifier.heightIn(min=40.dp)
                                 .testTag("builder-race-add-pr")
                         ) {
                             Box(contentAlignment=Alignment.Center,
-                                modifier=Modifier.padding(horizontal=16.dp)) {
-                                Text("Add PR",fontSize=12.sp,color=white)
+                                modifier=Modifier.padding(horizontal=14.dp)) {
+                                Text(if(benchmarkSeconds!=null) "Edit time" else "Set time",
+                                    fontSize=12.sp, color=PlanBuilderPalette.accent, fontWeight=FontWeight.Bold)
                             }
                         }
                     }
-                    Text("Use a current PR as your baseline; no target time required.",
-                        fontSize=10.sp,lineHeight=14.sp,color=muted)
-                }
-            }
-            "time" -> Surface(
-                modifier=Modifier.fillMaxWidth().heightIn(min=143.dp),
-                color=Color(0xFF171717), shape=RoundedCornerShape(13.dp),
-                border=BorderStroke(1.dp,outline)
-            ) {
-                Column(Modifier.padding(13.dp),
-                    verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                    Text("Target finish time",fontSize=13.sp,
-                        fontWeight=FontWeight.Bold,color=white)
-                    Text("Your goal time for the selected distance.",
-                        fontSize=11.sp,color=muted)
-                    Row(Modifier.fillMaxWidth(),
-                        horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                        listOf("HOURS","MINUTES","SECONDS").forEach { label ->
-                            Surface(
-                                Modifier.weight(1f).height(55.dp),
-                                color=Color(0xFF171717),
-                                shape=RoundedCornerShape(9.dp),
-                                border=BorderStroke(1.dp,outline)
-                            ) {
-                                Column(horizontalAlignment=Alignment.CenterHorizontally,
-                                    verticalArrangement=Arrangement.Center) {
-                                    Text(label,fontSize=9.sp,color=muted)
-                                    Text("—",fontSize=16.sp,color=white)
-                                }
-                            }
-                        }
-                    }
+                    Text("Used to estimate provisional training pace zones (editable anytime).",
+                        fontSize=10.sp, lineHeight=14.sp, color=muted)
                 }
             }
             else -> Surface(
-                Modifier.fillMaxWidth().heightIn(min=67.dp),
+                Modifier.fillMaxWidth().heightIn(min=60.dp),
                 color=Color(0xFF171717),shape=RoundedCornerShape(13.dp),
                 border=BorderStroke(1.dp,outline)
             ) {
                 Box(Modifier.padding(13.dp),contentAlignment=Alignment.CenterStart) {
-                    Text("Your goal is to complete the chosen distance.",
+                    Text("Your goal is to complete the chosen distance confidently.",
                         fontSize=12.sp,color=muted)
                 }
             }
         }
-        Spacer(Modifier.height(8.dp))
-        Text("TARGET DAY",fontSize=11.sp,color=muted,
+        if (paceZones != null && benchmarkSeconds != null) {
+            Spacer(Modifier.height(10.dp))
+            ProvisionalPaceZoneStrip(paceZones)
+        }
+        Spacer(Modifier.height(10.dp))
+        Text("TARGET RACE DAY",fontSize=11.sp,color=muted,
             fontWeight=FontWeight.Bold)
         Spacer(Modifier.height(5.dp))
         Surface(
-            onClick={unsupportedAction="Target date"},
-            modifier=Modifier.fillMaxWidth().heightIn(min=44.dp)
+            onClick={
+                val init = targetRaceDate ?: LocalDate.now().plusWeeks(12)
+                DatePickerDialog(context, { _, y, m, d ->
+                    onTargetRaceDate?.invoke(LocalDate.of(y, m + 1, d))
+                }, init.year, init.monthValue - 1, init.dayOfMonth).show()
+            },
+            modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
                 .testTag("builder-race-target-day"),
             color=Color(0xFF0B0B0B),
             shape=RoundedCornerShape(13.dp),
-            border=BorderStroke(1.dp,Color(0xFF2B2B2B))
+            border=BorderStroke(1.dp, if(targetRaceDate!=null) PlanBuilderPalette.accent else Color(0xFF2B2B2B))
         ) {
-            Row(Modifier.padding(horizontal=12.dp),
+            Row(Modifier.padding(horizontal=12.dp, vertical=10.dp),
                 verticalAlignment=Alignment.CenterVertically) {
                 Icon(painterResource(R.drawable.trackside_race_goal_calendar),
                     contentDescription=null,tint=Color.Unspecified,
                     modifier=Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
-                Text("Choose a date (optional)",fontSize=12.5f.sp,
-                    color=muted,modifier=Modifier.weight(1f))
-                Icon(painterResource(R.drawable.trackside_race_goal_chevron),
-                    contentDescription=null,tint=Color.Unspecified,
-                    modifier=Modifier.size(16.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        targetRaceDate?.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy", Locale.US))
+                            ?: "Choose race date (optional)",
+                        fontSize=12.5f.sp,
+                        fontWeight=if(targetRaceDate!=null) FontWeight.Bold else FontWeight.Normal,
+                        color=if(targetRaceDate!=null) white else muted
+                    )
+                    if (targetRaceDate != null) {
+                        val wks = ChronoUnit.WEEKS.between(LocalDate.now(), targetRaceDate).coerceIn(4, 16)
+                        Text("$wks-week build · auto-synced to race day",
+                            fontSize=10.sp, color=PlanBuilderPalette.accent)
+                    }
+                }
+                if (targetRaceDate != null && onTargetRaceDate != null) {
+                    TextButton(onClick={ onTargetRaceDate(null) }, contentPadding = PaddingValues(horizontal = 6.dp)) {
+                        Text("Clear", fontSize = 11.sp, color = muted)
+                    }
+                } else {
+                    Icon(painterResource(R.drawable.trackside_race_goal_chevron),
+                        contentDescription=null,tint=Color.Unspecified,
+                        modifier=Modifier.size(16.dp))
+                }
             }
         }
-        if(intent=="time") {
-            Spacer(Modifier.height(11.dp))
-            Text("Target-time prescriptions are not supported by the active " +
-                "engine. Choose another goal to continue.",
-                fontSize=11.sp,color=Color(0xFFFFA7B5),
-                modifier=Modifier.testTag("builder-target-time-unavailable"))
-        }
     }
-    if(unsupportedAction!=null) AlertDialog(
-        onDismissRequest={unsupportedAction=null},
-        title={Text(unsupportedAction!!,color=white)},
-        text={Text(
-            "The current coaching engine does not store this value in " +
-                "a saved PlanRequest. No PR or target date has been recorded.",
-            color=muted
-        )},
+    if(benchmarkDialogOpen) AlertDialog(
+        onDismissRequest={benchmarkDialogOpen=false},
+        containerColor=Color(0xFF151515),
+        title={Text("$distance Benchmark Time",color=white,fontWeight=FontWeight.Bold)},
+        text={
+            Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                Text("Enter hours, minutes, and seconds to estimate provisional training pace zones.", color=muted, fontSize=12.sp)
+                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value=hText, onValueChange={hText=it.filter(Char::isDigit).take(1)}, label={Text("Hr")}, singleLine=true, keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number), modifier=Modifier.weight(1f))
+                    OutlinedTextField(value=mText, onValueChange={mText=it.filter(Char::isDigit).take(2)}, label={Text("Min")}, singleLine=true, keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number), modifier=Modifier.weight(1f))
+                    OutlinedTextField(value=sText, onValueChange={sText=it.filter(Char::isDigit).take(2)}, label={Text("Sec")}, singleLine=true, keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number), modifier=Modifier.weight(1f))
+                }
+            }
+        },
         confirmButton={
-            TextButton(onClick={unsupportedAction=null}) {
-                Text("Close",color=white)
+            TextButton(onClick={
+                val totalSec = ((hText.toIntOrNull() ?: 0) * 3600 + (mText.toIntOrNull() ?: 0) * 60 + (sText.toIntOrNull() ?: 0))
+                if (totalSec in 120..43200) onBenchmarkSeconds?.invoke(totalSec)
+                benchmarkDialogOpen=false
+            }) { Text("Save", color=PlanBuilderPalette.accent, fontWeight=FontWeight.Bold) }
+        },
+        dismissButton={
+            Row {
+                if (benchmarkSeconds != null) {
+                    TextButton(onClick={ onBenchmarkSeconds?.invoke(null); benchmarkDialogOpen=false }) { Text("Clear", color=muted) }
+                }
+                TextButton(onClick={benchmarkDialogOpen=false}) { Text("Cancel", color=muted) }
             }
         }
     )
@@ -619,8 +652,9 @@ internal fun TracksideRunningAbilityScreen(
         description="Use your recent training, not the mileage you hope to reach.",
         onBack=onBack,onContinue=onContinue,
         descriptionBottomGap=11,
-        contentTopPadding=61,
-        headlineLineHeight=30
+        contentTopPadding=14,
+        headlineLineHeight=30,
+        progressStep=3
     ) {
         Text("RUNNING EXPERIENCE", fontSize=11.sp, color=muted,
             fontWeight=FontWeight.Bold)
