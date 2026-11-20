@@ -2,6 +2,8 @@
 
 **Updated 2026-11-21.** Scope: GitHub `Isshhin/stridelab-development`. These are active development instructions, not a release certification. This file replaces superseded historical status claims; detailed experiments belong in `ENGINE15_EXECUTION.md`, QA documents and their original PRs.
 
+**Planning entrypoints:** [`docs/ROADMAP.md`](docs/ROADMAP.md) (current app/product priority), [`docs/ENGINE_DEVELOPMENT_ROADMAP.md`](docs/ENGINE_DEVELOPMENT_ROADMAP.md) (ten-stage Engine 1.5 coaching plan), and [`docs/qa/repository-cleanup-audit-20261121.md`](docs/qa/repository-cleanup-audit-20261121.md) (obsolete documentation disposition). The older `docs/HANDOFF.md` was retired; use this file and the roadmaps instead.
+
 ## Current development state — 2026-11-21
 
 **Treat the checked-out source, exact branch and owner approval as authoritative.** A draft PR, local worktree, or reported QA is not automatically an integrated or accepted release.
