@@ -104,52 +104,65 @@ internal fun TracksideParityMoveWorkoutSheet(
                     }
                 }
             }
+            val hasConflict = candidate != null && plan.sessions.any { other ->
+                other.id != session.id && other.status in setOf("planned", "in_progress") &&
+                    (other.date == candidate || Engine15IndependentPlanGenerator.conflict(session.copy(date = candidate), other))
+            }
             Surface(
-                modifier = Modifier.fillMaxWidth().heightIn(min = 177.dp),
-                color = Color(0xFF192A36),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 148.dp),
+                color = StrideLabVisualPalette.surface,
                 shape = RoundedCornerShape(15.dp),
-                border = BorderStroke(1.dp, Color(0x665B7080))
+                border = BorderStroke(1.dp, if (hasConflict) StrideLabVisualPalette.moderateAmber.copy(alpha = 0.6f) else StrideLabVisualPalette.border)
             ) {
-                Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("PLANNED WITH THIS MOVE", fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold, color = TracksidePalette.textMuted)
-                    if (candidate == null) Text("Choose an available day to preview its existing sessions.",
-                        color = TracksidePalette.text)
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("PLANNED WITH THIS MOVE", fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Bold, color = StrideLabVisualPalette.muted)
+                        if (candidate != null) {
+                            Surface(
+                                color = if (hasConflict) StrideLabVisualPalette.moderateAmber.copy(alpha = 0.16f) else StrideLabVisualPalette.limeTint,
+                                shape = RoundedCornerShape(8.dp),
+                                border = BorderStroke(1.dp, if (hasConflict) StrideLabVisualPalette.moderateAmber else StrideLabVisualPalette.lime)
+                            ) {
+                                Text(
+                                    if (hasConflict) "Tight / Stacked" else "Ideal Spacing",
+                                    color = if (hasConflict) StrideLabVisualPalette.moderateAmber else StrideLabVisualPalette.lime,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+                    }
+                    if (candidate == null) Text("Choose a target day to preview its schedule.",
+                        color = StrideLabVisualPalette.ink, fontSize = 13.sp)
                     else {
                         targetRows.forEach { existing ->
                             Text(existing.effectiveTitle + " · existing",
-                                color = TracksidePalette.textMuted)
+                                color = StrideLabVisualPalette.muted, fontSize = 12.sp)
                         }
                         Text(session.effectiveTitle + " · proposed",
-                            color = tracksideDisciplineColor(session.discipline),
-                            fontWeight = FontWeight.Bold)
-                        Text("Daily slots: " + (targetRows.size + 1) + " / 2",
-                            fontSize = 11.sp, color = TracksidePalette.textMuted)
+                            color = StrideLabVisualPalette.disciplineColor(session.discipline),
+                            fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text(
+                            if (targetRows.isNotEmpty()) "Stacked day (${targetRows.size + 1} sessions) · Separate AM/PM if possible."
+                            else if (hasConflict) "Back-to-back load · Prioritize recovery & easy effort."
+                            else "Clean recovery spacing around this session.",
+                            fontSize = 11.sp,
+                            color = if (hasConflict) StrideLabVisualPalette.moderateAmber else StrideLabVisualPalette.easyTeal
+                        )
                     }
-                    HorizontalDivider(color = Color(0x665B7080))
-                    Text("RECOVERY PENDING · Load and workout compatibility",
-                        fontSize = 11.sp, color = TracksidePalette.textMuted)
-                    Text("An open session slot does not guarantee safe recovery.",
-                        style = MaterialTheme.typography.bodySmall, color = TracksidePalette.textMuted)
                 }
             }
-            if (review) Text(
-                "Not applied. The existing coaching engine will validate scheduling and revision conflicts when you confirm.",
-                color = TracksidePalette.textMuted, fontSize = 12.sp)
-            else Text(
-                "Active plan stays unchanged until review and confirmation.",
-                color = TracksidePalette.textMuted, fontSize = 12.sp)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                 OutlinedButton(
                     onClick = onDismiss,
                     modifier = Modifier.weight(1f).height(49.dp)
-                ) { Text("Cancel") }
+                ) { Text("Cancel", color = StrideLabVisualPalette.ink) }
                 Button(
                     onClick = {
                         if (review && available && candidate != null) {
                             if (onReviewDestination != null) {
-                                // Review as a separate, read-only screen. The caller controls
-                                // dismissal and preserves Back to the uncommitted selection.
                                 onReviewDestination(candidate)
                             } else {
                                 actions.move(plan.id, plan.revision, session.id, candidate)
@@ -158,13 +171,16 @@ internal fun TracksideParityMoveWorkoutSheet(
                         } else review = true
                     },
                     enabled = available,
-                    colors = ButtonDefaults.buttonColors(containerColor = TracksidePalette.red),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = StrideLabVisualPalette.lime,
+                        contentColor = StrideLabVisualPalette.canvas
+                    ),
                     modifier = Modifier.weight(1.7f).height(49.dp)
                         .testTag("move-review"),
                     shape = RoundedCornerShape(13.dp)
                 ) {
                     Text(if (review) "Confirm move" else "Review move",
-                        color = Color.White)
+                        fontWeight = FontWeight.Bold)
                 }
             }
             Text("Pinned workouts must be explicitly unpinned before moving.",

@@ -227,6 +227,17 @@ internal fun TodayDisciplineDashboard(
             }
         }
 
+        val completedDates = trend.flatMap { w ->
+            w.sessionsByDay.mapIndexedNotNull { idx, count ->
+                if (count > 0) w.start.plusDays(idx.toLong()) else null
+            }
+        }.toSet()
+        ConsistencyHeatmapStrip(
+            completedDates = completedDates,
+            plannedDates = emptySet(),
+            asOf = week.start.plusDays(6)
+        )
+
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             DisciplineMetric("TRAINING DAYS", "${week.activeDays}", tint, Modifier.weight(1f))
             DisciplineMetric("SESSIONS", "${week.sessions}", tint, Modifier.weight(1f))

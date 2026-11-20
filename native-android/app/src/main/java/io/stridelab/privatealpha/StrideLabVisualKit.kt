@@ -490,3 +490,53 @@ internal fun ConsistencyHeatmapStrip(
         }
     }
 }
+
+/** AMOLED Lap Split Bar Chart highlighting faster work laps vs easy recoveries. */
+@Composable
+internal fun ActivityLapBarChart(
+    laps: List<ActivityLap>,
+    modifier: Modifier = Modifier
+) {
+    val valid = laps.filter { it.pace != null && it.pace.isFinite() && it.pace > 0.0 && it.seconds != null && it.seconds > 0.0 }
+    if (valid.size < 2) return
+    val paces = valid.map { it.pace!! }.sorted()
+    val medianPace = paces[paces.size / 2]
+    val fastest = paces.first()
+    val slowest = paces.last().coerceAtLeast(fastest + 1.0)
+    Surface(
+        modifier = modifier.fillMaxWidth().testTag("activity-lap-bar-chart"),
+        color = StrideLabVisualPalette.surface,
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, StrideLabVisualPalette.border)
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("LAP INTENSITY PROFILE", color = StrideLabVisualPalette.muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text("${valid.size} laps", color = StrideLabVisualPalette.lime, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().height(64.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.Bottom
+            ) {
+                val totalSec = valid.sumOf { it.seconds!! }.toFloat().coerceAtLeast(1f)
+                valid.forEach { lap ->
+                    val pace = lap.pace!!
+                    val speedRatio = ((slowest - pace) / (slowest - fastest)).toFloat().coerceIn(0.22f, 1f)
+                    val color = when {
+                        pace <= medianPace * 0.88 -> StrideLabVisualPalette.highCoral
+                        pace <= medianPace * 0.94 -> StrideLabVisualPalette.moderateAmber
+                        else -> StrideLabVisualPalette.easyTeal
+                    }
+                    Box(
+                        Modifier
+                            .weight((lap.seconds!!.toFloat() / totalSec).coerceAtLeast(0.04f))
+                            .fillMaxHeight(speedRatio)
+                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                            .background(color)
+                    )
+                }
+            }
+        }
+    }
+}

@@ -468,3 +468,29 @@ Manual final-APK walkthrough entered 1,178 m in Tempo warm-up and displayed 8.49
   - Rollback JVM (`-PstrideEngine15Active=false -PstrideEngine15IndependentRunningActive=false`): **1,146 passed, 0 failed, 0 errors, 9 skipped** (total 1,155).
   - APK builds: `:app:assembleDebug` and `:app:assembleRelease` (including `:app:lintVitalRelease`) **PASSED**; verified release `BuildConfig.ENGINE15_ACTIVE = false` and `ENGINE15_INDEPENDENT_RUNNING_ACTIVE = false`.
   - Android instrumentation, emulator acceptance, and physical-device walkthrough: **NOT RUN** (owner/emulator acceptance remains required before promoting or enabling outside debug opt-in).
+
+## Master Upgrade Phases A–D — Runna-Parity Engine 1.5, User-First Multi-Discipline Scheduling, and AMOLED Visual-First UI/UX Overhaul (2026-11-21)
+
+- **Phase A (`cfb31426`) — Engine 1.5 Core & User-First 3-Tier Adaptive Multi-Discipline Scheduler:**
+  - Added `Engine15PaceZoneEstimator.kt` (`stridelab.engine15.provisional-pace-zones-v1`) computing clearly badged `PROVISIONAL_ESTIMATE` pace zones (`Easy`, `Steady`, `Tempo`, `Threshold`, `Intervals`) and 1-tap reconciled whole-meter `qualityDistanceClaims` from optional benchmark times (`benchmarkDistanceMeters`/`benchmarkDurationSeconds`), confirmed easy baseline, or planning pace. Added `targetRaceDate` + benchmark fields to `PlanRequest` (backward-compatible JSON encoding).
+  - Expanded running workout library with `HILLS`, `FARTLEK`, and `PROGRESSION` across `IndependentWorkout`, `IndependentQualityTemplates` (13 templates), `IndependentQualityFitnessAdapter`, `Engine15QualityProgressionPolicy`, M5C/I5/M9a reconcilers, workout detection, effort baseline, and TID evaluator.
+  - Added 2-week (10K/HM) and 3-week (Marathon) progressive race taper curves (`RACE_TAPER_VOLUME_REDUCTION`) in `Engine15IndependentVolumePlanner.kt`.
+  - Replaced artificial multi-discipline `"compatible double days"` and tight-spacing hard blocks in `Engine15StaticMultiDisciplinePlanner.kt` with a **User-First 3-Tier Adaptive Scheduler** (Tier 1 optimal recovery → Tier 2 complementary double days → Tier 3 full user freedom with automatic AM/PM and back-to-back recovery cues).
+- **Phase B (`58caf609`) — Shared AMOLED Visual Kit & Workout Detail Profile:**
+  - Added `StrideLabVisualKit.kt` (AMOLED Black + StrideLab Lime + semantic Mint-Teal/Amber/Coral/Cyan palette): `WorkoutStructureBarChart` (interactive tap-to-inspect + mini thumbnail), `PlanPeriodizationChart`, `TidIntensityBar`, `ProvisionalPaceZoneStrip`, `ConsistencyHeatmapStrip`, and `ActivityLapBarChart`.
+  - Wired interactive `WorkoutStructureBarChart` into `WorkoutScreen.kt`.
+- **Phase C (`531ea094`) — Runna-Caliber Plan Generation UI/UX Redesign:**
+  - Upgraded `PlanBuilderStageProgress` with stage labels and tappable jump-back support.
+  - Removed dead-end dialogs in `TracksideRaceGoalScreen`: wired real `DatePickerDialog` (auto-syncing weeks to race date), real `H:MM:SS` PR/Target-Time benchmark picker, unlocked `"Reach a target time"`, and displayed live `ProvisionalPaceZoneStrip`.
+  - Removed all `"compatible double days"` hard blocks in `TracksideBuilderSchedule.kt` and `TracksideCompactScheduleEditor.kt` (replaced with Amber adaptation status pills).
+  - Replaced the 48-field manual quality distance wall in `PlanBuilder.kt` with a 1-tap `"Auto-fill segment distances from pace zones (Est.)"` action + collapsible manual drawer.
+  - Embedded `PlanPeriodizationChart`, `TidIntensityBar`, and `ProvisionalPaceZoneStrip` into `TracksideWeekReview.kt`.
+- **Phase D — Today Dashboard, AMOLED Move Sheet & Lap Visualizer:**
+  - Added `ConsistencyHeatmapStrip` to `TodayDisciplineDashboard.kt`.
+  - Modernized `TracksideParityMoveWorkoutSheet.kt` from legacy blue/red to AMOLED `#111315` + StrideLab Lime CTA + Lime/Amber visual spacing status pill (advisory, never blocking).
+  - Added `ActivityLapBarChart` to `StrideLabVisualKit.kt`.
+- **Final Verification (JBR 21.0.11 / Gradle 8.13):**
+  - Candidate JVM (`-PstrideEngine15Active=true -PstrideEngine15IndependentRunningActive=true`): **1,157 passed, 0 failed, 0 errors, 1 skipped** (total 1,158).
+  - Rollback JVM (`-PstrideEngine15Active=false -PstrideEngine15IndependentRunningActive=false`): **1,148 passed, 0 failed, 0 errors, 10 skipped** (total 1,158).
+  - APK builds: `:app:assembleDebug` and `:app:assembleRelease` (`:app:lintVitalRelease`) **PASSED**; verified release `BuildConfig.ENGINE15_ACTIVE = false` and `ENGINE15_INDEPENDENT_RUNNING_ACTIVE = false`.
+  - Android instrumentation, emulator acceptance, and physical-device walkthrough: **NOT RUN** (ready for Android Studio / emulator QA).
