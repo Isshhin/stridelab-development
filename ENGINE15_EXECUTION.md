@@ -438,3 +438,12 @@ Manual final-APK walkthrough entered 1,178 m in Tempo warm-up and displayed 8.49
 - **Verification (JBR 21.0.11 / Gradle 8.13):**
   - Candidate JVM (`-PstrideEngine15Active=true -PstrideEngine15IndependentRunningActive=true`): **1,146 passed, 0 failed, 0 errors, 1 skipped** (total 1,147).
   - Android instrumentation and physical/emulator device walkthrough: **NOT RUN** in this batch.
+
+## Batch 33 — Stage 7 History-Informed Initial Planning (2026-11-21)
+
+- Added `Engine15HistoryInformedPlanning.kt` (`stridelab.engine15.history-informed-initial-plan-v1`) bridging Stages 5 & 6 (`Engine15WorkoutDetection`, `Engine15AthleteEffortBaselineBuilder`, and `ActivityAthleteEvidence`) into `Engine15IndependentPlanGenerator.preview(...)` for static initial plan generation (Engine 1.5 only; zero Engine 2.x post-start adaptation).
+- Produces source-labeled `Engine15HistoryAdvisory` records (`MISSING_HISTORY_PRESERVES_MANUAL_INPUT`, `RECORDED_VOLUME_BELOW_DECLARED`, `RECORDED_LONGEST_RUN_SUPPORTS_BASELINE`, `CONFIRMED_QUALITY_EXPOSURE_ENABLES_BOUNDED_PROGRESSION`, `NO_CONFIRMED_QUALITY_EXPOSURE_HOLDS_INTRO`) without silently overriding manual inputs or penalizing missing device history.
+- Added `Engine15HistoryInformedPlanning.kt` to the legacy-call-graph architecture guard and added `Engine15HistoryInformedPlanningTest.kt`.
+- **Verification (JBR 21.0.11 / Gradle 8.13):**
+  - Candidate JVM (`-PstrideEngine15Active=true -PstrideEngine15IndependentRunningActive=true`): **1,148 passed, 0 failed, 0 errors, 1 skipped** (total 1,149).
+  - Android instrumentation and physical/emulator device walkthrough: **NOT RUN** in this batch.
