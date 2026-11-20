@@ -149,6 +149,9 @@ internal object IndependentTimedQualityDistanceReconciliation {
             IndependentQualityFamily.THRESHOLD -> WorkoutTarget.THRESHOLD
             IndependentQualityFamily.TEMPO -> WorkoutTarget.TEMPO
             IndependentQualityFamily.INTERVALS -> WorkoutTarget.INTERVALS
+            IndependentQualityFamily.HILLS -> WorkoutTarget.HILLS
+            IndependentQualityFamily.FARTLEK -> WorkoutTarget.FARTLEK
+            IndependentQualityFamily.PROGRESSION -> WorkoutTarget.PROGRESSION
         }
         if (phases.none { it.purpose == WorkoutPurpose.WORK } ||
             phases.any { it.purpose == WorkoutPurpose.WORK && it.target != expectedTarget })

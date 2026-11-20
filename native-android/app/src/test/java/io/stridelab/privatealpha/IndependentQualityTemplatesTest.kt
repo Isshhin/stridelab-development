@@ -85,7 +85,7 @@ class IndependentQualityTemplatesTest {
 
     @Test fun allExamplesAreUniqueVersionedAndRoundTripWithoutUnitConversion() {
         val all = IndependentQualityTemplates.all()
-        assertEquals(7, all.size)
+        assertEquals(13, all.size)
         assertEquals(all.size, all.map { it.id }.distinct().size)
         assertEquals(all.size, all.map { it.family to it.stage }.distinct().size)
         for (template in all) {

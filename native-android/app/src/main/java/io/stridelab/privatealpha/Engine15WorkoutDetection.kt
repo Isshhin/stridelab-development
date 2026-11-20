@@ -282,6 +282,9 @@ internal object Engine15WorkoutDetection {
                 ActivityQualitySubtype.TEMPO -> IndependentQualityFamily.TEMPO
                 ActivityQualitySubtype.THRESHOLD -> IndependentQualityFamily.THRESHOLD
                 ActivityQualitySubtype.INTERVALS -> IndependentQualityFamily.INTERVALS
+                ActivityQualitySubtype.HILLS -> IndependentQualityFamily.HILLS
+                ActivityQualitySubtype.FARTLEK -> IndependentQualityFamily.FARTLEK
+                ActivityQualitySubtype.PROGRESSION -> IndependentQualityFamily.PROGRESSION
                 else -> return@mapNotNull null
             }
             val segments = detection.candidateWorkSegmentsSeconds

@@ -188,14 +188,15 @@ class Engine15MultiDisciplineStabilizationTest {
         assertEquals(setOf("run", "str", "cal", "cond"), plan.sessions.map { it.discipline }.toSet())
         verifyRoundTrip(plan)
 
-        // Adding a 3rd run introduces a long run (4th hard session in a 7-day cycle),
-        // which cannot satisfy >= 2-day hard-session spacing and must fail closed.
-        val fourHardSessions = allFour.copy(runDays = 3, weeklyKm = 24.0, targetWeeklyKm = 24.0)
-        val conflict = assertThrows(PlanConstraint::class.java) {
-            Engine15IndependentPlanGenerator.generateWithHistory(
-                fourHardSessions, owner, emptyList(), "comb-four-hard", now, exerciseLibrary = library
-            )
-        }
-        assertTrue(conflict.message.orEmpty().contains("ENGINE15_COMBINED_SCHEDULE_CONFLICT"))
+        // Adding a 3rd run (6 sessions/week across 4 disciplines, including long run)
+        // adapts via Tier 3 user-first scheduling with AM/PM & back-to-back cues instead of blocking!
+        val sixSessionsFourDisciplines = allFour.copy(runDays = 3, weeklyKm = 24.0, targetWeeklyKm = 24.0, allowDoubleDays = false)
+        val adapted = Engine15IndependentPlanGenerator.generateWithHistory(
+            sixSessionsFourDisciplines, owner, emptyList(), "comb-four-adapted", now, exerciseLibrary = library
+        )
+        assertEquals(48, adapted.sessions.size)
+        assertEquals(setOf("run", "str", "cal", "cond"), adapted.sessions.map { it.discipline }.toSet())
+        assertTrue(adapted.sessions.any { it.reason.contains("Back-to-back") || it.reason.contains("Stacked day") })
+        verifyRoundTrip(adapted)
     }
 }

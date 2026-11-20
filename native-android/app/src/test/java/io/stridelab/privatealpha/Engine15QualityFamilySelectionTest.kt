@@ -145,10 +145,16 @@ class Engine15QualityFamilySelectionTest {
 
     @Test fun unsupportedPreferenceFrequencyFamilyAndOwnerEvidenceAreExplicit() {
         assertEquals("QUALITY_PREFERRED_FAMILY_UNSUPPORTED",
-            select(input = request.copy(preferredQualityExplicit = true, preferredQuality = "Fartlek")).reasonCode)
+            select(input = request.copy(preferredQualityExplicit = true, preferredQuality = "Track sprints")).reasonCode)
         assertEquals(Engine15QualitySelectionDecision.UNSUPPORTED, select(input = request.copy(qualityCount = 2)).decision)
         assertEquals(Engine15QualitySelectionDecision.UNSUPPORTED,
-            select(input = request.copy(allowedQualityTypes = setOf("Fartlek"))).decision)
+            select(input = request.copy(allowedQualityTypes = setOf("Track sprints"))).decision)
+        assertEquals(IndependentQualityFamily.FARTLEK,
+            select(input = request.copy(preferredQualityExplicit = true, preferredQuality = "Fartlek")).selectedFamily)
+        assertEquals(IndependentQualityFamily.HILLS,
+            select(input = request.copy(preferredQualityExplicit = true, preferredQuality = "Hills")).selectedFamily)
+        assertEquals(IndependentQualityFamily.PROGRESSION,
+            select(input = request.copy(preferredQualityExplicit = true, preferredQuality = "Progression")).selectedFamily)
         assertEquals(IndependentQualityFamily.INTERVALS,
             select(input = request.copy(goal = "Improve 5K", experience = 2, allowedQualityTypes = setOf("Intervals"))).selectedFamily)
         assertEquals("QUALITY_SELECTED_FAMILY_NOT_ALLOWED",

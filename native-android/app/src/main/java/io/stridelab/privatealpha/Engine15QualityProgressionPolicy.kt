@@ -144,6 +144,26 @@ internal object Engine15QualityProgressionPolicy {
                 intervalStep(3, "BUILD_3", 6, 2 * 60, WorkoutTarget.INTERVALS),
                 intervalStep(4, "EXTENDED", 5, 3 * 60, WorkoutTarget.INTERVALS)
             )
+            IndependentQualityFamily.HILLS -> listOf(
+                intervalStep(0, "INTRO", 5, 60, WorkoutTarget.HILLS),
+                intervalStep(1, "BUILD_1", 6, 60, WorkoutTarget.HILLS),
+                intervalStep(2, "BUILD_2", 5, 90, WorkoutTarget.HILLS),
+                intervalStep(3, "BUILD_3", 8, 60, WorkoutTarget.HILLS),
+                intervalStep(4, "EXTENDED", 6, 90, WorkoutTarget.HILLS)
+            )
+            IndependentQualityFamily.FARTLEK -> listOf(
+                intervalStep(0, "INTRO", 5, 2 * 60, WorkoutTarget.FARTLEK),
+                intervalStep(1, "BUILD_1", 6, 2 * 60, WorkoutTarget.FARTLEK),
+                intervalStep(2, "BUILD_2", 5, 3 * 60, WorkoutTarget.FARTLEK),
+                intervalStep(3, "BUILD_3", 7, 2 * 60, WorkoutTarget.FARTLEK),
+                intervalStep(4, "EXTENDED", 6, 3 * 60, WorkoutTarget.FARTLEK)
+            )
+            IndependentQualityFamily.PROGRESSION -> listOf(
+                continuousStep(0, "INTRO", 12 * 60, WorkoutTarget.PROGRESSION),
+                continuousStep(1, "BUILD_1", 15 * 60, WorkoutTarget.PROGRESSION),
+                continuousStep(2, "BUILD_2", 18 * 60, WorkoutTarget.PROGRESSION),
+                continuousStep(3, "EXTENDED", 20 * 60, WorkoutTarget.PROGRESSION)
+            )
         }
 
     fun plan(

@@ -157,6 +157,9 @@ internal object Engine15AthleteEffortBaselineBuilder {
                 IndependentQualityFamily.TEMPO -> ActivityQualitySubtype.TEMPO
                 IndependentQualityFamily.THRESHOLD -> ActivityQualitySubtype.THRESHOLD
                 IndependentQualityFamily.INTERVALS -> ActivityQualitySubtype.INTERVALS
+                IndependentQualityFamily.HILLS -> ActivityQualitySubtype.HILLS
+                IndependentQualityFamily.FARTLEK -> ActivityQualitySubtype.FARTLEK
+                IndependentQualityFamily.PROGRESSION -> ActivityQualitySubtype.PROGRESSION
             }
             val heuristicCount = recentDetections.count { det ->
                 det.kind == ActivityWorkoutKind.QUALITY_RUN &&

@@ -38,13 +38,15 @@ class Engine15IndependentDevelopmentRouteTest {
         assertTrue(Engine1Engines.canManage(plan))
         assertTrue(plan.sessions.all { it.discipline == "run" && !it.quality })
 
-        val unsupported = assertThrows(PlanConstraint::class.java) {
-            Engine15IndependentPlanGenerator.generateWithHistory(
-                selected.copy(strengthDays = 1, strengthExperience = 1, equipment = mapOf("db" to 2)), owner, emptyList(), "too-many-sessions", now,
-                ExerciseLibraryV2.load { path -> java.io.File("src/main/assets", path).inputStream() }
-            )
-        }
-        assertTrue("Unexpected defer: ${unsupported.message}", unsupported.message.orEmpty().contains("ENGINE15_COMBINED_SCHEDULE_CONFLICT"))
+        // Adding strength on top of 6 running days adapts automatically via multi-discipline double days.
+        val adaptedCombined = Engine15IndependentPlanGenerator.generateWithHistory(
+            selected.copy(strengthDays = 1, strengthExperience = 1, equipment = mapOf("db" to 2, "bands" to 1, "anchor" to 1)),
+            owner, emptyList(), "adapted-multi", now,
+            ExerciseLibraryV2.load { path -> java.io.File("src/main/assets", path).inputStream() }
+        )
+        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, adaptedCombined.policyId)
+        assertEquals(56, adaptedCombined.sessions.size)
+        Engine15IndependentPlanGenerator.validateSaved(adaptedCombined)
     }
 
     @Test fun independentRouteAndSavedConflictValidationHaveNoLegacyPlannerCalls() {
@@ -181,11 +183,11 @@ class Engine15IndependentDevelopmentRouteTest {
             assertEquals(6, sessions.single { it.kind == "long" }.date.dayOfWeek.value)
         }
         Engine15IndependentPlanGenerator.validateSaved(plan)
-        assertThrows(PlanConstraint::class.java) {
-            Engine15IndependentPlanGenerator.generateWithHistory(
-                request.copy(allowDoubleDays = false), owner, emptyList(), "combo-no-double", now, library
-            )
-        }
+        val withoutFlag = Engine15IndependentPlanGenerator.generateWithHistory(
+            request.copy(allowDoubleDays = false), owner, emptyList(), "combo-auto-adapt", now, library
+        )
+        assertEquals(32, withoutFlag.sessions.size)
+        Engine15IndependentPlanGenerator.validateSaved(withoutFlag)
     }
 
     @Test fun combinedStrengthCalisthenicsAndConditioningAutoScheduleWithoutHardDayCollisions() {
@@ -262,11 +264,11 @@ class Engine15IndependentDevelopmentRouteTest {
             assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, plan.policyId)
             Engine15IndependentPlanGenerator.validateSaved(plan)
         }
-        val allFour = assertThrows(PlanConstraint::class.java) {
-            Engine15IndependentPlanGenerator.generateWithHistory(
-                requests.last(), owner, emptyList(), "all-four-mix", now, library
-            )
-        }
-        assertTrue(allFour.message.orEmpty().contains("ENGINE15_COMBINED_SCHEDULE_CONFLICT"))
+        val allFour = Engine15IndependentPlanGenerator.generateWithHistory(
+            requests.last(), owner, emptyList(), "all-four-mix", now, library
+        )
+        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, allFour.policyId)
+        assertEquals(requests.last().weeks * 6, allFour.sessions.size)
+        Engine15IndependentPlanGenerator.validateSaved(allFour)
     }
 }

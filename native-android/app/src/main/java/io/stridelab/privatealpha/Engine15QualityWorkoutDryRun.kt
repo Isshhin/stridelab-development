@@ -97,7 +97,12 @@ internal data class Engine15QualityWorkoutDryRun(
         require(workout.dose(WorkoutUnit.SECONDS, WorkoutPurpose.WORK)?.toInt() == workSeconds)
         require(workout.total(WorkoutUnit.METERS) == null)
         require(((workout.dose(WorkoutUnit.SECONDS, WorkoutPurpose.RECOVERY) ?: 0.0) > 0.0) ==
-            (family in setOf(IndependentQualityFamily.THRESHOLD, IndependentQualityFamily.INTERVALS)))
+            (family in setOf(
+                IndependentQualityFamily.THRESHOLD,
+                IndependentQualityFamily.INTERVALS,
+                IndependentQualityFamily.HILLS,
+                IndependentQualityFamily.FARTLEK
+            )))
         require(weeklyDistance.isNotEmpty() && weeklyDistance.map { it.weekNumber } ==
             weeklyDistance.map { it.weekNumber }.distinct().sorted())
         require(weeklyDistance.any { it.weekNumber == weekNumber && it.kind == Engine15IndependentVolumePlanner.WeekKind.LOADING })
@@ -129,8 +134,12 @@ internal object Engine15QualityWorkoutDryRunBuilder {
         assertedExposureSecondsOverride: Int? = null
     ): Engine15QualityWorkoutDryRun? {
         val family = selection.selectedFamily ?: return null
-        if (family in setOf(IndependentQualityFamily.THRESHOLD, IndependentQualityFamily.INTERVALS) &&
-            (request.weeks !in 8..16 || request.runDays < 4 || request.longestKm <= 0.0)) return null
+        if (family in setOf(
+                IndependentQualityFamily.THRESHOLD,
+                IndependentQualityFamily.INTERVALS,
+                IndependentQualityFamily.HILLS,
+                IndependentQualityFamily.FARTLEK
+            ) && (request.weeks !in 8..16 || request.runDays < 4 || request.longestKm <= 0.0)) return null
         if (!BuildConfig.DEBUG ||
             selection.decision != Engine15QualitySelectionDecision.FAMILY_CANDIDATE ||
             selection.familyPolicyQualification != Engine15FamilyPolicyQualification.PROVISIONAL_ENGINEERING_RULE ||

@@ -54,7 +54,13 @@ internal data class PlanRequest(
     /** True only after the runner chooses a family in Plan Builder; default Threshold is not intent. */
     val preferredQualityExplicit:Boolean = false,
     /** User-asserted per-segment equivalents for debug-only quality alternatives. */
-    val qualityDistanceClaims:List<Engine15M5SegmentDistanceClaim> = emptyList()
+    val qualityDistanceClaims:List<Engine15M5SegmentDistanceClaim> = emptyList(),
+    /** Optional target race date chosen in Plan Builder; used to compute horizon and taper. */
+    val targetRaceDate:LocalDate? = null,
+    /** Optional recent race / time-trial benchmark distance in meters (e.g. 5000, 10000, 21097, 42195). */
+    val benchmarkDistanceMeters:Int? = null,
+    /** Optional recent race / time-trial benchmark duration in seconds. */
+    val benchmarkDurationSeconds:Int? = null
 ) {
     init {
         require(qualityDistanceClaims.size <= 16)
@@ -62,6 +68,8 @@ internal data class PlanRequest(
             it.provenance == Engine15M5DistanceClaimProvenance.USER_ASSERTED_EQUIVALENT &&
                 it.externalReviewReference == null
         })
+        require(benchmarkDistanceMeters == null || benchmarkDistanceMeters in 1000..100000)
+        require(benchmarkDurationSeconds == null || benchmarkDurationSeconds in 120..43200)
     }
     fun disciplineSessionCount(discipline:String)=when(discipline) {
         "run"->runDays;"str"->strengthDays;"cal"->calDays;"cond"->conditioningDays;else->0
@@ -104,6 +112,9 @@ internal data class PlanRequest(
             encoded.put("qualityDistanceClaims",JSONArray(qualityDistanceClaims.map { it.encode() }))
         if(allowedQualityTypes.isNotEmpty())
             encoded.put("allowedQualityTypes",JSONArray(allowedQualityTypes.sorted()))
+        if(targetRaceDate!=null)encoded.put("targetRaceDate",targetRaceDate.toString())
+        if(benchmarkDistanceMeters!=null)encoded.put("benchmarkDistanceMeters",benchmarkDistanceMeters)
+        if(benchmarkDurationSeconds!=null)encoded.put("benchmarkDurationSeconds",benchmarkDurationSeconds)
         return encoded
     }
     companion object {
@@ -135,7 +146,10 @@ internal data class PlanRequest(
                 } ?: emptyMap(),j.optBoolean("preferredQualityExplicit",false),
                 j.optJSONArray("qualityDistanceClaims")?.let { claims ->
                     (0 until claims.length()).map { Engine15M5SegmentDistanceClaim.decode(claims.getJSONObject(it)) }
-                } ?: emptyList())
+                } ?: emptyList(),
+                j.nullString("targetRaceDate")?.let(LocalDate::parse),
+                j.nullInt("benchmarkDistanceMeters"),
+                j.nullInt("benchmarkDurationSeconds"))
         }
     }
 }

@@ -111,8 +111,8 @@ internal object Engine15MarathonTidEvaluator {
                             sumStepMeters += m
                             when (step.purpose.uppercase()) {
                                 "WORK" -> when (family) {
-                                    "intervals" -> z3 += m
-                                    "tempo", "threshold" -> z2 += m
+                                    "intervals", "hills" -> z3 += m
+                                    "tempo", "threshold", "fartlek", "progression" -> z2 += m
                                     else -> unclassified += m
                                 }
                                 "WARM_UP", "RECOVERY", "COOL_DOWN", "EASY" -> z1 += m
@@ -127,8 +127,8 @@ internal object Engine15MarathonTidEvaluator {
                             val m = seg.meters.toDouble()
                             when (seg.purpose.uppercase()) {
                                 "WORK" -> when (family) {
-                                    "intervals" -> z3 += m
-                                    "tempo", "threshold" -> z2 += m
+                                    "intervals", "hills" -> z3 += m
+                                    "tempo", "threshold", "fartlek", "progression" -> z2 += m
                                     else -> unclassified += m
                                 }
                                 "WARM_UP", "RECOVERY", "COOL_DOWN", "EASY" -> z1 += m

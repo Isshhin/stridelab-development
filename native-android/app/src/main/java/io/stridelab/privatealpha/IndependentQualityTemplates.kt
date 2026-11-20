@@ -5,7 +5,7 @@ package io.stridelab.privatealpha
  * A template defines structure and an illustrative dose, NOT athlete eligibility,
  * measured threshold pace, physiological safety, or a progression decision.
  */
-internal enum class IndependentQualityFamily { THRESHOLD, TEMPO, INTERVALS }
+internal enum class IndependentQualityFamily { THRESHOLD, TEMPO, INTERVALS, HILLS, FARTLEK, PROGRESSION }
 internal enum class IndependentQualityStage { INTRO, EXTENDED, LONG_REPETITIONS }
 
 internal data class IndependentQualityTemplate(
@@ -52,14 +52,29 @@ internal data class IndependentQualityTemplate(
                     step.unit == WorkoutUnit.SECONDS &&
                     step.target == WorkoutTarget.TEMPO && step.repetitions == 1)
             }
-            IndependentQualityFamily.INTERVALS -> {
+            IndependentQualityFamily.INTERVALS,
+            IndependentQualityFamily.HILLS,
+            IndependentQualityFamily.FARTLEK -> {
                 require(stage != IndependentQualityStage.LONG_REPETITIONS)
+                val expectedTarget = when (family) {
+                    IndependentQualityFamily.INTERVALS -> WorkoutTarget.INTERVALS
+                    IndependentQualityFamily.HILLS -> WorkoutTarget.HILLS
+                    else -> WorkoutTarget.FARTLEK
+                }
                 val group = (workout.elements[1] as? IndependentWorkoutElement.Intervals)?.value
-                    ?: throw IllegalArgumentException("Intervals example requires interval group")
-                require(group.work.target == WorkoutTarget.INTERVALS &&
+                    ?: throw IllegalArgumentException("$family example requires interval group")
+                require(group.work.target == expectedTarget &&
                     group.recovery.target == WorkoutTarget.EASY &&
                     group.work.unit == WorkoutUnit.SECONDS &&
                     group.recovery.unit == WorkoutUnit.SECONDS)
+            }
+            IndependentQualityFamily.PROGRESSION -> {
+                require(stage != IndependentQualityStage.LONG_REPETITIONS)
+                val step = (workout.elements[1] as? IndependentWorkoutElement.Step)?.value
+                    ?: throw IllegalArgumentException("Progression example requires continuous work")
+                require(step.purpose == WorkoutPurpose.WORK &&
+                    step.unit == WorkoutUnit.SECONDS &&
+                    step.target == WorkoutTarget.PROGRESSION && step.repetitions == 1)
             }
         }
         require(if (stage == IndependentQualityStage.LONG_REPETITIONS)
@@ -121,17 +136,34 @@ internal object IndependentQualityTemplates {
         ))
     )
 
-    private fun intervals(stage: IndependentQualityStage, repetitions: Int, workSeconds: Int,
-                          recoverySeconds: Int, warmSeconds: Int, coolSeconds: Int) =
+    private fun repeated(
+        family: IndependentQualityFamily,
+        target: WorkoutTarget,
+        stage: IndependentQualityStage,
+        repetitions: Int,
+        workSeconds: Int,
+        recoverySeconds: Int,
+        warmSeconds: Int,
+        coolSeconds: Int
+    ) = IndependentQualityTemplate(
+        "engine15-${family.name.lowercase()}-${stage.name.lowercase()}-v1", family, stage,
+        IndependentWorkoutComposition(listOf(
+            IndependentWorkoutElement.Step(step(WorkoutPurpose.WARM_UP, warmSeconds, WorkoutTarget.EASY)),
+            IndependentWorkoutElement.Intervals(IndependentIntervalGroup(
+                repetitions,
+                step(WorkoutPurpose.WORK, workSeconds, target),
+                step(WorkoutPurpose.RECOVERY, recoverySeconds, WorkoutTarget.EASY)
+            )),
+            IndependentWorkoutElement.Step(step(WorkoutPurpose.COOL_DOWN, coolSeconds, WorkoutTarget.EASY))
+        ))
+    )
+
+    private fun progression(stage: IndependentQualityStage, workSeconds: Int, warmSeconds: Int, coolSeconds: Int) =
         IndependentQualityTemplate(
-            "engine15-intervals-${stage.name.lowercase()}-v1", IndependentQualityFamily.INTERVALS, stage,
+            "engine15-progression-${stage.name.lowercase()}-v1", IndependentQualityFamily.PROGRESSION, stage,
             IndependentWorkoutComposition(listOf(
                 IndependentWorkoutElement.Step(step(WorkoutPurpose.WARM_UP, warmSeconds, WorkoutTarget.EASY)),
-                IndependentWorkoutElement.Intervals(IndependentIntervalGroup(
-                    repetitions,
-                    step(WorkoutPurpose.WORK, workSeconds, WorkoutTarget.INTERVALS),
-                    step(WorkoutPurpose.RECOVERY, recoverySeconds, WorkoutTarget.EASY)
-                )),
+                IndependentWorkoutElement.Step(step(WorkoutPurpose.WORK, workSeconds, WorkoutTarget.PROGRESSION)),
                 IndependentWorkoutElement.Step(step(WorkoutPurpose.COOL_DOWN, coolSeconds, WorkoutTarget.EASY))
             ))
         )
@@ -143,8 +175,14 @@ internal object IndependentQualityTemplates {
         threshold(IndependentQualityStage.EXTENDED, 4, 5 * 60, 2 * 60, 10 * 60, 10 * 60),
         tempo(IndependentQualityStage.INTRO, 12 * 60, 10 * 60, 8 * 60),
         tempo(IndependentQualityStage.EXTENDED, 20 * 60, 10 * 60, 10 * 60),
-        intervals(IndependentQualityStage.INTRO, 4, 2 * 60, 2 * 60, 10 * 60, 8 * 60),
-        intervals(IndependentQualityStage.EXTENDED, 5, 3 * 60, 2 * 60, 10 * 60, 10 * 60),
+        repeated(IndependentQualityFamily.INTERVALS, WorkoutTarget.INTERVALS, IndependentQualityStage.INTRO, 4, 2 * 60, 2 * 60, 10 * 60, 8 * 60),
+        repeated(IndependentQualityFamily.INTERVALS, WorkoutTarget.INTERVALS, IndependentQualityStage.EXTENDED, 5, 3 * 60, 2 * 60, 10 * 60, 10 * 60),
+        repeated(IndependentQualityFamily.HILLS, WorkoutTarget.HILLS, IndependentQualityStage.INTRO, 5, 60, 2 * 60, 10 * 60, 8 * 60),
+        repeated(IndependentQualityFamily.HILLS, WorkoutTarget.HILLS, IndependentQualityStage.EXTENDED, 6, 90, 2 * 60, 10 * 60, 10 * 60),
+        repeated(IndependentQualityFamily.FARTLEK, WorkoutTarget.FARTLEK, IndependentQualityStage.INTRO, 5, 2 * 60, 2 * 60, 10 * 60, 8 * 60),
+        repeated(IndependentQualityFamily.FARTLEK, WorkoutTarget.FARTLEK, IndependentQualityStage.EXTENDED, 6, 3 * 60, 2 * 60, 10 * 60, 10 * 60),
+        progression(IndependentQualityStage.INTRO, 12 * 60, 10 * 60, 8 * 60),
+        progression(IndependentQualityStage.EXTENDED, 20 * 60, 10 * 60, 10 * 60),
         longRepetitions()
     )
 

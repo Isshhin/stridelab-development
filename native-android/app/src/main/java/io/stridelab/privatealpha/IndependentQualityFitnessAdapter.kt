@@ -108,7 +108,9 @@ internal object IndependentQualityFitnessAdapter {
                     }
                 }
             }
-            IndependentQualityFamily.TEMPO -> {
+            IndependentQualityFamily.TEMPO,
+            IndependentQualityFamily.PROGRESSION -> {
+                val target = if (family == IndependentQualityFamily.PROGRESSION) WorkoutTarget.PROGRESSION else WorkoutTarget.TEMPO
                 // Enumerate one-minute structures up to the evidenced and reviewed dose.
                 (8..(permitted / 60)).mapNotNull { minutes ->
                     val seconds = minutes * 60
@@ -116,11 +118,13 @@ internal object IndependentQualityFitnessAdapter {
                             WARM_UP + seconds + coolDown(seconds) > it
                         } == true) null
                     else Triple(composition(IndependentWorkoutElement.Step(
-                        stepOf(WorkoutPurpose.WORK, seconds, WorkoutTarget.TEMPO)), seconds), seconds, 0)
+                        stepOf(WorkoutPurpose.WORK, seconds, target)), seconds), seconds, 0)
                 }
             }
-            IndependentQualityFamily.INTERVALS -> {
-                // 3–8 repeats of 1–4 min hard intervals, with easy recovery ONLY between repeats.
+            IndependentQualityFamily.INTERVALS,
+            IndependentQualityFamily.FARTLEK -> {
+                val target = if (family == IndependentQualityFamily.FARTLEK) WorkoutTarget.FARTLEK else WorkoutTarget.INTERVALS
+                // 3–8 repeats of 1–4 min hard intervals/surges, with easy recovery ONLY between repeats.
                 (3..8).flatMap { repetitions ->
                     (1..4).mapNotNull { workMinutes ->
                         val workSeconds = repetitions * workMinutes * 60
@@ -130,7 +134,26 @@ internal object IndependentQualityFitnessAdapter {
                             input.availableSessionSeconds?.let { total > it } == true) null
                         else {
                             val group = IndependentIntervalGroup(repetitions,
-                                stepOf(WorkoutPurpose.WORK, workMinutes * 60, WorkoutTarget.INTERVALS),
+                                stepOf(WorkoutPurpose.WORK, workMinutes * 60, target),
+                                stepOf(WorkoutPurpose.RECOVERY, RECOVERY, WorkoutTarget.EASY))
+                            Triple(composition(IndependentWorkoutElement.Intervals(group), workSeconds),
+                                workSeconds, recoverySeconds)
+                        }
+                    }
+                }
+            }
+            IndependentQualityFamily.HILLS -> {
+                // 4–10 repeats of 45–120s uphill work, with 2 min easy jog-down recovery between repeats.
+                (4..10).flatMap { repetitions ->
+                    listOf(45, 60, 90, 120).mapNotNull { repSec ->
+                        val workSeconds = repetitions * repSec
+                        val recoverySeconds = (repetitions - 1) * RECOVERY
+                        val total = WARM_UP + workSeconds + recoverySeconds + coolDown(workSeconds)
+                        if (workSeconds > permitted ||
+                            input.availableSessionSeconds?.let { total > it } == true) null
+                        else {
+                            val group = IndependentIntervalGroup(repetitions,
+                                stepOf(WorkoutPurpose.WORK, repSec, WorkoutTarget.HILLS),
                                 stepOf(WorkoutPurpose.RECOVERY, RECOVERY, WorkoutTarget.EASY))
                             Triple(composition(IndependentWorkoutElement.Intervals(group), workSeconds),
                                 workSeconds, recoverySeconds)
@@ -142,7 +165,8 @@ internal object IndependentQualityFitnessAdapter {
         if (candidatePairs.isEmpty())
             return defer("DOSE_OR_TIME_CONFLICT", "No example fits both the approved work ceiling and available time.")
         val preferredRepetitions = when (family) {
-            IndependentQualityFamily.INTERVALS -> if (permitted <= 10 * 60) 4 else 5
+            IndependentQualityFamily.INTERVALS, IndependentQualityFamily.FARTLEK -> if (permitted <= 10 * 60) 4 else 5
+            IndependentQualityFamily.HILLS -> if (permitted <= 6 * 60) 5 else 6
             else -> if (permitted <= 12 * 60) 3 else 4
         }
         // Prefer the greatest supportable dose. Equal-dose threshold ties favor a

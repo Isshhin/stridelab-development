@@ -27,7 +27,7 @@ internal data class IndependentWorkout(val steps: List<WorkoutStep>) {
 
 internal enum class WorkoutPurpose { WARM_UP, WORK, RECOVERY, COOL_DOWN }
 internal enum class WorkoutUnit { SECONDS, METERS }
-internal enum class WorkoutTarget { EASY, STEADY, THRESHOLD, TEMPO, INTERVALS, STRIDES, UNSPECIFIED }
+internal enum class WorkoutTarget { EASY, STEADY, THRESHOLD, TEMPO, INTERVALS, HILLS, FARTLEK, PROGRESSION, STRIDES, UNSPECIFIED }
 
 internal data class WorkoutStep(
     val purpose: WorkoutPurpose,

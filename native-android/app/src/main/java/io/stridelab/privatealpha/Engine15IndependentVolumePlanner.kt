@@ -36,7 +36,8 @@ internal object Engine15IndependentVolumePlanner {
         val targetWeeklyKm:Double?,
         val returning:Boolean=false,
         val recoveryHold:Boolean=false,
-        val userDirected:Boolean=false
+        val userDirected:Boolean=false,
+        val raceGoal:String?=null
     ) {
         init {
             require(weeks in 1..52 && runningDays in 1..7)
@@ -110,23 +111,38 @@ internal object Engine15IndependentVolumePlanner {
             profile.reportedLongestRunKm,input.runningDays
         ) else null
         var priorKm:Double?=null
+        var peakBuildKm:Double?=null
+        val marathonTaper = input.raceGoal == "Marathon" && input.weeks >= 12
+        val halfOr10kTaper = input.raceGoal in setOf("Half marathon", "Improve 10K") && input.weeks >= 10
         val weeks=(0 until input.weeks).map { week ->
-            val kind=if(week%4==3)WeekKind.RECOVERY else WeekKind.LOADING
+            val weeksFromEnd = input.weeks - 1 - week
+            val taperMultiplier = when {
+                marathonTaper && weeksFromEnd == 2 -> 0.85
+                marathonTaper && weeksFromEnd == 1 -> 0.70
+                marathonTaper && weeksFromEnd == 0 -> 0.55
+                halfOr10kTaper && weeksFromEnd == 1 -> 0.80
+                halfOr10kTaper && weeksFromEnd == 0 -> 0.60
+                else -> null
+            }
+            val kind=if(week%4==3 || (taperMultiplier != null && weeksFromEnd == 0)) WeekKind.RECOVERY else WeekKind.LOADING
             val existingCeiling=base?.let { baseline ->
                 Engine15WeeklyVolumeSkeleton.ceiling(week,baseline,input.targetWeeklyKm)
             }
             val returnCeiling=base?.let { baseline ->
                 returnCeilingKm(week,baseline,input.returning)
             }
-            val recoveryCeiling=if(kind==WeekKind.RECOVERY)
+            val recoveryCeiling=if(kind==WeekKind.RECOVERY && taperMultiplier == null)
                 priorKm?.times(0.8) else null
+            val taperCeiling=taperMultiplier?.let { mult ->
+                (peakBuildKm ?: priorKm ?: base)?.times(mult)
+            }
 
             val requested=if(input.userDirected) input.targetWeeklyKm ?: existingCeiling else null
-            val components=if(input.userDirected) listOfNotNull(recoveryCeiling)
-                else listOfNotNull(existingCeiling,capacity,returnCeiling,recoveryCeiling)
+            val components=if(input.userDirected) listOfNotNull(recoveryCeiling, taperCeiling)
+                else listOfNotNull(existingCeiling,capacity,returnCeiling,recoveryCeiling,taperCeiling)
             val rawBound=components.minOrNull()
-            val directedBudget=if(input.userDirected && recoveryCeiling!=null)
-                minOf(requested ?: recoveryCeiling,recoveryCeiling) else requested
+            val directedBudget=if(input.userDirected && (recoveryCeiling!=null || taperCeiling!=null))
+                listOfNotNull(requested, recoveryCeiling, taperCeiling).minOrNull() else requested
             val proposed=(directedBudget ?: rawBound)?.let(::floorTenth)
             val flags=mutableListOf<String>()
             if(!numeric)flags+="NO_NUMERIC_PROPOSAL"
@@ -138,8 +154,12 @@ internal object Engine15IndependentVolumePlanner {
                 if(binds(capacity))flags+="PROVISIONAL_SESSION_EXPOSURE_CAP"
                 if(binds(returnCeiling))flags+="RETURN_FROM_BREAK_CAP"
                 if(binds(recoveryCeiling))flags+="RECOVERY_FROM_PLANNED_WEEK_CAP"
+                if(taperCeiling!=null && binds(taperCeiling))flags+="RACE_TAPER_VOLUME_REDUCTION"
                 if(rawBound-proposed>1e-8)flags+="ROUNDING_DOWN_TO_100M"
                 if(capacity==null)flags+="SESSION_EXPOSURE_UNCONFIRMED"
+            }
+            if(taperMultiplier == null && proposed != null && kind == WeekKind.LOADING) {
+                peakBuildKm = maxOf(peakBuildKm ?: 0.0, proposed)
             }
             if(input.userDirected && proposed!=null) {
                 flags+="USER_REQUESTED_NOT_CAPACITY_VALIDATED"

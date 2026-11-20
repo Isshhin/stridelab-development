@@ -382,6 +382,9 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             val familyName = when (selection.selectedFamily) {
                 IndependentQualityFamily.THRESHOLD -> "Threshold"
                 IndependentQualityFamily.INTERVALS -> "Intervals"
+                IndependentQualityFamily.HILLS -> "Hills"
+                IndependentQualityFamily.FARTLEK -> "Fartlek"
+                IndependentQualityFamily.PROGRESSION -> "Progression"
                 IndependentQualityFamily.TEMPO, null -> "Tempo"
             }
             val paceWarnings = qualityDryRun?.alternatives.orEmpty().mapNotNull { alternative ->
@@ -421,6 +424,9 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                             if (work) when (familyName) {
                                 "Threshold" -> "Controlled, comfortably hard effort. Keep repetitions even and ease off if effort rises."
                                 "Intervals" -> "Hard, repeatable effort. Keep each repetition controlled and use the full easy recovery between efforts."
+                                "Hills" -> "Strong uphill drive with tall posture; jog or walk easily back down for full recovery."
+                                "Fartlek" -> "Playful, controlled surge effort; settle smoothly back into easy running between surges."
+                                "Progression" -> "Start steady and gradually build effort across the finish block without straining."
                                 else -> "Steady, controlled effort. Ease off if you cannot speak a short phrase."
                             }
                             else "Easy conversational effort",
@@ -440,6 +446,9 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                         } else when (familyName) {
                             "Threshold" -> "Private Threshold introduction using M2 Intro. Three four-minute work repetitions with two minutes easy between them. No completed Threshold exposure, pace or heart-rate target is inferred."
                             "Intervals" -> "Private Intervals introduction using M2 Intro. Four two-minute work repetitions with two minutes easy between them. No completed Intervals exposure, pace or heart-rate target is inferred."
+                            "Hills" -> "Private Hills introduction using M2 Intro. Five one-minute uphill efforts with two minutes easy recovery between them."
+                            "Fartlek" -> "Private Fartlek introduction using M2 Intro. Five two-minute controlled surges with two minutes easy float between them."
+                            "Progression" -> "Private Progression introduction using M2 Intro. Twelve-minute gradual fast-finish block."
                             else -> "Private Tempo pilot. This slot fits reported recent run distance and the plan stays within usual weekly mileage. Work stays at 10 minutes because completed Tempo exposure is unverified. Favor the controlled effort cue and review your distance entries."
                         })
                 }
@@ -460,7 +469,12 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                     "No family dry-run was constructed because selection deferred or is unsupported."
                 selection.selectionBasis != Engine15QualitySelectionBasis.GOAL_EXPERIENCE_MATRIX ->
                     "No coach-generated dry-run was constructed because this family came from explicit user direction."
-                selection.selectedFamily in setOf(IndependentQualityFamily.THRESHOLD, IndependentQualityFamily.INTERVALS) && qualityDryRun == null ->
+                selection.selectedFamily in setOf(
+                    IndependentQualityFamily.THRESHOLD,
+                    IndependentQualityFamily.INTERVALS,
+                    IndependentQualityFamily.HILLS,
+                    IndependentQualityFamily.FARTLEK
+                ) && qualityDryRun == null ->
                     "$familyName introduction needs eight to sixteen weeks, at least four running days and a reported longest completed run; no Tempo substitution was made."
                 qualityDryRun == null ->
                     "The Tempo structure could not be linked to a valid development calendar slot and complete base weekly-distance ledger."
