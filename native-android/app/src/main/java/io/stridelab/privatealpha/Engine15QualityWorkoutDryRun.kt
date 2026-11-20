@@ -19,12 +19,16 @@ internal data class Engine15TempoAlternative(
     val budgetKm: Double,
     val distanceStatus: Engine15QualityDistanceStatus,
     val distanceMatch: Engine15M5ArithmeticMatch? = null,
-    val distanceFailureCode: String? = null
+    val distanceFailureCode: String? = null,
+    val prescription: Engine15QualityWeekPrescription? = null
 ) {
     val weekNumber get() = slot.weekNumber
     val slotNumber get() = slot.slotNumber
     val sessionId get() = slot.sessionId
     val originalEasyDistanceKm get() = slot.originalEasyDistanceKm
+    val workSeconds get() = prescription?.step?.workSeconds
+    val totalSeconds get() = prescription?.step?.totalSeconds
+    val progressionBasis get() = prescription?.basis
     val structurallyValid get() = true
     val distanceClaimProvenance get() = distanceMatch?.distanceClaimProvenance
     val weeklyDistanceAfterReplacementKm get() = budgetKm.takeIf { distanceMatch != null }
@@ -121,11 +125,12 @@ internal object Engine15QualityWorkoutDryRunBuilder {
         request: PlanRequest,
         selection: Engine15QualityFamilySelectionResult,
         volume: Engine15IndependentVolumePlanner.Result,
-        sessions: List<PlannedSession>
+        sessions: List<PlannedSession>,
+        assertedExposureSecondsOverride: Int? = null
     ): Engine15QualityWorkoutDryRun? {
         val family = selection.selectedFamily ?: return null
         if (family in setOf(IndependentQualityFamily.THRESHOLD, IndependentQualityFamily.INTERVALS) &&
-            (request.weeks != 8 || request.runDays < 4 || request.longestKm <= 0.0)) return null
+            (request.weeks !in 8..16 || request.runDays < 4 || request.longestKm <= 0.0)) return null
         if (!BuildConfig.DEBUG ||
             selection.decision != Engine15QualitySelectionDecision.FAMILY_CANDIDATE ||
             selection.familyPolicyQualification != Engine15FamilyPolicyQualification.PROVISIONAL_ENGINEERING_RULE ||
@@ -153,33 +158,33 @@ internal object Engine15QualityWorkoutDryRunBuilder {
         val template = IndependentQualityTemplates.get(
             family, IndependentQualityStage.INTRO
         )
-        val workout = if (family == IndependentQualityFamily.TEMPO && workSeconds(request.experience) != template.workSeconds().toInt()) IndependentWorkoutComposition(
-            template.workout.elements.map { element ->
-                if (element is IndependentWorkoutElement.Step && element.value.purpose == WorkoutPurpose.WORK)
-                    IndependentWorkoutElement.Step(element.value.copy(amount = workSeconds(request.experience).toDouble()))
-                else element
-            }
-        ) else template.workout
-        val totalSeconds = requireNotNull(workout.total(WorkoutUnit.SECONDS)).toInt()
-        val workSeconds = requireNotNull(workout.dose(WorkoutUnit.SECONDS, WorkoutPurpose.WORK)).toInt()
+        val prescriptions = Engine15QualityProgressionPolicy.plan(
+            request, selection, assertedExposureSecondsOverride
+        ).associateBy { it.weekNumber }
+        val firstPrescription = prescriptions[slot.weekNumber] ?: return null
+        val workout = firstPrescription.step.workout
+        val totalSeconds = firstPrescription.step.totalSeconds
+        val workSeconds = firstPrescription.step.workSeconds
 
         val claims = request.qualityDistanceClaims.groupBy { it.weekNumber to it.slotNumber }
         val keys = selection.candidateSlots.map { it.weekNumber to it.slotNumber }.toSet()
         val conflict = claims.any { (key, rows) -> key !in keys || rows.size != 1 }
         val alternatives = selection.candidateSlots.map { candidate ->
             val budget = weeklyDistance.single { it.weekNumber == candidate.weekNumber }.budgetKm
+            val weekPrescription = prescriptions[candidate.weekNumber] ?: return null
             val claim = claims[candidate.weekNumber to candidate.slotNumber]?.singleOrNull()
             when {
-                conflict -> Engine15TempoAlternative(candidate, budget, Engine15QualityDistanceStatus.CLAIM_SET_CONFLICT)
-                claim == null -> Engine15TempoAlternative(candidate, budget, Engine15QualityDistanceStatus.DISTANCE_EQUIVALENTS_NOT_SUPPLIED)
+                conflict -> Engine15TempoAlternative(candidate, budget, Engine15QualityDistanceStatus.CLAIM_SET_CONFLICT, prescription = weekPrescription)
+                claim == null -> Engine15TempoAlternative(candidate, budget, Engine15QualityDistanceStatus.DISTANCE_EQUIVALENTS_NOT_SUPPLIED, prescription = weekPrescription)
                 else -> when (val result = Engine15M5TimedDistanceReconciler.reconcileSegmentClaim(
                     candidate.weekNumber, candidate.slotNumber, template.family,
-                    candidate.originalEasyDistanceKm, workout, totalSeconds, workSeconds, claim
+                    candidate.originalEasyDistanceKm, weekPrescription.step.workout,
+                    weekPrescription.step.totalSeconds, weekPrescription.step.workSeconds, claim
                 )) {
                     is Engine15M5SegmentDistanceDecision.Deferred -> Engine15TempoAlternative(candidate, budget,
-                        Engine15QualityDistanceStatus.INVALID_CLAIM, distanceFailureCode = result.reasonCode)
+                        Engine15QualityDistanceStatus.INVALID_CLAIM, distanceFailureCode = result.reasonCode, prescription = weekPrescription)
                     is Engine15M5SegmentDistanceDecision.ArithmeticOnly -> Engine15TempoAlternative(candidate, budget,
-                        Engine15QualityDistanceStatus.USER_ASSERTED_ARITHMETIC_RECONCILED, result.match)
+                        Engine15QualityDistanceStatus.USER_ASSERTED_ARITHMETIC_RECONCILED, result.match, prescription = weekPrescription)
                 }
             }
         }

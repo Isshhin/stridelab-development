@@ -388,3 +388,16 @@ Manual final-APK walkthrough entered 1,178 m in Tempo warm-up and displayed 8.49
   - Candidate JVM (`-PstrideEngine15Active=true -PstrideEngine15IndependentRunningActive=true`): **1,131 passed, 0 failed, 0 errors, 1 skipped** (total 1,132).
   - Rollback JVM (`-PstrideEngine15Active=false -PstrideEngine15IndependentRunningActive=false`): **1,128 passed, 0 failed, 0 errors, 4 skipped** (total 1,132).
   - Android instrumentation and physical/emulator device walkthrough: **NOT RUN** in this batch.
+
+## Batch 29 — Stage 3 Evidence-Bounded Dosage & Multi-Week Progression (2026-11-21)
+
+- Added `Engine15QualityProgressionPolicy.kt` (`stridelab.engine15.quality-progression-v1`) defining discrete, auditable multi-week quality dosage ladders for `TEMPO`, `THRESHOLD`, and `INTERVALS`:
+  - Without repeated same-family exposure (`REPEATED_DEVICE_RECORDS_ASSERTED`), holds at the conservative `INTRO` dose across all loading weeks (`HOLD_NO_REPEATED_EXPOSURE`); elapsed weeks alone never escalate quality work.
+  - With repeated same-family exposure, advances boundedly across loading mesocycles, strictly capped by `assertedRepeatedWorkSeconds + 240 s`, family ceilings, available session time (`TIME_BUDGET_CAPPED`), and race-taper reductions (`RACE_TAPER_REDUCTION`) on the final loading week for race goals (`Improve 5K`, `Improve 10K`, `Half marathon`, `Marathon`).
+- Extended debug-only experimental quality dry-run and drafting from 8 weeks to **8–16 weeks** across `TEMPO`, `THRESHOLD`, and `INTERVALS`, with per-week segment reconciliation in `Engine15QualityWorkoutDryRun.kt` and `Engine15IndependentPlanGenerator.kt`.
+- Added optional `experimentalQualityExposureSeconds: Int? = null` on `PlanSnapshot` (encoded only when non-null) so `PlanOperations.approve` and `Engine15IndependentPlanGenerator.validateSaved` deterministically replay and validate progressive quality drafts offline without requiring ephemeral in-memory evidence.
+- Added `Engine15QualityProgressionPolicyTest.kt` (6 tests covering absent-exposure hold across 16 weeks, bounded Threshold progression + race taper, non-taper Aerobic foundation, session time-budget capping, 12-week progressive Threshold approval/validation round-trip, and 16-week Marathon Tempo horizon/recovery-week exclusion).
+- **Verification (JBR 21.0.11 / Gradle 8.13):**
+  - Candidate JVM (`-PstrideEngine15Active=true -PstrideEngine15IndependentRunningActive=true`): **1,137 passed, 0 failed, 0 errors, 1 skipped** (total 1,138).
+  - Rollback JVM (`-PstrideEngine15Active=false -PstrideEngine15IndependentRunningActive=false`): **1,132 passed, 0 failed, 0 errors, 6 skipped** (total 1,138).
+  - Android instrumentation and physical/emulator device walkthrough: **NOT RUN** in this batch.
