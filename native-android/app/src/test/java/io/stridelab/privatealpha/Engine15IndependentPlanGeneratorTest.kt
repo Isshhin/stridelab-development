@@ -677,7 +677,8 @@ class Engine15IndependentPlanGeneratorTest {
             "Engine15M6IndependentQualitySpacing.kt",
             "Engine15QualityFamilySelection.kt",
             "Engine15QualityProgressionPolicy.kt",
-            "Engine15QualityWorkoutDryRun.kt"
+            "Engine15QualityWorkoutDryRun.kt",
+            "Engine15WorkoutDetection.kt"
         )
         val forbidden = Regex("\\b(?:Engine1\\.(?:generate|validate)|MultiSessionEngine1|CoordinatedEngine1|Engine15InterferenceScheduling|Engine1Engines)\\b")
         for (file in files) {

@@ -415,3 +415,17 @@ Manual final-APK walkthrough entered 1,178 m in Tempo warm-up and displayed 8.49
   - Rollback JVM (`-PstrideEngine15Active=false -PstrideEngine15IndependentRunningActive=false`): **1,134 passed, 0 failed, 0 errors, 8 skipped** (total 1,142).
   - APK builds: `:app:assembleDebug` and `:app:assembleRelease` **PASSED**; verified release `BuildConfig.ENGINE15_ACTIVE = false` and `ENGINE15_INDEPENDENT_RUNNING_ACTIVE = false`.
   - Android instrumentation and physical/emulator device walkthrough: **NOT RUN** in this batch.
+
+## Batch 31 — Stage 5 Automatic Workout Detection & Evidence Bridge (2026-11-21)
+
+- Added `Engine15WorkoutDetection.kt` (`stridelab.engine15.workout-detection-v1`) providing:
+  - Deterministic Garmin duplicate consolidation via `ActivityDisplayConsolidation` with `mergedSourceIds` tracking.
+  - Plan-intent linkage via `ActivityWorkoutIntelligence` (`LINKED_PLAN_INTENT` / `INTENT_LINKED_UNVERIFIED`) with fail-closed `AMBIGUOUS_CONFLICT` (`AMBIGUOUS_PLAN_LINKAGE`) when multiple sessions claim the same activity.
+  - Heuristic lap-structure classification (`INTERVALS`, `THRESHOLD`, `TEMPO`, `LONG_RUN`) strictly tagged `HEURISTIC_CANDIDATE` (never claiming verified physiological zones or unlabelled lap truth), defaulting to `UNKNOWN` (`INSUFFICIENT_SIGNAL`) when signal is absent.
+  - Reversible user overrides (`USER_OVERRIDE` / `USER_ASSERTED`) preserving `underlyingAutomaticKind` and `underlyingAutomaticSubtype` so removing a label cleanly reverts to automatic detection.
+  - Auditable `toQualitySegmentEvidence` bridge that converts only user-overridden or unambiguously plan-linked quality workouts with valid work segments into `IndependentQualitySegmentEvidence` (excluding unconfirmed heuristics and ambiguous conflicts; `sourceEvidenceVerified = false`).
+- Added `Engine15WorkoutDetection.kt` to the `Engine15IndependentPlanGeneratorTest` legacy-call-graph guard and added `Engine15WorkoutDetectionTest.kt`.
+- **Verification (JBR 21.0.11 / Gradle 8.13):**
+  - Candidate JVM (`-PstrideEngine15Active=true -PstrideEngine15IndependentRunningActive=true`): **1,144 passed, 0 failed, 0 errors, 1 skipped** (total 1,145).
+  - Rollback JVM (`-PstrideEngine15Active=false -PstrideEngine15IndependentRunningActive=false`): **1,137 passed, 0 failed, 0 errors, 8 skipped** (total 1,145).
+  - Android instrumentation and physical/emulator device walkthrough: **NOT RUN** in this batch.
