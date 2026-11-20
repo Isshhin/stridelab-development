@@ -1,8 +1,10 @@
-# StrideLab agent workflow (Codex and other repository agents)
+# StrideLab — Agent instructions and current engineering state
 
-## CURRENT PROJECT STATE AND PHASE 1 POLICY — 2026-11-21 (read first)
+**Updated 2026-11-21.** Scope: GitHub `Isshhin/stridelab-development`. These are active development instructions, not a release certification. This file replaces superseded historical status claims; detailed experiments belong in `ENGINE15_EXECUTION.md`, QA documents and their original PRs.
 
-**This section supersedes conflicting older status/priority/route descriptions below.** All unchanged privacy, data-provenance, testing, branch-protection, UI and engine safety rules elsewhere in this file still apply. The repository and current checkout remain the source of truth. **Do not equate a draft PR, a local worktree, or reported QA with an integrated accepted release.**
+## Current development state — 2026-11-21
+
+**Treat the checked-out source, exact branch and owner approval as authoritative.** A draft PR, local worktree, or reported QA is not automatically an integrated or accepted release.
 
 ### Branch and feature status
 
@@ -29,7 +31,7 @@
 
 **Running page visibility:** do **not** use `TodayDisciplineAnalytics.available()` (historically ≥3 running days in each of the prior two completed weeks) as a navigation gate. Users should be able to open the Running page with an approved plan, any run, or no data, signed out or offline. Retain sufficient-history rules **only for individual analyses that actually require them**. Do not count future sessions as missed, assume absent imports mean inactivity, or treat an unmatched run as a completed prescribed session.
 
-**Phase 2 is separate and not authorized by Phase 1:** richer athlete analytics, detailed training-history tools/interpolation review, efficiency comparisons, intensity distributions, run comparisons, journal/goals/shoes. Reuse actual recorded values, preserve missing-data provenance, and obtain separately scoped approval before editing. Older “Analysis under More is backlog only” language below does **not** block the expressly approved Phase 1 Running review, but does not grant blanket Phase 2 approval.
+**Phase 2 is separate and not authorized by Phase 1:** richer athlete analytics, detailed training-history tools/interpolation review, efficiency comparisons, intensity distributions, run comparisons, journal/goals/shoes. Reuse actual recorded values, preserve missing-data provenance, and obtain separately scoped approval before editing. Approval of Phase 1 does not grant blanket approval for Phase 2.
 
 **Execution/QA:** For this Phase 1 task, **source edits only** unless the owner explicitly overrides that restriction. The owner runs Gradle, JVM tests, Android tests, ADB, emulator installation and visual acceptance. Agent reports exact modified files, branch/HEAD, diff, unperformed checks as NOT RUN and next owner verification; no automatic merge, Phase 2 continuation, or production activation.
 
@@ -40,9 +42,14 @@
 - Root `AGENTS.md`, `.agents/skills/stridelab-ui-safe-parity/SKILL.md`, and `.agents/skills/ui-ux-pro-max/SKILL.md` continue to govern approved UI work. Current Compose is design authority, not historical Figma. Graphify is optional and can be stale; validate live source. Exact “Ponytail” workflow was not verified and must not be invented.
 - Work evidence belongs to its actual commit and build variant. Green isolated QA does not prove live Garmin behavior, phone acceptance, or the latest local working copy.
 
+
 ---
 
-For ongoing Engine 1.5 implementation, follow the ordered milestones and current exact next action in [`ENGINE15_EXECUTION.md`](ENGINE15_EXECUTION.md). Continue after each validated commit; do not treat the tracker as a stopping point.
+## Branch and release protection
+
+- `main` is the last owner-approved stable release. `dev` is the integration branch. Work on `dev` or a reviewed short-lived branch targeting `dev`; never commit directly to `main`. A user-selected local QA branch is valid for its explicitly scoped task, not automatically a release source.
+- Promote through a reviewed `dev → main` PR only after relevant automated tests, manual visual/device acceptance and owner approval of the **exact** dev HEAD. Do not force-push, reset, overwrite or silently reconcile the divergent `main` history. A green build is not approval.
+- The owner-local `feat/garmin-coach-ui-20261120` state cannot be inferred from remote `dev`; inspect local HEAD and working tree before any Phase 1 modifications. Do not assume merged or accepted status for draft PR #166/#167/#169. See `docs/qa/main-dev-release-policy-20261111.md`.
 
 ## Activity Detail header and continuous charts (2026-11-12)
 
@@ -54,24 +61,33 @@ Charts for pace, heart rate, elevation and cadence use **continuous source-measu
 
 **Connecting, manually syncing and automatically syncing Garmin Personal API history must work without a StrideLab cloud login.** Garmin credentials are encrypted on device and must use the persistent local Garmin owner, independent of cloud authentication. Local Garmin summaries, FIT/GPS, edited titles, Today, Training and Activity Detail remain available after offline restart and StrideLab sign-out. Never restore a login redirect in More → Garmin Connect or silently hide local Garmin history based on `state.account == null`. **Only optional StrideLab cloud backup and restore require verified cloud sign-in and explicit per-cloud-account consent.** Do not mix local and cloud data owners, auto-upload on switching accounts, overwrite source-owned FIT/measurements, leak credentials, or delete legacy encrypted credentials during migration. Retain targeted Android tests for guest modal, guest sync/persistence, title edits, signed-out Training, and sign-in/sign-out isolation. See `docs/qa/main-dev-release-policy-20261111.md` for owner-run Pixel 9 verification and promotion rules.
 
-## Mandatory release branch policy (owner decision, 2026-11-11)
+## Engine 1.5 development guardrails
 
-**`main` is the last owner-approved stable release and the source of truth for release builds; `dev` is the only ongoing Android implementation/integration branch.** Implement and test all feature/UI/fix changes on `dev` (or a short-lived branch merging into `dev`). Do not make or push changes to `main` directly. Promotion requires a reviewed `dev → main` PR, relevant passing automated tests, manual visual/device acceptance, and the owner's explicit approval of the exact dev HEAD. Never force-push, reset or overwrite `main`. The existing main history diverges from the modern Android integration; do not silently replace its README/history. See `docs/qa/main-dev-release-policy-20261111.md` for the exact gate and bootstrap status. A green build is not approval, and the pending Activity Detail Edit/map-control fix must remain on `dev` until validated.
+- **Engine 1.5 is the intended independent static plan generator** via `Engine15IndependentPlanGenerator`. Engine 1.0 normal generation fallback is **retired**; do not resurrect legacy generator/validator calls or registry policy in the active independent path. `Engine1Engines` can exist for historical caller compatibility only when verified.
+- The checked-out `native-android/app/build.gradle` is the source of truth for build flags. The `dev` default is **both Engine 1.5 flags false**; release and isolated QA force them off. Earlier PR #131 notes describing independent debug activation are historical, not current `dev` defaults.
+- Static generation owns athlete constraints, weekly volume and scheduled recovery, workout-family construction, hard-session spacing, valid long-run/rest-day placement, discipline combinations, plan validation and explicit approval. Engine 2.x remains research for automatic post-workout/readiness adaptation.
+- For independent candidate work, use an isolated approved research branch/worktree; inspect exact current PR heads and `ENGINE15_EXECUTION.md`. Never edit the owner's dirty shared checkout as an unrelated research target.
+- Keep I1–I9 and subsequent research/shadow artifacts typed, reproducible, read-only and non-executable. `sourceEvidenceVerified`, caller assertions, hashes, calibration digests and arithmetic reconciliation do not establish verified athlete provenance, physiological intensity or safety.
+- M10.6 and independent M4–M6 development policies have historically differed. Before changing them, inspect the exact active ownership and do not silently delegate, duplicate or replace one policy with another.
+- A requested mileage target is not established athlete capacity. Incomplete imported mileage is not a numeric baseline without complete coverage or a separately confirmed usual average. Missing history, exposure, recovery holds or constraints remain unknown; reject/defer unsupported generation instead of inventing limits.
+- Keep family/version, observed quality exposure, interval work/recovery accounting, weekly distance reconciliation, training constraints and cross-discipline conflicts distinct. Recompute parallel review results from the same typed source; do not pair caller-asserted result objects. One permitted easy+upper-body double day does not authorize hard-session interference.
+- Debug-only user-directed `PlanRequest` / `RunningPrescription` allows explicitly authored structured sessions with exact scheduled-distance reconciliation and valid hard-session spacing; timed steps need explicitly provided per-step distance equivalents, never inferred pace conversions. Preserve repeat group structure and ordered transitions. User-authored target text remains unqualified. Do not present authored workouts as verified automatic coach selection.
+- Experimental Tempo/Threshold eight-week candidates exist; quality dosing/progression and source-backed tolerance still need evidence and full Android/manual gates. Do not activate candidates for release or conflate green synthetic tests with dependable coaching.
+- Record exact code versions, tests actually run, blocked gates and coaching risks in `ENGINE15_EXECUTION.md` when an Engine task is authorized. Do not use Phase 1 Running UI work as permission to change the engine.
 
+## Today and navigation design contract
 
-This is the persistent default for work in this repository. Follow the user's **current task prompt** and the applicable, up-to-date branch documentation. Do not treat old handoffs, cached graph indexes, or historical green builds as proof of the live state.
+- Approved floating bottom dock has exactly **Today, Training, Activity, More**. Do not invent Progress or Library as a fifth tab; any existing Library surface is reached through its approved More route. The existing **Running dashboard** belongs to its current host flow; do not change top-level navigation without separate approval.
+- `StrideLabTodayScreen.kt`, connected through `NativeMainActivity.kt`, uses a true-black background, greeting, tappable seven-day calendar and real scheduled workout(s) for the selected date. The top-card concave notch follows the selected weekday center, including Monday and Sunday.
+- Support one scheduled session, multiple actual saved sessions, approved recovery/open day, no-approved-plan and signed-out states. Keep actual Activity/Your Week daily bars, Next session and Weekly summary. Do not fabricate workout targets, activity measurements, photos, routes or exercise counts.
+- The current running Kotlin/Jetpack Compose app, **not historical Figma** or synthetic preview galleries, is design authority. Preserve `TracksidePalette`, established discipline accents, existing motion springs and user-accepted interactions. Runtime components use `Trackside` rather than retired `TracksideFigma` naming.
 
-## Active Android design authority (owner update, 2026-11-10)
+## UI workspace and execution authorization
 
-The **current running Kotlin/Jetpack Compose implementation** is the authoritative
-StrideLab visual system: AMOLED-black surfaces, lime branding, established
-discipline accents, existing motion springs, navigation, and live component
-states. Historical Figma/"parity" labels and preview artifacts are not design
-authority; do not regress live layouts to archived frames. Older references
-below apply only as historical context unless the owner explicitly reapproves
-them. Runtime components formerly prefixed `TracksideFigma` are now named
-`Trackside` to reflect their actual use, without changing their behavior.
-Do not reintroduce the retired synthetic Figma comparison preview gallery.
+- Reuse the owner's relevant existing worktree; **for the current Phase 1 Running task** use `C:/Users/marcs/stridelab-garmin-qa` after checking its exact local branch and dirty files. Do not create a new per-screen worktree or switch to the older `ui/trackside-dev` workspace merely because historical `docs/qa/permanent-ui-workspace.md` mentions it.
+- Coding agents are **SOURCE-EDIT ONLY by default** on UI tasks. Do not run Gradle, compile, assemble APKs, execute JVM/instrumentation tests, use ADB, launch emulators, install apps or perform live Garmin calls unless explicitly authorized for the particular task.
+- The owner performs compilation, test execution, APK installation and emulator/visual acceptance in Android Studio. Source changes alone are not device acceptance. Record checks as `NOT RUN` when the owner has not supplied results.
+- Preserve other agents' work, staged files, untracked data, local stashes and repository history. Never reset/clean a worktree to resolve conflicts without explicit instruction.
 
 ## Required handoff and implementation brief contract (owner preference, 2026-11-08)
 
@@ -88,38 +104,6 @@ Every Codex prompt, Work handoff, or delegated implementation batch MUST be prec
 **Execution discipline:** Re-read the specific owner goal before edits; optimize for the intended result rather than literal but incomplete steps. Use concise, implementation-ready language and avoid ambiguous wording. If existing code or prior plans conflict with the requested outcome, flag the conflict and address it within authorized scope; do not silently inherit unrelated goals or invent behavior. Ask a question only when an essential unresolved choice would materially change the result. Do not expand scope, remove safety constraints, change the active engine, or claim completion without evidence.
 
 This contract governs **how tasks are specified and reported**, not permission to ignore the owner's current prompt, protected code, signing/data safety, Codex's default code-edit-only rule, or owner-run verification requirements.
-
-## Engine 1.5 independent candidate work (2026-11-17 task scope)
-
-- When explicitly authorized to continue the independent Engine 1.5 candidate, work in a separate research branch/worktree and inspect the actual current PR heads first. Never use the shared dirty checkout as an edit target.
-- Keep I1–I9 and later shadow results typed, reproducible, read-only, and non-executable. Do not turn `sourceEvidenceVerified`, caller assertions, calibration digests, or arithmetic reconciliation into verified athlete provenance or authority.
-- M10.6 production-style generation and M4–M6 independent planning have overlapping but distinct workload policies. Preserve both; compare outputs and do not silently delegate, duplicate policy, or replace the M10.6 policy owner.
-- Reuse an existing approved/read-only research UI. Do not create another Android planning screen for the same preview.
-- Quality-session development is a priority when specifically requested. Keep family structure/version, work/recovery accounting, observed family-specific exposure, user-entered constraints, missing history, recovery holds, and weekly mileage reconciliation distinct. Missing evidence is unknown, not a duration cap or a user limit. Do not activate any experimental quality generator in production without separate owner approval.
-- Caller-supplied quality exposure is reported/asserted input, never “confirmed” or verified provenance; do not imply source-linked timing proves workout family, intensity, tolerance, or authorization.
-- When assembling independent Engine 1.5 review outputs, recompute both branches from the same typed source instead of pairing caller-supplied result objects; recheck cross-discipline same-day/spacing conflicts for quality even if an EASY run was permitted to pair with upper-body work.
-- Record exact heads, per-batch diffs, commands, test counts, blocked checks, and unresolved coaching risks in `ENGINE15_EXECUTION.md` and the candidate's research handoff. Green unit tests do not establish real-world coaching reliability.
-- **User-directed and structured-running follow-up (2026-11-17):** Batch 13 adds a debug-only user-directed weekly-volume choice. The requested loading-week volume is not an athlete-capacity claim; keep the scheduled 80% recovery week and disclose exceeded coaching/session-exposure recommendations. Batches 14–16 accept user-authored structured quality through the `PlanRequest`/`RunningPrescription` contracts, only when the complete workout reconciles exactly to its scheduled session distance and hard-session spacing is valid. Timed steps count toward that distance only with explicit per-step user-supplied distance equivalents; no pace conversion is inferred. Version 3 supports an explicitly ordered transition between workout blocks. Batch 17 exposes the same contract through the existing debug-only Plan Builder in User directed mode; repeat groups remain intact when edited or reordered, and copying fills only missing loading-week slots. User targets remain unqualified. Automatic coach-generated quality prescriptions remain deferred. See `ENGINE15_EXECUTION.md` Batches 13–17.
-- **PR #131 development route status (2026-11-17):** `ENGINE15_INDEPENDENT_RUNNING_ACTIVE` defaults true in debug builds and is overrideable with `-PstrideEngine15IndependentRunningActive=false`; release hard-codes it false. The single `Engine15IndependentPlanGenerator` facade handles running, strength, calisthenics, conditioning, and feasible statically scheduled combinations using Engine 1.5 workout composers. Strength/calisthenics use shared offline exercise records; conditioning uses the reviewed low-impact step-jack record. Combined scheduling honors available weekdays, discipline weekday assignments, valid locks, long-run placement, explicit double-day consent, hard-session spacing, and daily time limits. Unmerged owner sessions, unresolved notes, unsupported quality work, unavailable catalog data, and schedules that cannot fit safely defer. Static plans do not adapt to completed/missed sessions or readiness signals. Keep release behavior unchanged and never call deferred or research-only workouts executable. See `ENGINE15_EXECUTION.md` Batch 12 for evidence and remaining gaps.
-- Incomplete-only recorded mileage is not an independent numeric baseline. Defer it unless the runner separately confirms a usual average or complete source coverage is available; do not reinterpret partial imports as complete weekly history.
-- **Structured workout authoring and quality qualification (2026-11-17):** Batch 17 exposes user-defined structured running sessions through the existing debug-only Plan Builder and versioned `RunningPrescription` contract. Batch 18 rechecked the research evidence: automatic coach selection/progression/intensity remains deferred because templates are heuristic, source-to-session evidence is caller asserted, source import/binding is not verified, and dose increases require an external reviewed ceiling. The deferral must not say the Plan Builder cannot author workouts. Keep user-supplied target text user-directed and unqualified. See `ENGINE15_EXECUTION.md` Batch 18.
-- The active independent route uses `PlanRequest`'s discipline-count/default-goal contract directly; `Engine1Engines` delegates to it only for older callers. Architecture tests must scan the independent facade, combined scheduler and all four discipline composers for both legacy generator/validator calls and registry references.
-
-## Owner-approved Today redesign (2026-11-06)
-
-- **AMOLED true black** Today screen, StrideLab branding, greeting, month/week navigation and seven-day tappable calendar.
-- Tapping a weekday changes the selected date, the **real saved workout(s)** displayed and the accent theme. The **concave notch along the workout card's top edge must track the center of the selected weekday**, including Monday and Sunday. Do not leave the notch centered.
-- Card variants: one scheduled session (discipline-specific mountain/abstract art), multiple sessions (both/all real session rows, progress and open-next action), an approved-plan day without sessions (recovery/open day), no-approved-plan, and signed-out. Never invent training targets, GPS routes, exercise counts, biometrics, calories or other saved values.
-- Keep the compact **Next session**, real saved **Activity / Your week** daily bars and **Weekly summary**, with secondary dashboards still available under Additional insights. Four floating tabs: **Today, Training, Activity, More**. Library is reachable from More.
-- The currently implemented view is `StrideLabTodayScreen.kt` connected from `NativeMainActivity.kt`; this is **implemented source pending owner Android Studio acceptance**, not an accepted device rendering.
-- This approval applies to Today only and replaces earlier Today Figma nodes; do not back-port old illustrated route cards or photos.
-
-## Permanent UI workspace and owner-approved division of work
-
-- **Reuse one local Android Studio UI workspace for every UI task.** Do not ask the owner to open a new Git worktree for each screen or change. See `docs/qa/permanent-ui-workspace.md`. Keep the owner's main development checkout and existing stashes untouched.
-- **Codex is CODE-EDIT ONLY by default**: make only the exact requested source changes, with a brief source review. **Do not run Gradle, compile, assemble APKs, execute tests, run ADB, launch emulators, or produce long QA reports/documentation** unless the owner explicitly authorizes an exception for that task.
-- **The owner executes all compilation, tests, APK creation and emulator debugging in Android Studio** using the stable workspace. Regular ChatGPT prepares scoped prompts, reviews the owner's findings and records GitHub documentation.
-- These standing instructions take precedence over older build/checklist suggestions elsewhere in this file for routine UI changes. A change is not considered visually accepted until the owner verifies it on-device.
 
 ## Task startup: keep context and usage bounded
 
@@ -138,21 +122,19 @@ This contract governs **how tasks are specified and reported**, not permission t
 ## Skills (load only when relevant)
 
 - Check currently available skills; do not claim that a skill is installed unless its instructions are accessible in this environment.
-- For **approved Compose UI, navigation, gesture, accessibility, responsive, or Figma parity work**, read both `.agents/skills/stridelab-ui-safe-parity/SKILL.md` (project-specific logic-preservation and owner-approval gates) and `.agents/skills/ui-ux-pro-max/SKILL.md` (including its **Jetpack Compose** guidance). Do not substitute generic web design guidance for native Android behavior.
+- For **approved Compose UI, navigation, gesture, accessibility, responsive or Figma-reference work**, read both `.agents/skills/stridelab-ui-safe-parity/SKILL.md` (project-specific logic-preservation and owner-approval gates) and `.agents/skills/ui-ux-pro-max/SKILL.md` (including its **Jetpack Compose** guidance). Do not substitute generic web design guidance for native Android behavior.
 - Discover, then selectively use any actually available Impeccable (visual critique), Superpowers (debugging/verification), Android testing, or Sentry Code Review skills. User-level or plugin installations are **not guaranteed** to be mounted into Codex. Never mass-install or load every skill, and never let skill suggestions override approved Figma or existing app logic. See `docs/qa/codex-skills-setup-20261106.md` for the verified inventory and read-only skill check.
 - Use `design-system` for tokens and component states, `graphify` for targeted dependency/caller inspection when useful, and `unslop` only for requested code-quality cleanup. For Compose regression coverage, select only the relevant testing skills for test choice, structure, synchronization, semantics assertions, bounds, state restoration, and accessibility.
 - For non-UI API, FIT, database, or pure data-layer work, **skip the UI skills** unless a user-visible interface behavior is actually being changed.
 
-## Product boundaries and priorities
+## Active product scope and protected boundaries
 
-- This is an Android-first Kotlin / Jetpack Compose multi-discipline training app. The approved floating bottom dock has **four tabs: Today, Training, Activity, More**. The Library remains accessible through More; do not re-add Library or invent Progress as a bottom tab.
-- Near-term priorities are: (1) stabilize Garmin activity/FIT/GPS/map and other core behavior; (2) implement **explicitly owner-approved** UI references one tab, page and modal at a time; (3) defer Library/More polish beyond the approved four-tab dock. The owner-approved AMOLED Today redesign of 2026-11-06 **supersedes Today Figma parity only**; other tabs still follow their own approved designs.
-- **Analysis under More is backlog only.** Do not build or add new analytics features unless separately approved.
-- Figma file: `v73TsYo6gKxUoiUock2sSE` for other approved flows, not as the Today redesign source. Treat approval as explicit; preserve the user's newer Today reference screenshots and interactive notch contract rather than reverting to old Figma.
-- UI reconstruction: keep Garmin, MapLibre, persistence and engine boundaries intact. The owner runs compilation, tests and emulator checks in Android Studio, then **STOP for owner acceptance** before moving to the next page. A source commit alone is not visual or device acceptance.
-- Preserve all existing application logic and data contracts, including training engines, databases, persistence, synchronization, backup/recovery behavior, and provider boundaries. Do not change navigation, routes, feature behavior, business rules, storage, or migrations without explicit approval.
-- Do not modify Engine 1.5 (draft PR #37), Engine 2.x research (draft PR #34), unrelated branches, or unrelated data providers as part of a UI/Garmin fix. Any change to these requires specific authorization and branch verification.
-- Garmin is the active wearable source in the native QA workflow. Do not re-enable the retired Intervals.icu UI/sync or destroy preserved historical records without explicit authorization. Keep real recorded GPS provenance; never synthesize geographic tracks.
+- Android-first Kotlin/Jetpack Compose multi-discipline training app. **Current priority:** Phase 1 Running dashboard—weekly plan labels, evidence-grounded coach review and completion/consistency; Phase 2 athlete analytics is distinct and separately scoped. Maintain current More analytics and other existing features while developing Running.
+- Continue validating existing Garmin/FIT, Activity Detail, owner-scoped offline activity backup/restore, manual logs, Share Studio and map behavior as needed for regressions; they are not authorization for a map/route rewrite or new workout recorder.
+- Do not revive **Exercise Library 2.0**, the retired Intervals.icu sync/UI, Engine 1.0 fallback or a fifth bottom tab as incidental changes. Preserved historical source/data is not permission for destructive deletion.
+- Present physical recorded data faithfully. Never fabricate GPS, route samples, heart rate, speed, distance, strength sets or workout compliance; no source overwrite to satisfy a display.
+- Preserve all engine, provider, persistence, local/cloud owner, authentication, FIT, MapLibre, backup, migration, activity matching and navigation contracts unless the owner explicitly scopes changes. UI-only changes should stay at the presentation layer.
+- UI revisions require actual user-approved current screen scope; historical Figma file `v73TsYo6gKxUoiUock2sSE` is reference-only, not overriding current Android. Apply changes one screen/modal at a time; stop for owner acceptance.
 
 ## Test and device safety
 
@@ -165,8 +147,7 @@ This contract governs **how tasks are specified and reported**, not permission t
 
 ## Done means evidence, not optimism
 
-- **For Codex UI edits**, report a concise branch/commit, changed files and blockers only; indicate that builds and device verification were not run. For owner-run QA, regular ChatGPT maintains detailed findings in GitHub after results are supplied.
-- Regular ChatGPT maintains task-specific QA/handoff documentation after owner-confirmed findings. Mark unverified capabilities **UNVERIFIED** rather than claiming success.
+- **For source-only UI edits**, report branch/commit, precise file diffs and blockers; explicitly state no builds or device verification were run. Record owner-supplied QA evidence only against the exact tested HEAD. Mark unverified capabilities **UNVERIFIED** rather than claiming success.
 - Stop at the agreed task boundary. Do not silently begin the next screen, redesign, algorithm project, or provider integration.
 
 Keep UI changes at the presentation layer unless a deeper change is explicitly authorized. Do not weaken validation, error handling, offline behavior, permissions, or accessibility to make a design fit. For UI changes, add or update relevant Compose regression tests covering the user-visible state, important interaction, and relevant accessibility semantics. Use bounds assertions only when geometry is part of the contract.
