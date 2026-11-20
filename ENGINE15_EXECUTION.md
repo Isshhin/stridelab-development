@@ -401,3 +401,17 @@ Manual final-APK walkthrough entered 1,178 m in Tempo warm-up and displayed 8.49
   - Candidate JVM (`-PstrideEngine15Active=true -PstrideEngine15IndependentRunningActive=true`): **1,137 passed, 0 failed, 0 errors, 1 skipped** (total 1,138).
   - Rollback JVM (`-PstrideEngine15Active=false -PstrideEngine15IndependentRunningActive=false`): **1,132 passed, 0 failed, 0 errors, 6 skipped** (total 1,138).
   - Android instrumentation and physical/emulator device walkthrough: **NOT RUN** in this batch.
+
+## Batch 30 — Stage 4 Complete-Plan Robustness & Scenario Matrix (2026-11-21)
+
+- Added `Engine15CompletePlanRobustnessMatrixTest.kt` verifying end-to-end Engine 1.5 complete-plan integrity across:
+  - 20 horizon/frequency/goal combinations (`8, 10, 12, 16` weeks × `2..6` running days × all 5 running goals × experience `0..2`): deterministic repeatability, exact daily/weekly mileage reconciliation, recovery-week cadence, long-run weekday placement, `PlanOperations.approve`, `PlanSnapshot` JSON round-trip, and `validateSaved`.
+  - 9 progressive quality combinations (`INTERVALS`, `THRESHOLD`, `TEMPO` × `8, 12, 16` weeks with repeated asserted exposure): exact 1:1 distance replacement against easy-only base plans, recovery-week exclusion, ≥2-day quality-to-long-run spacing, race-taper holds on the final loading week, exposure-anchor persistence, and `validateSaved`.
+  - Multi-discipline external interference: hard lower-body strength on an adjacent non-running day blocks Tuesday quality (`QUALITY_SLOT_UNAVAILABLE`) while upper-body strength on the same day permits it.
+  - Adversarial tampering rejection: out-of-range or removed `experimentalQualityExposureSeconds` is rejected by `validateSaved`.
+- Extended `Engine15IndependentPlanGeneratorTest.independentGenerationCallGraphContainsNoLegacyPlannerCalls` to guard `Engine15QualityProgressionPolicy.kt` and `Engine15QualityWorkoutDryRun.kt` against any Engine 1.0 dependency.
+- **Verification (JBR 21.0.11 / Gradle 8.13):**
+  - Candidate JVM (`-PstrideEngine15Active=true -PstrideEngine15IndependentRunningActive=true`): **1,141 passed, 0 failed, 0 errors, 1 skipped** (total 1,142).
+  - Rollback JVM (`-PstrideEngine15Active=false -PstrideEngine15IndependentRunningActive=false`): **1,134 passed, 0 failed, 0 errors, 8 skipped** (total 1,142).
+  - APK builds: `:app:assembleDebug` and `:app:assembleRelease` **PASSED**; verified release `BuildConfig.ENGINE15_ACTIVE = false` and `ENGINE15_INDEPENDENT_RUNNING_ACTIVE = false`.
+  - Android instrumentation and physical/emulator device walkthrough: **NOT RUN** in this batch.
