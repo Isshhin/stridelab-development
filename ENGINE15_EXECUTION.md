@@ -447,3 +447,12 @@ Manual final-APK walkthrough entered 1,178 m in Tempo warm-up and displayed 8.49
 - **Verification (JBR 21.0.11 / Gradle 8.13):**
   - Candidate JVM (`-PstrideEngine15Active=true -PstrideEngine15IndependentRunningActive=true`): **1,148 passed, 0 failed, 0 errors, 1 skipped** (total 1,149).
   - Android instrumentation and physical/emulator device walkthrough: **NOT RUN** in this batch.
+
+## Batch 34 — Stage 8 Read-Only Advisory Marathon TID Research Evaluator (2026-11-21)
+
+- Added `Engine15MarathonTidEvaluator.kt` (`stridelab.engine15.marathon-tid-evaluator-v1`): read-only advisory 3-zone Training Intensity Distribution evaluator (`LOW_INTENSITY_ONLY`, `PYRAMIDAL`, `POLARIZED`, `HIGH_INTENSITY_HEAVY`, `INCOMPLETE_PRESCRIPTION_DATA`) computed strictly from explicit prescription segment meters / `distanceEquivalentMeters` without mutating plans or fabricating physiological zones.
+- Surfaces weekly long-run share advisories (>40% single-session exposure on ≥4-day plans), short marathon horizon (<12 weeks) advisories, and unclassified volume accounting whenever quality segments lack distance equivalents.
+- Added `Engine15MarathonTidEvaluator.kt` to the legacy-call-graph architecture guard and added `Engine15MarathonTidEvaluatorTest.kt`.
+- **Verification (JBR 21.0.11 / Gradle 8.13):**
+  - Candidate JVM (`-PstrideEngine15Active=true -PstrideEngine15IndependentRunningActive=true`): **1,151 passed, 0 failed, 0 errors, 1 skipped** (total 1,152).
+  - Android instrumentation and physical/emulator device walkthrough: **NOT RUN** in this batch.
