@@ -8,6 +8,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.json.JSONObject
 import java.time.Instant
 import java.time.LocalDate
@@ -115,19 +116,41 @@ import kotlinx.coroutines.flow.drop
     ) {
         if(active && exercises.isNotEmpty()) item { SignalButton("Return to guided workout",{guided=true}) }
         if(plannedRun) item {
-            TracksidePlannedRunningPreview(
-                session=session,
-                target=current,
-                displayTitle=shown.effectiveTitle,
-                coachingReason=shown.reason,
-                onBack=onBack,
-                planStart=plan.request.start,
-                onMissed=if(active && !state.busy) ({ if(onMissed!=null)onMissed() else missed=true }) else null,
-                onMove=if(active && !state.busy && session.log==null &&
-                    session.id !in plan.request.lockedSessionDays)
-                    ({ if(onMove!=null)onMove() else move=true })
-                else null
-            )
+            val paceZones = remember(plan.request) { Engine15PaceZoneEstimator.estimate(plan.request) }
+            val visualBlocks = remember(session.id, session.runningPrescription, paceZones) {
+                WorkoutVisualBlocks.fromSession(session, paceZones)
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                TracksidePlannedRunningPreview(
+                    session=session,
+                    target=current,
+                    displayTitle=shown.effectiveTitle,
+                    coachingReason=shown.reason,
+                    onBack=onBack,
+                    planStart=plan.request.start,
+                    onMissed=if(active && !state.busy) ({ if(onMissed!=null)onMissed() else missed=true }) else null,
+                    onMove=if(active && !state.busy && session.log==null &&
+                        session.id !in plan.request.lockedSessionDays)
+                        ({ if(onMove!=null)onMove() else move=true })
+                    else null
+                )
+                if (visualBlocks.size > 1 || session.quality) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().testTag("workout-visual-structure"),
+                        color = StrideLabVisualPalette.surface,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, StrideLabVisualPalette.border)
+                    ) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("WORKOUT PROFILE", color = StrideLabVisualPalette.muted, fontSize = 10.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                Text("Tap any block", color = StrideLabVisualPalette.lime, fontSize = 10.sp)
+                            }
+                            WorkoutStructureBarChart(blocks = visualBlocks, height = 74.dp, interactive = true)
+                        }
+                    }
+                }
+            }
         } else item {
             TextButton(onClick=onBack) { Text("Back to Training") }
             Text("${session.date} · ${current.currentMinutes} planned min",
