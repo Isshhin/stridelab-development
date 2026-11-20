@@ -429,3 +429,12 @@ Manual final-APK walkthrough entered 1,178 m in Tempo warm-up and displayed 8.49
   - Candidate JVM (`-PstrideEngine15Active=true -PstrideEngine15IndependentRunningActive=true`): **1,144 passed, 0 failed, 0 errors, 1 skipped** (total 1,145).
   - Rollback JVM (`-PstrideEngine15Active=false -PstrideEngine15IndependentRunningActive=false`): **1,137 passed, 0 failed, 0 errors, 8 skipped** (total 1,145).
   - Android instrumentation and physical/emulator device walkthrough: **NOT RUN** in this batch.
+
+## Batch 32 — Stage 6 Auditable Athlete Effort Baselines (2026-11-21)
+
+- Added `Engine15AthleteEffortBaseline.kt` (`stridelab.engine15.athlete-effort-baseline-v1`) building auditable 28-day volume, confirmed easy/recovery pace & HR medians, per-family quality exposure summaries (`TEMPO`, `THRESHOLD`, `INTERVALS`), and pass-through `ActivitySourceHeartRateZones` with explicit `Engine15BaselineMetricStatus` (`AVAILABLE_REPEATED`, `SPARSE_SINGLE_OBSERVATION`, `MISSING_DATA`) and `Engine15HistoryCoverage`.
+- Enforces strict missing-data semantics: absent history is never treated as confirmed inactivity or poor fitness, physiological thresholds are never fabricated, and unconfirmed heuristic lap-structure candidates are reported separately without being promoted into progression exposure.
+- Added `Engine15AthleteEffortBaseline.kt` to the legacy-call-graph architecture guard and added `Engine15AthleteEffortBaselineTest.kt`.
+- **Verification (JBR 21.0.11 / Gradle 8.13):**
+  - Candidate JVM (`-PstrideEngine15Active=true -PstrideEngine15IndependentRunningActive=true`): **1,146 passed, 0 failed, 0 errors, 1 skipped** (total 1,147).
+  - Android instrumentation and physical/emulator device walkthrough: **NOT RUN** in this batch.
