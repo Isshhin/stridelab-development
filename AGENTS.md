@@ -1,5 +1,47 @@
 # StrideLab agent workflow (Codex and other repository agents)
 
+## CURRENT PROJECT STATE AND PHASE 1 POLICY — 2026-11-21 (read first)
+
+**This section supersedes conflicting older status/priority/route descriptions below.** All unchanged privacy, data-provenance, testing, branch-protection, UI and engine safety rules elsewhere in this file still apply. The repository and current checkout remain the source of truth. **Do not equate a draft PR, a local worktree, or reported QA with an integrated accepted release.**
+
+### Branch and feature status
+
+- **`main`** remains the last owner-approved stable release. **`dev`** is the integration branch; draft stacked feature PRs and local worktrees are not automatically part of `dev`. Promotion still requires explicit owner acceptance and reviewed `dev → main` PR.
+- Owner's active Phase 1 working copy (reported 2026-11-21): `C:/Users/marcs/stridelab-garmin-qa`, branch `feat/garmin-coach-ui-20261120`. It reportedly includes PR #166 (modern More/Running Analytics, backup, manual-log UI), PR #167 (discipline-aware Strength/conditioning Activity views), PR #169 (Garmin Section 1), and a new **Running dashboard**. **This branch was not found as a remote GitHub ref at documentation update time; its source, HEAD, dirty state, and exact integrated behavior must be checked locally before edits.** Do not pretend that these changes are already on `dev` or `main`.
+- PR #165 incorporated the modern Android QA stack and **inactive** experimental Engine 1.5 source into `dev`; `native-android/app/build.gradle` on `dev` defaults `ENGINE15_ACTIVE=false` and `ENGINE15_INDEPENDENT_RUNNING_ACTIVE=false`. Release and isolated `.qa` builds force both off. Do not infer activation from source presence or other experimental branch defaults.
+- **Engine 1.0 normal generation fallback is retired.** `Engine15IndependentPlanGenerator` is the intended independent Engine 1.5 static plan generator. There may still be historical legacy adapters/config paths; they are not permission to restore Engine 1.0 policy or fallback. Running-first multi-discipline static generation and eight-week Tempo/Threshold candidates exist in experimental work, but quality dosing/progression, complete Android/manual acceptance, and production cutover are not settled. See `ENGINE15_EXECUTION.md`, relevant candidate PRs (#140/#141), and the checked-out source.
+- **Engine 1.5** handles static plan generation, periodization, constraints, scheduling, explicit review and versioned prescriptions. **Engine 2.x** is reserved for future automatic adaptation to performed/missed training and recovery/readiness; do not implement it as a Phase 1 side effect. **Exercise Library 2.0 is removed from the current feature roadmap**; do not revive it. Historical source or references may remain and must not be blindly deleted.
+- **Garmin Section 1, draft PR #169:** actual source-read Garmin sport-specific HR-zone parsing, selected Garmin/manual zones, conservative FIT workout-step/lap recognition and performed-run classification, manual corrections separate from immutable source records, and descriptive planned-vs-performed adherence on linked activities. Reported isolated Pixel 9 API 35 QA at `f3ea569c`: **1,150 JVM passed / 3 skipped** and **275 Android passed / 14 skipped**. **Live authorized Garmin API verification, manual visuals, some real-FIT edge cases and final merge/release acceptance remain open.** Do not call this fully production-verified.
+- **Existing analytics and offline non-engine work:** the QA lineage includes recorded running-history aggregates, comparison/filtering, source-backed pace bests, filtered history navigation, Share Studio, offline maps, owner-scoped local ZIP backup/restore, and signed-out manual workout logging. PR #166 modernizes existing More subpage visuals; PR #167 provides duration/HR-first non-running Activity Detail without inventing distance, GPS, or strength sets. Verify current branch placement and tests before describing any feature as live.
+- **Current limitations:** StrideLab is not confirmed to push prescribed workouts to Garmin watches and does not provide a complete in-app run recorder. Do not make running analytics depend on either. Retain Garmin guest access, encrypted local owner credentials, offline activity data, account isolation, and FIT/GPS source fidelity.
+
+### Phase 1 — approved Running dashboard scope (owner decision 2026-11-21)
+
+**Target when working in the owner's local environment:** continue from `C:/Users/marcs/stridelab-garmin-qa` on `feat/garmin-coach-ui-20261120` after verifying its current HEAD/dirty state. Do not rebase onto remote `dev` or replace the worktree merely to start Phase 1. Do not assume a GitHub documentation-only branch contains those local changes.
+
+**Preserve all dirty and untracked work.** Specifically, **leave `RunningHistoryTools.kt` untouched**: do not delete, format, stage or incorporate it into Phase 1. It is related to Phase 2/history and lap-pace interpolation; do not introduce interpolated source measurements into Phase 1. Stop and report a hard dependency if the requested change would require editing it.
+
+**Phase 1 features only:**
+1. Weekly Running training-phase labels (Base/Build/Recovery/Deload/Taper), derived from actual saved plan evidence, with honest unknown states; do not change engine periodization.
+2. Evidence-based **Weekly Coach Review** with concise positives, attention points and next focus; no invented physiology, progress, readiness or automatic plan edits.
+3. Planned-vs-completed sessions, weekly mileage and consistency/completion summaries, with clear activity-to-plan matching, eligibility denominators and incomplete-history caveats.
+4. Existing AMOLED/lime Running dashboard presentation and required empty, partial-history, offline, signed-out, no-plan and multiple-activity states. Preserve four approved bottom tabs: **Today, Training, Activity, More**.
+
+**Running page visibility:** do **not** use `TodayDisciplineAnalytics.available()` (historically ≥3 running days in each of the prior two completed weeks) as a navigation gate. Users should be able to open the Running page with an approved plan, any run, or no data, signed out or offline. Retain sufficient-history rules **only for individual analyses that actually require them**. Do not count future sessions as missed, assume absent imports mean inactivity, or treat an unmatched run as a completed prescribed session.
+
+**Phase 2 is separate and not authorized by Phase 1:** richer athlete analytics, detailed training-history tools/interpolation review, efficiency comparisons, intensity distributions, run comparisons, journal/goals/shoes. Reuse actual recorded values, preserve missing-data provenance, and obtain separately scoped approval before editing. Older “Analysis under More is backlog only” language below does **not** block the expressly approved Phase 1 Running review, but does not grant blanket Phase 2 approval.
+
+**Execution/QA:** For this Phase 1 task, **source edits only** unless the owner explicitly overrides that restriction. The owner runs Gradle, JVM tests, Android tests, ADB, emulator installation and visual acceptance. Agent reports exact modified files, branch/HEAD, diff, unperformed checks as NOT RUN and next owner verification; no automatic merge, Phase 2 continuation, or production activation.
+
+### Implementation facts to verify, not guess
+
+- Single Gradle `:app` module with Groovy scripts under `native-android/`; Kotlin/Compose and Navigation Compose; `io.stridelab.privatealpha`, `StrideApplication`, `TrainingRepository`, `TrainingViewModel`, `NativeMainActivity`. `dev` build currently states AGP 8.11.2, Kotlin 2.2.21, compileSdk 36, minSdk 26, targetSdk 35, JVM 17, Compose BOM 2025.10.00, Navigation Compose 2.9.5, FIT SDK 21.218.0, MapLibre 13.7.1, WorkManager 2.10.1. Build files, not chat summaries, govern actual values.
+- Gradle includes shared older sources under `android-app/android/app/src/`; do not remove them solely because Compose is the launcher. Manual `StrideApplication` repository injection and Flow/Compose collection are present; do not introduce Hilt, Koin, Room, or a new app architecture without finding a concrete reason.
+- Root `AGENTS.md`, `.agents/skills/stridelab-ui-safe-parity/SKILL.md`, and `.agents/skills/ui-ux-pro-max/SKILL.md` continue to govern approved UI work. Current Compose is design authority, not historical Figma. Graphify is optional and can be stale; validate live source. Exact “Ponytail” workflow was not verified and must not be invented.
+- Work evidence belongs to its actual commit and build variant. Green isolated QA does not prove live Garmin behavior, phone acceptance, or the latest local working copy.
+
+---
+
 For ongoing Engine 1.5 implementation, follow the ordered milestones and current exact next action in [`ENGINE15_EXECUTION.md`](ENGINE15_EXECUTION.md). Continue after each validated commit; do not treat the tracker as a stopping point.
 
 ## Activity Detail header and continuous charts (2026-11-12)
