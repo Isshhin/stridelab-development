@@ -195,6 +195,7 @@ internal object Engine15I5TimedDistanceFeasibility {
         val workTarget = when (preview.family) {
             IndependentQualityFamily.THRESHOLD -> WorkoutTarget.THRESHOLD
             IndependentQualityFamily.TEMPO -> WorkoutTarget.TEMPO
+            IndependentQualityFamily.INTERVALS -> WorkoutTarget.INTERVALS
         }
         val middle = phases.drop(1).dropLast(1)
         if (middle.none { it.purpose == WorkoutPurpose.WORK } ||

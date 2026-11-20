@@ -5,7 +5,7 @@ package io.stridelab.privatealpha
  * A template defines structure and an illustrative dose, NOT athlete eligibility,
  * measured threshold pace, physiological safety, or a progression decision.
  */
-internal enum class IndependentQualityFamily { THRESHOLD, TEMPO }
+internal enum class IndependentQualityFamily { THRESHOLD, TEMPO, INTERVALS }
 internal enum class IndependentQualityStage { INTRO, EXTENDED, LONG_REPETITIONS }
 
 internal data class IndependentQualityTemplate(
@@ -51,6 +51,15 @@ internal data class IndependentQualityTemplate(
                 require(step.purpose == WorkoutPurpose.WORK &&
                     step.unit == WorkoutUnit.SECONDS &&
                     step.target == WorkoutTarget.TEMPO && step.repetitions == 1)
+            }
+            IndependentQualityFamily.INTERVALS -> {
+                require(stage != IndependentQualityStage.LONG_REPETITIONS)
+                val group = (workout.elements[1] as? IndependentWorkoutElement.Intervals)?.value
+                    ?: throw IllegalArgumentException("Intervals example requires interval group")
+                require(group.work.target == WorkoutTarget.INTERVALS &&
+                    group.recovery.target == WorkoutTarget.EASY &&
+                    group.work.unit == WorkoutUnit.SECONDS &&
+                    group.recovery.unit == WorkoutUnit.SECONDS)
             }
         }
         require(if (stage == IndependentQualityStage.LONG_REPETITIONS)
@@ -112,6 +121,21 @@ internal object IndependentQualityTemplates {
         ))
     )
 
+    private fun intervals(stage: IndependentQualityStage, repetitions: Int, workSeconds: Int,
+                          recoverySeconds: Int, warmSeconds: Int, coolSeconds: Int) =
+        IndependentQualityTemplate(
+            "engine15-intervals-${stage.name.lowercase()}-v1", IndependentQualityFamily.INTERVALS, stage,
+            IndependentWorkoutComposition(listOf(
+                IndependentWorkoutElement.Step(step(WorkoutPurpose.WARM_UP, warmSeconds, WorkoutTarget.EASY)),
+                IndependentWorkoutElement.Intervals(IndependentIntervalGroup(
+                    repetitions,
+                    step(WorkoutPurpose.WORK, workSeconds, WorkoutTarget.INTERVALS),
+                    step(WorkoutPurpose.RECOVERY, recoverySeconds, WorkoutTarget.EASY)
+                )),
+                IndependentWorkoutElement.Step(step(WorkoutPurpose.COOL_DOWN, coolSeconds, WorkoutTarget.EASY))
+            ))
+        )
+
     // Intro doses match the existing controlled Engine 1.5 text examples;
     // extended doses are synthetic research alternatives, not auto-progression.
     fun all(): List<IndependentQualityTemplate> = listOf(
@@ -119,6 +143,8 @@ internal object IndependentQualityTemplates {
         threshold(IndependentQualityStage.EXTENDED, 4, 5 * 60, 2 * 60, 10 * 60, 10 * 60),
         tempo(IndependentQualityStage.INTRO, 12 * 60, 10 * 60, 8 * 60),
         tempo(IndependentQualityStage.EXTENDED, 20 * 60, 10 * 60, 10 * 60),
+        intervals(IndependentQualityStage.INTRO, 4, 2 * 60, 2 * 60, 10 * 60, 8 * 60),
+        intervals(IndependentQualityStage.EXTENDED, 5, 3 * 60, 2 * 60, 10 * 60, 10 * 60),
         longRepetitions()
     )
 

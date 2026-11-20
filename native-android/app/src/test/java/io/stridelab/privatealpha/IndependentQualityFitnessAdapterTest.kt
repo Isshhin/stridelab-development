@@ -71,6 +71,25 @@ class IndependentQualityFitnessAdapterTest {
         assertTrue(high.workout.elements[1] is IndependentWorkoutElement.Step)
     }
 
+    @Test fun intervalsChangeRepetitionsAndWorkDoseWithConfirmedExposure() {
+        val intro = candidate(IndependentQualityFamily.INTERVALS, input(observedMinutes = 8))
+        val developed = candidate(IndependentQualityFamily.INTERVALS, input(observedMinutes = 15))
+        val first = (intro.workout.elements[1] as IndependentWorkoutElement.Intervals).value
+        val second = (developed.workout.elements[1] as IndependentWorkoutElement.Intervals).value
+        assertEquals(4, first.repetitions)
+        assertEquals(120.0, first.work.amount, 0.0)
+        assertEquals(WorkoutTarget.INTERVALS, first.work.target)
+        assertEquals(480, intro.workSeconds)
+        assertEquals(360, intro.recoverySeconds)
+        assertEquals(1920, intro.totalSeconds)
+        assertEquals(5, second.repetitions)
+        assertEquals(180.0, second.work.amount, 0.0)
+        assertEquals(900, developed.workSeconds)
+        assertEquals(480, developed.recoverySeconds)
+        assertTrue(intro.id.startsWith("engine15-intervals-"))
+        assertNotEquals(intro.id, developed.id)
+    }
+
     @Test fun missingUserTimeLimitDoesNotCapAnEvidenceBoundedLongThresholdSession() {
         val profile = IndependentQualityFitnessInput(
             reportedRecentWorkSeconds = 48 * 60,

@@ -377,7 +377,11 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             val qualityDryRun = Engine15QualityWorkoutDryRunBuilder.build(
                 request, selection, volume, sessions
             )
-            val familyName = if (selection.selectedFamily == IndependentQualityFamily.THRESHOLD) "Threshold" else "Tempo"
+            val familyName = when (selection.selectedFamily) {
+                IndependentQualityFamily.THRESHOLD -> "Threshold"
+                IndependentQualityFamily.INTERVALS -> "Intervals"
+                IndependentQualityFamily.TEMPO, null -> "Tempo"
+            }
             val paceWarnings = qualityDryRun?.alternatives.orEmpty().mapNotNull { alternative ->
                 alternative.distanceMatch?.qualityPaceWarning()?.let { "Week ${alternative.weekNumber}: $it" }
             }
@@ -410,7 +414,11 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                     val steps = match.segments.map { segment ->
                         val work = segment.purpose == WorkoutPurpose.WORK
                         RunningStepV2(segment.purpose.name,
-                            if (work) if (familyName == "Threshold") "Controlled, comfortably hard effort. Keep repetitions even and ease off if effort rises." else "Steady, controlled effort. Ease off if you cannot speak a short phrase."
+                            if (work) when (familyName) {
+                                "Threshold" -> "Controlled, comfortably hard effort. Keep repetitions even and ease off if effort rises."
+                                "Intervals" -> "Hard, repeatable effort. Keep each repetition controlled and use the full easy recovery between efforts."
+                                else -> "Steady, controlled effort. Ease off if you cannot speak a short phrase."
+                            }
                             else "Easy conversational effort",
                             seconds = segment.seconds.toInt(),
                             distanceEquivalentMeters = segment.assertedMeters.toInt())
@@ -422,7 +430,11 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                         steps = steps.map {
                             "${it.seconds!! / 60} min ${it.purpose.lowercase().replace('_', ' ')} · ${it.distanceEquivalentMeters} m asserted · ${it.effort}"
                         },
-                        reason = if (familyName == "Threshold") "Private Threshold introduction using M2 Intro. Three four-minute work repetitions with two minutes easy between them. No completed Threshold exposure, pace or heart-rate target is inferred." else "Private Tempo pilot. This slot fits reported recent run distance and the plan stays within usual weekly mileage. Work stays at 10 minutes because completed Tempo exposure is unverified. Favor the controlled effort cue and review your distance entries.")
+                        reason = when (familyName) {
+                            "Threshold" -> "Private Threshold introduction using M2 Intro. Three four-minute work repetitions with two minutes easy between them. No completed Threshold exposure, pace or heart-rate target is inferred."
+                            "Intervals" -> "Private Intervals introduction using M2 Intro. Four two-minute work repetitions with two minutes easy between them. No completed Intervals exposure, pace or heart-rate target is inferred."
+                            else -> "Private Tempo pilot. This slot fits reported recent run distance and the plan stays within usual weekly mileage. Work stays at 10 minutes because completed Tempo exposure is unverified. Favor the controlled effort cue and review your distance entries."
+                        })
                 }
                 if (experimentalTempo.size != qualityDryRun.alternatives.size ||
                     experimentalTempo.any { quality ->
@@ -436,8 +448,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                     "No family dry-run was constructed because selection deferred or is unsupported."
                 selection.selectionBasis != Engine15QualitySelectionBasis.GOAL_EXPERIENCE_MATRIX ->
                     "No coach-generated dry-run was constructed because this family came from explicit user direction."
-                selection.selectedFamily == IndependentQualityFamily.THRESHOLD && qualityDryRun == null ->
-                    "Threshold introduction needs eight weeks, at least four running days and a reported longest completed run; no Tempo substitution was made."
+                selection.selectedFamily in setOf(IndependentQualityFamily.THRESHOLD, IndependentQualityFamily.INTERVALS) && qualityDryRun == null ->
+                    "$familyName introduction needs eight weeks, at least four running days and a reported longest completed run; no Tempo substitution was made."
                 qualityDryRun == null ->
                     "The Tempo structure could not be linked to a valid development calendar slot and complete base weekly-distance ledger."
                 paceWarnings.isNotEmpty() -> paceWarnings.joinToString(" ")

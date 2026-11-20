@@ -29,17 +29,34 @@ class IndependentQualityTemplatesTest {
         assertTrue(template.workout.elements[1] is IndependentWorkoutElement.Step)
     }
 
+    @Test fun intervalsIntroHasFourEffortsAndThreeRecoveries() {
+        val template = get(IndependentQualityFamily.INTERVALS, IndependentQualityStage.INTRO)
+        assertEquals("engine15-intervals-intro-v1", template.id)
+        assertEquals(1920.0, template.totalSeconds(), 0.0) // 10 + 4×2 + 3×2 + 8 min
+        assertEquals(480.0, template.workSeconds(), 0.0)
+        assertEquals(360.0, template.recoverySeconds(), 0.0)
+        val group = (template.workout.elements[1] as IndependentWorkoutElement.Intervals).value
+        assertEquals(4, group.repetitions)
+        assertEquals(WorkoutTarget.INTERVALS, group.work.target)
+        assertEquals(WorkoutTarget.EASY, group.recovery.target)
+    }
+
     @Test fun extendedExamplesHaveDistinctHigherWorkDoseWithoutAutoSelection() {
         val threshold = get(IndependentQualityFamily.THRESHOLD, IndependentQualityStage.EXTENDED)
         val tempo = get(IndependentQualityFamily.TEMPO, IndependentQualityStage.EXTENDED)
+        val intervals = get(IndependentQualityFamily.INTERVALS, IndependentQualityStage.EXTENDED)
         assertEquals(2760.0, threshold.totalSeconds(), 0.0) // 10 + 4×5 + 3×2 + 10
         assertEquals(1200.0, threshold.workSeconds(), 0.0)
         assertEquals(360.0, threshold.recoverySeconds(), 0.0)
         assertEquals(2400.0, tempo.totalSeconds(), 0.0) // 10 + 20 + 10
         assertEquals(1200.0, tempo.workSeconds(), 0.0)
         assertEquals(0.0, tempo.recoverySeconds(), 0.0)
+        assertEquals(2580.0, intervals.totalSeconds(), 0.0) // 10 + 5×3 + 4×2 + 10
+        assertEquals(900.0, intervals.workSeconds(), 0.0)
+        assertEquals(480.0, intervals.recoverySeconds(), 0.0)
         assertTrue(threshold.workSeconds() > get(IndependentQualityFamily.THRESHOLD, IndependentQualityStage.INTRO).workSeconds())
         assertTrue(tempo.workSeconds() > get(IndependentQualityFamily.TEMPO, IndependentQualityStage.INTRO).workSeconds())
+        assertTrue(intervals.workSeconds() > get(IndependentQualityFamily.INTERVALS, IndependentQualityStage.INTRO).workSeconds())
     }
 
     @Test fun threeByThreeKilometerThresholdUsesTwoNinetySecondRecoveries() {
@@ -68,7 +85,7 @@ class IndependentQualityTemplatesTest {
 
     @Test fun allExamplesAreUniqueVersionedAndRoundTripWithoutUnitConversion() {
         val all = IndependentQualityTemplates.all()
-        assertEquals(5, all.size)
+        assertEquals(7, all.size)
         assertEquals(all.size, all.map { it.id }.distinct().size)
         assertEquals(all.size, all.map { it.family to it.stage }.distinct().size)
         for (template in all) {

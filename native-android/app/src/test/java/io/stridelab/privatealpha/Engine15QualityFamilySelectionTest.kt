@@ -47,17 +47,23 @@ class Engine15QualityFamilySelectionTest {
     )
 
     @Test fun goalAndDeclaredExperienceChangeTheProvisionalAutomaticFamily() {
-        val beginner = select(input = request.copy(goal = "Improve 5K", experience = 0))
-        val intermediate = select(input = request.copy(goal = "Improve 5K", experience = 1))
-        val experienced = select(input = request.copy(goal = "Improve 5K", experience = 2))
+        val beginner5k = select(input = request.copy(goal = "Improve 5K", experience = 0))
+        val intermediate5k = select(input = request.copy(goal = "Improve 5K", experience = 1))
+        val experienced5k = select(input = request.copy(goal = "Improve 5K", experience = 2))
+        val experienced10k = select(input = request.copy(goal = "Improve 10K", experience = 2))
+        val experiencedHm = select(input = request.copy(goal = "Half marathon", experience = 2))
         val marathoner = select(input = request.copy(goal = "Marathon", experience = 2))
+        val aerobic = select(input = request.copy(goal = "Aerobic foundation", experience = 2))
 
-        assertEquals(Engine15QualitySelectionDecision.FAMILY_CANDIDATE, beginner.decision)
-        assertEquals(IndependentQualityFamily.TEMPO, beginner.selectedFamily)
-        assertEquals(IndependentQualityFamily.TEMPO, intermediate.selectedFamily)
-        assertEquals(IndependentQualityFamily.THRESHOLD, experienced.selectedFamily)
+        assertEquals(Engine15QualitySelectionDecision.FAMILY_CANDIDATE, beginner5k.decision)
+        assertEquals(IndependentQualityFamily.TEMPO, beginner5k.selectedFamily)
+        assertEquals(IndependentQualityFamily.TEMPO, intermediate5k.selectedFamily)
+        assertEquals(IndependentQualityFamily.INTERVALS, experienced5k.selectedFamily)
+        assertEquals(IndependentQualityFamily.THRESHOLD, experienced10k.selectedFamily)
+        assertEquals(IndependentQualityFamily.THRESHOLD, experiencedHm.selectedFamily)
         assertEquals(IndependentQualityFamily.TEMPO, marathoner.selectedFamily)
-        listOf(beginner, intermediate, experienced, marathoner).forEach {
+        assertEquals(IndependentQualityFamily.TEMPO, aerobic.selectedFamily)
+        listOf(beginner5k, intermediate5k, experienced5k, experienced10k, experiencedHm, marathoner, aerobic).forEach {
             assertEquals(Engine15FamilyPolicyQualification.PROVISIONAL_ENGINEERING_RULE, it.familyPolicyQualification)
             assertEquals(Engine15QualitySelectionBasis.GOAL_EXPERIENCE_MATRIX, it.selectionBasis)
             assertTrue(it.qualificationNotes.any { note -> note.contains("No reviewed research record") })
@@ -142,7 +148,13 @@ class Engine15QualityFamilySelectionTest {
             select(input = request.copy(preferredQualityExplicit = true, preferredQuality = "Fartlek")).reasonCode)
         assertEquals(Engine15QualitySelectionDecision.UNSUPPORTED, select(input = request.copy(qualityCount = 2)).decision)
         assertEquals(Engine15QualitySelectionDecision.UNSUPPORTED,
-            select(input = request.copy(allowedQualityTypes = setOf("Intervals"))).decision)
+            select(input = request.copy(allowedQualityTypes = setOf("Fartlek"))).decision)
+        assertEquals(IndependentQualityFamily.INTERVALS,
+            select(input = request.copy(goal = "Improve 5K", experience = 2, allowedQualityTypes = setOf("Intervals"))).selectedFamily)
+        assertEquals("QUALITY_SELECTED_FAMILY_NOT_ALLOWED",
+            select(input = request.copy(goal = "Improve 10K", experience = 2, allowedQualityTypes = setOf("Intervals"))).reasonCode)
+        assertEquals(IndependentQualityFamily.INTERVALS,
+            select(input = request.copy(preferredQualityExplicit = true, preferredQuality = "Intervals")).selectedFamily)
         val crossOwner = select(evidence = listOf(record(day = 2, id = "outside").copy(ownerId = "other")))
         assertEquals("QUALITY_EVIDENCE_OWNER_CONFLICT", crossOwner.reasonCode)
     }

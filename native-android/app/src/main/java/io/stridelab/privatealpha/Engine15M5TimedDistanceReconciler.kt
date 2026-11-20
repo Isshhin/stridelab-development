@@ -201,6 +201,7 @@ internal object Engine15M5TimedDistanceReconciler {
         val expectedTarget = when (family) {
             IndependentQualityFamily.THRESHOLD -> WorkoutTarget.THRESHOLD
             IndependentQualityFamily.TEMPO -> WorkoutTarget.TEMPO
+            IndependentQualityFamily.INTERVALS -> WorkoutTarget.INTERVALS
         }
         val interior = phases.drop(1).dropLast(1)
         if (interior.none { it.purpose == WorkoutPurpose.WORK } || interior.any {

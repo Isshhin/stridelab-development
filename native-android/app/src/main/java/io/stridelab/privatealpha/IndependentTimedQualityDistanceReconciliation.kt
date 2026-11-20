@@ -148,6 +148,7 @@ internal object IndependentTimedQualityDistanceReconciliation {
         val expectedTarget = when (quality.family) {
             IndependentQualityFamily.THRESHOLD -> WorkoutTarget.THRESHOLD
             IndependentQualityFamily.TEMPO -> WorkoutTarget.TEMPO
+            IndependentQualityFamily.INTERVALS -> WorkoutTarget.INTERVALS
         }
         if (phases.none { it.purpose == WorkoutPurpose.WORK } ||
             phases.any { it.purpose == WorkoutPurpose.WORK && it.target != expectedTarget })

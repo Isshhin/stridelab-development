@@ -119,10 +119,32 @@ internal object IndependentQualityFitnessAdapter {
                         stepOf(WorkoutPurpose.WORK, seconds, WorkoutTarget.TEMPO)), seconds), seconds, 0)
                 }
             }
+            IndependentQualityFamily.INTERVALS -> {
+                // 3–8 repeats of 1–4 min hard intervals, with easy recovery ONLY between repeats.
+                (3..8).flatMap { repetitions ->
+                    (1..4).mapNotNull { workMinutes ->
+                        val workSeconds = repetitions * workMinutes * 60
+                        val recoverySeconds = (repetitions - 1) * RECOVERY
+                        val total = WARM_UP + workSeconds + recoverySeconds + coolDown(workSeconds)
+                        if (workSeconds > permitted ||
+                            input.availableSessionSeconds?.let { total > it } == true) null
+                        else {
+                            val group = IndependentIntervalGroup(repetitions,
+                                stepOf(WorkoutPurpose.WORK, workMinutes * 60, WorkoutTarget.INTERVALS),
+                                stepOf(WorkoutPurpose.RECOVERY, RECOVERY, WorkoutTarget.EASY))
+                            Triple(composition(IndependentWorkoutElement.Intervals(group), workSeconds),
+                                workSeconds, recoverySeconds)
+                        }
+                    }
+                }
+            }
         }
         if (candidatePairs.isEmpty())
             return defer("DOSE_OR_TIME_CONFLICT", "No example fits both the approved work ceiling and available time.")
-        val preferredRepetitions = if (permitted <= 12 * 60) 3 else 4
+        val preferredRepetitions = when (family) {
+            IndependentQualityFamily.INTERVALS -> if (permitted <= 10 * 60) 4 else 5
+            else -> if (permitted <= 12 * 60) 3 else 4
+        }
         // Prefer the greatest supportable dose. Equal-dose threshold ties favor a
         // repeat count near 3–4, then shorter total workout time.
         val selected = candidatePairs.sortedWith(

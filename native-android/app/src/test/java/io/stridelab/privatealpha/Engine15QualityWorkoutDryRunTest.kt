@@ -107,7 +107,7 @@ class Engine15QualityWorkoutDryRunTest {
     }
 
     @Test fun thresholdCandidateDefersUntilEverySegmentHasAnEquivalent() {
-        val result = deferred(request().copy(goal = "Improve 5K", experience = 2))
+        val result = deferred(request().copy(goal = "Improve 10K", experience = 2))
         assertEquals(IndependentQualityFamily.THRESHOLD, result.qualitySelection!!.selectedFamily)
         assertEquals(IndependentQualityFamily.THRESHOLD, result.qualityDryRun!!.family)
         assertFalse(result.qualityDryRun.completePlanDistanceAccounting)
@@ -116,7 +116,7 @@ class Engine15QualityWorkoutDryRunTest {
 
     @Test fun thresholdIntroFitsEightWeeksWithoutInventingPriorExposure() {
         org.junit.Assume.assumeTrue(BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
-        val input = request().copy(goal = "Improve 5K", experience = 2, weeklyKm = 30.0,
+        val input = request().copy(goal = "Improve 10K", experience = 2, weeklyKm = 30.0,
             targetWeeklyKm = 30.0, longestKm = 10.0)
         val reviewed = deferred(input)
         assertEquals(IndependentQualityExposureConfidence.UNAVAILABLE, reviewed.qualitySelection!!.exposureConfidence)
@@ -192,6 +192,61 @@ class Engine15QualityWorkoutDryRunTest {
         rejectedBy(plan.copy(sessions = plan.sessions.map {
             if (it.id == quality.id) it.copy(runningPrescription = rewritten) else it
         }), "reviewed workload")
+    }
+
+    @Test fun intervalsCandidateDefersUntilEverySegmentHasAnEquivalent() {
+        val result = deferred(request().copy(goal = "Improve 5K", experience = 2))
+        assertEquals(IndependentQualityFamily.INTERVALS, result.qualitySelection!!.selectedFamily)
+        assertEquals(IndependentQualityFamily.INTERVALS, result.qualityDryRun!!.family)
+        assertEquals("engine15-intervals-intro-v1", result.qualityDryRun.templateId)
+        assertEquals(1920, result.qualityDryRun.totalSeconds)
+        assertEquals(480, result.qualityDryRun.workSeconds)
+        assertFalse(result.qualityDryRun.completePlanDistanceAccounting)
+        assertEquals("QUALITY_GENERATION_NOT_QUALIFIED", result.reasonCode)
+    }
+
+    @Test fun intervalsIntroFitsEightWeeksWithoutInventingPriorExposure() {
+        org.junit.Assume.assumeTrue(BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
+        val input = request().copy(goal = "Improve 5K", experience = 2, weeklyKm = 30.0,
+            targetWeeklyKm = 30.0, longestKm = 10.0)
+        val reviewed = deferred(input)
+        assertEquals(IndependentQualityFamily.INTERVALS, reviewed.qualitySelection!!.selectedFamily)
+        assertEquals(IndependentQualityExposureConfidence.UNAVAILABLE, reviewed.qualitySelection.exposureConfidence)
+        assertNull(deferred(input.copy(runDays = 3)).qualityDryRun)
+        val claims = reviewed.qualitySelection.candidateSlots.map { slot ->
+            val total = kotlin.math.round(slot.originalEasyDistanceKm * 1000).toInt()
+            // 9 timed segments: 10m WU, 4x(2m W, 2m R) minus last R, 8m CD -> weights sum to 2280
+            val weights = listOf(600, 180, 100, 180, 100, 180, 100, 180)
+            val metres = weights.map { (it * total / 2100).toDouble() }
+            Engine15M5SegmentDistanceClaim(slot.weekNumber, slot.slotNumber,
+                metres + (total - metres.sum()), null, Engine15M5DistanceClaimProvenance.USER_ASSERTED_EQUIVALENT)
+        }
+        val plan = Engine15IndependentPlanGenerator.generateWithHistory(
+            input.copy(qualityDistanceClaims = claims), owner, emptyList(), "intervals-dry-run", now)
+        assertEquals(plan, Engine15IndependentPlanGenerator.generateWithHistory(
+            input.copy(qualityDistanceClaims = claims), owner, emptyList(), "intervals-dry-run", now))
+        assertTrue(plan.sessions.filter { it.quality }.all { session ->
+            session.runningPrescription!!.mixedSegments!!.filter { it.purpose == "WORK" }
+                .sumOf { it.seconds!! } == 480
+        })
+        val inconsistent = claims.first().assertedMetersByTimedSegment.toMutableList()
+        inconsistent[0] += inconsistent[1] - 1.0
+        inconsistent[1] = 1.0
+        val declined = deferred(input.copy(qualityDistanceClaims =
+            listOf(claims.first().copy(assertedMetersByTimedSegment = inconsistent)) + claims.drop(1)))
+        assertTrue(declined.explanation, declined.explanation.contains("faster than Intervals work"))
+        val base = Engine15IndependentPlanGenerator.generateWithHistory(
+            input.copy(qualityCount = 0), owner, emptyList(), "intervals-dry-run", now)
+        assertEquals(base.sessions.map { Triple(it.id, it.date, it.distanceKm) },
+            plan.sessions.map { Triple(it.id, it.date, it.distanceKm) })
+        val workout = plan.sessions.first { it.quality }.runningPrescription!!
+        assertEquals("Intervals", workout.family)
+        assertEquals(listOf("WARM_UP", "WORK", "RECOVERY", "WORK", "RECOVERY", "WORK", "RECOVERY", "WORK", "COOL_DOWN"),
+            workout.mixedSegments!!.map { it.purpose })
+        assertEquals(listOf(600, 120, 120, 120, 120, 120, 120, 120, 480), workout.mixedSegments.map { it.seconds })
+        val approved = PlanOperations.approve(plan, listOf(plan))
+        assertEquals(approved, PlanSnapshot.decode(approved.encode(), owner))
+        Engine15IndependentPlanGenerator.validateSaved(approved)
     }
 
     @Test fun explicitTempoPreferenceIsNotLabeledCoachGenerated() {

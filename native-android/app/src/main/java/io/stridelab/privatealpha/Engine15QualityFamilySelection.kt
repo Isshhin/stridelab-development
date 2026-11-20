@@ -100,7 +100,7 @@ internal object Engine15QualityFamilySelection {
         ruleIds = (listOf("NO_TEMPLATE_OR_EXECUTION_AUTHORIZATION") + rules).distinct(),
         qualificationNotes = listOf(
             "Family selection is not authorization to construct or execute a quality workout.",
-            "M2 Threshold and Tempo structures remain heuristic and do not qualify selection, dose, recovery or intensity.",
+            "M2 Threshold, Tempo and Intervals structures remain heuristic and do not qualify selection, dose, recovery or intensity.",
             "Quality exposure records supplied to this selector remain caller-asserted and are not source-verified."
         ) + qualificationNotes
     )
@@ -220,9 +220,11 @@ internal object Engine15QualityFamilySelection {
                     explanation = "Automatic family selection needs a positive, internally consistent recent-running baseline; no minimum mileage threshold is applied.", athlete = athlete,
                     rules = listOf("BASELINE_EVIDENCE_REVIEWED"))
             family = when (request.goal) {
-                "Improve 5K", "Improve 10K" -> if (request.experience == 2)
+                "Improve 5K" -> if (request.experience == 2)
+                    IndependentQualityFamily.INTERVALS else IndependentQualityFamily.TEMPO
+                "Improve 10K", "Half marathon" -> if (request.experience == 2)
                     IndependentQualityFamily.THRESHOLD else IndependentQualityFamily.TEMPO
-                "Aerobic foundation", "Half marathon", "Marathon" -> IndependentQualityFamily.TEMPO
+                "Aerobic foundation", "Marathon" -> IndependentQualityFamily.TEMPO
                 else -> return result(Engine15QualitySelectionDecision.UNSUPPORTED, reason = "RUNNING_GOAL_UNSUPPORTED",
                     explanation = "The goal has no family mapping in the bounded selection matrix.", athlete = athlete)
             }
