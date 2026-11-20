@@ -450,13 +450,13 @@ class Engine15IndependentPlanGeneratorTest {
         }
     }
 
-    @Test fun incompleteRecordedHistoryCannotBecomeTheWeeklyMileageBaseline() {
+    @Test fun partialRecordedHistorySuppliesAutomaticBaselineWithoutBlocking() {
         val decision = Engine15IndependentPlanGenerator.preview(
             request().copy(recentMileageBasis = "RECORDED_PARTIAL"), owner, "partial", now
         )
-        assertTrue(decision is Engine15IndependentPlanDecision.Deferred)
-        assertEquals("ATHLETE_BASELINE_NEEDS_BASELINE",
-            (decision as Engine15IndependentPlanDecision.Deferred).reasonCode)
+        assertTrue("Expected candidate, got $decision", decision is Engine15IndependentPlanDecision.Candidate)
+        val candidate = decision as Engine15IndependentPlanDecision.Candidate
+        assertEquals(request().weeks * request().runDays, candidate.plan.sessions.size)
     }
 
     @Test fun conflictingTrainingHistoryIsDeferredForReview() {
@@ -572,7 +572,7 @@ class Engine15IndependentPlanGeneratorTest {
         }
     }
 
-    @Test fun appGenerationReturnsAReviewableManagedDraftAndKeepsQualityDeferred() {
+    @Test fun appGenerationReturnsReviewableManagedDraftAndAutoReconcilesQualityInOneTap() {
         val plan = Engine15IndependentPlanGenerator.generateWithHistory(request(), owner, emptyList(), "app-draft", now)
         assertEquals(ENGINE15_INDEPENDENT_RUNNING_POLICY, plan.policyId)
         assertEquals("draft", plan.status)
@@ -582,10 +582,26 @@ class Engine15IndependentPlanGeneratorTest {
         assertEquals(plan, decoded)
         assertNull(decoded.foreignSnapshot)
 
-        val error = assertThrows(PlanConstraint::class.java) {
-            Engine15IndependentPlanGenerator.generateWithHistory(request().copy(qualityCount = 1), owner, emptyList(), "quality", now)
+        if (BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE) {
+            // Exact user-reported scenario: building mileage + Tempo quality generates in 1 tap without blocking
+            val qualityRequest = request().copy(
+                goal = "Aerobic foundation",
+                experience = 1,
+                weeklyKm = 65.0,
+                targetWeeklyKm = 70.0,
+                longestKm = 18.0,
+                qualityCount = 1,
+                qualityDays = setOf(2)
+            )
+            val qualityDraft = Engine15IndependentPlanGenerator.generateWithHistory(
+                qualityRequest, owner, emptyList(), "quality-one-tap", now
+            )
+            assertEquals("draft", qualityDraft.status)
+            assertTrue(qualityDraft.sessions.any { it.quality })
+            assertTrue(qualityDraft.sessions.filter { it.quality }.all { !it.title.startsWith("Experimental ") })
+            val approved = PlanOperations.approve(qualityDraft, listOf(qualityDraft))
+            Engine15IndependentPlanGenerator.validateSaved(approved)
         }
-        assertTrue(error.message.orEmpty().contains("QUALITY_GENERATION_NOT_QUALIFIED"))
     }
 
     @Test fun directGenerationWithoutRepositoryCalendarContextFailsClosed() {
@@ -628,12 +644,11 @@ class Engine15IndependentPlanGeneratorTest {
         assertTrue(error.message.orEmpty().contains("EXTERNAL_HARD_TOO_CLOSE_TO_LONG"))
     }
 
-    @Test fun defersDoubleDaysAndUnmappableSessionLocks() {
+    @Test fun acceptsDoubleDaysFlagAndDefersUnmappableSessionLocks() {
         val doubleDays = Engine15IndependentPlanGenerator.preview(
             request().copy(allowDoubleDays = true), owner, "double", now
         )
-        assertTrue(doubleDays is Engine15IndependentPlanDecision.Deferred)
-        assertEquals("DOUBLE_DAYS_UNSUPPORTED", (doubleDays as Engine15IndependentPlanDecision.Deferred).reasonCode)
+        assertTrue("Expected candidate, got $doubleDays", doubleDays is Engine15IndependentPlanDecision.Candidate)
 
         val locked = Engine15IndependentPlanGenerator.preview(
             request().copy(lockedSessionDays = mapOf("unknown-session" to "2026-11-16")),

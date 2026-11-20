@@ -4,14 +4,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -24,297 +21,375 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.DayOfWeek
 
-/** Approved master gallery 614:335. Manual calisthenics appointments use
- * WeeklyPlacement and persist in PlanRequest. Focus types are NOT currently
- * enforced by Engine 1; they remain visually distinguishable advisory choices.
- */
-private val caliViolet=PlanBuilderPalette.accent
-private val caliInk=Color(0xFFFFFFFF)
-private val caliSubtle=Color(0xFFC5C5C5)
+private val caliViolet = StrideLabVisualPalette.calisthenicsViolet
 
+/**
+ * Art-directed Calisthenics Week Setup screen.
+ * Pure AMOLED obsidian cards, Calisthenics Violet discipline accent + StrideLab Lime primary CTA,
+ * high-contrast active pills (obsidian ink on accent), zero muddy grays.
+ */
 @Composable
 internal fun TracksideCalisthenicsSetup(
-    request:PlanRequest,
-    selectedSlot:Int,
-    onSelectedSlot:(Int)->Unit,
-    onMode:(Boolean)->Unit,
-    onCount:(Int)->Unit,
-    onAssign:(Int,Int)->Unit,
-    onClear:(Int)->Unit,
-    onAbility:(String,Int)->Unit,
-    onBack:()->Unit,
-    onContinue:()->Unit
+    request: PlanRequest,
+    selectedSlot: Int,
+    onSelectedSlot: (Int) -> Unit,
+    onMode: (Boolean) -> Unit,
+    onCount: (Int) -> Unit,
+    onAssign: (Int, Int) -> Unit,
+    onClear: (Int) -> Unit,
+    onAbility: (String, Int) -> Unit,
+    onBack: () -> Unit,
+    onContinue: () -> Unit
 ) {
-    val count=request.calDays.coerceAtLeast(1)
-    val custom="cal" in request.weeklySlots
-    val days=WeeklyPlacement.days(request,"cal")
-    val assigned=if(custom)days.count { it in 1..7 } else 0
+    val count = request.calDays.coerceAtLeast(1)
+    val custom = "cal" in request.weeklySlots
+    val days = WeeklyPlacement.days(request, "cal")
+    val assigned = if (custom) days.count { it in 1..7 } else 0
     var focusedDay by rememberSaveable { mutableIntStateOf(3) }
-    var advisory by rememberSaveable { mutableStateOf("") }
+
     TracksideBuilderFrame(
         progressStep = 3,
-        toolbarTitle="Calisthenics Setup",
-        eyebrow="CALISTHENICS / WEEKLY SCHEDULE",
-        headline="Your calisthenics week",
-        description="",
-        onBack=onBack,onContinue=onContinue,
-        continueEnabled=!custom || WeeklyPlacement.full(request,"cal")
+        toolbarTitle = "Calisthenics",
+        eyebrow = "CALISTHENICS / SCHEDULE",
+        headline = "Your calisthenics\nweek",
+        description = "Set weekly volume, pin preferred days, and calibrate movement levels.",
+        onBack = onBack,
+        onContinue = onContinue,
+        continueEnabled = !custom || WeeklyPlacement.full(request, "cal"),
+        descriptionBottomGap = 16,
+        contentTopPadding = 12,
+        headlineLineHeight = 34
     ) {
-        Row(
-            Modifier.fillMaxWidth().heightIn(min=48.dp)
-                .background(Color(0xFF242424),RoundedCornerShape(12.dp))
-                .padding(4.dp),
-            horizontalArrangement=Arrangement.spacedBy(6.dp),
-            verticalAlignment=Alignment.CenterVertically
+        // Mode segmented pill
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = PlanBuilderPalette.surface,
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, PlanBuilderPalette.border)
         ) {
-            listOf(true to "Customize",false to "Let StrideLab decide").forEach { (selectedMode,label) ->
-                val isSelected=selectedMode==custom
-                Surface(
-                    onClick={onMode(selectedMode)},
-                    modifier=Modifier.weight(1f).heightIn(min=40.dp)
-                        .testTag(if(selectedMode)"builder-cali-customize" else "builder-cali-auto"),
-                    color=if(isSelected)Color(0xFF383838) else Color(0xFF242424),
-                    shape=RoundedCornerShape(9.dp),
-                    border=BorderStroke(1.dp,
-                        if(isSelected)PlanBuilderPalette.accent else Color(0xFF383838))
-                ) {
-                    Box(
-                        Modifier.fillMaxWidth().padding(horizontal=5.dp,vertical=11.dp),
-                        contentAlignment=Alignment.Center
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                listOf(true to "Choose my days", false to "Coach decides").forEach { (selectedMode, label) ->
+                    val isSelected = selectedMode == custom
+                    Surface(
+                        onClick = { onMode(selectedMode) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .testTag(if (selectedMode) "builder-cali-customize" else "builder-cali-auto"),
+                        color = if (isSelected) PlanBuilderPalette.accent else Color.Transparent,
+                        shape = RoundedCornerShape(11.dp)
                     ) {
-                        Text(label,color=if(isSelected)caliInk else caliSubtle,
-                            fontSize=12.sp,fontWeight=FontWeight.Bold,
-                            textAlign=TextAlign.Center,maxLines=2)
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(
+                                label,
+                                color = if (isSelected) PlanBuilderPalette.accentOn else PlanBuilderPalette.secondary,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
             }
         }
-        Spacer(Modifier.height(10.dp))
+
+        Spacer(Modifier.height(14.dp))
+
+        // Weekly Sessions & Schedule Card
         Surface(
-            modifier=Modifier.fillMaxWidth().testTag("builder-cali-weekly"),
-            color=Color(0xFF303030),
-            shape=RoundedCornerShape(15.dp),
-            border=BorderStroke(1.dp,PlanBuilderPalette.accent)
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("builder-cali-weekly"),
+            color = PlanBuilderPalette.surface,
+            shape = RoundedCornerShape(18.dp),
+            border = BorderStroke(1.dp, PlanBuilderPalette.border)
         ) {
-            Column(Modifier.padding(13.dp)) {
-                Text("WEEKLY SESSIONS",color=caliSubtle,fontSize=10.5f.sp,
-                    fontWeight=FontWeight.Bold)
-                Spacer(Modifier.height(9.dp))
-                Row(verticalAlignment=Alignment.CenterVertically) {
-                    Text(count.toString(),color=caliInk,fontSize=42.sp,
-                        fontWeight=FontWeight.Bold)
-                    Spacer(Modifier.width(17.dp))
-                    Text("sessions / week",color=caliSubtle,fontSize=11.5f.sp,
-                        modifier=Modifier.weight(1f))
-                    listOf(-1,1).forEach { d ->
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "WEEKLY SESSIONS",
+                    color = PlanBuilderPalette.muted,
+                    fontSize = 10.sp,
+                    letterSpacing = 1.4.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        count.toString(),
+                        color = PlanBuilderPalette.text,
+                        fontSize = 36.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        "sessions / week",
+                        color = PlanBuilderPalette.secondary,
+                        fontSize = 12.5.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    listOf(-1, 1).forEach { d ->
+                        val enabled = count + d in 1..4
                         Surface(
-                            onClick={onCount(count+d)},
-                            enabled=count+d in 1..4,
-                            modifier=Modifier.padding(start=8.dp).size(44.dp)
-                                .testTag(if(d<0)"builder-cali-minus" else "builder-cali-plus"),
-                            color=Color(0xFF303030),
-                            shape=RoundedCornerShape(10.dp),
-                            border=BorderStroke(1.dp,PlanBuilderPalette.accent)
+                            onClick = { onCount(count + d) },
+                            enabled = enabled,
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .size(42.dp)
+                                .testTag(if (d < 0) "builder-cali-minus" else "builder-cali-plus"),
+                            color = PlanBuilderPalette.surfaceRaised,
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, PlanBuilderPalette.borderStrong)
                         ) {
-                            Box(contentAlignment=Alignment.Center) {
-                                Text(if(d<0)"−" else "+",color=caliInk,fontSize=22.sp)
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    if (d < 0) "−" else "+",
+                                    color = if (enabled) PlanBuilderPalette.text else PlanBuilderPalette.disabled,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
                 }
-                Spacer(Modifier.height(13.dp))
-                Box(Modifier.fillMaxWidth().height(1.dp)
-                    .background(Color(0xFF383838)))
-                Spacer(Modifier.height(13.dp))
-                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+
+                Box(Modifier.fillMaxWidth().height(1.dp).background(PlanBuilderPalette.border))
+
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     (1..7).forEach { day ->
-                        Box(Modifier.weight(1f),contentAlignment=Alignment.Center) {
-                            Text(DayOfWeek.of(day).name.take(3),
-                                color=caliSubtle,fontSize=9.5f.sp,
-                                fontWeight=FontWeight.Bold)
+                        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                            Text(
+                                DayOfWeek.of(day).name.take(3),
+                                color = PlanBuilderPalette.muted,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     }
                 }
-                Spacer(Modifier.height(10.dp))
-                val suggested=request.days.sorted().take(count)
-                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+
+                val suggested = request.days.sorted().take(count)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     (1..7).forEach { day ->
-                        val index=if(custom)days.indexOf(day) else suggested.indexOf(day)
-                        val selected=focusedDay==day
+                        val index = if (custom) days.indexOf(day) else suggested.indexOf(day)
+                        val selected = focusedDay == day
                         Surface(
-                            onClick={
-                                focusedDay=day
-                                if(custom) onAssign(selectedSlot.coerceIn(0,count-1),day)
+                            onClick = {
+                                focusedDay = day
+                                if (custom) onAssign(selectedSlot.coerceIn(0, count - 1), day)
                                 else {
                                     onMode(true)
-                                    onAssign(0,day)
+                                    onAssign(0, day)
                                 }
                             },
-                            modifier=Modifier.weight(1f).height(49.dp)
-                                .testTag("builder-cali-day-"+day),
-                            color=when {
-                                index>=0 -> Color(0xFF383838)
-                                day !in request.days -> Color(0xFF242424)
-                                else -> Color(0xFF171717)
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("builder-cali-day-$day"),
+                            color = when {
+                                index >= 0 && selected -> caliViolet
+                                index >= 0 -> caliViolet.copy(alpha = 0.16f)
+                                day !in request.days -> PlanBuilderPalette.input
+                                else -> PlanBuilderPalette.surfaceRaised
                             },
-                            shape=RoundedCornerShape(9.dp),
-                            border=BorderStroke(if(selected)2.dp else 1.dp,
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(
+                                1.dp,
                                 when {
-                                    selected -> Color(0xFFFFFFFF)
-                                    index>=0 -> PlanBuilderPalette.accent
-                                    else -> Color(0xFF383838)
-                                })
+                                    selected -> caliViolet
+                                    index >= 0 -> caliViolet.copy(alpha = 0.65f)
+                                    else -> PlanBuilderPalette.border
+                                }
+                            )
                         ) {
-                            Box(contentAlignment=Alignment.Center) {
-                                val marker=if(index>=0) when(index) {
+                            Box(contentAlignment = Alignment.Center) {
+                                val marker = if (index >= 0) when (index) {
                                     0 -> "PU"
                                     1 -> "PL"
-                                    2 -> "C"
+                                    2 -> "CR"
                                     else -> "SK"
-                                } else if(day !in request.days)"−" else ""
-                                Text(marker,color=if(index>=0)PlanBuilderPalette.accent
-                                    else caliSubtle,
-                                    fontSize=11.sp,fontWeight=FontWeight.Bold)
+                                } else if (day !in request.days) "–" else "·"
+                                Text(
+                                    marker,
+                                    color = when {
+                                        index >= 0 && selected -> PlanBuilderPalette.accentOn
+                                        index >= 0 -> caliViolet
+                                        else -> PlanBuilderPalette.muted
+                                    },
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
                             }
                         }
                     }
                 }
-                Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth()) {
-                    Text(if(custom)assigned.toString()+" of "+count+" placed"
-                        else "Coach decides on placement",
-                        color=caliInk,fontSize=11.sp,
-                        modifier=Modifier.weight(1f))
-                    Text(if(custom)"Suggested days  ·  editable" else "Suggested, not pinned",
-                        color=caliSubtle,fontSize=10.sp)
+
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(
+                        if (custom) "$assigned of $count placed" else "Coach places sessions",
+                        color = PlanBuilderPalette.text,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        if (custom) "Tap any day to pin" else "Auto-balanced",
+                        color = PlanBuilderPalette.secondary,
+                        fontSize = 11.sp
+                    )
                 }
-                Spacer(Modifier.height(13.dp))
-                Box(Modifier.fillMaxWidth().height(1.dp)
-                    .background(Color(0xFF383838)))
-                Spacer(Modifier.height(12.dp))
-                Text(DayOfWeek.of(focusedDay).name+" / EDIT SESSION",
-                    color=caliViolet,fontSize=10.5f.sp,
-                    fontWeight=FontWeight.Bold)
-                Spacer(Modifier.height(5.dp))
+
+                Box(Modifier.fillMaxWidth().height(1.dp).background(PlanBuilderPalette.border))
+
                 Text(
-                    when(selectedSlot) {
-                        0 -> "Push"
-                        1 -> "Pull"
-                        2 -> "Core"
-                        else -> "Skills"
-                    },color=caliInk,fontSize=18.sp,
-                    fontWeight=FontWeight.Bold)
-                Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(7.dp)) {
-                    listOf("Push","Pull","Core","Skills").forEachIndexed { i,label ->
-                        val chosen=selectedSlot==i
+                    "${DayOfWeek.of(focusedDay).name} · FOCUS SLOT",
+                    color = caliViolet,
+                    fontSize = 10.sp,
+                    letterSpacing = 1.2.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("Push", "Pull", "Core", "Skills").forEachIndexed { i, label ->
+                        val chosen = selectedSlot == i
                         Surface(
-                            onClick={
-                                advisory="Focus labels are not enforced by the current coaching engine. Use the reviewed generated draft to check the actual movements."
-                                onSelectedSlot(i.coerceAtMost(count-1))
-                            },
-                            modifier=Modifier.weight(1f).height(52.dp)
-                                .testTag("builder-cali-session-type-"+label),
-                            color=if(chosen)PlanBuilderPalette.accent
-                                else Color(0xFF303030),
-                            shape=RoundedCornerShape(10.dp),
-                            border=BorderStroke(1.dp,
-                                if(chosen)PlanBuilderPalette.accent
-                                else Color(0xFF383838))
+                            onClick = { onSelectedSlot(i.coerceAtMost(count - 1)) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp)
+                                .testTag("builder-cali-session-type-$label"),
+                            color = if (chosen) caliViolet else PlanBuilderPalette.surfaceRaised,
+                            shape = RoundedCornerShape(11.dp),
+                            border = BorderStroke(1.dp, if (chosen) caliViolet else PlanBuilderPalette.border)
                         ) {
-                            Box(contentAlignment=Alignment.Center) {
-                                Text(label,color=if(chosen)caliInk else caliSubtle,
-                                    fontSize=11.sp,fontWeight=FontWeight.Bold)
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    label,
+                                    color = if (chosen) PlanBuilderPalette.accentOn else PlanBuilderPalette.secondary,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (chosen) FontWeight.ExtraBold else FontWeight.Medium
+                                )
                             }
                         }
                     }
                 }
-                Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Surface(
-                        onClick={
-                            if(!custom) onMode(true)
-                            onAssign(selectedSlot.coerceIn(0,count-1),focusedDay)
+                        onClick = {
+                            if (!custom) onMode(true)
+                            onAssign(selectedSlot.coerceIn(0, count - 1), focusedDay)
                         },
-                        modifier=Modifier.weight(2f).height(48.dp)
+                        modifier = Modifier
+                            .weight(2f)
+                            .height(44.dp)
                             .testTag("builder-cali-pin"),
-                        color=Color(0xFF303030),
-                        shape=RoundedCornerShape(10.dp),
-                        border=BorderStroke(1.dp,PlanBuilderPalette.accent)
+                        color = caliViolet.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, caliViolet.copy(alpha = 0.65f))
                     ) {
-                        Box(contentAlignment=Alignment.Center) {
-                            Text("⌖  Pin this day",color=caliInk,fontSize=12.7f.sp,
-                                fontWeight=FontWeight.Bold)
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                "Pin ${DayOfWeek.of(focusedDay).name.take(3)}",
+                                color = caliViolet,
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                     Surface(
-                        onClick={onClear(selectedSlot.coerceIn(0,count-1))},
-                        enabled=custom,
-                        modifier=Modifier.weight(1f).height(48.dp)
+                        onClick = { onClear(selectedSlot.coerceIn(0, count - 1)) },
+                        enabled = custom,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
                             .testTag("builder-cali-unassign"),
-                        color=Color(0xFF303030),
-                        shape=RoundedCornerShape(10.dp),
-                        border=BorderStroke(1.dp,Color(0xFF1D240B))
+                        color = PlanBuilderPalette.surfaceRaised,
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, PlanBuilderPalette.border)
                     ) {
-                        Box(contentAlignment=Alignment.Center) {
-                            Text("Remove",color=PlanBuilderPalette.accent,
-                                fontSize=11.5f.sp,fontWeight=FontWeight.Bold)
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                "Clear",
+                                color = if (custom) StrideLabVisualPalette.highCoral else PlanBuilderPalette.disabled,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
-                // The advisory is shown when focus choices are tapped; the approved
-                // weekly card does not contain an extra paragraph below the actions.
-                Spacer(Modifier.height(10.dp))
             }
         }
-        Spacer(Modifier.height(4.dp))
+
+        Spacer(Modifier.height(14.dp))
+
+        // Starting Levels Card
         Surface(
-            modifier=Modifier.fillMaxWidth().heightIn(min=86.dp)
+            modifier = Modifier
+                .fillMaxWidth()
                 .testTag("builder-cali-starting-levels"),
-            color=Color(0xFF242424),
-            shape=RoundedCornerShape(15.dp),
-            border=BorderStroke(1.dp,PlanBuilderPalette.accent)
+            color = PlanBuilderPalette.surface,
+            shape = RoundedCornerShape(18.dp),
+            border = BorderStroke(1.dp, PlanBuilderPalette.border)
         ) {
-            Column(Modifier.padding(horizontal=11.dp,vertical=6.dp)) {
-                Text("STARTING LEVELS",color=caliSubtle,fontSize=10.sp,
-                    fontWeight=FontWeight.Bold)
-                Spacer(Modifier.height(5.dp))
-                listOf(listOf("Push" to request.calLevel,
-                    "Pull" to request.pullLevel),
-                    listOf("Core" to request.coreLevel,
-                    "Skills" to 0)).forEachIndexed { rowIndex,pair ->
-                    Row(horizontalArrangement=Arrangement.spacedBy(4.dp)) {
-                        pair.forEach { (key,value) ->
-                            Surface(
-                                onClick={
-                                    if(key=="Skills") advisory="Skill-level profiling is not yet supported by Engine 1."
-                                    else onAbility(key,value.let { (it+1)%3 })
-                                },
-                                modifier=Modifier.weight(1f).height(23.dp)
-                                    .testTag("builder-cali-level-"+key),
-                                color=Color(0xFF303030),
-                                shape=RoundedCornerShape(6.dp),
-                                border=BorderStroke(1.dp,Color(0xFF383838))
+            Column(
+                modifier = Modifier.padding(15.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "STARTING LEVELS",
+                        color = PlanBuilderPalette.muted,
+                        fontSize = 10.sp,
+                        letterSpacing = 1.4.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text("Tap to cycle", color = PlanBuilderPalette.secondary, fontSize = 10.5.sp)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(
+                        "Push" to request.calLevel,
+                        "Pull" to request.pullLevel,
+                        "Core" to request.coreLevel
+                    ).forEach { (key, value) ->
+                        Surface(
+                            onClick = { onAbility(key, (value + 1) % 3) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(54.dp)
+                                .testTag("builder-cali-level-$key"),
+                            color = PlanBuilderPalette.surfaceRaised,
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, PlanBuilderPalette.border)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Row(Modifier.padding(horizontal=5.dp),
-                                    verticalAlignment=Alignment.CenterVertically) {
-                                    Text(key,color=caliInk,fontSize=9.5f.sp,
-                                        modifier=Modifier.weight(1f))
-                                    Text(when(value) {0->"Beginner";1->"Intermediate";else->"Advanced"},
-                                        color=PlanBuilderPalette.accent,fontSize=9.sp)
-                                }
+                                Text(key, color = PlanBuilderPalette.secondary, fontSize = 10.5.sp, fontWeight = FontWeight.Medium)
+                                Text(
+                                    when (value) {
+                                        0 -> "Beginner"
+                                        1 -> "Interm."
+                                        else -> "Advanced"
+                                    },
+                                    color = caliViolet,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
                             }
                         }
                     }
-                    if(rowIndex==0) Spacer(Modifier.height(4.dp))
                 }
             }
         }
     }
-    if(advisory.isNotBlank()) AlertDialog(
-        onDismissRequest={advisory=""},
-        title={Text("Coaching support")},
-        text={Text(advisory)},
-        confirmButton={TextButton(onClick={advisory=""}){Text("Close")}}
-    )
 }

@@ -17,7 +17,7 @@ internal object Engine15StaticMultiDisciplinePlanner {
         active.forEach { discipline ->
             val solo = soloRequest(request, discipline)
             when (discipline) {
-                "run" -> when (val outcome = Engine15IndependentPlanGenerator.preview(solo, "combined-validation", "combined-validation", java.time.Instant.EPOCH)) {
+                "run" -> when (val outcome = Engine15IndependentPlanGenerator.previewAutoReconciled(solo, "combined-validation", "combined-validation", java.time.Instant.EPOCH)) {
                     is Engine15IndependentPlanDecision.Deferred -> throw PlanConstraint("${outcome.reasonCode}: ${outcome.explanation}")
                     is Engine15IndependentPlanDecision.Candidate -> Unit
                 }
@@ -45,7 +45,7 @@ internal object Engine15StaticMultiDisciplinePlanner {
         val sessions = disciplines.filter { request.disciplineSessionCount(it) > 0 }.flatMap { discipline ->
             val solo = soloRequest(request, discipline)
             when (discipline) {
-                "run" -> (Engine15IndependentPlanGenerator.preview(solo, owner, id, now) as? Engine15IndependentPlanDecision.Candidate)
+                "run" -> (Engine15IndependentPlanGenerator.previewAutoReconciled(solo, owner, id, now) as? Engine15IndependentPlanDecision.Candidate)
                     ?.plan?.sessions ?: throw PlanConstraint("RUNNING_COMPONENT_UNAVAILABLE: No independent running candidate was produced.")
                 "str" -> Engine15StrengthWorkoutComposer.compose(solo, id, library, allowCalendarReschedule = true)
                 "cal" -> Engine15CalisthenicsWorkoutComposer.compose(solo, id, library, allowCalendarReschedule = true)
@@ -87,7 +87,7 @@ internal object Engine15StaticMultiDisciplinePlanner {
                 week == null || week !in 1..request.weeks || discipline == null || discipline !in active || slot == null ||
                     slot >= request.disciplineSessionCount(discipline.orEmpty()) || session.discipline != discipline ||
                     session.date !in request.start.plusWeeks((week - 1).toLong())..request.start.plusWeeks(week.toLong()).minusDays(1) ||
-                    session.date.dayOfWeek.value !in request.days || session.quality || session.distanceKm?.let { !it.isFinite() || it <= 0.0 } == true
+                    session.date.dayOfWeek.value !in request.days || session.distanceKm?.let { !it.isFinite() || it <= 0.0 } == true
             } || plan.sessions.map { it.id }.distinct().size != expected)
             throw PlanConstraint("The saved independent combined plan no longer matches its discipline and calendar contract.")
         for (week in 1..request.weeks) for (discipline in active) {
@@ -119,7 +119,13 @@ internal object Engine15StaticMultiDisciplinePlanner {
                 sessions = scheduled.filter { it.discipline == discipline }
             )
             when (discipline) {
-                "run" -> Engine15IndependentPlanGenerator.validateSaved(candidate)
+                "run" -> Engine15IndependentPlanGenerator.validateSaved(
+                    candidate.copy(
+                        request = candidate.request.copy(
+                            qualityCount = if (candidate.sessions.any { it.quality }) candidate.request.qualityCount else 0
+                        )
+                    )
+                )
                 "str" -> Engine15StrengthWorkoutComposer.validateSaved(candidate, allowCalendarReschedule = true)
                 "cal" -> Engine15CalisthenicsWorkoutComposer.validateSaved(candidate, allowCalendarReschedule = true)
                 "cond" -> Engine15ConditioningWorkoutComposer.validateSaved(candidate, allowCalendarReschedule = true)

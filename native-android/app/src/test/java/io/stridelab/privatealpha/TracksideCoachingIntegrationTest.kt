@@ -83,9 +83,8 @@ class TracksideCoachingIntegrationTest {
         assertEquals(10, plan.sessions.size)
         plan.sessions.forEach { s -> assertEquals(WeeklyPlacement.fixedDay(setup,s), s.date.dayOfWeek.value) }
         assertEquals("approved", PlanOperations.approve(plan, emptyList()).status)
-        assertThrows(PlanConstraint::class.java) {
-            TracksideCoaching.request(setup.copy(policyChoice="coordinated"), true)
-        }
+        val autoDouble = TracksideCoaching.request(setup.copy(policyChoice="coordinated"), true)
+        assertTrue(autoDouble.allowDoubleDays)
         assertThrows(PlanConstraint::class.java) {
             generate(legacyEngine15Request(setup.copy(weeklySlots=setup.weeklySlots +
                 ("str" to listOf(7,5)))))

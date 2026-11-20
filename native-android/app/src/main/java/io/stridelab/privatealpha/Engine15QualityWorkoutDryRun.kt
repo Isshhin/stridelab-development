@@ -86,8 +86,14 @@ internal data class Engine15QualityWorkoutDryRun(
     init {
         require(policyId == Engine15QualityWorkoutDryRunBuilder.POLICY_ID)
         require(selectionPolicyId == Engine15QualityFamilySelection.POLICY_ID)
-        require(familyPolicyQualification == Engine15FamilyPolicyQualification.PROVISIONAL_ENGINEERING_RULE)
-        require(selectionBasis == Engine15QualitySelectionBasis.GOAL_EXPERIENCE_MATRIX)
+        require(familyPolicyQualification in setOf(
+            Engine15FamilyPolicyQualification.PROVISIONAL_ENGINEERING_RULE,
+            Engine15FamilyPolicyQualification.USER_DIRECTED
+        ))
+        require(selectionBasis in setOf(
+            Engine15QualitySelectionBasis.GOAL_EXPERIENCE_MATRIX,
+            Engine15QualitySelectionBasis.EXPLICIT_USER_PREFERENCE
+        ))
 
         require(templateId == "engine15-${family.name.lowercase()}-intro-v1" && templateEvidence == "HEURISTIC")
         require(weekNumber > 0 && sessionId.isNotBlank())
@@ -131,21 +137,19 @@ internal object Engine15QualityWorkoutDryRunBuilder {
         selection: Engine15QualityFamilySelectionResult,
         volume: Engine15IndependentVolumePlanner.Result,
         sessions: List<PlannedSession>,
-        assertedExposureSecondsOverride: Int? = null
+        assertedExposureSecondsOverride: Int? = null,
+        allowExplicitUserFamily: Boolean = false
     ): Engine15QualityWorkoutDryRun? {
         val family = selection.selectedFamily ?: return null
-        if (family in setOf(
-                IndependentQualityFamily.THRESHOLD,
-                IndependentQualityFamily.INTERVALS,
-                IndependentQualityFamily.HILLS,
-                IndependentQualityFamily.FARTLEK
-            ) && (request.weeks !in 8..16 || request.runDays < 4 || request.longestKm <= 0.0)) return null
         if (!BuildConfig.DEBUG ||
-            selection.decision != Engine15QualitySelectionDecision.FAMILY_CANDIDATE ||
-            selection.familyPolicyQualification != Engine15FamilyPolicyQualification.PROVISIONAL_ENGINEERING_RULE ||
-            selection.selectionBasis != Engine15QualitySelectionBasis.GOAL_EXPERIENCE_MATRIX)
-
+            selection.decision != Engine15QualitySelectionDecision.FAMILY_CANDIDATE)
             return null
+        val explicitAllowed = allowExplicitUserFamily &&
+            selection.selectionBasis == Engine15QualitySelectionBasis.EXPLICIT_USER_PREFERENCE &&
+            selection.familyPolicyQualification == Engine15FamilyPolicyQualification.USER_DIRECTED
+        val matrixAllowed = selection.selectionBasis == Engine15QualitySelectionBasis.GOAL_EXPERIENCE_MATRIX &&
+            selection.familyPolicyQualification == Engine15FamilyPolicyQualification.PROVISIONAL_ENGINEERING_RULE
+        if (!matrixAllowed && !explicitAllowed) return null
 
         val slot = selection.candidateSlots.firstOrNull() ?: return null
         val selectedSession = sessions.singleOrNull { it.id == slot.sessionId } ?: return null

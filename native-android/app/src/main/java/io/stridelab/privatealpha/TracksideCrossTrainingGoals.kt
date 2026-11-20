@@ -3,20 +3,15 @@ package io.stridelab.privatealpha
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -25,316 +20,373 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/**
- * Figma 687:3 strength-goal cards, plus native Engine 1-supported
- * cross-discipline preferences. Decorative icons are provisional, as
- * they are in the approved Figma source. No unsupported split is promised.
- */
-private val crossWhite = Color(0xFFFFFFFF)
-private val crossMuted = Color(0xFFC5C5C5)
-private val crossBlue = PlanBuilderPalette.accent
+private val crossCoral = StrideLabVisualPalette.strengthCoral
 
-private data class StrengthGoalChoice(val title: String, val detail: String,
-    val policyGoal: String, val icon: Int)
-
-private val strengthGoalChoices = listOf(
-    StrengthGoalChoice("Build Strength","Get stronger and lift heavier.",
-        "General strength",R.drawable.trackside_figma_activity),
-    StrengthGoalChoice("Build Muscle","Develop muscle size and definition.",
-        "Muscle development",R.drawable.trackside_figma_loop),
-    StrengthGoalChoice("Physique Development",
-        "Emphasize the areas you want to improve.",
-        "Muscle development",R.drawable.trackside_figma_activity),
-    StrengthGoalChoice("Maintain Fitness","Keep your strength and consistency.",
-        "Strength endurance",R.drawable.trackside_figma_loop)
+private data class StrengthGoalChoice(
+    val title: String,
+    val detail: String,
+    val policyGoal: String,
+    val icon: Int
 )
 
-internal fun strengthChoicePolicy(title:String) =
-    strengthGoalChoices.firstOrNull { it.title==title }?.policyGoal
+private val strengthGoalChoices = listOf(
+    StrengthGoalChoice("Build Strength", "Get stronger and lift heavier with progressive overload.",
+        "General strength", R.drawable.trackside_figma_activity),
+    StrengthGoalChoice("Build Muscle", "Hypertrophy-focused volume for muscle size and definition.",
+        "Muscle development", R.drawable.trackside_figma_loop),
+    StrengthGoalChoice("Physique Development", "Balanced aesthetics and muscular symmetry across the week.",
+        "Muscle development", R.drawable.trackside_figma_activity),
+    StrengthGoalChoice("Maintain Fitness", "Efficient strength endurance to stay resilient year-round.",
+        "Strength endurance", R.drawable.trackside_figma_loop)
+)
+
+internal fun strengthChoicePolicy(title: String) =
+    strengthGoalChoices.firstOrNull { it.title == title }?.policyGoal
         ?: "General strength"
 
+/**
+ * Art-directed Strength Goal selection screen.
+ * Pure AMOLED obsidian cards, crisp Strength Coral icon tiles (zero lime-on-lime icons!),
+ * high-contrast typography and circular selection check badges.
+ */
 @Composable
 internal fun TracksideStrengthGoalScreen(
-    selected:String,
-    onSelect:(String)->Unit,
-    onBack:()->Unit,
-    onContinue:()->Unit
+    selected: String,
+    onSelect: (String) -> Unit,
+    onBack: () -> Unit,
+    onContinue: () -> Unit
 ) {
-    var muscleInfo by remember { mutableStateOf(false) }
-    val active=strengthGoalChoices.firstOrNull { it.title==selected }
+    val active = strengthGoalChoices.firstOrNull { it.title == selected }
         ?: strengthGoalChoices.first()
+
     TracksideBuilderFrame(
         progressStep = 2,
-        toolbarTitle="Strength goal",
-        eyebrow="STRENGTH / YOUR GOAL",
-        headline="What are you\nworking toward?",
-        description="Choose your main goal. StrideLab shapes your workouts around it.",
-        ctaLabel="Save goal",
-        onBack=onBack,onContinue=onContinue
+        toolbarTitle = "Strength goal",
+        eyebrow = "STRENGTH / GOAL",
+        headline = "What are you\nworking toward?",
+        description = "StrideLab shapes your sets, rep ranges, and progression around your goal.",
+        ctaLabel = "Continue",
+        onBack = onBack,
+        onContinue = onContinue,
+        descriptionBottomGap = 18,
+        contentTopPadding = 12,
+        headlineLineHeight = 34
     ) {
-        strengthGoalChoices.forEachIndexed { index,choice ->
-            val chosen=active.title==choice.title
+        strengthGoalChoices.forEachIndexed { index, choice ->
+            val chosen = active.title == choice.title
             Surface(
-                onClick={onSelect(choice.title)},
-                modifier=Modifier.fillMaxWidth().height(105.dp)
-                    .testTag("builder-strength-goal-" + index),
-                color=Color.Transparent,
-                shape=RoundedCornerShape(16.dp),
-                border=BorderStroke(1.dp,
-                    if(chosen)PlanBuilderPalette.accent else PlanBuilderPalette.accent)
+                onClick = { onSelect(choice.title) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 88.dp)
+                    .testTag("builder-strength-goal-$index"),
+                color = if (chosen) crossCoral.copy(alpha = 0.12f) else PlanBuilderPalette.surface,
+                shape = RoundedCornerShape(18.dp),
+                border = BorderStroke(
+                    1.dp,
+                    if (chosen) crossCoral else PlanBuilderPalette.border
+                )
             ) {
                 Row(
-                    Modifier.fillMaxSize().background(Brush.horizontalGradient(
-                        if(chosen) listOf(PlanBuilderPalette.accent,Color(0xFF303030))
-                        else listOf(Color(0xFF303030),Color(0xFF242424))
-                    )).padding(11.dp),
-                    verticalAlignment=Alignment.CenterVertically,
-                    horizontalArrangement=Arrangement.spacedBy(13.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    Surface(
-                        modifier=Modifier.size(84.dp,79.dp),
-                        shape=RoundedCornerShape(12.dp),
-                        color=if(chosen)PlanBuilderPalette.accent else Color(0xFF242424),
-                        border=BorderStroke(1.dp,
-                            if(chosen)PlanBuilderPalette.accent else PlanBuilderPalette.accent)
+                    Box(
+                        modifier = Modifier
+                            .size(50.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (chosen) crossCoral.copy(alpha = 0.22f) else PlanBuilderPalette.surfaceRaised),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(contentAlignment=Alignment.Center) {
-                            Icon(
-                                painter=painterResource(choice.icon),
-                                contentDescription=null,
-                                tint=PlanBuilderPalette.accent,
-                                modifier=Modifier.size(35.dp)
-                            )
+                        Icon(
+                            painter = painterResource(choice.icon),
+                            contentDescription = null,
+                            tint = if (chosen) crossCoral else PlanBuilderPalette.secondary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Text(
+                            choice.title,
+                            color = PlanBuilderPalette.text,
+                            fontSize = 15.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            choice.detail,
+                            color = PlanBuilderPalette.secondary,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .clip(CircleShape)
+                            .background(if (chosen) crossCoral else PlanBuilderPalette.surfaceRaised),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (chosen) {
+                            Text("✓", color = PlanBuilderPalette.accentOn, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
                         }
                     }
-                    Column(Modifier.weight(1f),
-                        verticalArrangement=Arrangement.spacedBy(7.dp)) {
-                        Text(choice.title,color=crossWhite,fontSize=15.7f.sp,
-                            fontWeight=FontWeight.Bold,maxLines=2,
-                            overflow=TextOverflow.Ellipsis)
-                        Text(choice.detail,color=crossMuted,fontSize=11.4f.sp,
-                            lineHeight=15.sp)
-                    }
                 }
             }
-            Spacer(Modifier.height(if(index==strengthGoalChoices.lastIndex)
-                11.dp else 9.dp))
-        }
-        Surface(
-            onClick={muscleInfo=true},
-            modifier=Modifier.fillMaxWidth().height(64.dp)
-                .testTag("builder-strength-muscle-emphasis"),
-            color=Color(0xFF242424),
-            shape=RoundedCornerShape(16.dp),
-            border=BorderStroke(1.dp,PlanBuilderPalette.accent)
-        ) {
-            Row(Modifier.padding(horizontal=12.dp),
-                verticalAlignment=Alignment.CenterVertically,
-                horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-                Box(
-                    Modifier.size(40.dp).background(PlanBuilderPalette.accent,
-                        RoundedCornerShape(12.dp)),
-                    contentAlignment=Alignment.Center
-                ) { Text("◎",color=crossBlue,fontSize=25.sp) }
-                Column(Modifier.weight(1f)) {
-                    Text("Muscle emphasis",color=crossWhite,fontSize=13.sp,
-                        fontWeight=FontWeight.Bold)
-                    Text("Optional · Not yet supported by Engine 1",
-                        color=crossMuted,fontSize=10.7f.sp)
-                }
-                Text("›",color=crossBlue,fontSize=23.sp)
-            }
-        }
-        if(active.title=="Physique Development" ||
-            active.title=="Maintain Fitness") {
-            Spacer(Modifier.height(10.dp))
-            Text(
-                "Engine 1 uses its "+active.policyGoal+
-                    " prescription for this choice. Specific physique or "+
-                    "maintenance rules are not yet available.",
-                fontSize=11.sp,lineHeight=15.sp,color=crossMuted,
-                modifier=Modifier.testTag("builder-strength-goal-limitation"))
+            if (index < strengthGoalChoices.lastIndex) Spacer(Modifier.height(10.dp))
         }
     }
-    if(muscleInfo) AlertDialog(
-        onDismissRequest={muscleInfo=false},
-        title={Text("Muscle emphasis")},
-        text={Text("Muscle-specific emphasis is not yet saved or enforced by the current engine. Your selected strength goal and schedule will be saved.")},
-        confirmButton={TextButton(onClick={muscleInfo=false}) { Text("Close") }}
-    )
 }
 
-/** Full-screen Engine 1 goal/ability selection for all non-running disciplines.
- * Running athletes enter it after their running setup when they selected other
- * disciplines; single-discipline athletes do not see the legacy builder.
+/**
+ * Art-directed Cross-Training Goals & Ability screen.
+ * Pure AMOLED obsidian cards with discipline-specific semantic color coding.
  */
 @Composable
 internal fun TracksideCrossTrainingGoalsScreen(
-    request:PlanRequest,
-    onBack:()->Unit,
-    onContinue:()->Unit,
-    onEditStrengthGoal:()->Unit,
-    onGoal:(String,String)->Unit,
-    onCount:(String,Int)->Unit,
-    onExperience:(String,Int)->Unit
+    request: PlanRequest,
+    onBack: () -> Unit,
+    onContinue: () -> Unit,
+    onEditStrengthGoal: () -> Unit,
+    onGoal: (String, String) -> Unit,
+    onCount: (String, Int) -> Unit,
+    onExperience: (String, Int) -> Unit
 ) {
-    val active=listOf("str","cal","cond").filter {
-        WeeklyPlacement.count(request,it)>0
+    val active = listOf("str", "cal", "cond").filter {
+        WeeklyPlacement.count(request, it) > 0
     }
+
     TracksideBuilderFrame(
         progressStep = 3,
-        toolbarTitle="Goals & ability",
-        eyebrow="PLAN / GOALS & ABILITY",
-        headline="Make it your plan",
-        description="Set real coaching goals, weekly sessions and current ability for each discipline.",
-        onBack=onBack,onContinue=onContinue,
-        continueEnabled=active.isNotEmpty()
+        toolbarTitle = "Cross-training",
+        eyebrow = "PLAN / DISCIPLINES",
+        headline = "Tune your\ncross-training",
+        description = "Set goals, weekly frequency, and ability for each supporting discipline.",
+        onBack = onBack,
+        onContinue = onContinue,
+        continueEnabled = active.isNotEmpty(),
+        descriptionBottomGap = 16,
+        contentTopPadding = 12,
+        headlineLineHeight = 34
     ) {
-        active.forEach { discipline ->
-            val accent=tracksideDisciplineColor(discipline)
+        active.forEachIndexed { idx, discipline ->
+            val accent = StrideLabVisualPalette.disciplineColor(discipline)
             Text(
-                when(discipline) {
-                    "str"->"STRENGTH"
-                    "cal"->"CALISTHENICS"
-                    else->"CONDITIONING"
-                },color=accent,fontSize=11.sp,fontWeight=FontWeight.Bold)
-            Spacer(Modifier.height(12.dp))
-            if(discipline=="str") {
+                when (discipline) {
+                    "str" -> "STRENGTH"
+                    "cal" -> "CALISTHENICS"
+                    else -> "CONDITIONING"
+                },
+                color = accent,
+                fontSize = 10.sp,
+                letterSpacing = 1.4.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(10.dp))
+
+            if (discipline == "str") {
                 Surface(
-                    onClick=onEditStrengthGoal,
-                    modifier=Modifier.fillMaxWidth().heightIn(min=58.dp)
+                    onClick = onEditStrengthGoal,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 60.dp)
                         .testTag("builder-strength-edit-goal"),
-                    color=Color(0xFF303030),
-                    shape=RoundedCornerShape(13.dp),
-                    border=BorderStroke(1.dp,PlanBuilderPalette.accent)
+                    color = PlanBuilderPalette.surface,
+                    shape = RoundedCornerShape(15.dp),
+                    border = BorderStroke(1.dp, PlanBuilderPalette.border)
                 ) {
-                    Row(Modifier.padding(14.dp),
-                        verticalAlignment=Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Strength goal",fontSize=13.sp,color=crossWhite,
-                                fontWeight=FontWeight.Bold)
-                            Text(Engine1Engines.goal(request,"str"),
-                                fontSize=11.sp,color=crossMuted)
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text("Strength goal", fontSize = 13.5.sp, color = PlanBuilderPalette.text, fontWeight = FontWeight.Bold)
+                            Text(Engine1Engines.goal(request, "str"), fontSize = 12.sp, color = PlanBuilderPalette.secondary)
                         }
-                        Text("Edit ›",fontSize=12.sp,color=crossBlue)
+                        Text("Edit ›", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = accent)
                     }
                 }
             } else {
-                Engine1Engines.goals.getValue(discipline).forEach { goal ->
-                    val chosen=Engine1Engines.goal(request,discipline)==goal
-                    Surface(
-                        onClick={onGoal(discipline,goal)},
-                        modifier=Modifier.fillMaxWidth().padding(bottom=7.dp)
-                            .heightIn(min=53.dp)
-                            .testTag("builder-cross-goal-" + discipline + "-" + goal),
-                        color=if(chosen)Color(0xFF383838) else Color(0xFF242424),
-                        shape=RoundedCornerShape(11.dp),
-                        border=BorderStroke(1.dp,
-                            if(chosen)accent else PlanBuilderPalette.accent)
-                    ) {
-                        Row(Modifier.padding(horizontal=14.dp,vertical=13.dp),
-                            verticalAlignment=Alignment.CenterVertically) {
-                            Text(goal,color=crossWhite,fontSize=12.5f.sp,
-                                modifier=Modifier.weight(1f))
-                            if(chosen) Text("✓",color=accent)
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.height(13.dp))
-            val count=WeeklyPlacement.count(request,discipline)
-            Surface(
-                modifier=Modifier.fillMaxWidth(),
-                color=Color(0xFF303030),
-                shape=RoundedCornerShape(13.dp),
-                border=BorderStroke(1.dp,PlanBuilderPalette.accent)
-            ) {
-                Row(Modifier.padding(horizontal=13.dp,vertical=10.dp),
-                    verticalAlignment=Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("SESSIONS PER WEEK",fontSize=10.sp,
-                            color=crossMuted,fontWeight=FontWeight.Bold)
-                        Text(count.toString(),fontSize=28.sp,
-                            color=crossWhite,fontWeight=FontWeight.Bold)
-                    }
-                    val limit=if(discipline=="cond")3 else 4
-                    listOf(-1,1).forEach { delta ->
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Engine1Engines.goals.getValue(discipline).forEach { goal ->
+                        val chosen = Engine1Engines.goal(request, discipline) == goal
                         Surface(
-                            onClick={onCount(discipline,count+delta)},
-                            enabled=count+delta in 1..limit,
-                            modifier=Modifier.padding(start=8.dp).size(44.dp)
-                                .testTag("builder-cross-count-" + discipline + "-" + delta),
-                            color=Color(0xFF383838),
-                            shape=RoundedCornerShape(10.dp),
-                            border=BorderStroke(1.dp,PlanBuilderPalette.accent)
+                            onClick = { onGoal(discipline, goal) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 52.dp)
+                                .testTag("builder-cross-goal-$discipline-$goal"),
+                            color = if (chosen) accent.copy(alpha = 0.14f) else PlanBuilderPalette.surface,
+                            shape = RoundedCornerShape(13.dp),
+                            border = BorderStroke(1.dp, if (chosen) accent else PlanBuilderPalette.border)
                         ) {
-                            Box(contentAlignment=Alignment.Center) {
-                                Text(if(delta<0)"−" else "+",
-                                    fontSize=23.sp,color=crossWhite)
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 13.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    goal,
+                                    color = if (chosen) PlanBuilderPalette.text else PlanBuilderPalette.secondary,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (chosen) FontWeight.Bold else FontWeight.Medium,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                if (chosen) Text("✓", color = accent, fontWeight = FontWeight.ExtraBold)
                             }
                         }
                     }
                 }
             }
-            Spacer(Modifier.height(13.dp))
-            if(discipline=="str") {
-                Text("STRENGTH EXPERIENCE",fontSize=10.sp,
-                    color=crossMuted,fontWeight=FontWeight.Bold)
-                Spacer(Modifier.height(8.dp))
-                TracksideCrossAbilityRow(
-                    listOf("Starting","Some experience","Experienced"),
-                    request.strengthExperience,accent,"strength",
-                    { onExperience("str",it) })
-            }
-            if(discipline=="cal") {
-                listOf(
-                    Triple("PUSHING ABILITY",request.calLevel,"push"),
-                    Triple("PULLING ABILITY",request.pullLevel,"pull"),
-                    Triple("CORE ABILITY",request.coreLevel,"core")
-                ).forEach { (label,selected,key) ->
-                    Text(label,fontSize=10.sp,
-                        color=crossMuted,fontWeight=FontWeight.Bold)
-                    Spacer(Modifier.height(8.dp))
-                    TracksideCrossAbilityRow(
-                        listOf("Starting","Progressing","Confident"),
-                        selected,accent,key,{ onExperience(key,it) })
-                    Spacer(Modifier.height(12.dp))
+
+            Spacer(Modifier.height(10.dp))
+
+            val count = WeeklyPlacement.count(request, discipline)
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = PlanBuilderPalette.surface,
+                shape = RoundedCornerShape(15.dp),
+                border = BorderStroke(1.dp, PlanBuilderPalette.border)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "SESSIONS / WEEK",
+                            fontSize = 10.sp,
+                            letterSpacing = 1.2.sp,
+                            color = PlanBuilderPalette.muted,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            count.toString(),
+                            fontSize = 28.sp,
+                            color = PlanBuilderPalette.text,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                    val limit = if (discipline == "cond") 3 else 4
+                    listOf(-1, 1).forEach { delta ->
+                        val enabled = count + delta in 1..limit
+                        Surface(
+                            onClick = { onCount(discipline, count + delta) },
+                            enabled = enabled,
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .size(42.dp)
+                                .testTag("builder-cross-count-$discipline-$delta"),
+                            color = PlanBuilderPalette.surfaceRaised,
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, PlanBuilderPalette.borderStrong)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    if (delta < 0) "−" else "+",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (enabled) PlanBuilderPalette.text else PlanBuilderPalette.disabled
+                                )
+                            }
+                        }
+                    }
                 }
             }
-            Spacer(Modifier.height(26.dp))
+
+            Spacer(Modifier.height(12.dp))
+
+            if (discipline == "str") {
+                Text(
+                    "STRENGTH EXPERIENCE",
+                    fontSize = 10.sp,
+                    letterSpacing = 1.3.sp,
+                    color = PlanBuilderPalette.muted,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(8.dp))
+                TracksideCrossAbilityRow(
+                    listOf("Starting", "Intermediate", "Experienced"),
+                    request.strengthExperience, accent, "strength"
+                ) { onExperience("str", it) }
+            }
+            if (discipline == "cal") {
+                listOf(
+                    Triple("PUSHING ABILITY", request.calLevel, "push"),
+                    Triple("PULLING ABILITY", request.pullLevel, "pull"),
+                    Triple("CORE ABILITY", request.coreLevel, "core")
+                ).forEach { (label, selected, key) ->
+                    Text(
+                        label,
+                        fontSize = 10.sp,
+                        letterSpacing = 1.3.sp,
+                        color = PlanBuilderPalette.muted,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    TracksideCrossAbilityRow(
+                        listOf("Starting", "Progressing", "Confident"),
+                        selected, accent, key
+                    ) { onExperience(key, it) }
+                    Spacer(Modifier.height(10.dp))
+                }
+            }
+
+            if (idx < active.lastIndex) Spacer(Modifier.height(22.dp))
         }
-        Text("Training days are selected in the next steps. Recovery checks "+
-            "apply to the generated draft.",color=crossMuted,
-            fontSize=11.sp,lineHeight=15.sp)
     }
 }
 
 @Composable
 private fun TracksideCrossAbilityRow(
-    options:List<String>,
-    chosen:Int,
-    accent:Color,
-    tag:String,
-    onSelect:(Int)->Unit
+    options: List<String>,
+    chosen: Int,
+    accent: Color,
+    tag: String,
+    onSelect: (Int) -> Unit
 ) {
-    Row(Modifier.fillMaxWidth(),
-        horizontalArrangement=Arrangement.spacedBy(5.dp)) {
-        options.forEachIndexed { index,label ->
-            val selected=chosen==index
-            Surface(
-                onClick={onSelect(index)},
-                modifier=Modifier.weight(1f).heightIn(min=48.dp)
-                    .testTag("builder-cross-ability-" + tag + "-" + index),
-                color=if (selected) PlanBuilderPalette.selected else Color(0xFF242424),
-                shape=RoundedCornerShape(9.dp),
-                border=BorderStroke(1.dp,
-                    if(selected)accent else PlanBuilderPalette.accent)
-            ) {
-                Box(Modifier.padding(horizontal=3.dp,vertical=8.dp),
-                    contentAlignment=Alignment.Center) {
-                    Text(label,fontSize=10.3f.sp,
-                        color=if(selected)crossWhite else crossMuted,
-                        maxLines=2,overflow=TextOverflow.Ellipsis)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = PlanBuilderPalette.surface,
+        shape = RoundedCornerShape(13.dp),
+        border = BorderStroke(1.dp, PlanBuilderPalette.border)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            options.forEachIndexed { index, label ->
+                val selected = chosen == index
+                Surface(
+                    onClick = { onSelect(index) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(42.dp)
+                        .testTag("builder-cross-ability-$tag-$index"),
+                    color = if (selected) accent else Color.Transparent,
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.padding(horizontal = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            label,
+                            fontSize = 11.5.sp,
+                            fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium,
+                            color = if (selected) PlanBuilderPalette.accentOn else PlanBuilderPalette.secondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }

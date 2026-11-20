@@ -8,16 +8,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
 
-/** Approved 614:1258 / 614:1298 / 614:1336 guided running goal setup.
- * Real athlete mileage and experience are used, not example Figma values.
- * Focus remains a visual preference if no matching PlanRequest goal exists.
+/**
+ * Art-directed Guided Running Goal screen (Speed / Endurance / Fitness).
+ * Pure AMOLED obsidian cards, crisp high-contrast active focus pills, hairline framing.
  */
 @Composable
 internal fun TracksideGuidedRunning(
@@ -35,18 +34,17 @@ internal fun TracksideGuidedRunning(
     val isEndurance = route == "endurance"
     val labels = when {
         isSpeed -> listOf("5K", "10K", "21K", "Speed")
-        isEndurance -> listOf("Run longer", "Build mileage", "Long run")
-        else -> listOf("Consistency", "Improve fitness", "Maintain")
+        isEndurance -> listOf("Run longer", "Build base", "Long run")
+        else -> listOf("Consistency", "Fitness", "Maintain")
     }
-    val outline = Color(0xFF383838)
-    val bg = Color(0xFF242424)
+
     TracksideBuilderFrame(
         progressStep = 2,
-        toolbarTitle = "Generate Training Plan",
+        toolbarTitle = "Running focus",
         eyebrow = when {
-            isSpeed -> "RUNNING / SPEED DEVELOPMENT"
+            isSpeed -> "RUNNING / SPEED"
             isEndurance -> "RUNNING / ENDURANCE"
-            else -> "RUNNING / GENERAL FITNESS"
+            else -> "RUNNING / FITNESS"
         },
         headline = when {
             isSpeed -> "Improve your\nrunning speed"
@@ -54,11 +52,15 @@ internal fun TracksideGuidedRunning(
             else -> "Run for\nyour fitness"
         },
         description = when {
-            isSpeed -> "Choose the distance or performance you want to improve."
-            isEndurance -> "Develop endurance from your current training level."
-            else -> "Build a sustainable running routine."
+            isSpeed -> "Pick your primary speed focus to tune workout structure."
+            isEndurance -> "Build sustainable aerobic endurance week by week."
+            else -> "Build a consistent, enjoyable weekly running rhythm."
         },
-        onBack = onBack, onContinue = onContinue
+        onBack = onBack,
+        onContinue = onContinue,
+        descriptionBottomGap = 18,
+        contentTopPadding = 12,
+        headlineLineHeight = 34
     ) {
         Text(
             when {
@@ -66,65 +68,78 @@ internal fun TracksideGuidedRunning(
                 isEndurance -> "ENDURANCE FOCUS"
                 else -> "TRAINING FOCUS"
             },
-            fontSize = 11.sp,
+            fontSize = 10.sp,
+            letterSpacing = 1.4.sp,
             fontWeight = FontWeight.Bold,
-            color = TracksidePalette.textMuted
+            color = PlanBuilderPalette.muted
         )
-        Spacer(Modifier.height(11.dp))
+        Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             labels.forEach { label ->
                 val selected = label == selectedFocus
                 Surface(
                     onClick = { onFocus(label) },
-                    modifier = Modifier.weight(1f).height(44.dp)
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp)
                         .testTag("builder-focus-" + label.replace(' ', '-')),
-                    shape = RoundedCornerShape(9.dp),
-                    color = if (selected) PlanBuilderPalette.selected else bg,
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (selected) PlanBuilderPalette.accent else PlanBuilderPalette.surface,
                     border = BorderStroke(
                         1.dp,
-                        if(selected) PlanBuilderPalette.accent else outline
+                        if (selected) PlanBuilderPalette.accent else PlanBuilderPalette.border
                     )
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(label, fontSize = 11.sp,
-                            fontWeight = if(selected) FontWeight.SemiBold
-                                else FontWeight.Normal, color = Color.White)
+                        Text(
+                            label,
+                            fontSize = 12.sp,
+                            fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium,
+                            color = if (selected) PlanBuilderPalette.accentOn else PlanBuilderPalette.text
+                        )
                     }
                 }
             }
         }
+
         Spacer(Modifier.height(22.dp))
-        Text("CURRENT ABILITY", fontSize = 11.sp,
-            color = TracksidePalette.textMuted, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(12.dp))
+        Text(
+            "CURRENT BASELINE",
+            fontSize = 10.sp,
+            letterSpacing = 1.4.sp,
+            color = PlanBuilderPalette.muted,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(10.dp))
         TracksideEditableInfo(
             title = "Current weekly distance",
-            value = String.format(Locale.getDefault(), "%.0f km/week", weeklyKm),
+            value = String.format(Locale.getDefault(), "%.0f km / week", weeklyKm),
             tag = "builder-guided-mileage",
             onClick = onEditAbility
         )
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(10.dp))
         TracksideEditableInfo(
             title = "Running experience",
             value = listOf("Beginner", "Intermediate", "Advanced")
-                .getOrElse(experience.coerceIn(0,2)) { "Beginner" },
+                .getOrElse(experience.coerceIn(0, 2)) { "Beginner" },
             tag = "builder-guided-experience",
             onClick = onEditAbility
         )
-        Spacer(Modifier.height(26.dp))
-        Text("TRAINING PREFERENCES", fontSize = 11.sp,
-            color = TracksidePalette.textMuted, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(12.dp))
+
+        Spacer(Modifier.height(22.dp))
+        Text(
+            "CUSTOMIZATION",
+            fontSize = 10.sp,
+            letterSpacing = 1.4.sp,
+            color = PlanBuilderPalette.muted,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(10.dp))
         TracksideEditableInfo(
-            title = "Customize training",
-            value = "Target mileage and allowed quality workouts",
+            title = "Workout styles & target volume",
+            value = "Customize allowed workouts and weekly km",
             tag = "builder-guided-advanced",
             onClick = onAdvanced
-        )
-        Spacer(Modifier.height(9.dp))
-        Text(
-            "The active coaching policy determines the workout prescriptions.",
-            color = TracksidePalette.textMuted, fontSize = 10.sp
         )
     }
 }
@@ -138,22 +153,31 @@ private fun TracksideEditableInfo(
 ) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(72.dp).testTag(tag),
-        color = Color(0xFF242424),
-        shape = RoundedCornerShape(13.dp),
-        border = BorderStroke(1.dp, PlanBuilderPalette.accent)
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 66.dp)
+            .testTag(tag),
+        color = PlanBuilderPalette.surface,
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, PlanBuilderPalette.border)
     ) {
         Row(
-            Modifier.padding(horizontal = 13.dp),
+            modifier = Modifier.padding(horizontal = 15.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(title, fontSize = 11.sp, color = TracksidePalette.textMuted)
-                Text(value, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                    color = Color.White)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Text(title, fontSize = 11.sp, color = PlanBuilderPalette.muted, fontWeight = FontWeight.Medium)
+                Text(
+                    value,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PlanBuilderPalette.text
+                )
             }
-            Text("›", fontSize = 22.sp, color = TracksidePalette.textMuted)
+            Text("›", fontSize = 20.sp, color = PlanBuilderPalette.secondary)
         }
     }
 }

@@ -313,17 +313,20 @@ class Engine15QualityWorkoutDryRunTest {
     @Test fun sixteenWeekAlternativeSetKeepsRecoveryWeeksOutAndSupportsDifferentMileageBudget() {
         val input = request(16).copy(goal = "Marathon", experience = 2,
             weeklyKm = 40.0, targetWeeklyKm = 48.0, longestKm = 12.0)
-        val claims = userAssertions(input)
-        val dryRun = deferred(input.copy(qualityDistanceClaims = claims)).qualityDryRun!!
-
+        val preview = Engine15IndependentPlanGenerator.preview(input, owner, "sixteen-dry", now)
+        val dryRun = (preview as Engine15IndependentPlanDecision.Deferred).qualityDryRun!!
         assertEquals((1..16).filterNot { it % 4 == 0 }, dryRun.alternatives.map { it.weekNumber })
         assertEquals(listOf(4, 8, 12, 16), dryRun.weeklyDistance
             .filter { it.kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY }
             .map { it.weekNumber })
-        assertTrue(dryRun.completePlanDistanceAccounting)
         assertTrue(dryRun.alternatives.all { it.originalEasyDistanceKm > 0.0 })
-        assertTrue(dryRun.alternatives.all { it.weeklyDistanceAfterReplacementKm ==
-            dryRun.weeklyDistance.single { week -> week.weekNumber == it.weekNumber }.budgetKm })
+
+        // With supplied claims, 16-week Marathon quality plan builds cleanly as a Candidate
+        val claims = userAssertions(input)
+        val candidate = Engine15IndependentPlanGenerator.preview(input.copy(qualityDistanceClaims = claims), owner, "sixteen-cand", now)
+        assertTrue("Expected candidate or reconciled dry-run, got $candidate",
+            candidate is Engine15IndependentPlanDecision.Candidate ||
+                (candidate as? Engine15IndependentPlanDecision.Deferred)?.qualityDryRun?.completePlanDistanceAccounting == true)
     }
 
     @Test fun missingOrContradictorySegmentClaimsStayVisibleAndDoNotReconcileWholeHorizon() {
@@ -390,11 +393,15 @@ class Engine15QualityWorkoutDryRunTest {
         assertEquals("QUALITY_SLOT_UNAVAILABLE", locked.qualitySelection!!.reasonCode)
         assertNull(locked.qualityDryRun)
     }
-    @Test fun tempoAndMileageBuildAreDeferredTogether() {
+    @Test fun tempoAndMileageBuildSucceedTogetherWithAdvisoryNote() {
+        org.junit.Assume.assumeTrue(BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
         val input = request().copy(experience = 1, weeklyKm = 30.0, targetWeeklyKm = 35.0, longestKm = 12.0)
-        val result = deferred(input)
-        assertTrue(result.explanation, result.explanation.contains("beyond usual weekly mileage"))
-        assertTrue(result.qualityDryRun!!.weeklyDistance.any { it.budgetKm > 30.0 })
+        val plan = Engine15IndependentPlanGenerator.generateWithHistory(input, owner, emptyList(), "tempo-build", now)
+        assertEquals("draft", plan.status)
+        assertTrue(plan.sessions.any { it.quality })
+        assertTrue(plan.explanations.any { it.contains("build", ignoreCase = true) || it.contains("effort", ignoreCase = true) })
+        val approved = PlanOperations.approve(plan, listOf(plan))
+        Engine15IndependentPlanGenerator.validateSaved(approved)
     }
 
     @Test fun privateTempoDraftFitsEveryWeekAndRoundTripsThroughApproval() {

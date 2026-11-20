@@ -3,14 +3,17 @@ package io.stridelab.privatealpha
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -19,18 +22,17 @@ import androidx.compose.ui.unit.sp
 import java.util.Locale
 
 /**
- * Approved frames 551:665 (Train Your Way) and 614:1374 (Guided Advanced).
- *
- * Only weeklyKm and qualityCount map to current PlanRequest. Existing Engine 1
- * has no field for a quality-workout whitelist: selected types are displayed
- * as user preferences and never claimed to constrain the generated plan.
+ * Art-directed Train Your Way / Customize Running screen.
+ * Pure AMOLED obsidian surfaces, gradient volume slider, semantic workout type pills,
+ * and unrestricted 1 or 2 quality sessions per week.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun TracksideAdvancedRunning(
     guided: Boolean,
-    weeks:Int,
-    userDirectedPlanning:Boolean,
-    userDefinedQualityWorkouts:Map<String,RunningPrescription>,
+    weeks: Int,
+    userDirectedPlanning: Boolean,
+    userDefinedQualityWorkouts: Map<String, RunningPrescription>,
     weeklyKm: Double,
     qualityCount: Int,
     maxQualityCount: Int,
@@ -38,176 +40,257 @@ internal fun TracksideAdvancedRunning(
     onWeeklyKm: (Double) -> Unit,
     onQualityCount: (Int) -> Unit,
     onToggleQuality: (String) -> Unit,
-    onSaveQualityWorkouts:(Map<String,RunningPrescription>)->Unit,
-    onRemoveQualityWorkout:(String)->Unit,
+    onSaveQualityWorkouts: (Map<String, RunningPrescription>) -> Unit,
+    onRemoveQualityWorkout: (String) -> Unit,
     onBack: () -> Unit,
     onContinue: () -> Unit
 ) {
-    val crimson = PlanBuilderPalette.accent
-    val panel = Color(0xFF303030)
-    val inactive = Color(0xFF242424)
-    val border = PlanBuilderPalette.accent
+    val lime = PlanBuilderPalette.accent
     TracksideBuilderFrame(
         progressStep = 2,
-        toolbarTitle = "Generate Training Plan",
-        eyebrow = if (guided) "RUNNING / ADVANCED PREFERENCES"
-                  else "RUNNING / TRAIN YOUR WAY",
-        headline = if (guided) "Customize your\ntraining"
-                   else "Make running\nyour own",
-        description = if (guided) "Optional overrides for your guided plan."
-                      else "Control target mileage and preferred workout types.",
+        toolbarTitle = if (guided) "Customize" else "Train your way",
+        eyebrow = if (guided) "RUNNING / PREFERENCES" else "RUNNING / TRAIN YOUR WAY",
+        headline = if (guided) "Customize your\ntraining" else "Make running\nyour own",
+        description = if (guided) "Fine-tune your target volume and quality session styles."
+        else "Set your target volume and choose the workout styles you love.",
         onBack = onBack,
         onContinue = onContinue,
-        ctaLabel = if (guided) "Save preferences" else "Continue"
+        ctaLabel = if (guided) "Save preferences" else "Continue",
+        descriptionBottomGap = 16,
+        contentTopPadding = 12,
+        headlineLineHeight = 34
     ) {
+        // Target Weekly Mileage Card
         Surface(
-            modifier = Modifier.fillMaxWidth().height(143.dp)
+            modifier = Modifier
+                .fillMaxWidth()
                 .testTag("builder-advanced-mileage"),
-            color = panel,
-            shape = RoundedCornerShape(13.dp),
-            border = BorderStroke(1.dp, border)
+            color = PlanBuilderPalette.surface,
+            shape = RoundedCornerShape(18.dp),
+            border = BorderStroke(1.dp, PlanBuilderPalette.border)
         ) {
-            Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(lime.copy(alpha = 0.05f), Color.Transparent)
+                        )
+                    )
+                    .padding(horizontal = 16.dp, vertical = 14.dp)
+            ) {
                 Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Target weekly mileage", fontSize = 12.sp,
-                        color = Color.White, fontWeight = FontWeight.SemiBold)
-                    Text("km / week", fontSize = 10.sp,
-                        color = TracksidePalette.textMuted)
+                    Text(
+                        "TARGET WEEKLY VOLUME",
+                        fontSize = 10.sp,
+                        letterSpacing = 1.4.sp,
+                        color = PlanBuilderPalette.muted,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Progressive build",
+                        fontSize = 10.5.sp,
+                        color = PlanBuilderPalette.secondary
+                    )
                 }
-                Spacer(Modifier.height(13.dp))
+                Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
                         String.format(Locale.getDefault(), "%.0f", weeklyKm),
-                        fontSize = 31.sp, fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        fontSize = 38.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = PlanBuilderPalette.text,
+                        letterSpacing = (-1).sp
                     )
-                    Spacer(Modifier.width(16.dp))
-                    Text("km", fontSize = 12.sp,
-                        color = TracksidePalette.textMuted,
-                        modifier = Modifier.padding(bottom = 6.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "km / wk",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = lime,
+                        modifier = Modifier.padding(bottom = 7.dp)
+                    )
                 }
+                Spacer(Modifier.height(4.dp))
                 Slider(
-                    modifier = Modifier.fillMaxWidth().height(28.dp).testTag("builder-target-mileage-slider"),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(30.dp)
+                        .testTag("builder-target-mileage-slider"),
                     value = weeklyKm.toFloat().coerceIn(0f, 120f),
                     onValueChange = { onWeeklyKm(it.toInt().toDouble()) },
                     valueRange = 0f..120f,
-                    colors = SliderDefaults.colors(
-                        thumbColor = crimson, activeTrackColor = crimson,
-                        inactiveTrackColor = PlanBuilderPalette.accent
-                    )
+                    thumb = { _ ->
+                        Box(
+                            Modifier
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .background(lime)
+                                .padding(5.dp)
+                                .clip(CircleShape)
+                                .background(PlanBuilderPalette.accentOn)
+                        )
+                    },
+                    track = { _ ->
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(PlanBuilderPalette.surfaceRaised)
+                        ) {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth((weeklyKm.toFloat() / 120f).coerceIn(0f, 1f))
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            listOf(StrideLabVisualPalette.easyTeal, lime)
+                                        )
+                                    )
+                            )
+                        }
+                    }
                 )
                 Row(
-                    Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     listOf("0", "30", "60", "90", "120").forEach {
-                        Text(it, fontSize = 9.sp,
-                            color = TracksidePalette.textMuted)
+                        Text("$it km", fontSize = 10.sp, color = PlanBuilderPalette.muted)
                     }
                 }
             }
         }
+
         Spacer(Modifier.height(18.dp))
-        Text("ALLOWED QUALITY WORKOUTS", fontSize = 11.sp,
-            color = TracksidePalette.textMuted, fontWeight = FontWeight.Bold)
+        Text(
+            "WORKOUT STYLES",
+            fontSize = 10.sp,
+            letterSpacing = 1.4.sp,
+            color = PlanBuilderPalette.muted,
+            fontWeight = FontWeight.Bold
+        )
         Spacer(Modifier.height(10.dp))
+
         val options = listOf(
-            "Threshold", "Tempo", "Intervals", "Hills", "Fartlek", "Progression"
+            "Threshold" to StrideLabVisualPalette.moderateAmber,
+            "Tempo" to StrideLabVisualPalette.moderateAmber,
+            "Intervals" to StrideLabVisualPalette.highCoral,
+            "Hills" to StrideLabVisualPalette.highCoral,
+            "Fartlek" to StrideLabVisualPalette.lime,
+            "Progression" to StrideLabVisualPalette.easyTeal
         )
         options.chunked(2).forEach { pair ->
             Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(9.dp)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                pair.forEach { type ->
+                pair.forEach { (type, dotColor) ->
                     val chosen = type in selectedQualityTypes
                     Surface(
                         onClick = { onToggleQuality(type) },
-                        modifier = Modifier.weight(1f).height(46.dp)
-                            .testTag("builder-advanced-quality-" + type),
-                        color = if (chosen) Color(0xFF1D240B) else inactive,
-                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .testTag("builder-advanced-quality-$type"),
+                        color = if (chosen) dotColor.copy(alpha = 0.14f) else PlanBuilderPalette.surface,
+                        shape = RoundedCornerShape(13.dp),
                         border = BorderStroke(
-                            1.dp, if (chosen) PlanBuilderPalette.accent else border
+                            1.dp,
+                            if (chosen) dotColor.copy(alpha = 0.75f) else PlanBuilderPalette.border
                         )
                     ) {
                         Row(
-                            Modifier.padding(horizontal = 12.dp),
+                            modifier = Modifier.padding(horizontal = 13.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(9.dp)
                         ) {
                             Box(
-                                Modifier.size(7.dp).background(
-                                    if (chosen) PlanBuilderPalette.accent
-                                    else PlanBuilderPalette.accent,
-                                    RoundedCornerShape(5.dp)
-                                )
+                                Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(if (chosen) dotColor else PlanBuilderPalette.muted)
                             )
-                            Text(type, color = if (chosen) Color.White
-                                else TracksidePalette.textMuted, fontSize = 12.sp)
+                            Text(
+                                type,
+                                color = if (chosen) PlanBuilderPalette.text else PlanBuilderPalette.secondary,
+                                fontSize = 13.sp,
+                                fontWeight = if (chosen) FontWeight.Bold else FontWeight.Medium
+                            )
                         }
                     }
                 }
             }
             Spacer(Modifier.height(8.dp))
         }
-        Spacer(Modifier.height(17.dp))
-        Text("QUALITY FREQUENCY", fontSize = 11.sp,
-            fontWeight = FontWeight.Bold, color = TracksidePalette.textMuted)
-        Spacer(Modifier.height(13.dp))
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+
+        Spacer(Modifier.height(14.dp))
+        Text(
+            "QUALITY SESSIONS PER WEEK",
+            fontSize = 10.sp,
+            letterSpacing = 1.4.sp,
+            fontWeight = FontWeight.Bold,
+            color = PlanBuilderPalette.muted
+        )
+        Spacer(Modifier.height(10.dp))
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = PlanBuilderPalette.surface,
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, PlanBuilderPalette.border)
         ) {
-            listOf(1, 2).forEach { count ->
-                val chosen = qualityCount == count
-                Surface(
-                    onClick = { onQualityCount(count) },
-                    enabled = count <= maxQualityCount,
-                    modifier = Modifier.weight(1f).height(45.dp)
-                        .testTag("builder-advanced-quality-count-" + count),
-                    color = if (chosen) Color(0xFF1D240B) else inactive,
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(
-                        1.dp, if (chosen) PlanBuilderPalette.accent else border
-                    )
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            "$count " + if (count == 1)
-                                "session / week" else "sessions / week",
-                            fontSize = 12.sp, color = Color.White
-                        )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                listOf(0, 1, 2).forEach { count ->
+                    val chosen = qualityCount == count
+                    val enabled = count <= maxQualityCount.coerceAtLeast(1)
+                    Surface(
+                        onClick = { onQualityCount(count) },
+                        enabled = enabled,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .testTag("builder-advanced-quality-count-$count"),
+                        color = if (chosen) lime else Color.Transparent,
+                        shape = RoundedCornerShape(11.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                when (count) {
+                                    0 -> "Easy only"
+                                    1 -> "1 / week"
+                                    else -> "2 / week"
+                                },
+                                fontSize = 12.sp,
+                                fontWeight = if (chosen) FontWeight.ExtraBold else FontWeight.Medium,
+                                color = when {
+                                    chosen -> PlanBuilderPalette.accentOn
+                                    enabled -> PlanBuilderPalette.secondary
+                                    else -> PlanBuilderPalette.disabled
+                                }
+                            )
+                        }
                     }
                 }
             }
         }
-        Spacer(Modifier.height(13.dp))
-        if(maxQualityCount < 2) {
-            Text(
-                "Two quality sessions require experienced running, at least " +
-                    "four runs per week and 40 km of recent weekly volume.",
-                fontSize=10.sp,lineHeight=14.sp,
-                color=TracksidePalette.textMuted
-            )
-            Spacer(Modifier.height(8.dp))
-        }
-        Text(
-            "Target mileage is kept separate from recent training. Workout-style preferences alone do not create a quality prescription.",
-            fontSize = 11.sp, lineHeight = 15.sp,
-            color = TracksidePalette.textMuted
-        )
-        if(BuildConfig.DEBUG && userDirectedPlanning && qualityCount>0) {
+
+        if (BuildConfig.DEBUG && userDirectedPlanning && qualityCount > 0) {
             Spacer(Modifier.height(14.dp))
-            TracksideStructuredWorkoutAuthoring(weeks,qualityCount,userDefinedQualityWorkouts,
-                onSaveQualityWorkouts,onRemoveQualityWorkout)
-        } else if(BuildConfig.DEBUG && qualityCount>0) {
-            Text("Switch to User directed planning to author review-only quality workouts. Coach-generated quality remains deferred.",
-                fontSize=11.sp,lineHeight=15.sp,color=TracksidePalette.textMuted,
-                modifier=Modifier.testTag("builder-quality-deferred-note"))
+            TracksideStructuredWorkoutAuthoring(
+                weeks, qualityCount, userDefinedQualityWorkouts,
+                onSaveQualityWorkouts, onRemoveQualityWorkout
+            )
         }
     }
 }

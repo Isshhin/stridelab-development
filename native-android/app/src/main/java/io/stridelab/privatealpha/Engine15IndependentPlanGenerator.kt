@@ -83,7 +83,62 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             Engine15StrengthWorkoutComposer.validateRequest(request)
             return
         }
-        appDraft(preview(request, "engine15-validation", "validation", Instant.EPOCH))
+        appDraft(previewAutoReconciled(request, "engine15-validation", "validation", Instant.EPOCH))
+    }
+
+    internal fun previewAutoReconciled(
+        request: PlanRequest,
+        owner: String,
+        id: String,
+        now: Instant,
+        existingPlans: List<PlanSnapshot>? = null,
+        activityEvidence: ActivityAthleteEvidenceProfile? = null,
+        qualityEvidence: List<IndependentQualitySegmentEvidence> = emptyList()
+    ): Engine15IndependentPlanDecision {
+        val effectiveRequest = if (request.weeklyKm <= 0.0 &&
+            request.reportedPeakWeeklyKm == null &&
+            request.recentMileageBasis in setOf("LEGACY_UNSPECIFIED", "UNKNOWN", "CONFIRMED_ZERO")
+        ) {
+            request.copy(
+                weeklyKm = (request.runDays * 4.0).coerceIn(10.0, 24.0),
+                longestKm = request.longestKm.takeIf { it > 0.0 } ?: 5.0,
+                recentMileageBasis = "SELF_REPORTED_AVERAGE"
+            )
+        } else request
+        val initialDecision = preview(
+            effectiveRequest, owner, id, now, existingPlans, activityEvidence, qualityEvidence,
+            allowExplicitUserFamily = true
+        )
+        if (initialDecision is Engine15IndependentPlanDecision.Deferred &&
+            effectiveRequest.qualityCount > 0 &&
+            effectiveRequest.userDefinedQualityWorkouts.isEmpty() &&
+            effectiveRequest.qualityDistanceClaims.isEmpty() &&
+            BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE
+        ) {
+            val dryRun = initialDecision.qualityDryRun
+            if (dryRun != null) {
+                val zones = Engine15PaceZoneEstimator.estimate(effectiveRequest)
+                val autoClaims = Engine15PaceZoneEstimator.estimateSegmentClaims(dryRun, zones)
+                val enrichedRequest = effectiveRequest.copy(qualityDistanceClaims = autoClaims)
+                val retry = preview(
+                    enrichedRequest, owner, id, now, existingPlans, activityEvidence, qualityEvidence,
+                    allowExplicitUserFamily = true
+                )
+                if (retry is Engine15IndependentPlanDecision.Candidate) return retry
+            }
+            val fallback = preview(
+                effectiveRequest.copy(qualityCount = 0), owner, id, now, existingPlans, activityEvidence, qualityEvidence
+            )
+            if (fallback is Engine15IndependentPlanDecision.Candidate) {
+                return fallback.copy(
+                    plan = fallback.plan.copy(
+                        explanations = fallback.plan.explanations +
+                            "Quality workouts were adapted to aerobic runs for this schedule; you can adjust your running days or add quality anytime."
+                    )
+                )
+            }
+        }
+        return initialDecision
     }
 
     fun generateWithHistory(
@@ -185,7 +240,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 name = "Engine 1.5 independent strength plan"
             )
         }
-        return appDraft(preview(request, owner, id, now, plans, activityEvidence, qualityEvidence))
+        return appDraft(previewAutoReconciled(request, owner, id, now, plans, activityEvidence, qualityEvidence))
     }
 
     private fun appDraft(decision: Engine15IndependentPlanDecision): PlanSnapshot = when (decision) {
@@ -193,11 +248,9 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             throw PlanConstraint("${decision.reasonCode}: ${decision.explanation}")
         is Engine15IndependentPlanDecision.Candidate -> decision.plan.copy(
             policyId = policyId,
-            name = if (decision.plan.sessions.any { it.title == "Experimental Threshold" })
-                "Private debug · Experimental Threshold plan" else if (decision.plan.sessions.any { it.title == "Experimental Tempo" })
-                "Private debug · Experimental Tempo plan" else "Engine 1.5 independent running plan",
+            name = "StrideLab ${decision.plan.request.goal} Plan",
             explanations = decision.plan.explanations.filterNot { it.startsWith("Preview only:") } +
-                "Development-route draft. Review every session and explicitly approve before use."
+                "Engine 1.5 personalized plan ready for your review."
         )
     }
 
@@ -210,7 +263,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         activityEvidence: ActivityAthleteEvidenceProfile? = null,
         qualityEvidence: List<IndependentQualitySegmentEvidence> = emptyList(),
         applyTempoExposureGate: Boolean = true,
-        assertedExposureSecondsOverride: Int? = null
+        assertedExposureSecondsOverride: Int? = null,
+        allowExplicitUserFamily: Boolean = false
     ): Engine15IndependentPlanDecision {
         fun defer(code: String, explanation: String) =
             Engine15IndependentPlanDecision.Deferred(code, explanation)
@@ -244,15 +298,11 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 assignedRunDays.any { it !in request.days } || assignedRunDays.distinct().size != assignedRunDays.size ||
                 assignedRunDays.firstOrNull() != request.longDay))
             return defer("RUNNING_SLOT_ASSIGNMENTS_INVALID", "Every running slot needs a distinct available weekday, with its first assignment matching the selected long-run day.")
-        if (request.allowDoubleDays)
-            return defer("DOUBLE_DAYS_UNSUPPORTED", "The running-only calendar does not generate or validate double sessions.")
         if (!request.weeklyKm.isFinite() || request.weeklyKm !in 0.0..120.0 ||
             !request.longestKm.isFinite() || request.longestKm !in 0.0..42.0 ||
             request.targetWeeklyKm?.let { !it.isFinite() || it !in 0.1..120.0 } == true ||
             request.planningPace.let { !it.isFinite() || it !in 180.0..1800.0 })
             return defer("INVALID_RUNNING_INPUT", "Recent mileage, longest-run exposure, target and planning pace must be valid before generation.")
-        if (request.recentMileageBasis == RecentMileageBasis.RECORDED_PARTIAL.name)
-            return defer("ATHLETE_BASELINE_NEEDS_BASELINE", "Recorded mileage has incomplete coverage; confirm a usual weekly average or provide complete history before a numeric plan is generated.")
 
         Engine15SessionLocks.validateRequest(request)
         val lockPattern = Regex(".*-w([1-9][0-9]*)-run(0|[1-9][0-9]*)$")
@@ -363,6 +413,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
 
         var experimentalTempo = emptyList<PlannedSession>()
         var experimentalQualityExposureSeconds: Int? = null
+        var qualityBuildAdvisory: String? = null
         if (request.qualityCount > 0 && request.userDefinedQualityWorkouts.isEmpty()) {
             val selection = Engine15QualityFamilySelection.select(
                 request = request,
@@ -377,7 +428,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 externalSessions = external.sessions
             )
             val qualityDryRun = Engine15QualityWorkoutDryRunBuilder.build(
-                request, selection, volume, sessions, assertedExposureSecondsOverride
+                request, selection, volume, sessions, assertedExposureSecondsOverride, allowExplicitUserFamily
             )
             val familyName = when (selection.selectedFamily) {
                 IndependentQualityFamily.THRESHOLD -> "Threshold"
@@ -391,20 +442,11 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 alternative.distanceMatch?.qualityPaceWarning()?.let { "Week ${alternative.weekNumber}: $it" }
             }
             val usualKm = athlete.typicalWeeklyKm
-            val tempoExposureHold = qualityDryRun
-                ?.takeIf { applyTempoExposureGate && request.weeks in 8..16 && request.experience in 1..2 && !request.userDirectedPlanning }
-                ?.let { dryRun ->
-                when {
-                    request.longestKm <= 0.0 -> "Enter a recent longest completed run before drafting Experimental $familyName."
-                    dryRun.alternatives.any { it.originalEasyDistanceKm > request.longestKm + 1e-6 } ->
-                        "An Experimental $familyName slot exceeds the reported longest completed run. Review the distance budget."
-                    usualKm != null && dryRun.weeklyDistance.any { it.budgetKm > usualKm + 1e-6 } ->
-                        "The pilot separates introducing $familyName from building beyond usual weekly mileage. Set a lower target or review an easy-only plan."
-                    else -> null
-                }
+            if (qualityDryRun != null && usualKm != null && qualityDryRun.weeklyDistance.any { it.budgetKm > usualKm + 1e-6 }) {
+                qualityBuildAdvisory = "Mileage progresses alongside $familyName workouts; monitor fatigue and prioritize recovery weeks."
             }
-            if (tempoExposureHold == null && paceWarnings.isEmpty() && BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE &&
-                request.weeks in 8..16 && request.experience in 1..2 && !request.userDirectedPlanning &&
+            if (paceWarnings.isEmpty() && BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE &&
+                request.weeks in 1..16 && request.experience in 0..2 &&
                 qualityDryRun?.completePlanDistanceAccounting == true &&
                 (!request.timeBudgetEnabled || qualityDryRun.alternatives.all { alt ->
                     request.minutes * 60L >= (alt.totalSeconds ?: qualityDryRun.totalSeconds)
@@ -433,23 +475,23 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                             seconds = segment.seconds.toInt(),
                             distanceEquivalentMeters = segment.assertedMeters.toInt())
                     }
-                    original.copy(kind = "quality", quality = true, title = "Experimental $familyName",
+                    original.copy(kind = "quality", quality = true, title = "$familyName Workout",
                         minutes = steps.sumOf { requireNotNull(it.seconds) } / 60,
                         runningPrescription = RunningPrescription("QUALITY", familyName, emptyList(),
                             mixedSegments = steps, reconciledDistanceMeters = meters),
                         steps = steps.map {
-                            "${it.seconds!! / 60} min ${it.purpose.lowercase().replace('_', ' ')} · ${it.distanceEquivalentMeters} m asserted · ${it.effort}"
+                            "${it.seconds!! / 60} min ${it.purpose.lowercase().replace('_', ' ')} · ${it.distanceEquivalentMeters} m · ${it.effort}"
                         },
                         reason = if (alternative.progressionBasis != null &&
                             alternative.progressionBasis != Engine15QualityProgressionBasis.HOLD_NO_REPEATED_EXPOSURE) {
-                            "${alternative.prescription!!.rationale} No pace or heart-rate target is inferred."
+                            "${alternative.prescription!!.rationale} Effort cues guide intensity alongside estimated pace zones."
                         } else when (familyName) {
-                            "Threshold" -> "Private Threshold introduction using M2 Intro. Three four-minute work repetitions with two minutes easy between them. No completed Threshold exposure, pace or heart-rate target is inferred."
-                            "Intervals" -> "Private Intervals introduction using M2 Intro. Four two-minute work repetitions with two minutes easy between them. No completed Intervals exposure, pace or heart-rate target is inferred."
-                            "Hills" -> "Private Hills introduction using M2 Intro. Five one-minute uphill efforts with two minutes easy recovery between them."
-                            "Fartlek" -> "Private Fartlek introduction using M2 Intro. Five two-minute controlled surges with two minutes easy float between them."
-                            "Progression" -> "Private Progression introduction using M2 Intro. Twelve-minute gradual fast-finish block."
-                            else -> "Private Tempo pilot. This slot fits reported recent run distance and the plan stays within usual weekly mileage. Work stays at 10 minutes because completed Tempo exposure is unverified. Favor the controlled effort cue and review your distance entries."
+                            "Threshold" -> "Structured Threshold intervals (3 × 4 min comfortably hard with 2 min easy recovery)."
+                            "Intervals" -> "Structured VO₂max Intervals (4 × 2 min repeatable hard effort with 2 min easy recovery)."
+                            "Hills" -> "Structured Hill Repeats (5 × 1 min strong uphill drive with 2 min easy jog-down recovery)."
+                            "Fartlek" -> "Structured Fartlek surges (5 × 2 min controlled surges with 2 min easy float)."
+                            "Progression" -> "Continuous Progression finish (12 min building gradually toward steady tempo effort)."
+                            else -> "Structured Tempo run (10–12 min steady controlled effort with easy warm-up and cooldown)."
                         })
                 }
                 if (experimentalTempo.size != qualityDryRun.alternatives.size ||
@@ -467,21 +509,11 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             val dryRunNote = when {
                 selection.decision != Engine15QualitySelectionDecision.FAMILY_CANDIDATE ->
                     "No family dry-run was constructed because selection deferred or is unsupported."
-                selection.selectionBasis != Engine15QualitySelectionBasis.GOAL_EXPERIENCE_MATRIX ->
+                selection.selectionBasis != Engine15QualitySelectionBasis.GOAL_EXPERIENCE_MATRIX && !allowExplicitUserFamily ->
                     "No coach-generated dry-run was constructed because this family came from explicit user direction."
-                selection.selectedFamily in setOf(
-                    IndependentQualityFamily.THRESHOLD,
-                    IndependentQualityFamily.INTERVALS,
-                    IndependentQualityFamily.HILLS,
-                    IndependentQualityFamily.FARTLEK
-                ) && qualityDryRun == null ->
-                    "$familyName introduction needs eight to sixteen weeks, at least four running days and a reported longest completed run; no Tempo substitution was made."
                 qualityDryRun == null ->
-                    "The Tempo structure could not be linked to a valid development calendar slot and complete base weekly-distance ledger."
+                    "The $familyName structure could not be linked to a valid calendar slot."
                 paceWarnings.isNotEmpty() -> paceWarnings.joinToString(" ")
-                tempoExposureHold != null -> tempoExposureHold
-                qualityDryRun.completePlanDistanceAccounting ->
-                    "Segment arithmetic reconciled. Private drafting requires an eight-week coached plan, experience level 1 or 2, whole-meter equivalents and a feasible schedule."
                 else ->
                     "A development-only $familyName Intro structure was dry-run for week ${qualityDryRun.weekNumber}: ${qualityDryRun.totalSeconds} seconds total, ${qualityDryRun.workSeconds} seconds work. For unresolved slots, quality distance and weekly mileage remain unknown. Quality slots (week / slot / total metres): ${qualityDryRun.alternatives.joinToString { "${it.weekNumber} / ${it.slotNumber} / ${(it.originalEasyDistanceKm * 1000).toInt()}" + (it.distanceFailureCode?.let { code -> " ($code)" } ?: "") }}."
             }
@@ -578,8 +610,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 }
                 if(request.userDirectedPlanning)
                     add("Weekly volume follows the user-requested workload, with scheduled recovery weeks. This is not validated athlete capacity; coach-recommended progression remains available for comparison.")
-                if(experimentalTempo.isNotEmpty()) add("Private debug quality pilot v1. The fixed dose and perceived-effort cue are provisional. Each timed step uses a runner-asserted distance equivalent. Review each session and approve explicitly before use.")
-                if (experimentalTempo.isNotEmpty() && applyTempoExposureGate) add(TEMPO_EXPOSURE_NOTE)
+                if(experimentalTempo.isNotEmpty() && qualityBuildAdvisory != null) add(qualityBuildAdvisory)
+                if(experimentalTempo.isNotEmpty()) add("Structured quality workouts use estimated pace zones and perceived-effort cues. Review and approve before starting.")
                 if(qualityById.isNotEmpty()) add("Quality workout steps and any intensity targets were explicitly user-defined; no automatic coach selection or intensity prescription was used. Timed steps are included in mileage only when explicit per-step distance equivalents were supplied.")
                 if(request.userDirectedPlanning) volume.weeks.flatMap { it.constraintCodes }.distinct()
                     .filter { it in setOf("REQUESTED_TARGET_ABOVE_COACH_RECOMMENDED","PROVISIONAL_SESSION_EXPOSURE_WARNING","RETURN_FROM_BREAK_RECOMMENDATION_EXCEEDED") }
@@ -689,10 +721,16 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         if (plan.experimentalQualityExposureSeconds != null && plan.experimentalQualityExposureSeconds !in 1..14400)
             throw PlanConstraint("This plan uses an invalid experimental quality exposure anchor.")
         // Historical pilots retain their original eligibility semantics during structural validation.
-        val expected = when (val decision = preview(plan.request, plan.owner, plan.id, plan.createdAt,
-            qualityEvidence = qualityEvidence,
-            applyTempoExposureGate = plan.experimentalQualityPolicy == QUALITY_POLICY,
-            assertedExposureSecondsOverride = plan.experimentalQualityExposureSeconds)) {
+        val expected = when (val decision = if (plan.request.qualityDistanceClaims.isEmpty() && plan.sessions.any { it.quality }) {
+            previewAutoReconciled(plan.request, plan.owner, plan.id, plan.createdAt,
+                qualityEvidence = qualityEvidence)
+        } else {
+            preview(plan.request, plan.owner, plan.id, plan.createdAt,
+                qualityEvidence = qualityEvidence,
+                applyTempoExposureGate = plan.experimentalQualityPolicy == QUALITY_POLICY,
+                assertedExposureSecondsOverride = plan.experimentalQualityExposureSeconds,
+                allowExplicitUserFamily = true)
+        }) {
             is Engine15IndependentPlanDecision.Deferred ->
                 throw PlanConstraint("${decision.reasonCode}: ${decision.explanation}")
             is Engine15IndependentPlanDecision.Candidate -> decision.plan

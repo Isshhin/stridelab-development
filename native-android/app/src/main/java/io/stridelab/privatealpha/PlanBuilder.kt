@@ -1,6 +1,13 @@
 @file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 package io.stridelab.privatealpha
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -111,10 +118,6 @@ import org.json.JSONObject
             }
         }
     }
-    var tempoEquivalents by rememberSaveable { mutableStateOf("") }
-    var thresholdEquivalents by rememberSaveable { mutableStateOf("") }
-    val thresholdPilot = input.experience == 2 && input.goal in setOf("Improve 5K", "Improve 10K")
-    val qualityLabels = if (thresholdPilot) listOf("Run slot", "Warm-up metres", "Work 1 metres", "Recovery 1 metres", "Work 2 metres", "Recovery 2 metres", "Work 3 metres", "Cooldown metres") else listOf("Run slot", "Warm-up metres", "Tempo metres", "Cooldown metres")
     fun request():PlanRequest=try {
         val peak=peakWeekKm.trim().takeIf { it.isNotEmpty() }?.toDouble()
         if(peak!=null && (!peak.isFinite() || peak !in 0.0..120.0))
@@ -126,18 +129,7 @@ import org.json.JSONObject
             dailyMinutes=if(input.policyChoice=="multi-session")dailyMinutes.toInt() else input.dailyMinutes,
             weeklyKm=km.toDouble(),targetWeeklyKm=if(targetSupplied) targetKm.toDouble() else null,
             longestKm=longest.toDouble(),planningPace=pace.toDouble()*60,
-            reportedPeakWeeklyKm=peak,timeBudgetEnabled=false,
-            qualityDistanceClaims = if (BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE &&
-                input.qualityCount == 1 && input.weeks == 8 && !input.userDirectedPlanning &&
-                input.userDefinedQualityWorkouts.isEmpty()) (if (thresholdPilot) thresholdEquivalents else tempoEquivalents).lineSequence()
-                .filter { it.isNotBlank() }.map { row ->
-                    val numbers = row.trim().split(Regex("\\s+")).map { it.toIntOrNull() }
-                    if (numbers.size != qualityLabels.size + 1 || numbers.any { it == null || it <= 0 })
-                        throw PlanConstraint("Complete the run slot and every segment distance for each entered quality week.")
-                    val values = numbers.filterNotNull()
-                    Engine15M5SegmentDistanceClaim(values[0], values[1], values.drop(2).map(Int::toDouble), null,
-                        Engine15M5DistanceClaimProvenance.USER_ASSERTED_EQUIVALENT)
-                }.toList() else emptyList()
+            reportedPeakWeeklyKm=peak,timeBudgetEnabled=false
         )
     } catch(e:PlanConstraint) { throw e }
       catch(e:Exception) {
@@ -186,45 +178,73 @@ import org.json.JSONObject
         else -> "5K"
     }) }
     val preview=state.plans.find { it.id==previewId }
-    if (step == 4 && preview != null) {
-        TracksideWeekReview(
-            request = preview.request,
-            plan = preview,
-            busy = state.busy || awaiting || pendingApprovalId != null,
-            onBack = {
-                // A large target mismatch needs actual baseline input, not
-                // another pass through the date/availability editor.
-                if(Engine15MileageTargetIntegrity.review(preview)?.requiresFoundationDecision==true &&
-                    !preview.request.foundationAcknowledged) {
-                    step=1
-                    runningSubPage=2
-                    advancedBackPage=0
-                } else {
-                    step=2
-                    scheduleSubPage=0
-                }
-            },
-            onContinue = {
-                if(!state.busy && pendingApprovalId==null) {
-                    error=null
-                    pendingApprovalId=preview.id
-                    actions.approve(preview.id, preview.revision)
-                }
-            },
-            onOpenSession = { sessionId -> onPreview(preview.id, sessionId) },
-            weekIndex = previewWeek,
-            onWeekChange = { previewWeek = it },
-            error = error,
-            onChooseGoalOption = { chosen ->
-                error=null;beforeId=state.plans.firstOrNull()?.id;awaiting=true
-                weeks=chosen.weeks.toString();targetKm=chosen.targetWeeklyKm.toString();targetSupplied=true;edit(chosen)
-                actions.generate(chosen)
-            }
-        )
+    if (step == 3) {
+        LaunchedEffect(Unit) {
+            scheduleSubPage = 0
+            step = 2
+        }
         return
     }
-    if (step == 0) {
-        TracksideDisciplineScreen(
+    val stageKey = when {
+        step == 4 && preview != null -> 40
+        step == 0 -> 0
+        step == 1 && input.runDays > 0 && !crossTrainingGoals -> when (runningSubPage) {
+            0 -> 10
+            1 -> 11
+            5 -> 12
+            3 -> 13
+            2 -> 14
+            else -> 15
+        }
+        step == 1 && (input.runDays == 0 || crossTrainingGoals) -> when {
+            input.strengthDays > 0 && !strengthGoalSaved -> 20
+            input.strengthDays > 0 && !strengthSetupSaved -> 21
+            input.calDays > 0 && crossGoalsSaved -> 23
+            else -> 22
+        }
+        step == 2 -> 30
+        else -> 50
+    }
+    AnimatedContent(
+        targetState = stageKey,
+        transitionSpec = {
+            val forward = targetState >= initialState
+            val enterSlide = slideInHorizontally(animationSpec = tween(220)) { if (forward) it / 6 else -it / 6 }
+            val exitSlide = slideOutHorizontally(animationSpec = tween(180)) { if (forward) -it / 6 else it / 6 }
+            (enterSlide + fadeIn(tween(200))) togetherWith (exitSlide + fadeOut(tween(160)))
+        },
+        label = "plan-builder-stage"
+    ) { activeStage ->
+        when (activeStage) {
+            40 -> {
+                val activePreview = preview ?: return@AnimatedContent
+                TracksideWeekReview(
+                    request = activePreview.request,
+                    plan = activePreview,
+                    busy = state.busy || awaiting || pendingApprovalId != null,
+                    onBack = {
+                        step = 2
+                        scheduleSubPage = 0
+                    },
+                    onContinue = {
+                        if (!state.busy && pendingApprovalId == null) {
+                            error = null
+                            pendingApprovalId = activePreview.id
+                            actions.approve(activePreview.id, activePreview.revision)
+                        }
+                    },
+                    onOpenSession = { sessionId -> onPreview(activePreview.id, sessionId) },
+                    weekIndex = previewWeek,
+                    onWeekChange = { previewWeek = it },
+                    error = error,
+                    onChooseGoalOption = { chosen ->
+                        error = null; beforeId = state.plans.firstOrNull()?.id; awaiting = true
+                        weeks = chosen.weeks.toString(); targetKm = chosen.targetWeeklyKm.toString(); targetSupplied = true; edit(chosen)
+                        actions.generate(chosen)
+                    }
+                )
+            }
+            0 -> TracksideDisciplineScreen(
             request = input,
             onToggle = { d ->
                 val active = when(d) {
@@ -280,10 +300,7 @@ import org.json.JSONObject
                 crossGoalsSaved=false
             }
         )
-        return
-    }
-    if (step == 1 && input.runDays > 0 && !crossTrainingGoals) {
-        when (runningSubPage) {
+        10, 11, 12, 13, 14, 15 -> when (runningSubPage) {
             0 -> TracksideRunningGoalScreen(
                 selected = runningRoute,
                 onSelect = { route ->
@@ -359,116 +376,64 @@ import org.json.JSONObject
                     Engine15PaceZoneEstimator.estimate(input)
                 }
             )
-            2 -> TracksideRunningAbilityScreen(
-                experience = input.experience,
-                weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0,120.0) ?: 0.0,
-                longestKm = longest.toDoubleOrNull()?.coerceIn(0.0,42.0) ?: 0.0,
-                historyContent = {
-                    RunningHistoryConfirmation(state) { value ->
-                        km="%.1f".format(java.util.Locale.US,value)
-                        edit(input.copy(weeklyKm=value,recentMileageBasis="RECORDED_PARTIAL",
-                            foundationAcknowledged=false))
-                    }
-                    CoachFeedbackChoices(
-                        "Your recent weekly mileage",
-                        listOf("Usual average","Peak week only","No recent running","Unknown") +
-                            if(observedBaseline!=null) listOf("Recorded estimate") else emptyList(),
-                        when(input.recentMileageBasis) {
-                            "SELF_REPORTED_AVERAGE" -> "Usual average"
-                            "PEAK_WEEK_ONLY" -> "Peak week only"
-                            "CONFIRMED_ZERO" -> "No recent running"
-                            "UNKNOWN" -> "Unknown"
-                            "RECORDED_PARTIAL" -> if(observedBaseline!=null) "Recorded estimate" else null
-                            else -> null
-                        }
-                    ) { choice ->
-                        when(choice) {
-                            "Usual average" -> edit(input.copy(
-                                recentMileageBasis="SELF_REPORTED_AVERAGE",foundationAcknowledged=false))
-                            "Peak week only" -> {
-                                km="0"
-                                edit(input.copy(weeklyKm=0.0,recentMileageBasis="PEAK_WEEK_ONLY",
-                                    foundationAcknowledged=false))
-                            }
-                            "No recent running" -> {
-                                km="0"
-                                edit(input.copy(weeklyKm=0.0,recentMileageBasis="CONFIRMED_ZERO",
-                                    foundationAcknowledged=false))
-                            }
-                            "Recorded estimate" -> observedBaseline?.let { observed ->
-                                km="%.1f".format(java.util.Locale.US,observed.weeklyKm)
-                                edit(input.copy(weeklyKm=observed.weeklyKm,
-                                    recentMileageBasis="RECORDED_PARTIAL",foundationAcknowledged=false))
-                            }
-                            else -> {
-                                km="0"
-                                edit(input.copy(weeklyKm=0.0,recentMileageBasis="UNKNOWN",
-                                    foundationAcknowledged=false))
-                            }
-                        }
-                    }
-                    FormText("Highest recent week (optional, km)",peakWeekKm,{
-                        peakWeekKm=it
-                    },numeric=true)
-                    Text(
-                        "Use your usual weekly average, not your biggest week, as the " +
-                            "starting mileage. Self-reported data is provisional. " +
-                            "Recorded estimates may have incomplete coverage; Garmin import is optional.",
-                        style=MaterialTheme.typography.bodySmall,
-                        modifier=Modifier.testTag("builder-mileage-provenance-note")
-                    )
-                    if(input.trainYourWay &&
-                        (input.recentMileageBasis in setOf("UNKNOWN","PEAK_WEEK_ONLY","LEGACY_UNSPECIFIED") &&
-                            (km.toDoubleOrNull() ?: 0.0)==0.0 ||
-                            input.recentMileageBasis=="CONFIRMED_ZERO") &&
-                        (targetKm.toDoubleOrNull() ?: 0.0)>0.0) {
-                        Text(
-                            "Recent weekly average is missing or zero. The " +
-                            "${targetKm} km/week value is a future target, not a training " +
-                            "baseline. Enter your actual recent mileage here. Leaving it " +
-                            "at zero requires explicitly choosing a foundation plan " +
-                            "before approval.",
-                            color=TracksidePalette.lime,
-                            style=MaterialTheme.typography.bodySmall,
-                            modifier=Modifier.testTag("builder-running-baseline-warning")
-                        )
-                    }
-                    if(input.policyChoice=="engine15") {
-                        if(BuildConfig.DEBUG) CoachFeedbackChoices(
-                            "Weekly volume policy",
-                            listOf("Coach recommended","User directed"),
-                            if(input.userDirectedPlanning) "User directed" else "Coach recommended"
-                        ) { selected -> edit(input.copy(userDirectedPlanning=selected=="User directed")) }
-                        CoachFeedbackChoices("Usual quality sessions per week",listOf("0","1","2"),input.recentQualitySessionsPerWeek?.toString()) { edit(input.copy(recentQualitySessionsPerWeek=it?.toInt())) }
-                    }
-                },
-                onExperience = { edit(input.copy(experience=it)) },
-                onWeeklyKm = { value ->
-                    km=value.toInt().toString()
-                    edit(input.copy(weeklyKm=value,
-                        recentMileageBasis="SELF_REPORTED_AVERAGE",
-                        foundationAcknowledged=false))
-                },
-                onLongestKm = { value ->
-                    longest=value.toInt().toString()
-                    edit(input.copy(longestKm=value))
-                },
-                onBack = {
-                    runningSubPage = when(runningRoute) {
-                        "race" -> 1
-                        "custom" -> 3
-                        else -> 5
-                    }
-                },
-                onContinue = {
-                    runningSubPage = if(editingAbilityFromGuided) 5 else 4
-                    editingAbilityFromGuided = false
-                },
-                onAdvanced = {
-                    advancedBackPage = 2
-                    runningSubPage = 3
+            2 -> {
+                val benchDistLabel = when (input.benchmarkDistanceMeters) {
+                    42_195 -> "42K"
+                    21_097 -> "21K"
+                    10_000 -> "10K"
+                    else -> "5K"
                 }
-            )
+                TracksideRunningAbilityScreen(
+                    experience = input.experience,
+                    weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0, 120.0) ?: 0.0,
+                    longestKm = longest.toDoubleOrNull()?.coerceIn(0.0, 42.0) ?: 0.0,
+                    onExperience = { edit(input.copy(experience = it)) },
+                    onWeeklyKm = { value ->
+                        km = value.toInt().toString()
+                        edit(input.copy(
+                            weeklyKm = value,
+                            recentMileageBasis = "SELF_REPORTED_AVERAGE",
+                            foundationAcknowledged = false
+                        ))
+                    },
+                    onLongestKm = { value ->
+                        longest = value.toInt().toString()
+                        edit(input.copy(longestKm = value))
+                    },
+                    onBack = {
+                        runningSubPage = when (runningRoute) {
+                            "race" -> 1
+                            "custom" -> 3
+                            else -> 5
+                        }
+                    },
+                    onContinue = {
+                        runningSubPage = if (editingAbilityFromGuided) 5 else 4
+                        editingAbilityFromGuided = false
+                    },
+                    onAdvanced = {
+                        advancedBackPage = 2
+                        runningSubPage = 3
+                    },
+                    benchmarkDistance = benchDistLabel,
+                    benchmarkSeconds = input.benchmarkDurationSeconds,
+                    onSaveBenchmark = { dist, seconds ->
+                        val distMeters = when (dist) {
+                            "10K" -> 10_000
+                            "21K" -> 21_097
+                            "42K" -> 42_195
+                            else -> 5_000
+                        }
+                        edit(input.copy(
+                            benchmarkDistanceMeters = if (seconds != null) distMeters else null,
+                            benchmarkDurationSeconds = seconds
+                        ))
+                    },
+                    paceZones = remember(input.benchmarkDistanceMeters, input.benchmarkDurationSeconds, input.planningPace) {
+                        Engine15PaceZoneEstimator.estimate(input)
+                    }
+                )
+            }
             3 -> TracksideAdvancedRunning(
                 guided = advancedBackPage != 0,
                 weeks = input.weeks,
@@ -476,24 +441,16 @@ import org.json.JSONObject
                 userDefinedQualityWorkouts = input.userDefinedQualityWorkouts,
                 weeklyKm = targetKm.toDoubleOrNull()?.coerceIn(0.0, 120.0) ?: 0.0,
                 qualityCount = input.qualityCount.coerceIn(0, 2),
-                maxQualityCount = minOf(
-                    (input.runDays-2).coerceAtLeast(0),
-                    if(input.experience==2 && input.runDays>=4 &&
-                        (targetKm.toDoubleOrNull() ?: km.toDoubleOrNull() ?: 0.0)>=40.0) 2 else 1
-                ),
+                maxQualityCount = (input.runDays - 1).coerceIn(0, 2),
                 selectedQualityTypes = advancedQualityTypes,
                 onWeeklyKm = { value ->
-                    targetKm=value.toInt().toString()
-                    targetSupplied=true
-                    edit(input.copy(targetWeeklyKm=value,foundationAcknowledged=false))
+                    targetKm = value.toInt().toString()
+                    targetSupplied = true
+                    edit(input.copy(targetWeeklyKm = value, foundationAcknowledged = false))
                 },
                 onQualityCount = { n ->
-                    val allowed = minOf(
-                        (input.runDays-2).coerceAtLeast(0),
-                        if(input.experience==2 && input.runDays>=4 &&
-                            (targetKm.toDoubleOrNull() ?: km.toDoubleOrNull() ?: 0.0)>=40.0) 2 else 1
-                    )
-                    edit(input.copy(qualityCount=n.coerceAtMost(allowed)))
+                    val allowed = (input.runDays - 1).coerceIn(0, 2)
+                    edit(input.copy(qualityCount = n.coerceAtMost(allowed)))
                 },
                 onToggleQuality = { quality ->
                     val updated =
@@ -569,38 +526,30 @@ import org.json.JSONObject
                     edit(input.copy(preferredQuality=selected, preferredQualityExplicit=true))
                 },
                 onQualityCount = { n ->
-                    val allowed = minOf((input.runDays-2).coerceAtLeast(0),
-                        if(input.experience==2 && input.runDays>=4 &&
-                            (targetKm.toDoubleOrNull() ?: input.weeklyKm)>=40.0) 2 else 1)
-                    if(n<=allowed) {
-                        val slots=WeeklyPlacement.days(input,"run")
+                    val allowed = (input.runDays - 1).coerceIn(0, 2)
+                    if (n <= allowed) {
+                        val slots = WeeklyPlacement.days(input, "run")
                         edit(input.copy(
-                            qualityCount=n,
-                            qualityDays=slots.drop(1).take(n).filter {
-                                it in 1..7
-                            }.toSet()
+                            qualityCount = n,
+                            qualityDays = slots.drop(1).take(n).filter { it in 1..7 }.toSet()
                         ))
                     }
                 },
                 onRunningCount = { n ->
-                    val changed = if(runningCustom)
-                        WeeklyPlacement.resize(input,"run",n)
+                    val changed = if (runningCustom)
+                        WeeklyPlacement.resize(input, "run", n)
                     else input.copy(
-                        runDays=n,
-                        weeklySlots=input.weeklySlots-"run"
+                        runDays = n,
+                        weeklySlots = input.weeklySlots - "run"
                     )
-                    val allowed=minOf((n-2).coerceAtLeast(0),
-                        if(changed.experience==2 && n>=4 &&
-                            (targetKm.toDoubleOrNull() ?: changed.weeklyKm)>=40.0) 2 else 1)
-                    val q=changed.qualityCount.coerceAtMost(allowed)
-                    val slots=WeeklyPlacement.days(changed,"run")
+                    val allowed = (n - 1).coerceIn(0, 2)
+                    val q = changed.qualityCount.coerceAtMost(allowed)
+                    val slots = WeeklyPlacement.days(changed, "run")
                     edit(changed.copy(
-                        qualityCount=q,
-                        qualityDays=slots.drop(1).take(q).filter {
-                            it in 1..7
-                        }.toSet()
+                        qualityCount = q,
+                        qualityDays = slots.drop(1).take(q).filter { it in 1..7 }.toSet()
                     ))
-                    runningSelectedSlot=runningSelectedSlot.coerceIn(0,n-1)
+                    runningSelectedSlot = runningSelectedSlot.coerceIn(0, n - 1)
                 },
                 onAssignDay = { day ->
                     edit(WeeklyPlacement.put(input,"run",
@@ -643,10 +592,7 @@ import org.json.JSONObject
                 }
             )
         }
-        return
-    }
-    if(step==1 && (input.runDays==0 || crossTrainingGoals)) {
-        if(input.strengthDays>0 && !strengthGoalSaved) {
+        20, 21, 22, 23 -> if(input.strengthDays>0 && !strengthGoalSaved) {
             TracksideStrengthGoalScreen(
                 selected=strengthGoalLabel,
                 onSelect={ strengthGoalLabel=it },
@@ -784,14 +730,7 @@ import org.json.JSONObject
                 }
             )
         }
-        return
-    }
-    if (step == 2) {
-        // One Plan Dates screen: all availability, capacity and remaining
-        // discipline placement controls are inline instead of a second page.
-        // The composer still generates a draft; only explicit approval
-        // activates a plan.
-        TracksidePlanDetailsScreen(
+        30 -> TracksidePlanDetailsScreen(
             start=start,weeks=weeks,minutes=minutes,
             onStart={ start=it },onWeeks={ weeks=it },onMinutes={ minutes=it },
             dailyBudget=dailyMinutes,
@@ -845,92 +784,11 @@ import org.json.JSONObject
                             })
                         }
                         otherSelectedSlot=otherSelectedSlot.coerceIn(0,count-1)
-                    },
-                    researchContent={
-                        if (BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE &&
-                            (weeks.toIntOrNull() in 8..16) && input.qualityCount == 1 && !input.userDirectedPlanning &&
-                            input.userDefinedQualityWorkouts.isEmpty() &&
-                            input.strengthDays + input.calDays + input.conditioningDays == 0) {
-                            var manualDistanceEditorOpen by rememberSaveable { mutableStateOf(false) }
-                            val zones = remember(input) { Engine15PaceZoneEstimator.estimate(input) }
-                            ProvisionalPaceZoneStrip(zones)
-                            Spacer(Modifier.height(8.dp))
-                            Surface(
-                                onClick = {
-                                    runCatching {
-                                        val req = request().copy(qualityDistanceClaims = emptyList())
-                                        val prev = Engine15IndependentPlanGenerator.preview(req, "auto-estimate-owner", "auto-est", java.time.Instant.now())
-                                        val dryRun = (prev as? Engine15IndependentPlanDecision.Deferred)?.qualityDryRun
-                                        if (dryRun != null) {
-                                            val autoClaims = Engine15PaceZoneEstimator.estimateSegmentClaims(dryRun, zones)
-                                            val encoded = autoClaims.joinToString("\n") { claim ->
-                                                "${claim.weekNumber} ${claim.slotNumber} " + claim.assertedMetersByTimedSegment.joinToString(" ") { it.toInt().toString() }
-                                            }
-                                            if (thresholdPilot) thresholdEquivalents = encoded else tempoEquivalents = encoded
-                                        }
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp).testTag("builder-auto-estimate-quality"),
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
-                                color = StrideLabVisualPalette.limeTint,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, StrideLabVisualPalette.lime)
-                            ) {
-                                Box(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                                    Text("Auto-fill segment distances from pace zones (Est.)", color = StrideLabVisualPalette.lime, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-                                }
-                            }
-                            TextButton(onClick = { manualDistanceEditorOpen = !manualDistanceEditorOpen }) {
-                                Text(if (manualDistanceEditorOpen) "Hide manual segment distances −" else "Customize segment distances ›", color = PlanBuilderPalette.secondary)
-                            }
-                            if (manualDistanceEditorOpen) {
-                                val rows = (if (thresholdPilot) thresholdEquivalents else tempoEquivalents).lines().filter { it.isNotBlank() }
-                                    .associateBy { it.substringBefore(' ') }
-                                for (week in listOf(1, 2, 3, 5, 6, 7)) {
-                                    Text("Week $week")
-                                    val fields = rows[week.toString()]?.split(' ')?.drop(1).orEmpty()
-                                    for ((index, label) in qualityLabels.withIndex()) {
-                                        OutlinedTextField(
-                                            value = fields.getOrElse(index) { "" },
-                                            onValueChange = { value ->
-                                                val updated = MutableList(qualityLabels.size) { fields.getOrElse(it) { "" } }
-                                                updated[index] = value.filter { it in '0'..'9' }.take(6)
-                                                val next = rows.toMutableMap()
-                                                if (updated.all { it.isEmpty() }) next.remove(week.toString())
-                                                else next[week.toString()] = "$week " + updated.joinToString(" ")
-                                                if (thresholdPilot) thresholdEquivalents = next.values.joinToString("\n")
-                                                else tempoEquivalents = next.values.joinToString("\n")
-                                            },
-                                            label = { Text(label) },
-                                            supportingText = {
-                                                val metres = fields.getOrNull(index)?.toIntOrNull()
-                                                val seconds = if (thresholdPilot) listOf(null, 600, 240, 120, 240, 120, 240, 480)[index] else when (index) {
-                                                    1 -> 600
-                                                    2 -> Engine15QualityWorkoutDryRunBuilder.workSeconds(input.experience)
-                                                    3 -> 480
-                                                    else -> null
-                                                }
-                                                if (seconds != null && metres != null && metres > 0)
-                                                    Text("Implied average ${formatTempoImpliedPace(seconds * 1000.0 / metres)}")
-                                            },
-                                            singleLine = true,
-                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                            modifier = Modifier.fillMaxWidth().testTag("private-tempo-$week-$index")
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        IndependentAndroidResearchPreviewPanel(
-                            request=runCatching { request() }.getOrDefault(input),
-                            onSaveResearchReview=actions.saveResearchReview,
-                            savedResearchCount=state.researchDrafts.size,
-                            savedResearchReviews=state.researchDrafts
-                        )
                     }
                 )
                 error?.let { message ->
-                    Text(message,color=MaterialTheme.colorScheme.error,
-                        modifier=Modifier.testTag("plan-form-error"))
+                    Spacer(Modifier.height(12.dp))
+                    PlanBuilderErrorBanner(message)
                 }
             },
             onBack={
@@ -964,68 +822,61 @@ import org.json.JSONObject
                 }
             }
         )
-        return
-    }
-    if(step==3) {
-        // Older builder state may resume at an obsolete page.
-        // Return to the combined plan dates and availability screen.
-        LaunchedEffect(Unit) {
-            scheduleSubPage=0
-            step=2
-        }
-        return
-    }
-    // An orphaned draft after process restore must never reveal the removed
-    // legacy chip-based builder. Preserve all edited request inputs.
-    val missingDraft = step == 4
-    TracksideBuilderFrame(
-        eyebrow = "PLAN / RECOVERY",
-        toolbarTitle = if(missingDraft) "Restore draft" else "Plan setup",
-        headline = if(missingDraft) "Draft unavailable" else "Resume plan setup",
-        description = if(missingDraft)
-            "The draft is no longer available. Your choices are still here."
-            else "This step could not be restored. Your plan inputs are preserved.",
-        ctaLabel = if(missingDraft) "Review plan dates" else "Return to setup",
-        onBack = {
-            if(missingDraft) { step=2; scheduleSubPage=0 } else step = 0
-        },
-        onContinue = {
-            error = null
-            if(missingDraft) {
-                previewId = null
-                pendingApprovalId = null
-                step = 2
-                scheduleSubPage = 0
-            } else {
-                step = 0
-                runningSubPage = 0
-                scheduleSubPage = 0
-                crossTrainingGoals = false
-                strengthGoalSaved = false
-            }
-        }
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth().testTag("builder-draft-recovery"),
-            color = MaterialTheme.colorScheme.surface,
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp)
-        ) {
-            Column(Modifier.padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    if(missingDraft) "No saved draft found" else "Setup could not resume",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    if(missingDraft)
-                        "Review your selected disciplines, weekdays, session counts and plan dates before generating a new draft. No existing approved plan is changed."
-                    else "Return to the first step and continue editing your existing plan choices.",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                error?.let {
-                    Text(it,color=MaterialTheme.colorScheme.error)
+        else -> {
+            // An orphaned draft after process restore must never reveal the removed
+            // legacy chip-based builder. Preserve all edited request inputs.
+            val missingDraft = step == 4
+            TracksideBuilderFrame(
+                eyebrow = "PLAN / RECOVERY",
+                toolbarTitle = if(missingDraft) "Restore draft" else "Plan setup",
+                headline = if(missingDraft) "Draft unavailable" else "Resume plan setup",
+                description = if(missingDraft)
+                    "The draft is no longer available. Your choices are still here."
+                    else "This step could not be restored. Your plan inputs are preserved.",
+                ctaLabel = if(missingDraft) "Review plan dates" else "Return to setup",
+                onBack = {
+                    if(missingDraft) { step=2; scheduleSubPage=0 } else step = 0
+                },
+                onContinue = {
+                    error = null
+                    if(missingDraft) {
+                        previewId = null
+                        pendingApprovalId = null
+                        step = 2
+                        scheduleSubPage = 0
+                    } else {
+                        step = 0
+                        runningSubPage = 0
+                        scheduleSubPage = 0
+                        crossTrainingGoals = false
+                        strengthGoalSaved = false
+                    }
+                }
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().testTag("builder-draft-recovery"),
+                    color = PlanBuilderPalette.surface,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+                ) {
+                    Column(Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            if(missingDraft) "No saved draft found" else "Setup could not resume",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = PlanBuilderPalette.text
+                        )
+                        Text(
+                            if(missingDraft)
+                                "Review your selected disciplines, weekdays, session counts and plan dates before generating a new draft. No existing approved plan is changed."
+                            else "Return to the first step and continue editing your existing plan choices.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = PlanBuilderPalette.secondary
+                        )
+                        error?.let { PlanBuilderErrorBanner(it) }
+                    }
                 }
             }
+        }
         }
     }
 }
