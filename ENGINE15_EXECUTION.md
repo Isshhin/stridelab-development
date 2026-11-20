@@ -456,3 +456,15 @@ Manual final-APK walkthrough entered 1,178 m in Tempo warm-up and displayed 8.49
 - **Verification (JBR 21.0.11 / Gradle 8.13):**
   - Candidate JVM (`-PstrideEngine15Active=true -PstrideEngine15IndependentRunningActive=true`): **1,151 passed, 0 failed, 0 errors, 1 skipped** (total 1,152).
   - Android instrumentation and physical/emulator device walkthrough: **NOT RUN** in this batch.
+
+## Batch 35 — Stage 9 Multi-Discipline Refinement, Stabilization & Release-Route Verification (2026-11-21)
+
+- Added `Engine15MultiDisciplineStabilizationTest.kt` verifying end-to-end Engine 1.5 independent multi-discipline generation, approval, JSON round-trip, and `validateSaved`:
+  - Solo 8-week Strength (`ENGINE15_INDEPENDENT_STRENGTH_POLICY`), Calisthenics (`ENGINE15_INDEPENDENT_CALISTHENICS_POLICY`), and Conditioning (`ENGINE15_INDEPENDENT_CONDITIONING_POLICY`) plans using the offline `ExerciseLibraryV2` catalog.
+  - 2-discipline combined plans (`run + str`, `run + cal` with explicit `allowDoubleDays = true`, and `run + cond`).
+  - Full 4-discipline combined plan (`run + str + cal + cond`, 5 sessions/week across 8 weeks) AND fail-closed `ENGINE15_COMBINED_SCHEDULE_CONFLICT` rejection when a 4th weekly hard session makes ≥2-day hard-session spacing impossible in a 7-day cycle.
+- **Final Verification (JBR 21.0.11 / Gradle 8.13):**
+  - Candidate JVM (`-PstrideEngine15Active=true -PstrideEngine15IndependentRunningActive=true`): **1,154 passed, 0 failed, 0 errors, 1 skipped** (total 1,155).
+  - Rollback JVM (`-PstrideEngine15Active=false -PstrideEngine15IndependentRunningActive=false`): **1,146 passed, 0 failed, 0 errors, 9 skipped** (total 1,155).
+  - APK builds: `:app:assembleDebug` and `:app:assembleRelease` (including `:app:lintVitalRelease`) **PASSED**; verified release `BuildConfig.ENGINE15_ACTIVE = false` and `ENGINE15_INDEPENDENT_RUNNING_ACTIVE = false`.
+  - Android instrumentation, emulator acceptance, and physical-device walkthrough: **NOT RUN** (owner/emulator acceptance remains required before promoting or enabling outside debug opt-in).
