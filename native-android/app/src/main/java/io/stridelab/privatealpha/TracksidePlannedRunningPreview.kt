@@ -41,7 +41,9 @@ internal fun TracksidePlannedRunningPreview(
     onBack: () -> Unit,
     planStart: LocalDate = session.date,
     onMove: (() -> Unit)? = null,
-    onMissed: (() -> Unit)? = null
+    onMissed: (() -> Unit)? = null,
+    onAdjustDifficulty: ((Int) -> Unit)? = null,
+    busy: Boolean = false
 ) {
     var notesExpanded by rememberSaveable(session.id) { mutableStateOf(false) }
     val label=when {
@@ -193,6 +195,13 @@ internal fun TracksidePlannedRunningPreview(
                 }
             }
         }
+        if (onAdjustDifficulty != null && target.state != Engine15SessionPresentation.State.ACCEPTED_REST) {
+            TracksideWorkoutDifficultyCard(
+                session = session,
+                busy = busy,
+                onAdjust = onAdjustDifficulty
+            )
+        }
         Spacer(Modifier.height(3.dp))
         TracksideRunningStepCards(
             segments = segments,
@@ -235,6 +244,104 @@ internal fun TracksidePlannedRunningPreview(
                             lineHeight=18.sp,modifier=Modifier.padding(bottom=8.dp))
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun TracksideWorkoutDifficultyCard(
+    session: PlannedSession,
+    busy: Boolean,
+    onAdjust: (Int) -> Unit
+) {
+    val modified = session.difficultyStep != 0
+    val label = Engine15WorkoutDifficultyAdjuster.labelFor(session.difficultyStep)
+    val badgeText = if (modified) {
+        val sign = if (session.difficultyStep > 0) "+" else ""
+        "$label ($sign${session.difficultyStep})"
+    } else label
+    val summary = Engine15WorkoutDifficultyAdjuster.changeSummary(session)
+
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("workout-difficulty-card"),
+        color = TracksidePalette.surfaceRaised,
+        contentColor = TracksidePalette.text,
+        border = BorderStroke(
+            1.dp,
+            if (modified) TracksidePalette.lime.copy(alpha = 0.55f) else TracksidePalette.outline
+        ),
+        shape = RoundedCornerShape(15.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 11.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "WORKOUT DIFFICULTY",
+                    color = TracksidePalette.textMuted,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        badgeText,
+                        color = if (modified) TracksidePalette.lime else TracksidePalette.text,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.testTag("workout-difficulty-badge")
+                    )
+                    if (modified) {
+                        TextButton(
+                            onClick = { onAdjust(0) },
+                            enabled = !busy,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                            modifier = Modifier.heightIn(min = 32.dp).testTag("workout-difficulty-reset")
+                        ) {
+                            Text("Reset", color = TracksidePalette.lime, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { onAdjust(-1) },
+                    enabled = !busy && session.difficultyStep > -2,
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("workout-difficulty-easier"),
+                    border = BorderStroke(1.dp, TracksidePalette.outline),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("− Easier", color = TracksidePalette.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+                OutlinedButton(
+                    onClick = { onAdjust(1) },
+                    enabled = !busy && session.difficultyStep < 2,
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("workout-difficulty-harder"),
+                    border = BorderStroke(1.dp, TracksidePalette.outline),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("+ Harder", color = TracksidePalette.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            summary?.let {
+                Text(
+                    it,
+                    color = TracksidePalette.textMuted,
+                    fontSize = 11.5.sp,
+                    lineHeight = 16.sp,
+                    modifier = Modifier.testTag("workout-difficulty-summary")
+                )
             }
         }
     }

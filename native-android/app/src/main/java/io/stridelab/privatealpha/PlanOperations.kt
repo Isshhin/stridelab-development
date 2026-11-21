@@ -236,4 +236,30 @@ internal object PlanOperations {
         if(sessionId!=null && plan.sessions.none { it.id==sessionId })throw PlanConstraint("Feedback workout is unavailable.")
         return plan.copy(feedback=plan.feedback+PlanFeedback(UUID.randomUUID().toString(),now,category,text.trim(),sessionId))
     }
+
+    fun adjustDifficulty(plan:PlanSnapshot,sessionId:String,delta:Int):PlanSnapshot {
+        compatible(plan)
+        if(plan.status !in setOf("draft","approved","paused"))
+            throw PlanConstraint("Only draft, approved, or paused workouts can be adjusted.")
+        val session=plan.sessions.firstOrNull { it.id==sessionId }
+            ?: throw PlanConstraint("Workout is no longer available.")
+        if(session.status !in setOf("planned","in_progress"))
+            throw PlanConstraint("Only a planned or active workout can have its difficulty adjusted.")
+        val targetStep=if(delta==0) 0 else (session.difficultyStep+delta).coerceIn(-2,2)
+        if(targetStep==session.difficultyStep)return plan
+        val adjusted=Engine15WorkoutDifficultyAdjuster.adjust(session,plan.request,targetStep).copy(suggestion=null)
+        session.log?.let { WorkoutLogValidation.validate(adjusted,it) }
+        if(PlanScheduleValidation.isMultiPolicy(plan.policyId) &&
+            (plan.policyId!=ENGINE15_INDEPENDENT_COMBINED_POLICY || plan.request.timeBudgetEnabled)) {
+            val sameDayOther=plan.sessions.filter {
+                it.id!=sessionId && it.date==adjusted.date && it.status !in setOf("missed","skipped","unassigned")
+            }.sumOf { it.effectiveMinutes }
+            if(sameDayOther+adjusted.effectiveMinutes>plan.request.dailyMinutes)
+                throw PlanConstraint("Making this workout harder would exceed your ${plan.request.dailyMinutes}-minute daily time budget.")
+        }
+        val updated=plan.copy(sessions=plan.sessions.map { if(it.id==sessionId) adjusted else it })
+        if(plan.engineVersion==ENGINE15_VERSION && plan.status=="approved")
+            PlanScheduleValidation.validatePlan(updated)
+        return updated
+    }
 }

@@ -26,7 +26,7 @@ internal object Engine15SessionPresentation {
             ?: throw PlanConstraint("The workout is not part of this saved plan.")
         val proposed = session.suggestion
         val supported = plan.engineVersion == ENGINE15_VERSION &&
-            plan.policyId in setOf(ENGINE15_POLICY, ENGINE15_MULTI_POLICY, ENGINE15_INTERFERENCE_POLICY, ENGINE15_INDEPENDENT_RUNNING_POLICY)
+            plan.policyId in ENGINE15_COACHING_POLICIES
         // Other engine versions, historical snapshots and unrelated suggestions
         // keep their existing display contract without migration or reinterpretation.
         val reviewed = supported && proposed != null &&

@@ -167,10 +167,12 @@ internal object Engine15StrengthWorkoutComposer {
                 val expectedReps = if (week != null && (week - 1) % 4 != 3)
                     (firstReps + (week - 1) % 4 * repStep).coerceAtMost(maxReps) else firstReps
                 val expectedSets = if (week != null && ((week - 1) % 4 == 3 || plan.request.strengthExperience == 0 || plan.request.returning && week <= 2)) 1 else 2
-                session.discipline != "str" || session.kind != "strength" || session.quality || !session.lower ||
-                    session.exercises.size != exerciseIds.size || session.exercises.any { it.id !in allowedExerciseIds } ||
-                    session.exercises.map { it.id }.distinct().size != exerciseIds.size ||
-                    session.exercises.any { it.reps != expectedReps || it.sets != expectedSets } ||
+                val base = session.baselineSession()
+                base.discipline != "str" || base.kind != "strength" || base.quality || !base.lower ||
+                    base.exercises.size != exerciseIds.size || base.exercises.any { it.id !in allowedExerciseIds } ||
+                    base.exercises.map { it.id }.distinct().size != exerciseIds.size ||
+                    base.exercises.any { it.reps != expectedReps || it.sets != expectedSets } ||
+                    !Engine15WorkoutDifficultyAdjuster.matchesAdjusted(session, plan.request) ||
                     expectedDate == null || !allowCalendarReschedule && session.date != expectedDate ||
                     session.date.isBefore(plan.request.start) ||
                     !session.date.isBefore(plan.request.start.plusWeeks(plan.request.weeks.toLong())) ||

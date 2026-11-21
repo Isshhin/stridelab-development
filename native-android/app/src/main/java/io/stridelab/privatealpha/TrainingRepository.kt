@@ -604,6 +604,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         )
     }
     suspend fun moveSession(id:String,revision:Int,sessionId:String,date:java.time.LocalDate)=changePlan(id,revision) { plan->PlanOperations.move(plan,sessionId,date,mutable.value.plans) }
+    suspend fun adjustWorkoutDifficulty(id:String,revision:Int,sessionId:String,delta:Int)=changePlan(id,revision) { plan->PlanOperations.adjustDifficulty(plan,sessionId,delta) }
     suspend fun setSessionLock(id:String,revision:Int,sessionId:String,locked:Boolean)=changePlan(id,revision) { plan->PlanOperations.setSessionLock(plan,sessionId,locked) }
     fun previewAvailabilityChange(id:String,newDays:Set<Int>):Engine15Availability.Impact? {
         val plan=mutable.value.plans.find {

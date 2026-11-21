@@ -80,13 +80,14 @@ private fun dayBarAccent(sessions: List<PlannedSession>): Color {
     if (sessions.isEmpty()) return StrideLabVisualPalette.muted
     val run = sessions.firstOrNull { it.discipline == "run" }
     if (run != null) {
-        return when (run.kind) {
-            "long" -> StrideLabVisualPalette.lime
-            "quality" -> {
+        return when {
+            run.kind == "long" -> StrideLabVisualPalette.lime
+            run.kind == "quality" -> {
                 val fam = run.runningPrescription?.family?.lowercase(Locale.ROOT).orEmpty()
                 if (fam == "intervals" || fam == "hills") StrideLabVisualPalette.highCoral
                 else StrideLabVisualPalette.moderateAmber
             }
+            run.runningPrescription?.role == "RECOVERY" -> StrideLabVisualPalette.recoveryCyan
             else -> StrideLabVisualPalette.easyTeal
         }
     }

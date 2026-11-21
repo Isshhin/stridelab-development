@@ -116,7 +116,7 @@ internal object Engine15StaticMultiDisciplinePlanner {
             val assignedDays = request.weeklySlots[discipline]
             if (assignedDays != null && sessions.any { session -> assignedDays.getOrNull(slotIndex(session)) != session.date.dayOfWeek.value })
                 throw PlanConstraint("The saved independent combined plan no longer matches its fixed weekday assignments.")
-            if (discipline == "run" && sessions.any { it.kind == "long" && it.date.dayOfWeek.value != request.longDay })
+            if (discipline == "run" && sessions.any { it.baselineSession().kind == "long" && it.date.dayOfWeek.value != request.longDay })
                 throw PlanConstraint("The saved independent combined plan moved the long run away from its selected weekday.")
         }
         val scheduled = plan.sessions.sortedWith(compareBy<PlannedSession> { it.date }.thenBy { it.id })
@@ -137,7 +137,7 @@ internal object Engine15StaticMultiDisciplinePlanner {
                 "run" -> Engine15IndependentPlanGenerator.validateSaved(
                     candidate.copy(
                         request = candidate.request.copy(
-                            qualityCount = if (candidate.sessions.any { it.quality }) candidate.request.qualityCount else 0
+                            qualityCount = if (candidate.sessions.any { it.baselineSession().quality }) candidate.request.qualityCount else 0
                         )
                     )
                 )

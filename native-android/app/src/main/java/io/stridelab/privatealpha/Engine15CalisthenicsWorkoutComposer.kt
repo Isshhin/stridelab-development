@@ -131,11 +131,13 @@ internal object Engine15CalisthenicsWorkoutComposer {
                 } else null
                 val expectedReps = if (week != null && (week - 1) % 4 != 3) 6 + ((week - 1) % 4).coerceAtMost(2) else 6
                 val expectedSets = if (week != null && ((week - 1) % 4 == 3 || plan.request.returning && week <= 2)) 1 else 2
-                it.discipline != "cal" || it.kind != "calisthenics" || it.exercises.size < 2 ||
-                    it.date.dayOfWeek.value !in plan.request.days || it.quality || it.distanceKm != null ||
+                val base = it.baselineSession()
+                base.discipline != "cal" || base.kind != "calisthenics" || base.exercises.size < 2 ||
+                    it.date.dayOfWeek.value !in plan.request.days || base.quality || base.distanceKm != null ||
                     expectedDate == null || !allowCalendarReschedule && it.date != expectedDate ||
-                    it.exercises.any { exercise -> exercise.id !in allowed || exercise.id in plan.request.excluded ||
-                        exercise.sets != expectedSets || (exercise.reps != null && exercise.reps != expectedReps) }
+                    base.exercises.any { exercise -> exercise.id !in allowed || exercise.id in plan.request.excluded ||
+                        exercise.sets != expectedSets || (exercise.reps != null && exercise.reps != expectedReps) } ||
+                    !Engine15WorkoutDifficultyAdjuster.matchesAdjusted(it, plan.request)
             } || plan.sessions.map { it.id }.distinct().size != count || plan.sessions.map { it.date }.distinct().size != count)
             throw PlanConstraint("The saved independent calisthenics plan no longer matches its supported workout and calendar contract.")
         Engine15SessionLocks.validateOutput(plan.request, plan.sessions)

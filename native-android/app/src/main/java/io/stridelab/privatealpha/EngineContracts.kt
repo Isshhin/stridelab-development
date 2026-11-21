@@ -181,9 +181,48 @@ internal data class SessionSuggestion(val minutes:Int,val reason:String,val acce
     fun encode()=JSONObject().put("minutes",minutes).put("reason",reason).put("accepted",accepted)
     companion object { fun decode(j:JSONObject)=SessionSuggestion(j.getInt("minutes"),j.getString("reason"),j.getBoolean("accepted")) }
 }
+internal data class SessionDifficultyBaseline(
+    val title: String,
+    val minutes: Int,
+    val distanceKm: Double?,
+    val kind: String,
+    val quality: Boolean,
+    val exercises: List<ExercisePrescription> = emptyList(),
+    val steps: List<String> = emptyList(),
+    val reason: String = "",
+    val runningPrescription: RunningPrescription? = null
+) {
+    fun encode(): JSONObject = JSONObject()
+        .put("title", title)
+        .put("minutes", minutes)
+        .put("distanceKm", distanceKm)
+        .put("kind", kind)
+        .put("quality", quality)
+        .put("exercises", JSONArray(exercises.map { it.encode() }))
+        .put("steps", JSONArray(steps))
+        .put("reason", reason)
+        .put("runningPrescription", runningPrescription?.encode())
+
+    companion object {
+        fun decode(j: JSONObject) = SessionDifficultyBaseline(
+            title = j.getString("title"),
+            minutes = j.getInt("minutes"),
+            distanceKm = j.nullDouble("distanceKm"),
+            kind = j.getString("kind"),
+            quality = j.getBoolean("quality"),
+            exercises = j.getJSONArray("exercises").objects().map(ExercisePrescription::decode),
+            steps = j.getJSONArray("steps").strings(),
+            reason = j.getString("reason"),
+            runningPrescription = j.optJSONObject("runningPrescription")?.let(RunningPrescription::decode)
+        )
+    }
+}
 internal data class PlannedSession(val id:String,val date:LocalDate,val discipline:String,val title:String,val minutes:Int,val distanceKm:Double?,val kind:String,val lower:Boolean=false,val quality:Boolean=false,
-    val exercises:List<ExercisePrescription> = emptyList(),val steps:List<String> = emptyList(),val reason:String="",val status:String="planned",val missedReason:String?=null,val log:WorkoutLog?=null,val suggestion:SessionSuggestion?=null,val linkedActivityId:String?=null,val linkPreviousStatus:String?=null,val swaps:List<ExerciseSwap> = emptyList(),val logRevision:Int=0,val runningPrescription:RunningPrescription?=null,val runResponse:WorkoutLog?=null) {
+    val exercises:List<ExercisePrescription> = emptyList(),val steps:List<String> = emptyList(),val reason:String="",val status:String="planned",val missedReason:String?=null,val log:WorkoutLog?=null,val suggestion:SessionSuggestion?=null,val linkedActivityId:String?=null,val linkPreviousStatus:String?=null,val swaps:List<ExerciseSwap> = emptyList(),val logRevision:Int=0,val runningPrescription:RunningPrescription?=null,val runResponse:WorkoutLog?=null,
+    val difficultyStep:Int=0,val difficultyBaseline:SessionDifficultyBaseline?=null) {
     init {
+        require(difficultyStep in -2..2)
+        require((difficultyStep==0)==(difficultyBaseline==null))
         runResponse?.let { require(discipline=="run" && it.minutes==null && it.distanceKm==null && it.qualityWorkKm==null && it.sets.isEmpty() && (it.effort==null || it.effort in 1..10)) }
         runningPrescription?.let {
             require(discipline=="run")
@@ -198,13 +237,33 @@ internal data class PlannedSession(val id:String,val date:LocalDate,val discipli
             require(quality==(it.role=="QUALITY"))
         }
     }
+    fun baselineSession():PlannedSession = difficultyBaseline?.let { base ->
+        copy(
+            title=base.title,
+            minutes=base.minutes,
+            distanceKm=base.distanceKm,
+            kind=base.kind,
+            quality=base.quality,
+            exercises=base.exercises,
+            steps=base.steps,
+            reason=base.reason,
+            runningPrescription=base.runningPrescription,
+            difficultyStep=0,
+            difficultyBaseline=null
+        )
+    } ?: this
     val effectiveExercises get()=exercises.map { original -> swaps.find { it.originalId==original.id }?.replacement ?: original }
     val effectiveMinutes get()=if(suggestion?.accepted==true) suggestion.minutes else minutes
     val effectiveTitle get()=if(suggestion?.accepted==true) "Lighter alternative · $title" else title
     fun encode()=JSONObject().put("id",id).put("date",date.toString()).put("discipline",discipline).put("title",title).put("minutes",minutes).put("distanceKm",distanceKm).put("kind",kind).put("lower",lower).put("quality",quality)
         .put("exercises",JSONArray(exercises.map { it.encode() })).put("steps",JSONArray(steps)).put("reason",reason).put("status",status).put("missedReason",missedReason).put("log",log?.encode()).put("suggestion",suggestion?.encode()).put("linkedActivityId",linkedActivityId).put("linkPreviousStatus",linkPreviousStatus).put("swaps",JSONArray(swaps.map { it.encode() })).put("logRevision",logRevision).put("runningPrescription",runningPrescription?.encode()).put("runResponse",runResponse?.encode())
+        .apply {
+            if(difficultyStep!=0) put("difficultyStep",difficultyStep)
+            if(difficultyBaseline!=null) put("difficultyBaseline",difficultyBaseline.encode())
+        }
     companion object { fun decode(j:JSONObject)=PlannedSession(j.getString("id"),LocalDate.parse(j.getString("date")),j.getString("discipline"),j.getString("title"),j.getInt("minutes"),j.nullDouble("distanceKm"),j.getString("kind"),j.getBoolean("lower"),j.getBoolean("quality"),
-        j.getJSONArray("exercises").objects().map(ExercisePrescription::decode),j.getJSONArray("steps").strings(),j.getString("reason"),j.getString("status"),j.nullString("missedReason"),j.optJSONObject("log")?.let(WorkoutLog::decode),j.optJSONObject("suggestion")?.let(SessionSuggestion::decode),j.nullString("linkedActivityId"),j.nullString("linkPreviousStatus"),j.optJSONArray("swaps")?.objects()?.map(ExerciseSwap::decode) ?: emptyList(),j.optInt("logRevision",0),j.optJSONObject("runningPrescription")?.let(RunningPrescription::decode),j.optJSONObject("runResponse")?.let(WorkoutLog::decode)) }
+        j.getJSONArray("exercises").objects().map(ExercisePrescription::decode),j.getJSONArray("steps").strings(),j.getString("reason"),j.getString("status"),j.nullString("missedReason"),j.optJSONObject("log")?.let(WorkoutLog::decode),j.optJSONObject("suggestion")?.let(SessionSuggestion::decode),j.nullString("linkedActivityId"),j.nullString("linkPreviousStatus"),j.optJSONArray("swaps")?.objects()?.map(ExerciseSwap::decode) ?: emptyList(),j.optInt("logRevision",0),j.optJSONObject("runningPrescription")?.let(RunningPrescription::decode),j.optJSONObject("runResponse")?.let(WorkoutLog::decode),
+        j.optInt("difficultyStep",0),j.optJSONObject("difficultyBaseline")?.let(SessionDifficultyBaseline::decode)) }
 }
 /** Feedback overlays only the coaching interpretation; original actual measurements stay immutable. */
 internal fun PlannedSession.coachingLog():WorkoutLog? {

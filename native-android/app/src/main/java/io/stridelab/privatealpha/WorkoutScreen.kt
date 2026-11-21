@@ -119,9 +119,12 @@ import kotlinx.coroutines.flow.drop
             val paceZones = remember(plan.request, state.activities) {
                 Engine15PaceZoneEstimator.estimate(plan.request, activities = state.activities)
             }
-            val visualBlocks = remember(session.id, session.runningPrescription, paceZones) {
+            val visualBlocks = remember(session.id, session.difficultyStep, session.runningPrescription, paceZones) {
                 WorkoutVisualBlocks.fromSession(session, paceZones)
             }
+            val difficultyEditable = Engine1Engines.canManage(plan) &&
+                plan.status in setOf("draft", "approved", "paused") &&
+                session.status in setOf("planned", "in_progress")
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 TracksidePlannedRunningPreview(
                     session=session,
@@ -134,7 +137,11 @@ import kotlinx.coroutines.flow.drop
                     onMove=if(active && !state.busy && session.log==null &&
                         session.id !in plan.request.lockedSessionDays)
                         ({ if(onMove!=null)onMove() else move=true })
-                    else null
+                    else null,
+                    onAdjustDifficulty=if(difficultyEditable) ({ delta ->
+                        actions.adjustDifficulty(plan.id, plan.revision, session.id, delta)
+                    }) else null,
+                    busy=state.busy
                 )
                 if (visualBlocks.size > 1 || session.quality) {
                     Surface(
@@ -181,6 +188,15 @@ import kotlinx.coroutines.flow.drop
             Text(suggestion.reason)
             if(!suggestion.accepted&&active) { SignalButton(if(suggestion.minutes==0) "Choose rest for this session" else "Accept lighter alternative",{actions.acceptSuggestion(plan.id,plan.revision,session.id)},!state.busy);Text("Original prescriptions remain saved. No catch-up workout is added.",style=MaterialTheme.typography.bodySmall) }
         } } }
+        if(!plannedRun && !rest && Engine1Engines.canManage(plan) &&
+            plan.status in setOf("draft","approved","paused") &&
+            session.status in setOf("planned","in_progress")) item {
+            TracksideWorkoutDifficultyCard(
+                session=session,
+                busy=state.busy,
+                onAdjust={ delta -> actions.adjustDifficulty(plan.id,plan.revision,session.id,delta) }
+            )
+        }
         if(!plannedRun) item { SignalCard {
             Text("YOUR PRESCRIPTION",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
             if (rest || timeOnly) {

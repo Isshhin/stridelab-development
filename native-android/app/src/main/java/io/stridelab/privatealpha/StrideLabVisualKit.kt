@@ -157,14 +157,30 @@ internal object WorkoutVisualBlocks {
         if (!segments.isNullOrEmpty()) {
             return segments.map { seg ->
                 val isWork = seg.purpose.equals("WORK", ignoreCase = true)
+                val isRec = seg.purpose.equals("RECOVERY", ignoreCase = true) ||
+                    prescription.role == "RECOVERY"
                 val isLong = session.kind == "long"
                 WorkoutVisualBlock(
-                    label = if (isWork) family.replaceFirstChar { it.uppercase() }.ifBlank { "Work" }
-                    else if (isLong) "Long Run" else "Easy Run",
+                    label = when {
+                        isWork -> family.replaceFirstChar { it.uppercase() }.ifBlank { "Work" }
+                        isLong -> "Long Run"
+                        isRec -> "Recovery Run"
+                        else -> "Easy Run"
+                    },
                     purpose = seg.purpose,
                     weight = seg.meters.toFloat().coerceAtLeast(200f),
-                    intensityFraction = if (isWork) workHeight() else if (isLong) 0.58f else 0.44f,
-                    color = if (isWork) workColor() else if (isLong) StrideLabVisualPalette.lime else StrideLabVisualPalette.easyTeal,
+                    intensityFraction = when {
+                        isWork -> workHeight()
+                        isLong -> 0.58f
+                        isRec -> 0.30f
+                        else -> 0.44f
+                    },
+                    color = when {
+                        isWork -> workColor()
+                        isLong -> StrideLabVisualPalette.lime
+                        isRec -> StrideLabVisualPalette.recoveryCyan
+                        else -> StrideLabVisualPalette.easyTeal
+                    },
                     detail = "${"%.1f".format(Locale.US, seg.meters / 1000.0)} km · ${seg.effort}",
                     paceHint = if (isWork) workPace() else zones?.easy?.formatRange()
                 )

@@ -416,7 +416,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 targetWeeklyKm = request.targetWeeklyKm,
                 returning = request.returning,
                 recoveryHold = request.runningRecoveryHold,
-                userDirected = request.userDirectedPlanning
+                userDirected = request.userDirectedPlanning,
+                raceGoal = request.goal
             )
         )
         if (volume.status != Engine15IndependentVolumePlanner.Status.DISTANCE_CANDIDATE)
@@ -445,7 +446,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         }
         val placedWeeks = periodization.originalConflictReview.runningWeeks
 
-        val sessions = placedWeeks.flatMap { week ->
+        val baseSessions = placedWeeks.flatMap { week ->
             week.runs.map { placed ->
                 val slot = placed.slot
                 val meters = (slot.distanceKm * 1000.0).toInt()
@@ -481,8 +482,62 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 )
             }
         }.sortedWith(compareBy<PlannedSession> { it.date }.thenBy { it.id })
-        if (sessions.size != request.weeks * request.runDays || sessions.map { it.id }.distinct().size != sessions.size)
+        if (baseSessions.size != request.weeks * request.runDays || baseSessions.map { it.id }.distinct().size != baseSessions.size)
             return defer("INCOMPLETE_PLAN_ASSEMBLY", "Independent output did not contain exactly one dated workout for every weekly running slot.")
+
+        val asOfDate = now.atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+        val recoveryWeekNumbers = volume.weeks.filter {
+            it.kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY
+        }.map { it.index + 1 }.toSet()
+        val userDefinedSlotPattern = Regex(".*-(w[1-9][0-9]*-run(?:0|[1-9][0-9]*))$")
+        val userDefinedQualityIds = baseSessions.asSequence()
+            .filter { session ->
+                userDefinedSlotPattern.matchEntire(session.id)?.groupValues?.get(1) in request.userDefinedQualityWorkouts.keys
+            }
+            .map { it.id }
+            .toSet()
+        val preSelection = if (request.qualityCount > 0 && request.userDefinedQualityWorkouts.isEmpty()) {
+            Engine15QualityFamilySelection.select(
+                request = request,
+                ownerId = owner,
+                asOf = asOfDate,
+                evidence = qualityEvidence,
+                athlete = athlete,
+                scheduledSessions = baseSessions,
+                recoveryWeeks = recoveryWeekNumbers,
+                externalSessions = external.sessions,
+                adaptiveMode = adaptiveQualityMode
+            )
+        } else null
+        val preQualityIds = userDefinedQualityIds + preSelection?.candidateSlots.orEmpty().map { it.sessionId }
+        val initialShaped = Engine15DailyLoadShaper.shape(
+            sessions = baseSessions,
+            volume = volume,
+            request = request,
+            qualitySessionIds = preQualityIds,
+            pinnedSessionIds = userDefinedQualityIds
+        )
+        val sessions = if (request.qualityDistanceClaims.isNotEmpty() && preSelection != null) {
+            val claimsByKey = request.qualityDistanceClaims.groupBy { it.weekNumber to it.slotNumber }
+            val shapedById = initialShaped.associateBy { it.id }
+            val legacyClaimPins = preSelection.candidateSlots.mapNotNull { slot ->
+                val claim = claimsByKey[slot.weekNumber to slot.slotNumber]?.singleOrNull() ?: return@mapNotNull null
+                val claimKm = claim.assertedMetersByTimedSegment.sum() / 1000.0
+                val shapedKm = shapedById[slot.sessionId]?.distanceKm ?: return@mapNotNull null
+                val matchesUnshaped = kotlin.math.abs(claimKm - slot.originalEasyDistanceKm) <= 1e-6
+                val matchesShaped = kotlin.math.abs(claimKm - shapedKm) <= 1e-6
+                slot.sessionId.takeIf { matchesUnshaped && !matchesShaped }
+            }.toSet()
+            if (legacyClaimPins.isNotEmpty()) {
+                Engine15DailyLoadShaper.shape(
+                    sessions = baseSessions,
+                    volume = volume,
+                    request = request,
+                    qualitySessionIds = preQualityIds,
+                    pinnedSessionIds = userDefinedQualityIds + legacyClaimPins
+                )
+            } else initialShaped
+        } else initialShaped
 
         var experimentalTempo = emptyList<PlannedSession>()
         var experimentalQualityExposureSeconds: Int? = null
@@ -491,13 +546,11 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             val selection = Engine15QualityFamilySelection.select(
                 request = request,
                 ownerId = owner,
-                asOf = now.atZone(java.time.ZoneId.systemDefault()).toLocalDate(),
+                asOf = asOfDate,
                 evidence = qualityEvidence,
                 athlete = athlete,
                 scheduledSessions = sessions,
-                recoveryWeeks = volume.weeks.filter {
-                    it.kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY
-                }.map { it.index + 1 }.toSet(),
+                recoveryWeeks = recoveryWeekNumbers,
                 externalSessions = external.sessions,
                 adaptiveMode = adaptiveQualityMode
             )
@@ -634,7 +687,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         }.toMap()
         for(week in 1..request.weeks) {
             val customCount=mappedQuality.keys.count { customPattern.matchEntire(it)?.groupValues?.get(1)?.toInt()==week }
-            val shouldHaveQuality=if(experimentalTempo.isNotEmpty() || (week-1)%4==3) 0 else request.qualityCount
+            val shouldHaveQuality=if(experimentalTempo.isNotEmpty() || volume.weeks[week - 1].kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY) 0 else request.qualityCount
             if(customCount!=shouldHaveQuality)
                 return defer("USER_WORKOUT_FREQUENCY_MISMATCH", "Provide exactly the requested number of user-defined workouts for each loading week and none for scheduled recovery weeks.")
         }
@@ -804,8 +857,9 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             throw PlanConstraint("This plan uses an unsupported experimental quality policy.")
         if (plan.experimentalQualityExposureSeconds != null && plan.experimentalQualityExposureSeconds !in 1..14400)
             throw PlanConstraint("This plan uses an invalid experimental quality exposure anchor.")
+        val baselines = plan.sessions.map { it.baselineSession() }
         // Historical pilots retain their original eligibility semantics during structural validation.
-        val savedUsesAdaptiveRotation = plan.sessions.filter { it.quality }
+        val savedUsesAdaptiveRotation = baselines.filter { it.quality }
             .mapNotNull { it.runningPrescription?.family }
             .distinct().size > 1
         fun runPreview(adaptive: Boolean) = preview(
@@ -816,7 +870,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             allowExplicitUserFamily = true,
             adaptiveQualityMode = adaptive
         )
-        val expected = if (plan.request.qualityDistanceClaims.isEmpty() && plan.sessions.any { it.quality }) {
+        val expected = if (plan.request.qualityDistanceClaims.isEmpty() && baselines.any { it.quality }) {
             when (val decision = previewAutoReconciled(
                 plan.request, plan.owner, plan.id, plan.createdAt,
                 qualityEvidence = qualityEvidence,
@@ -831,11 +885,11 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             val needsAdaptiveRetry = plan.experimentalQualityExposureSeconds != null &&
                 !savedUsesAdaptiveRotation &&
                 plan.request.qualityDistanceClaims.isNotEmpty() &&
-                plan.sessions.any { it.quality } &&
+                baselines.any { it.quality } &&
                 (initialDecision is Engine15IndependentPlanDecision.Deferred || (
                     initialDecision is Engine15IndependentPlanDecision.Candidate &&
                         initialDecision.plan.sessions.associateBy { it.id }.let { expectedById ->
-                            plan.sessions.any { session ->
+                            baselines.any { session ->
                                 expectedById[session.id]?.runningPrescription != session.runningPrescription
                             }
                         }
@@ -853,8 +907,10 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         val expectedById = expected.sessions.associateBy { it.id }
         if (plan.sessions.any { session ->
                 val source = expectedById[session.id] ?: return@any true
-                session.discipline != "run" || session.quality != source.quality || session.kind != source.kind ||
-                    session.distanceKm != source.distanceKm || session.runningPrescription != source.runningPrescription ||
+                val base = session.baselineSession()
+                base.discipline != "run" || base.quality != source.quality || base.kind != source.kind ||
+                    base.distanceKm != source.distanceKm || base.runningPrescription != source.runningPrescription ||
+                    !Engine15WorkoutDifficultyAdjuster.matchesAdjusted(session, plan.request) ||
                     session.date.isBefore(plan.request.start) || !session.date.isBefore(plan.request.start.plusWeeks(plan.request.weeks.toLong())) ||
                     session.date.dayOfWeek.value !in plan.request.days
             })
@@ -877,7 +933,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         }
         val expectedTotals = expected.sessions.groupBy { ChronoUnit.DAYS.between(plan.request.start, it.date) / 7L }
             .mapValues { (_, rows) -> rows.sumOf { it.distanceKm ?: 0.0 } }
-        val actualTotals = plan.sessions.groupBy { ChronoUnit.DAYS.between(plan.request.start, it.date) / 7L }
+        val actualTotals = baselines.groupBy { ChronoUnit.DAYS.between(plan.request.start, it.date) / 7L }
             .mapValues { (_, rows) -> rows.sumOf { it.distanceKm ?: 0.0 } }
         if (actualTotals.keys != expectedTotals.keys || expectedTotals.any { (week, km) ->
                 kotlin.math.abs((actualTotals[week] ?: Double.NaN) - km) > 1e-6

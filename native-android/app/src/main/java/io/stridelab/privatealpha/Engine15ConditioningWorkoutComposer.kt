@@ -91,9 +91,11 @@ internal object Engine15ConditioningWorkoutComposer {
                     firstDay.plusDays(((weekdays[slot] - firstDay.dayOfWeek.value + 7) % 7).toLong())
                 } else null
                 val expectedMinutes = if (week != null) minOf(if ((week - 1) % 4 == 3) 15 else minOf(21, 15 + 2 * ((week - 1) % 4)), if (plan.request.timeBudgetEnabled) plan.request.minutes else 21) else 0
-                it.discipline != "cond" || it.kind != "conditioning" || !it.lower || it.quality ||
-                    it.distanceKm != null || it.minutes != expectedMinutes || expectedDate == null || !allowCalendarReschedule && it.date != expectedDate ||
-                    it.exercises.singleOrNull()?.let { exercise -> exercise.id != EXERCISE_ID || exercise.seconds != expectedMinutes * 60 || exercise.sets != 1 } != false
+                val base = it.baselineSession()
+                base.discipline != "cond" || base.kind != "conditioning" || !base.lower || base.quality ||
+                    base.distanceKm != null || base.minutes != expectedMinutes || expectedDate == null || !allowCalendarReschedule && it.date != expectedDate ||
+                    base.exercises.singleOrNull()?.let { exercise -> exercise.id != EXERCISE_ID || exercise.seconds != expectedMinutes * 60 || exercise.sets != 1 } != false ||
+                    !Engine15WorkoutDifficultyAdjuster.matchesAdjusted(it, plan.request)
             } || plan.sessions.map { it.id }.distinct().size != count || plan.sessions.map { it.date }.distinct().size != count)
             throw PlanConstraint("The saved independent conditioning plan no longer matches its supported workout and calendar contract.")
         Engine15SessionLocks.validateOutput(plan.request, plan.sessions)

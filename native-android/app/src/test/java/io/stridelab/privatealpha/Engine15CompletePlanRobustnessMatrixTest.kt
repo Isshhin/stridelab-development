@@ -185,11 +185,22 @@ class Engine15CompletePlanRobustnessMatrixTest {
                     qualityEvidence = evidence
                 )
 
-                // Exact 1:1 replacement of weekly and daily distance budgets
+                // Weekly mileage budgets and long-run prescriptions are strictly preserved under hard/easy recovery shaping
                 assertEquals(
-                    baseEasy.sessions.map { Triple(it.id, it.date, it.distanceKm) },
-                    draft.sessions.map { Triple(it.id, it.date, it.distanceKm) }
+                    baseEasy.sessions.map { it.id to it.date },
+                    draft.sessions.map { it.id to it.date }
                 )
+                assertEquals(
+                    baseEasy.sessions.filter { it.kind == "long" }.map { it.date to it.distanceKm },
+                    draft.sessions.filter { it.kind == "long" }.map { it.date to it.distanceKm }
+                )
+                for (w in 0 until weeks) {
+                    val startW = monday.plusWeeks(w.toLong())
+                    val endW = startW.plusWeeks(1)
+                    val baseKm = baseEasy.sessions.filter { it.date >= startW && it.date < endW }.sumOf { it.distanceKm!! }
+                    val draftKm = draft.sessions.filter { it.date >= startW && it.date < endW }.sumOf { it.distanceKm!! }
+                    assertEquals(baseKm, draftKm, 1e-6)
+                }
                 // Recovery weeks never receive quality sessions
                 val qualityWeeks = draft.sessions.filter { it.quality }.map {
                     ChronoUnit.DAYS.between(monday, it.date).toInt() / 7 + 1

@@ -143,8 +143,16 @@ class Engine15QualityWorkoutDryRunTest {
         assertTrue(declined.explanation, declined.explanation.contains("faster than Threshold work"))
         val base = Engine15IndependentPlanGenerator.generateWithHistory(
             input.copy(qualityCount = 0), owner, emptyList(), "tempo-dry-run", now)
-        assertEquals(base.sessions.map { Triple(it.id, it.date, it.distanceKm) },
-            plan.sessions.map { Triple(it.id, it.date, it.distanceKm) })
+        assertEquals(base.sessions.map { it.id to it.date },
+            plan.sessions.map { it.id to it.date })
+        assertEquals(base.sessions.filter { it.kind == "long" }.map { it.date to it.distanceKm },
+            plan.sessions.filter { it.kind == "long" }.map { it.date to it.distanceKm })
+        val baseWeeksT = base.sessions.groupBy { java.time.temporal.ChronoUnit.DAYS.between(monday, it.date) / 7L }
+        val planWeeksT = plan.sessions.groupBy { java.time.temporal.ChronoUnit.DAYS.between(monday, it.date) / 7L }
+        assertEquals(baseWeeksT.keys, planWeeksT.keys)
+        baseWeeksT.forEach { (w, rows) ->
+            assertEquals(rows.sumOf { it.distanceKm!! }, planWeeksT.getValue(w).sumOf { it.distanceKm!! }, 1e-6)
+        }
         assertEquals(listOf(1L, 2L, 3L, 5L, 6L, 7L), plan.sessions.filter { it.quality }.map {
             java.time.temporal.ChronoUnit.DAYS.between(monday, it.date) / 7 + 1
         })
@@ -237,8 +245,16 @@ class Engine15QualityWorkoutDryRunTest {
         assertTrue(declined.explanation, declined.explanation.contains("faster than Intervals work"))
         val base = Engine15IndependentPlanGenerator.generateWithHistory(
             input.copy(qualityCount = 0), owner, emptyList(), "intervals-dry-run", now)
-        assertEquals(base.sessions.map { Triple(it.id, it.date, it.distanceKm) },
-            plan.sessions.map { Triple(it.id, it.date, it.distanceKm) })
+        assertEquals(base.sessions.map { it.id to it.date },
+            plan.sessions.map { it.id to it.date })
+        assertEquals(base.sessions.filter { it.kind == "long" }.map { it.date to it.distanceKm },
+            plan.sessions.filter { it.kind == "long" }.map { it.date to it.distanceKm })
+        val baseWeeksI = base.sessions.groupBy { java.time.temporal.ChronoUnit.DAYS.between(monday, it.date) / 7L }
+        val planWeeksI = plan.sessions.groupBy { java.time.temporal.ChronoUnit.DAYS.between(monday, it.date) / 7L }
+        assertEquals(baseWeeksI.keys, planWeeksI.keys)
+        baseWeeksI.forEach { (w, rows) ->
+            assertEquals(rows.sumOf { it.distanceKm!! }, planWeeksI.getValue(w).sumOf { it.distanceKm!! }, 1e-6)
+        }
         val workout = plan.sessions.first { it.quality }.runningPrescription!!
         assertEquals("Intervals", workout.family)
         assertEquals(listOf("WARM_UP", "WORK", "RECOVERY", "WORK", "RECOVERY", "WORK", "RECOVERY", "WORK", "COOL_DOWN"),
@@ -425,8 +441,16 @@ class Engine15QualityWorkoutDryRunTest {
         val draft = Engine15IndependentPlanGenerator.generateWithHistory(input.copy(qualityDistanceClaims = claims),
             owner, emptyList(), "tempo-dry-run", now)
         assertEquals("draft", draft.status)
-        assertEquals(base.sessions.map { Triple(it.id, it.date, it.distanceKm) },
-            draft.sessions.map { Triple(it.id, it.date, it.distanceKm) })
+        assertEquals(base.sessions.map { it.id to it.date },
+            draft.sessions.map { it.id to it.date })
+        assertEquals(base.sessions.filter { it.kind == "long" }.map { it.date to it.distanceKm },
+            draft.sessions.filter { it.kind == "long" }.map { it.date to it.distanceKm })
+        val baseWeeksP = base.sessions.groupBy { java.time.temporal.ChronoUnit.DAYS.between(monday, it.date) / 7L }
+        val draftWeeksP = draft.sessions.groupBy { java.time.temporal.ChronoUnit.DAYS.between(monday, it.date) / 7L }
+        assertEquals(baseWeeksP.keys, draftWeeksP.keys)
+        baseWeeksP.forEach { (w, rows) ->
+            assertEquals(rows.sumOf { it.distanceKm!! }, draftWeeksP.getValue(w).sumOf { it.distanceKm!! }, 1e-6)
+        }
         assertEquals(listOf(1L, 2L, 3L, 5L, 6L, 7L), draft.sessions.filter { it.quality }.map {
             java.time.temporal.ChronoUnit.DAYS.between(monday, it.date) / 7 + 1
         })

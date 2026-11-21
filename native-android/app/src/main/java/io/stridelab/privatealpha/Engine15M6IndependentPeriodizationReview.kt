@@ -117,13 +117,17 @@ internal object Engine15M6IndependentPeriodizationReview {
             return defer("WEEK_COUNT_MISMATCH",
                 "M4B and M6C must contain the same number of independent weeks.")
 
+        val hasRaceTaper = (source.input.raceGoal == "Marathon" && source.weeks.size >= 12) ||
+            (source.input.raceGoal in setOf("Half marathon", "Improve 10K") && source.weeks.size >= 10)
         val summary = mutableListOf<Engine15M6DWeekAudit>()
         var previousBudgetKm: Double? = null
         var previousLongKm: Double? = null
         for ((index, item) in review.runningWeeks.withIndex()) {
             val m4b = source.weeks[index]
             val week = index + 1
-            val plannedPhase = phase(week)
+            val isRaceTaperFinal = hasRaceTaper && index == source.weeks.lastIndex
+            val isRaceTaperWeek = hasRaceTaper && "RACE_TAPER_VOLUME_REDUCTION" in m4b.constraintCodes
+            val plannedPhase = if (isRaceTaperFinal) Engine15M6DPhase.RECOVERY else phase(week)
             val expectedKind = if (plannedPhase == Engine15M6DPhase.RECOVERY)
                 Engine15IndependentVolumePlanner.WeekKind.RECOVERY
             else Engine15IndependentVolumePlanner.WeekKind.LOADING
@@ -152,11 +156,17 @@ internal object Engine15M6IndependentPeriodizationReview {
                     "The planned calendar may not exceed any original M4B workload bound.",
                     week)
 
-            if (plannedPhase == Engine15M6DPhase.RECOVERY &&
-                (previousBudgetKm == null || km > previousBudgetKm * 0.8 + EPS))
-                return defer("RECOVERY_WEEK_EXCEEDS_PREVIOUS_CAP",
-                    "Recovery weeks must retain M4B's 80 percent previous-week ceiling.",
-                    week)
+            if (plannedPhase == Engine15M6DPhase.RECOVERY) {
+                val capExceeded = if (isRaceTaperWeek) {
+                    previousBudgetKm != null && km > previousBudgetKm + EPS
+                } else {
+                    previousBudgetKm == null || km > previousBudgetKm * 0.8 + EPS
+                }
+                if (capExceeded)
+                    return defer("RECOVERY_WEEK_EXCEEDS_PREVIOUS_CAP",
+                        "Recovery weeks must retain M4B's 80 percent previous-week ceiling.",
+                        week)
+            }
 
             val longRuns = item.runs.filter { it.role == Engine15M5RunRole.LONG }
             if (longRuns.size != if (source.input.runningDays >= 3 || source.input.runningDays == 1) 1 else 0)

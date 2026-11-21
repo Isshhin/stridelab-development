@@ -32,7 +32,8 @@ internal object PlanScheduleValidation {
             else conflict(sessions[i],sessions[k],plan.policyId,plan.policyId)
             if(conflict)throw PlanConstraint("The backup contains conflicting sessions inside an approved plan. No records were changed.")
         }
-        if(isMultiPolicy(plan.policyId) && sessions.groupBy { it.date }.values.any { day -> day.size>2 || day.sumOf { it.effectiveMinutes }>plan.request.dailyMinutes })throw PlanConstraint("The backup exceeds an approved plan's daily time budget. No records were changed.")
+        val enforceDailyBudget = plan.policyId != ENGINE15_INDEPENDENT_COMBINED_POLICY || plan.request.timeBudgetEnabled
+        if(isMultiPolicy(plan.policyId) && sessions.groupBy { it.date }.values.any { day -> day.size>2 || (enforceDailyBudget && day.sumOf { it.effectiveMinutes }>plan.request.dailyMinutes) })throw PlanConstraint("The backup exceeds an approved plan's daily time budget. No records were changed.")
     }
 
     fun validateRestoration(plans:List<PlanSnapshot>) {
@@ -42,7 +43,7 @@ internal object PlanScheduleValidation {
             val a=active[i];val b=active[k]
             if(scheduled(a).any { x -> scheduled(b).any { y -> Engine15IndependentPlanGenerator.conflict(x,y) } })throw PlanConstraint("The backup's approved calendar conflicts with another approved plan. No records were changed.")
         }
-        val multi=active.filter { Engine1Engines.canManage(it) && isMultiPolicy(it.policyId) }
+        val multi=active.filter { Engine1Engines.canManage(it) && isMultiPolicy(it.policyId) && (it.policyId != ENGINE15_INDEPENDENT_COMBINED_POLICY || it.request.timeBudgetEnabled) }
         val days=multi.flatMap { p -> scheduled(p).map { p to it } }.groupBy { it.second.date }
         for(day in days.values) {
             if(day.sumOf { it.second.effectiveMinutes }>day.minOf { it.first.request.dailyMinutes })throw PlanConstraint("The backup exceeds an approved plan's shared daily time budget. No records were changed.")

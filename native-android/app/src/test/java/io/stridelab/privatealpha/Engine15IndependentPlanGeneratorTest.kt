@@ -499,7 +499,7 @@ class Engine15IndependentPlanGeneratorTest {
                 session.runningPrescription!!.meters.toDouble(), 1e-6)
             assertEquals(ceil(session.distanceKm * input.planningPace / 60.0).toInt(),
                 session.minutes)
-            assertTrue(session.runningPrescription!!.segments.all { it.purpose == "EASY" })
+            assertTrue(session.runningPrescription!!.segments.all { it.purpose in setOf("EASY", "RECOVERY") })
         }
         for (week in 0 until 16) {
             val sessions = candidate.plan.sessions.filter {
