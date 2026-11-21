@@ -6,7 +6,9 @@ internal object TracksideCoaching {
         previous.request.copy(
             policyChoice = "engine15",
             lockedSessionDays = emptyMap(),
-            allowDoubleDays = false
+            allowDoubleDays = false,
+            preferredQualityExplicit = false,
+            qualityDistanceClaims = emptyList()
         )
 
     fun request(setup: PlanRequest, @Suppress("UNUSED_PARAMETER") engine15Active: Boolean = true): PlanRequest {

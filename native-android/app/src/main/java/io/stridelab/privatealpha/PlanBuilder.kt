@@ -482,7 +482,7 @@ import org.json.JSONObject
                         if (quality in advancedQualityTypes) advancedQualityTypes-quality
                         else advancedQualityTypes+quality
                     advancedQualityCsv = updated.sorted().joinToString("|")
-                    edit(input.copy(allowedQualityTypes=updated))
+                    edit(input.copy(allowedQualityTypes=updated, preferredQualityExplicit=false))
                 },
                 onSaveQualityWorkouts = { workouts ->
                     edit(input.copy(userDefinedQualityWorkouts=workouts))
@@ -549,7 +549,7 @@ import org.json.JSONObject
                 qualityPreference = qualityPreference,
                 onQualityPreference = { selected ->
                     qualityPreference=selected
-                    edit(input.copy(preferredQuality=selected, preferredQualityExplicit=true))
+                    edit(input.copy(preferredQuality=selected, preferredQualityExplicit=false))
                 },
                 onQualityCount = { n ->
                     desiredQualityCount = n

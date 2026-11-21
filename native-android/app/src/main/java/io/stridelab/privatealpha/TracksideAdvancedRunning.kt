@@ -285,7 +285,7 @@ internal fun TracksideAdvancedRunning(
             }
         }
 
-        if (BuildConfig.DEBUG && userDirectedPlanning && qualityCount > 0) {
+        if (userDirectedPlanning && qualityCount > 0) {
             Spacer(Modifier.height(14.dp))
             TracksideStructuredWorkoutAuthoring(
                 weeks, qualityCount, userDefinedQualityWorkouts,

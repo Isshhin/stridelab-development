@@ -350,8 +350,6 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
 
         if (request.policyChoice != "engine15")
             return defer("ENGINE15_NOT_SELECTED", "Select Engine 1.5 before requesting an independent candidate.")
-        if (request.userDirectedPlanning && !BuildConfig.DEBUG)
-            return defer("USER_DIRECTED_POLICY_DEBUG_ONLY", "User-directed planning is available only in private development builds.")
         if (request.runningRecoveryHold)
             return defer("RUNNING_RECOVERY_HOLD", "Running remains on hold until the recovery review is resolved.")
         if (request.qualityCount !in 0..2)

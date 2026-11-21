@@ -882,4 +882,41 @@ class Engine15IndependentPlanGeneratorTest {
         val approved = PlanOperations.approve(draft, emptyList())
         Engine15IndependentPlanGenerator.validateSaved(approved)
     }
+
+    @Test fun setupForClearsPreferredQualityExplicitAndRotatesAllowedWorkoutStyles() {
+        val prior = Engine15IndependentPlanGenerator.generateWithHistory(
+            request(weeks = 4).copy(
+                goal = "Improve 10K",
+                experience = 1,
+                days = setOf(1, 2, 3, 4, 5, 7),
+                runDays = 6,
+                longDay = 7,
+                weeklyKm = 40.0,
+                longestKm = 14.0,
+                targetWeeklyKm = 45.0,
+                qualityCount = 1,
+                qualityDays = setOf(2),
+                preferredQuality = "Threshold",
+                preferredQualityExplicit = true
+            ),
+            owner, emptyList(), "prior-explicit", now
+        )
+        val reused = TracksideCoaching.setupFor(prior)
+        assertFalse(reused.preferredQualityExplicit)
+
+        val multiStyle = Engine15IndependentPlanGenerator.generateWithHistory(
+            reused.copy(
+                weeks = 8,
+                qualityCount = 2,
+                qualityDays = setOf(2, 4),
+                allowedQualityTypes = setOf("Fartlek", "Tempo", "Threshold")
+            ),
+            owner, emptyList(), "multi-style-rotation", now
+        )
+        val families = multiStyle.sessions.filter { it.quality }
+            .mapNotNull { it.runningPrescription?.family }
+            .toSet()
+        assertTrue("Expected rotation across multiple selected styles, got $families", families.size >= 2)
+        assertTrue(families.all { it in setOf("Fartlek", "Tempo", "Threshold") })
+    }
 }
