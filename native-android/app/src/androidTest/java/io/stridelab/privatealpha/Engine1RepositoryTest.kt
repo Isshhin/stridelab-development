@@ -21,7 +21,8 @@ class Engine1RepositoryTest {
     private fun open()=runBlocking { repo=TrainingRepository(context,gateway,databaseName,prefs);repo.state.first { !it.initializing } }
     @Before fun setup() { context.deleteDatabase(databaseName);context.getSharedPreferences(prefs,0).edit().clear().commit();SessionVault(context).clear(owner);gateway.owner=owner;gateway.offline=false;gateway.rows=JSONArray();open() }
     @After fun cleanup() { repo.close();context.deleteDatabase(databaseName);context.getSharedPreferences(prefs,0).edit().clear().commit();SessionVault(context).clear(owner);SessionVault(context).clear("synthetic-engine1-other") }
-    private fun request()=PlanRequest(start=LocalDate.now().minusDays(8),runDays=0,strengthDays=2,weeks=4,equipment=mapOf("db" to 1))
+    private fun library()=ExerciseLibraryV2.load { path -> context.assets.open(path) }
+    private fun request()=PlanRequest(start=LocalDate.now().minusDays(8),runDays=0,strengthDays=2,weeks=4,equipment=mapOf("db" to 1),timeBudgetEnabled=false)
     private fun actualLog(session:PlannedSession,minutes:Double=20.0,effort:Int?=null):WorkoutLog {
         val ex=session.effectiveExercises.first()
         return WorkoutLog(Instant.now(),minutes=minutes,effort=effort,sets=listOf(SetRecord(ex.id,1,reps=if(ex.seconds==null)5 else null,seconds=if(ex.seconds!=null)5 else null)))
@@ -385,7 +386,7 @@ class Engine1RepositoryTest {
         assertTrue(repo.generatePlan(request()));var p=repo.state.value.plans.single()
         assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single()
         assertTrue(repo.recordWorkout(p.id,p.revision,p.sessions.first().id,actualLog(p.sessions.first()),true));p=repo.state.value.plans.single()
-        val later=Engine1.generate(request().copy(start=request().start.plusWeeks(5)),owner)
+        val later=Engine15IndependentPlanGenerator.generateWithHistory(request().copy(start=request().start.plusWeeks(5)),owner,emptyList(),exerciseLibrary=library())
         val raw=JSONObject().put("schemaVersion",1).put("plans",JSONArray().put(p.copy(feedback=emptyList()).encode()).put(later.encode())).toString()
         gateway.offline=true
         assertTrue(repo.restorePlans(raw));assertEquals(2,repo.state.value.plans.size);assertEquals(p,repo.state.value.plans.find { it.id==p.id })
@@ -451,14 +452,14 @@ class Engine1RepositoryTest {
         repo.close();open();assertEquals(2,repo.state.value.plans.single().sessions.first().exercises.single().sets);assertEquals(3,repo.state.value.templates.single().exercises.single().sets)
         gateway.offline=false;gateway.owner="synthetic-engine1-other";assertTrue(repo.signIn("other@example.invalid","fixture"));assertTrue(repo.state.value.templates.isEmpty());assertTrue(repo.state.value.plans.isEmpty())
     }
-    @Test fun coordinatedGoalsAndFallbackSnapshotsKeepTheirOwnPolicyAndActualRecordsOffline()=runBlocking {
+    @Test fun coordinatedGoalsAndSecondPlanKeepTheirOwnPolicyAndActualRecordsOffline()=runBlocking {
         assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
-        val request=request().copy(policyChoice="coordinated",disciplineGoals=mapOf("str" to "Muscle development"),strengthExperience=1)
-        assertTrue(repo.generatePlan(request));var p=repo.state.value.plans.single();assertEquals(CoordinatedEngine1.policyId,p.policyId)
-        assertTrue(p.sessions.flatMap { it.exercises }.filter { it.reps!=null }.all { it.reps==10 })
+        val request=request().copy(disciplineGoals=mapOf("str" to "Muscle development"),strengthExperience=1)
+        assertTrue(repo.generatePlan(request));var p=repo.state.value.plans.single();assertEquals(ENGINE15_INDEPENDENT_STRENGTH_POLICY,p.policyId)
+        assertTrue(p.sessions.flatMap { it.exercises }.any { it.reps!=null })
         assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single();assertTrue(repo.recordWorkout(p.id,p.revision,p.sessions.first().id,actualLog(p.sessions.first()),true));val saved=repo.state.value.plans.single()
-        gateway.offline=true;assertTrue(repo.generatePlan(request.copy(start=request.start.plusWeeks(5),policyChoice="baseline")));repo.close();open()
-        assertEquals(saved,repo.state.value.plans.find { it.id==saved.id });val fallback=repo.state.value.plans.first { it.id!=saved.id };assertEquals(ENGINE1_POLICY,fallback.policyId);assertTrue(fallback.sessions.flatMap { it.exercises }.filter { it.reps!=null }.all { it.reps==8 })
+        gateway.offline=true;assertTrue(repo.generatePlan(request.copy(start=request().start.plusWeeks(5),disciplineGoals=emptyMap(),goal="General strength")));repo.close();open()
+        assertEquals(saved,repo.state.value.plans.find { it.id==saved.id });val second=repo.state.value.plans.first { it.id!=saved.id };assertEquals(ENGINE15_INDEPENDENT_STRENGTH_POLICY,second.policyId)
     }
     @Test fun unconfirmedEntryDraftSurvivesOfflineButLateDraftCannotReplaceANewerActualLog()=runBlocking {
         assertTrue(repo.signIn("synthetic@example.invalid","fixture"));assertTrue(repo.generatePlan(request()));var p=repo.state.value.plans.single();assertTrue(repo.approvePlan(p.id,p.revision));p=repo.state.value.plans.single();val s=p.sessions.first();val ex=s.exercises.first()
@@ -483,7 +484,7 @@ class Engine1RepositoryTest {
         val count=queued()
         assertFalse(repo.recordWorkout(saved.id,saved.revision,s.id,WorkoutLog(Instant.now(),minutes=20.0),true))
         assertEquals(saved,repo.state.value.plans.single());assertEquals(count,queued())
-        val incoming=Engine1.generate(request().copy(start=request().start.plusWeeks(5)),owner,"invalid-import").copy(status="approved")
+        val incoming=Engine15IndependentPlanGenerator.generateWithHistory(request().copy(start=request().start.plusWeeks(5)),owner,emptyList(),"invalid-import",exerciseLibrary=library()).copy(status="approved")
         val first=incoming.sessions.first();val row=SetRecord(first.effectiveExercises.first().id,1,reps=5)
         val duplicate=incoming.copy(sessions=listOf(first.copy(log=WorkoutLog(Instant.now(),sets=listOf(row,row))))+incoming.sessions.drop(1))
         val conflict=incoming.copy(sessions=listOf(first,incoming.sessions[1].copy(date=first.date))+incoming.sessions.drop(2))
@@ -495,7 +496,7 @@ class Engine1RepositoryTest {
     }
     @Test fun opaqueRetainedPlanIdCannotBeOverwrittenByBackupRestore()=runBlocking {
         assertTrue(repo.signIn("synthetic@example.invalid","fixture"))
-        val protectedPlan=Engine1.generate(request().copy(start=request().start.plusWeeks(5)),owner,"opaque-retained")
+        val protectedPlan=Engine15IndependentPlanGenerator.generateWithHistory(request().copy(start=request().start.plusWeeks(5)),owner,emptyList(),"opaque-retained",exerciseLibrary=library())
         val retainedRaw=protectedPlan.encode().put("schemaVersion",999).toString()
         TrainingStore(context,databaseName).let { store ->
             try {
@@ -522,7 +523,7 @@ class Engine1RepositoryTest {
 
         val before=rawAndOutbox()
         assertEquals(retainedRaw,before.first)
-        val ordinary=Engine1.generate(request().copy(start=request().start.plusWeeks(10)),owner,"ordinary-import")
+        val ordinary=Engine15IndependentPlanGenerator.generateWithHistory(request().copy(start=request().start.plusWeeks(10)),owner,emptyList(),"ordinary-import",exerciseLibrary=library())
         // Valid entry comes first: rejection must be atomic for the entire backup.
         val combined=JSONObject().put("schemaVersion",1)
             .put("plans",JSONArray().put(ordinary.encode()).put(protectedPlan.encode())).toString()

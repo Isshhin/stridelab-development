@@ -13,7 +13,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
-import androidx.compose.ui.semantics.SemanticsActions
 import org.junit.Rule
 import org.junit.Test
 import org.junit.Assert.assertTrue

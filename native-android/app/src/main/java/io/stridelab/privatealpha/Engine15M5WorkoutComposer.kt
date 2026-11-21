@@ -97,9 +97,9 @@ internal object Engine15M5WorkoutComposer {
                 "M4B candidate does not match recomputed independent policy output.")
 
         val runDays = source.input.runningDays
-        if (runDays < 2)
+        if (runDays < 1)
             return defer("ONE_DAY_COMPOSITION_UNREVIEWED",
-                "One-day running plans need a separately reviewed composition policy.")
+                "At least one running day is required for workout composition.")
         val userDirected=source.input.userDirected
         val longest = source.athleteBaseline.reportedLongestRunKm
         if(longest==null && !userDirected) return defer("LONGEST_RUN_EXPOSURE_UNKNOWN",
@@ -124,42 +124,52 @@ internal object Engine15M5WorkoutComposer {
                 return defer("WEEKLY_BUDGET_NOT_REPRESENTABLE",
                     "Cannot represent this budget as positive 100 m run slots.", number)
 
-            val lengths: List<Int> = if (runDays == 2) {
-                val first = total / 2
-                val second = total - first
-                if (first < 1 || second > easyMaxUnits)
-                    return defer("TWO_DAY_EXPOSURE_CONFLICT",
-                        "Two easy runs cannot contain this M4B upper-bound budget.", number)
-                listOf(first, second)
-            } else {
-                val longCap = if(userDirected) longMaxUnits
-                    else minOf(longMaxUnits, tenths(total / 10.0 * 0.40))
-                // LONG is not a separate intensity. Give it at least the
-                // longest share and enough distance to keep EASY slots in cap.
-                val minimumLong = maxOf(
-                    (total + runDays - 1) / runDays,
-                    total - (runDays - 1) * easyMaxUnits
-                )
-                val preferredLong = floor(total * 0.30 + EPS).toInt()
-                val chosenLong = maxOf(minimumLong, minOf(preferredLong, longCap))
-                if (chosenLong > longCap || chosenLong < 1)
-                    return defer("LONG_OR_EASY_EXPOSURE_CONFLICT",
-                        "A long slot capped at 40% and the session exposure limits cannot fit the week.",
-                        number)
-                val remaining = total - chosenLong
-                val quotient = remaining / (runDays - 1)
-                val remainder = remaining % (runDays - 1)
-                val easy = (0 until runDays - 1).map { index ->
-                    quotient + if (index < remainder) 1 else 0
+            val lengths: List<Int> = when (runDays) {
+                1 -> {
+                    if (total > longMaxUnits)
+                        return defer("LONG_OR_EASY_EXPOSURE_CONFLICT",
+                            "The single weekly run exceeds the reported longest-run exposure bound.",
+                            number)
+                    listOf(total)
                 }
-                if (easy.any { it < 1 || it > easyMaxUnits || it > chosenLong })
-                    return defer("EASY_SLOT_EXPOSURE_CONFLICT",
-                        "Cannot fit positive easy runs without exceeding exposure limits.",
-                        number)
-                easy + chosenLong
+                2 -> {
+                    val first = total / 2
+                    val second = total - first
+                    if (first < 1 || second > easyMaxUnits)
+                        return defer("TWO_DAY_EXPOSURE_CONFLICT",
+                            "Two easy runs cannot contain this M4B upper-bound budget.", number)
+                    listOf(first, second)
+                }
+                else -> {
+                    val longCap = if(userDirected) longMaxUnits
+                        else minOf(longMaxUnits, tenths(total / 10.0 * 0.40))
+                    // LONG is not a separate intensity. Give it at least the
+                    // longest share and enough distance to keep EASY slots in cap.
+                    val minimumLong = maxOf(
+                        (total + runDays - 1) / runDays,
+                        total - (runDays - 1) * easyMaxUnits
+                    )
+                    val preferredLong = floor(total * 0.30 + EPS).toInt()
+                    val chosenLong = maxOf(minimumLong, minOf(preferredLong, longCap))
+                    if (chosenLong > longCap || chosenLong < 1)
+                        return defer("LONG_OR_EASY_EXPOSURE_CONFLICT",
+                            "A long slot capped at 40% and the session exposure limits cannot fit the week.",
+                            number)
+                    val remaining = total - chosenLong
+                    val quotient = remaining / (runDays - 1)
+                    val remainder = remaining % (runDays - 1)
+                    val easy = (0 until runDays - 1).map { index ->
+                        quotient + if (index < remainder) 1 else 0
+                    }
+                    if (easy.any { it < 1 || it > easyMaxUnits || it > chosenLong })
+                        return defer("EASY_SLOT_EXPOSURE_CONFLICT",
+                            "Cannot fit positive easy runs without exceeding exposure limits.",
+                            number)
+                    easy + chosenLong
+                }
             }
 
-            val longUnits = if (runDays >= 3) lengths.last() else null
+            val longUnits = if (runDays >= 3 || runDays == 1) lengths.last() else null
             if (week.kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY &&
                 longUnits != null && previousLongUnits != null &&
                 longUnits > previousLongUnits)
@@ -167,7 +177,7 @@ internal object Engine15M5WorkoutComposer {
                     "The recovery week must not increase the longest session.", number)
 
             val sessions = lengths.mapIndexed { index, units ->
-                val role = if (runDays >= 3 && index == runDays - 1)
+                val role = if ((runDays >= 3 || runDays == 1) && index == runDays - 1)
                     Engine15M5RunRole.LONG else Engine15M5RunRole.EASY
                 Engine15M5WorkoutSlot(
                     weekNumber = number,

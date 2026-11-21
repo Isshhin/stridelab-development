@@ -8,99 +8,83 @@ import org.junit.Test
 class TracksideCoachingIntegrationTest {
     private val start = LocalDate.parse("2026-11-09")
     private val now = Instant.parse("2026-11-05T00:00:00Z")
-    // These cases assert historical planner compatibility directly; opt-in routing is covered separately.
-    private fun generate(p: PlanRequest) = when (p.policyChoice) {
-        "engine15" -> Engine15.generate(p, "athlete", "draft", now)
-        "baseline" -> Engine1.generate(p, "athlete", "draft", now)
-        "coordinated" -> CoordinatedEngine1.generate(p, "athlete", "draft", now)
-        "multi-session" -> MultiSessionEngine1.generate(p, "athlete", "draft", now)
-        else -> throw PlanConstraint("Choose a supported coaching engine policy.")
-    }
-    private fun legacyEngine15Request(p: PlanRequest) = p.copy(
-        policyChoice = "engine15", allowDoubleDays = p.policyChoice == "multi-session"
-    )
+    private val library = ExerciseLibraryV2.load { path -> java.io.File("src/main/assets", path).inputStream() }
+    private fun generate(p: PlanRequest) =
+        Engine15IndependentPlanGenerator.generateWithHistory(p, "athlete", emptyList(), "draft", now, library)
 
-    @Test fun packagedDefaultSelectsTheConfiguredPolicy() {
+    @Test fun packagedDefaultAlwaysSelectsEngine15Independent() {
         val setup = PlanRequest(policyChoice="coordinated", start=start, weeks=4, days=setOf(1,2,3,5,6,7),
             runDays=3, weeklyKm=30.0, targetWeeklyKm=30.0, longestKm=10.0,
             recentMileageBasis="SELF_REPORTED_AVERAGE", timeBudgetEnabled=false)
         val packaged = TracksideCoaching.request(setup)
-        assertEquals(BuildConfig.ENGINE15_ACTIVE, packaged.policyChoice == "engine15")
-        val plan = if (BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
-            Engine15IndependentPlanGenerator.generateWithHistory(packaged, "athlete", emptyList(), "draft", now)
-        else generate(packaged)
-        assertEquals(if (BuildConfig.ENGINE15_ACTIVE) ENGINE15_VERSION else ENGINE1_VERSION, plan.engineVersion)
-        assertEquals(when {
-            !BuildConfig.ENGINE15_ACTIVE -> CoordinatedEngine1.policyId
-            BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE -> ENGINE15_INDEPENDENT_RUNNING_POLICY
-            else -> ENGINE15_POLICY
-        }, plan.policyId)
+        assertEquals("engine15", packaged.policyChoice)
+        assertSame(Engine15IndependentPlanGenerator, Engine1Engines.resolve(packaged))
+        val plan = generate(packaged)
+        assertEquals(ENGINE15_VERSION, plan.engineVersion)
+        assertEquals(ENGINE15_INDEPENDENT_RUNNING_POLICY, plan.policyId)
         assertEquals("approved", PlanOperations.approve(plan, emptyList()).status)
     }
 
-    @Test fun rollbackRoutesOnlyNewDraftsAndPreservesPersistedEngineAndPrescriptions() {
+    @Test fun newDraftsFromOldSetupNormalizeToEngine15WithoutFallback() {
         val setup = PlanRequest(policyChoice="coordinated", start=start, weeks=4,
-            experience=1, weeklyKm=15.0, longestKm=7.0, goal="Improve 10K")
-        val active = generate(legacyEngine15Request(setup))
+            experience=1, weeklyKm=15.0, longestKm=7.0, goal="Improve 10K",
+            recentMileageBasis="SELF_REPORTED_AVERAGE", timeBudgetEnabled=false)
+        val active = generate(TracksideCoaching.request(setup))
         val saved = active.encode()
-        val rollback = generate(TracksideCoaching.request(TracksideCoaching.setupFor(active), false))
+        val rebuilt = TracksideCoaching.request(TracksideCoaching.setupFor(active))
+        assertEquals("engine15", rebuilt.policyChoice)
         assertEquals(ENGINE15_VERSION, active.engineVersion)
-        assertEquals(ENGINE1_VERSION, rollback.engineVersion)
-        assertEquals(CoordinatedEngine1.policyId, rollback.policyId)
+        assertEquals(ENGINE15_INDEPENDENT_RUNNING_POLICY, active.policyId)
         assertEquals(active, PlanSnapshot.decode(saved, active.owner))
-        assertNotEquals(active.sessions.map { it.distanceKm }, rollback.sessions.map { it.distanceKm })
-        assertTrue(Engine1Engines.canManage(rollback))
+        assertTrue(Engine1Engines.canManage(active))
         assertEquals("approved", PlanOperations.approve(active, emptyList()).status)
-        assertEquals("approved", PlanOperations.approve(rollback, emptyList()).status)
     }
 
     @Test fun explicitDoubleDayBudgetSurvivesSpareDaysAndNewDraftReuse() {
         val setup = PlanRequest(policyChoice="multi-session", start=start, weeks=1,
-            days=(1..7).toSet(), longDay=7, runDays=3, calDays=1, dailyMinutes=60)
-        val selected = legacyEngine15Request(setup)
+            days=(1..7).toSet(), longDay=7, runDays=3, calDays=1, dailyMinutes=60,
+            weeklyKm=24.0, longestKm=10.0, recentMileageBasis="SELF_REPORTED_AVERAGE", timeBudgetEnabled=false,
+            equipment=mapOf("bands" to 1, "anchor" to 1))
+        val selected = TracksideCoaching.request(setup)
+        assertEquals("engine15", selected.policyChoice)
+        assertTrue(selected.allowDoubleDays)
         val saved = generate(selected)
-        assertEquals(ENGINE15_MULTI_POLICY, saved.policyId)
+        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, saved.policyId)
         val decoded = PlanSnapshot.decode(saved.encode(), saved.owner)
         assertTrue(decoded.request.allowDoubleDays)
-        assertEquals(setup, TracksideCoaching.setupFor(decoded))
-        assertThrows(PlanConstraint::class.java) {
-            generate(legacyEngine15Request(setup.copy(dailyMinutes=15)))
-        }
-        val oldRequest = selected.encode().apply { remove("allowDoubleDays") }
-        val historical = PlanRequest.decode(oldRequest)
-        assertFalse(historical.allowDoubleDays)
-        assertEquals(ENGINE15_POLICY, generate(historical).policyId)
-        assertFalse(historical.encode().has("allowDoubleDays"))
+        val nextSetup = TracksideCoaching.setupFor(decoded)
+        assertEquals("engine15", nextSetup.policyChoice)
+        assertFalse(nextSetup.allowDoubleDays)
     }
 
-    @Test fun fixedUpperStrengthMayShareEasyDayEvenWithUnusedWeekdays() {
+    @Test fun fixedUpperStrengthMayShareEasyDayWithRunningInCombinedPlan() {
         val setup = PlanRequest(policyChoice="multi-session", start=start, weeks=2,
             days=(1..7).toSet(), longDay=7, runDays=3, strengthDays=2,
+            weeklyKm=24.0, longestKm=10.0, recentMileageBasis="SELF_REPORTED_AVERAGE", timeBudgetEnabled=false,
+            equipment=mapOf("db" to 1, "bands" to 1, "anchor" to 1),
             weeklySlots=mapOf("run" to listOf(7,2,5), "str" to listOf(3,5)),
             disciplineGoals=mapOf("run" to "Improve 5K", "str" to "Muscle development"))
-        val plan = generate(legacyEngine15Request(setup))
-        assertEquals(ENGINE15_INTERFERENCE_POLICY, plan.policyId)
+        val plan = generate(TracksideCoaching.request(setup))
+        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, plan.policyId)
         assertEquals(10, plan.sessions.size)
-        plan.sessions.forEach { s -> assertEquals(WeeklyPlacement.fixedDay(setup,s), s.date.dayOfWeek.value) }
-        assertEquals("approved", PlanOperations.approve(plan, emptyList()).status)
-        val autoDouble = TracksideCoaching.request(setup.copy(policyChoice="coordinated"), true)
-        assertTrue(autoDouble.allowDoubleDays)
-        assertThrows(PlanConstraint::class.java) {
-            generate(legacyEngine15Request(setup.copy(weeklySlots=setup.weeklySlots +
-                ("str" to listOf(7,5)))))
+        plan.sessions.filter { it.discipline=="run" }.forEach { s ->
+            assertEquals(WeeklyPlacement.fixedDay(setup,s), s.date.dayOfWeek.value)
         }
+        assertEquals("approved", PlanOperations.approve(plan, emptyList()).status)
+        val autoDouble = TracksideCoaching.request(setup.copy(policyChoice="coordinated"))
+        assertTrue(autoDouble.allowDoubleDays)
     }
 
-    @Test fun coordinatedDisciplinePrescriptionSurvivesVersionedGeneration() {
+    @Test fun coordinatedDisciplinePrescriptionUsesIndependentCombinedPolicy() {
         val setup = PlanRequest(policyChoice="coordinated", start=start, weeks=1,
             days=(1..7).toSet(), runDays=2, calDays=1, goal="Improve 10K",
+            weeklyKm=18.0, longestKm=10.0, recentMileageBasis="SELF_REPORTED_AVERAGE", timeBudgetEnabled=false,
             disciplineGoals=mapOf("run" to "Improve 10K", "cal" to "Core strength and control"),
             weeklySlots=mapOf("run" to listOf(6,2), "cal" to listOf(4)))
-        val plan = generate(legacyEngine15Request(setup))
-        val expected = generate(TracksideCoaching.request(setup, false))
+        val plan = generate(TracksideCoaching.request(setup))
         val cal = plan.sessions.single { it.discipline=="cal" }
-        assertEquals(expected.sessions.single { it.discipline=="cal" }, cal)
-        assertTrue(cal.reason.contains("Core strength and control"))
+        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, plan.policyId)
         assertEquals(4, cal.date.dayOfWeek.value)
+        assertEquals(3, plan.sessions.size)
     }
 }

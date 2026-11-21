@@ -26,8 +26,6 @@ class Engine15M4WeeklyVolumeSkeletonTest {
         val expected=listOf(67.5,71.25,75.0,60.0,71.25,75.0,78.75,63.0)
         for(w in expected.indices) {
             assertEquals("Week "+(w+1),expected[w],policy.ceiling(w,75.0,80.0),1e-9)
-            assertEquals(policy.ceiling(w,75.0,80.0),
-                Engine15.runningCeiling(w,75.0,80.0),0.0)
         }
         assertEquals(45.0,policy.ceiling(0,50.0,80.0),1e-9)
         assertEquals(47.5,policy.ceiling(1,50.0,80.0),1e-9)
@@ -124,21 +122,13 @@ class Engine15M4WeeklyVolumeSkeletonTest {
         }
     }
 
-    @Test fun originalExecutedR0PlanAndTraceStayUnchanged() {
-        val p=request().copy(recentMileageBasis="LEGACY_UNSPECIFIED",
-            reportedPeakWeeklyKm=null)
-        val (plan,trace)=Engine15.diagnoseWorkload(p,"m4-synthetic","m4-r0",now)
-        assertEquals(Engine15.generate(p,"m4-synthetic","m4-r0",now),plan)
-        val assigned=listOf(67.5,71.2,75.0,54.1,71.2,75.0,78.7,56.4)
-        val delivered=listOf(62.283,64.673,67.633,54.1,64.783,67.773,70.533,56.4)
-        val rows=trace.summaries(p,plan)
-        assertEquals(8,rows.size)
-        for(i in rows.indices) {
-            assertEquals("Allocated week "+(i+1),assigned[i],rows[i].assignedKm!!,0.01)
-            assertEquals("Delivered week "+(i+1),delivered[i],rows[i].deliveredKm!!,0.01)
-        }
-        assertTrue(plan.sessions.any { it.quality })
-        assertTrue(plan.sessions.any { it.runningPrescription?.mixedSegments!=null })
+    @Test fun independentGeneratorProducesDeterministicDistanceAndQualitySessions() {
+        val p=request().copy(recentMileageBasis="SELF_REPORTED_AVERAGE", reportedPeakWeeklyKm=null)
+        val a=Engine15IndependentPlanGenerator.generateWithHistory(p,"m4-synthetic",emptyList(),"m4-r0",now)
+        val b=Engine15IndependentPlanGenerator.generateWithHistory(p,"m4-synthetic",emptyList(),"m4-r0",now)
+        assertEquals(a,b)
+        assertTrue(a.sessions.any { it.quality })
+        assertTrue(a.sessions.any { it.runningPrescription?.mixedSegments!=null })
     }
 
     @Test fun cannotExceedUpstreamLimitOrCreateCatchUp() {

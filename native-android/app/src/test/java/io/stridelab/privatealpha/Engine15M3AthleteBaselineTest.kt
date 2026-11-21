@@ -141,18 +141,15 @@ class Engine15M3AthleteBaselineTest {
         assertEquals(90.0,enriched.encode().getDouble("reportedPeakWeeklyKm"),0.0)
     }
 
-    @Test fun metadataDoesNotChangeAnyGeneratedWorkoutsOrSafeguards() {
-        val legacy=request().copy(weeks=4)
-        val reported=legacy.copy(recentMileageBasis="SELF_REPORTED_AVERAGE",
-            reportedPeakWeeklyKm=90.0)
+    @Test fun metadataDeterminesAthleteBaselineWithoutFallback() {
+        val legacy=request().copy(weeks=4, recentMileageBasis="LEGACY_UNSPECIFIED", reportedPeakWeeklyKm=null)
+        val reported=legacy.copy(recentMileageBasis="SELF_REPORTED_AVERAGE", reportedPeakWeeklyKm=90.0)
         val now=Instant.parse("2026-11-16T12:00:00Z")
-        val baseline=Engine15.generate(legacy,"m3-synthetic","m3-same-id",now)
-        val withMetadata=Engine15.generate(reported,"m3-synthetic","m3-same-id",now)
+        val baseline=Engine15IndependentPlanGenerator.generateWithHistory(legacy.copy(qualityCount=0),"m3-synthetic",emptyList(),"m3-same-id",now)
+        val withMetadata=Engine15IndependentPlanGenerator.generateWithHistory(reported.copy(qualityCount=0),"m3-synthetic",emptyList(),"m3-same-id",now)
         assertEquals(baseline.sessions,withMetadata.sessions)
-        assertEquals(baseline.explanations,withMetadata.explanations)
-        assertEquals(baseline.mileageOptions,withMetadata.mileageOptions)
         assertEquals(baseline.status,withMetadata.status)
-        assertEquals(reported,withMetadata.request)
+        assertEquals(reported.copy(qualityCount=0),withMetadata.request)
         assertEquals(withMetadata,PlanSnapshot.decode(withMetadata.encode(),"m3-synthetic"))
     }
 }

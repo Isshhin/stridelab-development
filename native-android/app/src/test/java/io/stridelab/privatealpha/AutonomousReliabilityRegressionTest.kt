@@ -12,7 +12,11 @@ import java.time.ZoneId
 class AutonomousReliabilityRegressionTest {
     private val owner="qa-synthetic-owner"
     private val now=Instant.parse("2026-10-28T12:00:00Z")
-    private fun plan():PlanSnapshot=Engine1.generate(PlanRequest(start=LocalDate.parse("2026-11-02"),runDays=0,strengthDays=2),owner,"qa-plan",now).copy(status="approved")
+    private val library=ExerciseLibraryV2.load { path -> java.io.File("src/main/assets",path).inputStream() }
+    private fun plan():PlanSnapshot=Engine15IndependentPlanGenerator.generateWithHistory(
+        PlanRequest(start=LocalDate.parse("2026-11-02"),runDays=0,strengthDays=2,policyChoice="engine15",timeBudgetEnabled=false,equipment=mapOf("db" to 1)),
+        owner,emptyList(),"qa-plan",now,library
+    ).copy(status="approved")
     private fun actual(sets:List<SetRecord> = emptyList())=WorkoutLog(now,sets=sets,performedOn=LocalDate.parse("2026-10-28"))
     private fun backup(p:PlanSnapshot)=JSONObject().put("schemaVersion",1).put("plans",JSONArray().put(p.encode())).toString()
 
@@ -67,7 +71,7 @@ class AutonomousReliabilityRegressionTest {
     }
     @Test fun restoreRejectsConflictingSessionsInsideApprovedPlan() {
         val p=plan();val a=p.sessions[0];val b=p.sessions[1].copy(date=a.date)
-        assertTrue(Engine1.conflict(a,b))
+        assertTrue(Engine15IndependentPlanGenerator.conflict(a,b))
         assertThrows(PlanConstraint::class.java) { PlanBackup.additions(PlanBackup.read(backup(p.copy(sessions=listOf(a,b)+p.sessions.drop(2))),owner),emptyList()) }
     }
     @Test fun restoreCannotDuplicateExistingSourceRunLink() {

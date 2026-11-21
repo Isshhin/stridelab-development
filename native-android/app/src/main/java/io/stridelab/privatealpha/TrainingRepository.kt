@@ -524,11 +524,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     suspend fun generatePlan(request:PlanRequest,engine:PlanGenerationEngine?=null) = operation("Building your plan…") {
         val owner=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)
         val state=mutable.value
-        val selected=engine ?: Engine1Engines.resolve(request)
-        if (request.qualityDistanceClaims.isNotEmpty() &&
-            (!BuildConfig.DEBUG || !BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE ||
-                selected !== Engine15IndependentPlanGenerator))
-            throw PlanConstraint("Private Tempo distance entries require the independent debug route.")
+        val selected=engine ?: Engine15IndependentPlanGenerator
         val ownerRows = state.activities.filter { activityCorrectionOwner(it.id, state) == owner }
         val allowedIds = ownerRows.mapTo(mutableSetOf()) { it.id }
         val userLabels = if (ownerRows.isEmpty()) emptyMap() else {
@@ -560,7 +556,6 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             }
         } else null
         savePlan(when(selected) {
-            Engine15 -> Engine15.generateWithHistory(request,owner,mutable.value.plans)
             Engine15IndependentPlanGenerator -> Engine15IndependentPlanGenerator.generateWithHistory(
                 request, owner, mutable.value.plans,
                 exerciseLibrary = if (request.strengthDays > 0 || request.calDays > 0 || request.conditioningDays > 0)

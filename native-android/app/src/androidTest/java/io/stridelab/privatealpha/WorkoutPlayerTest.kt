@@ -21,7 +21,11 @@ import java.time.LocalDate
 class WorkoutPlayerTest {
     @get:Rule val compose=createAndroidComposeRule<NativeMainActivity>()
     private fun plan():PlanSnapshot {
-        val generated=Engine1.generate(PlanRequest(start=LocalDate.now(),weeks=1,runDays=0,strengthDays=1,days=(1..7).toSet()),"synthetic-player")
+        val generated=Engine15IndependentPlanGenerator.generateWithHistory(
+            PlanRequest(start=LocalDate.now(),weeks=1,runDays=0,strengthDays=1,days=(1..7).toSet(),timeBudgetEnabled=false),
+            "synthetic-player",emptyList(),
+            exerciseLibrary=ExerciseLibraryV2.load { path -> InstrumentationRegistry.getInstrumentation().targetContext.assets.open(path) }
+        )
         val exercises=listOf(ExercisePrescription("e1","Back squat",2,8,rest=60,equipment="Barbell + rack with safeties"),ExercisePrescription("e3","Romanian deadlift",2,8,rest=60,equipment="Barbell"))
         return PlanOperations.approve(generated.copy(sessions=generated.sessions.map { it.copy(exercises=exercises) }),emptyList())
     }

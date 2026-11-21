@@ -106,6 +106,11 @@ internal object Engine15M6IndependentCalendar {
     ): List<Int>? {
         val others = possible.filter { it != longDay }.sorted()
         val required = count - if (longDay == null) 0 else 1
+        if (required == 0 && longDay != null) {
+            return if (longDay in possible && (requiredDays.isEmpty() || requiredDays == setOf(longDay))) {
+                listOf(longDay)
+            } else null
+        }
         if (others.size < required || required <= 0) return null
         val combinations = (0 until (1 shl others.size)).mapNotNull { bits ->
             if (Integer.bitCount(bits) != required) null
@@ -152,7 +157,7 @@ internal object Engine15M6IndependentCalendar {
             val weekStart = calendar.startDate.plusWeeks((week.weekNumber - 1).toLong())
             val longSlot = week.slots.singleOrNull { it.role == Engine15M5RunRole.LONG }
             val lockedLong = longSlot?.let { calendar.lockedSlotDates[week.weekNumber to it.slotNumber] }
-            val longDay: Int? = if (days >= 3) lockedLong?.dayOfWeek?.value ?: calendar.preferredLongIsoDay else null
+            val longDay: Int? = if (days >= 3 || days == 1) lockedLong?.dayOfWeek?.value ?: calendar.preferredLongIsoDay else null
             if (longDay != null && longDay !in calendar.availableIsoDays)
                 return defer("LONG_DAY_UNAVAILABLE",
                     "The preferred long-run day is not in the stated training availability.")

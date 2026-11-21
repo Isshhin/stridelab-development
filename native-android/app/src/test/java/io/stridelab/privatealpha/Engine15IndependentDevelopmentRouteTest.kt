@@ -16,10 +16,9 @@ class Engine15IndependentDevelopmentRouteTest {
         recentMileageBasis = "SELF_REPORTED_AVERAGE"
     )
 
-    @Test fun onlyTheDevelopmentOptInSelectsTheIndependentRunningGenerator() {
+    @Test fun engine1EnginesAlwaysSelectsIndependentGeneratorAsDefault() {
         val resolved = Engine1Engines.resolve(request())
-        assertSame(if (BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
-            Engine15IndependentPlanGenerator else Engine15, resolved)
+        assertSame(Engine15IndependentPlanGenerator, resolved)
     }
 
     @Test fun developmentRouteValidatesAndBuildsAManagedRunningDraftWithoutFallback() {
@@ -65,14 +64,12 @@ class Engine15IndependentDevelopmentRouteTest {
                 forbidden.containsMatchIn(java.io.File(root, source).readText()))
         }
         val validation = java.io.File(root, "PlanScheduleValidation.kt").readText()
-        val independentBranch = validation.substringAfter("if(policyA in setOf(ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY, ENGINE15_INDEPENDENT_CALISTHENICS_POLICY, ENGINE15_INDEPENDENT_CONDITIONING_POLICY, ENGINE15_INDEPENDENT_COMBINED_POLICY) ||")
-            .substringBefore("else if(policyA==ENGINE15_INTERFERENCE_POLICY")
-        assertTrue(independentBranch.contains("Engine15IndependentPlanGenerator.conflict"))
-        assertFalse(independentBranch.contains("Engine1."))
+        assertTrue(validation.contains("Engine15IndependentPlanGenerator.conflict"))
+        assertFalse(validation.contains("Engine1."))
         val repository = java.io.File(root, "TrainingRepository.kt").readText()
         assertTrue(repository.contains("Engine15IndependentPlanGenerator.generateWithHistory("))
         val routing = java.io.File(root, "Engine1Engines.kt").readText()
-        assertTrue(routing.contains("if(BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE) Engine15IndependentPlanGenerator else Engine15"))
+        assertTrue(routing.contains("fun resolve(p:PlanRequest):PlanGenerationEngine=Engine15IndependentPlanGenerator"))
     }
 
     @Test fun strengthRequestValidationDefersMixedPlansAndUnreviewedNotes() {

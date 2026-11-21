@@ -43,6 +43,8 @@ class LocalPlanRepositoryTest {
         SessionVault(context).clear(cloudOwner)
     }
 
+    private fun library() = ExerciseLibraryV2.load { path -> context.assets.open(path) }
+
     private fun request() = PlanRequest(
         goal = "General fitness",
         start = LocalDate.now().plusWeeks(1),
@@ -138,13 +140,13 @@ class LocalPlanRepositoryTest {
 
     @Test fun manualLocalBackupRestoreRequiresSameOriginalDeviceOwner() = runBlocking {
         val deviceOwner = requireNotNull(repo.state.value.localPlanOwner)
-        val incoming = Engine1.generate(request(), deviceOwner, "synthetic-local-import")
+        val incoming = Engine15IndependentPlanGenerator.generateWithHistory(request(), deviceOwner, emptyList(), "synthetic-local-import", exerciseLibrary = library())
         val file = JSONObject().put("schemaVersion", 1)
             .put("plans", JSONArray().put(incoming.encode())).toString()
         assertTrue(repo.restorePlans(file))
         assertEquals(incoming, repo.state.value.plans.single())
         assertEquals(0, outboxCount(deviceOwner))
-        val foreign = Engine1.generate(request(), cloudOwner, "synthetic-foreign-import")
+        val foreign = Engine15IndependentPlanGenerator.generateWithHistory(request(), cloudOwner, emptyList(), "synthetic-foreign-import", exerciseLibrary = library())
         val foreignFile = JSONObject().put("schemaVersion", 1)
             .put("plans", JSONArray().put(foreign.encode())).toString()
         assertFalse(repo.restorePlans(foreignFile))
@@ -154,7 +156,7 @@ class LocalPlanRepositoryTest {
 
     @Test fun opaqueLocalRecordCannotBeOverwrittenByManualRestore() = runBlocking {
         val deviceOwner = requireNotNull(repo.state.value.localPlanOwner)
-        val protected = Engine1.generate(request(), deviceOwner, "synthetic-opaque-local")
+        val protected = Engine15IndependentPlanGenerator.generateWithHistory(request(), deviceOwner, emptyList(), "synthetic-opaque-local", exerciseLibrary = library())
         val raw = protected.encode().put("schemaVersion", 999).toString()
         TrainingStore(context, databaseName).use { localStore ->
             localStore.applyRemotePage(

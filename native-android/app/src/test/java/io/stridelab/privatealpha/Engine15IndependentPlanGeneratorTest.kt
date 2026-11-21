@@ -705,4 +705,88 @@ class Engine15IndependentPlanGeneratorTest {
             assertFalse("Legacy planning dependency in $file", forbidden.containsMatchIn(source))
         }
     }
+
+    @Test fun oneRunPerWeekPlanGeneratesApprovesAndValidates() {
+        val oneDay = request(weeks = 4).copy(
+            runDays = 1,
+            longDay = 7,
+            days = setOf(1, 2, 3, 4, 5, 7),
+            weeklyKm = 8.0,
+            targetWeeklyKm = 8.0,
+            longestKm = 10.0,
+            qualityCount = 0
+        )
+        val draft = Engine15IndependentPlanGenerator.generateWithHistory(
+            oneDay, owner, emptyList(), "one-day", now
+        )
+        assertEquals(4, draft.sessions.size)
+        assertEquals(ENGINE15_INDEPENDENT_RUNNING_POLICY, draft.policyId)
+        assertTrue(draft.sessions.all { it.kind == "long" && it.date.dayOfWeek.value == 7 })
+        val approved = PlanOperations.approve(draft, emptyList())
+        assertEquals("approved", approved.status)
+        Engine15IndependentPlanGenerator.validateSaved(approved)
+    }
+
+    @Test fun generalFitnessRunningGoalWithQualityGeneratesCleanly() {
+        val fitness = request(weeks = 8).copy(
+            goal = "General fitness",
+            experience = 2,
+            runDays = 4,
+            longDay = 7,
+            days = setOf(1, 2, 4, 5, 7),
+            weeklyKm = 36.0,
+            targetWeeklyKm = 40.0,
+            longestKm = 12.0,
+            qualityCount = 1,
+            qualityDays = setOf(2)
+        )
+        val draft = Engine15IndependentPlanGenerator.generateWithHistory(
+            fitness, owner, emptyList(), "gen-fit", now
+        )
+        assertTrue(draft.sessions.any { it.quality })
+        val approved = PlanOperations.approve(draft, emptyList())
+        assertEquals("approved", approved.status)
+        Engine15IndependentPlanGenerator.validateSaved(approved)
+    }
+
+    @Test fun qualityWorkoutVisualBlocksRenderStructuredWarmupWorkAndCooldown() {
+        val draft = Engine15IndependentPlanGenerator.generateWithHistory(
+            request(weeks = 8).copy(
+                goal = "Improve 10K",
+                experience = 2,
+                runDays = 4,
+                longDay = 7,
+                days = setOf(1, 2, 4, 5, 7),
+                weeklyKm = 40.0,
+                targetWeeklyKm = 45.0,
+                longestKm = 14.0,
+                qualityCount = 1,
+                qualityDays = setOf(2)
+            ),
+            owner, emptyList(), "visual-blocks", now
+        )
+        val qualitySessions = draft.sessions.filter { it.quality }
+        assertTrue(qualitySessions.isNotEmpty())
+        qualitySessions.forEach { session ->
+            val blocks = WorkoutVisualBlocks.fromSession(session, null)
+            assertTrue(blocks.size >= 3)
+            assertEquals("WARM_UP", blocks.first().purpose)
+            assertEquals("COOL_DOWN", blocks.last().purpose)
+            assertTrue(blocks.any { it.purpose == "WORK" })
+            assertFalse(blocks.any { it.label == "Easy Run" })
+
+            val stepFallbackSession = session.copy(
+                quality = true,
+                kind = "quality",
+                title = "Threshold intervals",
+                steps = listOf("12 min easy warm-up", "4 × 6 min threshold, with 2 min easy jog", "10 min easy cooldown"),
+                runningPrescription = null
+            )
+            val fallbackBlocks = WorkoutVisualBlocks.fromSession(stepFallbackSession, null)
+            assertTrue(fallbackBlocks.size >= 3)
+            assertEquals("WARM_UP", fallbackBlocks.first().purpose)
+            assertEquals("COOL_DOWN", fallbackBlocks.last().purpose)
+            assertFalse(fallbackBlocks.any { it.label == "Easy Run" })
+        }
+    }
 }

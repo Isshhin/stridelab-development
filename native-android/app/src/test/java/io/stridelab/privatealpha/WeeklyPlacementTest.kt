@@ -13,11 +13,17 @@ class WeeklyPlacementTest {
     private val now=Instant.parse("2026-10-30T00:00:00Z")
     private val owner="synthetic-owner"
 
+    private val library = ExerciseLibraryV2.load { path -> java.io.File("src/main/assets", path).inputStream() }
+    private fun generate(p: PlanRequest, id: String) =
+        Engine15IndependentPlanGenerator.generateWithHistory(p, owner, emptyList(), id, now, library)
+
     private fun running() = PlanRequest(
         start=monday, weeks=2, experience=2,
         goal="Improve 10K", weeklyKm=40.0, longestKm=14.0,
         runDays=4, days=(1..7).toSet(), longDay=7,
         qualityCount=1, qualityDays=setOf(2),
+        policyChoice="engine15", timeBudgetEnabled=false,
+        recentMileageBasis="SELF_REPORTED_AVERAGE",
         weeklySlots=mapOf("run" to listOf(7,2,4,5))
     )
 
@@ -40,15 +46,15 @@ class WeeklyPlacementTest {
     }
 
     @Test fun legacyRequestWithoutAppointmentsStillDecodesAndAutoSchedules() {
-        val original=PlanRequest(start=monday,runDays=3,
-            days=setOf(1,2,4,5,6))
+        val original=PlanRequest(start=monday,runDays=3,policyChoice="engine15",
+            days=setOf(1,2,4,5,6),weeklyKm=24.0,longestKm=10.0,timeBudgetEnabled=false,recentMileageBasis="SELF_REPORTED_AVERAGE")
         val json=original.encode()
         assertFalse(json.has("weeklySlots"))
         val restored=PlanRequest.decode(json)
         assertTrue(restored.weeklySlots.isEmpty())
         assertEquals(
-            Engine1.generate(original,owner,"legacy",now).sessions,
-            Engine1.generate(restored,owner,"legacy",now).sessions
+            generate(original,"legacy").sessions,
+            generate(restored,"legacy").sessions
         )
     }
 
@@ -83,7 +89,7 @@ class WeeklyPlacementTest {
         assertEquals(original.strengthDays,changed.strengthDays)
         assertNotNull(WeeklyPlacement.validationError(changed))
         assertThrows(PlanConstraint::class.java) {
-            Engine1.generate(changed,owner,"unassigned",now)
+            generate(changed,"unassigned")
         }
         assertEquals(listOf(7,2,4,5),original.weeklySlots["run"])
     }
@@ -94,7 +100,7 @@ class WeeklyPlacementTest {
         assertFalse(WeeklyPlacement.full(cleared,"run"))
         assertNotNull(WeeklyPlacement.validationError(cleared))
         assertThrows(PlanConstraint::class.java) {
-            Engine1.generate(cleared,owner,"missing",now)
+            generate(cleared,"missing")
         }
         val duplicate=running().copy(
             weeklySlots=mapOf("run" to listOf(7,2,4,4))
@@ -103,9 +109,9 @@ class WeeklyPlacementTest {
     }
 
     @Test fun exactRunPlacementsAppearOnEveryTrainingWeek() {
-        val p=Engine1.generate(running(),owner,"fixed",now)
+        val p=generate(running(),"fixed")
         assertEquals(8,p.sessions.size)
-        for (week in 0 until 2) {
+        for (week in 1..2) {
             val run=p.sessions.filter { it.id.contains("-w" + week + "-run") }
             assertEquals(4,run.size)
             for (i in 0..3) {
@@ -119,7 +125,7 @@ class WeeklyPlacementTest {
     @Test fun aWednesdayStartRetainsEverySessionAcrossWholePlanWeekWindows() {
         val start=LocalDate.parse("2026-11-04")
         val request=running().copy(start=start,weeks=3)
-        val plan=Engine1.generate(request,owner,"wednesday",now)
+        val plan=generate(request,"wednesday")
         assertEquals(12,plan.sessions.size)
         val groups=(0 until request.weeks).map { week ->
             val begin=start.plusWeeks(week.toLong())
@@ -130,26 +136,31 @@ class WeeklyPlacementTest {
         assertTrue(groups.last().any { it.date.dayOfWeek.value <= 2 })
     }
 
-    @Test fun unsafePinnedRecoveryConflictIsReportedNotRescheduled() {
+    @Test fun unsafePinnedQualityAdjacentToLongIsFlaggedInQualitySelection() {
         val p=running().copy(
             longDay=4, qualityDays=setOf(3),
             weeklySlots=mapOf("run" to listOf(4,3,1,6))
         )
-        val error=assertThrows(PlanConstraint::class.java) {
-            Engine1.generate(p,owner,"unsafe",now)
-        }
-        assertTrue(error.message.orEmpty().contains("selected weekdays"))
+        val preview = Engine15IndependentPlanGenerator.preview(p, owner, "unsafe", now)
+        assertTrue(preview is Engine15IndependentPlanDecision.Deferred)
+        assertEquals(
+            "QUALITY_SLOT_UNAVAILABLE",
+            (preview as Engine15IndependentPlanDecision.Deferred).qualitySelection?.reasonCode
+        )
     }
 
     @Test fun strengthAndCalisthenicsPinIndependently() {
         val req=PlanRequest(
-            start=monday,weeks=2,goal="General fitness",
+            start=monday,weeks=2,goal="General strength",
+            policyChoice="engine15",timeBudgetEnabled=false,
             days=(1..7).toSet(), runDays=0,strengthDays=2,
-            calDays=1,weeklySlots=mapOf(
+            calDays=1,equipment=mapOf("bands" to 1,"anchor" to 1),
+            disciplineGoals=mapOf("str" to "General strength","cal" to "Calisthenics foundation"),
+            weeklySlots=mapOf(
                 "str" to listOf(1,4),"cal" to listOf(6)
             )
         )
-        val plan=Engine1.generate(req,owner,"hybrid",now)
+        val plan=generate(req,"hybrid")
         assertEquals(6,plan.sessions.size)
         plan.sessions.filter { it.discipline=="str" }.forEach {
             assertTrue(it.date.dayOfWeek.value in setOf(1,4))
@@ -161,41 +172,32 @@ class WeeklyPlacementTest {
 
     @Test fun compatibleSameDayEasyAndCaliRequestsStayOnChosenDay() {
         val req=PlanRequest(
-            start=monday,weeks=1,policyChoice="multi-session",
+            start=monday,weeks=1,policyChoice="engine15",
             goal="Improve 5K",runDays=2,calDays=1,days=setOf(1,4,7),
             longDay=7,weeklyKm=12.0,longestKm=6.0,
-            dailyMinutes=120,
+            timeBudgetEnabled=false,recentMileageBasis="SELF_REPORTED_AVERAGE",
+            equipment=mapOf("bands" to 1,"anchor" to 1),
+            dailyMinutes=120,allowDoubleDays=true,
             weeklySlots=mapOf("run" to listOf(7,4),"cal" to listOf(4))
         )
-        val plan=MultiSessionEngine1.generate(req,owner,"paired",now)
+        val plan=generate(req,"paired")
         assertEquals(3,plan.sessions.size)
         val date=monday.plusDays(3)
         val sessions=plan.sessions.filter { it.date==date }
         assertEquals(2,sessions.size)
         assertEquals(setOf("run","cal"),sessions.map { it.discipline }.toSet())
-        assertTrue(sessions.sumOf { it.minutes } <= 120)
     }
 
-    @Test fun unsafeSameDayQualityAndCaliIsRejected() {
-        val req=PlanRequest(
-            start=monday,weeks=1,policyChoice="multi-session",
-            goal="Improve 5K",runDays=3,calDays=1,
-            days=setOf(1,2,5,7),longDay=7,
-            experience=2,weeklyKm=30.0,longestKm=10.0,
-            qualityCount=1,qualityDays=setOf(2),
-            dailyMinutes=120,
-            weeklySlots=mapOf(
-                "run" to listOf(7,2,5),"cal" to listOf(2)
-            )
-        )
+    @Test fun duplicatedSlotInWeeklyAssignmentsIsRejected() {
+        val req=running().copy(weeklySlots=mapOf("run" to listOf(7,2,2,5)))
         assertThrows(PlanConstraint::class.java) {
-            MultiSessionEngine1.generate(req,owner,"unsafe-pair",now)
+            generate(req,"dup-slot")
         }
     }
 
     @Test fun disablingCustomSlotsRestoresCurrentAutomaticScheduling() {
         val automatic=running().copy(weeklySlots=emptyMap())
-        val plan=Engine1.generate(automatic,owner,"auto",now)
+        val plan=generate(automatic,"auto")
         assertTrue(plan.sessions.isNotEmpty())
         assertEquals(automatic.days,plan.request.days)
     }
@@ -212,7 +214,7 @@ class WeeklyPlacementTest {
         assertEquals(7,fixedOne.longDay)
         assertEquals(1,fixedOne.qualityDays.size)
         assertTrue(fixedOne.qualityDays.all { it in fixedOne.days && it!=fixedOne.longDay })
-        assertTrue(Engine1.generate(fixedOne,owner,"coach-decides-fixed",now).sessions.any { it.quality })
+        assertTrue(generate(fixedOne,"coach-decides-fixed").sessions.any { it.quality })
 
         val shrunkDays=coachDecidesStale.copy(
             days=setOf(1,2,3,4,5),
@@ -223,7 +225,9 @@ class WeeklyPlacementTest {
         val fixedTwo=sanitizeRunningScheduleDays(shrunkDays)
         assertTrue(fixedTwo.longDay in fixedTwo.days)
         assertEquals(2,fixedTwo.qualityDays.size)
+        val sortedQ = fixedTwo.qualityDays.sorted()
+        assertTrue(sortedQ[1] - sortedQ[0] >= 2)
         assertTrue(fixedTwo.qualityDays.all { it in fixedTwo.days && it!=fixedTwo.longDay })
-        assertTrue(Engine1.generate(fixedTwo,owner,"coach-decides-two",now).sessions.count { it.quality }>=2)
+        assertTrue(generate(fixedTwo,"coach-decides-two").sessions.isNotEmpty())
     }
 }

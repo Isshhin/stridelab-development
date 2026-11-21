@@ -103,22 +103,20 @@ class TracksideEngineBuilderIntegrationTest {
             compose.waitUntil(15_000) { repo.state.value.plans.isNotEmpty() }
             val draft = repo.state.value.plans.single()
             assertEquals("draft", draft.status)
-            val expectedPolicy = if (BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE)
-                ENGINE15_INDEPENDENT_RUNNING_POLICY else ENGINE15_POLICY
-            assertEquals(expectedPolicy, draft.policyId)
+            assertEquals(ENGINE15_INDEPENDENT_RUNNING_POLICY, draft.policyId)
             assertEquals(ENGINE15_VERSION, draft.engineVersion)
             assertEquals("Improve 10K", draft.request.goal)
             assertEquals(12.0, draft.request.weeklyKm, 0.0)
             assertEquals(targetKm, draft.request.targetWeeklyKm)
             assertEquals(12, draft.sessions.size)
-            val expectedSessions = if (BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE) {
+            val expectedSessions = run {
                 val decision = Engine15IndependentPlanGenerator.preview(
                     draft.request, fixture, draft.id, draft.createdAt, existingPlans = emptyList()
                 )
                 assertTrue("Expected an independent running candidate, got $decision",
                     decision is Engine15IndependentPlanDecision.Candidate)
                 (decision as Engine15IndependentPlanDecision.Candidate).plan.sessions
-            } else Engine15.generate(draft.request, fixture, draft.id, draft.createdAt).sessions
+            }
             assertEquals(expectedSessions, draft.sessions)
             val workout = draft.sessions.first()
             compose.waitUntil(10_000) {

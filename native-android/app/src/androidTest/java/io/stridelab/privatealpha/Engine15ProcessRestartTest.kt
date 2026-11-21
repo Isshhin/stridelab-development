@@ -60,7 +60,7 @@ class Engine15ProcessRestartTest {
                         PlannedSession("future-run", futureDay, "run", "Future easy run", 60, 8.0, "easy")
                     ), listOf("Synthetic fixture for process-restart verification."))
             }
-            assertTrue(repo.generatePlan(request, if (scenario in setOf("draft", "approved", "equal")) Engine15 else feedbackEngine))
+            assertTrue(repo.generatePlan(request, if (scenario in setOf("draft", "approved", "equal")) Engine15IndependentPlanGenerator else feedbackEngine))
             var plan = repo.state.value.plans.single()
             assertEquals(request.targetWeeklyKm, plan.request.targetWeeklyKm)
             if (scenario != "draft") {

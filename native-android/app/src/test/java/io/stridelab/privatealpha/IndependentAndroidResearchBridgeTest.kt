@@ -71,7 +71,7 @@ class IndependentAndroidResearchBridgeTest {
         val first = inspect()
         assertEquals(first, inspect())
         assertEquals(original, request)
-        assertEquals("baseline", request.policyChoice)
+        assertEquals("engine15", request.policyChoice)
         assertEquals("M6A_MULTI_WEEK_DISTANCE_CALENDAR",
             (first as IndependentAndroidPreviewDecision.ReadOnly).ruleIds[2])
     }

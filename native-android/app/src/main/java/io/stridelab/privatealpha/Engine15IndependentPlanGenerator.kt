@@ -140,8 +140,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         if (initialDecision is Engine15IndependentPlanDecision.Deferred &&
             effectiveRequest.qualityCount > 0 &&
             effectiveRequest.userDefinedQualityWorkouts.isEmpty() &&
-            effectiveRequest.qualityDistanceClaims.isEmpty() &&
-            BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE
+            effectiveRequest.qualityDistanceClaims.isEmpty()
         ) {
             val selectedFamily = initialDecision.qualitySelection?.selectedFamily
             val adaptiveExposure = assertedExposureSecondsOverride
@@ -344,10 +343,10 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         if (request.strengthDays != 0 || request.calDays != 0 || request.conditioningDays != 0 ||
             request.disciplineGoals.keys.any { it != "run" })
             return defer("MIXED_DISCIPLINE_GENERATION_NOT_INDEPENDENT", "Independent workout construction and calendar coordination for mixed disciplines are not available yet.")
-        if (request.runDays !in 2..6 || request.weeks !in 1..16)
-            return defer("RUNNING_SCOPE_UNSUPPORTED", "This candidate supports two to six running days and one to sixteen weeks.")
+        if (request.runDays !in 1..6 || request.weeks !in 1..16)
+            return defer("RUNNING_SCOPE_UNSUPPORTED", "This candidate supports one to six running days and one to sixteen weeks.")
         if (request.days.isEmpty() || request.days.any { it !in 1..7 } || request.days.size < request.runDays ||
-            (request.runDays >= 3 && request.longDay !in request.days))
+            ((request.runDays == 1 || request.runDays >= 3) && request.longDay !in request.days))
             return defer("RUNNING_AVAILABILITY_UNSUPPORTED", "Available weekdays must fit every run and the selected long-run day.")
         if (request.weeklySlots.keys.any { it != "run" })
             return defer("MIXED_DISCIPLINE_GENERATION_NOT_INDEPENDENT", "This Engine 1.5 running route cannot accept fixed assignments for another discipline.")
@@ -504,7 +503,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             if (qualityDryRun != null && usualKm != null && qualityDryRun.weeklyDistance.any { it.budgetKm > usualKm + 1e-6 }) {
                 qualityBuildAdvisory = "Mileage progresses alongside $familyName workouts; monitor fatigue and prioritize recovery weeks."
             }
-            if (paceWarnings.isEmpty() && BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE &&
+            if (paceWarnings.isEmpty() &&
                 request.weeks in 1..16 && request.experience in 0..2 &&
                 qualityDryRun?.completePlanDistanceAccounting == true &&
                 (!request.timeBudgetEnabled || qualityDryRun.alternatives.all { alt ->
@@ -740,10 +739,10 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
     }
 
     private fun m5SlotForRunIndex(runDays: Int, runIndex: Int): Int =
-        if (runDays >= 3 && runIndex == 0) runDays else if (runDays >= 3) runIndex else runIndex + 1
+        if ((runDays >= 3 || runDays == 1) && runIndex == 0) runDays else if (runDays >= 3) runIndex else runIndex + 1
 
     private fun legacyRunIndex(runDays: Int, slotNumber: Int, role: Engine15M5RunRole): Int =
-        if (runDays >= 3 && role == Engine15M5RunRole.LONG) 0
+        if ((runDays >= 3 || runDays == 1) && role == Engine15M5RunRole.LONG) 0
         else if (runDays >= 3) slotNumber else slotNumber - 1
 
     fun conflict(a: PlannedSession, b: PlannedSession): Boolean {

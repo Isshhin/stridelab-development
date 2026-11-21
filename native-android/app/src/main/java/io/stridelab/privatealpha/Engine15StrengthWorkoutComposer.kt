@@ -53,7 +53,7 @@ internal object Engine15StrengthWorkoutComposer {
             throw PlanConstraint("STRENGTH_SESSION_LOCK_UNSUPPORTED: A lock identifies a duplicate or unavailable plan slot.")
 
         val (firstReps, maxReps, repStep) = when (request.goal) {
-            "General strength" -> Triple(8, 10, 1)
+            "General strength", "General fitness" -> Triple(8, 10, 1)
             "Muscle development" -> Triple(8, 12, 2)
             "Strength endurance" -> Triple(10, 15, 2)
             else -> throw PlanConstraint("STRENGTH_GOAL_UNSUPPORTED: Choose a supported strength goal.")
@@ -128,7 +128,7 @@ internal object Engine15StrengthWorkoutComposer {
             throw PlanConstraint("MIXED_DISCIPLINE_GENERATION_NOT_INDEPENDENT: Strength combined with other disciplines is deferred until Engine 1.5 static multi-discipline scheduling is available.")
         if (request.policyChoice != "engine15" || request.runDays != 0 || request.strengthDays !in 1..4 ||
             request.calDays != 0 || request.conditioningDays != 0 || request.weeks !in 1..16 ||
-            request.goal !in setOf("General strength", "Muscle development", "Strength endurance") ||
+            request.goal !in setOf("General strength", "General fitness", "Muscle development", "Strength endurance") ||
             request.qualityCount != 0 || request.days.isEmpty() || request.days.any { it !in 1..7 } ||
             request.days.size < request.strengthDays || request.strengthExperience !in 0..2 ||
             (request.timeBudgetEnabled && request.minutes !in 15..120) ||
@@ -150,7 +150,7 @@ internal object Engine15StrengthWorkoutComposer {
         validateRequest(plan.request)
         val expectedCount = plan.request.weeks * plan.request.strengthDays
         val (firstReps, maxReps, repStep) = when (plan.request.goal) {
-            "General strength" -> Triple(8, 10, 1)
+            "General strength", "General fitness" -> Triple(8, 10, 1)
             "Muscle development" -> Triple(8, 12, 2)
             "Strength endurance" -> Triple(10, 15, 2)
             else -> throw PlanConstraint("The saved independent strength plan has an unsupported goal.")

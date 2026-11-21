@@ -142,8 +142,7 @@ internal object Engine15QualityWorkoutDryRunBuilder {
         adaptiveQualityMode: Boolean = false
     ): Engine15QualityWorkoutDryRun? {
         val family = selection.selectedFamily ?: return null
-        if (!BuildConfig.DEBUG ||
-            selection.decision != Engine15QualitySelectionDecision.FAMILY_CANDIDATE)
+        if (selection.decision != Engine15QualitySelectionDecision.FAMILY_CANDIDATE)
             return null
         val explicitAllowed = allowExplicitUserFamily &&
             selection.selectionBasis == Engine15QualitySelectionBasis.EXPLICIT_USER_PREFERENCE &&

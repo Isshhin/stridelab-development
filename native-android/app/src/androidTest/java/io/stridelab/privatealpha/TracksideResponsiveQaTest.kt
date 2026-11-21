@@ -831,10 +831,12 @@ class TracksideResponsiveQaTest {
             runDays=5, strengthDays=0, calDays=4, conditioningDays=0,
             qualityCount=1, qualityDays=setOf(2), experience=1,
             weeklyKm=35.0, longestKm=12.0, minutes=60,
-            dailyMinutes=120, policyChoice="multi-session"
+            dailyMinutes=120, policyChoice="engine15",
+            allowDoubleDays=true, timeBudgetEnabled=false, recentMileageBasis="SELF_REPORTED_AVERAGE"
         )
-        val generated=MultiSessionEngine1.generate(
-            matched,"synthetic-responsive","availability-matched",Instant.EPOCH)
+        val generated=Engine15IndependentPlanGenerator.generateWithHistory(
+            matched,"synthetic-responsive",emptyList(),"availability-matched",Instant.EPOCH,
+            exerciseLibrary=ExerciseLibraryV2.load { path -> compose.activity.assets.open(path) })
         val firstWeek=generated.sessions
         assertTrue("Engine 1 must actually generate all nine sessions",
             firstWeek.size==9)
@@ -1018,8 +1020,9 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("builder-other-day-5").performClick()
         compose.runOnIdle {
             assertTrue(state.value.weeklySlots["cal"]==listOf(1,5))
-            val generated=MultiSessionEngine1.generate(
-                state.value,"synthetic-responsive","manual-double",Instant.EPOCH)
+            val generated=Engine15IndependentPlanGenerator.generateWithHistory(
+                state.value,"synthetic-responsive",emptyList(),"manual-double",Instant.EPOCH,
+                exerciseLibrary=ExerciseLibraryV2.load { path -> compose.activity.assets.open(path) })
             assertTrue(generated.sessions.groupBy { it.date }.values
                 .any { sessions ->
                     sessions.size==2 &&

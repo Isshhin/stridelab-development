@@ -55,7 +55,7 @@ import org.json.JSONObject
             } ?: withDetectedExp
         } else {
             PlanRequest(
-                policyChoice="coordinated",
+                policyChoice="engine15",
                 experience=detectedExperience ?: 0,
                 planningPace=historicalEasyPace,
                 weeklyKm=observedBaseline?.weeklyKm ?: 0.0,
@@ -931,7 +931,7 @@ internal fun dayName(day:Int)=java.time.DayOfWeek.of(day).getDisplayName(java.ti
     }
 }
 
-private fun builderGoals(p:PlanRequest)=ENGINE1_GOALS.filter { goal -> when(goal) {
+private fun builderGoals(p:PlanRequest)=ALL_SUPPORTED_GOALS.filter { goal -> when(goal) {
     "General fitness"->true
     "Aerobic foundation","Improve 5K","Improve 10K","Half marathon","Marathon"->p.runDays>0
     "General strength","Muscle development","Strength endurance"->p.strengthDays>0

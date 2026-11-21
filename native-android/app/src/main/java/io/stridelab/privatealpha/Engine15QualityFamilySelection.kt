@@ -124,7 +124,7 @@ internal object Engine15QualityFamilySelection {
         if (request.runDays !in 2..6 || request.weeks !in 1..16)
             return result(Engine15QualitySelectionDecision.UNSUPPORTED, reason = "RUNNING_PLAN_BOUNDS_UNSUPPORTED",
                 explanation = "The selector supports two to six running days and one to sixteen weeks.")
-        if (request.goal !in PlanDisciplineContract.goals.getValue("run"))
+        if (request.goal !in PlanDisciplineContract.goals.getValue("run") && request.goal != "General fitness")
             return result(Engine15QualitySelectionDecision.UNSUPPORTED, reason = "RUNNING_GOAL_UNSUPPORTED",
                 explanation = "The requested running goal is outside the current Engine 1.5 goal contract.")
         if (request.experience !in 0..2)
@@ -224,7 +224,7 @@ internal object Engine15QualityFamilySelection {
                     IndependentQualityFamily.INTERVALS else IndependentQualityFamily.TEMPO
                 "Improve 10K", "Half marathon" -> if (request.experience == 2)
                     IndependentQualityFamily.THRESHOLD else IndependentQualityFamily.TEMPO
-                "Aerobic foundation", "Marathon" -> IndependentQualityFamily.TEMPO
+                "General fitness", "Aerobic foundation", "Marathon" -> IndependentQualityFamily.TEMPO
                 else -> return result(Engine15QualitySelectionDecision.UNSUPPORTED, reason = "RUNNING_GOAL_UNSUPPORTED",
                     explanation = "The goal has no family mapping in the bounded selection matrix.", athlete = athlete)
             }

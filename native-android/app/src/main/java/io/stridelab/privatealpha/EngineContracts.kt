@@ -9,6 +9,12 @@ import java.util.UUID
 internal const val PLAN_SCHEMA=1
 internal const val ENGINE1_VERSION="1.0.0"
 internal const val ENGINE1_POLICY="stridelab.engine1.conservative-20261026.1"
+internal const val MULTI_SESSION_POLICY="stridelab.engine1.multi-session-20261027.1"
+internal const val ENGINE15_VERSION="1.5.0"
+internal const val ENGINE15_FOUNDATION_POLICY="stridelab.engine15.foundation-20261103.1"
+internal const val ENGINE15_POLICY="stridelab.engine15.bounded-running-20261103.1"
+internal const val ENGINE15_MULTI_POLICY="stridelab.engine15.multi-session-20261103.1"
+internal const val ENGINE15_INTERFERENCE_POLICY="stridelab.engine15.interference-calendar-20261103.1"
 internal class PlanConstraint(message:String):IllegalArgumentException(message)
 internal object PlanDisciplineContract {
     val goals=mapOf(
@@ -17,6 +23,7 @@ internal object PlanDisciplineContract {
         "cal" to listOf("Calisthenics foundation","Pull-up progression","Push-up progression","Core strength and control","Handstand foundations"),
         "cond" to listOf("Conditioning"))
 }
+internal val ALL_SUPPORTED_GOALS=listOf("General fitness")+PlanDisciplineContract.goals.values.flatten()
 internal interface PlanGenerationEngine {
     val version:String
     val policyId:String
@@ -29,7 +36,7 @@ internal data class PlanRequest(
     val longDay:Int=6,val qualityDays:Set<Int> = setOf(2),val qualityCount:Int=0,
     val weeklyKm:Double=0.0,val longestKm:Double=0.0,val planningPace:Double=480.0,
     val equipment:Map<String,Int> = emptyMap(),val calLevel:Int=0,val returning:Boolean=false,
-    val excluded:Set<String> = emptySet(),val limitations:String="",val recoveryNotes:String="",val strengthExperience:Int=0,val pullLevel:Int=0,val coreLevel:Int=0,val policyChoice:String="baseline",val disciplineGoals:Map<String,String> = emptyMap(),val dailyMinutes:Int=90,
+    val excluded:Set<String> = emptySet(),val limitations:String="",val recoveryNotes:String="",val strengthExperience:Int=0,val pullLevel:Int=0,val coreLevel:Int=0,val policyChoice:String="engine15",val disciplineGoals:Map<String,String> = emptyMap(),val dailyMinutes:Int=90,
     val weeklySlots:Map<String,List<Int>> = emptyMap(),
     val preferredQuality:String = "Threshold",
     val allowedQualityTypes:Set<String> = emptySet(),
@@ -233,3 +240,100 @@ internal fun JSONObject.nullDouble(key:String)=if(isNull(key)) null else getDoub
 internal fun JSONObject.nullString(key:String)=if(isNull(key)) null else getString(key)
 internal fun JSONArray.objects()=(0 until length()).map { getJSONObject(it) }
 internal fun JSONArray.strings()=(0 until length()).map { getString(it) }
+
+/** Planned distance, not measured execution, threshold or fitness evidence. */
+internal data class RunningSegment(val purpose:String, val meters:Int, val effort:String) {
+    init { require(purpose in setOf("WARM_UP","WORK","RECOVERY","TRANSITION","COOL_DOWN","EASY") && meters>0 && meters<=120000) }
+    fun encode()=JSONObject().put("purpose",purpose).put("meters",meters).put("effort",effort)
+    companion object { fun decode(j:JSONObject)=RunningSegment(j.getString("purpose"),j.getInt("meters"),j.getString("effort")) }
+}
+/** Versioned planned step; any distance equivalent is explicitly user supplied. */
+internal data class RunningStepV2(val purpose:String, val effort:String, val meters:Int?=null, val seconds:Int?=null,
+    val distanceEquivalentMeters:Int?=null) {
+    init {
+        require(purpose in setOf("WARM_UP","WORK","RECOVERY","TRANSITION","COOL_DOWN","EASY"))
+        require((meters!=null) xor (seconds!=null))
+        require(meters==null || meters in 1..120000)
+        require(seconds==null || seconds in 1..14400)
+        require(distanceEquivalentMeters==null || seconds!=null && distanceEquivalentMeters in 1..120000)
+    }
+    fun encode():JSONObject {
+        val j=JSONObject().put("purpose",purpose).put("effort",effort)
+        if(meters!=null) j.put("meters",meters) else j.put("seconds",seconds)
+        distanceEquivalentMeters?.let { j.put("distanceEquivalentMeters",it) }
+        return j
+    }
+    companion object {
+        fun decode(j:JSONObject):RunningStepV2 {
+            require(j.has("meters") xor j.has("seconds")) { "A step must have exactly one extent" }
+            return RunningStepV2(j.getString("purpose"),j.getString("effort"),
+                if(j.has("meters")) j.getInt("meters") else null,
+                if(j.has("seconds")) j.getInt("seconds") else null,j.nullInt("distanceEquivalentMeters"))
+        }
+    }
+}
+internal data class RunningPrescription(
+    val role:String, val family:String?, val segments:List<RunningSegment>,
+    val mixedSegments:List<RunningStepV2>?=null,
+    /** Administrative planning-pace estimate only, never an exact distance target. */
+    val estimatedDistanceKm:Double?=null,
+    /** Exact extent supplied for every timed step; this is not pace-derived. */
+    val reconciledDistanceMeters:Int?=null
+) {
+    init {
+        require(role in setOf("RECOVERY","EASY","ENDURANCE","LONG","QUALITY"))
+        val purposes=if(mixedSegments==null) segments.map { it.purpose } else mixedSegments.map { it.purpose }
+        require(purposes.isNotEmpty() && purposes.size<=50)
+        require(if(role=="QUALITY") family in setOf("Threshold","Tempo","Intervals","Hills","Fartlek","Progression","Strides") && "WORK" in purposes
+            else family==null && "WORK" !in purposes)
+        if(mixedSegments==null) {
+            require(segments.sumOf { it.meters }<=120000 && estimatedDistanceKm==null && reconciledDistanceMeters==null)
+        } else {
+            require(segments.isEmpty())
+            require(mixedSegments.sumOf { it.meters ?: 0 }<=120000)
+            require(mixedSegments.any { it.seconds!=null })
+            if(reconciledDistanceMeters!=null) {
+                require(estimatedDistanceKm==null && reconciledDistanceMeters in 1..120000)
+                require(mixedSegments.all { it.meters!=null || it.distanceEquivalentMeters!=null })
+                require(mixedSegments.sumOf { it.meters ?: it.distanceEquivalentMeters!! }==reconciledDistanceMeters)
+            } else {
+                require(mixedSegments.all { it.distanceEquivalentMeters==null })
+                require(estimatedDistanceKm!=null && estimatedDistanceKm.isFinite() && estimatedDistanceKm>0.0 && estimatedDistanceKm<=120.0)
+            }
+        }
+    }
+    val meters get()=if(mixedSegments==null) segments.sumOf { it.meters } else reconciledDistanceMeters ?: mixedSegments.sumOf { it.meters ?: 0 }
+    val workMeters get()=if(mixedSegments==null) segments.filter { it.purpose=="WORK" }.sumOf { it.meters }
+        else mixedSegments.filter { it.purpose=="WORK" }.sumOf { it.meters ?: it.distanceEquivalentMeters ?: 0 }
+    fun encode():JSONObject = if(mixedSegments==null) {
+        JSONObject().put("version",1).put("role",role).put("family",family).put("segments",JSONArray(segments.map { it.encode() }))
+    } else {
+        if(reconciledDistanceMeters!=null) JSONObject().put("version",3).put("role",role).put("family",family)
+            .put("segments",JSONArray(mixedSegments.map { it.encode() }))
+            .put("reconciledDistanceMeters",reconciledDistanceMeters)
+            .put("distanceBasis","USER_SUPPLIED_PER_STEP_EQUIVALENTS")
+        else JSONObject().put("version",2).put("role",role).put("family",family)
+                .put("segments",JSONArray(mixedSegments.map { it.encode() }))
+                .put("estimatedDistanceKm",estimatedDistanceKm)
+                .put("estimateBasis","PLANNING_PACE_NOT_TARGET")
+    }
+    companion object {
+        fun decode(j:JSONObject):RunningPrescription = when(j.getInt("version")) {
+            1 -> RunningPrescription(j.getString("role"),j.nullString("family"),
+                j.getJSONArray("segments").objects().map(RunningSegment::decode))
+            2 -> {
+                require(j.getString("estimateBasis")=="PLANNING_PACE_NOT_TARGET")
+                RunningPrescription(j.getString("role"),j.nullString("family"),emptyList(),
+                    j.getJSONArray("segments").objects().map(RunningStepV2::decode),
+                    j.getDouble("estimatedDistanceKm"))
+            }
+            3 -> {
+                require(j.getString("distanceBasis")=="USER_SUPPLIED_PER_STEP_EQUIVALENTS")
+                RunningPrescription(j.getString("role"),j.nullString("family"),emptyList(),
+                    j.getJSONArray("segments").objects().map(RunningStepV2::decode),null,
+                    j.getInt("reconciledDistanceMeters"))
+            }
+            else -> throw IllegalArgumentException("Unsupported running prescription version")
+        }
+    }
+}

@@ -130,9 +130,10 @@ class IndependentResearchDraftTest {
         assertThrows(PlanConstraint::class.java) { PlanBackup.read(bundle,saved.owner) }
 
         val legacy = JSONObject().put("schemaVersion", 1)
-            .put("plans", JSONArray().put(Engine1.generate(
-                PlanRequest(start=LocalDate.of(2026,11,16),runDays=0,strengthDays=2),
-                saved.owner,"legacy-backup-plan",Instant.EPOCH
+            .put("plans", JSONArray().put(Engine15IndependentPlanGenerator.generateWithHistory(
+                PlanRequest(start=LocalDate.of(2026,11,16),runDays=0,strengthDays=2,policyChoice="engine15",timeBudgetEnabled=false,equipment=mapOf("db" to 1)),
+                saved.owner,emptyList(),"legacy-backup-plan",Instant.EPOCH,
+                ExerciseLibraryV2.load { path -> java.io.File("src/main/assets", path).inputStream() }
             ).copy(status="approved").encode()))
         val decodedLegacy = PlanBackup.readBundle(legacy.toString(), saved.owner)
         assertEquals(1, decodedLegacy.plans.size)

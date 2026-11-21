@@ -28,7 +28,7 @@ internal data class Engine15M6DWeekAudit(
         require(weekNumber > 0)
         require(proposedKm.isFinite() && proposedKm > 0.0)
         require(longRunKm == null || longRunKm.isFinite() && longRunKm > 0.0)
-        require(runningSessionCount >= 2)
+        require(runningSessionCount >= 1)
         require(qualityOpportunityCount in 0..1 && externalSessionCount >= 0)
         require(phase != Engine15M6DPhase.RECOVERY || qualityOpportunityCount == 0)
         require(ceilingConstraintCodes.distinct() == ceilingConstraintCodes)
@@ -159,7 +159,7 @@ internal object Engine15M6IndependentPeriodizationReview {
                     week)
 
             val longRuns = item.runs.filter { it.role == Engine15M5RunRole.LONG }
-            if (longRuns.size != if (source.input.runningDays >= 3) 1 else 0)
+            if (longRuns.size != if (source.input.runningDays >= 3 || source.input.runningDays == 1) 1 else 0)
                 return defer("LONG_RUN_ROLE_COUNT_MISMATCH",
                     "Long-run roles must match the independent M5A run-day contract.",
                     week)

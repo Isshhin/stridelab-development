@@ -186,13 +186,13 @@ class Engine15M4BIndependentVolumePlannerTest {
                 }
     }
 
-    @Test fun writingSyntheticShadowComparisonDoesNotAlterCurrentGenerator() {
+    @Test fun writingSyntheticShadowComparisonProducesDeterministicCandidateReport() {
         val source=athlete(peak=null)
-        val old=Engine15.generate(source,"m4b-synthetic","m4b-legacy",now)
+        val first=Engine15IndependentPlanGenerator.generateWithHistory(source,"m4b-synthetic",emptyList(),"m4b-ind",now)
         val new=propose(source)
         assertEquals(78.7,new.peakProposedKm!!,1e-8)
-        assertEquals(source,old.request)
-        assertEquals(Engine15.generate(source,"m4b-synthetic","m4b-legacy",now),old)
+        assertEquals(source,first.request)
+        assertEquals(Engine15IndependentPlanGenerator.generateWithHistory(source,"m4b-synthetic",emptyList(),"m4b-ind",now),first)
         // R0 allocated values, not delivered Q2 mixed-unit estimates.
         val prior=listOf(67.5,71.2,75.0,54.1,71.2,75.0,78.7,56.4)
         val reportDir=File("build/reports/engine15-m4b")

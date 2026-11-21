@@ -3,21 +3,19 @@ package io.stridelab.privatealpha
 /** Read-only checks for imported schedules; historical facts and opaque policies are retained. */
 internal object PlanScheduleValidation {
     fun isMultiPolicy(policy:String) =
-        policy==MULTI_SESSION_POLICY || policy==ENGINE15_MULTI_POLICY ||
+        policy==ENGINE15_INDEPENDENT_COMBINED_POLICY ||
+            policy==MULTI_SESSION_POLICY || policy==ENGINE15_MULTI_POLICY ||
             policy==ENGINE15_INTERFERENCE_POLICY
 
-    fun conflict(a:PlannedSession,b:PlannedSession,policyA:String,policyB:String)=
-        if(policyA in setOf(ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY, ENGINE15_INDEPENDENT_CALISTHENICS_POLICY, ENGINE15_INDEPENDENT_CONDITIONING_POLICY, ENGINE15_INDEPENDENT_COMBINED_POLICY) ||
-            policyB in setOf(ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY, ENGINE15_INDEPENDENT_CALISTHENICS_POLICY, ENGINE15_INDEPENDENT_CONDITIONING_POLICY, ENGINE15_INDEPENDENT_COMBINED_POLICY))
-            Engine15IndependentPlanGenerator.conflict(a,b)
-        else if(policyA==ENGINE15_INTERFERENCE_POLICY && policyB==ENGINE15_INTERFERENCE_POLICY)
-            Engine15InterferenceScheduling.conflict(a,b)
-        else if(policyA==ENGINE15_INTERFERENCE_POLICY || policyB==ENGINE15_INTERFERENCE_POLICY)
-            // Retain baseline cross-policy restrictions and also honor the
-            // interference policy's symmetric hard-day spacing.
-            Engine1.conflict(a,b) || Engine15InterferenceScheduling.conflict(a,b)
-        else if(policyA==policyB && isMultiPolicy(policyA))MultiSessionScheduling.conflict(a,b)
-        else Engine1.conflict(a,b)
+    fun conflict(a:PlannedSession,b:PlannedSession,policyA:String,policyB:String):Boolean {
+        if(a.date==b.date && isMultiPolicy(policyA) && policyA==policyB && a.discipline!=b.discipline) {
+            val easyRunWithUpperOrCore =
+                a.discipline=="run" && a.kind=="easy" && !a.quality && !b.lower ||
+                b.discipline=="run" && b.kind=="easy" && !b.quality && !a.lower
+            if(easyRunWithUpperOrCore) return false
+        }
+        return Engine15IndependentPlanGenerator.conflict(a,b)
+    }
 
     private fun scheduled(plan:PlanSnapshot)=plan.sessions.filter { it.status in setOf("planned","in_progress") }
 
@@ -42,7 +40,7 @@ internal object PlanScheduleValidation {
         active.forEach(::validatePlan)
         for(i in active.indices)for(k in i+1 until active.size) {
             val a=active[i];val b=active[k]
-            if(scheduled(a).any { x -> scheduled(b).any { y -> conflict(x,y,a.policyId,b.policyId) } })throw PlanConstraint("The backup's approved calendar conflicts with another approved plan. No records were changed.")
+            if(scheduled(a).any { x -> scheduled(b).any { y -> Engine15IndependentPlanGenerator.conflict(x,y) } })throw PlanConstraint("The backup's approved calendar conflicts with another approved plan. No records were changed.")
         }
         val multi=active.filter { Engine1Engines.canManage(it) && isMultiPolicy(it.policyId) }
         val days=multi.flatMap { p -> scheduled(p).map { p to it } }.groupBy { it.second.date }

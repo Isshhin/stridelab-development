@@ -18,6 +18,11 @@ import java.time.LocalDate
 
 class Engine1UiTest {
     @get:Rule val compose=createAndroidComposeRule<NativeMainActivity>()
+    private fun generateUiPlan(p:PlanRequest,owner:String):PlanSnapshot=
+        Engine15IndependentPlanGenerator.generateWithHistory(
+            p,owner,emptyList(),
+            exerciseLibrary=ExerciseLibraryV2.load { path -> InstrumentationRegistry.getInstrumentation().targetContext.assets.open(path) }
+        )
     private fun openLibrary(state: TrainingState = TrainingState(initializing = false), actions: PlanActions = PlanActions(), onTemplate: (String) -> Unit = {}) {
         compose.runOnUiThread {
             compose.activity.setContent { StrideTheme { LibraryScreen(state, actions, onTemplate = onTemplate) } }
@@ -60,7 +65,7 @@ class Engine1UiTest {
     @Test fun multiSessionPlanBuilderKeepsSameDayLogsIndependent() {
         val state=mutableStateOf(TrainingState(initializing=false,account="synthetic-multi-builder-ui"))
         val actions=PlanActions(
-            generate={p->Engine1Engines.validate(p);state.value=state.value.copy(plans=state.value.plans+Engine1Engines.resolve(p).generate(p,"synthetic-multi-builder-ui"))},
+            generate={p->Engine1Engines.validate(p);state.value=state.value.copy(plans=state.value.plans+generateUiPlan(p,"synthetic-multi-builder-ui"))},
             approve={id,_->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.approve(it,state.value.plans).copy(revision=it.revision+1)else it })},
             move={id,_,sid,date->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.move(it,sid,date,state.value.plans).copy(revision=it.revision+1)else it })},
             record={id,_,sid,log,done->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.record(it,sid,log,done).copy(revision=it.revision+1)else it })}
@@ -89,7 +94,7 @@ class Engine1UiTest {
         compose.waitUntil(15000) { state.value.plans.isNotEmpty() || compose.onAllNodesWithTag("plan-form-error").fetchSemanticsNodes().isNotEmpty() }
         assertTrue("Plan builder failed: "+compose.onRoot().printToString(),state.value.plans.isNotEmpty())
         val draft=state.value.plans.single()
-        assertEquals(if(BuildConfig.ENGINE15_ACTIVE)ENGINE15_MULTI_POLICY else MULTI_SESSION_POLICY,draft.policyId)
+        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY,draft.policyId)
         assertEquals(7*draft.request.weeks,draft.sessions.size)
         val firstWeek=draft.sessions.filter { it.date in draft.request.start..draft.request.start.plusDays(6) }
         assertEquals(7,firstWeek.size)
@@ -171,7 +176,7 @@ class Engine1UiTest {
     @Test fun beginnerGeneratesReviewsApprovesOpensCalendarAndLogsWithoutWatch() {
         val state=mutableStateOf(TrainingState(initializing=false,account="synthetic-engine1-ui"))
         val planning=PlanActions(
-            generate={p->state.value=state.value.copy(plans=listOf(Engine1Engines.resolve(p).generate(p,"synthetic-engine1-ui")))},
+            generate={p->state.value=state.value.copy(plans=listOf(generateUiPlan(p,"synthetic-engine1-ui")))},
             approve={id,_->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.approve(it,emptyList()).copy(revision=it.revision+1)else it })},
             record={id,_,sid,log,done->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.record(it,sid,log,done).copy(revision=it.revision+1)else it })}
         )
@@ -237,8 +242,8 @@ class Engine1UiTest {
         compose.onNodeWithTag("nav-library").assertDoesNotExist()
     }
     @Test fun calendarAndInstructionalModalReflowAtTwoHundredPercentText() {
-        val request=PlanRequest(start=LocalDate.now(),runDays=0,strengthDays=2,calDays=2,days=setOf(1,2,4,6))
-        val plan=Engine1.generate(request,"synthetic-large-ui").copy(status="approved")
+        val request=PlanRequest(start=LocalDate.now(),runDays=0,strengthDays=2,calDays=2,days=setOf(1,2,4,6),timeBudgetEnabled=false)
+        val plan=generateUiPlan(request,"synthetic-large-ui").copy(status="approved")
         compose.runOnUiThread { compose.activity.setContent {
             val density=androidx.compose.ui.platform.LocalDensity.current
             androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(density.density,2f)) {
@@ -278,7 +283,7 @@ class Engine1UiTest {
         compose.onNodeWithTag("screen").performScrollToNode(hasText("No workout logs saved for this account yet. Start with an approved training plan."))
     }
     @Test fun workoutAlternativeRequiresReviewAndKeepsOriginalTarget() {
-        val generated=Engine1.generate(PlanRequest(start=LocalDate.now(),weeks=1,runDays=0,strengthDays=2,days=(1..7).toSet()),"synthetic-swap-ui")
+        val generated=generateUiPlan(PlanRequest(start=LocalDate.now(),weeks=1,runDays=0,strengthDays=2,days=(1..7).toSet(),timeBudgetEnabled=false),"synthetic-swap-ui")
         val target=generated.sessions.first { session -> session.status=="planned" && session.exercises.any { ExerciseAlternatives.easier(it)!=null } }
         val p=PlanOperations.approve(generated.copy(sessions=generated.sessions.map { if(it.id==target.id) it.copy(exercises=listOf(it.exercises.first { ex -> ExerciseAlternatives.easier(ex)!=null })) else it }),emptyList())
         val state=mutableStateOf(TrainingState(initializing=false,account=p.owner,plans=listOf(p)))
@@ -319,7 +324,7 @@ class Engine1UiTest {
     }
     @Test fun runningPrimaryAndStrengthSecondaryGoalProduceActualDifferentPrescriptions() {
         val state=mutableStateOf(TrainingState(initializing=false,account="synthetic-goals-ui"))
-        val actions=PlanActions(generate={p->state.value=state.value.copy(plans=listOf(Engine1Engines.resolve(p).generate(p,"synthetic-goals-ui")))})
+        val actions=PlanActions(generate={p->state.value=state.value.copy(plans=listOf(generateUiPlan(p,"synthetic-goals-ui")))})
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,true,NativeActions({},{_,_->},planning=actions)) } } }
         openPlanBuilder()
         // The frozen Trackside wizard collects one discipline at a time. The old
@@ -336,7 +341,7 @@ class Engine1UiTest {
         compose.onNodeWithText("Review your training plan").assertExists()
         compose.onNodeWithText("Finalize Plan").assertExists()
         assertEquals("draft",plan.status)
-        assertEquals(if(BuildConfig.ENGINE15_ACTIVE) ENGINE15_POLICY else CoordinatedEngine1.policyId, plan.policyId)
+        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, plan.policyId)
         assertEquals("Muscle development", plan.request.disciplineGoals["str"])
         assertTrue(plan.sessions.any { it.discipline=="run" });assertTrue(plan.sessions.filter { it.discipline=="str" }.flatMap { it.exercises }.filter { it.reps!=null }.all { it.reps==10 })
         capture("phase1-coordinated-goals-preview")
@@ -352,7 +357,7 @@ class Engine1UiTest {
         compose.onNodeWithText("Prepare practice session").assertDoesNotExist();compose.onNodeWithText("Build a running plan").assertDoesNotExist()
     }
     @Test fun switchingTabsRestoresUnconfirmedWorkoutEntryWithoutMarkingItPerformed() {
-        val plan=PlanOperations.approve(Engine1.generate(PlanRequest(start=LocalDate.now(),weeks=1,runDays=0,strengthDays=1,days=(1..7).toSet()),"synthetic-entry-ui"),emptyList());val session=plan.sessions.single { it.status=="planned" && it.discipline!="rest" && it.exercises.isNotEmpty() }
+        val plan=PlanOperations.approve(generateUiPlan(PlanRequest(start=LocalDate.now(),weeks=1,runDays=0,strengthDays=1,days=(1..7).toSet(),timeBudgetEnabled=false),"synthetic-entry-ui"),emptyList());val session=plan.sessions.single { it.status=="planned" && it.discipline!="rest" && it.exercises.isNotEmpty() }
         val state=mutableStateOf(TrainingState(initializing=false,account=plan.owner,plans=listOf(plan)))
         val actions=PlanActions(stageWorkoutDraft={draft -> state.value=state.value.copy(workoutDrafts=state.value.workoutDrafts+(draft.key to draft))})
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,true,NativeActions({},{_,_->},planning=actions)) } } }

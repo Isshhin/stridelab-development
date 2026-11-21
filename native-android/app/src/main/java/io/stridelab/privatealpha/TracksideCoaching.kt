@@ -1,26 +1,25 @@
 package io.stridelab.privatealpha
 
-/** Only new Trackside drafts pass through this boundary. Restored plans retain their policy. */
+/** All Trackside drafts route exclusively through Engine 1.5 Independent. */
 internal object TracksideCoaching {
-    fun setupFor(previous: PlanSnapshot): PlanRequest {
-        val multi = PlanScheduleValidation.isMultiPolicy(previous.policyId)
-        return previous.request.copy(
-            policyChoice = if (multi) "multi-session" else "coordinated",
+    fun setupFor(previous: PlanSnapshot): PlanRequest =
+        previous.request.copy(
+            policyChoice = "engine15",
             lockedSessionDays = emptyMap(),
             allowDoubleDays = false
         )
-    }
 
-    fun request(setup: PlanRequest, engine15Active: Boolean = BuildConfig.ENGINE15_ACTIVE): PlanRequest {
-        require(setup.policyChoice in setOf("coordinated", "multi-session"))
+    fun request(setup: PlanRequest, @Suppress("UNUSED_PARAMETER") engine15Active: Boolean = true): PlanRequest {
         val assigned = setup.weeklySlots.values.flatten()
         val needsMulti = setup.policyChoice == "multi-session" ||
+            setup.allowDoubleDays ||
             assigned.distinct().size != assigned.size ||
             (setup.runDays + setup.strengthDays + setup.calDays + setup.conditioningDays) > setup.days.size
-        val selected = if (engine15Active) setup.copy(
-            policyChoice = "engine15", allowDoubleDays = needsMulti
-        ) else setup.copy(policyChoice = if (needsMulti) "multi-session" else setup.policyChoice)
-        Engine1Engines.validate(selected)
+        val selected = setup.copy(
+            policyChoice = "engine15",
+            allowDoubleDays = needsMulti
+        )
+        Engine15IndependentPlanGenerator.validateRequest(selected)
         return selected
     }
 }
