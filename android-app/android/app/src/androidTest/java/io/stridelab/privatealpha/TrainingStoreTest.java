@@ -90,4 +90,11 @@ public class TrainingStoreTest {
         assertThrows(IllegalStateException.class,()->store.enqueue(A,"workout","r1","op1","{\"value\":2}",null,11));
         assertEquals("{}",store.get(A,"workout","r1").payload);
     }
+    @Test public void deleteRecordRemovesRecordAndQueuedOutbox() {
+        base("plan");
+        store.enqueue(A,"plan","r1","op1","{\"value\":2}","v1",11);
+        store.deleteRecord(A,"plan","r1");
+        assertNull(store.get(A,"plan","r1"));
+        assertTrue(store.ready(A,10).isEmpty());
+    }
 }

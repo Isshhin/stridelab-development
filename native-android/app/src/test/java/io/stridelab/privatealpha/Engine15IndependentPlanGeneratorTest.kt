@@ -162,7 +162,11 @@ class Engine15IndependentPlanGeneratorTest {
     @Test fun defersQualityRequestsInsteadOfDroppingOrSubstitutingThem() {
         for (qualityCount in 1..2) {
             val decision = Engine15IndependentPlanGenerator.preview(
-                request().copy(qualityCount = qualityCount), owner, "quality-$qualityCount", now
+                request().copy(
+                    qualityCount = qualityCount,
+                    qualityDays = if (qualityCount == 2) setOf(1, 3) else setOf(2)
+                ),
+                owner, "quality-$qualityCount", now
             )
             assertTrue(decision is Engine15IndependentPlanDecision.Deferred)
             val deferred = decision as Engine15IndependentPlanDecision.Deferred
@@ -171,15 +175,16 @@ class Engine15IndependentPlanGeneratorTest {
             assertNotNull(deferred.qualitySelection)
             assertEquals(Engine15WorkoutExecutability.NON_EXECUTABLE,
                 deferred.qualitySelection!!.workoutExecutability)
-            if (qualityCount == 1) {
-                assertEquals(Engine15QualitySelectionDecision.FAMILY_CANDIDATE,
-                    deferred.qualitySelection!!.decision)
-                assertNotNull(deferred.qualityDryRun)
-            } else {
-                assertEquals(Engine15QualitySelectionDecision.UNSUPPORTED, deferred.qualitySelection!!.decision)
-                assertNull(deferred.qualityDryRun)
-            }
+            assertEquals(Engine15QualitySelectionDecision.FAMILY_CANDIDATE,
+                deferred.qualitySelection!!.decision)
+            assertNotNull(deferred.qualityDryRun)
         }
+        val unsupported = Engine15IndependentPlanGenerator.preview(
+            request().copy(qualityCount = 3), owner, "quality-3", now
+        )
+        assertTrue(unsupported is Engine15IndependentPlanDecision.Deferred)
+        assertEquals("QUALITY_FREQUENCY_UNSUPPORTED",
+            (unsupported as Engine15IndependentPlanDecision.Deferred).reasonCode)
     }
 
     @Test fun goalBasedFamilyCandidateRemainsNonExecutableThroughGenerator() {
@@ -788,5 +793,93 @@ class Engine15IndependentPlanGeneratorTest {
             assertEquals("COOL_DOWN", fallbackBlocks.last().purpose)
             assertFalse(fallbackBlocks.any { it.label == "Easy Run" })
         }
+    }
+
+    @Test fun twelveWeekSaturdayStartAerobicFoundationSupportsOneAndTwoQualitySessionsWithKmLabels() {
+        val satStart = LocalDate.parse("2026-11-21")
+        val baseReq = request(weeks = 12).copy(
+            goal = "Aerobic foundation",
+            experience = 1,
+            start = satStart,
+            days = setOf(1, 2, 3, 4, 5, 7),
+            runDays = 6,
+            longDay = 7,
+            weeklyKm = 50.0,
+            longestKm = 16.0,
+            targetWeeklyKm = 60.0
+        )
+
+        val oneQuality = Engine15IndependentPlanGenerator.generateWithHistory(
+            baseReq.copy(qualityCount = 1, qualityDays = setOf(2)),
+            owner, emptyList(), "sat-12w-q1", now
+        )
+        val q1Sessions = oneQuality.sessions.filter { it.quality }
+        assertEquals(9, q1Sessions.size)
+        assertTrue(q1Sessions.mapNotNull { it.runningPrescription?.family }.distinct().size >= 2)
+        val easySteps = oneQuality.sessions.filterNot { it.quality }.flatMap { it.steps }
+        assertTrue(easySteps.all { it.contains(" km ") })
+        assertFalse(easySteps.any { Regex("""\b\d{4,6}\s*m\b""").containsMatchIn(it) })
+        assertTrue(formatStageForCard("10500 m at easy, conversational effort").startsWith("10.5 km"))
+        val approvedQ1 = PlanOperations.approve(oneQuality, emptyList())
+        Engine15IndependentPlanGenerator.validateSaved(approvedQ1)
+
+        val twoQuality = Engine15IndependentPlanGenerator.generateWithHistory(
+            baseReq.copy(qualityCount = 2, qualityDays = setOf(2, 4)),
+            owner, emptyList(), "sat-12w-q2", now
+        )
+        val q2Sessions = twoQuality.sessions.filter { it.quality }
+        assertEquals(18, q2Sessions.size)
+        assertTrue(q2Sessions.mapNotNull { it.runningPrescription?.family }.distinct().size >= 2)
+        val approvedQ2 = PlanOperations.approve(twoQuality, emptyList())
+        Engine15IndependentPlanGenerator.validateSaved(approvedQ2)
+    }
+
+    @Test fun aerobicFoundationRespectsUserSelectedAllowedQualityTypes() {
+        val req = request(weeks = 8).copy(
+            goal = "Aerobic foundation",
+            experience = 0,
+            days = setOf(1, 2, 3, 4, 5, 7),
+            runDays = 5,
+            longDay = 7,
+            weeklyKm = 40.0,
+            longestKm = 14.0,
+            targetWeeklyKm = 45.0,
+            qualityCount = 1,
+            qualityDays = setOf(2),
+            allowedQualityTypes = setOf("Threshold", "Intervals")
+        )
+        val draft = Engine15IndependentPlanGenerator.generateWithHistory(
+            req, owner, emptyList(), "allowed-types", now
+        )
+        val quality = draft.sessions.filter { it.quality }
+        assertEquals(6, quality.size)
+        assertTrue(quality.all { it.runningPrescription?.family in setOf("Threshold", "Intervals") })
+        assertTrue(quality.mapNotNull { it.runningPrescription?.family }.toSet().containsAll(setOf("Threshold", "Intervals")))
+        val approved = PlanOperations.approve(draft, emptyList())
+        Engine15IndependentPlanGenerator.validateSaved(approved)
+    }
+
+    @Test fun conflictingOrStaleQualityDaysAutoReconcileInsteadOfDroppingToZeroQuality() {
+        val req = request(weeks = 12).copy(
+            goal = "Aerobic foundation",
+            experience = 1,
+            start = LocalDate.parse("2026-11-21"),
+            days = setOf(1, 2, 3, 4, 5, 7),
+            runDays = 6,
+            longDay = 7,
+            weeklyKm = 50.0,
+            longestKm = 16.0,
+            targetWeeklyKm = 60.0,
+            qualityCount = 1,
+            qualityDays = setOf(1) // Monday conflicts with Sunday long run
+        )
+        val draft = Engine15IndependentPlanGenerator.generateWithHistory(
+            req, owner, emptyList(), "stale-qday", now
+        )
+        val quality = draft.sessions.filter { it.quality }
+        assertEquals(9, quality.size)
+        assertFalse(quality.any { it.date.dayOfWeek.value == 1 })
+        val approved = PlanOperations.approve(draft, emptyList())
+        Engine15IndependentPlanGenerator.validateSaved(approved)
     }
 }

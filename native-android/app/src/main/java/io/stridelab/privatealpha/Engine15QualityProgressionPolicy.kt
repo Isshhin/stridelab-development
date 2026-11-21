@@ -33,7 +33,8 @@ internal data class Engine15QualityWeekPrescription(
     val basis: Engine15QualityProgressionBasis,
     val ruleIds: List<String>,
     val rationale: String,
-    val sourceEvidenceVerified: Boolean = false
+    val sourceEvidenceVerified: Boolean = false,
+    val slotNumber: Int = 1
 ) {
     init {
         require(policyId == Engine15QualityProgressionPolicy.POLICY_ID)
@@ -338,8 +339,15 @@ internal object Engine15QualityProgressionPolicy {
         val filtered = if (request.allowedQualityTypes.isEmpty()) base else base.filter { fam ->
             request.allowedQualityTypes.any { it.equals(fam.name, ignoreCase = true) }
         }
-        return if (filtered.isEmpty()) listOf(primaryFamily)
-        else (listOf(primaryFamily) + filtered).distinct()
+        val pool = if (filtered.isNotEmpty() || request.allowedQualityTypes.isEmpty()) {
+            filtered
+        } else {
+            IndependentQualityFamily.entries.filter { fam ->
+                request.allowedQualityTypes.any { it.equals(fam.name, ignoreCase = true) }
+            }
+        }
+        return if (pool.isEmpty()) listOf(primaryFamily)
+        else (listOf(primaryFamily) + pool).distinct()
     }
 
     fun plan(
@@ -376,7 +384,8 @@ internal object Engine15QualityProgressionPolicy {
                         "HOLD_INTRO_UNVERIFIED_EXPOSURE",
                         "NO_AUTOMATIC_PROGRESSION_FROM_ELAPSED_WEEKS"
                     ),
-                    rationale = "Held at ${intro.stageLabel} (${intro.workSeconds / 60} min work) because repeated same-family exposure is unavailable or unverified."
+                    rationale = "Held at ${intro.stageLabel} (${intro.workSeconds / 60} min work) because repeated same-family exposure is unavailable or unverified.",
+                    slotNumber = slot.slotNumber
                 )
             }
         }
@@ -393,7 +402,7 @@ internal object Engine15QualityProgressionPolicy {
         }
         val anchorIndex = steps.indexOfLast { it.workSeconds <= repeatedBaseline }.coerceAtLeast(0)
         val anchorRatio = if (steps.lastIndex > 0) anchorIndex.toDouble() / steps.lastIndex.toDouble() else 0.0
-        val rotateFamilies = adaptiveOverrideActive && !request.preferredQualityExplicit && slots.size >= 2
+        val rotateFamilies = adaptiveQualityMode && !request.preferredQualityExplicit && slots.size >= 2
         val rotation = if (rotateFamilies) qualityFamilyRotation(request, family) else listOf(family)
 
         return slots.mapIndexed { slotIndex, slot ->
@@ -448,7 +457,8 @@ internal object Engine15QualityProgressionPolicy {
                 step = finalStep,
                 basis = basis,
                 ruleIds = rules,
-                rationale = rationale
+                rationale = rationale,
+                slotNumber = slot.slotNumber
             )
         }
     }

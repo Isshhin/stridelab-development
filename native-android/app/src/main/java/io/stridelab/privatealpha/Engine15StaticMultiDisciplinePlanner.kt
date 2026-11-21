@@ -44,13 +44,15 @@ internal object Engine15StaticMultiDisciplinePlanner {
             throw PlanConstraint("EXTERNAL_SCHEDULE_REVIEW_REQUIRED: Combined generation does not yet merge pre-existing saved workouts; no existing session was ignored.")
         RecordPolicy.identifier(owner)
         RecordPolicy.identifier(id)
+        var runCandidatePlan: PlanSnapshot? = null
         val sessions = disciplines.filter { request.disciplineSessionCount(it) > 0 }.flatMap { discipline ->
             val solo = soloRequest(request, discipline)
             when (discipline) {
                 "run" -> (Engine15IndependentPlanGenerator.previewAutoReconciled(
                     solo, owner, id, now, activities = activities, detections = detections
                 ) as? Engine15IndependentPlanDecision.Candidate)
-                    ?.plan?.sessions ?: throw PlanConstraint("RUNNING_COMPONENT_UNAVAILABLE: No independent running candidate was produced.")
+                    ?.plan?.also { runCandidatePlan = it }?.sessions
+                    ?: throw PlanConstraint("RUNNING_COMPONENT_UNAVAILABLE: No independent running candidate was produced.")
                 "str" -> Engine15StrengthWorkoutComposer.compose(solo, id, library, allowCalendarReschedule = true)
                 "cal" -> Engine15CalisthenicsWorkoutComposer.compose(solo, id, library, allowCalendarReschedule = true)
                 else -> Engine15ConditioningWorkoutComposer.compose(solo, id, library, allowCalendarReschedule = true)
@@ -61,10 +63,17 @@ internal object Engine15StaticMultiDisciplinePlanner {
             scheduled.map { it.id }.distinct().size != scheduled.size)
             throw PlanConstraint("ENGINE15_COMBINED_PLAN_INCOMPLETE: A combined discipline slot is missing or duplicated.")
         val stackedDays = scheduled.groupBy { it.date }.count { it.value.size > 1 }
+        val runQualityMeta = runCandidatePlan?.takeIf { candidate -> candidate.sessions.any { it.quality } }
         return PlanSnapshot(
             id = id, owner = owner, engineVersion = ENGINE15_VERSION,
             policyId = ENGINE15_INDEPENDENT_COMBINED_POLICY, createdAt = now,
-            request = request, sessions = scheduled,
+            request = if (runQualityMeta != null) {
+                request.copy(
+                    qualityDays = runQualityMeta.request.qualityDays,
+                    qualityDistanceClaims = runQualityMeta.request.qualityDistanceClaims
+                )
+            } else request,
+            sessions = scheduled,
             explanations = buildList {
                 add("Independent Engine 1.5 static multi-discipline plan. Every requested session was constructed by its Engine 1.5 discipline composer; no legacy generator or coaching validator was used.")
                 add("The calendar preserves selected long-run days, explicit weekday assignments and session locks, preferring optimal recovery spacing and adapting automatically when disciplines share a day.")
@@ -73,7 +82,9 @@ internal object Engine15StaticMultiDisciplinePlanner {
                 }
                 add("This is a static review draft. It does not adapt training load from completed or missed sessions. Review all sessions before explicit approval.")
             },
-            name = "Engine 1.5 independent combined plan"
+            name = "Engine 1.5 independent combined plan",
+            experimentalQualityPolicy = runQualityMeta?.experimentalQualityPolicy,
+            experimentalQualityExposureSeconds = runQualityMeta?.experimentalQualityExposureSeconds
         )
     }
 

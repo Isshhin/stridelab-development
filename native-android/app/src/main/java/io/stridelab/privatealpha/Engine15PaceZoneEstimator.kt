@@ -266,14 +266,16 @@ internal object Engine15PaceZoneEstimator {
             step.amount * speedMetersPerSec
         }
         val rawSum = rawDistances.sum().coerceAtLeast(1e-6)
-        val scaled = rawDistances.dropLast(1).map { d ->
-            floor(d / rawSum * totalMeters).toInt().coerceAtLeast(1).toDouble()
-        }
-        val remainder = (totalMeters - scaled.sum()).coerceAtLeast(1.0)
+        val rounded = rawDistances.map { d ->
+            (d / rawSum * totalMeters).roundToInt().coerceAtLeast(1)
+        }.toMutableList()
+        val largestIdx = rawDistances.indices.maxByOrNull { rawDistances[it] } ?: rounded.lastIndex
+        val delta = totalMeters - rounded.sum()
+        rounded[largestIdx] = (rounded[largestIdx] + delta).coerceAtLeast(1)
         Engine15M5SegmentDistanceClaim(
             weekNumber = alt.weekNumber,
             slotNumber = alt.slotNumber,
-            assertedMetersByTimedSegment = scaled + remainder,
+            assertedMetersByTimedSegment = rounded.map { it.toDouble() },
             externalReviewReference = null,
             provenance = Engine15M5DistanceClaimProvenance.USER_ASSERTED_EQUIVALENT
         )

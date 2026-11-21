@@ -70,7 +70,7 @@ internal data class PlanRequest(
     val benchmarkDurationSeconds:Int? = null
 ) {
     init {
-        require(qualityDistanceClaims.size <= 16)
+        require(qualityDistanceClaims.size <= 32)
         require(qualityDistanceClaims.all {
             it.provenance == Engine15M5DistanceClaimProvenance.USER_ASSERTED_EQUIVALENT &&
                 it.externalReviewReference == null

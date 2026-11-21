@@ -132,59 +132,77 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             cleanedPeak != request.reportedPeakWeeklyKm -> request.copy(reportedPeakWeeklyKm = cleanedPeak)
             else -> request
         }
-        val initialDecision = preview(
-            effectiveRequest, owner, id, now, existingPlans, activityEvidence, qualityEvidence,
-            assertedExposureSecondsOverride = assertedExposureSecondsOverride,
-            allowExplicitUserFamily = true
-        )
-        if (initialDecision is Engine15IndependentPlanDecision.Deferred &&
-            effectiveRequest.qualityCount > 0 &&
+        val autoAdaptiveQuality = effectiveRequest.qualityCount > 0 &&
             effectiveRequest.userDefinedQualityWorkouts.isEmpty() &&
             effectiveRequest.qualityDistanceClaims.isEmpty()
-        ) {
-            val selectedFamily = initialDecision.qualitySelection?.selectedFamily
-            val adaptiveExposure = assertedExposureSecondsOverride
-                ?: selectedFamily?.let { fam ->
-                    Engine15QualityProgressionPolicy.computeAdaptiveExposureAnchorSeconds(
-                        request = effectiveRequest,
-                        family = fam,
-                        activities = activities,
-                        plans = existingPlans.orEmpty(),
-                        detections = detections
+        var resolvedRequest = effectiveRequest
+        var initialDecision = preview(
+            resolvedRequest, owner, id, now, existingPlans, activityEvidence, qualityEvidence,
+            assertedExposureSecondsOverride = assertedExposureSecondsOverride,
+            allowExplicitUserFamily = true,
+            adaptiveQualityMode = autoAdaptiveQuality
+        )
+        if (initialDecision is Engine15IndependentPlanDecision.Deferred && autoAdaptiveQuality) {
+            if (initialDecision.qualitySelection?.reasonCode == "QUALITY_SLOT_UNAVAILABLE" &&
+                resolvedRequest.qualityDays.isNotEmpty()
+            ) {
+                resolvedRequest = resolvedRequest.copy(qualityDays = emptySet())
+                initialDecision = preview(
+                    resolvedRequest, owner, id, now, existingPlans, activityEvidence, qualityEvidence,
+                    assertedExposureSecondsOverride = assertedExposureSecondsOverride,
+                    allowExplicitUserFamily = true,
+                    adaptiveQualityMode = true
+                )
+            }
+            if (initialDecision is Engine15IndependentPlanDecision.Deferred) {
+                val selectedFamily = initialDecision.qualitySelection?.selectedFamily
+                val adaptiveExposure = assertedExposureSecondsOverride
+                    ?: selectedFamily?.let { fam ->
+                        Engine15QualityProgressionPolicy.computeAdaptiveExposureAnchorSeconds(
+                            request = resolvedRequest,
+                            family = fam,
+                            activities = activities,
+                            plans = existingPlans.orEmpty(),
+                            detections = detections
+                        )
+                    }
+                val adaptiveDeferred = if (adaptiveExposure != null && adaptiveExposure != assertedExposureSecondsOverride) {
+                    preview(
+                        resolvedRequest, owner, id, now, existingPlans, activityEvidence, qualityEvidence,
+                        assertedExposureSecondsOverride = adaptiveExposure,
+                        allowExplicitUserFamily = true,
+                        adaptiveQualityMode = true
+                    ) as? Engine15IndependentPlanDecision.Deferred ?: initialDecision
+                } else initialDecision
+
+                val dryRun = adaptiveDeferred.qualityDryRun ?: initialDecision.qualityDryRun
+                if (dryRun != null) {
+                    val zones = Engine15PaceZoneEstimator.estimate(resolvedRequest, activities = activities)
+                    val autoClaims = Engine15PaceZoneEstimator.estimateSegmentClaims(dryRun, zones)
+                    val resolvedQualityDays = dryRun.alternatives.map { it.slot.date.dayOfWeek.value }.toSet()
+                    val enrichedRequest = resolvedRequest.copy(
+                        qualityDays = resolvedQualityDays,
+                        qualityDistanceClaims = autoClaims
+                    )
+                    val retry = preview(
+                        enrichedRequest, owner, id, now, existingPlans, activityEvidence, qualityEvidence,
+                        assertedExposureSecondsOverride = adaptiveExposure,
+                        allowExplicitUserFamily = true,
+                        adaptiveQualityMode = true
+                    )
+                    if (retry is Engine15IndependentPlanDecision.Candidate) return retry
+                }
+                val fallback = preview(
+                    resolvedRequest.copy(qualityCount = 0), owner, id, now, existingPlans, activityEvidence, qualityEvidence
+                )
+                if (fallback is Engine15IndependentPlanDecision.Candidate) {
+                    return fallback.copy(
+                        plan = fallback.plan.copy(
+                            explanations = fallback.plan.explanations +
+                                "Quality workouts were adapted to aerobic runs for this schedule; you can adjust your running days or add quality anytime."
+                        )
                     )
                 }
-            val adaptiveDeferred = if (adaptiveExposure != null && adaptiveExposure != assertedExposureSecondsOverride) {
-                preview(
-                    effectiveRequest, owner, id, now, existingPlans, activityEvidence, qualityEvidence,
-                    assertedExposureSecondsOverride = adaptiveExposure,
-                    allowExplicitUserFamily = true,
-                    adaptiveQualityMode = true
-                ) as? Engine15IndependentPlanDecision.Deferred ?: initialDecision
-            } else initialDecision
-
-            val dryRun = adaptiveDeferred.qualityDryRun ?: initialDecision.qualityDryRun
-            if (dryRun != null) {
-                val zones = Engine15PaceZoneEstimator.estimate(effectiveRequest, activities = activities)
-                val autoClaims = Engine15PaceZoneEstimator.estimateSegmentClaims(dryRun, zones)
-                val enrichedRequest = effectiveRequest.copy(qualityDistanceClaims = autoClaims)
-                val retry = preview(
-                    enrichedRequest, owner, id, now, existingPlans, activityEvidence, qualityEvidence,
-                    assertedExposureSecondsOverride = adaptiveExposure,
-                    allowExplicitUserFamily = true,
-                    adaptiveQualityMode = true
-                )
-                if (retry is Engine15IndependentPlanDecision.Candidate) return retry
-            }
-            val fallback = preview(
-                effectiveRequest.copy(qualityCount = 0), owner, id, now, existingPlans, activityEvidence, qualityEvidence
-            )
-            if (fallback is Engine15IndependentPlanDecision.Candidate) {
-                return fallback.copy(
-                    plan = fallback.plan.copy(
-                        explanations = fallback.plan.explanations +
-                            "Quality workouts were adapted to aerobic runs for this schedule; you can adjust your running days or add quality anytime."
-                    )
-                )
             }
         }
         return initialDecision
@@ -452,7 +470,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                     distanceKm = slot.distanceKm,
                     kind = if (slot.role == Engine15M5RunRole.LONG) "long" else "easy",
                     quality = false,
-                    steps = listOf("${meters} m at easy, conversational effort"),
+                    steps = listOf("${formatMetersAsKm(meters)} at easy, conversational effort"),
                     reason = buildString {
                         append(if (week.kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY) "Recovery week. " else "Loading week. ")
                         append("Distance and calendar were independently constructed; duration is estimated from the entered planning pace.")
@@ -482,7 +500,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 recoveryWeeks = volume.weeks.filter {
                     it.kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY
                 }.map { it.index + 1 }.toSet(),
-                externalSessions = external.sessions
+                externalSessions = external.sessions,
+                adaptiveMode = adaptiveQualityMode
             )
             val qualityDryRun = Engine15QualityWorkoutDryRunBuilder.build(
                 request, selection, volume, sessions, assertedExposureSecondsOverride, allowExplicitUserFamily,
@@ -791,21 +810,44 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         val savedUsesAdaptiveRotation = plan.sessions.filter { it.quality }
             .mapNotNull { it.runningPrescription?.family }
             .distinct().size > 1
-        val expected = when (val decision = if (plan.request.qualityDistanceClaims.isEmpty() && plan.sessions.any { it.quality }) {
-            previewAutoReconciled(plan.request, plan.owner, plan.id, plan.createdAt,
+        fun runPreview(adaptive: Boolean) = preview(
+            plan.request, plan.owner, plan.id, plan.createdAt,
+            qualityEvidence = qualityEvidence,
+            applyTempoExposureGate = plan.experimentalQualityPolicy == QUALITY_POLICY,
+            assertedExposureSecondsOverride = plan.experimentalQualityExposureSeconds,
+            allowExplicitUserFamily = true,
+            adaptiveQualityMode = adaptive
+        )
+        val expected = if (plan.request.qualityDistanceClaims.isEmpty() && plan.sessions.any { it.quality }) {
+            when (val decision = previewAutoReconciled(
+                plan.request, plan.owner, plan.id, plan.createdAt,
                 qualityEvidence = qualityEvidence,
-                assertedExposureSecondsOverride = plan.experimentalQualityExposureSeconds)
+                assertedExposureSecondsOverride = plan.experimentalQualityExposureSeconds
+            )) {
+                is Engine15IndependentPlanDecision.Deferred ->
+                    throw PlanConstraint("${decision.reasonCode}: ${decision.explanation}")
+                is Engine15IndependentPlanDecision.Candidate -> decision.plan
+            }
         } else {
-            preview(plan.request, plan.owner, plan.id, plan.createdAt,
-                qualityEvidence = qualityEvidence,
-                applyTempoExposureGate = plan.experimentalQualityPolicy == QUALITY_POLICY,
-                assertedExposureSecondsOverride = plan.experimentalQualityExposureSeconds,
-                allowExplicitUserFamily = true,
-                adaptiveQualityMode = savedUsesAdaptiveRotation)
-        }) {
-            is Engine15IndependentPlanDecision.Deferred ->
-                throw PlanConstraint("${decision.reasonCode}: ${decision.explanation}")
-            is Engine15IndependentPlanDecision.Candidate -> decision.plan
+            val initialDecision = runPreview(savedUsesAdaptiveRotation)
+            val needsAdaptiveRetry = plan.experimentalQualityExposureSeconds != null &&
+                !savedUsesAdaptiveRotation &&
+                plan.request.qualityDistanceClaims.isNotEmpty() &&
+                plan.sessions.any { it.quality } &&
+                (initialDecision is Engine15IndependentPlanDecision.Deferred || (
+                    initialDecision is Engine15IndependentPlanDecision.Candidate &&
+                        initialDecision.plan.sessions.associateBy { it.id }.let { expectedById ->
+                            plan.sessions.any { session ->
+                                expectedById[session.id]?.runningPrescription != session.runningPrescription
+                            }
+                        }
+                ))
+            val resolvedDecision = if (needsAdaptiveRetry) runPreview(true) else initialDecision
+            when (resolvedDecision) {
+                is Engine15IndependentPlanDecision.Deferred ->
+                    throw PlanConstraint("${resolvedDecision.reasonCode}: ${resolvedDecision.explanation}")
+                is Engine15IndependentPlanDecision.Candidate -> resolvedDecision.plan
+            }
         }
         if (plan.sessions.size != expected.sessions.size ||
             plan.sessions.map { it.id }.toSet() != expected.sessions.map { it.id }.toSet())

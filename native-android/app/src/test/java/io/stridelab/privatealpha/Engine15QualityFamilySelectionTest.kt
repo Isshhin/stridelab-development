@@ -146,7 +146,7 @@ class Engine15QualityFamilySelectionTest {
     @Test fun unsupportedPreferenceFrequencyFamilyAndOwnerEvidenceAreExplicit() {
         assertEquals("QUALITY_PREFERRED_FAMILY_UNSUPPORTED",
             select(input = request.copy(preferredQualityExplicit = true, preferredQuality = "Track sprints")).reasonCode)
-        assertEquals(Engine15QualitySelectionDecision.UNSUPPORTED, select(input = request.copy(qualityCount = 2)).decision)
+        assertEquals(Engine15QualitySelectionDecision.UNSUPPORTED, select(input = request.copy(qualityCount = 3)).decision)
         assertEquals(Engine15QualitySelectionDecision.UNSUPPORTED,
             select(input = request.copy(allowedQualityTypes = setOf("Track sprints"))).decision)
         assertEquals(IndependentQualityFamily.FARTLEK,
@@ -197,5 +197,33 @@ class Engine15QualityFamilySelectionTest {
         assertEquals(Engine15WorkoutExecutability.NON_EXECUTABLE, first.workoutExecutability)
         assertFalse(first.sourceEvidenceVerified)
         assertNull(first.templateId)
+    }
+
+    @Test fun twoQualitySlotsPerLoadingWeekEnforceWithinWeekAndCrossWeekLongRunSpacing() {
+        val twoPerWeek = request.copy(qualityCount = 2, qualityDays = setOf(1, 3))
+        val selected = select(input = twoPerWeek)
+        assertEquals(Engine15QualitySelectionDecision.FAMILY_CANDIDATE, selected.decision)
+        assertEquals(6, selected.candidateSlots.size)
+        assertEquals(listOf(1, 1, 2, 2, 3, 3), selected.candidateSlots.map { it.weekNumber })
+        assertEquals(setOf(1, 3), selected.candidateSlots.map { it.date.dayOfWeek.value }.toSet())
+
+        // Week 1 Sunday easy run is 1 day before Week 2 Monday long run (cross-week spacing).
+        val crossWeekDays = setOf(1, 2, 4, 7)
+        val crossWeekReq = request.copy(runDays = 4, days = crossWeekDays, longDay = 1, qualityCount = 1, qualityDays = setOf(7))
+        val crossWeekSessions = (1..4).flatMap { week ->
+            crossWeekDays.map { day ->
+                PlannedSession(
+                    id = "cw-w$week-run$day",
+                    date = monday.plusWeeks((week - 1).toLong()).plusDays((day - 1).toLong()),
+                    discipline = "run",
+                    title = if (day == 1) "Long easy run" else "Easy run",
+                    minutes = 40,
+                    distanceKm = 8.0,
+                    kind = if (day == 1) "long" else "easy"
+                )
+            }
+        }
+        val blockedCrossWeek = select(input = crossWeekReq, scheduled = crossWeekSessions)
+        assertEquals("QUALITY_SLOT_UNAVAILABLE", blockedCrossWeek.reasonCode)
     }
 }

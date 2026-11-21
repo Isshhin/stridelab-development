@@ -440,7 +440,7 @@ internal fun TracksideParityWorkoutCard(
                             Box(Modifier.weight(if (i == 1) 4f else 1f).fillMaxHeight()
                                 .background(accent.copy(alpha = if (i == 1) 0.9f else 0.35f),
                                     RoundedCornerShape(5.dp)), contentAlignment = Alignment.Center) {
-                                Text(stage.take(22), fontSize = 9.sp,
+                                Text(formatStageForCard(stage), modifier = Modifier.padding(horizontal = 8.dp), fontSize = 9.5.sp,
                                     color = TracksidePalette.text,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
@@ -469,3 +469,11 @@ internal fun TracksideParityWorkoutCard(
         }
     }
 }
+
+private val STAGE_METERS_REGEX = Regex("""\b(\d{4,6})\s*m\b""")
+
+internal fun formatStageForCard(raw: String): String =
+    STAGE_METERS_REGEX.replace(raw) { match ->
+        val meters = match.groupValues[1].toIntOrNull()
+        if (meters != null && meters >= 1000) runningStepDisplayKmLabel(meters) else match.value
+    }

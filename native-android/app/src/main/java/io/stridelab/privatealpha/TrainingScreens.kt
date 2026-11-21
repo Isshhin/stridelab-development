@@ -67,7 +67,7 @@ import kotlinx.coroutines.withContext
                 Text(if(s.status=="completed"&&s.log!=null) (s.log.performedOn?.let { "Performed $it · logged " } ?: "Actual date unrecorded · logged ")+s.log.at.atZone(java.time.ZoneId.systemDefault()).toLocalDate().format(DateTimeFormatter.ofPattern("EEE, d MMM"))+" · scheduled ${s.date}" else s.date.format(DateTimeFormatter.ofPattern("EEE, d MMM")),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 if(s.distanceKm!=null && s.suggestion?.accepted!=true) Text("Target %.1f km · planned, not recorded".format(s.distanceKm),style=MaterialTheme.typography.bodyMedium)
                 if(s.effectiveExercises.isNotEmpty()) s.effectiveExercises.take(3).forEach { e -> Text("${e.name} · ${e.sets} × ${e.reps?.let { "$it reps" } ?: "${e.seconds} sec"}",style=MaterialTheme.typography.bodyMedium) }
-                else s.steps.take(2).forEach { Text(it,style=MaterialTheme.typography.bodyMedium) }
+                else s.steps.take(2).forEach { Text(formatStageForCard(it),style=MaterialTheme.typography.bodyMedium) }
                 if(s.suggestion!=null&&!s.suggestion.accepted) Text("Recovery suggestion awaiting your review",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.primary)
                 Text(if(s.status=="completed") "Open saved workout →" else "Preview, start or manage →",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -166,12 +166,10 @@ import kotlinx.coroutines.withContext
                         if(day.isEmpty()) item { SignalCard { Text("No workout scheduled",style=MaterialTheme.typography.titleLarge);Text("This calendar date has no prescribed session. No workout or completion is assumed.") } }
                         day.forEach { session -> item { PlannedWorkoutCard(session,state.workoutDrafts.containsKey(plan.id to session.id),compact=true) { onOpen(plan.id,session.id) } } }
                     }
-                    item { PlanOverview(plan) }
                     if(Engine15MileageTargetIntegrity.review(plan)?.requiresFoundationDecision==true &&
                         !plan.request.foundationAcknowledged) {
                         item { TracksideTrainingTargetWarning(plan) }
                     }
-                    item { PlanFeedbackForm(plan,actions) }
                 }
                 val hasExportable = state.plans.isNotEmpty() || state.researchDrafts.isNotEmpty()
                 val hasBackupAccess = hasExportable || state.account != null || state.localPlanOwner != null

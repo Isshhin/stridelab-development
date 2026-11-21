@@ -105,6 +105,19 @@ public final class TrainingStore extends SQLiteOpenHelper {
     }
 
     public CachedRecord get(String account,String kind,String id) {keyCheck(account,kind,id);return find(getReadableDatabase(),account,kind,id);}
+
+    /** Permanently removes one local record along with any queued offline mutations or conflicts. */
+    public void deleteRecord(String account,String kind,String id) {
+        keyCheck(account,kind,id);
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();
+        try {
+            String[] k=key(account,kind,id);
+            db.delete("records","account=? AND kind=? AND record_id=?",k);
+            db.delete("outbox","account=? AND kind=? AND record_id=?",k);
+            db.delete("conflicts","account=? AND kind=? AND record_id=?",k);
+            db.setTransactionSuccessful();
+        } finally {db.endTransaction();}
+    }
     public List<CachedRecord> list(String account,String kind,int limit) {
         RecordPolicy.identifier(account);RecordPolicy.kind(kind);limit(limit);
         List<CachedRecord> out=new ArrayList<>();

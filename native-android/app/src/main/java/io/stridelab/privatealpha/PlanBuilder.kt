@@ -54,24 +54,26 @@ import org.json.JSONObject
                 withDetectedExp.copy(weeklyKm=it.weeklyKm,recentMileageBasis="RECORDED_PARTIAL")
             } ?: withDetectedExp
         } else {
-            PlanRequest(
+            sanitizeRunningScheduleDays(PlanRequest(
                 policyChoice="engine15",
                 experience=detectedExperience ?: 0,
                 planningPace=historicalEasyPace,
                 weeklyKm=observedBaseline?.weeklyKm ?: 0.0,
                 recentMileageBasis=if(observedBaseline==null) "SELF_REPORTED_AVERAGE" else "RECORDED_PARTIAL",
                 longestKm=state.activities.filter { DashboardSummary.isRun(it) }
-                    .mapNotNull { it.distanceM }.maxOrNull()?.div(1000) ?: 0.0
-            )
+                    .mapNotNull { it.distanceM }.maxOrNull()?.div(1000) ?: 0.0,
+                qualityCount=1,
+                qualityDays=setOf(2)
+            ))
         }
     }
     val initial=remember {
         when(discipline) {
-            "run" -> baseline.copy(
+            "run" -> sanitizeRunningScheduleDays(baseline.copy(
                 runDays=3,strengthDays=0,calDays=0,conditioningDays=0,
-                qualityCount=0,qualityDays=emptySet(),
+                qualityCount=if(baseline.qualityCount>0) baseline.qualityCount else 1,
                 weeklySlots=emptyMap(),disciplineGoals=emptyMap()
-            )
+            ))
             "str" -> baseline.copy(
                 goal="General strength",runDays=0,strengthDays=2,
                 calDays=0,conditioningDays=0,qualityCount=0,
@@ -86,10 +88,9 @@ import org.json.JSONObject
             )
             else -> baseline
         }.let { request ->
-        if(state.plans.isEmpty()) request.copy(
-            days=setOf(1,2,3,4,5,7), longDay=7,
-            qualityDays=request.qualityDays.intersect(setOf(1,2,3,4,5,7))
-        ) else request
+        if(state.plans.isEmpty()) sanitizeRunningScheduleDays(request.copy(
+            days=setOf(1,2,3,4,5,7), longDay=7
+        )) else request
     }.copy(timeBudgetEnabled=false) }
     var encoded by rememberSaveable { mutableStateOf(initial.encode().toString()) }
     var step by rememberSaveable { mutableIntStateOf(0) }
@@ -272,12 +273,13 @@ import org.json.JSONObject
                 }
                 val toggled=when(d) {
                     "run" -> {
-                        desiredQualityCount = 0
-                        input.copy(
-                            runDays=if(active)0 else 3,
-                            qualityCount=0,
-                            qualityDays=emptySet()
-                        )
+                        if (active) {
+                            desiredQualityCount = 0
+                            input.copy(runDays=0, qualityCount=0, qualityDays=emptySet())
+                        } else {
+                            desiredQualityCount = 1
+                            sanitizeRunningScheduleDays(input.copy(runDays=3, qualityCount=1))
+                        }
                     }
                     "str" -> input.copy(strengthDays=if(active)0 else 2)
                     "cal" -> input.copy(calDays=if(active)0 else 2)

@@ -590,6 +590,19 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     suspend fun approvePlan(id:String,revision:Int)=changePlan(id,revision) { PlanOperations.approve(it,mutable.value.plans) }
     suspend fun pausePlan(id:String,revision:Int)=changePlan(id,revision) { it.copy(status="paused") }
     suspend fun archivePlan(id:String,revision:Int)=changePlan(id,revision) { it.copy(status="archived") }
+    suspend fun deletePlan(id:String,revision:Int)=operation("Deleting plan…") {
+        val activeOwner=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)
+        val plan=mutable.value.plans.find { it.id==id && it.owner==activeOwner }
+            ?: throw PlanConstraint("This plan is unavailable for the current local profile or account.")
+        if(plan.revision!=revision)throw PlanConstraint("The saved plan changed. Reopen it before deleting.")
+        store.deleteRecord(activeOwner,"plan",plan.id)
+        val staleDrafts=mutable.value.workoutDrafts.filter { (_,draft) -> draft.planId==plan.id && draft.owner==activeOwner }
+        staleDrafts.values.forEach { draft -> store.deleteRecord(activeOwner,"workout",draft.recordId) }
+        mutable.value=mutable.value.copy(
+            plans=mutable.value.plans.filterNot { it.id==plan.id },
+            workoutDrafts=mutable.value.workoutDrafts-staleDrafts.keys
+        )
+    }
     suspend fun moveSession(id:String,revision:Int,sessionId:String,date:java.time.LocalDate)=changePlan(id,revision) { plan->PlanOperations.move(plan,sessionId,date,mutable.value.plans) }
     suspend fun setSessionLock(id:String,revision:Int,sessionId:String,locked:Boolean)=changePlan(id,revision) { plan->PlanOperations.setSessionLock(plan,sessionId,locked) }
     fun previewAvailabilityChange(id:String,newDays:Set<Int>):Engine15Availability.Impact? {

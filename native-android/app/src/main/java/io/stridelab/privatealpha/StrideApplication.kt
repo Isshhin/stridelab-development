@@ -95,6 +95,7 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
         approve={id,r->viewModelScope.launch { repo.approvePlan(id,r) }},
         pause={id,r->viewModelScope.launch { repo.pausePlan(id,r) }},
         archive={id,r->viewModelScope.launch { repo.archivePlan(id,r) }},
+        delete={id,r->viewModelScope.launch { repo.deletePlan(id,r) }},
         move={id,r,s,d->viewModelScope.launch { repo.moveSession(id,r,s,d) }},
         record={id,r,s,log,done->viewModelScope.launch { repo.recordWorkout(id,r,s,log,done) }},
         saveRunResponse={id,r,s,effort,difficulty,discomfort->viewModelScope.launch { repo.saveRunResponse(id,r,s,effort,difficulty,discomfort) }},

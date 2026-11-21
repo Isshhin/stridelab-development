@@ -47,7 +47,7 @@ internal data class Engine15QualityFamilySelectionResult(
     init {
         require(policyId == Engine15QualityFamilySelection.POLICY_ID)
         require(evidenceSessionIds.distinct() == evidenceSessionIds)
-        require(candidateSlots.map { it.weekNumber }.distinct() == candidateSlots.map { it.weekNumber })
+        require(candidateSlots.map { it.weekNumber to it.slotNumber }.distinct() == candidateSlots.map { it.weekNumber to it.slotNumber })
         require(ruleIds.distinct() == ruleIds && qualificationNotes.isNotEmpty())
         require(!sourceEvidenceVerified)
         require(templateAuthorization == Engine15TemplateAuthorization.NOT_AUTHORIZED)
@@ -113,14 +113,15 @@ internal object Engine15QualityFamilySelection {
         athlete: Engine15AthleteCapacity,
         scheduledSessions: List<PlannedSession>,
         recoveryWeeks: Set<Int>,
-        externalSessions: List<Engine15M6CExternalSession>
+        externalSessions: List<Engine15M6CExternalSession>,
+        adaptiveMode: Boolean = false
     ): Engine15QualityFamilySelectionResult {
         if (request.qualityCount == 0)
             return result(Engine15QualitySelectionDecision.DEFERRED, reason = "NO_QUALITY_REQUESTED",
                 explanation = "No coach-generated quality workout was requested.")
-        if (request.qualityCount != 1)
+        if (request.qualityCount !in 1..2)
             return result(Engine15QualitySelectionDecision.UNSUPPORTED, reason = "QUALITY_FREQUENCY_UNSUPPORTED",
-                explanation = "This selector has no reviewed policy for choosing more than one quality family per loading week.")
+                explanation = "This selector supports one or two quality sessions per loading week.")
         if (request.runDays !in 2..6 || request.weeks !in 1..16)
             return result(Engine15QualitySelectionDecision.UNSUPPORTED, reason = "RUNNING_PLAN_BOUNDS_UNSUPPORTED",
                 explanation = "The selector supports two to six running days and one to sixteen weeks.")
@@ -154,33 +155,57 @@ internal object Engine15QualityFamilySelection {
                 explanation = "All requested weeks are recovery weeks; no quality-family slot was selected.",
                 athlete = athlete, rules = listOf("RECOVERY_WEEKS_EXCLUDED"))
         val candidateSlots = mutableListOf<Engine15QualityFamilyCandidateSlot>()
+        val selectedQualitySessions = mutableListOf<PlannedSession>()
+        fun asQuality(session: PlannedSession) =
+            session.copy(kind = "quality", quality = true, runningPrescription = null)
         for (week in loadingWeeks) {
             val weekSessions = scheduledSessions.filter {
                 ChronoUnit.DAYS.between(request.start, it.date) / 7L == week - 1L
             }
-            val candidates = weekSessions.filter { session ->
+            val orderedRunSessions = weekSessions.filter { it.discipline == "run" }
+                .sortedWith(compareBy<PlannedSession> { it.date }.thenBy { it.id })
+            val validCandidates = weekSessions.filter { session ->
+                val proposedQuality = asQuality(session)
                 session.discipline == "run" && session.kind == "easy" &&
                     session.distanceKm?.let { it.isFinite() && it > 0.0 } == true &&
                     (request.qualityDays.isEmpty() || session.date.dayOfWeek.value in request.qualityDays) &&
                     session.id !in request.lockedSessionDays &&
                     externalSessions.none { external ->
-                        Engine15IndependentPlanGenerator.conflict(
-                            session.copy(kind = "quality", quality = true, runningPrescription = null), external.asPlannedSession()
-                        )
-                    } && weekSessions.none { other ->
-                        other.id != session.id && Engine15IndependentPlanGenerator.conflict(
-                            session.copy(kind = "quality", quality = true, runningPrescription = null), other
-                        )
+                        Engine15IndependentPlanGenerator.conflict(proposedQuality, external.asPlannedSession())
+                    } && scheduledSessions.none { other ->
+                        other.id != session.id && Engine15IndependentPlanGenerator.conflict(proposedQuality, other)
+                    } && selectedQualitySessions.none { prior ->
+                        Engine15IndependentPlanGenerator.conflict(proposedQuality, prior)
                     }
+            }.sortedWith(compareBy<PlannedSession> { it.date }.thenBy { it.id })
+
+            val chosenInWeek: List<PlannedSession> = when (request.qualityCount) {
+                1 -> listOfNotNull(validCandidates.firstOrNull())
+                2 -> {
+                    var pair: List<PlannedSession>? = null
+                    for (i in validCandidates.indices) {
+                        val first = validCandidates[i]
+                        val firstQuality = asQuality(first)
+                        for (j in (i + 1) until validCandidates.size) {
+                            val second = validCandidates[j]
+                            if (!Engine15IndependentPlanGenerator.conflict(firstQuality, asQuality(second))) {
+                                pair = listOf(first, second)
+                                break
+                            }
+                        }
+                        if (pair != null) break
+                    }
+                    pair.orEmpty()
+                }
+                else -> emptyList()
             }
-            if (candidates.isEmpty())
+            if (chosenInWeek.size != request.qualityCount)
                 return result(Engine15QualitySelectionDecision.DEFERRED, reason = "QUALITY_SLOT_UNAVAILABLE",
                     explanation = "No unlocked, available easy-run slot in loading week $week satisfies the selected quality day and existing session-spacing checks.",
                     athlete = athlete, rules = listOf("CALENDAR_AND_LOCKS_CHECKED", "KNOWN_HARD_SESSION_SPACING_CHECKED"))
-            candidates.minWith(compareBy<PlannedSession> { it.date }.thenBy { it.id }).let { session ->
-                val slotNumber = weekSessions.filter { it.discipline == "run" }
-                    .sortedWith(compareBy<PlannedSession> { it.date }.thenBy { it.id })
-                    .indexOfFirst { it.id == session.id } + 1
+            chosenInWeek.forEach { session ->
+                selectedQualitySessions += asQuality(session)
+                val slotNumber = orderedRunSessions.indexOfFirst { it.id == session.id } + 1
                 candidateSlots += Engine15QualityFamilyCandidateSlot(
                     week, slotNumber, session.id, session.date, requireNotNull(session.distanceKm)
                 )
@@ -205,11 +230,11 @@ internal object Engine15QualityFamilySelection {
             basis = Engine15QualitySelectionBasis.EXPLICIT_USER_PREFERENCE
             qualification = Engine15FamilyPolicyQualification.USER_DIRECTED
         } else {
-            if (request.returning)
+            if (request.returning && !adaptiveMode)
                 return result(Engine15QualitySelectionDecision.DEFERRED, reason = "RETURN_TO_RUNNING_QUALITY_POLICY_UNAVAILABLE",
                     explanation = "Automatic quality-family selection for returning runners has no reviewed eligibility rule.", athlete = athlete,
                     rules = listOf("RETURNING_RUNNER_POLICY_REQUIRED"))
-            if (request.runDays < 3)
+            if (request.runDays < 3 && !adaptiveMode)
                 return result(Engine15QualitySelectionDecision.DEFERRED, reason = "RUN_FREQUENCY_POLICY_UNAVAILABLE",
                     explanation = "Automatic selection is deferred below three weekly runs because this provisional plan policy reserves a separate easy-running opportunity. This is an engineering safeguard, not a research-derived cutoff.", athlete = athlete,
                     rules = listOf("PROVISIONAL_MINIMUM_RUN_FREQUENCY"),
@@ -219,7 +244,7 @@ internal object Engine15QualityFamilySelection {
                 return result(Engine15QualitySelectionDecision.DEFERRED, reason = "ATHLETE_RUNNING_BASELINE_INSUFFICIENT",
                     explanation = "Automatic family selection needs a positive, internally consistent recent-running baseline; no minimum mileage threshold is applied.", athlete = athlete,
                     rules = listOf("BASELINE_EVIDENCE_REVIEWED"))
-            family = when (request.goal) {
+            val matrixFamily = if (request.returning) IndependentQualityFamily.TEMPO else when (request.goal) {
                 "Improve 5K" -> if (request.experience == 2)
                     IndependentQualityFamily.INTERVALS else IndependentQualityFamily.TEMPO
                 "Improve 10K", "Half marathon" -> if (request.experience == 2)
@@ -228,6 +253,13 @@ internal object Engine15QualityFamilySelection {
                 else -> return result(Engine15QualitySelectionDecision.UNSUPPORTED, reason = "RUNNING_GOAL_UNSUPPORTED",
                     explanation = "The goal has no family mapping in the bounded selection matrix.", athlete = athlete)
             }
+            family = if (adaptiveMode && request.allowedQualityTypes.isNotEmpty() &&
+                request.allowedQualityTypes.none { it.equals(matrixFamily.name, ignoreCase = true) }
+            ) {
+                supported.entries.firstOrNull { (label, _) ->
+                    request.allowedQualityTypes.any { it.equals(label, ignoreCase = true) }
+                }?.value ?: matrixFamily
+            } else matrixFamily
             basis = Engine15QualitySelectionBasis.GOAL_EXPERIENCE_MATRIX
             qualification = Engine15FamilyPolicyQualification.PROVISIONAL_ENGINEERING_RULE
         }

@@ -173,8 +173,8 @@ internal object Engine15QualityWorkoutDryRunBuilder {
         )
         val prescriptions = Engine15QualityProgressionPolicy.plan(
             request, selection, assertedExposureSecondsOverride, adaptiveQualityMode = adaptiveQualityMode
-        ).associateBy { it.weekNumber }
-        val firstPrescription = prescriptions[slot.weekNumber] ?: return null
+        ).associateBy { it.weekNumber to it.slotNumber }
+        val firstPrescription = prescriptions[slot.weekNumber to slot.slotNumber] ?: return null
         val workout = firstPrescription.step.workout
         val totalSeconds = firstPrescription.step.totalSeconds
         val workSeconds = firstPrescription.step.workSeconds
@@ -184,7 +184,7 @@ internal object Engine15QualityWorkoutDryRunBuilder {
         val conflict = claims.any { (key, rows) -> key !in keys || rows.size != 1 }
         val alternatives = selection.candidateSlots.map { candidate ->
             val budget = weeklyDistance.single { it.weekNumber == candidate.weekNumber }.budgetKm
-            val weekPrescription = prescriptions[candidate.weekNumber] ?: return null
+            val weekPrescription = prescriptions[candidate.weekNumber to candidate.slotNumber] ?: return null
             val claim = claims[candidate.weekNumber to candidate.slotNumber]?.singleOrNull()
             when {
                 conflict -> Engine15TempoAlternative(candidate, budget, Engine15QualityDistanceStatus.CLAIM_SET_CONFLICT, prescription = weekPrescription)

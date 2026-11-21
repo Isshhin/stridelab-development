@@ -4,13 +4,19 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -30,6 +36,7 @@ internal fun TracksideParityPausedPlan(
     actions: PlanActions,
     onBack: () -> Unit
 ) {
+    var confirmDelete by rememberSaveable(plan.id) { mutableStateOf(false) }
     Screen("Training", "PLAN STATUS", compactTitle = true, dense = true) {
         item {
             TextButton(onClick = onBack) { Text("‹ Back to Training") }
@@ -78,8 +85,23 @@ internal fun TracksideParityPausedPlan(
                         ),
                         shape = RoundedCornerShape(13.dp)
                     ) { Text("Resume plan", fontWeight = FontWeight.ExtraBold) }
+                    OutlinedButton(
+                        onClick = { confirmDelete = true },
+                        enabled = !busy,
+                        modifier = Modifier.fillMaxWidth().testTag("manage-delete")
+                    ) {
+                        Text("Quit & delete plan", color = StrideLabVisualPalette.highCoral)
+                    }
                 }
             }
         }
     }
+    if (confirmDelete) AlertDialog(
+        onDismissRequest = { confirmDelete = false },
+        containerColor = StrideLabVisualPalette.surface,
+        title = { Text("Quit and delete this plan?", color = StrideLabVisualPalette.ink) },
+        text = { Text("This permanently removes the plan and its scheduled workouts from this device. Your recorded runs and activity history are not affected.", color = StrideLabVisualPalette.secondary) },
+        confirmButton = { TextButton(onClick = { confirmDelete = false; actions.delete(plan.id, plan.revision); onBack() }, enabled = !busy) { Text("Delete plan", color = StrideLabVisualPalette.highCoral) } },
+        dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel", color = StrideLabVisualPalette.secondary) } }
+    )
 }

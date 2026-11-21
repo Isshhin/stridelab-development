@@ -73,7 +73,7 @@ internal fun TracksideManagePlanScreen(
     var movingWorkout by remember { mutableStateOf<PlannedSession?>(null) }
     var confirmDraft by rememberSaveable(plan.id) { mutableStateOf(false) }
     var confirmPause by rememberSaveable(plan.id) { mutableStateOf(false) }
-    var confirmArchive by rememberSaveable(plan.id) { mutableStateOf(false) }
+    var confirmDelete by rememberSaveable(plan.id) { mutableStateOf(false) }
     var showRecommendations by rememberSaveable(plan.id) { mutableStateOf(false) }
 
     Screen("Manage plan", "CURRENT TRAINING PLAN", compactTitle = true, dense = true) {
@@ -296,11 +296,11 @@ internal fun TracksideManagePlanScreen(
         }
         item {
             OutlinedButton(
-                onClick = { confirmArchive = true },
-                enabled = canManage,
-                modifier = Modifier.fillMaxWidth().testTag("manage-archive")
+                onClick = { confirmDelete = true },
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth().testTag("manage-delete")
             ) {
-                Text("Archive plan · keep history", color = StrideLabVisualPalette.highCoral)
+                Text("Quit & delete plan", color = StrideLabVisualPalette.highCoral)
             }
         }
     }
@@ -334,13 +334,13 @@ internal fun TracksideManagePlanScreen(
         confirmButton = { TextButton(onClick = { confirmPause = false; actions.pause(plan.id, plan.revision) }, enabled = canManage) { Text("Pause plan", color = StrideLabVisualPalette.moderateAmber) } },
         dismissButton = { TextButton(onClick = { confirmPause = false }) { Text("Cancel", color = StrideLabVisualPalette.secondary) } }
     )
-    if (confirmArchive) AlertDialog(
-        onDismissRequest = { confirmArchive = false },
+    if (confirmDelete) AlertDialog(
+        onDismissRequest = { confirmDelete = false },
         containerColor = StrideLabVisualPalette.surface,
-        title = { Text("Archive this plan?", color = StrideLabVisualPalette.ink) },
-        text = { Text("The plan will leave your active calendar. Your completed workouts and saved records are retained.", color = StrideLabVisualPalette.secondary) },
-        confirmButton = { TextButton(onClick = { confirmArchive = false; actions.archive(plan.id, plan.revision) }, enabled = canManage) { Text("Archive", color = StrideLabVisualPalette.highCoral) } },
-        dismissButton = { TextButton(onClick = { confirmArchive = false }) { Text("Cancel", color = StrideLabVisualPalette.secondary) } }
+        title = { Text("Quit and delete this plan?", color = StrideLabVisualPalette.ink) },
+        text = { Text("This permanently removes the plan and its scheduled workouts from this device. Your recorded runs and activity history are not affected.", color = StrideLabVisualPalette.secondary) },
+        confirmButton = { TextButton(onClick = { confirmDelete = false; actions.delete(plan.id, plan.revision); onBack() }, enabled = !busy) { Text("Delete plan", color = StrideLabVisualPalette.highCoral) } },
+        dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel", color = StrideLabVisualPalette.secondary) } }
     )
 }
 
