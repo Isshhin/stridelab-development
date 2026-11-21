@@ -598,6 +598,9 @@ internal fun StrideLabTodayScreen(
                             runningReview = runningReview,
                             plans = safePlans,
                             today = todayDate,
+                            allHistory = safeHistory,
+                            details = state.details,
+                            ownerId = state.account ?: state.localGarminOwner ?: state.localPlanOwner,
                             reduceMotion = reduceMotion,
                             onOpenActivity = onOpenActivityDetail,
                             onOpenWorkout = onOpenWorkout

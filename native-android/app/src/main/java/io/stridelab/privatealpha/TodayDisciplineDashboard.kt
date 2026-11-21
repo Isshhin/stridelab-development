@@ -22,9 +22,13 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -49,6 +53,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -413,6 +418,9 @@ internal fun TodayDisciplineDashboard(
     runningReview: List<RunningWeekCoach> = emptyList(),
     plans: List<PlanSnapshot> = emptyList(),
     today: LocalDate = LocalDate.now(),
+    allHistory: List<ActivityRecord> = emptyList(),
+    details: Map<String, ActivityDetail> = emptyMap(),
+    ownerId: String? = null,
     reduceMotion: Boolean,
     onOpenActivity: (String) -> Unit,
     onOpenWorkout: (String, String) -> Unit
@@ -549,6 +557,10 @@ internal fun TodayDisciplineDashboard(
                 reviews = runningReview,
                 plans = plans,
                 today = today,
+                allHistory = allHistory,
+                details = details,
+                ownerId = ownerId,
+                onOpenActivity = onOpenActivity,
                 reduceMotion = reduceMotion
             )
         } else {
@@ -1149,6 +1161,10 @@ private fun RunningWeekReview(
     reviews: List<RunningWeekCoach>,
     plans: List<PlanSnapshot>,
     today: LocalDate,
+    allHistory: List<ActivityRecord>,
+    details: Map<String, ActivityDetail>,
+    ownerId: String?,
+    onOpenActivity: (String) -> Unit,
     reduceMotion: Boolean
 ) {
     val current = reviews.lastOrNull() ?: return
@@ -1207,6 +1223,20 @@ private fun RunningWeekReview(
     if (recent.size == 3 && prior.size == 3 && (recent + prior).all { it.week.sessions > 0 }) {
         RunningProgressionPanel(prior = prior, recent = recent, plans = plans, reduceMotion = reduceMotion)
     }
+
+    AerobicEfficiencyCard(
+        allHistory = allHistory,
+        today = today,
+        reduceMotion = reduceMotion
+    )
+
+    PersonalBestsCard(
+        allHistory = allHistory,
+        details = details,
+        ownerId = ownerId,
+        today = today,
+        onOpenActivity = onOpenActivity
+    )
 }
 
 private enum class ProgressionMetric(val key: String, val label: String) {
@@ -1881,6 +1911,469 @@ private fun TrainingWeeksChart(
                 }
                 comparison?.let {
                     Text("${runningPercentLabel(it)} vs prev wk", color = DisciplineLook.lime, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AerobicEfficiencyCard(
+    allHistory: List<ActivityRecord>,
+    today: LocalDate,
+    reduceMotion: Boolean
+) {
+    var windowWeeks by rememberSaveable { mutableStateOf(8) }
+    var showMethodology by rememberSaveable { mutableStateOf(false) }
+    val summary = remember(allHistory, windowWeeks, today) {
+        RunningAerobicEfficiency.analyze(
+            activities = allHistory,
+            windowWeeks = windowWeeks,
+            asOf = today.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant(),
+            zone = ZoneId.systemDefault()
+        )
+    }
+    var selectedIdx by remember(summary.points) {
+        mutableStateOf((summary.points.lastIndex).coerceAtLeast(0))
+    }
+
+    DisciplinePanel {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    "AEROBIC EFFICIENCY",
+                    color = DisciplineLook.muted,
+                    fontSize = 10.sp,
+                    letterSpacing = 1.2.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                RunningReviewTitle("Easy Pace vs. Heart Rate")
+            }
+            Box(Modifier.width(106.dp)) {
+                StrideLabLiquidSegmentedControl(
+                    labels = listOf("8w" to "8W", "12w" to "12W"),
+                    selectedKey = "${windowWeeks}w",
+                    accent = DisciplineLook.lime,
+                    reduceMotion = reduceMotion,
+                    testTagPrefix = "aerobic-efficiency-window",
+                    onSelect = { key -> windowWeeks = if (key == "12w") 12 else 8 }
+                )
+            }
+        }
+
+        val pct = summary.percentChange
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                pct?.let { v ->
+                    val rounded = String.format(Locale.US, "%.1f", kotlin.math.abs(v))
+                    if (v >= 0.0) "+$rounded%" else "-$rounded%"
+                } ?: "—",
+                color = if (pct == null) DisciplineLook.subdued
+                else if (pct >= 0.0) DisciplineLook.lime else StrideLabVisualPalette.moderateAmber,
+                fontSize = 30.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = (-0.6).sp
+            )
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                if (summary.earlyAvgPace != null && summary.lateAvgPace != null &&
+                    summary.earlyAvgHr != null && summary.lateAvgHr != null
+                ) {
+                    Text(
+                        "${RunningPersonalBests.formatPace(summary.earlyAvgPace).removeSuffix(" /km")} @ ${summary.earlyAvgHr.roundToInt()} bpm → " +
+                            "${RunningPersonalBests.formatPace(summary.lateAvgPace).removeSuffix(" /km")} @ ${summary.lateAvgHr.roundToInt()} bpm",
+                        color = DisciplineLook.ink,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2
+                    )
+                } else {
+                    Text(
+                        "Building aerobic baseline",
+                        color = DisciplineLook.ink,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Text(
+                    "${summary.totalQualifyingRuns} easy runs >= 3 km · $windowWeeks weeks",
+                    color = DisciplineLook.muted,
+                    fontSize = 11.sp
+                )
+            }
+        }
+
+        if (summary.points.size >= 2) {
+            val efs = summary.points.map { it.efficiencyFactor }
+            val minEf = (efs.minOrNull() ?: 1.0) * 0.94
+            val maxEf = ((efs.maxOrNull() ?: 1.2) * 1.04).coerceAtLeast(minEf + 0.05)
+            val dateFmt = DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
+
+            Box(Modifier.fillMaxWidth().height(112.dp)) {
+                Canvas(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(top = 18.dp, bottom = 10.dp, start = 10.dp, end = 10.dp)
+                ) {
+                    val w = size.width
+                    val h = size.height
+                    val count = summary.points.size
+                    val stepX = if (count > 1) w / (count - 1).toFloat() else w
+                    val pts = summary.points.mapIndexed { idx, p ->
+                        val fracY = ((p.efficiencyFactor - minEf) / (maxEf - minEf)).toFloat().coerceIn(0f, 1f)
+                        Offset(idx * stepX, h - fracY * h)
+                    }
+                    val path = Path().apply {
+                        moveTo(pts.first().x, pts.first().y)
+                        for (i in 0 until pts.lastIndex) {
+                            val cx = (pts[i].x + pts[i + 1].x) / 2f
+                            cubicTo(cx, pts[i].y, cx, pts[i + 1].y, pts[i + 1].x, pts[i + 1].y)
+                        }
+                    }
+                    val fill = Path().apply {
+                        addPath(path)
+                        lineTo(pts.last().x, h)
+                        lineTo(pts.first().x, h)
+                        close()
+                    }
+                    drawPath(
+                        fill,
+                        Brush.verticalGradient(listOf(DisciplineLook.lime.copy(alpha = 0.24f), Color.Transparent))
+                    )
+                    drawPath(path, DisciplineLook.lime, style = Stroke(width = 2.4.dp.toPx(), cap = StrokeCap.Round))
+                    pts.forEachIndexed { idx, pt ->
+                        val isSel = idx == selectedIdx
+                        if (isSel) drawCircle(DisciplineLook.lime.copy(alpha = 0.25f), radius = 8.dp.toPx(), center = pt)
+                        drawCircle(DisciplineLook.lime, radius = if (isSel) 4.6.dp.toPx() else 3.4.dp.toPx(), center = pt)
+                    }
+                }
+                Row(Modifier.matchParentSize()) {
+                    summary.points.forEachIndexed { idx, _ ->
+                        Box(Modifier.weight(1f).fillMaxHeight().clickable { selectedIdx = idx })
+                    }
+                }
+            }
+            summary.points.getOrNull(selectedIdx)?.let { sel ->
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = DisciplineLook.panelRaised,
+                    border = BorderStroke(1.dp, DisciplineLook.border),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Wk of ${sel.weekStart.format(dateFmt)}", color = DisciplineLook.subdued, fontSize = 11.5.sp)
+                        Text(
+                            "${RunningPersonalBests.formatPace(sel.avgPaceSecPerKm)} @ ${sel.avgHrBpm.roundToInt()} bpm (${sel.runCount} runs)",
+                            color = DisciplineLook.lime,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        TextButton(
+            onClick = { showMethodology = true },
+            contentPadding = PaddingValues(0.dp)
+        ) {
+            Text(
+                "How this is calculated & conditions note ›",
+                color = DisciplineLook.subdued,
+                fontSize = 11.5.sp
+            )
+        }
+    }
+
+    if (showMethodology) {
+        ModalBottomSheet(
+            onDismissRequest = { showMethodology = false },
+            containerColor = Color(0xFF101314),
+            contentColor = DisciplineLook.ink
+        ) {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("AEROBIC EFFICIENCY", color = DisciplineLook.lime, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                Text("How Easy Pace vs. HR works", color = DisciplineLook.ink, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                Text(
+                    "For each steady run (>= 3 km with HR, excluding fast intervals and races), StrideLab computes meters covered per heartbeat (Speed ÷ Avg HR) and compares the first half of your $windowWeeks-week window against the second half.",
+                    color = DisciplineLook.ink,
+                    fontSize = 13.5.sp,
+                    lineHeight = 19.sp
+                )
+                Text(
+                    summary.caveat,
+                    color = DisciplineLook.subdued,
+                    fontSize = 12.5.sp,
+                    lineHeight = 18.sp
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PersonalBestsCard(
+    allHistory: List<ActivityRecord>,
+    details: Map<String, ActivityDetail>,
+    ownerId: String?,
+    today: LocalDate,
+    onOpenActivity: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val store = remember(context) { UserPersonalBestStore(context) }
+    var prVersion by remember { mutableStateOf(0) }
+    val officialPrs = remember(ownerId, prVersion) { store.loadAll(ownerId) }
+    val entries = remember(allHistory, details, officialPrs, today) {
+        RunningPersonalBests.compute(
+            activities = allHistory,
+            details = details,
+            officialPrs = officialPrs,
+            asOf = today.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
+        )
+    }
+    var selectedDistance by rememberSaveable { mutableStateOf<String?>(null) }
+
+    DisciplinePanel {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    "PERSONAL BESTS",
+                    color = DisciplineLook.muted,
+                    fontSize = 10.sp,
+                    letterSpacing = 1.2.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                RunningReviewTitle("Race PRs & Best Efforts")
+            }
+            Text("Tap to edit PR", color = DisciplineLook.muted, fontSize = 11.sp)
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            entries.forEach { entry ->
+                val official = entry.officialPr
+                val rec = entry.recordedBest
+                val displayTime = when {
+                    official != null && (rec == null || official.durationSeconds <= rec.durationSeconds) ->
+                        RunningPersonalBests.formatDuration(official.durationSeconds.toDouble())
+                    rec != null ->
+                        RunningPersonalBests.formatDuration(rec.durationSeconds)
+                    official != null ->
+                        RunningPersonalBests.formatDuration(official.durationSeconds.toDouble())
+                    else -> "—"
+                }
+                val displayBadge = when {
+                    official != null && (rec == null || official.durationSeconds <= rec.durationSeconds) ->
+                        PersonalBestSource.VERIFIED_RACE_PR.badgeLabel
+                    rec != null -> rec.source.badgeLabel
+                    official != null -> PersonalBestSource.VERIFIED_RACE_PR.badgeLabel
+                    else -> null
+                }
+                val subText = when {
+                    official != null && (rec == null || official.durationSeconds <= rec.durationSeconds) ->
+                        official.eventName ?: RunningPersonalBests.formatPace(
+                            official.durationSeconds / (entry.distance.meters / 1000.0)
+                        )
+                    rec != null -> "${RunningPersonalBests.formatPace(rec.paceSecPerKm)} · ${rec.activityTitle}"
+                    else -> "No recorded mark yet"
+                }
+
+                Surface(
+                    onClick = { selectedDistance = entry.distance.key },
+                    shape = RoundedCornerShape(13.dp),
+                    color = DisciplineLook.panelRaised,
+                    border = BorderStroke(1.dp, DisciplineLook.border),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(7.dp)
+                            ) {
+                                Text(
+                                    entry.distance.label,
+                                    color = DisciplineLook.ink,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                if (displayBadge != null) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = if (displayBadge == PersonalBestSource.VERIFIED_RACE_PR.badgeLabel)
+                                            Color(0xFF232C16) else Color(0xFF1A2024)
+                                    ) {
+                                        Text(
+                                            displayBadge,
+                                            color = if (displayBadge == PersonalBestSource.VERIFIED_RACE_PR.badgeLabel)
+                                                DisciplineLook.lime else DisciplineLook.subdued,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            letterSpacing = 0.6.sp,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
+                            Text(
+                                subText,
+                                color = DisciplineLook.muted,
+                                fontSize = 11.5.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Text(
+                            displayTime,
+                            color = if (displayTime == "—") DisciplineLook.muted else DisciplineLook.lime,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    val editingEntry = entries.firstOrNull { it.distance.key == selectedDistance }
+    if (editingEntry != null) {
+        val dist = editingEntry.distance
+        val initSec = editingEntry.officialPr?.durationSeconds
+            ?: editingEntry.recordedBest?.durationSeconds?.roundToInt()
+            ?: (dist.meters / 1000.0 * 300.0).roundToInt()
+        var hText by remember(dist.key) { mutableStateOf((initSec / 3600).toString()) }
+        var mText by remember(dist.key) { mutableStateOf(((initSec % 3600) / 60).toString().padStart(2, '0')) }
+        var sText by remember(dist.key) { mutableStateOf((initSec % 60).toString().padStart(2, '0')) }
+        var eventText by remember(dist.key) { mutableStateOf(editingEntry.officialPr?.eventName.orEmpty()) }
+
+        ModalBottomSheet(
+            onDismissRequest = { selectedDistance = null },
+            containerColor = Color(0xFF101314),
+            contentColor = DisciplineLook.ink
+        ) {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(dist.label.uppercase(Locale.US), color = DisciplineLook.lime, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                Text("${dist.label} Personal Best", color = DisciplineLook.ink, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+
+                editingEntry.recordedBest?.let { rec ->
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = DisciplineLook.panelRaised,
+                        border = BorderStroke(1.dp, DisciplineLook.border),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(rec.source.badgeLabel, color = DisciplineLook.subdued, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
+                                Text(
+                                    "${RunningPersonalBests.formatDuration(rec.durationSeconds)} · ${RunningPersonalBests.formatPace(rec.paceSecPerKm)}",
+                                    color = DisciplineLook.ink,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(rec.activityTitle, color = DisciplineLook.muted, fontSize = 11.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            TextButton(onClick = {
+                                selectedDistance = null
+                                onOpenActivity(rec.activityId)
+                            }) {
+                                Text("Open run", color = DisciplineLook.lime, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                Text("LOG OFFICIAL RACE PR", color = DisciplineLook.muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = hText,
+                        onValueChange = { if (it.length <= 2 && it.all(Char::isDigit)) hText = it },
+                        label = { Text("Hr") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = mText,
+                        onValueChange = { if (it.length <= 2 && it.all(Char::isDigit)) mText = it },
+                        label = { Text("Min") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = sText,
+                        onValueChange = { if (it.length <= 2 && it.all(Char::isDigit)) sText = it },
+                        label = { Text("Sec") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                OutlinedTextField(
+                    value = eventText,
+                    onValueChange = { if (it.length <= 48) eventText = it },
+                    label = { Text("Race / event name (optional)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (editingEntry.officialPr != null) {
+                        OutlinedButton(
+                            onClick = {
+                                store.clear(ownerId, dist.key)
+                                prVersion++
+                                selectedDistance = null
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Clear PR", color = DisciplineLook.subdued)
+                        }
+                    }
+                    Button(
+                        onClick = {
+                            val totalSec = (hText.toIntOrNull() ?: 0) * 3600 +
+                                (mText.toIntOrNull() ?: 0) * 60 +
+                                (sText.toIntOrNull() ?: 0)
+                            if (totalSec in 90..86400) {
+                                store.save(
+                                    ownerId,
+                                    OfficialRacePr(
+                                        distanceKey = dist.key,
+                                        durationSeconds = totalSec,
+                                        eventName = eventText.trim().takeIf { it.isNotEmpty() },
+                                        achievedOn = today
+                                    )
+                                )
+                                prVersion++
+                                selectedDistance = null
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = DisciplineLook.lime,
+                            contentColor = DisciplineLook.darkOnAccent
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Save Official PR", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
