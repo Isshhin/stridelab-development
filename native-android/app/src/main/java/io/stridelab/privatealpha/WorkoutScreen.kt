@@ -116,7 +116,9 @@ import kotlinx.coroutines.flow.drop
     ) {
         if(active && exercises.isNotEmpty()) item { SignalButton("Return to guided workout",{guided=true}) }
         if(plannedRun) item {
-            val paceZones = remember(plan.request) { Engine15PaceZoneEstimator.estimate(plan.request) }
+            val paceZones = remember(plan.request, state.activities) {
+                Engine15PaceZoneEstimator.estimate(plan.request, activities = state.activities)
+            }
             val visualBlocks = remember(session.id, session.runningPrescription, paceZones) {
                 WorkoutVisualBlocks.fromSession(session, paceZones)
             }

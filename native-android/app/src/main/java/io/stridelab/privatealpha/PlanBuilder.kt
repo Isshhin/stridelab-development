@@ -28,26 +28,41 @@ import org.json.JSONObject
     val observedBaseline=remember(state.activities,state.plans) {
         automaticRunningBaseline(state.activities,plans=state.plans)
     }
+    val detectedExperience=remember(state.activities,state.plans) {
+        automaticRunningExperience(state.activities,plans=state.plans)
+    }
+    val historicalEasyPace=remember(state.activities) {
+        Engine15PaceZoneEstimator.inferHistoricalEasyPaceSecondsPerKm(state.activities, 360.0)
+    }
     val baseline=remember {
         val existing=state.plans.firstOrNull {
             Engine1Engines.canManage(it) && it.policyId != SessionTemplate.POLICY_ID
         }?.let(TracksideCoaching::setupFor)
         if(existing!=null) {
-            // Keep a previously chosen nonzero mileage baseline. Sparse
-            // imported history must not silently raise an athlete's load.
-            // When no baseline was supplied, use the eligible recorded estimate.
-            if(existing.weeklyKm>0.0 || existing.recentMileageBasis in setOf(
-                    "UNKNOWN","CONFIRMED_ZERO","PEAK_WEEK_ONLY"
-                )) existing
-            else observedBaseline?.let {
-                existing.copy(weeklyKm=it.weeklyKm,recentMileageBasis="RECORDED_PARTIAL")
-            } ?: existing
+            val withDetectedExp = if (detectedExperience != null) existing.copy(
+                experience = detectedExperience,
+                planningPace = historicalEasyPace
+            ) else existing
+            if(withDetectedExp.weeklyKm>0.0) {
+                withDetectedExp.copy(
+                    recentMileageBasis = if (withDetectedExp.recentMileageBasis in setOf("LEGACY_UNSPECIFIED", "UNKNOWN"))
+                        "SELF_REPORTED_AVERAGE" else withDetectedExp.recentMileageBasis
+                )
+            } else if (withDetectedExp.recentMileageBasis in setOf("UNKNOWN","CONFIRMED_ZERO","PEAK_WEEK_ONLY")) {
+                withDetectedExp
+            } else observedBaseline?.let {
+                withDetectedExp.copy(weeklyKm=it.weeklyKm,recentMileageBasis="RECORDED_PARTIAL")
+            } ?: withDetectedExp
         } else {
-            PlanRequest(policyChoice="coordinated",
+            PlanRequest(
+                policyChoice="coordinated",
+                experience=detectedExperience ?: 0,
+                planningPace=historicalEasyPace,
                 weeklyKm=observedBaseline?.weeklyKm ?: 0.0,
-                recentMileageBasis=if(observedBaseline==null) "LEGACY_UNSPECIFIED" else "RECORDED_PARTIAL",
+                recentMileageBasis=if(observedBaseline==null) "SELF_REPORTED_AVERAGE" else "RECORDED_PARTIAL",
                 longestKm=state.activities.filter { DashboardSummary.isRun(it) }
-                    .mapNotNull { it.distanceM }.maxOrNull()?.div(1000) ?: 0.0)
+                    .mapNotNull { it.distanceM }.maxOrNull()?.div(1000) ?: 0.0
+            )
         }
     }
     val initial=remember {
@@ -241,7 +256,8 @@ import org.json.JSONObject
                         error = null; beforeId = state.plans.firstOrNull()?.id; awaiting = true
                         weeks = chosen.weeks.toString(); targetKm = chosen.targetWeeklyKm.toString(); targetSupplied = true; edit(chosen)
                         actions.generate(chosen)
-                    }
+                    },
+                    activities = state.activities
                 )
             }
             0 -> TracksideDisciplineScreen(
@@ -372,8 +388,8 @@ import org.json.JSONObject
                         benchmarkDurationSeconds = seconds
                     ))
                 },
-                paceZones = remember(input.benchmarkDistanceMeters, input.benchmarkDurationSeconds, input.planningPace) {
-                    Engine15PaceZoneEstimator.estimate(input)
+                paceZones = remember(input.benchmarkDistanceMeters, input.benchmarkDurationSeconds, input.planningPace, state.activities) {
+                    Engine15PaceZoneEstimator.estimate(input, activities = state.activities)
                 }
             )
             2 -> {
@@ -429,9 +445,10 @@ import org.json.JSONObject
                             benchmarkDurationSeconds = seconds
                         ))
                     },
-                    paceZones = remember(input.benchmarkDistanceMeters, input.benchmarkDurationSeconds, input.planningPace) {
-                        Engine15PaceZoneEstimator.estimate(input)
-                    }
+                    paceZones = remember(input.benchmarkDistanceMeters, input.benchmarkDurationSeconds, input.planningPace, state.activities) {
+                        Engine15PaceZoneEstimator.estimate(input, activities = state.activities)
+                    },
+                    autoDetectedExperience = detectedExperience != null
                 )
             }
             3 -> TracksideAdvancedRunning(

@@ -210,69 +210,13 @@ internal fun TracksideCompactScheduleEditor(
                 ScheduleLegendItem(PlanBuilderPalette.muted, "Rest")
             }
 
-            // Divider
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(PlanBuilderPalette.border)
-            )
-
-            // Adaptive Schedule Status Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            if (error != null) {
                 Text(
-                    total.toString(),
-                    color = PlanBuilderPalette.text,
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.testTag("builder-capacity-count")
+                    error,
+                    color = StrideLabVisualPalette.highCoral,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Medium
                 )
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        "sessions across ${request.days.size} days",
-                        color = PlanBuilderPalette.text,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 13.sp,
-                        modifier = Modifier.testTag("builder-capacity-days")
-                    )
-                    Text(
-                        when {
-                            error != null -> error
-                            stackedDays > 0 -> "Smart multi-discipline stacking active (AM/PM cues)"
-                            else -> "Recovery spacing adapts automatically"
-                        },
-                        color = if (error != null) StrideLabVisualPalette.highCoral
-                        else PlanBuilderPalette.secondary,
-                        fontSize = 11.sp
-                    )
-                }
-                val badgeColor = when {
-                    error != null -> StrideLabVisualPalette.highCoral
-                    stackedDays > 0 -> StrideLabVisualPalette.moderateAmber
-                    else -> PlanBuilderPalette.accent
-                }
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(badgeColor.copy(alpha = 0.14f))
-                        .padding(horizontal = 10.dp, vertical = 5.dp)
-                ) {
-                    Text(
-                        when {
-                            error != null -> "Review"
-                            stackedDays > 0 -> "Adapted"
-                            else -> "Ready"
-                        },
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 11.sp,
-                        color = badgeColor,
-                        modifier = Modifier.testTag("builder-capacity-status")
-                    )
-                }
             }
 
             // Optional cross-training day slots (only shown when multi-discipline is selected)

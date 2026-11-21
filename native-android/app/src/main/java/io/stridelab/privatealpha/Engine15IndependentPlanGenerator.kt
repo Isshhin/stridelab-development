@@ -86,6 +86,16 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         appDraft(previewAutoReconciled(request, "engine15-validation", "validation", Instant.EPOCH))
     }
 
+    private fun formatMetersAsKm(meters: Int?): String {
+        if (meters == null || meters <= 0) return "0.0 km"
+        val km = meters / 1000.0
+        return if (km < 1.0 && meters % 100 != 0) {
+            String.format(java.util.Locale.US, "%.2f km", km)
+        } else {
+            String.format(java.util.Locale.US, "%.1f km", km)
+        }
+    }
+
     internal fun previewAutoReconciled(
         request: PlanRequest,
         owner: String,
@@ -93,20 +103,38 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         now: Instant,
         existingPlans: List<PlanSnapshot>? = null,
         activityEvidence: ActivityAthleteEvidenceProfile? = null,
-        qualityEvidence: List<IndependentQualitySegmentEvidence> = emptyList()
+        qualityEvidence: List<IndependentQualitySegmentEvidence> = emptyList(),
+        activities: List<ActivityRecord> = emptyList(),
+        detections: List<Engine15DetectedWorkout> = emptyList(),
+        assertedExposureSecondsOverride: Int? = null
     ): Engine15IndependentPlanDecision {
-        val effectiveRequest = if (request.weeklyKm <= 0.0 &&
-            request.reportedPeakWeeklyKm == null &&
-            request.recentMileageBasis in setOf("LEGACY_UNSPECIFIED", "UNKNOWN", "CONFIRMED_ZERO")
-        ) {
-            request.copy(
-                weeklyKm = (request.runDays * 4.0).coerceIn(10.0, 24.0),
-                longestKm = request.longestKm.takeIf { it > 0.0 } ?: 5.0,
-                recentMileageBasis = "SELF_REPORTED_AVERAGE"
-            )
-        } else request
+        val cleanedPeak = request.reportedPeakWeeklyKm?.takeIf {
+            it.isFinite() && it >= request.weeklyKm && it <= 120.0
+        }
+        val effectiveRequest = when {
+            request.weeklyKm <= 0.0 &&
+                cleanedPeak == null &&
+                request.recentMileageBasis in setOf("LEGACY_UNSPECIFIED", "UNKNOWN", "CONFIRMED_ZERO") -> {
+                request.copy(
+                    weeklyKm = (request.runDays * 4.0).coerceIn(10.0, 24.0),
+                    longestKm = request.longestKm.takeIf { it > 0.0 } ?: 5.0,
+                    recentMileageBasis = "SELF_REPORTED_AVERAGE",
+                    reportedPeakWeeklyKm = null
+                )
+            }
+            request.weeklyKm > 0.0 &&
+                request.recentMileageBasis in setOf("LEGACY_UNSPECIFIED", "UNKNOWN", "PEAK_WEEK_ONLY", "CONFIRMED_ZERO") -> {
+                request.copy(
+                    recentMileageBasis = "SELF_REPORTED_AVERAGE",
+                    reportedPeakWeeklyKm = cleanedPeak
+                )
+            }
+            cleanedPeak != request.reportedPeakWeeklyKm -> request.copy(reportedPeakWeeklyKm = cleanedPeak)
+            else -> request
+        }
         val initialDecision = preview(
             effectiveRequest, owner, id, now, existingPlans, activityEvidence, qualityEvidence,
+            assertedExposureSecondsOverride = assertedExposureSecondsOverride,
             allowExplicitUserFamily = true
         )
         if (initialDecision is Engine15IndependentPlanDecision.Deferred &&
@@ -115,13 +143,33 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             effectiveRequest.qualityDistanceClaims.isEmpty() &&
             BuildConfig.DEBUG && BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE
         ) {
-            val dryRun = initialDecision.qualityDryRun
+            val selectedFamily = initialDecision.qualitySelection?.selectedFamily
+            val adaptiveExposure = assertedExposureSecondsOverride
+                ?: selectedFamily?.let { fam ->
+                    Engine15QualityProgressionPolicy.computeAdaptiveExposureAnchorSeconds(
+                        request = effectiveRequest,
+                        family = fam,
+                        activities = activities,
+                        plans = existingPlans.orEmpty(),
+                        detections = detections
+                    )
+                }
+            val adaptiveDeferred = if (adaptiveExposure != null && adaptiveExposure != assertedExposureSecondsOverride) {
+                preview(
+                    effectiveRequest, owner, id, now, existingPlans, activityEvidence, qualityEvidence,
+                    assertedExposureSecondsOverride = adaptiveExposure,
+                    allowExplicitUserFamily = true
+                ) as? Engine15IndependentPlanDecision.Deferred ?: initialDecision
+            } else initialDecision
+
+            val dryRun = adaptiveDeferred.qualityDryRun ?: initialDecision.qualityDryRun
             if (dryRun != null) {
-                val zones = Engine15PaceZoneEstimator.estimate(effectiveRequest)
+                val zones = Engine15PaceZoneEstimator.estimate(effectiveRequest, activities = activities)
                 val autoClaims = Engine15PaceZoneEstimator.estimateSegmentClaims(dryRun, zones)
                 val enrichedRequest = effectiveRequest.copy(qualityDistanceClaims = autoClaims)
                 val retry = preview(
                     enrichedRequest, owner, id, now, existingPlans, activityEvidence, qualityEvidence,
+                    assertedExposureSecondsOverride = adaptiveExposure,
                     allowExplicitUserFamily = true
                 )
                 if (retry is Engine15IndependentPlanDecision.Candidate) return retry
@@ -149,13 +197,17 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         now: Instant = Instant.now(),
         exerciseLibrary: ExerciseLibraryV2? = null,
         activityEvidence: ActivityAthleteEvidenceProfile? = null,
-        qualityEvidence: List<IndependentQualitySegmentEvidence> = emptyList()
+        qualityEvidence: List<IndependentQualitySegmentEvidence> = emptyList(),
+        activities: List<ActivityRecord> = emptyList(),
+        detections: List<Engine15DetectedWorkout> = emptyList()
     ): PlanSnapshot {
         if (listOf("run", "str", "cal", "cond").count { request.disciplineSessionCount(it) > 0 } > 1) {
             val library = exerciseLibrary ?: throw PlanConstraint(
                 "ENGINE15_COMBINED_CATALOG_REQUIRED: The shared offline exercise catalog is unavailable; no substitute was generated."
             )
-            return Engine15StaticMultiDisciplinePlanner.compose(request, owner, id, now, plans, library)
+            return Engine15StaticMultiDisciplinePlanner.compose(
+                request, owner, id, now, plans, library, activities = activities, detections = detections
+            )
         }
         if (request.runDays == 0 && request.strengthDays == 0 && request.calDays == 0 && request.conditioningDays > 0) {
             Engine15ConditioningWorkoutComposer.validateRequest(request)
@@ -240,7 +292,10 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 name = "Engine 1.5 independent strength plan"
             )
         }
-        return appDraft(previewAutoReconciled(request, owner, id, now, plans, activityEvidence, qualityEvidence))
+        return appDraft(previewAutoReconciled(
+            request, owner, id, now, plans, activityEvidence, qualityEvidence,
+            activities = activities, detections = detections
+        ))
     }
 
     private fun appDraft(decision: Engine15IndependentPlanDecision): PlanSnapshot = when (decision) {
@@ -480,7 +535,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                         runningPrescription = RunningPrescription("QUALITY", familyName, emptyList(),
                             mixedSegments = steps, reconciledDistanceMeters = meters),
                         steps = steps.map {
-                            "${it.seconds!! / 60} min ${it.purpose.lowercase().replace('_', ' ')} · ${it.distanceEquivalentMeters} m · ${it.effort}"
+                            "${it.seconds!! / 60} min ${it.purpose.lowercase().replace('_', ' ')} · ${formatMetersAsKm(it.distanceEquivalentMeters)} · ${it.effort}"
                         },
                         reason = if (alternative.progressionBasis != null &&
                             alternative.progressionBasis != Engine15QualityProgressionBasis.HOLD_NO_REPEATED_EXPOSURE) {
@@ -723,7 +778,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         // Historical pilots retain their original eligibility semantics during structural validation.
         val expected = when (val decision = if (plan.request.qualityDistanceClaims.isEmpty() && plan.sessions.any { it.quality }) {
             previewAutoReconciled(plan.request, plan.owner, plan.id, plan.createdAt,
-                qualityEvidence = qualityEvidence)
+                qualityEvidence = qualityEvidence,
+                assertedExposureSecondsOverride = plan.experimentalQualityExposureSeconds)
         } else {
             preview(plan.request, plan.owner, plan.id, plan.createdAt,
                 qualityEvidence = qualityEvidence,

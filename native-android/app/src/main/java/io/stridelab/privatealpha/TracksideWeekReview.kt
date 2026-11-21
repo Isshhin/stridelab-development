@@ -66,7 +66,8 @@ internal fun TracksideWeekReview(
     onSaveResearchReview: (PlanRequest, IndependentAndroidPreviewConstraints) -> Unit = { _, _ -> },
     researchDraftCount: Int = 0,
     savedResearchReviews: List<IndependentResearchDraft> = emptyList(),
-    onChooseGoalOption: (PlanRequest) -> Unit = {}
+    onChooseGoalOption: (PlanRequest) -> Unit = {},
+    activities: List<ActivityRecord> = emptyList()
 ) {
     val firstDate = plan?.request?.start ?: request.start
     val totalWeeks = (plan?.request?.weeks ?: request.weeks).coerceAtLeast(1)
@@ -219,8 +220,8 @@ internal fun TracksideWeekReview(
             val tidEval = remember(plan.id, plan.revision) {
                 Engine15MarathonTidEvaluator.evaluate(plan)
             }
-            val paceZones = remember(plan.request) {
-                Engine15PaceZoneEstimator.estimate(plan.request)
+            val paceZones = remember(plan.request, activities) {
+                Engine15PaceZoneEstimator.estimate(plan.request, activities = activities)
             }
             PlanPeriodizationChart(
                 plan = plan,

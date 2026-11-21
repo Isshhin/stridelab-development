@@ -530,16 +530,33 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             (!BuildConfig.DEBUG || !BuildConfig.ENGINE15_INDEPENDENT_RUNNING_ACTIVE ||
                 selected !== Engine15IndependentPlanGenerator))
             throw PlanConstraint("Private Tempo distance entries require the independent debug route.")
-        val activityEvidence = if (selected === Engine15IndependentPlanGenerator && request.runDays > 0 &&
-            request.strengthDays == 0 && request.calDays == 0 && request.conditioningDays == 0 &&
+        val ownerRows = state.activities.filter { activityCorrectionOwner(it.id, state) == owner }
+        val allowedIds = ownerRows.mapTo(mutableSetOf()) { it.id }
+        val userLabels = if (ownerRows.isEmpty()) emptyMap() else {
+            val labels = UserActivityWorkoutLabelStore(appContext)
+            ownerRows.mapNotNull { row -> labels.load(owner, row.id)?.let { row.id to it } }.toMap()
+        }
+        val detections = if (ownerRows.isEmpty()) emptyList() else {
+            Engine15WorkoutDetection.detectAll(
+                owner = owner,
+                activities = ownerRows,
+                allowedActivityIds = allowedIds,
+                detailsByActivityId = state.details,
+                plans = state.plans,
+                userLabels = userLabels,
+                asOf = java.time.Instant.now()
+            )
+        }
+        val qualityEvidence = if (detections.isEmpty()) emptyList() else {
+            Engine15WorkoutDetection.toQualitySegmentEvidence(owner, detections)
+        }
+        val activityEvidence = if (selected === Engine15IndependentPlanGenerator &&
+            request.runDays > 0 && request.strengthDays == 0 &&
+            request.calDays == 0 && request.conditioningDays == 0 &&
             request.disciplineGoals.keys.all { it == "run" }) {
-            val rows = state.activities.filter { activityCorrectionOwner(it.id, state) == owner }
-            if (rows.isEmpty()) null else {
-                val labels = UserActivityWorkoutLabelStore(appContext)
+            if (ownerRows.isEmpty()) null else {
                 ActivityAthleteEvidence.profile(
-                    owner, rows, rows.mapTo(mutableSetOf()) { it.id },
-                    rows.mapNotNull { row -> labels.load(owner, row.id)?.let { row.id to it } }.toMap(),
-                    java.time.Instant.now()
+                    owner, ownerRows, allowedIds, userLabels, java.time.Instant.now()
                 )
             }
         } else null
@@ -549,7 +566,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 request, owner, mutable.value.plans,
                 exerciseLibrary = if (request.strengthDays > 0 || request.calDays > 0 || request.conditioningDays > 0)
                     engine15ExerciseLibrary else null,
-                activityEvidence = activityEvidence
+                activityEvidence = activityEvidence,
+                qualityEvidence = qualityEvidence,
+                activities = ownerRows,
+                detections = detections
             )
             else -> selected.generate(request,owner)
         })

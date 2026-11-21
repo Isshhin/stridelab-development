@@ -106,6 +106,16 @@ internal object WorkoutVisualBlocks {
             }
         }
 
+        fun formatKm(meters: Int?): String? {
+            if (meters == null || meters <= 0) return null
+            val km = meters / 1000.0
+            return if (km < 1.0 && meters % 100 != 0) {
+                String.format(Locale.US, "%.2f km", km)
+            } else {
+                String.format(Locale.US, "%.1f km", km)
+            }
+        }
+
         val mixed = prescription?.mixedSegments
         if (!mixed.isNullOrEmpty()) {
             return mixed.map { step ->
@@ -113,8 +123,10 @@ internal object WorkoutVisualBlocks {
                 val isRec = step.purpose.equals("RECOVERY", ignoreCase = true)
                 val weight = (step.seconds?.toFloat() ?: step.meters?.div(3.5f) ?: 120f).coerceAtLeast(30f)
                 val durText = step.seconds?.let { s -> if (s >= 60) "${s / 60}m" else "${s}s" }
-                    ?: step.meters?.let { "${it}m" }.orEmpty()
-                val distText = (step.meters ?: step.distanceEquivalentMeters)?.let { " · ${it}m" }.orEmpty()
+                    ?: formatKm(step.meters).orEmpty()
+                val distText = if (step.seconds != null) {
+                    formatKm(step.meters ?: step.distanceEquivalentMeters)?.let { " · $it" }.orEmpty()
+                } else ""
                 WorkoutVisualBlock(
                     label = when {
                         isWork -> family.replaceFirstChar { it.uppercase() }.ifBlank { "Work" }

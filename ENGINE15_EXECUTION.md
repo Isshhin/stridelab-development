@@ -513,3 +513,23 @@ Manual final-APK walkthrough entered 1,178 m in Tempo warm-up and displayed 8.49
   - Candidate JVM (`-PstrideEngine15Active=true -PstrideEngine15IndependentRunningActive=true`): **1,157 passed, 0 failed, 0 errors, 1 skipped** (total 1,158).
   - Rollback JVM (`-PstrideEngine15Active=false -PstrideEngine15IndependentRunningActive=false`): **1,147 passed, 0 failed, 0 errors, 11 skipped** (total 1,158).
   - APK builds: `:app:assembleDebug` (Engine 1.5 candidate flags active) and `:app:assembleRelease` (`:app:lintVitalRelease`) **PASSED**; verified release `BuildConfig.ENGINE15_ACTIVE = false` and `ENGINE15_INDEPENDENT_RUNNING_ACTIVE = false`.
+
+## Phase F — History-Derived Experience & Pace Zones, 50/50 Adaptive Quality Workouts, `km`-Everywhere Display, and Today & Training Tab Redesigns (2026-11-21)
+
+- **Auto-Detected Experience & Historical Pace Zones:**
+  - Added `automaticRunningExperience(...)` in `RunningHistoryCoverage.kt` (auto-picking Beginner/Intermediate/Advanced from historical weekly volume, longest run, frequency, and sustained pace) and wired it into `PlanBuilder.kt` & `TracksideBuilderScreens.kt`.
+  - Upgraded `Engine15PaceZoneEstimator.kt` with `inferHistoricalEasyPaceSecondsPerKm(...)` and historical run analysis inside `estimate(request, activities = ...)` blending the athlete's strongest Riegel-normalized sustained effort with their aerobic easy pace distribution, wired into `PlanBuilder.kt`, `TracksideWeekReview.kt`, `WorkoutScreen.kt`, and `Engine15IndependentPlanGenerator.kt`.
+- **50 / 50 Auto-Detected Workout + Historical Fitness Quality Engine:**
+  - Expanded `Engine15QualityProgressionPolicy.kt` ladders up to `40 min` Tempo/Threshold/Progression, `24–28 min` VO₂max Intervals, `15–16 min` Hills, and `28–32 min` Fartlek, and added `computeAdaptiveExposureAnchorSeconds(...)` blending 50% auto-detected recent quality workouts + 50% historical volume/pace capacity with a No-Junk-Workout Floor.
+  - Wired `Engine15WorkoutDetection.detectAll(...)` and real owner `activities` into `TrainingRepository.generatePlan(...)` and `Engine15IndependentPlanGenerator.previewAutoReconciled(...)` (also normalizing `LEGACY_UNSPECIFIED` with `weeklyKm > 0` to `SELF_REPORTED_AVERAGE`).
+- **Kilometers Everywhere & Schedule Cleanup:**
+  - Removed the bottom schedule summary row from `TracksideCompactScheduleEditor.kt`.
+  - Replaced athlete-facing meter displays with clean `km` formatting in `TracksideRunningStepCards.kt` (`runningStepDisplayKmLabel`), `Engine15IndependentPlanGenerator.kt`, and `StrideLabVisualKit.kt`.
+- **Today & Training Tab Art-Director Redesigns:**
+  - **Today Tab (`TodayDisciplineDashboard.kt`, `StrideLabTodayScreen.kt`):** Moved the consistency-unlocked discipline pill bar to the top of Today with equal-weight elastic stretching (`Modifier.weight(1f)` + `animateContentSize`) and horizontal swipe navigation between `All` and unlocked discipline pages; upgraded discipline charts to AMOLED obsidian `#101214` with vertical luminance gradient bars and glowing top caps.
+  - **Training Tab (`TracksideTrainingCalendar.kt`, `TracksideTrainingHubHeader.kt`, `StrideLabUnifiedTrainingTimeline.kt`):** Upgraded to a calendar-first layout defaulting to `km` with semantic gradient bars, dual Logged + Planned day dots, and `Day` | `Week` focus (plus tappable Week header pill) showing BOTH Logged Activities (`LOGGED` badge) and Planned Workouts (`PLANNED` badge + inline mini `WorkoutStructureBarChart` thumbnails) together.
+- **Verification (JBR 21.0.11 / Gradle 8.13, `F:\StrideLab\Current-App\stridelab-engine15-dev`):**
+  - Added `Engine15AdaptiveHistoryAndUiContractTest.kt` (4 new unit tests).
+  - Candidate JVM (`-PstrideEngine15Active=true -PstrideEngine15IndependentRunningActive=true`): **1,161 passed, 0 failed, 0 errors, 1 skipped** (total 1,162).
+  - Rollback JVM (`-PstrideEngine15Active=false -PstrideEngine15IndependentRunningActive=false`): **1,151 passed, 0 failed, 0 errors, 11 skipped** (total 1,162).
+  - APK builds: `:app:assembleDebug` (Engine 1.5 candidate flags active) and `:app:assembleRelease` (`:app:lintVitalRelease`) **PASSED**.

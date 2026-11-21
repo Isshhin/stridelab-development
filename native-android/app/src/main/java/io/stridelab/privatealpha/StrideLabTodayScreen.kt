@@ -352,6 +352,10 @@ internal fun StrideLabTodayScreen(
         }
     }
 
+    val pageOrder = remember(eligiblePages) {
+        listOf("all") + eligiblePages.map { it.key }
+    }
+
     LazyColumn(
         state = listState,
         userScrollEnabled = !signedOutFitsScreen,
@@ -365,6 +369,16 @@ internal fun StrideLabTodayScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
+        if (hasHistory) {
+            item(key = "today-discipline-tabs") {
+                TodayDisciplineTabs(
+                    available = eligiblePages,
+                    selectedKey = selectedPage,
+                    reduceMotion = reduceMotion,
+                    onSelect = { chosenPage = it }
+                )
+            }
+        }
         item(key = "today-calendar") {
             TodayWeekCalendar(
                 date = date,
@@ -484,11 +498,37 @@ internal fun StrideLabTodayScreen(
         }
         } else {
             item(key = "today-discipline-visuals") {
+                var dragSum by remember(selectedPage) { mutableFloatStateOf(0f) }
                 AnimatedContent(
                     targetState = selectedPage,
+                    modifier = Modifier.pointerInput(pageOrder, selectedPage) {
+                        if (pageOrder.size > 1) {
+                            detectHorizontalDragGestures(
+                                onDragStart = { dragSum = 0f },
+                                onDragEnd = {
+                                    val idx = pageOrder.indexOf(selectedPage)
+                                    if (dragSum < -72f && idx in 0 until pageOrder.lastIndex) {
+                                        chosenPage = pageOrder[idx + 1]
+                                    } else if (dragSum > 72f && idx > 0) {
+                                        chosenPage = pageOrder[idx - 1]
+                                    }
+                                    dragSum = 0f
+                                }
+                            ) { _, dragAmount ->
+                                dragSum += dragAmount
+                            }
+                        }
+                    },
                     transitionSpec = {
-                        fadeIn(animationSpec = tween(if (reduceMotion) 0 else 260)) togetherWith
-                            fadeOut(animationSpec = tween(if (reduceMotion) 0 else 150))
+                        val forward = pageOrder.indexOf(targetState) >= pageOrder.indexOf(initialState)
+                        if (reduceMotion) {
+                            EnterTransition.None togetherWith ExitTransition.None
+                        } else {
+                            (slideInHorizontally(tween(220)) { if (forward) it / 5 else -it / 5 } +
+                                fadeIn(tween(220))) togetherWith
+                                (slideOutHorizontally(tween(160)) { if (forward) -it / 5 else it / 5 } +
+                                    fadeOut(tween(150)))
+                        }
                     },
                     label = "today-discipline-flow"
                 ) { page ->
@@ -509,16 +549,6 @@ internal fun StrideLabTodayScreen(
                         )
                     }
                 }
-            }
-        }
-        if (hasHistory) {
-            item(key = "today-discipline-tabs") {
-                TodayDisciplineTabs(
-                    available = eligiblePages,
-                    selectedKey = selectedPage,
-                    reduceMotion = reduceMotion,
-                    onSelect = { chosenPage = it }
-                )
             }
         }
     }

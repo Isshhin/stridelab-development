@@ -30,7 +30,9 @@ internal object Engine15StaticMultiDisciplinePlanner {
     }
 
     fun compose(request: PlanRequest, owner: String, id: String, now: java.time.Instant,
-                existingPlans: List<PlanSnapshot>, library: ExerciseLibraryV2): PlanSnapshot {
+                existingPlans: List<PlanSnapshot>, library: ExerciseLibraryV2,
+                activities: List<ActivityRecord> = emptyList(),
+                detections: List<Engine15DetectedWorkout> = emptyList()): PlanSnapshot {
         validateRequest(request)
         val start = request.start.minusDays(1)
         val end = request.start.plusWeeks(request.weeks.toLong())
@@ -45,7 +47,9 @@ internal object Engine15StaticMultiDisciplinePlanner {
         val sessions = disciplines.filter { request.disciplineSessionCount(it) > 0 }.flatMap { discipline ->
             val solo = soloRequest(request, discipline)
             when (discipline) {
-                "run" -> (Engine15IndependentPlanGenerator.previewAutoReconciled(solo, owner, id, now) as? Engine15IndependentPlanDecision.Candidate)
+                "run" -> (Engine15IndependentPlanGenerator.previewAutoReconciled(
+                    solo, owner, id, now, activities = activities, detections = detections
+                ) as? Engine15IndependentPlanDecision.Candidate)
                     ?.plan?.sessions ?: throw PlanConstraint("RUNNING_COMPONENT_UNAVAILABLE: No independent running candidate was produced.")
                 "str" -> Engine15StrengthWorkoutComposer.compose(solo, id, library, allowCalendarReschedule = true)
                 "cal" -> Engine15CalisthenicsWorkoutComposer.compose(solo, id, library, allowCalendarReschedule = true)

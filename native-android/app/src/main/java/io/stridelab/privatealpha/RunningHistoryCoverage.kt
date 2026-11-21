@@ -53,3 +53,49 @@ internal fun automaticRunningBaseline(
     val rounded=kotlin.math.round(weekly*10.0)/10.0
     return AutomaticRunningBaseline(rounded,eligible)
 }
+
+/**
+ * Automatically infers the athlete's running experience tier (0 = Beginner, 1 = Intermediate, 2 = Advanced)
+ * from recorded running history (weekly volume, longest run, weekly run frequency, and sustained run pace).
+ * Returns null only when no recorded running history is present.
+ */
+internal fun automaticRunningExperience(
+    history: List<ActivityRecord>,
+    plans: List<PlanSnapshot> = emptyList(),
+    now: Instant = Instant.now(),
+    zone: ZoneId = ZoneId.systemDefault()
+): Int? {
+    val runs = ActivityDisplayConsolidation.visible(history)
+        .filter { DashboardSummary.isRun(it) && !it.startedAt.isAfter(now) }
+    val confirmedRuns = DashboardSummary.confirmedWorkouts(plans, history, now)
+        .filter { it.discipline == "run" }
+    if (runs.isEmpty() && confirmedRuns.isEmpty()) return null
+
+    val recentWeeks = observedRunningWeeks(history, now, plans, zone)
+    val activeWeeks = recentWeeks.filter { it.runs > 0 }
+    val avgWeeklyKm = automaticRunningBaseline(history, now, plans, zone)?.weeklyKm
+        ?: activeWeeks.mapNotNull { it.distanceKm }.takeIf { it.isNotEmpty() }?.average()
+        ?: 0.0
+    val avgRunsPerWeek = activeWeeks.takeIf { it.isNotEmpty() }?.map { it.runs }?.average() ?: 0.0
+    val longestKm = (runs.mapNotNull { it.distanceM } + confirmedRuns.mapNotNull { it.distanceM })
+        .filter { it.isFinite() && it > 0.0 }
+        .maxOrNull()?.div(1000.0) ?: 0.0
+    val fastestSustainedPace = runs.mapNotNull { r ->
+        val distM = r.distanceM?.takeIf { it.isFinite() && it >= 5_000.0 } ?: return@mapNotNull null
+        val pace = (r.recordedPace ?: r.garminMovingPaceSPerKm ?: r.durationS?.let { it * 1000.0 / distM })
+            ?.takeIf { it.isFinite() && it in 150.0..600.0 }
+        pace
+    }.minOrNull()
+
+    return when {
+        avgWeeklyKm >= 48.0 ||
+            (avgWeeklyKm >= 34.0 && longestKm >= 16.0 && avgRunsPerWeek >= 3.5) ||
+            longestKm >= 21.0 ||
+            (fastestSustainedPace != null && fastestSustainedPace <= 265.0 && avgWeeklyKm >= 25.0) -> 2
+        avgWeeklyKm >= 20.0 ||
+            longestKm >= 10.0 ||
+            avgRunsPerWeek >= 2.8 ||
+            (fastestSustainedPace != null && fastestSustainedPace <= 330.0) -> 1
+        else -> 0
+    }
+}

@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -17,11 +18,9 @@ import androidx.compose.ui.unit.sp
 import java.util.Locale
 
 /**
- * One dynamic representation of all saved Engine 1.5 running step sequences:
- * easy runs stay compact; multiple steps become individually legible cards;
- * identical quality intervals are nested in an explicit repeated group.
- *
- * Repetition is visual compression, not a change to the executable prescription.
+ * Art-directed AMOLED Running Step Cards.
+ * Always displays distances in kilometers (km) in the athlete UI, with semantic
+ * intensity color accents (Easy Teal, Work Lime/Amber, Recovery Cyan).
  */
 @Composable
 internal fun TracksideRunningStepCards(
@@ -33,79 +32,124 @@ internal fun TracksideRunningStepCards(
     val compact = blocks.size == 1 && blocks.single() is RunningStepBlock.Single
     Column(
         Modifier.fillMaxWidth().testTag("workout-planned-structure"),
-        verticalArrangement=Arrangement.spacedBy(if(compact) 8.dp else 11.dp)
+        verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 10.dp)
     ) {
-        if(mixedSegments!=null) {
-            Text("WORKOUT STEPS",color=TracksidePalette.text,
-                fontSize=13.sp,fontWeight=FontWeight.Bold)
-            // Timed steps are displayed from their persisted executable extent.
-            // No conversion to a synthetic distance target is performed here.
-            MixedRunningStepGrouping.of(mixedSegments).forEachIndexed { index,block ->
-                when(block) {
+        if (mixedSegments != null) {
+            Text(
+                "WORKOUT STEPS",
+                color = StrideLabVisualPalette.muted,
+                fontSize = 10.sp,
+                letterSpacing = 1.4.sp,
+                fontWeight = FontWeight.Bold
+            )
+            MixedRunningStepGrouping.of(mixedSegments).forEachIndexed { index, block ->
+                when (block) {
                     is MixedRunningStepBlock.Single ->
-                        MixedRunningStepTile(block.segment,"workout-mixed-step-"+index)
+                        MixedRunningStepTile(block.segment, "workout-mixed-step-$index")
                     is MixedRunningStepBlock.Repeat -> Surface(
-                        modifier=Modifier.fillMaxWidth().testTag("workout-mixed-repeat-"+index),
-                        color=Color(0xFF111312),shape=RoundedCornerShape(16.dp),
-                        border=BorderStroke(1.dp,Color(0xFF4D5350))
+                        modifier = Modifier.fillMaxWidth().testTag("workout-mixed-repeat-$index"),
+                        color = StrideLabVisualPalette.surface,
+                        shape = RoundedCornerShape(18.dp),
+                        border = BorderStroke(1.dp, StrideLabVisualPalette.moderateAmber.copy(alpha = 0.45f))
                     ) {
-                        Column(Modifier.fillMaxWidth().padding(12.dp),
-                            verticalArrangement=Arrangement.spacedBy(9.dp)) {
-                            Text(block.times.toString()+" Times",
-                                color=TracksidePalette.text,fontSize=19.sp,
-                                fontWeight=FontWeight.Bold)
-                            MixedRunningStepTile(block.work,"workout-mixed-repeat-work-"+index)
+                        Column(
+                            Modifier.fillMaxWidth().padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "${block.times} × Interval Set",
+                                    color = StrideLabVisualPalette.ink,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(StrideLabVisualPalette.moderateAmber.copy(alpha = 0.16f))
+                                        .padding(horizontal = 9.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        "${block.times} REPS",
+                                        color = StrideLabVisualPalette.moderateAmber,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                }
+                            }
+                            MixedRunningStepTile(block.work, "workout-mixed-repeat-work-$index")
                             block.recovery?.let { recovery ->
-                                MixedRunningStepTile(recovery,"workout-mixed-repeat-recovery-"+index)
-                                if(!block.recoveryAfterLast)Text("Recovery between repetitions",
-                                    color=TracksidePalette.textMuted,fontSize=10.sp)
+                                MixedRunningStepTile(recovery, "workout-mixed-repeat-recovery-$index")
+                                if (!block.recoveryAfterLast) Text(
+                                    "Recovery jog between repetitions",
+                                    color = StrideLabVisualPalette.secondary,
+                                    fontSize = 10.5.sp
+                                )
                             }
                         }
                     }
                 }
             }
-        } else if(compact) {
+        } else if (compact) {
             Surface(
-                modifier=Modifier.fillMaxWidth(),
-                shape=RoundedCornerShape(15.dp),
-                color=TracksidePalette.surfaceRaised,
-                border=BorderStroke(1.dp,TracksidePalette.outline)
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                color = StrideLabVisualPalette.surface,
+                border = BorderStroke(1.dp, StrideLabVisualPalette.border)
             ) {
-                Column(Modifier.padding(14.dp),
-                    verticalArrangement=Arrangement.spacedBy(11.dp)) {
-                    Text("WORKOUT STRUCTURE",color=TracksidePalette.text,
-                        fontSize=12.sp,fontWeight=FontWeight.Bold)
+                Column(
+                    Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        "WORKOUT STRUCTURE",
+                        color = StrideLabVisualPalette.muted,
+                        fontSize = 10.sp,
+                        letterSpacing = 1.4.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                     RunningStepTile(
-                        segment=(blocks.single() as RunningStepBlock.Single).segment,
-                        tag="workout-step-single-0"
+                        segment = (blocks.single() as RunningStepBlock.Single).segment,
+                        tag = "workout-step-single-0"
                     )
                 }
             }
         } else {
-            Text("WORKOUT STEPS",color=TracksidePalette.text,
-                fontSize=13.sp,fontWeight=FontWeight.Bold)
-            if(blocks.isNotEmpty()) {
+            Text(
+                "WORKOUT STEPS",
+                color = StrideLabVisualPalette.muted,
+                fontSize = 10.sp,
+                letterSpacing = 1.4.sp,
+                fontWeight = FontWeight.Bold
+            )
+            if (blocks.isNotEmpty()) {
                 blocks.forEachIndexed { index, block ->
-                    when(block) {
+                    when (block) {
                         is RunningStepBlock.Single ->
-                            RunningStepTile(block.segment,"workout-step-single-$index")
+                            RunningStepTile(block.segment, "workout-step-single-$index")
                         is RunningStepBlock.Repeat ->
                             Surface(
-                                modifier=Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth()
                                     .testTag("workout-repeat-group-$index"),
-                                color=Color(0xFF111312),
-                                shape=RoundedCornerShape(16.dp),
-                                border=BorderStroke(1.dp,Color(0xFF4D5350))
+                                color = StrideLabVisualPalette.surface,
+                                shape = RoundedCornerShape(18.dp),
+                                border = BorderStroke(1.dp, StrideLabVisualPalette.moderateAmber.copy(alpha = 0.45f))
                             ) {
                                 Column(
-                                    Modifier.fillMaxWidth().padding(12.dp),
-                                    verticalArrangement=Arrangement.spacedBy(9.dp)
+                                    Modifier.fillMaxWidth().padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Text("${block.times} Times",
-                                        color=TracksidePalette.text,
-                                        fontSize=19.sp,
-                                        fontWeight=FontWeight.Bold,
-                                        modifier=Modifier.testTag("workout-repeat-count-$index"))
+                                    Text(
+                                        "${block.times} Times",
+                                        color = StrideLabVisualPalette.ink,
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        modifier = Modifier.testTag("workout-repeat-count-$index")
+                                    )
                                     RunningStepTile(
                                         block.work,
                                         "workout-repeat-work-$index"
@@ -114,7 +158,7 @@ internal fun TracksideRunningStepCards(
                                         RunningStepTile(
                                             rest,
                                             "workout-repeat-recovery-$index",
-                                            additionalLabel=if(block.recoveryAfterLast)
+                                            additionalLabel = if (block.recoveryAfterLast)
                                                 null else "Between repetitions"
                                         )
                                     }
@@ -122,31 +166,43 @@ internal fun TracksideRunningStepCards(
                             }
                     }
                 }
-            } else if(textFallback.isNotEmpty()) {
-                // For legacy or reviewed time-only prescriptions, display
-                // only the current saved instructions. Never resurrect original
-                // structured intervals after an accepted time-only reduction.
+            } else if (textFallback.isNotEmpty()) {
                 Surface(
-                    modifier=Modifier.fillMaxWidth().testTag("workout-step-fallback"),
-                    color=TracksidePalette.surfaceRaised,
-                    shape=RoundedCornerShape(13.dp),
-                    border=BorderStroke(1.dp,TracksidePalette.outline)
+                    modifier = Modifier.fillMaxWidth().testTag("workout-step-fallback"),
+                    color = StrideLabVisualPalette.surface,
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, StrideLabVisualPalette.border)
                 ) {
-                    Column(Modifier.padding(14.dp),
-                        verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                    Column(
+                        Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         textFallback.forEach { step ->
-                            Text(step,color=TracksidePalette.text,
-                                fontSize=12.sp,lineHeight=18.sp)
+                            Text(
+                                step,
+                                color = StrideLabVisualPalette.ink,
+                                fontSize = 12.5.sp,
+                                lineHeight = 18.sp
+                            )
                         }
                     }
                 }
             } else {
-                Text("No additional structured steps for this session.",
-                    color=TracksidePalette.textMuted,
-                    fontSize=12.sp)
+                Text(
+                    "No additional structured steps for this session.",
+                    color = StrideLabVisualPalette.secondary,
+                    fontSize = 12.sp
+                )
             }
         }
     }
+}
+
+private fun stepPurposeAccent(purpose: String): Color = when (purpose) {
+    "WORK" -> StrideLabVisualPalette.moderateAmber
+    "RECOVERY" -> StrideLabVisualPalette.recoveryCyan
+    "WARM_UP", "COOL_DOWN" -> StrideLabVisualPalette.easyTeal
+    else -> StrideLabVisualPalette.lime
 }
 
 @Composable
@@ -155,7 +211,8 @@ private fun RunningStepTile(
     tag: String,
     additionalLabel: String? = null
 ) {
-    val glyph=when(segment.purpose) {
+    val accent = stepPurposeAccent(segment.purpose)
+    val glyph = when (segment.purpose) {
         "WARM_UP" -> "W"
         "WORK" -> "R"
         "RECOVERY" -> "↺"
@@ -163,7 +220,7 @@ private fun RunningStepTile(
         "COOL_DOWN" -> "C"
         else -> "E"
     }
-    val name=when(segment.purpose) {
+    val name = when (segment.purpose) {
         "WARM_UP" -> "Warm-up"
         "WORK" -> "Run"
         "RECOVERY" -> "Recover"
@@ -172,82 +229,146 @@ private fun RunningStepTile(
         else -> "Easy running"
     }
     Surface(
-        modifier=Modifier.fillMaxWidth().testTag(tag),
-        color=Color(0xFF242725),
-        shape=RoundedCornerShape(12.dp)
+        modifier = Modifier.fillMaxWidth().testTag(tag),
+        color = StrideLabVisualPalette.surfaceRaised,
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, StrideLabVisualPalette.border)
     ) {
         Row(
-            Modifier.fillMaxWidth().padding(vertical=10.dp),
-            verticalAlignment=Alignment.CenterVertically
+            Modifier.fillMaxWidth().padding(vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                Modifier.padding(start=12.dp).size(36.dp)
-                    .background(Color(0xFF303531),RoundedCornerShape(9.dp)),
-                contentAlignment=Alignment.Center
+                Modifier
+                    .padding(start = 12.dp)
+                    .size(36.dp)
+                    .background(accent.copy(alpha = 0.15f), RoundedCornerShape(10.dp)),
+                contentAlignment = Alignment.Center
             ) {
-                Text(glyph,color=TracksidePalette.textMuted,
-                    fontSize=13.sp,fontWeight=FontWeight.Bold)
+                Text(
+                    glyph,
+                    color = accent,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
             }
             Column(
-                Modifier.weight(1f)
-                    .padding(horizontal=13.dp,vertical=2.dp),
-                verticalArrangement=Arrangement.spacedBy(4.dp)
+                Modifier
+                    .weight(1f)
+                    .padding(horizontal = 13.dp, vertical = 2.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
-                Row(Modifier.fillMaxWidth(),
-                    horizontalArrangement=Arrangement.SpaceBetween,
-                    verticalAlignment=Alignment.CenterVertically) {
-                    Text(name,color=TracksidePalette.text,
-                        fontSize=14.sp,fontWeight=FontWeight.Bold)
-                    Text(runningStepDistanceLabel(segment.meters),
-                        color=TracksidePalette.lime,
-                        fontSize=13.sp,fontWeight=FontWeight.Bold)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        name,
+                        color = StrideLabVisualPalette.ink,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        runningStepDisplayKmLabel(segment.meters),
+                        color = accent,
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
                 }
-                Text(segment.effort,color=TracksidePalette.textMuted,
-                    fontSize=11.sp,lineHeight=16.sp)
+                Text(
+                    segment.effort,
+                    color = StrideLabVisualPalette.secondary,
+                    fontSize = 11.5.sp,
+                    lineHeight = 16.sp
+                )
                 additionalLabel?.let {
-                    Text(it,color=TracksidePalette.textMuted,
-                        fontSize=10.sp,fontWeight=FontWeight.Medium)
+                    Text(
+                        it,
+                        color = StrideLabVisualPalette.muted,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
         }
     }
 }
 
-/** Version-2 mixed extent tile; duration and distance are different targets. */
+/** Version-2 mixed extent tile; always formats distance equivalents in km. */
 @Composable
-private fun MixedRunningStepTile(step:RunningStepV2,tag:String) {
-    val title=when(step.purpose) {
-        "WARM_UP"->"Warm-up"
-        "WORK"->"Run"
-        "RECOVERY"->"Recover"
-        "TRANSITION"->"Transition"
-        "COOL_DOWN"->"Cool-down"
-        else->"Easy running"
+private fun MixedRunningStepTile(step: RunningStepV2, tag: String) {
+    val accent = stepPurposeAccent(step.purpose)
+    val title = when (step.purpose) {
+        "WARM_UP" -> "Warm-up"
+        "WORK" -> "Work"
+        "RECOVERY" -> "Recover"
+        "TRANSITION" -> "Transition"
+        "COOL_DOWN" -> "Cool-down"
+        else -> "Easy running"
     }
-    val extent=step.meters?.let(::runningStepDistanceLabel) ?: run {
-        val seconds=checkNotNull(step.seconds)
-        if(seconds%60==0) (seconds/60).toString()+" min"
-        else if(seconds>60) (seconds/60).toString()+" min "+(seconds%60).toString()+" s"
-        else seconds.toString()+" s"
+    val extent = step.meters?.let(::runningStepDisplayKmLabel) ?: run {
+        val seconds = checkNotNull(step.seconds)
+        val timeStr = if (seconds % 60 == 0) "${seconds / 60} min"
+        else if (seconds > 60) "${seconds / 60} min ${seconds % 60} s"
+        else "$seconds s"
+        val kmEquiv = step.distanceEquivalentMeters?.takeIf { it > 0 }?.let {
+            " · ${runningStepDisplayKmLabel(it)}"
+        }.orEmpty()
+        timeStr + kmEquiv
     }
-    Surface(modifier=Modifier.fillMaxWidth().testTag(tag),
-        color=Color(0xFF242725),shape=RoundedCornerShape(12.dp)) {
-        Column(Modifier.fillMaxWidth().padding(horizontal=15.dp,vertical=13.dp),
-            verticalArrangement=Arrangement.spacedBy(5.dp)) {
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-                Text(title,color=TracksidePalette.text,fontSize=14.sp,fontWeight=FontWeight.Bold)
-                Text(extent,color=TracksidePalette.lime,fontSize=13.sp,
-                    fontWeight=FontWeight.Bold)
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag(tag),
+        color = StrideLabVisualPalette.surfaceRaised,
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, StrideLabVisualPalette.border)
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    title,
+                    color = StrideLabVisualPalette.ink,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    extent,
+                    color = accent,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
             }
-            Text(step.effort,color=TracksidePalette.textMuted,fontSize=11.sp,lineHeight=16.sp)
+            Text(
+                step.effort,
+                color = StrideLabVisualPalette.secondary,
+                fontSize = 11.5.sp,
+                lineHeight = 16.sp
+            )
         }
     }
 }
 
-/** Exact saved metres when a short km label would round the prescription. */
+/** Clean km display label used across all athlete-facing running step cards. */
+internal fun runningStepDisplayKmLabel(meters: Int): String {
+    val km = meters / 1000.0
+    return when {
+        meters <= 0 -> "0.0 km"
+        km < 1.0 && meters % 100 != 0 -> String.format(Locale.US, "%.2f km", km)
+        else -> String.format(Locale.US, "%.1f km", km)
+    }
+}
+
+/** Legacy helper preserved for RunningStepGroupingTest contract checks. */
 internal fun runningStepDistanceLabel(meters: Int): String = when {
     meters < 1000 -> "$meters m"
-    meters % 100 == 0 -> String.format(Locale.US,"%.1f km",meters / 1000.0)
-    meters % 10 == 0 -> String.format(Locale.US,"%.2f km",meters / 1000.0)
+    meters % 100 == 0 -> String.format(Locale.US, "%.1f km", meters / 1000.0)
+    meters % 10 == 0 -> String.format(Locale.US, "%.2f km", meters / 1000.0)
     else -> "$meters m"
 }

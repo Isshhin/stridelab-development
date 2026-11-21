@@ -463,7 +463,7 @@ internal fun TracksideRaceGoalScreen(
                 buttonTag = "builder-race-add-pr"
             )
         }
-        if (paceZones != null && benchmarkSeconds != null) {
+        if (paceZones != null && (benchmarkSeconds != null || paceZones.basis == Engine15PaceBandBasis.CONFIRMED_EASY_BASELINE_ESTIMATE)) {
             Spacer(Modifier.height(10.dp))
             ProvisionalPaceZoneStrip(paceZones)
         }
@@ -754,7 +754,8 @@ internal fun TracksideRunningAbilityScreen(
     benchmarkDistance: String = "5K",
     benchmarkSeconds: Int? = null,
     onSaveBenchmark: ((String, Int?) -> Unit)? = null,
-    paceZones: Engine15ProvisionalPaceZones? = null
+    paceZones: Engine15ProvisionalPaceZones? = null,
+    autoDetectedExperience: Boolean = false
 ) {
     var benchmarkDialogOpen by remember { mutableStateOf(false) }
     var chosenDistance by remember(benchmarkDistance) { mutableStateOf(benchmarkDistance) }
@@ -762,7 +763,7 @@ internal fun TracksideRunningAbilityScreen(
     TracksideBuilderFrame(
         eyebrow = "RUNNING / BASELINE",
         headline = "Where are you\nstarting?",
-        description = "Based on your recent training — typical weekly volume is handled automatically.",
+        description = "Auto-calibrated from your training history — adjust any value anytime.",
         onBack = onBack,
         onContinue = onContinue,
         descriptionBottomGap = 16,
@@ -770,7 +771,16 @@ internal fun TracksideRunningAbilityScreen(
         headlineLineHeight = 34,
         progressStep = 3
     ) {
-        Text("EXPERIENCE LEVEL", fontSize = 10.sp, letterSpacing = 1.4.sp, color = PlanBuilderPalette.muted, fontWeight = FontWeight.Bold)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("EXPERIENCE LEVEL", fontSize = 10.sp, letterSpacing = 1.4.sp, color = PlanBuilderPalette.muted, fontWeight = FontWeight.Bold)
+            if (autoDetectedExperience) {
+                Text("Auto-detected from history", fontSize = 10.5.sp, color = limeAccent, fontWeight = FontWeight.SemiBold)
+            }
+        }
         Spacer(Modifier.height(8.dp))
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -822,7 +832,7 @@ internal fun TracksideRunningAbilityScreen(
             cardTag = "builder-ability-optional-card",
             buttonTag = "builder-ability-add-result"
         )
-        if (paceZones != null && benchmarkSeconds != null) {
+        if (paceZones != null && (benchmarkSeconds != null || autoDetectedExperience)) {
             Spacer(Modifier.height(10.dp))
             ProvisionalPaceZoneStrip(paceZones)
         }

@@ -1,5 +1,7 @@
 package io.stridelab.privatealpha
 
+import kotlin.math.roundToInt
+
 internal enum class Engine15QualityProgressionBasis {
     HOLD_NO_REPEATED_EXPOSURE,
     EVIDENCE_BOUNDED_PROGRESSION,
@@ -42,14 +44,13 @@ internal data class Engine15QualityWeekPrescription(
 }
 
 /**
- * Stage 3 evidence-bounded multi-week quality dosage and progression policy.
+ * Stage 3 evidence-bounded & 50/50 history-fitness adaptive multi-week quality dosage
+ * and progression policy.
  *
- * - Without repeated same-family exposure, holds at the conservative introductory
- *   dose across all loading weeks; elapsed weeks alone never escalate quality work.
- * - With repeated same-family exposure, advances along a bounded, discrete family
- *   ladder capped by asserted repeated exposure + bounded allowance, family ceilings,
- *   available session time, and race-taper reductions on the final loading week.
- * - Never fabricates pace, heart-rate, or physiological thresholds.
+ * - Preserves strict unit-test behavior when called without an adaptive anchor override.
+ * - For app plan generation, blends 50% Auto-Detected Recent Quality Workouts +
+ *   50% Historical Fitness & Volume Capacity so fit runners never receive "junk"
+ *   10-minute workouts, while progressing across build blocks and tapering before races.
  */
 internal object Engine15QualityProgressionPolicy {
     const val POLICY_ID = "stridelab.engine15.quality-progression-v1"
@@ -57,7 +58,7 @@ internal object Engine15QualityProgressionPolicy {
     private const val INTRO_COOL_DOWN_SECONDS = 8 * 60
     private const val EXTENDED_COOL_DOWN_SECONDS = 10 * 60
     private const val RECOVERY_SECONDS = 2 * 60
-    private const val MAX_EXPOSURE_INCREMENT_SECONDS = 4 * 60 // +4 min total cap above repeated baseline
+    private const val MAX_EXPOSURE_INCREMENT_SECONDS = 4 * 60 // +4 min strict evidence cap
 
     private fun step(purpose: WorkoutPurpose, seconds: Int, target: WorkoutTarget) =
         WorkoutStep(purpose, WorkoutUnit.SECONDS, seconds.toDouble(), 1, target)
@@ -128,6 +129,11 @@ internal object Engine15QualityProgressionPolicy {
                     add(continuousStep(size, "BUILD_2", 15 * 60, WorkoutTarget.TEMPO))
                     add(continuousStep(size, "BUILD_3", 18 * 60, WorkoutTarget.TEMPO))
                     add(continuousStep(size, "EXTENDED", 20 * 60, WorkoutTarget.TEMPO))
+                    add(continuousStep(size, "BUILD_4", 24 * 60, WorkoutTarget.TEMPO))
+                    add(continuousStep(size, "BUILD_5", 28 * 60, WorkoutTarget.TEMPO))
+                    add(continuousStep(size, "PEAK_1", 32 * 60, WorkoutTarget.TEMPO))
+                    add(continuousStep(size, "PEAK_2", 36 * 60, WorkoutTarget.TEMPO))
+                    add(continuousStep(size, "PEAK_3", 40 * 60, WorkoutTarget.TEMPO))
                 }
             }
             IndependentQualityFamily.THRESHOLD -> listOf(
@@ -135,36 +141,152 @@ internal object Engine15QualityProgressionPolicy {
                 intervalStep(1, "BUILD_1", 3, 5 * 60, WorkoutTarget.THRESHOLD),
                 intervalStep(2, "BUILD_2", 4, 4 * 60, WorkoutTarget.THRESHOLD),
                 intervalStep(3, "BUILD_3", 3, 6 * 60, WorkoutTarget.THRESHOLD),
-                intervalStep(4, "EXTENDED", 4, 5 * 60, WorkoutTarget.THRESHOLD)
+                intervalStep(4, "EXTENDED", 4, 5 * 60, WorkoutTarget.THRESHOLD),
+                intervalStep(5, "BUILD_4", 4, 6 * 60, WorkoutTarget.THRESHOLD),
+                intervalStep(6, "BUILD_5", 4, 7 * 60, WorkoutTarget.THRESHOLD),
+                intervalStep(7, "PEAK_1", 4, 8 * 60, WorkoutTarget.THRESHOLD),
+                intervalStep(8, "PEAK_2", 5, 7 * 60, WorkoutTarget.THRESHOLD),
+                intervalStep(9, "PEAK_3", 4, 10 * 60, WorkoutTarget.THRESHOLD)
             )
             IndependentQualityFamily.INTERVALS -> listOf(
                 intervalStep(0, "INTRO", 4, 2 * 60, WorkoutTarget.INTERVALS),
                 intervalStep(1, "BUILD_1", 5, 2 * 60, WorkoutTarget.INTERVALS),
                 intervalStep(2, "BUILD_2", 4, 3 * 60, WorkoutTarget.INTERVALS),
                 intervalStep(3, "BUILD_3", 6, 2 * 60, WorkoutTarget.INTERVALS),
-                intervalStep(4, "EXTENDED", 5, 3 * 60, WorkoutTarget.INTERVALS)
+                intervalStep(4, "EXTENDED", 5, 3 * 60, WorkoutTarget.INTERVALS),
+                intervalStep(5, "BUILD_4", 6, 3 * 60, WorkoutTarget.INTERVALS),
+                intervalStep(6, "BUILD_5", 5, 4 * 60, WorkoutTarget.INTERVALS),
+                intervalStep(7, "PEAK_1", 6, 4 * 60, WorkoutTarget.INTERVALS),
+                intervalStep(8, "PEAK_2", 7, 4 * 60, WorkoutTarget.INTERVALS)
             )
             IndependentQualityFamily.HILLS -> listOf(
                 intervalStep(0, "INTRO", 5, 60, WorkoutTarget.HILLS),
                 intervalStep(1, "BUILD_1", 6, 60, WorkoutTarget.HILLS),
                 intervalStep(2, "BUILD_2", 5, 90, WorkoutTarget.HILLS),
                 intervalStep(3, "BUILD_3", 8, 60, WorkoutTarget.HILLS),
-                intervalStep(4, "EXTENDED", 6, 90, WorkoutTarget.HILLS)
+                intervalStep(4, "EXTENDED", 6, 90, WorkoutTarget.HILLS),
+                intervalStep(5, "BUILD_4", 8, 90, WorkoutTarget.HILLS),
+                intervalStep(6, "PEAK_1", 10, 90, WorkoutTarget.HILLS),
+                intervalStep(7, "PEAK_2", 8, 120, WorkoutTarget.HILLS)
             )
             IndependentQualityFamily.FARTLEK -> listOf(
                 intervalStep(0, "INTRO", 5, 2 * 60, WorkoutTarget.FARTLEK),
                 intervalStep(1, "BUILD_1", 6, 2 * 60, WorkoutTarget.FARTLEK),
                 intervalStep(2, "BUILD_2", 5, 3 * 60, WorkoutTarget.FARTLEK),
                 intervalStep(3, "BUILD_3", 7, 2 * 60, WorkoutTarget.FARTLEK),
-                intervalStep(4, "EXTENDED", 6, 3 * 60, WorkoutTarget.FARTLEK)
+                intervalStep(4, "EXTENDED", 6, 3 * 60, WorkoutTarget.FARTLEK),
+                intervalStep(5, "BUILD_4", 7, 3 * 60, WorkoutTarget.FARTLEK),
+                intervalStep(6, "PEAK_1", 8, 3 * 60, WorkoutTarget.FARTLEK),
+                intervalStep(7, "PEAK_2", 7, 4 * 60, WorkoutTarget.FARTLEK)
             )
             IndependentQualityFamily.PROGRESSION -> listOf(
                 continuousStep(0, "INTRO", 12 * 60, WorkoutTarget.PROGRESSION),
                 continuousStep(1, "BUILD_1", 15 * 60, WorkoutTarget.PROGRESSION),
                 continuousStep(2, "BUILD_2", 18 * 60, WorkoutTarget.PROGRESSION),
-                continuousStep(3, "EXTENDED", 20 * 60, WorkoutTarget.PROGRESSION)
+                continuousStep(3, "EXTENDED", 20 * 60, WorkoutTarget.PROGRESSION),
+                continuousStep(4, "BUILD_3", 25 * 60, WorkoutTarget.PROGRESSION),
+                continuousStep(5, "BUILD_4", 30 * 60, WorkoutTarget.PROGRESSION),
+                continuousStep(6, "PEAK_1", 35 * 60, WorkoutTarget.PROGRESSION),
+                continuousStep(7, "PEAK_2", 40 * 60, WorkoutTarget.PROGRESSION)
             )
         }
+
+    /**
+     * Computes the 50/50 Auto-Detected Workout + Historical Fitness quality work anchor (in seconds).
+     * Ensures fit runners always receive meaningful, non-junk quality workouts matched to both
+     * their recently detected workouts and their volume/pace capacity.
+     */
+    fun computeAdaptiveExposureAnchorSeconds(
+        request: PlanRequest,
+        family: IndependentQualityFamily,
+        activities: List<ActivityRecord> = emptyList(),
+        plans: List<PlanSnapshot> = emptyList(),
+        detections: List<Engine15DetectedWorkout> = emptyList()
+    ): Int {
+        val zones = Engine15PaceZoneEstimator.estimate(request, activities = activities)
+        val effectiveWeeklyKm = maxOf(
+            request.weeklyKm,
+            request.targetWeeklyKm?.times(0.85) ?: 0.0,
+            automaticRunningBaseline(activities, plans = plans)?.weeklyKm ?: 0.0
+        ).coerceIn(12.0, 120.0)
+
+        // 1. 50% Weight: Historical Fitness & Volume Capacity
+        // Active quality work share of weekly volume:
+        // - Tempo / Threshold / Progression / Fartlek: ~15-18% of weekly km
+        // - Intervals / Hills: ~10-12% of weekly km
+        val workShareOfWeekly = when (family) {
+            IndependentQualityFamily.TEMPO,
+            IndependentQualityFamily.PROGRESSION -> 0.165
+            IndependentQualityFamily.THRESHOLD,
+            IndependentQualityFamily.FARTLEK -> 0.155
+            IndependentQualityFamily.INTERVALS -> 0.115
+            IndependentQualityFamily.HILLS -> 0.085
+        }
+        val targetWorkKm = (effectiveWeeklyKm * workShareOfWeekly).coerceIn(2.0, 11.0)
+        val workPaceSecPerKm = when (family) {
+            IndependentQualityFamily.TEMPO,
+            IndependentQualityFamily.PROGRESSION -> zones.tempo.midpointSecondsPerKm
+            IndependentQualityFamily.THRESHOLD -> zones.threshold.midpointSecondsPerKm
+            IndependentQualityFamily.INTERVALS,
+            IndependentQualityFamily.HILLS,
+            IndependentQualityFamily.FARTLEK -> zones.intervals.midpointSecondsPerKm
+        }
+        val rawFitnessWorkSec = (targetWorkKm * workPaceSecPerKm).roundToInt()
+
+        // No-Junk-Workout Floor by weekly mileage & experience
+        val meaningfulFloorSec = when (family) {
+            IndependentQualityFamily.TEMPO,
+            IndependentQualityFamily.THRESHOLD,
+            IndependentQualityFamily.PROGRESSION -> when {
+                effectiveWeeklyKm >= 55.0 || request.experience == 2 -> 24 * 60
+                effectiveWeeklyKm >= 35.0 || request.experience == 1 -> 18 * 60
+                else -> 15 * 60
+            }
+            IndependentQualityFamily.INTERVALS,
+            IndependentQualityFamily.FARTLEK -> when {
+                effectiveWeeklyKm >= 55.0 || request.experience == 2 -> 18 * 60
+                effectiveWeeklyKm >= 35.0 || request.experience == 1 -> 15 * 60
+                else -> 12 * 60
+            }
+            IndependentQualityFamily.HILLS -> when {
+                effectiveWeeklyKm >= 55.0 || request.experience == 2 -> 12 * 60
+                effectiveWeeklyKm >= 35.0 || request.experience == 1 -> 9 * 60
+                else -> 6 * 60
+            }
+        }
+        val fitnessCapacitySec = maxOf(rawFitnessWorkSec, meaningfulFloorSec).coerceIn(360, 2400)
+
+        // 2. 50% Weight: Auto-Detected Recent Workouts (lap heuristics + plan links + pace-detected quality runs)
+        val lapOrLinkedDurations = detections.filter { det ->
+            det.kind == ActivityWorkoutKind.QUALITY_RUN &&
+                det.candidateWorkSegmentsSeconds.isNotEmpty()
+        }.map { it.candidateWorkSegmentsSeconds.sum() }
+            .filter { it in 300..3600 }
+
+        val easyPace = zones.easy.midpointSecondsPerKm
+        val paceDetectedDurations = ActivityDisplayConsolidation.visible(activities)
+            .filter { DashboardSummary.isRun(it) }
+            .mapNotNull { run ->
+                val distM = run.distanceM?.takeIf { it.isFinite() && it >= 4_000.0 } ?: return@mapNotNull null
+                val durS = run.durationS?.takeIf { it.isFinite() && it >= 900.0 } ?: return@mapNotNull null
+                val pace = (run.recordedPace ?: run.garminMovingPaceSPerKm ?: (durS * 1000.0 / distM))
+                // A run whose overall average pace is >= 8% faster than easy midpoint is a quality/fast effort
+                if (pace.isFinite() && pace <= easyPace * 0.92) {
+                    (durS * 0.65).roundToInt().coerceIn(600, 2700)
+                } else null
+            }
+
+        val allDetectedWork = (lapOrLinkedDurations + paceDetectedDurations).sortedDescending().take(4)
+        val detectedWorkSec = if (allDetectedWork.isNotEmpty()) {
+            allDetectedWork.average().roundToInt()
+        } else {
+            fitnessCapacitySec
+        }
+
+        // 3. 50 / 50 Blend of Auto-Detected Workout Dose + Historical Fitness Capacity
+        val blendedSec = (0.50 * detectedWorkSec + 0.50 * fitnessCapacitySec).roundToInt()
+        return maxOf(blendedSec, meaningfulFloorSec).coerceIn(360, 2400)
+    }
 
     fun plan(
         request: PlanRequest,
@@ -204,7 +326,15 @@ internal object Engine15QualityProgressionPolicy {
             }
         }
 
-        val maxPermittedWork = repeatedBaseline + MAX_EXPOSURE_INCREMENT_SECONDS
+        // When using the 50/50 adaptive fitness+detection override, allow progressive build up to +35%
+        // across mesocycles; when using strict asserted device evidence alone, keep the +240s cap.
+        val adaptiveOverrideActive = assertedExposureSecondsOverride != null &&
+            selection.exposureConfidence != IndependentQualityExposureConfidence.REPEATED_DEVICE_RECORDS_ASSERTED
+        val maxPermittedWork = if (adaptiveOverrideActive) {
+            maxOf(repeatedBaseline + MAX_EXPOSURE_INCREMENT_SECONDS, (repeatedBaseline * 1.35).roundToInt())
+        } else {
+            repeatedBaseline + MAX_EXPOSURE_INCREMENT_SECONDS
+        }
         val anchorIndex = steps.indexOfLast { it.workSeconds <= repeatedBaseline }.coerceAtLeast(0)
 
         return slots.map { slot ->
@@ -214,8 +344,6 @@ internal object Engine15QualityProgressionPolicy {
             val desiredIndex = if (isRaceTaperWeek) {
                 (anchorIndex - 1).coerceAtLeast(0)
             } else {
-                // Advance at most +1 step per mesocycle and +1 within a 3-week build block,
-                // strictly bounded by asserted repeated exposure + MAX_EXPOSURE_INCREMENT_SECONDS.
                 (anchorIndex + blockIndex + (weekInBlock / 2)).coerceAtMost(steps.lastIndex)
             }
             val exposureBounded = steps.take(desiredIndex + 1)
@@ -245,7 +373,7 @@ internal object Engine15QualityProgressionPolicy {
                 Engine15QualityProgressionBasis.TIME_BUDGET_CAPPED ->
                     "Capped at ${finalStep.stageLabel} (${finalStep.workSeconds / 60} min work) to fit the ${request.minutes}-minute session budget."
                 else ->
-                    "Evidence-bounded ${finalStep.stageLabel} (${finalStep.workSeconds / 60} min work) anchored to asserted repeated exposure (${repeatedBaseline / 60} min)."
+                    "Adaptive 50/50 history & fitness ${finalStep.stageLabel} (${finalStep.workSeconds / 60} min work) anchored to ${repeatedBaseline / 60} min baseline."
             }
             Engine15QualityWeekPrescription(
                 policyId = POLICY_ID,

@@ -32,8 +32,8 @@ private val hubBorder = StrideLabVisualPalette.border
 
 /**
  * Art-directed Training Hub Header.
- * Pure AMOLED obsidian surfaces, crisp high-contrast Day/Agenda toggle,
- * subtle Lime top wash on the active training plan card.
+ * Calendar-first navigation: Day | Week toggle (`training-view-day` / `training-view-agenda`),
+ * interactive 7-day calendar with dual Logged + Planned markers, and 1-tap Plan Switcher / Manage.
  */
 @Composable
 internal fun TracksideTrainingHubHeader(
@@ -44,6 +44,7 @@ internal fun TracksideTrainingHubHeader(
     agenda: Boolean,
     busy: Boolean,
     actions: PlanActions,
+    recordedDates: Set<LocalDate> = emptySet(),
     onAgenda: (Boolean) -> Unit,
     onSelectedDate: (LocalDate) -> Unit,
     onPlanSelected: (String) -> Unit,
@@ -66,12 +67,12 @@ internal fun TracksideTrainingHubHeader(
                 modifier = Modifier.padding(3.dp),
                 horizontalArrangement = Arrangement.spacedBy(3.dp)
             ) {
-                listOf(false to "Day", true to "Agenda").forEach { (mode, label) ->
+                listOf(false to "Day", true to "Week").forEach { (mode, label) ->
                     val selected = agenda == mode
                     Surface(
                         onClick = { onAgenda(mode) },
                         modifier = Modifier
-                            .width(78.dp)
+                            .width(82.dp)
                             .height(36.dp)
                             .testTag(if (mode) "training-view-agenda" else "training-view-day"),
                         shape = RoundedCornerShape(10.dp),
@@ -97,6 +98,7 @@ internal fun TracksideTrainingHubHeader(
         }
     }
 
+    // Compact Active Training Plan Card
     Surface(
         shape = RoundedCornerShape(18.dp),
         color = hubCard,
@@ -113,8 +115,8 @@ internal fun TracksideTrainingHubHeader(
                         listOf(hubLime.copy(alpha = 0.07f), Color.Transparent)
                     )
                 )
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(horizontal = 15.dp, vertical = 13.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -128,11 +130,25 @@ internal fun TracksideTrainingHubHeader(
                     modifier = Modifier.weight(1f),
                     fontWeight = FontWeight.Bold
                 )
+                if (pendingDrafts > 0) {
+                    TextButton(
+                        onClick = onPlanTools,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                        modifier = Modifier.height(26.dp)
+                    ) {
+                        Text(
+                            "$pendingDrafts draft${if (pendingDrafts == 1) "" else "s"} ›",
+                            color = StrideLabVisualPalette.moderateAmber,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .background(StrideLabVisualPalette.limeTint)
-                        .padding(horizontal = 9.dp, vertical = 4.dp)
+                        .padding(horizontal = 9.dp, vertical = 3.dp)
                 ) {
                     Text(
                         "ACTIVE",
@@ -143,40 +159,36 @@ internal fun TracksideTrainingHubHeader(
                     )
                 }
             }
-            Text(
-                active.name ?: active.request.goal,
-                fontSize = 20.sp,
-                color = hubInk,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = (-0.3).sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    "${active.request.weeks}-week block · ${active.sessions.size} workouts",
-                    color = hubMuted,
-                    fontSize = 12.sp,
-                    modifier = Modifier.weight(1f)
-                )
-                if (pendingDrafts > 0) TextButton(onClick = onPlanTools) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        "$pendingDrafts draft${if (pendingDrafts == 1) "" else "s"}",
-                        color = hubLime,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Bold
+                        active.name ?: active.request.goal,
+                        fontSize = 18.sp,
+                        color = hubInk,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = (-0.3).sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        "${active.request.weeks}-week block · ${active.sessions.size} workouts",
+                        color = hubMuted,
+                        fontSize = 11.5.sp
                     )
                 }
-                if (approvedPlans.size > 1) TextButton(onClick = { selectorOpen = !selectorOpen }) {
-                    Text(
-                        if (selectorOpen) "Hide" else "Switch",
-                        color = hubLime,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                if (approvedPlans.size > 1) {
+                    TextButton(onClick = { selectorOpen = !selectorOpen }) {
+                        Text(
+                            if (selectorOpen) "Hide" else "Switch ▾",
+                            color = hubLime,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
             TracksideTrainingTargetWarning(active)
@@ -209,6 +221,7 @@ internal fun TracksideTrainingHubHeader(
         }
     }
 
+    // Interactive 7-Day Calendar Card (tapping a day focuses Day; tapping Week pill focuses Week)
     Surface(
         shape = RoundedCornerShape(18.dp),
         color = hubCard,
@@ -220,6 +233,9 @@ internal fun TracksideTrainingHubHeader(
                 plan = active,
                 selected = selectedDate,
                 showNavigation = true,
+                recordedDates = recordedDates,
+                weekScopeSelected = agenda,
+                onToggleWeekScope = { onAgenda(!agenda) },
                 onSelect = onSelectedDate
             )
         }

@@ -2,44 +2,39 @@ package io.stridelab.privatealpha
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.time.temporal.TemporalAdjusters
 import java.time.temporal.ChronoUnit
+import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
 /** All values are prescribed minutes, not measured effort or completed training load. */
@@ -61,18 +56,44 @@ internal fun tracksideTrainingWeek(plan: PlanSnapshot, selected: LocalDate): Lis
     val monday = tracksideCalendarMonday(selected)
     return (0L..6L).map { offset ->
         val date = monday.plusDays(offset)
-        TracksideTrainingDay(date, plan.sessions.filter { it.date == date && it.status != "unassigned" }.map(plan::cardPresentation))
+        TracksideTrainingDay(
+            date,
+            plan.sessions.filter { it.date == date && it.status != "unassigned" }.map(plan::cardPresentation)
+        )
     }
 }
 
-/** Figma 602:3 week chart: responsive seven-day minutes, active day, and domain stacks.
- * It is read-only and calls the existing date selection route. No plan mutation.
+private fun dayBarAccent(sessions: List<PlannedSession>): Color {
+    if (sessions.isEmpty()) return StrideLabVisualPalette.muted
+    val run = sessions.firstOrNull { it.discipline == "run" }
+    if (run != null) {
+        return when (run.kind) {
+            "long" -> StrideLabVisualPalette.lime
+            "quality" -> {
+                val fam = run.runningPrescription?.family?.lowercase(Locale.ROOT).orEmpty()
+                if (fam == "intervals" || fam == "hills") StrideLabVisualPalette.highCoral
+                else StrideLabVisualPalette.moderateAmber
+            }
+            else -> StrideLabVisualPalette.easyTeal
+        }
+    }
+    return StrideLabVisualPalette.disciplineColor(sessions.first().discipline)
+}
+
+/**
+ * Art-directed interactive 7-day Training Calendar & Volume Chart.
+ * Defaults to kilometers (km) for running plans, displays semantic gradient bars
+ * with glowing top caps, dual Logged + Planned day dots, and a tappable Week Header pill
+ * so pressing a Day or pressing the Week shows both logged activities and planned workouts.
  */
 @Composable
 internal fun TracksideTrainingWeekChart(
     plan: PlanSnapshot,
     selected: LocalDate,
     showNavigation: Boolean = true,
+    recordedDates: Set<LocalDate> = emptySet(),
+    weekScopeSelected: Boolean = false,
+    onToggleWeekScope: (() -> Unit)? = null,
     onSelect: (LocalDate) -> Unit
 ) {
     val first = plan.request.start
@@ -83,114 +104,192 @@ internal fun TracksideTrainingWeekChart(
     val weekIndex = ChronoUnit.WEEKS.between(firstMonday, weekStart).toInt() + 1
     val totalWeeks = ChronoUnit.WEEKS.between(firstMonday, lastMonday).toInt() + 1
     val days = tracksideTrainingWeek(plan, selected)
-    var distanceView by rememberSaveable(plan.id) { mutableStateOf(false) }
+    val hasRunning = plan.request.runDays > 0 || plan.sessions.any { it.discipline == "run" }
+    var distanceView by rememberSaveable(plan.id) { mutableStateOf(hasRunning) }
     val total = days.sumOf { it.plannedMinutes }
-    fun activeEstimatedDistance(session:PlannedSession):Double? {
-        if(session.suggestion?.let { it.accepted && it.minutes<session.minutes }==true)return null
+
+    fun activeEstimatedDistance(session: PlannedSession): Double? {
+        if (session.suggestion?.let { it.accepted && it.minutes < session.minutes } == true) return null
         return session.distanceKm ?: session.runningPrescription?.estimatedDistanceKm
     }
-    val dayDistances=days.map { day -> day.sessions.sumOf {
-        if(it.discipline=="run")activeEstimatedDistance(it) ?: 0.0 else 0.0
-    } }
-    val estimatedDays=days.map { day -> day.sessions.any { session ->
-        session.runningPrescription?.mixedSegments!=null &&
-            activeEstimatedDistance(session)!=null
-    } }
-    val hasEstimates=estimatedDays.any { it }
-    val totalKm=dayDistances.sum()
-    val chartValues=days.indices.map { i ->
-        if(distanceView)dayDistances[i] else days[i].plannedMinutes.toDouble()
-    }
-    val maxDay=(chartValues.maxOrNull() ?: 0.0).coerceAtLeast(1.0)
-    val byDiscipline = days.flatMap { it.sessions }.groupBy { it.discipline }
-        .map { (discipline, sessions) -> discipline to sessions.size }
-        .filter { it.second > 0 }
 
-    Column(Modifier.fillMaxWidth().testTag("training-week-chart"),
-        verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-            Text("Your training week",style=MaterialTheme.typography.titleSmall,
-                color=Color(0xFFF0F4EE),fontWeight=FontWeight.Bold,
-                modifier=Modifier.weight(1f))
-            listOf(false to "min",true to "km").forEach { (metric,label) ->
-                Surface(onClick={distanceView=metric},
-                    modifier=Modifier.padding(start=3.dp)
-                        .testTag("training-chart-$label"),
-                    color=if(distanceView==metric)Color(0xFFD8FB70)
-                        else Color(0xFF2C342C),
-                    shape=RoundedCornerShape(8.dp)) {
-                    Text(label,Modifier.padding(horizontal=12.dp,vertical=7.dp),
-                        color=if(distanceView==metric)Color(0xFF11170D)
-                            else Color(0xFFAAB5A8),
-                        style=MaterialTheme.typography.labelSmall)
+    val dayDistances = days.map { day ->
+        day.sessions.sumOf {
+            if (it.discipline == "run") activeEstimatedDistance(it) ?: 0.0 else 0.0
+        }
+    }
+    val estimatedDays = days.map { day ->
+        day.sessions.any { session ->
+            session.runningPrescription?.mixedSegments != null &&
+                activeEstimatedDistance(session) != null
+        }
+    }
+    val hasEstimates = estimatedDays.any { it }
+    val totalKm = dayDistances.sum()
+    val chartValues = days.indices.map { i ->
+        if (distanceView) dayDistances[i] else days[i].plannedMinutes.toDouble()
+    }
+    val maxDay = (chartValues.maxOrNull() ?: 0.0).coerceAtLeast(1.0)
+    val completedInWeek = days.count { day ->
+        day.date in recordedDates || day.sessions.any { it.status == "completed" }
+    }
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .testTag("training-week-chart"),
+        verticalArrangement = Arrangement.spacedBy(11.dp)
+    ) {
+        // Top header row: Title + km/min unit switcher
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    "TRAINING CALENDAR",
+                    fontSize = 10.sp,
+                    letterSpacing = 1.3.sp,
+                    color = StrideLabVisualPalette.muted,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    if (distanceView) String.format(Locale.US, "%.1f km planned", totalKm)
+                    else "${total / 60}h ${total % 60}m planned",
+                    fontSize = 16.sp,
+                    color = StrideLabVisualPalette.ink,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+            Surface(
+                color = StrideLabVisualPalette.surfaceRaised,
+                shape = RoundedCornerShape(10.dp),
+                border = BorderStroke(1.dp, StrideLabVisualPalette.border)
+            ) {
+                Row(Modifier.padding(2.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    listOf(true to "km", false to "min").forEach { (metric, label) ->
+                        val isSelected = distanceView == metric
+                        Surface(
+                            onClick = { distanceView = metric },
+                            modifier = Modifier.testTag("training-chart-$label"),
+                            color = if (isSelected) StrideLabVisualPalette.lime else Color.Transparent,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                label,
+                                Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
+                                color = if (isSelected) PlanBuilderPalette.accentOn else StrideLabVisualPalette.secondary,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold
+                            )
+                        }
+                    }
                 }
             }
         }
+
+        // Week Navigation + Tappable Week Focus Pill
         if (showNavigation) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
                 TextButton(
                     onClick = { onSelect(maxOf(first, weekStart.minusWeeks(1))) },
                     enabled = weekStart > firstMonday,
                     modifier = Modifier.testTag("training-prev-week")
-                ) { Text("‹", style = MaterialTheme.typography.headlineSmall) }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    val end = weekStart.plusDays(6)
-                    val span = if (weekStart.month == end.month)
-                        "${weekStart.dayOfMonth}–${end.dayOfMonth} ${end.month.getDisplayName(java.time.format.TextStyle.SHORT, Locale.getDefault())}"
-                    else "${weekStart.format(DateTimeFormatter.ofPattern("d MMM"))} – ${end.format(DateTimeFormatter.ofPattern("d MMM"))}"
-                    Text(span, style = MaterialTheme.typography.titleMedium, color = TracksidePalette.text)
-                    Text("Week $weekIndex of $totalWeeks", style = MaterialTheme.typography.labelSmall,
-                        color = TracksidePalette.textMuted)
+                ) {
+                    Text(
+                        "‹",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (weekStart > firstMonday) StrideLabVisualPalette.lime else StrideLabVisualPalette.muted
+                    )
                 }
+                val end = weekStart.plusDays(6)
+                val span = if (weekStart.month == end.month)
+                    "${weekStart.dayOfMonth}–${end.dayOfMonth} ${end.month.getDisplayName(java.time.format.TextStyle.SHORT, Locale.getDefault())}"
+                else "${weekStart.format(DateTimeFormatter.ofPattern("d MMM"))} – ${end.format(DateTimeFormatter.ofPattern("d MMM"))}"
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (weekScopeSelected) StrideLabVisualPalette.limeTint else StrideLabVisualPalette.surfaceRaised,
+                    border = BorderStroke(
+                        1.dp,
+                        if (weekScopeSelected) StrideLabVisualPalette.lime else StrideLabVisualPalette.border
+                    ),
+                    modifier = Modifier
+                        .then(if (onToggleWeekScope != null) Modifier.clickable { onToggleWeekScope() } else Modifier)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            span,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = if (weekScopeSelected) StrideLabVisualPalette.lime else StrideLabVisualPalette.ink
+                        )
+                        Text(
+                            "Week $weekIndex of $totalWeeks" + if (onToggleWeekScope != null) {
+                                if (weekScopeSelected) " · Showing full week" else " · Tap for full week"
+                            } else "",
+                            fontSize = 10.5.sp,
+                            color = if (weekScopeSelected) StrideLabVisualPalette.lime else StrideLabVisualPalette.secondary
+                        )
+                    }
+                }
+
                 TextButton(
                     onClick = { onSelect(minOf(last, weekStart.plusWeeks(1))) },
                     enabled = weekStart < lastMonday,
                     modifier = Modifier.testTag("training-next-week")
-                ) { Text("›", style = MaterialTheme.typography.headlineSmall) }
+                ) {
+                    Text(
+                        "›",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (weekStart < lastMonday) StrideLabVisualPalette.lime else StrideLabVisualPalette.muted
+                    )
+                }
             }
         }
 
-        if(byDiscipline.isNotEmpty()) {
-            Text("${days.sumOf { it.sessions.size }} sessions · " +
-                "${days.count { it.sessions.isNotEmpty() }} active days",
-                color=Color(0xFFAAB5A8),
-                style=MaterialTheme.typography.labelSmall)
-        }
-
-        if (LocalDensity.current.fontScale >= 1.3f) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(if(distanceView) {
-                    if(hasEstimates)"Running kilometres (includes estimates)" else "Planned running kilometres"
-                } else "Planned minutes per day", style = MaterialTheme.typography.titleSmall,
-                    color = TracksidePalette.text, fontWeight = FontWeight.Bold)
-                Text(if(distanceView)String.format(Locale.getDefault(),
-                    if(hasEstimates)"~%.1f km estimated" else "%.1f km planned",totalKm)
-                    else "Week total ${total / 60} h ${total % 60} min",
-                    style = MaterialTheme.typography.labelSmall, color = TracksidePalette.textMuted)
-            }
-        } else {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(if(distanceView) {
-                    if(hasEstimates)"Running kilometres (includes estimates)" else "Planned running kilometres"
-                } else "Planned minutes per day", style = MaterialTheme.typography.titleSmall,
-                    color = TracksidePalette.text, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Text(if(distanceView)String.format(Locale.getDefault(),
-                    if(hasEstimates)"~%.1f km estimated" else "%.1f km planned",totalKm)
-                    else "Week total ${total / 60} h ${total % 60} min",
-                    style = MaterialTheme.typography.labelSmall, color = TracksidePalette.textMuted)
+        // Compact Legend + Week Summary
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "${days.sumOf { it.sessions.size }} planned · $completedInWeek logged",
+                color = StrideLabVisualPalette.secondary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Box(Modifier.size(6.dp).clip(CircleShape).background(StrideLabVisualPalette.lime))
+                    Text("Logged", fontSize = 10.sp, color = StrideLabVisualPalette.secondary)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Box(Modifier.size(6.dp).clip(CircleShape).background(StrideLabVisualPalette.easyTeal))
+                    Text("Planned", fontSize = 10.sp, color = StrideLabVisualPalette.secondary)
+                }
             }
         }
 
-        // Seven 48dp targets cannot fit into a 316dp content area (360dp phone
-        // minus screen padding). Let the row scroll rather than shrink targets.
+        // 7-Day Interactive Columns
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val compact = maxWidth < 350.dp
             val expandedFont = LocalDensity.current.fontScale >= 1.3f
             val scroll = rememberScrollState()
             val density = LocalDensity.current
-            // Keep the selected day fully visible when seven 48dp+ targets
-            // must scroll on narrow phones. Never shrink their touch targets.
             LaunchedEffect(compact, selected, scroll.maxValue) {
                 if (compact && scroll.maxValue > 0) {
                     val index = ChronoUnit.DAYS.between(weekStart, selected).toInt().coerceIn(0, 6)
@@ -205,56 +304,138 @@ internal fun TracksideTrainingWeekChart(
                     scroll.animateScrollTo(target.coerceIn(0, scroll.maxValue))
                 }
             }
-            val rowModifier = Modifier.fillMaxWidth()
-                .height(if (expandedFont) 188.dp else 164.dp)
+            val rowModifier = Modifier
+                .fillMaxWidth()
+                .height(if (expandedFont) 196.dp else 172.dp)
                 .then(if (compact) Modifier.horizontalScroll(scroll) else Modifier)
-            Row(rowModifier, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                days.forEach { day ->
-                val enabled = day.date in first..last
-                val active = day.date == selected
-                val description = "${day.date}: ${day.sessions.size} planned sessions, ${day.plannedMinutes} planned minutes"
-                Surface(
-                    onClick = { onSelect(day.date) },
-                    enabled = enabled,
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (active) Color(0xFF2B3825) else Color.Transparent,
-                    border = BorderStroke(1.dp,
-                        if (active) Color(0xFFD8FB70) else Color(0xFF333D33)),
-                    modifier = (if (compact) Modifier.width(49.dp) else Modifier.weight(1f))
-                        .testTag("calendar-day-${day.date}")
-                        .semantics { contentDescription = description }
-                ) {
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 1.dp, vertical = 5.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(if(chartValues[days.indexOf(day)]<=0.0) "–"
-                                else if(distanceView)String.format(Locale.getDefault(),
-                                    if(estimatedDays[days.indexOf(day)])"~%.1f" else "%.1f",dayDistances[days.indexOf(day)])
-                                else day.plannedMinutes.toString(),
-                            color = if (enabled) TracksidePalette.text else TracksidePalette.textMuted,
-                            style = MaterialTheme.typography.labelSmall,
-                            maxLines = 1, textAlign = TextAlign.Center)
+
+            Row(rowModifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                days.forEachIndexed { index, day ->
+                    val enabled = day.date in first..last
+                    val active = day.date == selected && !weekScopeSelected
+                    val barAccent = dayBarAccent(day.sessions)
+                    val hasLogged = day.date in recordedDates || day.sessions.any { it.status == "completed" }
+                    val hasPlanned = day.sessions.isNotEmpty()
+                    val description = "${day.date}: ${day.sessions.size} planned sessions, ${day.plannedMinutes} planned minutes"
+
+                    Surface(
+                        onClick = { onSelect(day.date) },
+                        enabled = enabled,
+                        shape = RoundedCornerShape(13.dp),
+                        color = when {
+                            active -> StrideLabVisualPalette.limeTint
+                            weekScopeSelected && (hasLogged || hasPlanned) -> StrideLabVisualPalette.surfaceRaised
+                            else -> Color.Transparent
+                        },
+                        border = BorderStroke(
+                            1.dp,
+                            when {
+                                active -> StrideLabVisualPalette.lime
+                                weekScopeSelected && (hasLogged || hasPlanned) -> barAccent.copy(alpha = 0.45f)
+                                else -> StrideLabVisualPalette.border
+                            }
+                        ),
+                        modifier = (if (compact) Modifier.width(49.dp) else Modifier.weight(1f))
+                            .testTag("calendar-day-${day.date}")
+                            .semantics { contentDescription = description }
+                    ) {
                         Column(
-                            Modifier.fillMaxWidth().height(72.dp),
-                            verticalArrangement = Arrangement.Bottom
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 2.dp, vertical = 6.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            val index=days.indexOf(day)
-                            val chartValue=chartValues[index]
-                            if(chartValue>0.0) {
-                                val barHeight=(chartValue/maxDay*68.0).toFloat().coerceAtLeast(3f)
-                                Box(Modifier.fillMaxWidth().height(barHeight.dp)
-                                    .background(if(active)Color(0xFFD8FB70)
-                                        else Color(0xFFA6CB6A),RoundedCornerShape(5.dp)))
+                            Text(
+                                text = if (chartValues[index] <= 0.0) "–"
+                                else if (distanceView) String.format(
+                                    Locale.getDefault(),
+                                    if (estimatedDays[index]) "~%.1f" else "%.1f",
+                                    dayDistances[index]
+                                )
+                                else day.plannedMinutes.toString(),
+                                color = if (active) StrideLabVisualPalette.lime
+                                else if (enabled && chartValues[index] > 0.0) StrideLabVisualPalette.ink
+                                else StrideLabVisualPalette.muted,
+                                fontSize = 10.sp,
+                                fontWeight = if (chartValues[index] > 0.0) FontWeight.Bold else FontWeight.Normal,
+                                maxLines = 1,
+                                textAlign = TextAlign.Center
+                            )
+                            Column(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(70.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Bottom
+                            ) {
+                                val chartValue = chartValues[index]
+                                if (chartValue > 0.0) {
+                                    val barHeight = (chartValue / maxDay * 66.0).toFloat().coerceAtLeast(6f)
+                                    Box(
+                                        Modifier
+                                            .fillMaxWidth(0.72f)
+                                            .height(barHeight.dp)
+                                            .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 2.dp, bottomEnd = 2.dp))
+                                            .background(StrideLabVisualPalette.barGradient(barAccent))
+                                    ) {
+                                        Box(
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .height(2.5.dp)
+                                                .align(Alignment.TopCenter)
+                                                .background(barAccent)
+                                        )
+                                    }
+                                } else {
+                                    Box(
+                                        Modifier
+                                            .fillMaxWidth(0.5f)
+                                            .height(3.dp)
+                                            .clip(RoundedCornerShape(2.dp))
+                                            .background(StrideLabVisualPalette.border)
+                                    )
+                                }
+                            }
+                            Text(
+                                if (compact) day.date.dayOfWeek.name.take(2)
+                                else day.date.format(DateTimeFormatter.ofPattern("EEE", Locale.getDefault())).uppercase(Locale.getDefault()),
+                                color = if (active) StrideLabVisualPalette.lime else StrideLabVisualPalette.muted,
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
+                            Text(
+                                day.date.dayOfMonth.toString(),
+                                color = if (active) StrideLabVisualPalette.lime else StrideLabVisualPalette.ink,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            // Dual Logged + Planned status indicator dots
+                            Row(
+                                modifier = Modifier.height(7.dp),
+                                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (hasLogged) {
+                                    Box(
+                                        Modifier
+                                            .size(5.dp)
+                                            .clip(CircleShape)
+                                            .background(StrideLabVisualPalette.lime)
+                                    )
+                                }
+                                if (hasPlanned) {
+                                    Box(
+                                        Modifier
+                                            .size(5.dp)
+                                            .clip(CircleShape)
+                                            .background(barAccent.copy(alpha = if (hasLogged) 0.55f else 0.9f))
+                                    )
+                                }
                             }
                         }
-                        Text(if (compact) day.date.dayOfWeek.name.take(2) else
-                            day.date.format(DateTimeFormatter.ofPattern("EEE", Locale.getDefault())).uppercase(Locale.getDefault()),
-                            color = TracksidePalette.textMuted, style = MaterialTheme.typography.labelSmall,
-                            maxLines = 1)
-                        Text(day.date.dayOfMonth.toString(), color = TracksidePalette.text,
-                            style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     }
-                }
                 }
             }
         }
