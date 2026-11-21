@@ -179,6 +179,10 @@ internal fun Engine15RecommendationReview(plan: PlanSnapshot, actions: PlanActio
             Text(current.disclosure.orEmpty())
             Text("Original prescription · ${current.originalMinutes} min" + (current.originalDistanceKm?.let { " · $it km" } ?: ""))
             if (current.state == Engine15SessionPresentation.State.ACCEPTED_TIME_ONLY) Text("Current target · ${current.currentMinutes} min")
+            if (current.state == Engine15SessionPresentation.State.ACCEPTED_PROGRESSION) {
+                val distLabel = current.currentDistanceTargetKm?.let { " · %.1f km".format(java.util.Locale.US, it) }.orEmpty()
+                Text("Progressed target · ${current.currentMinutes} min$distLabel")
+            }
         }
     }
     if(embedded) {
@@ -198,6 +202,9 @@ internal fun PlanSnapshot.cardPresentation(session: PlannedSession): PlannedSess
     val title = when (target.state) {
         Engine15SessionPresentation.State.ACCEPTED_TIME_ONLY -> "Time-only run"
         Engine15SessionPresentation.State.ACCEPTED_REST -> "Reviewed rest"
+        Engine15SessionPresentation.State.ACCEPTED_PROGRESSION ->
+            return session.copy(minutes = target.currentMinutes, distanceKm = target.currentDistanceTargetKm,
+                suggestion = null, reason = target.disclosure)
         else -> return session.copy(suggestion = null)
     }
     return session.copy(title = title, minutes = target.currentMinutes, distanceKm = target.currentDistanceTargetKm,

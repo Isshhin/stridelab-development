@@ -63,14 +63,6 @@ internal object Engine15DailyLoadShaper {
             .toSet()
         val hardOrLongDates = hardDates + longDates
 
-        val easyCapTenths = if (request.userDirectedPlanning) {
-            1200
-        } else {
-            volume.athleteBaseline.reportedLongestRunKm
-                ?.let { floorTenths((it + 1.0) * 0.8) }
-                ?: 1200
-        }
-
         val timeBudgetCapTenths = if (request.timeBudgetEnabled) {
             var cap = floorTenths((request.minutes * 60.0) / request.planningPace).coerceAtLeast(1)
             while (cap > 1 && ceil((cap / 10.0) * request.planningPace / 60.0).toInt() > request.minutes) {
@@ -91,6 +83,13 @@ internal object Engine15DailyLoadShaper {
 
             val weekInfo = volume.weeks.getOrNull(weekIndex) ?: continue
             val weekBudgetKm = weekInfo.proposedKm ?: continue
+            val easyCapTenths = if (request.userDirectedPlanning) {
+                1200
+            } else {
+                (weekInfo.longRunExposureCapKm ?: volume.athleteBaseline.reportedLongestRunKm?.plus(1.0))
+                    ?.let { floorTenths(it * 0.8) }
+                    ?: 1200
+            }
             val isRecoveryWeek = weekInfo.kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY
             val weekLongSession = weekSessions.firstOrNull { it.kind == "long" }
             val weekLongDate = weekLongSession?.date

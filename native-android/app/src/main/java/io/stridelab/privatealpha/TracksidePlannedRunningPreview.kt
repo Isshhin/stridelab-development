@@ -58,7 +58,8 @@ internal fun TracksidePlannedRunningPreview(
         else -> "Easy effort"
     }
     val showOriginalSteps=target.state==Engine15SessionPresentation.State.ORIGINAL ||
-        target.state==Engine15SessionPresentation.State.PENDING_REVIEW
+        target.state==Engine15SessionPresentation.State.PENDING_REVIEW ||
+        target.state==Engine15SessionPresentation.State.ACCEPTED_PROGRESSION
     val segments=session.runningPrescription?.segments?.takeIf { showOriginalSteps }
     val mixedSegments=session.runningPrescription?.mixedSegments?.takeIf { showOriginalSteps }
     val estimatedDistance=session.runningPrescription?.estimatedDistanceKm?.takeIf { showOriginalSteps }
@@ -170,6 +171,12 @@ internal fun TracksidePlannedRunningPreview(
                     Text(
                         "The reviewed time allowance is the current target; original distance and intervals are not required.",
                         color=TracksidePalette.textMuted,fontSize=11.sp,lineHeight=16.sp
+                    )
+                }
+                if(target.state==Engine15SessionPresentation.State.ACCEPTED_PROGRESSION && target.disclosure!=null) {
+                    Text(
+                        "Progressed target · ${target.disclosure}",
+                        color=TracksidePalette.lime,fontSize=11.sp,lineHeight=16.sp
                     )
                 }
             }

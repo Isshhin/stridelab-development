@@ -650,10 +650,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     fun previewEngine15Week(id:String,asOf:java.time.LocalDate=java.time.LocalDate.now(),input:Engine15WeeklyReview.Input=Engine15WeeklyReview.Input()):Engine15WeeklyReview.Review {
         val p=mutable.value.plans.find { it.id==id && LocalPlanOwnership.isVisibleOwner(it.owner,mutable.value.account,localPlanOwner) }
             ?: throw PlanConstraint("This plan is unavailable.")
-        return Engine15WeeklyReview.preview(p,asOf,input,mutable.value.plans)
+        return Engine15WeeklyReview.preview(p,asOf,input,mutable.value.plans,activities=mutable.value.activities)
     }
     suspend fun acceptEngine15Week(id:String,revision:Int,review:Engine15WeeklyReview.Review)=changePlan(id,revision) { p ->
-        Engine15WeeklyReview.accept(p,review,java.time.LocalDate.now(),java.time.Instant.now(),mutable.value.plans)
+        Engine15WeeklyReview.accept(p,review,java.time.LocalDate.now(),java.time.Instant.now(),mutable.value.plans,activities=mutable.value.activities)
     }
 
     suspend fun stageEngine15Adjustment(

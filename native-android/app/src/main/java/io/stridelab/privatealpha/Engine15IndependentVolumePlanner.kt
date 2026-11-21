@@ -55,7 +55,8 @@ internal object Engine15IndependentVolumePlanner {
         val returnFromBreakCeilingKm:Double?,
         val recoveryCeilingKm:Double?,
         val proposedKm:Double?,
-        val constraintCodes:List<String>
+        val constraintCodes:List<String>,
+        val longRunExposureCapKm:Double?=null
     )
 
     data class Result(
@@ -80,9 +81,8 @@ internal object Engine15IndependentVolumePlanner {
      * and harder-adjacent recovery roles do not exist yet, this is strictly
      * an upper bound; M5 must find a valid lower/equal distribution.
      */
-    private fun provisionalSessionCapacityKm(longestKm:Double?,days:Int):Double? =
-        longestKm?.let { longest ->
-            val exposure=longest+1.0
+    private fun provisionalSessionCapacityKm(exposureCapKm:Double?,days:Int):Double? =
+        exposureCapKm?.let { exposure ->
             val longCap = floorTenth(exposure)
             val easyCap = floorTenth(exposure * 0.8)
             longCap + (days - 1) * easyCap
@@ -109,13 +109,24 @@ internal object Engine15IndependentVolumePlanner {
         }
         val numeric=status==Status.DISTANCE_CANDIDATE
         val base=profile.typicalWeeklyKm.takeIf { numeric }
-        val capacity=if(numeric) provisionalSessionCapacityKm(
-            profile.reportedLongestRunKm,input.runningDays
-        ) else null
+        val longestCapStart = profile.reportedLongestRunKm?.let { it + 1.0 }
+        val (longStepKm, longGoalMaxKm) = when (input.raceGoal) {
+            "Marathon" -> 1.5 to 34.0
+            "Half marathon" -> 1.0 to 22.0
+            "Improve 10K" -> 0.7 to 18.0
+            "Improve 5K" -> 0.5 to 16.0
+            else -> 0.0 to 0.0
+        }
+        val effectiveLongMaxKm = longestCapStart?.let { start ->
+            if (longStepKm <= 0.0) start else maxOf(start, longGoalMaxKm)
+        }
+        var buildWeekIndex = 0
+        var priorLongCapKm = longestCapStart
         var priorKm:Double?=null
         var peakBuildKm:Double?=null
         val marathonTaper = input.raceGoal == "Marathon" && input.weeks >= 12
         val halfOr10kTaper = input.raceGoal in setOf("Half marathon", "Improve 10K") && input.weeks >= 10
+        val fiveKTaper = input.raceGoal == "Improve 5K" && input.weeks >= 6
         val weeks=(0 until input.weeks).map { week ->
             val weeksFromEnd = input.weeks - 1 - week
             val taperMultiplier = when {
@@ -124,9 +135,25 @@ internal object Engine15IndependentVolumePlanner {
                 marathonTaper && weeksFromEnd == 0 -> 0.55
                 halfOr10kTaper && weeksFromEnd == 1 -> 0.80
                 halfOr10kTaper && weeksFromEnd == 0 -> 0.60
+                fiveKTaper && weeksFromEnd == 0 -> if (week % 4 == 3) 0.78 else 0.85
                 else -> null
             }
             val kind=if(week%4==3 || (taperMultiplier != null && weeksFromEnd == 0)) WeekKind.RECOVERY else WeekKind.LOADING
+            val weekLongExposureCap = longestCapStart?.let { start ->
+                if (input.raceGoal == null) {
+                    start
+                } else if (kind == WeekKind.LOADING && taperMultiplier == null) {
+                    val stepped = floorTenth(minOf(effectiveLongMaxKm!!, start + buildWeekIndex * longStepKm))
+                    buildWeekIndex++
+                    priorLongCapKm = stepped
+                    stepped
+                } else {
+                    priorLongCapKm ?: start
+                }
+            }
+            val capacity=if(numeric) provisionalSessionCapacityKm(
+                weekLongExposureCap,input.runningDays
+            ) else null
             val existingCeiling=base?.let { baseline ->
                 Engine15WeeklyVolumeSkeleton.ceiling(week,baseline,input.targetWeeklyKm)
             }
@@ -136,7 +163,9 @@ internal object Engine15IndependentVolumePlanner {
             val recoveryCeiling=if(kind==WeekKind.RECOVERY && taperMultiplier == null)
                 priorKm?.times(0.8) else null
             val taperCeiling=taperMultiplier?.let { mult ->
-                (peakBuildKm ?: priorKm ?: base)?.times(mult)
+                val prev = priorKm
+                val raw = (peakBuildKm ?: prev ?: base)?.times(mult)
+                if (raw != null && prev != null && raw > prev) prev * 0.95 else raw
             }
 
             val requested=if(input.userDirected) input.targetWeeklyKm ?: existingCeiling else null
@@ -178,7 +207,8 @@ internal object Engine15IndependentVolumePlanner {
                 provisionalSessionCapacityKm=capacity,
                 returnFromBreakCeilingKm=returnCeiling,
                 recoveryCeilingKm=recoveryCeiling,
-                proposedKm=proposed,constraintCodes=flags.toList()
+                proposedKm=proposed,constraintCodes=flags.toList(),
+                longRunExposureCapKm=weekLongExposureCap
             )
         }
         val peak=weeks.mapNotNull { it.proposedKm }.maxOrNull()
@@ -201,7 +231,7 @@ internal object Engine15IndependentVolumePlanner {
                 Status.TIME_ONLY -> add("CONFIRMED_ZERO_REQUIRES_TIME_ONLY_FOUNDATION")
                 Status.DISTANCE_CANDIDATE -> add("SHADOW_VOLUME_ONLY_NOT_WORKOUTS")
             }
-            if(numeric && capacity==null)add("SESSION_EXPOSURE_MUST_BE_REVIEWED_BY_M5")
+            if(numeric && longestCapStart==null)add("SESSION_EXPOSURE_MUST_BE_REVIEWED_BY_M5")
             if(reviewWeek!=null)add("REASSESS_AFTER_COMPLETED_WEEK_$reviewWeek")
             if(targetStatus==TargetStatus.TARGET_NOT_REACHED_IN_BUDGET)
                 add("TARGET_NOT_DELIVERED_BY_PLANNING_BUDGET")

@@ -105,17 +105,16 @@ internal object Engine15M5WorkoutComposer {
         if(longest==null && !userDirected) return defer("LONGEST_RUN_EXPOSURE_UNKNOWN",
             "A numeric weekly budget does not establish per-session exposure.")
 
-        // Coaching mode enforces provisional exposure bounds; user-directed mode reports them only.
-        val longMaxUnits = if(userDirected) 1200 else tenths(longest!! + 1.0)
-        val easyMaxUnits = if(userDirected) 1200 else tenths((longest!! + 1.0) * 0.8)
-        if (easyMaxUnits < 1 || longMaxUnits < 1)
-            return defer("SESSION_EXPOSURE_TOO_SMALL",
-                "Available exposure cannot support positive 100 m workout slots.")
-
         var previousLongUnits: Int? = null
         val result = mutableListOf<Engine15M5WeekPreview>()
         for (week in source.weeks) {
             val number = week.index + 1
+            val weekExposure = week.longRunExposureCapKm ?: longest?.plus(1.0)
+            val longMaxUnits = if(userDirected) 1200 else tenths(weekExposure!!)
+            val easyMaxUnits = if(userDirected) 1200 else tenths(weekExposure!! * 0.8)
+            if (easyMaxUnits < 1 || longMaxUnits < 1)
+                return defer("SESSION_EXPOSURE_TOO_SMALL",
+                    "Available exposure cannot support positive 100 m workout slots.", number)
             val km = week.proposedKm
                 ?: return defer("MISSING_WEEKLY_BUDGET",
                     "Every M5A week needs a numeric M4B budget.", number)
@@ -149,8 +148,14 @@ internal object Engine15M5WorkoutComposer {
                         (total + runDays - 1) / runDays,
                         total - (runDays - 1) * easyMaxUnits
                     )
-                    val preferredLong = floor(total * 0.30 + EPS).toInt()
-                    val chosenLong = maxOf(minimumLong, minOf(preferredLong, longCap))
+                    val preferredRatio = if (source.input.raceGoal in setOf("Marathon", "Half marathon") &&
+                        week.kind == Engine15IndependentVolumePlanner.WeekKind.LOADING) 0.34 else 0.30
+                    val preferredLong = floor(total * preferredRatio + EPS).toInt()
+                    var chosenLong = maxOf(minimumLong, minOf(preferredLong, longCap))
+                    if (week.kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY &&
+                        previousLongUnits != null && minimumLong <= previousLongUnits) {
+                        chosenLong = minOf(chosenLong, previousLongUnits)
+                    }
                     if (chosenLong > longCap || chosenLong < 1)
                         return defer("LONG_OR_EASY_EXPOSURE_CONFLICT",
                             "A long slot capped at 40% and the session exposure limits cannot fit the week.",

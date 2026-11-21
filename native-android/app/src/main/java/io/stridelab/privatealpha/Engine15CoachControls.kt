@@ -85,10 +85,18 @@ import java.time.LocalDate
             },!busy)
             review?.let { proposed ->
                 Text(if(proposed.changes.isEmpty())"Keep this week's plan" else "${proposed.changes.size} proposed ${if(proposed.changes.size==1)"change" else "changes"}",style=MaterialTheme.typography.titleMedium)
+                proposed.aerobicEfficiencyPercentChange?.let { pct ->
+                    Text(String.format(java.util.Locale.US,"Aerobic efficiency trend: +%.1f%%",pct),style=MaterialTheme.typography.labelMedium,color=Color(0xFFD8FB70))
+                }
                 proposed.changes.forEach { change ->
                     val session=plan.sessions.single { it.id==change.sessionId }
                     Text("${session.date} · ${session.title}",style=MaterialTheme.typography.labelLarge)
-                    Text("${session.minutes} min → ${if(change.minutes==0)"Rest" else "${change.minutes} min, time-only"}")
+                    val summary = when {
+                        change.minutes == 0 -> "Rest"
+                        change.minutes > session.minutes -> "${change.minutes} min (+${change.minutes - session.minutes} min${change.suggestedDistanceKm?.let { String.format(java.util.Locale.US," · %.1f km",it) }.orEmpty()} progression)"
+                        else -> "${change.minutes} min, time-only"
+                    }
+                    Text("${session.minutes} min → $summary")
                     Text(change.reason,style=MaterialTheme.typography.bodySmall)
                 }
                 proposed.explanations.filterNot { it.startsWith("Evidence:") }.forEach { Text(it,style=MaterialTheme.typography.bodySmall) }

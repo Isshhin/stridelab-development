@@ -6,10 +6,20 @@ package io.stridelab.privatealpha
  * Historical original targets remain in the persisted PlanSnapshot and export.
  */
 internal object Engine15SessionPresentation {
-    fun currentDistance(session:PlannedSession):Double? =
-        if(session.suggestion?.let { it.accepted && it.reason.startsWith(Engine15Feedback.RULE_ID) && it.minutes<session.minutes }==true)null else session.distanceKm
+    fun currentDistance(session:PlannedSession):Double? {
+        val suggestion=session.suggestion
+        if(suggestion?.let { it.accepted && it.reason.startsWith(Engine15Feedback.RULE_ID) }==true) {
+            if(suggestion.minutes<session.minutes) return null
+            if(suggestion.minutes>session.minutes) {
+                return session.distanceKm?.let { orig ->
+                    if(session.minutes>0) kotlin.math.floor((orig*suggestion.minutes.toDouble()/session.minutes)*10.0+1e-8)/10.0 else orig
+                }
+            }
+        }
+        return session.distanceKm
+    }
 
-    enum class State { ORIGINAL, PENDING_REVIEW, ACCEPTED_TIME_ONLY, ACCEPTED_REST }
+    enum class State { ORIGINAL, PENDING_REVIEW, ACCEPTED_TIME_ONLY, ACCEPTED_REST, ACCEPTED_PROGRESSION }
 
     data class Target(
         val state: State,
@@ -52,6 +62,15 @@ internal object Engine15SessionPresentation {
                 ),
                 session.minutes, session.distanceKm,
                 "Time-only adjustment. Any original distance or structured intervals are history, not a current target."
+            )
+        }
+        if (reviewed && proposed!!.accepted && proposed.minutes > session.minutes &&
+            session.status in setOf("planned", "in_progress")
+        ) {
+            return Target(
+                State.ACCEPTED_PROGRESSION, proposed.minutes, currentDistance(session),
+                session.steps, session.minutes, session.distanceKm,
+                "Approved weekly progression (+${proposed.minutes - session.minutes} min). Original prescription remains in saved history."
             )
         }
         if (reviewed && proposed!!.accepted) {

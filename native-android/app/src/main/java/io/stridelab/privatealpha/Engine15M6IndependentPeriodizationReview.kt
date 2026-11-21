@@ -118,7 +118,8 @@ internal object Engine15M6IndependentPeriodizationReview {
                 "M4B and M6C must contain the same number of independent weeks.")
 
         val hasRaceTaper = (source.input.raceGoal == "Marathon" && source.weeks.size >= 12) ||
-            (source.input.raceGoal in setOf("Half marathon", "Improve 10K") && source.weeks.size >= 10)
+            (source.input.raceGoal in setOf("Half marathon", "Improve 10K") && source.weeks.size >= 10) ||
+            (source.input.raceGoal == "Improve 5K" && source.weeks.size >= 6)
         val summary = mutableListOf<Engine15M6DWeekAudit>()
         var previousBudgetKm: Double? = null
         var previousLongKm: Double? = null
