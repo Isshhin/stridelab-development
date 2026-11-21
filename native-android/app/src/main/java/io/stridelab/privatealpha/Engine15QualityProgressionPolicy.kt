@@ -238,17 +238,20 @@ internal object Engine15QualityProgressionPolicy {
             IndependentQualityFamily.TEMPO,
             IndependentQualityFamily.THRESHOLD,
             IndependentQualityFamily.PROGRESSION -> when {
+                request.experience == 0 -> 15 * 60
                 effectiveWeeklyKm >= 55.0 || request.experience == 2 -> 24 * 60
                 effectiveWeeklyKm >= 35.0 || request.experience == 1 -> 18 * 60
                 else -> 15 * 60
             }
             IndependentQualityFamily.INTERVALS,
             IndependentQualityFamily.FARTLEK -> when {
+                request.experience == 0 -> 12 * 60
                 effectiveWeeklyKm >= 55.0 || request.experience == 2 -> 18 * 60
                 effectiveWeeklyKm >= 35.0 || request.experience == 1 -> 15 * 60
                 else -> 12 * 60
             }
             IndependentQualityFamily.HILLS -> when {
+                request.experience == 0 -> 6 * 60
                 effectiveWeeklyKm >= 55.0 || request.experience == 2 -> 12 * 60
                 effectiveWeeklyKm >= 35.0 || request.experience == 1 -> 9 * 60
                 else -> 6 * 60
@@ -277,15 +280,33 @@ internal object Engine15QualityProgressionPolicy {
             }
 
         val allDetectedWork = (lapOrLinkedDurations + paceDetectedDurations).sortedDescending().take(4)
+        // When an athlete has ZERO recent quality efforts detected (e.g., purely easy-mileage base),
+        // don't drop straight into max-ceiling 40-min quality in Week 1 — introduce at controlled fitness dose.
+        val unverifiedCapSec = when (family) {
+            IndependentQualityFamily.TEMPO,
+            IndependentQualityFamily.THRESHOLD,
+            IndependentQualityFamily.PROGRESSION -> 24 * 60
+            IndependentQualityFamily.INTERVALS,
+            IndependentQualityFamily.FARTLEK -> 18 * 60
+            IndependentQualityFamily.HILLS -> 12 * 60
+        }
         val detectedWorkSec = if (allDetectedWork.isNotEmpty()) {
             allDetectedWork.average().roundToInt()
         } else {
-            fitnessCapacitySec
+            minOf(fitnessCapacitySec, unverifiedCapSec)
         }
 
-        // 3. 50 / 50 Blend of Auto-Detected Workout Dose + Historical Fitness Capacity
-        val blendedSec = (0.50 * detectedWorkSec + 0.50 * fitnessCapacitySec).roundToInt()
-        return maxOf(blendedSec, meaningfulFloorSec).coerceIn(360, 2400)
+        // 3. 50 / 50 Blend + Week-1 Progressive Headroom (~75% of peak capacity, bounded safely by experience)
+        val blendedPeakSec = (0.50 * detectedWorkSec + 0.50 * fitnessCapacitySec).roundToInt()
+        val progressiveStartSec = if (request.weeks >= 6) (blendedPeakSec * 0.78).roundToInt() else blendedPeakSec
+        val w1ExperienceCeiling = when {
+            request.experience == 0 && family in setOf(IndependentQualityFamily.TEMPO, IndependentQualityFamily.PROGRESSION) -> 20 * 60
+            request.experience == 0 -> 15 * 60
+            family == IndependentQualityFamily.INTERVALS -> 22 * 60
+            family == IndependentQualityFamily.HILLS -> 12 * 60
+            else -> 32 * 60
+        }
+        return maxOf(minOf(progressiveStartSec, w1ExperienceCeiling), meaningfulFloorSec).coerceIn(360, 2400)
     }
 
     fun plan(

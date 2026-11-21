@@ -83,7 +83,9 @@ internal object Engine15IndependentVolumePlanner {
     private fun provisionalSessionCapacityKm(longestKm:Double?,days:Int):Double? =
         longestKm?.let { longest ->
             val exposure=longest+1.0
-            exposure+(days-1)*exposure*0.8
+            val longCap = floorTenth(exposure)
+            val easyCap = floorTenth(exposure * 0.8)
+            longCap + (days - 1) * easyCap
         }
 
     /**
