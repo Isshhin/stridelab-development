@@ -138,7 +138,8 @@ internal object Engine15QualityWorkoutDryRunBuilder {
         volume: Engine15IndependentVolumePlanner.Result,
         sessions: List<PlannedSession>,
         assertedExposureSecondsOverride: Int? = null,
-        allowExplicitUserFamily: Boolean = false
+        allowExplicitUserFamily: Boolean = false,
+        adaptiveQualityMode: Boolean = false
     ): Engine15QualityWorkoutDryRun? {
         val family = selection.selectedFamily ?: return null
         if (!BuildConfig.DEBUG ||
@@ -172,7 +173,7 @@ internal object Engine15QualityWorkoutDryRunBuilder {
             family, IndependentQualityStage.INTRO
         )
         val prescriptions = Engine15QualityProgressionPolicy.plan(
-            request, selection, assertedExposureSecondsOverride
+            request, selection, assertedExposureSecondsOverride, adaptiveQualityMode = adaptiveQualityMode
         ).associateBy { it.weekNumber }
         val firstPrescription = prescriptions[slot.weekNumber] ?: return null
         val workout = firstPrescription.step.workout

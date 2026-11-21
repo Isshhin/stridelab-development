@@ -177,4 +177,28 @@ class Engine1Test {
         assertTrue(adjusted.sessions.filter { it.suggestion!=null }.all { it.date>=LocalDate.now() })
         assertTrue(adjusted.sessions.any { it.suggestion!=null })
     }
+    @Test fun qualityWorkoutsScaleStructureRotateFamiliesAndRenderProfileBlocks() {
+        val p=generate(PlanRequest(
+            start=start,weeks=8,goal="Half marathon",experience=2,
+            weeklyKm=48.0,longestKm=16.0,runDays=4,qualityCount=1,
+            qualityDays=setOf(2),days=setOf(1,2,4,5,6),longDay=6,
+            planningPace=420.0,timeBudgetEnabled=false
+        ))
+        val qualitySessions=p.sessions.filter { it.quality }
+        assertTrue(qualitySessions.size>=5)
+        assertTrue(qualitySessions.all { s ->
+            s.steps.size==3 &&
+                s.steps.none { "additional easy running" in it } &&
+                s.steps.last().endsWith("total session ${s.minutes} min")
+        })
+        assertTrue(qualitySessions.map { it.title }.distinct().size>=3)
+        qualitySessions.forEach { s ->
+            val blocks=WorkoutVisualBlocks.fromSession(s,null)
+            assertTrue(blocks.size>=3)
+            assertEquals("WARM_UP",blocks.first().purpose)
+            assertEquals("COOL_DOWN",blocks.last().purpose)
+            assertTrue(blocks.any { it.purpose=="WORK" })
+            assertFalse(blocks.any { it.label=="Easy Run" })
+        }
+    }
 }

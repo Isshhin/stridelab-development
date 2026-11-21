@@ -49,6 +49,8 @@ internal fun TracksidePlannedRunningPreview(
         target.state==Engine15SessionPresentation.State.ACCEPTED_TIME_ONLY -> "Time-only alternative"
         session.runningPrescription?.role=="QUALITY" ->
             session.runningPrescription.family ?: "Quality"
+        session.quality || session.kind=="quality" ->
+            session.runningPrescription?.family ?: "Quality session"
         session.runningPrescription?.role=="LONG" || session.kind=="long" -> "Long run · Easy effort"
         session.runningPrescription?.role=="RECOVERY" -> "Recovery"
         else -> "Easy effort"

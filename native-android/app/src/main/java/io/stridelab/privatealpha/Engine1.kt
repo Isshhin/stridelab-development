@@ -44,9 +44,15 @@ internal object Engine1:PlanGenerationEngine {
                 val beginnerMinutes=if(p.timeBudgetEnabled) minOf(p.minutes,(if(kind=="long") 20 else 15)+week/2*2) else (if(kind=="long") 20 else 15)+week/2*2
                 val minutes=if(distance==null) beginnerMinutes else maxOf(10,ceil(distance*p.planningPace/60).toInt()).let { if(p.timeBudgetEnabled) it.coerceAtMost(p.minutes) else it }
                 val quality=kind=="quality" && minutes>=30 && !recovery
-                val title=when { quality->if(p.goal=="Improve 5K") "Controlled intervals" else "Controlled tempo intervals";p.experience==0||p.weeklyKm==0.0->if(kind=="long") "Longer easy run/walk" else "Easy run/walk";kind=="long"->"Long easy run";else->"Easy run" }
-                val steps=if(quality) listOf("10 min easy warm-up","3 × 2 min controlled hard, with 2 min easy between; never sprint","${minutes-20} min easy finish and additional easy running; finish at the planned duration")
-                    else listOf("${minOf(5,minutes/3)} min comfortable walk or easy jog",if(p.experience==0||p.weeklyKm==0.0) "Alternate 1 min easy running with 1 min walking; shorten the run intervals if needed" else "Keep the main portion conversational; no fixed effort derived from missing sensors","Finish with a comfortable walk; total session $minutes min")
+                val qualitySpec = if (quality) qualityPrescriptionSpec(p, week, (i - 1).coerceAtLeast(0), minutes) else null
+                val title=when {
+                    qualitySpec != null -> qualitySpec.first
+                    p.experience==0||p.weeklyKm==0.0->if(kind=="long") "Longer easy run/walk" else "Easy run/walk"
+                    kind=="long"->"Long easy run"
+                    else->"Easy run"
+                }
+                val steps=qualitySpec?.second
+                    ?: listOf("${minOf(5,minutes/3)} min comfortable walk or easy jog",if(p.experience==0||p.weeklyKm==0.0) "Alternate 1 min easy running with 1 min walking; shorten the run intervals if needed" else "Keep the main portion conversational; no fixed effort derived from missing sensors","Finish with a comfortable walk; total session $minutes min")
                 templates.add(PlannedSession("$id-w$week-run$i",p.start.plusWeeks(week.toLong()),"run",title,minutes,distance,kind,quality=quality,steps=steps,reason=if(kind=="long") "On your single preferred long-run day, kept easy and bounded by recent distance/time." else if(quality) "Your requested quality work, with recovery spacing." else "Easy aerobic practice within the selected time and distance limits."))
             }
             for(i in 0 until p.strengthDays) {
@@ -162,5 +168,74 @@ internal object Engine1:PlanGenerationEngine {
             else "The selected weekdays cannot fit all sessions with recovery spacing around quality, strength and your long run. Move a session or switch to automatic scheduling."
         )
         return placed.sortedBy { it.date }
+    }
+
+    private fun qualityPrescriptionSpec(
+        p: PlanRequest,
+        week: Int,
+        qualitySlot: Int,
+        minutes: Int
+    ): Pair<String, List<String>> {
+        val warmUpMin = (minutes * 0.22).toInt().coerceIn(8, 15)
+        val coolDownMin = (minutes * 0.18).toInt().coerceIn(8, 15)
+        val mainMin = (minutes - warmUpMin - coolDownMin).coerceAtLeast(10)
+        val baseOrder = when (p.goal) {
+            "Improve 5K", "Improve 10K" ->
+                listOf("Intervals", "Threshold", "Tempo", "Fartlek", "Progression")
+            else ->
+                listOf("Tempo", "Threshold", "Progression", "Fartlek", "Intervals")
+        }
+        val pool = if (p.allowedQualityTypes.isNotEmpty()) {
+            val filtered = (baseOrder + "Hills").filter { it in p.allowedQualityTypes }
+            filtered.ifEmpty { baseOrder }
+        } else if (p.preferredQualityExplicit && p.preferredQuality in baseOrder) {
+            listOf(p.preferredQuality) + baseOrder.filterNot { it == p.preferredQuality }
+        } else {
+            baseOrder
+        }
+        val family = pool[(week + qualitySlot) % pool.size]
+        val (title, mainStep) = when (family) {
+            "Threshold" -> {
+                val reps = (mainMin / 7).coerceIn(3, 6)
+                val workMin = ((mainMin - (reps - 1) * 2) / reps).coerceIn(4, 10)
+                "Threshold intervals" to
+                    "$reps × $workMin min at comfortably hard threshold effort, with 2 min easy jog recovery"
+            }
+            "Intervals" -> {
+                val reps = (mainMin / 5).coerceIn(4, 8)
+                val workMin = ((mainMin - (reps - 1) * 2) / reps).coerceIn(2, 5)
+                "Controlled intervals" to
+                    "$reps × $workMin min controlled hard intervals, with 2 min easy jog between; stay smooth, never sprint"
+            }
+            "Hills" -> {
+                val reps = (mainMin / 4).coerceIn(4, 8)
+                "Hill repeats" to
+                    "$reps × 90 sec strong uphill stride, with 2 min easy jog down recovery"
+            }
+            "Fartlek" -> {
+                val reps = (mainMin / 4).coerceIn(4, 8)
+                "Fartlek intervals" to
+                    "$reps × 2 min brisk surge with 2 min easy float recovery"
+            }
+            "Progression" -> {
+                val steadyMin = mainMin / 2
+                val tempoMin = mainMin - steadyMin
+                "Progression run" to
+                    "$steadyMin min steady aerobic, finishing with $tempoMin min controlled tempo"
+            }
+            else -> {
+                val main = if (mainMin >= 24) {
+                    "2 × ${(mainMin - 2) / 2} min steady tempo, with 2 min easy jog between"
+                } else {
+                    "$mainMin min steady controlled tempo"
+                }
+                "Tempo run" to main
+            }
+        }
+        return title to listOf(
+            "$warmUpMin min easy warm-up",
+            mainStep,
+            "$coolDownMin min easy cooldown; total session $minutes min"
+        )
     }
 }

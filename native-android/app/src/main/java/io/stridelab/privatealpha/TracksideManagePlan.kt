@@ -407,14 +407,18 @@ private fun TracksidePlanWeekOverview(plan: PlanSnapshot, selected: LocalDate) {
                         verticalArrangement = Arrangement.Bottom
                     ) {
                         Box(
-                            modifier = Modifier.fillMaxWidth().height(82.dp),
+                            modifier = Modifier
+                                .fillMaxWidth(0.76f)
+                                .height(82.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(StrideLabVisualPalette.surfaceRaised),
                             contentAlignment = Alignment.BottomCenter
                         ) {
                             if (day.plannedMinutes > 0) {
-                                val height = (day.plannedMinutes.toFloat() / high * 78f).coerceAtLeast(8f)
+                                val height = (day.plannedMinutes.toFloat() / high * 82f).coerceAtLeast(8f)
                                 Box(
                                     modifier = Modifier
-                                        .fillMaxWidth(0.76f)
+                                        .fillMaxWidth()
                                         .height(height.dp)
                                         .clip(RoundedCornerShape(topStart = 7.dp, topEnd = 7.dp, bottomStart = 2.dp, bottomEnd = 2.dp))
                                         .background(StrideLabVisualPalette.barGradient(barColor))
@@ -427,14 +431,6 @@ private fun TracksidePlanWeekOverview(plan: PlanSnapshot, selected: LocalDate) {
                                             .background(barColor)
                                     )
                                 }
-                            } else {
-                                Box(
-                                    Modifier
-                                        .fillMaxWidth(0.6f)
-                                        .height(3.dp)
-                                        .clip(RoundedCornerShape(2.dp))
-                                        .background(StrideLabVisualPalette.border)
-                                )
                             }
                         }
                         Spacer(Modifier.height(4.dp))

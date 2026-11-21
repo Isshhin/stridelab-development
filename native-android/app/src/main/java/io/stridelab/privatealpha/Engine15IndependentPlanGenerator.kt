@@ -158,7 +158,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 preview(
                     effectiveRequest, owner, id, now, existingPlans, activityEvidence, qualityEvidence,
                     assertedExposureSecondsOverride = adaptiveExposure,
-                    allowExplicitUserFamily = true
+                    allowExplicitUserFamily = true,
+                    adaptiveQualityMode = true
                 ) as? Engine15IndependentPlanDecision.Deferred ?: initialDecision
             } else initialDecision
 
@@ -170,7 +171,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 val retry = preview(
                     enrichedRequest, owner, id, now, existingPlans, activityEvidence, qualityEvidence,
                     assertedExposureSecondsOverride = adaptiveExposure,
-                    allowExplicitUserFamily = true
+                    allowExplicitUserFamily = true,
+                    adaptiveQualityMode = true
                 )
                 if (retry is Engine15IndependentPlanDecision.Candidate) return retry
             }
@@ -319,7 +321,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         qualityEvidence: List<IndependentQualitySegmentEvidence> = emptyList(),
         applyTempoExposureGate: Boolean = true,
         assertedExposureSecondsOverride: Int? = null,
-        allowExplicitUserFamily: Boolean = false
+        allowExplicitUserFamily: Boolean = false,
+        adaptiveQualityMode: Boolean = false
     ): Engine15IndependentPlanDecision {
         fun defer(code: String, explanation: String) =
             Engine15IndependentPlanDecision.Deferred(code, explanation)
@@ -483,7 +486,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 externalSessions = external.sessions
             )
             val qualityDryRun = Engine15QualityWorkoutDryRunBuilder.build(
-                request, selection, volume, sessions, assertedExposureSecondsOverride, allowExplicitUserFamily
+                request, selection, volume, sessions, assertedExposureSecondsOverride, allowExplicitUserFamily,
+                adaptiveQualityMode = adaptiveQualityMode
             )
             val familyName = when (selection.selectedFamily) {
                 IndependentQualityFamily.THRESHOLD -> "Threshold"
@@ -785,6 +789,9 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         if (plan.experimentalQualityExposureSeconds != null && plan.experimentalQualityExposureSeconds !in 1..14400)
             throw PlanConstraint("This plan uses an invalid experimental quality exposure anchor.")
         // Historical pilots retain their original eligibility semantics during structural validation.
+        val savedUsesAdaptiveRotation = plan.sessions.filter { it.quality }
+            .mapNotNull { it.runningPrescription?.family }
+            .distinct().size > 1
         val expected = when (val decision = if (plan.request.qualityDistanceClaims.isEmpty() && plan.sessions.any { it.quality }) {
             previewAutoReconciled(plan.request, plan.owner, plan.id, plan.createdAt,
                 qualityEvidence = qualityEvidence,
@@ -794,7 +801,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 qualityEvidence = qualityEvidence,
                 applyTempoExposureGate = plan.experimentalQualityPolicy == QUALITY_POLICY,
                 assertedExposureSecondsOverride = plan.experimentalQualityExposureSeconds,
-                allowExplicitUserFamily = true)
+                allowExplicitUserFamily = true,
+                adaptiveQualityMode = savedUsesAdaptiveRotation)
         }) {
             is Engine15IndependentPlanDecision.Deferred ->
                 throw PlanConstraint("${decision.reasonCode}: ${decision.explanation}")

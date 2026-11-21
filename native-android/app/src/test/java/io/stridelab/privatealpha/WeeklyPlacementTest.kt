@@ -199,4 +199,31 @@ class WeeklyPlacementTest {
         assertTrue(plan.sessions.isNotEmpty())
         assertEquals(automatic.days,plan.request.days)
     }
+
+    @Test fun sanitizeRunningScheduleDaysRepairsCoachDecidesAndAvailabilityRemoval() {
+        val coachDecidesStale=running().copy(
+            days=setOf(1,2,3,4,5,7),
+            longDay=7,
+            qualityCount=1,
+            qualityDays=setOf(6,7),
+            weeklySlots=emptyMap()
+        )
+        val fixedOne=sanitizeRunningScheduleDays(coachDecidesStale)
+        assertEquals(7,fixedOne.longDay)
+        assertEquals(1,fixedOne.qualityDays.size)
+        assertTrue(fixedOne.qualityDays.all { it in fixedOne.days && it!=fixedOne.longDay })
+        assertTrue(Engine1.generate(fixedOne,owner,"coach-decides-fixed",now).sessions.any { it.quality })
+
+        val shrunkDays=coachDecidesStale.copy(
+            days=setOf(1,2,3,4,5),
+            longDay=7,
+            qualityCount=2,
+            qualityDays=emptySet()
+        )
+        val fixedTwo=sanitizeRunningScheduleDays(shrunkDays)
+        assertTrue(fixedTwo.longDay in fixedTwo.days)
+        assertEquals(2,fixedTwo.qualityDays.size)
+        assertTrue(fixedTwo.qualityDays.all { it in fixedTwo.days && it!=fixedTwo.longDay })
+        assertTrue(Engine1.generate(fixedTwo,owner,"coach-decides-two",now).sessions.count { it.quality }>=2)
+    }
 }

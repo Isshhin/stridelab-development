@@ -429,16 +429,17 @@ internal fun TracksideTrainingWeekChart(
                                 maxLines = 1,
                                 textAlign = TextAlign.Center
                             )
-                            Column(
+                            Box(
                                 Modifier
-                                    .fillMaxWidth()
-                                    .height(70.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Bottom
+                                    .fillMaxWidth(0.72f)
+                                    .height(70.dp)
+                                    .clip(RoundedCornerShape(7.dp))
+                                    .background(StrideLabVisualPalette.surfaceRaised),
+                                contentAlignment = Alignment.BottomCenter
                             ) {
                                 val chartValue = chartValues[index]
                                 if (chartValue > 0.0) {
-                                    val targetHeight = (chartValue / maxDay * 66.0).toFloat().coerceAtLeast(6f)
+                                    val targetHeight = (chartValue / maxDay * 70.0).toFloat().coerceAtLeast(8f)
                                     val animatedHeight by animateFloatAsState(
                                         targetValue = targetHeight,
                                         animationSpec = spring(
@@ -449,7 +450,7 @@ internal fun TracksideTrainingWeekChart(
                                     )
                                     Box(
                                         Modifier
-                                            .fillMaxWidth(0.72f)
+                                            .fillMaxWidth()
                                             .height(animatedHeight.dp)
                                             .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 2.dp, bottomEnd = 2.dp))
                                             .background(StrideLabVisualPalette.barGradient(barAccent))
@@ -462,14 +463,6 @@ internal fun TracksideTrainingWeekChart(
                                                 .background(barAccent)
                                         )
                                     }
-                                } else {
-                                    Box(
-                                        Modifier
-                                            .fillMaxWidth(0.5f)
-                                            .height(3.dp)
-                                            .clip(RoundedCornerShape(2.dp))
-                                            .background(StrideLabVisualPalette.border)
-                                    )
                                 }
                             }
                             Text(

@@ -171,6 +171,10 @@ internal object WorkoutVisualBlocks {
             }
         }
 
+        if (session.quality || session.kind == "quality") {
+            return synthesizeQualityBlocks(session, zones)
+        }
+
         val isLong = session.kind == "long"
         return listOf(
             WorkoutVisualBlock(
@@ -183,6 +187,136 @@ internal object WorkoutVisualBlocks {
                 paceHint = zones?.easy?.formatRange()
             )
         )
+    }
+
+    private fun synthesizeQualityBlocks(
+        session: PlannedSession,
+        zones: Engine15ProvisionalPaceZones?
+    ): List<WorkoutVisualBlock> {
+        val titleLower = session.title.lowercase(Locale.ROOT)
+        val rawFamily = session.runningPrescription?.family?.takeIf { it.isNotBlank() } ?: when {
+            "hill" in titleLower -> "Hills"
+            "threshold" in titleLower -> "Threshold"
+            "fartlek" in titleLower -> "Fartlek"
+            "progression" in titleLower -> "Progression"
+            "interval" in titleLower -> "Intervals"
+            else -> "Tempo"
+        }
+        val famKey = rawFamily.lowercase(Locale.ROOT)
+        val workCol = when (famKey) {
+            "intervals", "hills" -> StrideLabVisualPalette.highCoral
+            else -> StrideLabVisualPalette.moderateAmber
+        }
+        val workHeight = when (famKey) {
+            "intervals", "hills" -> 1.0f
+            "threshold", "fartlek" -> 0.86f
+            "progression" -> 0.78f
+            else -> 0.72f
+        }
+        val workPace = zones?.let { z ->
+            when (famKey) {
+                "intervals", "hills", "fartlek" -> z.intervals.formatRange()
+                "threshold" -> z.threshold.formatRange()
+                else -> z.tempo.formatRange()
+            }
+        }
+        val firstStep = session.steps.firstOrNull().orEmpty()
+        val mainStep = session.steps.getOrNull(1).orEmpty()
+        val lastStep = session.steps.lastOrNull().orEmpty()
+        val warmUpMin = Regex("""^(\d+)\s*min""", RegexOption.IGNORE_CASE)
+            .find(firstStep)?.groupValues?.get(1)?.toIntOrNull()
+            ?: (session.minutes * 0.22).toInt().coerceIn(8, 15)
+        val coolDownMin = Regex("""^(\d+)\s*min""", RegexOption.IGNORE_CASE)
+            .find(lastStep)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { session.steps.size >= 3 }
+            ?: (session.minutes * 0.18).toInt().coerceIn(8, 15)
+        val blocks = mutableListOf(
+            WorkoutVisualBlock(
+                label = "Warm-up",
+                purpose = "WARM_UP",
+                weight = warmUpMin.toFloat().coerceAtLeast(5f),
+                intensityFraction = 0.44f,
+                color = StrideLabVisualPalette.easyTeal,
+                detail = "$warmUpMin min · Easy warm-up",
+                paceHint = zones?.easy?.formatRange()
+            )
+        )
+        val repMatch = Regex("""(\d+)\s*[×x]\s*(\d+)\s*(min|sec)""", RegexOption.IGNORE_CASE).find(mainStep)
+        if (repMatch != null) {
+            val reps = repMatch.groupValues[1].toInt().coerceIn(1, 12)
+            val workVal = repMatch.groupValues[2].toInt().coerceAtLeast(1)
+            val unit = repMatch.groupValues[3].lowercase(Locale.ROOT)
+            val workWeight = if (unit == "sec") (workVal / 60f).coerceAtLeast(1f) else workVal.toFloat()
+            val recMin = Regex("""with\s+(\d+)\s*min""", RegexOption.IGNORE_CASE)
+                .find(mainStep)?.groupValues?.get(1)?.toFloatOrNull()?.coerceAtLeast(1f) ?: 2f
+            for (rep in 1..reps) {
+                blocks += WorkoutVisualBlock(
+                    label = "$rawFamily $rep",
+                    purpose = "WORK",
+                    weight = workWeight,
+                    intensityFraction = workHeight,
+                    color = workCol,
+                    detail = "$workVal $unit · $rawFamily",
+                    paceHint = workPace
+                )
+                if (rep < reps) {
+                    blocks += WorkoutVisualBlock(
+                        label = "Recovery",
+                        purpose = "RECOVERY",
+                        weight = recMin,
+                        intensityFraction = 0.30f,
+                        color = StrideLabVisualPalette.recoveryCyan,
+                        detail = "${recMin.toInt()} min · Easy jog recovery",
+                        paceHint = zones?.easy?.formatRange()
+                    )
+                }
+            }
+        } else if (famKey == "progression") {
+            val nums = Regex("""(\d+)\s*min""", RegexOption.IGNORE_CASE).findAll(mainStep)
+                .mapNotNull { it.groupValues[1].toIntOrNull() }.toList()
+            val steadyMin = nums.getOrNull(0) ?: ((session.minutes - warmUpMin - coolDownMin).coerceAtLeast(10) / 2)
+            val tempoMin = nums.getOrNull(1) ?: ((session.minutes - warmUpMin - coolDownMin).coerceAtLeast(10) - steadyMin).coerceAtLeast(5)
+            blocks += WorkoutVisualBlock(
+                label = "Steady",
+                purpose = "WORK",
+                weight = steadyMin.toFloat().coerceAtLeast(5f),
+                intensityFraction = 0.56f,
+                color = StrideLabVisualPalette.lime,
+                detail = "$steadyMin min · Steady aerobic",
+                paceHint = zones?.easy?.formatRange()
+            )
+            blocks += WorkoutVisualBlock(
+                label = "Tempo finish",
+                purpose = "WORK",
+                weight = tempoMin.toFloat().coerceAtLeast(5f),
+                intensityFraction = workHeight,
+                color = workCol,
+                detail = "$tempoMin min · Controlled tempo finish",
+                paceHint = workPace
+            )
+        } else {
+            val mainMin = Regex("""^(\d+)\s*min""", RegexOption.IGNORE_CASE)
+                .find(mainStep)?.groupValues?.get(1)?.toIntOrNull()
+                ?: (session.minutes - warmUpMin - coolDownMin).coerceAtLeast(10)
+            blocks += WorkoutVisualBlock(
+                label = rawFamily,
+                purpose = "WORK",
+                weight = mainMin.toFloat().coerceAtLeast(6f),
+                intensityFraction = workHeight,
+                color = workCol,
+                detail = "$mainMin min · Steady controlled $famKey",
+                paceHint = workPace
+            )
+        }
+        blocks += WorkoutVisualBlock(
+            label = "Cooldown",
+            purpose = "COOL_DOWN",
+            weight = coolDownMin.toFloat().coerceAtLeast(5f),
+            intensityFraction = 0.44f,
+            color = StrideLabVisualPalette.easyTeal,
+            detail = "$coolDownMin min · Easy cooldown",
+            paceHint = zones?.easy?.formatRange()
+        )
+        return blocks
     }
 }
 
@@ -310,74 +444,103 @@ internal fun PlanPeriodizationChart(
         border = BorderStroke(1.dp, StrideLabVisualPalette.border)
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("VOLUME PROGRESSION", color = StrideLabVisualPalette.muted, fontSize = 10.sp, letterSpacing = 1.3.sp, fontWeight = FontWeight.Bold)
-                    activeWeek?.let { (km, _, rec) ->
-                        Text(
-                            "Week ${selectedWeekIndex + 1} · ${"%.1f".format(Locale.US, km)} km" + if (rec) " · Recovery" else " · Build",
-                            color = if (rec) StrideLabVisualPalette.recoveryCyan else StrideLabVisualPalette.lime,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "VOLUME PROGRESSION",
+                        color = StrideLabVisualPalette.muted,
+                        fontSize = 10.sp,
+                        letterSpacing = 1.3.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        LegendDot("Build", StrideLabVisualPalette.lime)
+                        LegendDot("Rec", StrideLabVisualPalette.recoveryCyan)
+                        LegendDot("Key", StrideLabVisualPalette.moderateAmber)
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    LegendDot("Build", StrideLabVisualPalette.lime)
-                    LegendDot("Rec", StrideLabVisualPalette.recoveryCyan)
-                    LegendDot("Key", StrideLabVisualPalette.moderateAmber)
+                activeWeek?.let { (km, _, rec) ->
+                    Text(
+                        "Week ${selectedWeekIndex + 1} · ${"%.1f".format(Locale.US, km)} km" + if (rec) " · Recovery" else " · Build",
+                        color = if (rec) StrideLabVisualPalette.recoveryCyan else StrideLabVisualPalette.lime,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
-            Box(Modifier.fillMaxWidth().height(104.dp)) {
-                Column(Modifier.fillMaxSize().padding(bottom = 18.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                    repeat(3) {
-                        Box(Modifier.fillMaxWidth().height(1.dp).background(StrideLabVisualPalette.borderSubtle))
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    weekTotals.forEachIndexed { index, (km, hasQuality, isRecovery) ->
-                        val selected = index == selectedWeekIndex
-                        val barHeight = (km / maxKm).toFloat().coerceIn(0.18f, 1f)
-                        val baseColor = if (isRecovery) StrideLabVisualPalette.recoveryCyan else StrideLabVisualPalette.lime
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .clip(RoundedCornerShape(6.dp))
-                                .clickable { onSelectWeek(index) }
-                                .padding(vertical = 1.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Bottom
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.Bottom
+            ) {
+                weekTotals.forEachIndexed { index, (km, hasQuality, isRecovery) ->
+                    val selected = index == selectedWeekIndex
+                    val barHeight = (km / maxKm).toFloat().coerceIn(0.18f, 1f)
+                    val baseColor = if (isRecovery) StrideLabVisualPalette.recoveryCyan else StrideLabVisualPalette.lime
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onSelectWeek(index) }
+                            .padding(vertical = 2.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier.height(10.dp),
+                            contentAlignment = Alignment.Center
                         ) {
                             if (hasQuality) {
-                                Box(Modifier.size(5.dp).clip(CircleShape).background(StrideLabVisualPalette.moderateAmber))
-                                Spacer(Modifier.height(4.dp))
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(0.76f)
-                                    .fillMaxHeight(barHeight * 0.72f)
-                                    .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 2.dp, bottomEnd = 2.dp))
-                                    .background(StrideLabVisualPalette.barGradient(baseColor, if (selected) 1f else 0.40f))
-                            ) {
                                 Box(
-                                    Modifier.fillMaxWidth().height(2.5.dp).align(Alignment.TopCenter)
-                                        .background(if (selected) baseColor else baseColor.copy(alpha = 0.45f))
+                                    Modifier
+                                        .size(5.dp)
+                                        .clip(CircleShape)
+                                        .background(StrideLabVisualPalette.moderateAmber)
                                 )
                             }
-                            Spacer(Modifier.height(5.dp))
-                            Text(
-                                "${index + 1}",
-                                fontSize = if (totalWeeks > 12) 8.5.sp else 9.5.sp,
-                                fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium,
-                                color = if (selected) StrideLabVisualPalette.ink else StrideLabVisualPalette.muted,
-                                maxLines = 1
-                            )
                         }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(0.76f)
+                                .height(80.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(StrideLabVisualPalette.surfaceRaised),
+                            contentAlignment = Alignment.BottomCenter
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height((barHeight * 80f).coerceAtLeast(10f).dp)
+                                    .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 2.dp, bottomEnd = 2.dp))
+                                    .background(StrideLabVisualPalette.barGradient(baseColor, if (selected) 1f else 0.45f))
+                            ) {
+                                Box(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .height(2.5.dp)
+                                        .align(Alignment.TopCenter)
+                                        .background(if (selected) baseColor else baseColor.copy(alpha = 0.55f))
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "${index + 1}",
+                            fontSize = if (totalWeeks > 12) 8.5.sp else 9.5.sp,
+                            fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium,
+                            color = if (selected) StrideLabVisualPalette.ink else StrideLabVisualPalette.muted,
+                            maxLines = 1,
+                            softWrap = false
+                        )
                     }
                 }
             }
@@ -389,7 +552,13 @@ internal fun PlanPeriodizationChart(
 private fun LegendDot(label: String, color: Color) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         Box(Modifier.size(6.dp).clip(CircleShape).background(color))
-        Text(label, color = StrideLabVisualPalette.secondary, fontSize = 10.sp)
+        Text(
+            label,
+            color = StrideLabVisualPalette.secondary,
+            fontSize = 10.sp,
+            maxLines = 1,
+            softWrap = false
+        )
     }
 }
 

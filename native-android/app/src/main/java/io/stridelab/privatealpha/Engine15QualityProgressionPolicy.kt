@@ -345,7 +345,8 @@ internal object Engine15QualityProgressionPolicy {
     fun plan(
         request: PlanRequest,
         selection: Engine15QualityFamilySelectionResult,
-        assertedExposureSecondsOverride: Int? = null
+        assertedExposureSecondsOverride: Int? = null,
+        adaptiveQualityMode: Boolean = false
     ): List<Engine15QualityWeekPrescription> {
         val family = selection.selectedFamily ?: return emptyList()
         val slots = selection.candidateSlots
@@ -382,7 +383,8 @@ internal object Engine15QualityProgressionPolicy {
 
         // When using the 50/50 adaptive fitness+detection override, allow progressive build up to +35%
         // across mesocycles; when using strict asserted device evidence alone, keep the +240s cap.
-        val adaptiveOverrideActive = assertedExposureSecondsOverride != null &&
+        val adaptiveOverrideActive = adaptiveQualityMode &&
+            assertedExposureSecondsOverride != null &&
             selection.exposureConfidence != IndependentQualityExposureConfidence.REPEATED_DEVICE_RECORDS_ASSERTED
         val maxPermittedWork = if (adaptiveOverrideActive) {
             maxOf(repeatedBaseline + MAX_EXPOSURE_INCREMENT_SECONDS, (repeatedBaseline * 1.35).roundToInt())

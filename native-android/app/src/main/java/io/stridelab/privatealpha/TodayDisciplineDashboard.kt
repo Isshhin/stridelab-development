@@ -1049,14 +1049,16 @@ private fun DisciplineWeekBars(
             ) {
                 Box(
                     Modifier
-                        .fillMaxWidth()
-                        .height(78.dp),
+                        .fillMaxWidth(0.74f)
+                        .height(78.dp)
+                        .clip(RoundedCornerShape(7.dp))
+                        .background(DisciplineLook.panelRaised),
                     contentAlignment = Alignment.BottomCenter
                 ) {
                     Box(
                         Modifier
-                            .fillMaxWidth(0.74f)
-                            .height((height * 74f).dp)
+                            .fillMaxWidth()
+                            .height((height * 78f).dp)
                             .clip(RoundedCornerShape(topStart = 7.dp, topEnd = 7.dp, bottomStart = 2.dp, bottomEnd = 2.dp))
                             .background(
                                 if (present) StrideLabVisualPalette.barGradient(tint)

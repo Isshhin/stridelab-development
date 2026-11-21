@@ -157,6 +157,7 @@ import org.json.JSONObject
     var otherSelectedDiscipline by rememberSaveable { mutableStateOf("str") }
     var otherSelectedSlot by rememberSaveable { mutableIntStateOf(0) }
     var runningCustom by rememberSaveable { mutableStateOf(true) }
+    var desiredQualityCount by rememberSaveable { mutableIntStateOf(initial.qualityCount) }
     var qualityPreference by rememberSaveable {
         mutableStateOf(initial.preferredQuality)
     }
@@ -270,11 +271,14 @@ import org.json.JSONObject
                     else -> input.conditioningDays > 0
                 }
                 val toggled=when(d) {
-                    "run" -> input.copy(
-                        runDays=if(active)0 else 3,
-                        qualityCount=0,
-                        qualityDays=emptySet()
-                    )
+                    "run" -> {
+                        desiredQualityCount = 0
+                        input.copy(
+                            runDays=if(active)0 else 3,
+                            qualityCount=0,
+                            qualityDays=emptySet()
+                        )
+                    }
                     "str" -> input.copy(strengthDays=if(active)0 else 2)
                     "cal" -> input.copy(calDays=if(active)0 else 2)
                     else -> input.copy(conditioningDays=if(active)0 else 1)
@@ -458,7 +462,7 @@ import org.json.JSONObject
                 userDefinedQualityWorkouts = input.userDefinedQualityWorkouts,
                 weeklyKm = targetKm.toDoubleOrNull()?.coerceIn(0.0, 120.0) ?: 0.0,
                 qualityCount = input.qualityCount.coerceIn(0, 2),
-                maxQualityCount = (input.runDays - 1).coerceIn(0, 2),
+                maxQualityCount = (input.runDays - 2).coerceIn(0, 2),
                 selectedQualityTypes = advancedQualityTypes,
                 onWeeklyKm = { value ->
                     targetKm = value.toInt().toString()
@@ -466,8 +470,10 @@ import org.json.JSONObject
                     edit(input.copy(targetWeeklyKm = value, foundationAcknowledged = false))
                 },
                 onQualityCount = { n ->
-                    val allowed = (input.runDays - 1).coerceIn(0, 2)
-                    edit(input.copy(qualityCount = n.coerceAtMost(allowed)))
+                    desiredQualityCount = n
+                    val allowed = (input.runDays - 2).coerceIn(0, 2)
+                    val q = n.coerceAtMost(allowed)
+                    edit(sanitizeRunningScheduleDays(input.copy(qualityCount = q)))
                 },
                 onToggleQuality = { quality ->
                     val updated =
@@ -531,11 +537,12 @@ import org.json.JSONObject
                 custom = runningCustom,
                 onCustom = { enabled ->
                     runningCustom = enabled
-                    edit(input.copy(
+                    val updated = input.copy(
                         weeklySlots = if (enabled) input.weeklySlots +
-                            ("run" to WeeklyPlacement.days(input,"run"))
+                            ("run" to WeeklyPlacement.days(input, "run"))
                         else input.weeklySlots - "run"
-                    ))
+                    )
+                    edit(sanitizeRunningScheduleDays(updated))
                 },
                 qualityPreference = qualityPreference,
                 onQualityPreference = { selected ->
@@ -543,29 +550,40 @@ import org.json.JSONObject
                     edit(input.copy(preferredQuality=selected, preferredQualityExplicit=true))
                 },
                 onQualityCount = { n ->
-                    val allowed = (input.runDays - 1).coerceIn(0, 2)
-                    if (n <= allowed) {
-                        val slots = WeeklyPlacement.days(input, "run")
-                        edit(input.copy(
-                            qualityCount = n,
-                            qualityDays = slots.drop(1).take(n).filter { it in 1..7 }.toSet()
-                        ))
-                    }
+                    desiredQualityCount = n
+                    val allowed = (input.runDays - 2).coerceIn(0, 2)
+                    val q = n.coerceAtMost(allowed)
+                    val updated = sanitizeRunningScheduleDays(input.copy(qualityCount = q))
+                    edit(
+                        if ("run" in updated.weeklySlots) {
+                            val slots = WeeklyPlacement.days(updated, "run")
+                            updated.copy(
+                                qualityDays = slots.drop(1).take(q).filter { it in 1..7 }.toSet()
+                            )
+                        } else updated
+                    )
                 },
                 onRunningCount = { n ->
+                    if (input.qualityCount > desiredQualityCount) {
+                        desiredQualityCount = input.qualityCount
+                    }
                     val changed = if (runningCustom)
                         WeeklyPlacement.resize(input, "run", n)
                     else input.copy(
                         runDays = n,
                         weeklySlots = input.weeklySlots - "run"
                     )
-                    val allowed = (n - 1).coerceIn(0, 2)
-                    val q = changed.qualityCount.coerceAtMost(allowed)
-                    val slots = WeeklyPlacement.days(changed, "run")
-                    edit(changed.copy(
-                        qualityCount = q,
-                        qualityDays = slots.drop(1).take(q).filter { it in 1..7 }.toSet()
-                    ))
+                    val allowed = (n - 2).coerceIn(0, 2)
+                    val q = desiredQualityCount.coerceAtMost(allowed)
+                    val updated = sanitizeRunningScheduleDays(changed.copy(qualityCount = q))
+                    edit(
+                        if ("run" in updated.weeklySlots) {
+                            val slots = WeeklyPlacement.days(updated, "run")
+                            updated.copy(
+                                qualityDays = slots.drop(1).take(q).filter { it in 1..7 }.toSet()
+                            )
+                        } else updated
+                    )
                     runningSelectedSlot = runningSelectedSlot.coerceIn(0, n - 1)
                 },
                 onAssignDay = { day ->
@@ -762,16 +780,16 @@ import org.json.JSONObject
                         val pinned=input.weeklySlots.values.flatten().contains(day)
                         if(day !in input.days || !pinned) {
                             val days=if(day in input.days)input.days-day else input.days+day
-                            edit(input.copy(
+                            edit(sanitizeRunningScheduleDays(input.copy(
                                 days=days,
                                 longDay=if(input.longDay in days)input.longDay
                                     else (days.maxOrNull() ?: input.longDay),
                                 qualityDays=input.qualityDays.intersect(days)
-                            ))
+                            )))
                         }
                     },
                     onRemovePinnedDay={ day ->
-                        edit(WeeklyPlacement.makeUnavailable(input,day))
+                        edit(sanitizeRunningScheduleDays(WeeklyPlacement.makeUnavailable(input,day)))
                     },
                     onMultiSessionToggle={ enabled ->
                         edit(input.copy(policyChoice=
@@ -823,7 +841,8 @@ import org.json.JSONObject
                 if(!state.busy && !awaiting) {
                     error=null
                     try {
-                        val p=request()
+                        val rawP = request()
+                        val p = if ("run" !in rawP.weeklySlots) sanitizeRunningScheduleDays(rawP) else rawP
                         if(p.start<LocalDate.now())
                             throw PlanConstraint("Choose today or a future start date.")
                         val conflict=compactScheduleError(p)
@@ -920,3 +939,36 @@ private fun builderGoals(p:PlanRequest)=ENGINE1_GOALS.filter { goal -> when(goal
     "Conditioning"->p.conditioningDays>0
     else->false
 } }
+
+/** Repairs `longDay` and `qualityDays` against available `days`, preserving user pins when manual. */
+internal fun sanitizeRunningScheduleDays(p: PlanRequest): PlanRequest {
+    if (p.runDays <= 0) return p
+    val safeLongDay = if (p.longDay in p.days) p.longDay else (p.days.maxOrNull() ?: p.longDay)
+    if (p.qualityCount <= 0) return p.copy(longDay = safeLongDay, qualityDays = emptySet())
+    val manualSlots = p.weeklySlots["run"]
+    if (manualSlots != null) {
+        val pinnedQuality = manualSlots.drop(1).take(p.qualityCount)
+            .filter { it in p.days && it != safeLongDay }
+            .toSet()
+        return p.copy(longDay = safeLongDay, qualityDays = pinnedQuality)
+    }
+    val valid = p.qualityDays.filter { it in p.days && it != safeLongDay }.toMutableList()
+    if (valid.size < p.qualityCount) {
+        fun circularDist(a: Int, b: Int) = minOf(kotlin.math.abs(a - b), 7 - kotlin.math.abs(a - b))
+        val remaining = p.days.filter { it != safeLongDay && it !in valid }
+            .sortedWith(
+                compareByDescending<Int> { circularDist(it, safeLongDay) }.thenBy { it }
+            )
+        for (c in remaining) {
+            if (valid.size >= p.qualityCount) break
+            if (circularDist(c, safeLongDay) >= 2 && valid.all { circularDist(c, it) >= 2 }) {
+                valid.add(c)
+            }
+        }
+        for (c in remaining) {
+            if (valid.size >= p.qualityCount) break
+            if (c !in valid) valid.add(c)
+        }
+    }
+    return p.copy(longDay = safeLongDay, qualityDays = valid.take(p.qualityCount).toSet())
+}
