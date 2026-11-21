@@ -1,7 +1,14 @@
 package io.stridelab.privatealpha
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -16,13 +23,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -161,24 +174,78 @@ internal fun TracksideTrainingWeekChart(
                     fontWeight = FontWeight.ExtraBold
                 )
             }
-            Surface(
-                color = StrideLabVisualPalette.surfaceRaised,
-                shape = RoundedCornerShape(10.dp),
-                border = BorderStroke(1.dp, StrideLabVisualPalette.border)
+            val haptics = LocalHapticFeedback.current
+            val unitIdx = if (distanceView) 0 else 1
+            val unitPos = remember { Animatable(unitIdx.toFloat()) }
+            LaunchedEffect(unitIdx) {
+                unitPos.animateTo(
+                    unitIdx.toFloat(),
+                    animationSpec = spring(
+                        dampingRatio = TracksideLiquidMotion.DAMPING,
+                        stiffness = TracksideLiquidMotion.STIFFNESS
+                    )
+                )
+            }
+            BoxWithConstraints(
+                modifier = Modifier
+                    .width(92.dp)
+                    .height(32.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(StrideLabVisualPalette.surfaceRaised)
+                    .border(1.dp, StrideLabVisualPalette.border, RoundedCornerShape(10.dp))
+                    .padding(2.dp)
             ) {
-                Row(Modifier.padding(2.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val cell = size.width / 2f
+                    val currentX = unitPos.value * cell
+                    val targetX = unitIdx * cell
+                    val p = TracksideLiquidMotion.pressure(unitPos.value, unitIdx.toFloat(), 1f)
+                    val movingRight = targetX >= currentX
+                    val stretch = p * 4.dp.toPx()
+                    val left = (currentX - if (!movingRight) stretch else 0f).coerceIn(0f, (size.width - cell).coerceAtLeast(0f))
+                    val r = CornerRadius(8.dp.toPx(), 8.dp.toPx())
+                    if (p > 0.05f) {
+                        val wake = p * 5.dp.toPx()
+                        val wakeX = if (movingRight) (currentX - wake).coerceAtLeast(0f) else currentX + cell
+                        drawRoundRect(
+                            color = StrideLabVisualPalette.lime.copy(alpha = 0.22f * p),
+                            topLeft = Offset(wakeX, size.height * 0.14f),
+                            size = Size((wake + 3.dp.toPx()).coerceAtMost(size.width - wakeX), size.height * 0.72f),
+                            cornerRadius = r
+                        )
+                    }
+                    drawRoundRect(
+                        color = StrideLabVisualPalette.lime,
+                        topLeft = Offset(left, 0f),
+                        size = Size((cell + stretch).coerceAtMost(size.width - left), size.height),
+                        cornerRadius = r
+                    )
+                }
+                Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                     listOf(true to "km", false to "min").forEach { (metric, label) ->
                         val isSelected = distanceView == metric
-                        Surface(
-                            onClick = { distanceView = metric },
-                            modifier = Modifier.testTag("training-chart-$label"),
-                            color = if (isSelected) StrideLabVisualPalette.lime else Color.Transparent,
-                            shape = RoundedCornerShape(8.dp)
+                        val labelInk by animateColorAsState(
+                            if (isSelected) PlanBuilderPalette.accentOn else StrideLabVisualPalette.secondary,
+                            tween(150),
+                            label = "chart-unit-$label"
+                        )
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    if (distanceView != metric) {
+                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        distanceView = metric
+                                    }
+                                }
+                                .testTag("training-chart-$label"),
+                            contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 label,
-                                Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
-                                color = if (isSelected) PlanBuilderPalette.accentOn else StrideLabVisualPalette.secondary,
+                                color = labelInk,
                                 fontSize = 11.sp,
                                 fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold
                             )
@@ -371,11 +438,19 @@ internal fun TracksideTrainingWeekChart(
                             ) {
                                 val chartValue = chartValues[index]
                                 if (chartValue > 0.0) {
-                                    val barHeight = (chartValue / maxDay * 66.0).toFloat().coerceAtLeast(6f)
+                                    val targetHeight = (chartValue / maxDay * 66.0).toFloat().coerceAtLeast(6f)
+                                    val animatedHeight by animateFloatAsState(
+                                        targetValue = targetHeight,
+                                        animationSpec = spring(
+                                            dampingRatio = TracksideLiquidMotion.DAMPING,
+                                            stiffness = TracksideLiquidMotion.STIFFNESS
+                                        ),
+                                        label = "cal-bar-${day.date}"
+                                    )
                                     Box(
                                         Modifier
                                             .fillMaxWidth(0.72f)
-                                            .height(barHeight.dp)
+                                            .height(animatedHeight.dp)
                                             .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 2.dp, bottomEnd = 2.dp))
                                             .background(StrideLabVisualPalette.barGradient(barAccent))
                                     ) {

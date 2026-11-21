@@ -177,7 +177,7 @@ internal fun TracksideDisciplineScreen(
             }
             val discColor = StrideLabVisualPalette.disciplineColor(discipline)
             val cardBg by animateColorAsState(
-                if (selected) discColor.copy(alpha = 0.11f) else surfaceCard,
+                if (selected) discColor.copy(alpha = 0.16f) else surfaceCard,
                 animationSpec = tween(180),
                 label = "disc-$discipline"
             )
@@ -197,7 +197,7 @@ internal fun TracksideDisciplineScreen(
                     Box(
                         Modifier.size(44.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(discColor.copy(alpha = 0.16f)),
+                            .background(if (selected) discColor else discColor.copy(alpha = 0.16f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -207,24 +207,23 @@ internal fun TracksideDisciplineScreen(
                                 "cal" -> R.drawable.trackside_discipline_calisthenics
                                 else -> R.drawable.trackside_discipline_conditioning
                             }),
-                            tint = discColor,
+                            tint = if (selected) PlanBuilderPalette.accentOn else discColor,
                             contentDescription = null,
                             modifier = Modifier.size(22.dp).testTag("discipline-icon-$discipline")
                         )
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(name, color = white, fontSize = 15.5.sp, fontWeight = FontWeight.Bold)
-                        Text(desc, color = muted, fontSize = 12.sp)
-                    }
-                    Box(
-                        Modifier.size(24.dp)
-                            .clip(CircleShape)
-                            .background(if (selected) discColor else PlanBuilderPalette.surfaceRaised),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (selected) {
-                            Text("✓", color = PlanBuilderPalette.accentOn, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
-                        }
+                        Text(
+                            name,
+                            color = if (selected) discColor else white,
+                            fontSize = 15.5.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Text(
+                            desc,
+                            color = if (selected) white.copy(alpha = 0.85f) else muted,
+                            fontSize = 12.sp
+                        )
                     }
                 }
             }
@@ -252,7 +251,7 @@ private fun TracksideOption(
     tag: String = label, runningGoal: Boolean = false
 ) {
     val bg by animateColorAsState(
-        if (selected) selectedTint else surfaceCard,
+        if (selected) limeAccent.copy(alpha = 0.16f) else surfaceCard,
         animationSpec = tween(180),
         label = "opt-$tag"
     )
@@ -272,27 +271,31 @@ private fun TracksideOption(
             Box(
                 Modifier.size(44.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(if (selected) limeAccent.copy(alpha = 0.18f) else PlanBuilderPalette.surfaceRaised),
+                    .background(if (selected) limeAccent else PlanBuilderPalette.surfaceRaised),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     painterResource(icon), contentDescription = null,
-                    tint = if (selected) limeAccent else PlanBuilderPalette.secondary,
+                    tint = if (selected) PlanBuilderPalette.accentOn else PlanBuilderPalette.secondary,
                     modifier = Modifier.size(23.dp).testTag("builder-goal-icon-$tag")
                 )
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(label, fontSize = 15.5.sp, fontWeight = FontWeight.Bold, color = white,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(description, fontSize = 12.sp, lineHeight = 16.sp, color = muted, maxLines = 2)
-            }
-            if (selected) {
-                Box(
-                    Modifier.size(22.dp).clip(CircleShape).background(limeAccent),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("✓", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = PlanBuilderPalette.accentOn)
-                }
+                Text(
+                    label,
+                    fontSize = 15.5.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = if (selected) limeAccent else white,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    description,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    color = if (selected) white.copy(alpha = 0.85f) else muted,
+                    maxLines = 2
+                )
             }
         }
     }

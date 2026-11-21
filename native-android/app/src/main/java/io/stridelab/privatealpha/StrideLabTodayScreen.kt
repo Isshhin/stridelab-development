@@ -52,6 +52,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
@@ -395,8 +396,11 @@ internal fun StrideLabTodayScreen(
             )
         }
         state.message?.takeIf(String::isNotBlank)?.let { message ->
-            item(key = "today-status-message") {
-                SignalCard { Text(message, style = MaterialTheme.typography.bodyMedium) }
+            val suppressLoggedOutBanner = state.account == null || state.needsSignIn
+            if (!suppressLoggedOutBanner) {
+                item(key = "today-status-message") {
+                    SignalCard { Text(message, style = MaterialTheme.typography.bodyMedium) }
+                }
             }
         }
         if (selectedPage == "all") {
@@ -540,9 +544,71 @@ internal fun StrideLabTodayScreen(
                                 weekStart, discipline
                             )
                         }
+                        val runningReview = remember(
+                            recentWeeks,
+                            safeHistory,
+                            safePlans,
+                            state.details,
+                            state.account,
+                            state.localGarminOwner,
+                            state.localPlanOwner,
+                            state.localGarminIds
+                        ) {
+                            if (discipline != TodayDiscipline.RUNNING) emptyList()
+                            else {
+                                val corrections = UserActivityWorkoutLabelStore(context)
+                                val ownerIds = listOfNotNull(
+                                    state.account,
+                                    state.localGarminOwner,
+                                    state.localPlanOwner
+                                ).distinct()
+                                val loadedUserLabels = buildMap {
+                                    safeHistory.forEach { act ->
+                                        val actOwner = activityCorrectionOwner(act.id, state)
+                                        val lbl = actOwner?.let { corrections.load(it, act.id) }
+                                            ?: ownerIds.firstNotNullOfOrNull { corrections.load(it, act.id) }
+                                        if (lbl != null) put(act.id, lbl)
+                                    }
+                                }
+                                val detectionOwner = state.account ?: state.localGarminOwner ?: state.localPlanOwner
+                                val detectedById = if (detectionOwner != null) {
+                                    Engine15WorkoutDetection.detectAll(
+                                        owner = detectionOwner,
+                                        activities = safeHistory,
+                                        allowedActivityIds = safeHistory.map { it.id }.toSet(),
+                                        detailsByActivityId = state.details,
+                                        plans = safePlans,
+                                        userLabels = loadedUserLabels,
+                                        asOf = Instant.now()
+                                    ).associateBy { it.activityId }
+                                } else emptyMap()
+                                val preferences = AthleteHeartRatePreferences(context)
+                                val manualZones = preferences.settings(state.account)
+                                recentWeeks.map { week ->
+                                    summarizeRunningWeek(week) { run ->
+                                        loadedUserLabels[run.id] ?: detectedById[run.id]?.takeIf {
+                                            it.kind != ActivityWorkoutKind.UNKNOWN
+                                        }?.let { det ->
+                                            UserActivityWorkoutLabel(det.kind, det.qualitySubtype)
+                                        } ?: state.details[run.id]?.let { detail ->
+                                            val dist = HeartRateZoneAnalysis.distribute(detail.samples, manualZones)
+                                            val dur = run.movingTimeS ?: run.durationS
+                                            val z12 = dist?.buckets?.take(2)?.sumOf { it.seconds } ?: 0.0
+                                            val zTotal = dist?.classifiedSeconds ?: 0.0
+                                            if (dur != null && dur > 0 && zTotal >= dur * 0.55 && z12 >= zTotal * 0.85) {
+                                                UserActivityWorkoutLabel(ActivityWorkoutKind.EASY_RUN)
+                                            } else null
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         TodayDisciplineDashboard(
                             discipline = discipline,
                             trend = recentWeeks,
+                            runningReview = runningReview,
+                            plans = safePlans,
+                            today = todayDate,
                             reduceMotion = reduceMotion,
                             onOpenActivity = onOpenActivityDetail,
                             onOpenWorkout = onOpenWorkout
@@ -620,10 +686,10 @@ private fun TodayWeekCalendar(
         onNext()
     }
 
-    // Reserve exactly the same calendar height across all selected weekdays.
-    // The hero's top edge no longer depends on transitional measurements.
+    // Reserve a consistent calendar height across all selected weekdays with
+    // clean top/bottom headroom so weekday initials and dots never clip.
     Box(
-        modifier = Modifier.fillMaxWidth().height(74.dp)
+        modifier = Modifier.fillMaxWidth().height(84.dp)
             .semantics {
                 contentDescription = "Weekly training calendar"
                 customActions = listOf(
@@ -718,7 +784,7 @@ private fun TodayWeekCalendar(
                                 diameter.toPx() / 2f).coerceIn(
                                 0f, (maxWidth - diameter).coerceAtLeast(0.dp).toPx()
                             )
-                            translationY = 24.dp.toPx()
+                            translationY = 27.dp.toPx()
                             val pressure = if (reduceMotion) 0f else
                                 TracksideLiquidMotion.pressure(
                                     fraction, restingFraction, 1f / 7f
@@ -731,7 +797,7 @@ private fun TodayWeekCalendar(
                 )
                 Row(
                     Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Bottom
+                    verticalAlignment = Alignment.Top
                 ) {
                     val letters = listOf("M", "T", "W", "T", "F", "S", "S")
                     (0..6).forEach { idx ->
@@ -745,7 +811,9 @@ private fun TodayWeekCalendar(
                         )
                         Column(
                             modifier = Modifier.weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
                                 .clickable { selectDay(day) }
+                                .padding(top = 4.dp)
                                 .testTag("today-day-" + idx)
                                 .semantics {
                                     contentDescription = day.format(
@@ -763,16 +831,21 @@ private fun TodayWeekCalendar(
                                     role = Role.Button
                                 },
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(7.dp)
+                            verticalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
-                            Text(
-                                letters[idx],
-                                fontSize = 11.sp,
-                                color = if (isSelected) accent else TodayLook.muted,
-                                fontWeight = if (isSelected) FontWeight.Bold
-                                    else FontWeight.Normal,
-                                modifier = Modifier.height(17.dp)
-                            )
+                            Box(
+                                Modifier.height(18.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    letters[idx],
+                                    fontSize = 11.sp,
+                                    lineHeight = 13.sp,
+                                    color = if (isSelected) accent else TodayLook.muted,
+                                    fontWeight = if (isSelected) FontWeight.Bold
+                                        else FontWeight.Medium
+                                )
+                            }
                             Box(
                                 Modifier.size(diameter),
                                 contentAlignment = Alignment.Center
@@ -1050,16 +1123,16 @@ private fun TodayCompactRecordedCard(
     }
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(110.dp).testTag(tag),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 112.dp).testTag(tag),
         shape = shape,
-        color = Color(0xFF17191B),
+        color = StrideLabVisualPalette.surface,
         border = androidx.compose.foundation.BorderStroke(
-            1.dp, Color(0xFF3C4144)
+            1.dp, StrideLabVisualPalette.border
         )
     ) {
         Row(
-            modifier = Modifier.fillMaxSize()
-                .padding(start = 14.dp, end = 15.dp, top = if (first) 12.dp else 10.dp, bottom = 10.dp),
+            modifier = Modifier.fillMaxWidth()
+                .padding(start = 15.dp, end = 15.dp, top = if (first) 16.dp else 13.dp, bottom = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -1080,30 +1153,32 @@ private fun TodayCompactRecordedCard(
             }
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(3.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     todayKindLabel(discipline),
-                    color = TodayLook.text,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
+                    color = TodayLook.muted,
+                    fontSize = 11.5.sp,
+                    lineHeight = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     primary,
                     color = TodayLook.text,
-                    fontSize = 21.sp,
-                    lineHeight = 24.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontSize = 22.sp,
+                    lineHeight = 25.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-0.4).sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     secondary,
                     color = TodayLook.muted,
-                    fontSize = 11.sp,
-                    lineHeight = 14.sp,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1175,9 +1250,18 @@ internal fun TodayCompactGpsThumbnail(
                 }
                 drawPath(
                     path = path,
-                    color = Color(0xFF8B9498),
+                    color = TodayLook.lime.copy(alpha = 0.20f),
                     style = androidx.compose.ui.graphics.drawscope.Stroke(
-                        width = 2.dp.toPx(),
+                        width = 5.dp.toPx(),
+                        cap = StrokeCap.Round,
+                        join = androidx.compose.ui.graphics.StrokeJoin.Round
+                    )
+                )
+                drawPath(
+                    path = path,
+                    color = TodayLook.lime,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = 2.2.dp.toPx(),
                         cap = StrokeCap.Round,
                         join = androidx.compose.ui.graphics.StrokeJoin.Round
                     )
@@ -2972,89 +3056,115 @@ private fun TodayNextSession(
     total: Int,
     onOpen: () -> Unit
 ) {
+    val nextAccent = next?.let {
+        when {
+            it.discipline == "run" && it.kind == "long" -> TodayLook.lime
+            it.discipline == "run" && it.kind == "quality" -> StrideLabVisualPalette.moderateAmber
+            it.discipline == "run" -> TodayLook.lime
+            else -> StrideLabVisualPalette.disciplineColor(it.discipline)
+        }
+    } ?: TodayLook.lime
+    val iconRes = when (next?.discipline) {
+        "str" -> R.drawable.trackside_discipline_strength
+        "cal" -> R.drawable.trackside_discipline_calisthenics
+        "cond" -> R.drawable.trackside_discipline_conditioning
+        else -> R.drawable.trackside_discipline_running
+    }
     Surface(
         onClick = onOpen,
         shape = RoundedCornerShape(19.dp),
-        color = TodayLook.card,
-        border = androidx.compose.foundation.BorderStroke(1.dp, TodayLook.outline),
+        color = StrideLabVisualPalette.surface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, StrideLabVisualPalette.border),
         modifier = Modifier.fillMaxWidth().testTag("today-next-session")
     ) {
-        Box(Modifier.fillMaxWidth()) {
-            if (!signedOut) Canvas(Modifier.matchParentSize()) {
-                val w = size.width
-                val h = size.height
-                val accent = Path().apply {
-                    moveTo(w * .70f, 0f)
-                    lineTo(w, 0f)
-                    lineTo(w, h * .94f)
-                    cubicTo(w * .87f, h * .45f, w * .78f, h * .39f, w * .70f, 0f)
-                    close()
-                }
-                drawPath(
-                    accent,
-                    Brush.linearGradient(
-                        listOf(Color(0xFF9C3433).copy(alpha = .37f),
-                            Color(0xFF692729).copy(alpha = .09f)),
-                        start = Offset(w * .74f, 0f),
-                        end = Offset(w, h)
-                    )
-                )
-            }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier
+                    .width(4.dp)
+                    .fillMaxHeight()
+                    .background(nextAccent)
+            )
             Column(
-                Modifier.fillMaxWidth().padding(
-                    horizontal = if (signedOut) 15.dp else 13.dp,
-                    vertical = 11.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                Modifier
+                    .weight(1f)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(nextAccent.copy(alpha = 0.07f), Color.Transparent)
+                        )
+                    )
+                    .padding(horizontal = 14.dp, vertical = 13.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
-                        Modifier.size(if (signedOut) 35.dp else 31.dp)
-                            .background(
-                                if (signedOut) Color(0xFF26321F) else Color(0xFF3A2426),
-                                RoundedCornerShape(if (signedOut) 11.dp else 10.dp)
-                            ),
+                        Modifier
+                            .size(36.dp)
+                            .background(nextAccent.copy(alpha = 0.16f), RoundedCornerShape(11.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("▣", color = if (signedOut) TodayLook.lime else TodayLook.coral,
-                            fontSize = 18.sp)
+                        Icon(
+                            painter = painterResource(iconRes),
+                            contentDescription = null,
+                            tint = nextAccent,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("Next Session", fontSize = 11.sp, color = TodayLook.muted)
+                    Spacer(Modifier.width(11.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        Text(
+                            "NEXT SESSION",
+                            fontSize = 10.sp,
+                            letterSpacing = 1.2.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TodayLook.muted
+                        )
                         Text(
                             next?.effectiveTitle ?: if (signedOut) "Your schedule awaits"
                             else if (plan != null) "No upcoming sessions" else "Build your plan",
                             fontSize = 17.sp, lineHeight = 21.sp,
-                            fontWeight = FontWeight.Bold, color = TodayLook.text,
+                            fontWeight = FontWeight.ExtraBold, color = TodayLook.text,
                             maxLines = 2, overflow = TextOverflow.Ellipsis
                         )
                     }
                     Box(
-                        Modifier.size(27.dp)
-                            .background(
-                                if (signedOut) Color(0xFF26321F) else Color(0xFF343035),
-                                CircleShape
-                            ),
+                        Modifier.size(28.dp)
+                            .background(StrideLabVisualPalette.surfaceRaised, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("›", color = if (signedOut) TodayLook.lime else TodayLook.text,
-                            fontSize = 22.sp)
+                        Text("›", color = nextAccent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     }
                 }
                 if (next != null) {
                     Text(
                         next.date.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())) +
-                            "  ·  " + todaySessionDetails(next),
-                        color = TodayLook.muted, fontSize = 11.sp,
+                            " · " + todaySessionDetails(next),
+                        color = TodayLook.muted, fontSize = 11.5.sp,
                         maxLines = 2, overflow = TextOverflow.Ellipsis
                     )
+                    if (next.discipline == "run") {
+                        val blocks = remember(next.id, next.title, next.distanceKm) {
+                            WorkoutVisualBlocks.fromSession(next)
+                        }
+                        if (blocks.isNotEmpty()) {
+                            WorkoutStructureBarChart(
+                                blocks = blocks,
+                                height = 14.dp,
+                                interactive = false,
+                                tag = "today-next-mini-bars"
+                            )
+                        }
+                    }
                 } else {
                     Text(
                         if (signedOut) "Create a plan on this device without signing in."
                         else if (plan == null) "Create an approved schedule to get started."
                         else "Check your training schedule for future workouts.",
-                        color = TodayLook.muted, fontSize = 11.sp
+                        color = TodayLook.muted, fontSize = 11.5.sp
                     )
                 }
                 if (total > 0) {
@@ -3062,12 +3172,12 @@ private fun TodayNextSession(
                         Box(
                             Modifier.weight(1f).height(5.dp)
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(Color(0xFF3B3D42))
+                                .background(StrideLabVisualPalette.surfaceRaised)
                         ) {
                             Box(
                                 Modifier.fillMaxWidth(completed.toFloat() / total.toFloat())
                                     .fillMaxHeight()
-                                    .background(TodayLook.coral, RoundedCornerShape(4.dp))
+                                    .background(nextAccent, RoundedCornerShape(4.dp))
                             )
                         }
                         Spacer(Modifier.width(10.dp))
@@ -3134,17 +3244,22 @@ private fun TodayWeeklyActivity(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    Modifier.size(35.dp)
-                        .background(Color(0xFF26321F), RoundedCornerShape(11.dp)),
+                    Modifier.size(36.dp)
+                        .background(StrideLabVisualPalette.limeTint, RoundedCornerShape(11.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("▥", color = TodayLook.lime, fontSize = 21.sp)
+                    Icon(
+                        painter = painterResource(R.drawable.trackside_figma_calendar),
+                        contentDescription = null,
+                        tint = TodayLook.lime,
+                        modifier = Modifier.size(19.dp)
+                    )
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
                         "Weekly Activity", color = TodayLook.text, fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold, maxLines = 1,
+                        fontWeight = FontWeight.ExtraBold, maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(dateLabel, color = TodayLook.muted, fontSize = 11.sp)
@@ -3159,22 +3274,30 @@ private fun TodayWeeklyActivity(
                 val maxSeconds = metrics.seconds.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
                 val days = listOf("M", "T", "W", "T", "F", "S", "S")
                 (0..6).forEach { idx ->
+                    val hasActivity = metrics.seconds[idx] > 0 || metrics.counts[idx] > 0
+                    val isSelectedDay = idx == selectedDayIndex
                     val target = when {
                         metrics.seconds[idx] > 0 ->
                             (metrics.seconds[idx] / maxSeconds *
-                                (if (signedOut) 35 else 43)).toFloat()
-                                .coerceIn(5f, if (signedOut) 35f else 43f)
-                        metrics.counts[idx] > 0 -> 6f
+                                (if (signedOut) 38 else 46)).toFloat()
+                                .coerceIn(7f, if (signedOut) 38f else 46f)
+                        metrics.counts[idx] > 0 -> 7f
                         else -> 3f
                     }
                     val barHeight by animateDpAsState(
                         targetValue = target.dp,
-                        animationSpec = tween(if (reduceMotion) 0 else 220),
+                        animationSpec = if (reduceMotion) snap() else spring(
+                            dampingRatio = TracksideLiquidMotion.DAMPING,
+                            stiffness = TracksideLiquidMotion.STIFFNESS
+                        ),
                         label = "today-weekly-bar-$idx"
                     )
-                    val barColor by animateColorAsState(
-                        targetValue = if (idx == selectedDayIndex) TodayLook.lime
-                            else Color(0xFF777F85),
+                    val capColor by animateColorAsState(
+                        targetValue = when {
+                            isSelectedDay -> TodayLook.lime
+                            hasActivity -> TodayLook.lime.copy(alpha = 0.72f)
+                            else -> StrideLabVisualPalette.border
+                        },
                         animationSpec = tween(if (reduceMotion) 0 else 180),
                         label = "today-weekly-color-$idx"
                     )
@@ -3183,18 +3306,35 @@ private fun TodayWeeklyActivity(
                         verticalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         Box(
-                            Modifier.width(22.dp).height(if (signedOut) 38.dp else 46.dp),
+                            Modifier.width(24.dp).height(if (signedOut) 42.dp else 50.dp),
                             contentAlignment = Alignment.BottomCenter
                         ) {
                             Box(
-                                Modifier.width(12.dp).height(barHeight)
-                                    .clip(RoundedCornerShape(5.dp))
-                                    .background(barColor)
-                            )
+                                Modifier.width(14.dp).height(barHeight)
+                                    .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 2.dp, bottomEnd = 2.dp))
+                                    .background(
+                                        when {
+                                            isSelectedDay -> StrideLabVisualPalette.barGradient(TodayLook.lime)
+                                            hasActivity -> StrideLabVisualPalette.barGradient(TodayLook.lime, alphaScale = 0.45f)
+                                            else -> Brush.verticalGradient(
+                                                listOf(StrideLabVisualPalette.border, StrideLabVisualPalette.surfaceRaised)
+                                            )
+                                        }
+                                    )
+                            ) {
+                                if (hasActivity) {
+                                    Box(
+                                        Modifier.fillMaxWidth().height(2.dp)
+                                            .align(Alignment.TopCenter)
+                                            .background(capColor)
+                                    )
+                                }
+                            }
                         }
                         Text(
-                            days[idx], color = if (idx == selectedDayIndex)
-                                TodayLook.lime else TodayLook.muted,
+                            days[idx],
+                            color = if (isSelectedDay) TodayLook.lime else if (hasActivity) TodayLook.text else TodayLook.muted,
+                            fontWeight = if (isSelectedDay) FontWeight.Bold else FontWeight.Normal,
                             fontSize = 10.sp
                         )
                     }

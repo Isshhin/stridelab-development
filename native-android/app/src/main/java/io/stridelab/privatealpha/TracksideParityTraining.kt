@@ -1,21 +1,41 @@
 package io.stridelab.privatealpha
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected as semanticsSelected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -25,10 +45,7 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
-/** Figma master gallery 614:500 (draft) and 795:839 (active).
- * Day/Agenda is the approved visible control; month remains a separate existing route,
- * not an unapproved third segment inserted into this 162×44 switch.
- */
+/** AMOLED Day / Agenda controls matching StrideLab's signature liquid capsule motion. */
 @Composable
 internal fun TracksideParityTrainingControls(
     agenda: Boolean, draft: Boolean, hasPlan: Boolean,
@@ -37,29 +54,86 @@ internal fun TracksideParityTrainingControls(
     selected: LocalDate? = null,
     onSelectWeek: (LocalDate) -> Unit = {}
 ) {
+    val haptics = LocalHapticFeedback.current
+    val selectedIdx = if (agenda) 1 else 0
+    val capsulePos = remember { Animatable(selectedIdx.toFloat()) }
+    LaunchedEffect(selectedIdx) {
+        capsulePos.animateTo(
+            selectedIdx.toFloat(),
+            animationSpec = spring(
+                dampingRatio = TracksideLiquidMotion.DAMPING,
+                stiffness = TracksideLiquidMotion.STIFFNESS
+            )
+        )
+    }
+
     Row(
         Modifier.fillMaxWidth().heightIn(min = 44.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(
-            Modifier.width(162.dp).height(44.dp)
-                .background(Color(0xFF14232D), RoundedCornerShape(12.dp))
-                .padding(3.dp),
-            verticalAlignment = Alignment.CenterVertically
+        BoxWithConstraints(
+            Modifier.width(164.dp).height(44.dp)
+                .clip(RoundedCornerShape(13.dp))
+                .background(StrideLabVisualPalette.surface)
+                .border(1.dp, StrideLabVisualPalette.border, RoundedCornerShape(13.dp))
+                .padding(3.dp)
         ) {
-            listOf(Triple("Day", !agenda, onDay), Triple("Agenda", agenda, onAgenda)).forEach {
-                (label, selected, action) ->
-                Surface(
-                    onClick = action,
-                    modifier = Modifier.weight(1f).fillMaxHeight()
-                        .testTag(if (label == "Day") "training-view-day" else "training-view-agenda"),
-                    color = if (selected) Color(0xFFF6F7F9) else Color.Transparent,
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(label, fontSize = 13.5f.sp, fontWeight = FontWeight.Bold,
-                            color = if (selected) Color.Black else Color(0xFFA2A4AF))
+            Canvas(Modifier.fillMaxSize()) {
+                val cell = size.width / 2f
+                val currentX = capsulePos.value * cell
+                val targetX = selectedIdx * cell
+                val p = TracksideLiquidMotion.pressure(capsulePos.value, selectedIdx.toFloat(), 1f)
+                val movingRight = targetX >= currentX
+                val wake = p * 8.dp.toPx()
+                val h = size.height.coerceAtLeast(1f)
+                val r = CornerRadius(10.dp.toPx(), 10.dp.toPx())
+                if (wake > 0.5f) {
+                    val wakeX = if (movingRight) (currentX - wake).coerceAtLeast(0f) else currentX + cell
+                    drawRoundRect(
+                        color = StrideLabVisualPalette.lime.copy(alpha = 0.22f * p),
+                        topLeft = Offset(wakeX, h * 0.14f),
+                        size = Size((wake + 4.dp.toPx()).coerceAtMost(size.width - wakeX), h * 0.72f),
+                        cornerRadius = r
+                    )
+                }
+                val stretch = p * 5.dp.toPx()
+                val left = (currentX - if (!movingRight) stretch else 0f).coerceIn(0f, (size.width - cell).coerceAtLeast(0f))
+                drawRoundRect(
+                    color = StrideLabVisualPalette.lime,
+                    topLeft = Offset(left, 0f),
+                    size = Size((cell + stretch).coerceAtMost(size.width - left), h),
+                    cornerRadius = r
+                )
+            }
+            Row(Modifier.fillMaxSize().selectableGroup(), verticalAlignment = Alignment.CenterVertically) {
+                listOf(Triple("Day", !agenda, onDay), Triple("Agenda", agenda, onAgenda)).forEach { (label, active, action) ->
+                    val ink by animateColorAsState(
+                        if (active) Color(0xFF090B09) else StrideLabVisualPalette.secondary,
+                        animationSpec = tween(160),
+                        label = "parity-toggle-$label"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(10.dp))
+                            .selectable(selected = active, role = Role.Tab) {
+                                if (!active) {
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    action()
+                                }
+                            }
+                            .testTag(if (label == "Day") "training-view-day" else "training-view-agenda")
+                            .semantics { semanticsSelected = active },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            label,
+                            fontSize = 13.sp,
+                            fontWeight = if (active) FontWeight.ExtraBold else FontWeight.SemiBold,
+                            color = ink
+                        )
                     }
                 }
             }
@@ -124,16 +198,16 @@ internal fun TracksideParityTrainingControls(
         } else if (draft) {
             Surface(
                 shape = RoundedCornerShape(14.dp),
-                border = BorderStroke(1.dp, TracksidePalette.text),
-                color = Color.Transparent
+                border = BorderStroke(1.dp, StrideLabVisualPalette.moderateAmber.copy(alpha = 0.7f)),
+                color = StrideLabVisualPalette.moderateAmber.copy(alpha = 0.14f)
             ) {
                 Text("DRAFT", Modifier.padding(horizontal = 13.dp, vertical = 7.dp),
-                    fontSize = 10.6f.sp, color = TracksidePalette.text,
-                    fontWeight = FontWeight.Bold)
+                    fontSize = 10.6f.sp, color = StrideLabVisualPalette.moderateAmber,
+                    fontWeight = FontWeight.ExtraBold)
             }
         } else if (hasPlan) TextButton(onClick = onManage,
             modifier = Modifier.testTag("training-manage-plan")) {
-            Text("Manage ›", color = TracksidePalette.text, fontWeight = FontWeight.Bold)
+            Text("Manage ›", color = StrideLabVisualPalette.lime, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -318,7 +392,7 @@ internal fun TracksideParityWorkoutCard(
             .testTag("workout-" + session.id),
         shape = RoundedCornerShape(14.dp),
         color = TracksidePalette.surface,
-        border = BorderStroke(1.dp, Color(0x6658798C))
+        border = BorderStroke(1.dp, StrideLabVisualPalette.border)
     ) {
         Column(
             Modifier.fillMaxWidth()

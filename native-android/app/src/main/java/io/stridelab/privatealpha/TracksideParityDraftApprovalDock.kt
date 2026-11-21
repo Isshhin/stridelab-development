@@ -32,22 +32,22 @@ internal fun TracksideParityDraftApprovalDock(
     Surface(
         modifier.fillMaxWidth().heightIn(min = 64.dp)
             .testTag("training-draft-approval-dock"),
-        color = Color(0xFF0B1922),
-        border = BorderStroke(1.dp, Color(0xFF2A2C32)),
-        shape = RoundedCornerShape(12.dp)
+        color = StrideLabVisualPalette.surface,
+        border = BorderStroke(1.dp, StrideLabVisualPalette.border),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
                 Text(if (plan.status == "draft") "Draft plan" else "Paused plan",
-                    color = TracksidePalette.text,
+                    color = StrideLabVisualPalette.ink,
                     fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 Text(plan.sessions.size.toString() + " sessions · " +
                     (if (plan.status == "draft") "not active yet" else "currently paused"),
-                    color = TracksidePalette.textMuted, fontSize = 10.sp)
+                    color = StrideLabVisualPalette.secondary, fontSize = 10.5.sp)
             }
             Button(
                 enabled = enabled,
@@ -55,12 +55,14 @@ internal fun TracksideParityDraftApprovalDock(
                 modifier = Modifier.height(44.dp).widthIn(min = 130.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = TracksidePalette.red,
-                    disabledContainerColor = Color(0xFF53313B)
+                    containerColor = StrideLabVisualPalette.lime,
+                    contentColor = Color(0xFF090B09),
+                    disabledContainerColor = StrideLabVisualPalette.surfaceRaised,
+                    disabledContentColor = StrideLabVisualPalette.muted
                 )
             ) {
                 Text(if (plan.status == "draft") "Approve plan" else "Resume plan",
-                    fontSize = 13.sp, color = Color.White)
+                    fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
             }
         }
     }

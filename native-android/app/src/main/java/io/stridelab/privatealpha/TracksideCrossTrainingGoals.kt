@@ -78,12 +78,12 @@ internal fun TracksideStrengthGoalScreen(
                 onClick = { onSelect(choice.title) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 88.dp)
+                    .heightIn(min = 84.dp)
                     .testTag("builder-strength-goal-$index"),
-                color = if (chosen) crossCoral.copy(alpha = 0.12f) else PlanBuilderPalette.surface,
+                color = if (chosen) crossCoral.copy(alpha = 0.16f) else PlanBuilderPalette.surface,
                 shape = RoundedCornerShape(18.dp),
                 border = BorderStroke(
-                    1.dp,
+                    if (chosen) 1.5.dp else 1.dp,
                     if (chosen) crossCoral else PlanBuilderPalette.border
                 )
             ) {
@@ -98,13 +98,13 @@ internal fun TracksideStrengthGoalScreen(
                         modifier = Modifier
                             .size(50.dp)
                             .clip(RoundedCornerShape(14.dp))
-                            .background(if (chosen) crossCoral.copy(alpha = 0.22f) else PlanBuilderPalette.surfaceRaised),
+                            .background(if (chosen) crossCoral else PlanBuilderPalette.surfaceRaised),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             painter = painterResource(choice.icon),
                             contentDescription = null,
-                            tint = if (chosen) crossCoral else PlanBuilderPalette.secondary,
+                            tint = if (chosen) PlanBuilderPalette.accentOn else PlanBuilderPalette.secondary,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -114,29 +114,18 @@ internal fun TracksideStrengthGoalScreen(
                     ) {
                         Text(
                             choice.title,
-                            color = PlanBuilderPalette.text,
+                            color = if (chosen) crossCoral else PlanBuilderPalette.text,
                             fontSize = 15.5.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.ExtraBold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             choice.detail,
-                            color = PlanBuilderPalette.secondary,
+                            color = if (chosen) PlanBuilderPalette.text.copy(alpha = 0.85f) else PlanBuilderPalette.secondary,
                             fontSize = 12.sp,
                             lineHeight = 16.sp
                         )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(22.dp)
-                            .clip(CircleShape)
-                            .background(if (chosen) crossCoral else PlanBuilderPalette.surfaceRaised),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (chosen) {
-                            Text("✓", color = PlanBuilderPalette.accentOn, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
-                        }
                     }
                 }
             }
@@ -223,9 +212,9 @@ internal fun TracksideCrossTrainingGoalsScreen(
                                 .fillMaxWidth()
                                 .heightIn(min = 52.dp)
                                 .testTag("builder-cross-goal-$discipline-$goal"),
-                            color = if (chosen) accent.copy(alpha = 0.14f) else PlanBuilderPalette.surface,
+                            color = if (chosen) accent.copy(alpha = 0.16f) else PlanBuilderPalette.surface,
                             shape = RoundedCornerShape(13.dp),
-                            border = BorderStroke(1.dp, if (chosen) accent else PlanBuilderPalette.border)
+                            border = BorderStroke(if (chosen) 1.5.dp else 1.dp, if (chosen) accent else PlanBuilderPalette.border)
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 13.dp),
@@ -233,12 +222,11 @@ internal fun TracksideCrossTrainingGoalsScreen(
                             ) {
                                 Text(
                                     goal,
-                                    color = if (chosen) PlanBuilderPalette.text else PlanBuilderPalette.secondary,
-                                    fontSize = 13.sp,
-                                    fontWeight = if (chosen) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (chosen) accent else PlanBuilderPalette.secondary,
+                                    fontSize = 13.5.sp,
+                                    fontWeight = if (chosen) FontWeight.ExtraBold else FontWeight.Medium,
                                     modifier = Modifier.weight(1f)
                                 )
-                                if (chosen) Text("✓", color = accent, fontWeight = FontWeight.ExtraBold)
                             }
                         }
                     }

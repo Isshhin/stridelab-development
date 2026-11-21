@@ -41,39 +41,43 @@ internal fun TracksideParityPausedPlan(
         item {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
-                color = Color(0xFF11232F),
-                border = BorderStroke(1.dp, Color(0x88677987))
+                shape = RoundedCornerShape(20.dp),
+                color = StrideLabVisualPalette.surface,
+                border = BorderStroke(1.dp, StrideLabVisualPalette.border)
             ) {
                 Column(
                     Modifier.background(Brush.verticalGradient(listOf(
-                        Color(0xFF172C39), Color(0xFF08131C)
+                        StrideLabVisualPalette.moderateAmber.copy(alpha = 0.08f),
+                        StrideLabVisualPalette.surface
                     ))).padding(22.dp),
                     verticalArrangement = Arrangement.spacedBy(15.dp)
                 ) {
-                    Text("PAUSED", fontSize = 11.sp, color = TracksidePalette.textMuted,
-                        fontWeight = FontWeight.Bold)
+                    Text("PAUSED", fontSize = 11.sp, color = StrideLabVisualPalette.moderateAmber,
+                        letterSpacing = 1.2.sp, fontWeight = FontWeight.Bold)
                     Text("TRAINING PLAN PAUSED", fontSize = 12.sp,
-                        color = TracksidePalette.textMuted, fontWeight = FontWeight.Bold)
+                        color = StrideLabVisualPalette.muted, fontWeight = FontWeight.Bold)
                     Text("Your plan is on hold",
-                        style = MaterialTheme.typography.headlineMedium, color = TracksidePalette.text)
-                    Text("WHEN YOU RESUME", fontSize = 12.sp,
-                        color = TracksidePalette.textMuted, fontWeight = FontWeight.Bold)
+                        style = MaterialTheme.typography.headlineMedium, color = StrideLabVisualPalette.ink)
+                    Text("WHEN YOU RESUME", fontSize = 11.sp, letterSpacing = 1.1.sp,
+                        color = StrideLabVisualPalette.muted, fontWeight = FontWeight.Bold)
                     Text("Review upcoming workouts",
-                        style = MaterialTheme.typography.titleLarge, color = TracksidePalette.text)
+                        style = MaterialTheme.typography.titleLarge, color = StrideLabVisualPalette.ink)
                     Text("Keep, shift or regenerate future sessions",
-                        color = TracksidePalette.textMuted, style = MaterialTheme.typography.bodyMedium)
-                    Text("Training history is preserved", color = TracksidePalette.text,
+                        color = StrideLabVisualPalette.secondary, style = MaterialTheme.typography.bodyMedium)
+                    Text("Training history is preserved", color = StrideLabVisualPalette.ink,
                         style = MaterialTheme.typography.titleMedium)
                     Text("Completed sessions remain unchanged",
-                        color = TracksidePalette.textMuted, style = MaterialTheme.typography.bodyMedium)
+                        color = StrideLabVisualPalette.secondary, style = MaterialTheme.typography.bodyMedium)
                     Button(
                         onClick = { actions.approve(plan.id, plan.revision) },
                         enabled = !busy && Engine1Engines.canManage(plan) && plan.sessions.none { it.status == "unassigned" },
                         modifier = Modifier.fillMaxWidth().height(48.dp).testTag("manage-resume"),
-                        colors = ButtonDefaults.buttonColors(containerColor = TracksidePalette.red),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = StrideLabVisualPalette.lime,
+                            contentColor = Color(0xFF090B09)
+                        ),
                         shape = RoundedCornerShape(13.dp)
-                    ) { Text("Resume plan", color = Color.White) }
+                    ) { Text("Resume plan", fontWeight = FontWeight.ExtraBold) }
                 }
             }
         }

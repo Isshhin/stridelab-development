@@ -160,7 +160,7 @@ internal object TodayDisciplineAnalytics {
         selectedWeek: LocalDate,
         discipline: TodayDiscipline
     ): List<TodayDisciplineWeek> =
-        (3 downTo 0).map { weeksAgo ->
+        ((if (discipline == TodayDiscipline.RUNNING) 7 else 3) downTo 0).map { weeksAgo ->
             week(history, plans, now, zone, monday(selectedWeek).minusWeeks(weeksAgo.toLong()))
                 .getValue(discipline)
         }

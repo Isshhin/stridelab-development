@@ -140,7 +140,7 @@ internal fun TracksideParityReviewChanges(
             proposal.destination?.format(fmt) ?: "Not selected"
     }
 
-    Box(Modifier.fillMaxSize().background(Color(0xFF020508))
+    Box(Modifier.fillMaxSize().background(StrideLabVisualPalette.amoledBlack)
         .testTag("review-changes-screen")) {
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState())
@@ -150,38 +150,38 @@ internal fun TracksideParityReviewChanges(
             Spacer(Modifier.height(32.dp))
             Column(Modifier.fillMaxWidth().padding(horizontal = 19.dp),
                 verticalArrangement = Arrangement.spacedBy(15.dp)) {
-                Text("PLAN / DRAFT CHANGES", color = TracksidePalette.red,
-                    fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text("PLAN / DRAFT CHANGES", color = StrideLabVisualPalette.lime,
+                    fontSize = 10.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.Bold)
                 Text("Check before applying",
-                    fontSize = 23.sp, lineHeight = 29.sp, color = Color.White,
-                    fontWeight = FontWeight.Bold)
+                    fontSize = 24.sp, lineHeight = 29.sp, color = StrideLabVisualPalette.ink,
+                    fontWeight = FontWeight.ExtraBold)
                 Text("Only future sessions may change. Completed workouts stay untouched.",
                     fontSize = 12.sp, lineHeight = 16.sp,
-                    color = Color(0xFFB7C5CF))
+                    color = StrideLabVisualPalette.secondary)
                 Spacer(Modifier.height(7.dp))
                 Surface(
                     modifier = Modifier.fillMaxWidth().heightIn(min = 185.dp)
                         .testTag("review-proposal-diff"),
-                    shape = RoundedCornerShape(14.dp), color = Color(0xFF0F2835),
-                    border = BorderStroke(1.dp, Color(0xFF658293))
+                    shape = RoundedCornerShape(16.dp), color = StrideLabVisualPalette.surface,
+                    border = BorderStroke(1.dp, StrideLabVisualPalette.border)
                 ) {
-                    Column(Modifier.padding(13.dp),
+                    Column(Modifier.padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Row(Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(if (proposal.kind == TracksideChangeKind.MOVE)
                                 "WORKOUT MOVE" else "MISSED WORKOUT",
-                                fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                                color = Color(0xFFB7C5CF))
+                                fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold,
+                                color = StrideLabVisualPalette.muted)
                             Text("NOT APPLIED", fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold, color = Color(0xFFFFB86F))
+                                fontWeight = FontWeight.Bold, color = StrideLabVisualPalette.moderateAmber)
                         }
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             TracksideParityDateBlock("CURRENT", current,
                                 Modifier.weight(1f), active = false)
                             Text("→", fontSize = 27.sp, fontWeight = FontWeight.Bold,
-                                color = Color.White)
+                                color = StrideLabVisualPalette.lime)
                             TracksideParityDateBlock("PROPOSED", proposed,
                                 Modifier.weight(1f), active = true)
                         }
@@ -194,20 +194,20 @@ internal fun TracksideParityReviewChanges(
                                 TracksideChangeKind.MOVE ->
                                     "Other sessions stay on their original dates."
                             },
-                            fontSize = 11.sp, lineHeight = 15.sp,
-                            color = Color(0xFFB7C5CF))
+                            fontSize = 11.5.sp, lineHeight = 15.sp,
+                            color = StrideLabVisualPalette.secondary)
                     }
                 }
                 Spacer(Modifier.height(3.dp))
-                Text("COACHING CHECKS", fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold, color = Color(0xFFB7C5CF))
+                Text("COACHING CHECKS", fontSize = 10.5.sp, letterSpacing = 1.2.sp,
+                    fontWeight = FontWeight.Bold, color = StrideLabVisualPalette.muted)
                 Surface(
                     modifier = Modifier.fillMaxWidth().heightIn(min = 169.dp)
                         .testTag("review-checks-card"),
-                    shape = RoundedCornerShape(14.dp), color = Color(0xFF0E2734),
-                    border = BorderStroke(1.dp, Color(0xFF688799))
+                    shape = RoundedCornerShape(16.dp), color = StrideLabVisualPalette.surface,
+                    border = BorderStroke(1.dp, StrideLabVisualPalette.border)
                 ) {
-                    Column(Modifier.padding(horizontal = 13.dp)) {
+                    Column(Modifier.padding(horizontal = 14.dp)) {
                         TracksideParityCheckRow("Daily session capacity", check?.capacity)
                         TracksideParityCheckRow("Recovery between hard sessions", check?.recovery)
                         TracksideParityCheckRow("Combined training load", check?.load, last = true)
@@ -215,29 +215,29 @@ internal fun TracksideParityReviewChanges(
                 }
                 if (check != null) {
                     Text(check!!.message,
-                        fontSize = 11.sp, lineHeight = 15.sp,
-                        color = if (check!!.accepted) Color(0xFF87BFB0) else Color(0xFFFFA3A8),
+                        fontSize = 11.5.sp, lineHeight = 15.sp,
+                        color = if (check!!.accepted) StrideLabVisualPalette.easyTeal else StrideLabVisualPalette.highCoral,
                         modifier = Modifier.testTag("review-check-result"))
                 }
                 Surface(
                     onClick = onRegenerateDraft,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 73.dp)
                         .testTag("review-regenerate-entry"),
-                    shape = RoundedCornerShape(14.dp), color = Color(0xFF0F2835),
-                    border = BorderStroke(1.dp, Color(0xFF688799))
+                    shape = RoundedCornerShape(16.dp), color = StrideLabVisualPalette.surface,
+                    border = BorderStroke(1.dp, StrideLabVisualPalette.border)
                 ) {
-                    Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically,
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(13.dp)) {
-                        Box(Modifier.size(41.dp).background(Color(0xFF1D465B),
-                                RoundedCornerShape(9.dp)),
+                        Box(Modifier.size(41.dp).background(StrideLabVisualPalette.limeTint,
+                                RoundedCornerShape(10.dp)),
                             contentAlignment = Alignment.Center) {
-                            Text("↻", fontSize = 27.sp, color = Color(0xFF92D5EB))
+                            Text("↻", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = StrideLabVisualPalette.lime)
                         }
                         Column(Modifier.weight(1f)) {
-                            Text("Regenerate future weeks", fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold, color = Color.White)
+                            Text("Regenerate future weeks", fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold, color = StrideLabVisualPalette.ink)
                             Text("Choose a start date and compare proposals",
-                                fontSize = 11.sp, color = Color(0xFFB7C5CF))
+                                fontSize = 11.5.sp, color = StrideLabVisualPalette.secondary)
                         }
                     }
                 }
@@ -246,18 +246,18 @@ internal fun TracksideParityReviewChanges(
 
         Column(
             Modifier.fillMaxWidth().align(Alignment.BottomCenter)
-                .background(Color(0xFF081B26))
+                .background(StrideLabVisualPalette.surface)
                 .padding(horizontal = 18.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(15.dp)
         ) {
             Row(Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("PROPOSED ONLY", fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold, color = Color(0xFFB7C5CF))
+                Text("PROPOSED ONLY", fontSize = 10.5.sp, letterSpacing = 1.sp,
+                    fontWeight = FontWeight.Bold, color = StrideLabVisualPalette.muted)
                 Text(if (check == null) "Approval requires coaching checks"
                 else if (check!!.accepted) "Current engine checks complete"
                 else "Review the proposal",
-                    fontSize = 10.sp, color = Color(0xFFB7C5CF))
+                    fontSize = 10.5.sp, color = StrideLabVisualPalette.secondary)
             }
             Button(
                 modifier = Modifier.fillMaxWidth().height(51.dp)
@@ -275,22 +275,23 @@ internal fun TracksideParityReviewChanges(
                         else check = currentCheck
                     }
                 },
-                shape = RoundedCornerShape(11.dp),
+                shape = RoundedCornerShape(13.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFD12648),
-                    disabledContainerColor = Color(0xFF492B36))
+                    containerColor = StrideLabVisualPalette.lime,
+                    contentColor = Color(0xFF090B09),
+                    disabledContainerColor = StrideLabVisualPalette.surfaceRaised,
+                    disabledContentColor = StrideLabVisualPalette.muted)
             ) {
                 Text(if (check?.accepted == true) "Apply reviewed change"
                     else if (check != null) "Checks require review"
                     else "Run coaching checks",
-                    fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                    color = Color.White)
+                    fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold)
             }
             Text(if (check?.accepted == true)
                 "Only current-engine safeguards ran; Engine 2.0 is not connected."
             else "No plan changes have been applied.",
                 fontSize = 11.sp, textAlign = TextAlign.Center,
-                color = Color(0xFFB7C5CF), modifier = Modifier.fillMaxWidth())
+                color = StrideLabVisualPalette.muted, modifier = Modifier.fillMaxWidth())
         }
     }
 }
@@ -303,17 +304,18 @@ private fun TracksideParityCheckRow(label: String, status: String?, last: Boolea
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(label, fontSize = 12.sp, color = Color.White,
+            Text(label, fontSize = 12.5.sp, color = StrideLabVisualPalette.ink,
                 modifier = Modifier.weight(1f), maxLines = 2,
                 overflow = TextOverflow.Ellipsis)
             Text(status ?: "Pending",
-                fontSize = 11.sp, color = if (status == null) Color(0xFFFFBB70)
-                else if (status == "Review") Color(0xFFFFA3A8)
-                else Color(0xFF87C4B5),
+                fontSize = 11.5.sp, fontWeight = FontWeight.Bold,
+                color = if (status == null) StrideLabVisualPalette.moderateAmber
+                else if (status == "Review") StrideLabVisualPalette.highCoral
+                else StrideLabVisualPalette.easyTeal,
                 maxLines = 2, textAlign = TextAlign.End)
         }
         if (!last) Box(Modifier.fillMaxWidth().height(1.dp)
-            .background(Color(0xFF3D5664)))
+            .background(StrideLabVisualPalette.border))
     }
 }
 
@@ -321,15 +323,17 @@ private fun TracksideParityCheckRow(label: String, status: String?, last: Boolea
 private fun TracksideParityDateBlock(
     label: String, value: String, modifier: Modifier, active: Boolean
 ) {
-    Surface(modifier.height(86.dp), shape = RoundedCornerShape(10.dp),
-        color = if (active) Color(0xFF2E4D60) else Color(0xFF223F4E),
-        border = BorderStroke(1.dp, Color(0xFF61859A))) {
+    Surface(modifier.height(86.dp), shape = RoundedCornerShape(12.dp),
+        color = if (active) StrideLabVisualPalette.limeTint else StrideLabVisualPalette.surfaceRaised,
+        border = BorderStroke(if (active) 1.5.dp else 1.dp, if (active) StrideLabVisualPalette.lime else StrideLabVisualPalette.border)) {
         Column(horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center) {
-            Text(label, fontSize = 10.sp, color = Color(0xFFB7C5CF))
-            Spacer(Modifier.height(9.dp))
-            Text(value, fontSize = 16.sp, fontWeight = FontWeight.Bold,
-                color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(label, fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold,
+                color = if (active) StrideLabVisualPalette.lime else StrideLabVisualPalette.muted)
+            Spacer(Modifier.height(8.dp))
+            Text(value, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold,
+                color = if (active) StrideLabVisualPalette.lime else StrideLabVisualPalette.ink,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -344,11 +348,11 @@ internal fun TracksideParityPlanFlowHeader(title: String, onBack: () -> Unit) {
             TextButton(onClick = onBack, modifier = Modifier.size(28.dp)
                 .testTag("plan-flow-back"),
                 contentPadding = PaddingValues(0.dp)) {
-                Text("‹", color = Color.White, fontSize = 27.sp)
+                Text("‹", color = StrideLabVisualPalette.lime, fontSize = 27.sp)
             }
             Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold,
-                color = Color.White)
+                color = StrideLabVisualPalette.ink)
         }
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF24333D)))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(StrideLabVisualPalette.border))
     }
 }

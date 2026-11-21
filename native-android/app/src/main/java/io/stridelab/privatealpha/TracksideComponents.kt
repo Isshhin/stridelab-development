@@ -42,19 +42,19 @@ internal fun TracksideGlassCard(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = TracksidePalette.surface,
-        contentColor = TracksidePalette.text,
-        border = BorderStroke(1.dp, Color(0xFF4D6B7D))
+        shape = RoundedCornerShape(18.dp),
+        color = StrideLabVisualPalette.surface,
+        contentColor = StrideLabVisualPalette.ink,
+        border = BorderStroke(1.dp, StrideLabVisualPalette.border)
     ) {
         Column(
             modifier = Modifier
                 .background(
-                    Brush.horizontalGradient(
-                        listOf(Color(0xFF193544), Color(0xFF101F2A))
+                    Brush.verticalGradient(
+                        listOf(StrideLabVisualPalette.surfaceRaised.copy(alpha = 0.55f), StrideLabVisualPalette.surface)
                     )
                 )
-                .padding(if (compact) 13.dp else 18.dp),
+                .padding(if (compact) 14.dp else 18.dp),
             verticalArrangement = Arrangement.spacedBy(if (compact) 9.dp else 12.dp),
             content = content
         )

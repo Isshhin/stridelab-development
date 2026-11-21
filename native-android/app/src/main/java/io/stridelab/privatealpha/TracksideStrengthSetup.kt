@@ -425,38 +425,24 @@ private fun TracksideStrengthEquipment(
                         onClick = { onChoice(id, !active) },
                         modifier = Modifier
                             .weight(1f)
-                            .height(84.dp)
+                            .height(74.dp)
                             .testTag("builder-strength-equipment-$id"),
-                        color = if (active) strCoral.copy(alpha = 0.14f) else PlanBuilderPalette.surface,
+                        color = if (active) strCoral.copy(alpha = 0.18f) else PlanBuilderPalette.surface,
                         shape = RoundedCornerShape(15.dp),
                         border = BorderStroke(
-                            1.dp,
+                            if (active) 1.5.dp else 1.dp,
                             if (active) strCoral else PlanBuilderPalette.border
                         )
                     ) {
-                        Column(
-                            modifier = Modifier.padding(13.dp),
-                            verticalArrangement = Arrangement.SpaceBetween
+                        Box(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 12.dp),
+                            contentAlignment = Alignment.CenterStart
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(22.dp)
-                                    .clip(CircleShape)
-                                    .background(if (active) strCoral else PlanBuilderPalette.surfaceRaised),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    if (active) "✓" else "",
-                                    color = PlanBuilderPalette.accentOn,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                            }
                             Text(
                                 label,
-                                color = if (active) PlanBuilderPalette.text else PlanBuilderPalette.secondary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold
+                                color = if (active) strCoral else PlanBuilderPalette.secondary,
+                                fontSize = 13.5.sp,
+                                fontWeight = if (active) FontWeight.ExtraBold else FontWeight.SemiBold
                             )
                         }
                     }

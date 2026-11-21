@@ -173,10 +173,54 @@ import kotlinx.coroutines.withContext
                     }
                     item { PlanFeedbackForm(plan,actions) }
                 }
-                if(state.plans.isNotEmpty() || state.researchDrafts.isNotEmpty())
-                    item { NativePlanExport(state.plans,state.researchDrafts) }
-                if(state.account!=null || state.localPlanOwner!=null) item { NativePlanImport(state,actions) }
-                if(plan!=null) item { OutlinedButton(onClick=onBuild,modifier=Modifier.fillMaxWidth()) { Text("Create / edit a reviewed draft") } }
+                val hasExportable = state.plans.isNotEmpty() || state.researchDrafts.isNotEmpty()
+                val hasBackupAccess = hasExportable || state.account != null || state.localPlanOwner != null
+                if (plan != null) item {
+                    OutlinedButton(onClick = onBuild, modifier = Modifier.fillMaxWidth()) {
+                        Text("Create or update draft plan")
+                    }
+                }
+                if (hasBackupAccess) item {
+                    var backupOpen by rememberSaveable { mutableStateOf(false) }
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = StrideLabVisualPalette.surface,
+                        border = BorderStroke(1.dp, StrideLabVisualPalette.border),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { backupOpen = !backupOpen },
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        "Plan backup & portability",
+                                        color = StrideLabVisualPalette.ink,
+                                        style = MaterialTheme.typography.titleSmall
+                                    )
+                                    Text(
+                                        "Export plans or restore from a saved file",
+                                        color = StrideLabVisualPalette.secondary,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                                Text(
+                                    if (backupOpen) "▴" else "▾",
+                                    color = StrideLabVisualPalette.lime,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                            }
+                            if (backupOpen) {
+                                if (hasExportable) NativePlanExport(state.plans, state.researchDrafts)
+                                if (state.account != null || state.localPlanOwner != null) NativePlanImport(state, actions)
+                            }
+                        }
+                    }
+                }
                 if(plan?.status in setOf("draft","paused")) item { Spacer(Modifier.height(96.dp)) }
             }
         }

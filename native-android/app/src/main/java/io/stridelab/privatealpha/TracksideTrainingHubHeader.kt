@@ -58,37 +58,14 @@ internal fun TracksideTrainingHubHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(
-            color = hubCard,
-            shape = RoundedCornerShape(13.dp),
-            border = BorderStroke(1.dp, hubBorder)
-        ) {
-            Row(
-                modifier = Modifier.padding(3.dp),
-                horizontalArrangement = Arrangement.spacedBy(3.dp)
-            ) {
-                listOf(false to "Day", true to "Week").forEach { (mode, label) ->
-                    val selected = agenda == mode
-                    Surface(
-                        onClick = { onAgenda(mode) },
-                        modifier = Modifier
-                            .width(82.dp)
-                            .height(36.dp)
-                            .testTag(if (mode) "training-view-agenda" else "training-view-day"),
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (selected) hubLime else Color.Transparent
-                    ) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(
-                                label,
-                                color = if (selected) PlanBuilderPalette.accentOn else hubMuted,
-                                fontSize = 12.sp,
-                                fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium
-                            )
-                        }
-                    }
-                }
-            }
+        Box(Modifier.width(172.dp)) {
+            StrideLabLiquidSegmentedControl(
+                labels = listOf("day" to "Day", "agenda" to "Week"),
+                selectedKey = if (agenda) "agenda" else "day",
+                accent = hubLime,
+                testTagPrefix = "training-view",
+                onSelect = { key -> onAgenda(key == "agenda") }
+            )
         }
         TextButton(
             onClick = onManage,

@@ -119,7 +119,7 @@ class TodayDisciplineAnalyticsTest {
             emptyList(), emptyList(), now, zone,
             LocalDate.parse("2026-11-10"), TodayDiscipline.RUNNING
         )
-        assertEquals(4, weeks.size)
+        assertEquals(8, weeks.size)
         assertTrue(weeks.all { it.recordedDistanceM == null &&
             it.recordedSeconds == null && it.sessions == 0 })
     }

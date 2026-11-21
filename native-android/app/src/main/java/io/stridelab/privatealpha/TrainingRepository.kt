@@ -81,8 +81,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 // disk but can no longer trigger a provider connection.
                 val session = runCatching { vault.read(account) }.getOrNull()
                 if(session != null) copyLegacyGarminConnection(account)
-                else mutable.value = mutable.value.copy(needsSignIn = true,
-                    message = "Sign in again for cloud features. Saved Garmin activities remain available.")
+                else mutable.value = mutable.value.copy(needsSignIn = true)
             } else {
                 loadLocalPlanCache()
                 loadLocalGarminCache()

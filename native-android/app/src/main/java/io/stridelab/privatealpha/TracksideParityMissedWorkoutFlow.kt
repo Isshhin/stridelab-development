@@ -1,8 +1,9 @@
 package io.stridelab.privatealpha
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,7 +12,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -91,7 +91,7 @@ internal fun TracksideParityMissedWorkoutFlow(
         return
     }
 
-    Box(Modifier.fillMaxSize().background(Color(0xFF010305))
+    Box(Modifier.fillMaxSize().background(StrideLabVisualPalette.amoledBlack)
         .testTag("missed-workout-screen")) {
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState())
@@ -103,39 +103,39 @@ internal fun TracksideParityMissedWorkoutFlow(
                 Modifier.fillMaxWidth().padding(horizontal = 19.dp),
                 verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
-                Text("PLAN / MISSED WORKOUT", fontSize = 10.sp,
-                    color = TracksidePalette.red, fontWeight = FontWeight.Bold)
+                Text("PLAN / MISSED WORKOUT", fontSize = 10.sp, letterSpacing = 1.2.sp,
+                    color = StrideLabVisualPalette.highCoral, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(21.dp))
-                Text("What happens to\nthis workout?", fontSize = 23.sp, lineHeight = 29.sp,
-                    fontWeight = FontWeight.Bold, color = Color.White)
+                Text("What happens to\nthis workout?", fontSize = 24.sp, lineHeight = 29.sp,
+                    fontWeight = FontWeight.ExtraBold, color = StrideLabVisualPalette.ink)
                 Spacer(Modifier.height(10.dp))
                 Text("Choose how to handle the missed session.",
-                    fontSize = 12.sp, color = Color(0xFFB7C5CF))
+                    fontSize = 12.sp, color = StrideLabVisualPalette.secondary)
                 Spacer(Modifier.height(27.dp))
                 Surface(
                     modifier = Modifier.fillMaxWidth().height(83.dp)
                         .testTag("missed-session-context"),
-                    shape = RoundedCornerShape(14.dp), color = Color(0xFF102735),
-                    border = BorderStroke(1.dp, Color(0xFF547588))
+                    shape = RoundedCornerShape(16.dp), color = StrideLabVisualPalette.surface,
+                    border = BorderStroke(1.dp, StrideLabVisualPalette.border)
                 ) {
-                    Row(Modifier.fillMaxWidth().padding(11.dp),
+                    Row(Modifier.fillMaxWidth().padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Box(
                             Modifier.size(width = 46.dp, height = 49.dp)
-                                .background(Color(0xFF492838), RoundedCornerShape(12.dp)),
+                                .background(StrideLabVisualPalette.highCoral.copy(alpha = 0.16f), RoundedCornerShape(12.dp)),
                             contentAlignment = Alignment.Center
                         ) {
                             androidx.compose.material3.Icon(
                                 painterResource(R.drawable.trackside_figma_run), null,
-                                modifier = Modifier.size(27.dp),
-                                tint = Color(0xFFFF637E)
+                                modifier = Modifier.size(26.dp),
+                                tint = StrideLabVisualPalette.highCoral
                             )
                         }
                         Column(Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(session.effectiveTitle, fontSize = 14.sp,
-                                color = Color.White, fontWeight = FontWeight.Bold)
+                                color = StrideLabVisualPalette.ink, fontWeight = FontWeight.Bold)
                             val summary = buildList {
                                 add(session.date.format(
                                     DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())))
@@ -144,14 +144,14 @@ internal fun TracksideParityMissedWorkoutFlow(
                                 add(if (session.status == "planned") "Not completed"
                                     else "In progress")
                             }.joinToString(" · ")
-                            Text(summary, fontSize = 11.sp,
-                                color = Color(0xFFB7C5CF))
+                            Text(summary, fontSize = 11.5.sp,
+                                color = StrideLabVisualPalette.secondary)
                         }
                     }
                 }
                 Spacer(Modifier.height(26.dp))
-                Text("CHOOSE WHAT HAPPENS NEXT", fontSize = 11.sp,
-                    color = Color(0xFFB7C5CF), fontWeight = FontWeight.Bold)
+                Text("CHOOSE WHAT HAPPENS NEXT", fontSize = 10.5.sp, letterSpacing = 1.2.sp,
+                    color = StrideLabVisualPalette.muted, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(11.dp))
                 TracksideMissedDecisionCard(
                     title = "Skip workout",
@@ -182,14 +182,14 @@ internal fun TracksideParityMissedWorkoutFlow(
                 if (!canEdit) {
                     Spacer(Modifier.height(12.dp))
                     Text("This saved workout is read-only, already completed or linked to a recording.",
-                        color = Color(0xFFFFA6AC),
+                        color = StrideLabVisualPalette.highCoral,
                         style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
         Column(
             Modifier.fillMaxWidth().align(Alignment.BottomCenter)
-                .background(Color(0xFF010305))
+                .background(StrideLabVisualPalette.amoledBlack)
                 .padding(start = 19.dp, end = 19.dp, bottom = 23.dp, top = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(13.dp)
@@ -202,17 +202,20 @@ internal fun TracksideParityMissedWorkoutFlow(
                 modifier = Modifier.fillMaxWidth().height(51.dp)
                     .testTag("missed-preview-adjustment"),
                 enabled = canEdit && !busy,
-                shape = RoundedCornerShape(11.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD12648))
+                shape = RoundedCornerShape(13.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = StrideLabVisualPalette.lime,
+                    contentColor = Color(0xFF090B09)
+                )
             ) {
                 Text(when (decision) {
                     "skip" -> "Preview skip"
                     "move" -> "Choose destination"
                     else -> "Preview adjustment"
-                }, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }, fontWeight = FontWeight.ExtraBold, fontSize = 13.5.sp)
             }
             Text("No automatic catch-up or back-to-back hard workouts.",
-                fontSize = 11.sp, color = Color(0xFFB7C5CF),
+                fontSize = 11.sp, color = StrideLabVisualPalette.muted,
                 modifier = Modifier.testTag("missed-safety-note"))
         }
     }
@@ -221,18 +224,38 @@ internal fun TracksideParityMissedWorkoutFlow(
         val reasons = listOf("Time", "Fatigue", "Soreness", "Illness", "Other")
         AlertDialog(
             onDismissRequest = { choosingReason = false },
-            title = { Text("Why was this session missed?") },
+            containerColor = StrideLabVisualPalette.surface,
+            titleContentColor = StrideLabVisualPalette.ink,
+            textContentColor = StrideLabVisualPalette.secondary,
+            title = { Text("Why was this session missed?", fontWeight = FontWeight.ExtraBold) },
             text = {
-                Column {
-                    Text("The reason is needed to determine whether the existing engine proposes an easier upcoming workout. No change is applied yet.")
-                    Spacer(Modifier.height(10.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("The reason helps StrideLab propose an appropriate adjustment. No change is applied yet.",
+                        color = StrideLabVisualPalette.secondary, fontSize = 12.5.sp)
+                    Spacer(Modifier.height(4.dp))
                     reasons.forEach { item ->
-                        Row(
-                            Modifier.fillMaxWidth().clickable { reason = item },
-                            verticalAlignment = Alignment.CenterVertically
+                        val active = reason == item
+                        val cardColor by animateColorAsState(
+                            if (active) StrideLabVisualPalette.limeTint else StrideLabVisualPalette.surfaceRaised,
+                            tween(150), label = "missed-reason-bg-$item"
+                        )
+                        Surface(
+                            onClick = { reason = item },
+                            color = cardColor,
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(
+                                if (active) 1.5.dp else 1.dp,
+                                if (active) StrideLabVisualPalette.lime else StrideLabVisualPalette.border
+                            ),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            RadioButton(selected = reason == item, onClick = { reason = item })
-                            Text(item)
+                            Text(
+                                item,
+                                color = if (active) StrideLabVisualPalette.lime else StrideLabVisualPalette.ink,
+                                fontWeight = if (active) FontWeight.ExtraBold else FontWeight.Medium,
+                                fontSize = 13.5.sp,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
+                            )
                         }
                     }
                 }
@@ -246,11 +269,15 @@ internal fun TracksideParityMissedWorkoutFlow(
                             else TracksideChangeKind.ADJUST,
                             session.id, reason = reason
                         )
-                    }
-                ) { Text("Review proposal") }
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = StrideLabVisualPalette.lime)
+                ) { Text("Review proposal", fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
-                TextButton(onClick = { choosingReason = false }) { Text("Cancel") }
+                TextButton(
+                    onClick = { choosingReason = false },
+                    colors = ButtonDefaults.textButtonColors(contentColor = StrideLabVisualPalette.secondary)
+                ) { Text("Cancel") }
             }
         )
     }
@@ -278,29 +305,33 @@ private fun TracksideMissedDecisionCard(
     testTag: String,
     onClick: () -> Unit
 ) {
+    val bg by animateColorAsState(
+        if (selected) StrideLabVisualPalette.limeTint else StrideLabVisualPalette.surface,
+        tween(170), label = "missed-decision-$testTag"
+    )
     Surface(
         onClick = onClick, enabled = enabled,
         modifier = Modifier.fillMaxWidth().height(91.dp).testTag(testTag),
-        shape = RoundedCornerShape(13.dp),
-        color = if (selected) Color(0xFF254354) else Color(0xFF102936),
-        border = BorderStroke(if (selected) 1.2f.dp else 1.dp,
-            if (selected) Color(0xFF94B8CA) else Color(0xFF527183))
+        shape = RoundedCornerShape(15.dp),
+        color = bg,
+        border = BorderStroke(if (selected) 1.5.dp else 1.dp,
+            if (selected) StrideLabVisualPalette.lime else StrideLabVisualPalette.border)
     ) {
-        Column(Modifier.padding(13.dp),
+        Column(Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(title, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                color = Color.White)
-            Text(subtitle, fontSize = 11.sp, lineHeight = 15.sp,
-                color = Color(0xFFB7C5CF))
+            Text(title, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold,
+                color = if (selected) StrideLabVisualPalette.lime else StrideLabVisualPalette.ink)
+            Text(subtitle, fontSize = 11.5.sp, lineHeight = 15.sp,
+                color = StrideLabVisualPalette.secondary)
         }
     }
 }
 
 @Composable
 private fun TracksideParityUnavailableMissed(onBack: () -> Unit) {
-    Column(Modifier.fillMaxSize().background(Color(0xFF010305))) {
+    Column(Modifier.fillMaxSize().background(StrideLabVisualPalette.amoledBlack)) {
         TracksideParityPlanFlowHeader("Missed workout", onBack)
         Text("This workout is not available in the current saved plan.",
-            modifier = Modifier.padding(19.dp), color = Color.White)
+            modifier = Modifier.padding(19.dp), color = StrideLabVisualPalette.ink)
     }
 }

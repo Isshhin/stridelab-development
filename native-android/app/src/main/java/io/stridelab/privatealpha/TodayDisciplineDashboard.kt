@@ -1,29 +1,43 @@
 package io.stridelab.privatealpha
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -33,13 +47,16 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -73,9 +90,9 @@ private object DisciplineLook {
 }
 
 /**
- * Elastic Stretching Top Pill Bar for Today.
- * Each unlocked discipline tab shares equal weight (`Modifier.weight(1f)`) so the bar
- * stretches dynamically across the full screen width as consistent training unlocks new pages.
+ * Elastic Stretching Top Pill Bar for Today with signature StrideLab liquid-water motion.
+ * Each unlocked discipline tab shares equal weight (`Modifier.weight(1f)`) and a single
+ * fluid droplet capsule glides & stretches smoothly between tabs without checkboxes or radios.
  */
 @Composable
 internal fun TodayDisciplineTabs(
@@ -88,6 +105,28 @@ internal fun TodayDisciplineTabs(
     val options = remember(available) {
         listOf("all" to "All") + available.map { it.key to it.title }
     }
+    val selectedIndex = options.indexOfFirst { it.first == selectedKey }.coerceAtLeast(0)
+    val activeAccent by animateColorAsState(
+        targetValue = DisciplineLook.accentForKey(selectedKey),
+        animationSpec = tween(if (reduceMotion) 0 else 220),
+        label = "today-tab-accent"
+    )
+    val capsulePos = remember(options.size) { Animatable(selectedIndex.toFloat()) }
+    LaunchedEffect(selectedIndex, options.size, reduceMotion) {
+        val target = selectedIndex.toFloat()
+        if (reduceMotion) {
+            capsulePos.snapTo(target)
+        } else {
+            capsulePos.animateTo(
+                targetValue = target,
+                animationSpec = spring(
+                    dampingRatio = TracksideLiquidMotion.DAMPING,
+                    stiffness = TracksideLiquidMotion.STIFFNESS
+                )
+            )
+        }
+    }
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -99,83 +138,226 @@ internal fun TodayDisciplineTabs(
             )
             .testTag("today-discipline-pages"),
         color = DisciplineLook.panel,
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(20.dp),
         border = BorderStroke(1.dp, DisciplineLook.border)
     ) {
-        Row(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                .height(48.dp)
+                .padding(4.dp)
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val count = options.size.coerceAtLeast(1)
+                val cellWidth = size.width / count
+                val currentX = capsulePos.value * cellWidth
+                val targetX = selectedIndex * cellWidth
+                val pressure = TracksideLiquidMotion.pressure(
+                    capsulePos.value,
+                    selectedIndex.toFloat(),
+                    1f
+                )
+                val movingRight = targetX >= currentX
+                val wakeTail = pressure * 12.dp.toPx()
+                val h = size.height.coerceAtLeast(1f)
+                val radius = CornerRadius(14.dp.toPx(), 14.dp.toPx())
+
+                if (wakeTail > 0.5f) {
+                    val wakeLeft = if (movingRight) (currentX - wakeTail).coerceAtLeast(0f) else currentX + cellWidth
+                    drawRoundRect(
+                        color = activeAccent.copy(alpha = 0.24f * pressure),
+                        topLeft = Offset(wakeLeft, h * 0.14f),
+                        size = Size((wakeTail + 6.dp.toPx()).coerceAtMost(size.width - wakeLeft), h * 0.72f),
+                        cornerRadius = radius
+                    )
+                }
+                val stretchPx = pressure * 7.dp.toPx()
+                val left = (currentX - if (!movingRight) stretchPx else 0f).coerceIn(0f, (size.width - cellWidth).coerceAtLeast(0f))
+                val width = (cellWidth + stretchPx).coerceAtMost(size.width - left)
+                drawRoundRect(
+                    color = activeAccent,
+                    topLeft = Offset(left, 0f),
+                    size = Size(width, h),
+                    cornerRadius = radius
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .selectableGroup(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                options.forEach { (key, title) ->
+                    val active = key == selectedKey
+                    val itemAccent = DisciplineLook.accentForKey(key)
+                    val ink by animateColorAsState(
+                        if (active) DisciplineLook.darkOnAccent else DisciplineLook.ink,
+                        animationSpec = tween(if (reduceMotion) 0 else 170),
+                        label = "today-page-label-$key"
+                    )
+                    val textScale by animateFloatAsState(
+                        if (active) 1f else 0.96f,
+                        animationSpec = if (reduceMotion) snap() else spring(
+                            dampingRatio = TracksideLiquidMotion.DAMPING,
+                            stiffness = TracksideLiquidMotion.STIFFNESS
+                        ),
+                        label = "today-page-text-scale-$key"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(14.dp))
+                            .selectable(selected = active, role = Role.Tab) {
+                                if (key != selectedKey) {
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    onSelect(key)
+                                }
+                            }
+                            .testTag("today-page-$key")
+                            .semantics { selected = active },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .padding(horizontal = 6.dp)
+                                .graphicsLayer {
+                                    scaleX = textScale
+                                    scaleY = textScale
+                                },
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (key != "all" && !active) {
+                                Box(
+                                    Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(itemAccent)
+                                )
+                                Spacer(Modifier.width(5.dp))
+                            }
+                            Text(
+                                text = if (options.size >= 4 && title == "Conditioning") "Cond"
+                                else if (options.size >= 4 && title == "Calisthenics") "Cali"
+                                else title,
+                                color = ink,
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                fontWeight = if (active) FontWeight.ExtraBold else FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Reusable liquid-water segmented control with palette highlighting and zero checkboxes/radios.
+ */
+@Composable
+internal fun StrideLabLiquidSegmentedControl(
+    labels: List<Pair<String, String>>,
+    selectedKey: String,
+    accent: Color = DisciplineLook.lime,
+    reduceMotion: Boolean = false,
+    testTagPrefix: String,
+    onSelect: (String) -> Unit
+) {
+    val haptics = LocalHapticFeedback.current
+    val selectedIndex = labels.indexOfFirst { it.first == selectedKey }.coerceAtLeast(0)
+    val capsulePos = remember(labels.size) { Animatable(selectedIndex.toFloat()) }
+    LaunchedEffect(selectedIndex, labels.size, reduceMotion) {
+        val target = selectedIndex.toFloat()
+        if (reduceMotion) capsulePos.snapTo(target)
+        else capsulePos.animateTo(
+            target,
+            animationSpec = spring(
+                dampingRatio = TracksideLiquidMotion.DAMPING,
+                stiffness = TracksideLiquidMotion.STIFFNESS
+            )
+        )
+    }
+
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(DisciplineLook.panelRaised)
+            .padding(3.dp)
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            val count = labels.size.coerceAtLeast(1)
+            val cellWidth = size.width / count
+            val currentX = capsulePos.value * cellWidth
+            val targetX = selectedIndex * cellWidth
+            val pressure = TracksideLiquidMotion.pressure(capsulePos.value, selectedIndex.toFloat(), 1f)
+            val movingRight = targetX >= currentX
+            val wake = pressure * 8.dp.toPx()
+            val h = size.height.coerceAtLeast(1f)
+            val r = CornerRadius(11.dp.toPx(), 11.dp.toPx())
+            if (wake > 0.5f) {
+                val wakeX = if (movingRight) (currentX - wake).coerceAtLeast(0f) else currentX + cellWidth
+                drawRoundRect(
+                    color = accent.copy(alpha = 0.22f * pressure),
+                    topLeft = Offset(wakeX, h * 0.14f),
+                    size = Size((wake + 4.dp.toPx()).coerceAtMost(size.width - wakeX), h * 0.72f),
+                    cornerRadius = r
+                )
+            }
+            val stretchPx = pressure * 5.dp.toPx()
+            val left = (currentX - if (!movingRight) stretchPx else 0f).coerceIn(0f, (size.width - cellWidth).coerceAtLeast(0f))
+            val width = (cellWidth + stretchPx).coerceAtMost(size.width - left)
+            drawRoundRect(
+                color = accent,
+                topLeft = Offset(left, 0f),
+                size = Size(width, h),
+                cornerRadius = r
+            )
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .selectableGroup(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            options.forEach { (key, title) ->
+            labels.forEach { (key, title) ->
                 val active = key == selectedKey
-                val itemAccent = DisciplineLook.accentForKey(key)
-                val background by animateColorAsState(
-                    if (active) itemAccent else Color.Transparent,
-                    animationSpec = tween(if (reduceMotion) 0 else 210),
-                    label = "today-page-pill-$key"
-                )
-                val pillScale by animateFloatAsState(
-                    if (active) 1f else .98f,
-                    animationSpec = if (reduceMotion) snap() else spring(
-                        dampingRatio = TracksideLiquidMotion.DAMPING,
-                        stiffness = TracksideLiquidMotion.STIFFNESS
-                    ),
-                    label = "today-page-spring-$key"
-                )
-                val ink by animateColorAsState(
+                val textColor by animateColorAsState(
                     if (active) DisciplineLook.darkOnAccent else DisciplineLook.ink,
-                    animationSpec = tween(if (reduceMotion) 0 else 210),
-                    label = "today-page-label-$key"
+                    animationSpec = tween(if (reduceMotion) 0 else 150),
+                    label = "seg-$testTagPrefix-$key"
                 )
-                Surface(
-                    onClick = {
-                        if (key != selectedKey) {
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onSelect(key)
-                        }
-                    },
-                    color = background,
-                    shape = RoundedCornerShape(14.dp),
+                Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(40.dp)
-                        .graphicsLayer {
-                            scaleX = pillScale
-                            scaleY = pillScale
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(11.dp))
+                        .selectable(selected = active, role = Role.Tab) {
+                            if (key != selectedKey) {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onSelect(key)
+                            }
                         }
-                        .testTag("today-page-$key")
-                        .semantics { selected = active }
+                        .testTag("$testTagPrefix-$key")
+                        .semantics { selected = active },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 6.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (key != "all" && !active) {
-                            Box(
-                                Modifier
-                                    .size(6.dp)
-                                    .clip(CircleShape)
-                                    .background(itemAccent)
-                            )
-                            Spacer(Modifier.width(5.dp))
-                        }
-                        Text(
-                            text = if (options.size >= 4 && title == "Conditioning") "Cond"
-                            else if (options.size >= 4 && title == "Calisthenics") "Cali"
-                            else title,
-                            color = ink,
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            fontWeight = if (active) FontWeight.ExtraBold else FontWeight.SemiBold
-                        )
-                    }
+                    Text(
+                        text = title,
+                        color = textColor,
+                        fontSize = 12.sp,
+                        fontWeight = if (active) FontWeight.ExtraBold else FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
                 }
             }
         }
@@ -223,6 +405,9 @@ private fun time(value: Double): String {
 internal fun TodayDisciplineDashboard(
     discipline: TodayDiscipline,
     trend: List<TodayDisciplineWeek>,
+    runningReview: List<RunningWeekCoach> = emptyList(),
+    plans: List<PlanSnapshot> = emptyList(),
+    today: LocalDate = LocalDate.now(),
     reduceMotion: Boolean,
     onOpenActivity: (String) -> Unit,
     onOpenWorkout: (String, String) -> Unit
@@ -287,53 +472,62 @@ internal fun TodayDisciplineDashboard(
             }
         }
 
-        // Hero Volume / Time Panel
-        DisciplinePanel(accent = tint) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    if (showDistance) "WEEKLY DISTANCE" else "RECORDED TRAINING TIME",
-                    Modifier.weight(1f),
-                    color = DisciplineLook.muted,
-                    fontSize = 10.sp,
-                    letterSpacing = 1.3.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    "${week.activeDays} active day${if (week.activeDays == 1) "" else "s"}",
-                    color = tint,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            Text(
-                primary,
-                color = tint,
-                fontSize = 38.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = (-1).sp,
-                modifier = Modifier.testTag("today-discipline-primary")
-            )
-            DisciplineWeekBars(
-                data = if (showDistance) week.distanceByDay else week.secondsByDay,
-                presence = week.sessionsByDay,
-                tint = tint,
+        if (discipline == TodayDiscipline.RUNNING) {
+            RunningWeekOverview(
+                week = week,
+                review = runningReview.lastOrNull(),
                 reduceMotion = reduceMotion
             )
-            if (week.sessions == 0) {
+        } else {
+            // Non-Running Hero Volume / Time Panel
+            DisciplinePanel(accent = tint) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "RECORDED TRAINING TIME",
+                        Modifier.weight(1f),
+                        color = DisciplineLook.muted,
+                        fontSize = 10.sp,
+                        letterSpacing = 1.3.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "${week.activeDays} active day${if (week.activeDays == 1) "" else "s"}",
+                        color = tint,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
                 Text(
-                    "No recorded ${discipline.title.lowercase(Locale.ROOT)} this week",
-                    color = DisciplineLook.subdued,
-                    fontSize = 12.sp
+                    primary,
+                    color = tint,
+                    fontSize = 38.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-1).sp,
+                    modifier = Modifier.testTag("today-discipline-primary")
                 )
-            } else if (week.missingDuration > 0 || (showDistance && week.missingDistance > 0)) {
-                Text(
-                    "Partial totals · some sessions have missing metrics",
-                    color = DisciplineLook.subdued,
-                    fontSize = 11.sp
+                DisciplineWeekBars(
+                    data = week.secondsByDay,
+                    presence = week.sessionsByDay,
+                    tint = tint,
+                    reduceMotion = reduceMotion
                 )
+                if (week.sessions == 0) {
+                    Text(
+                        "No recorded ${discipline.title.lowercase(Locale.ROOT)} this week",
+                        color = DisciplineLook.subdued,
+                        fontSize = 12.sp
+                    )
+                } else if (week.missingDuration > 0) {
+                    Text(
+                        "Partial totals · some sessions have missing metrics",
+                        color = DisciplineLook.subdued,
+                        fontSize = 11.sp
+                    )
+                }
             }
         }
 
+        // 28-Day Consistency Heatmap across recent weeks
         val completedDates = trend.flatMap { w ->
             w.sessionsByDay.mapIndexedNotNull { idx, count ->
                 if (count > 0) w.start.plusDays(idx.toLong()) else null
@@ -345,101 +539,94 @@ internal fun TodayDisciplineDashboard(
             asOf = week.start.plusDays(6)
         )
 
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            DisciplineMetric("TRAINING DAYS", "${week.activeDays}", tint, Modifier.weight(1f))
-            DisciplineMetric("SESSIONS", "${week.sessions}", tint, Modifier.weight(1f))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            DisciplineMetric(
-                "RECORDED TIME",
-                week.recordedSeconds?.let(::time) ?: "—",
-                tint,
-                Modifier.weight(1f)
+        if (discipline == TodayDiscipline.RUNNING) {
+            RunningWeekReview(
+                reviews = runningReview,
+                plans = plans,
+                today = today,
+                reduceMotion = reduceMotion
             )
-            DisciplineMetric(
-                if (discipline == TodayDiscipline.RUNNING) "AVG RUN HR" else "AVG SESSION",
-                if (discipline == TodayDiscipline.RUNNING)
-                    week.averageRecordedHr?.let { "${it.toInt()} bpm" } ?: "—"
-                else {
-                    val timedSessions = week.sessions - week.missingDuration
-                    if (timedSessions > 0 && week.recordedSeconds != null)
-                        time(week.recordedSeconds / timedSessions)
-                    else "—"
-                },
-                tint,
-                Modifier.weight(1f)
-            )
-        }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                DisciplineMetric("TRAINING DAYS", "${week.activeDays}", tint, Modifier.weight(1f))
+                DisciplineMetric("SESSIONS", "${week.sessions}", tint, Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                DisciplineMetric(
+                    "RECORDED TIME",
+                    week.recordedSeconds?.let(::time) ?: "—",
+                    tint,
+                    Modifier.weight(1f)
+                )
+                val timedSessions = week.sessions - week.missingDuration
+                DisciplineMetric(
+                    "AVG SESSION",
+                    if (timedSessions > 0 && week.recordedSeconds != null) time(week.recordedSeconds / timedSessions) else "—",
+                    tint,
+                    Modifier.weight(1f)
+                )
+            }
 
-        DisciplinePanel {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            DisciplinePanel {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "TRAINING EFFORT",
+                        color = DisciplineLook.muted,
+                        modifier = Modifier.weight(1f),
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.3.sp,
+                        fontSize = 10.sp
+                    )
+                    Text("DURATION", color = tint, fontWeight = FontWeight.ExtraBold, fontSize = 10.sp)
+                }
+                DisciplineWeekBars(week.secondsByDay, week.sessionsByDay, tint, reduceMotion)
                 Text(
-                    "TRAINING EFFORT",
-                    color = DisciplineLook.muted,
-                    modifier = Modifier.weight(1f),
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.3.sp,
-                    fontSize = 10.sp
+                    "Recorded duration by day",
+                    color = DisciplineLook.subdued,
+                    fontSize = 11.sp
                 )
-                Text("DURATION", color = tint, fontWeight = FontWeight.ExtraBold, fontSize = 10.sp)
             }
-            DisciplineWeekBars(week.secondsByDay, week.sessionsByDay, tint, reduceMotion)
-            Text(
-                "Recorded duration by day",
-                color = DisciplineLook.subdued,
-                fontSize = 11.sp
-            )
-        }
 
-        DisciplinePanel {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "4-WEEK TREND",
-                    color = DisciplineLook.muted,
-                    fontSize = 10.sp,
-                    letterSpacing = 1.3.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                val distanceTrend = discipline == TodayDiscipline.RUNNING &&
-                    trend.any { it.recordedDistanceM != null }
-                Text(
-                    if (distanceTrend) "KM / WEEK" else "MIN / WEEK",
-                    color = tint,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.ExtraBold
-                )
-            }
-            val distanceTrend = discipline == TodayDiscipline.RUNNING &&
-                trend.any { it.recordedDistanceM != null }
-            val values = trend.map {
-                if (distanceTrend) it.recordedDistanceM else
-                    it.recordedSeconds?.div(60.0)
-            }
-            DisciplineTrendLine(values, tint, reduceMotion)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                trend.forEachIndexed { index, item ->
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            item.start.format(DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())),
-                            color = DisciplineLook.muted,
-                            fontSize = 10.sp
-                        )
-                        Text(
-                            values[index]?.let {
-                                if (distanceTrend) String.format(Locale.getDefault(), "%.1f km", it / 1000)
-                                else "${it.toLong()}m"
-                            } ?: "—",
-                            color = if (index == 3) tint else DisciplineLook.ink,
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
+            DisciplinePanel {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "4-WEEK TREND",
+                        color = DisciplineLook.muted,
+                        fontSize = 10.sp,
+                        letterSpacing = 1.3.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "MIN / WEEK",
+                        color = tint,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+                val values = trend.map { it.recordedSeconds?.div(60.0) }
+                DisciplineTrendLine(values, tint, reduceMotion)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    trend.forEachIndexed { index, item ->
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                item.start.format(DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())),
+                                color = DisciplineLook.muted,
+                                fontSize = 10.sp
+                            )
+                            Text(
+                                values[index]?.toLong()?.let { "${it}m" } ?: "—",
+                                color = if (index == trend.lastIndex) tint else DisciplineLook.ink,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
                     }
                 }
             }
@@ -465,20 +652,19 @@ internal fun TodayDisciplineDashboard(
         if (recent.isNotEmpty()) {
             DisciplinePanel {
                 Text(
-                    "SAVED SESSIONS",
+                    if (discipline == TodayDiscipline.RUNNING) "RUNS THIS WEEK" else "SAVED SESSIONS",
                     color = DisciplineLook.muted,
                     fontSize = 10.sp,
                     letterSpacing = 1.3.sp,
                     fontWeight = FontWeight.Bold
                 )
                 recent.forEach { (date, label, id) ->
+                    val source = week.sourceActivities.firstOrNull { it.id == id }
+                    val workout = week.nativeWorkouts.firstOrNull { it.planId + "|" + it.sessionId == id }
                     Surface(
                         onClick = {
-                            val source = week.sourceActivities.firstOrNull { it.id == id }
                             if (source != null) onOpenActivity(source.id)
-                            else week.nativeWorkouts.firstOrNull {
-                                it.planId + "|" + it.sessionId == id
-                            }?.let { onOpenWorkout(it.planId, it.sessionId) }
+                            else workout?.let { onOpenWorkout(it.planId, it.sessionId) }
                         },
                         color = DisciplineLook.panelRaised,
                         shape = RoundedCornerShape(13.dp),
@@ -495,15 +681,32 @@ internal fun TodayDisciplineDashboard(
                         ) {
                             Box(Modifier.size(7.dp).background(tint, CircleShape))
                             Spacer(Modifier.width(10.dp))
-                            Text(
-                                label,
-                                color = DisciplineLook.ink,
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
-                            )
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    label,
+                                    color = DisciplineLook.ink,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                if (discipline == TodayDiscipline.RUNNING) {
+                                    val meta = listOfNotNull(
+                                        (source?.distanceM ?: workout?.distanceM)?.takeIf { it.isFinite() && it >= 0 }?.let(::km),
+                                        (source?.durationS ?: workout?.durationSeconds)?.takeIf { it.isFinite() && it >= 0 }?.let(::time),
+                                        source?.averageHr?.takeIf { it.isFinite() && it > 0 }?.let { "${it.toInt()} bpm" }
+                                    )
+                                    if (meta.isNotEmpty()) {
+                                        Text(
+                                            meta.joinToString(" · "),
+                                            color = DisciplineLook.subdued,
+                                            fontSize = 11.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 date.format(DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())),
@@ -516,6 +719,249 @@ internal fun TodayDisciplineDashboard(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun RunningWeekOverview(
+    week: TodayDisciplineWeek,
+    review: RunningWeekCoach?,
+    reduceMotion: Boolean
+) {
+    val haptics = LocalHapticFeedback.current
+    var metricKey by rememberSaveable { mutableStateOf("distance") }
+    val byDistance = metricKey == "distance"
+    var selectedDay by rememberSaveable(week.start.toString()) {
+        mutableStateOf(week.sessionsByDay.indexOfLast { it > 0 }.coerceAtLeast(0))
+    }
+    var entered by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { entered = true }
+
+    val unit = if (byDistance) "distance" else "time"
+    val total = if (byDistance) week.recordedDistanceM else week.recordedSeconds
+    val format: (Double) -> String = if (byDistance) ::km else ::time
+    val values = if (byDistance) week.distanceByDay else week.secondsByDay
+    val missing = if (byDistance) week.missingDistance else week.missingDuration
+    val peak = values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
+    val zone = ZoneId.systemDefault()
+    val metricsByDay = remember(week, byDistance, zone) {
+        val imported = week.sourceActivities.map {
+            it.startedAt.atZone(zone).toLocalDate() to if (byDistance) it.distanceM else it.durationS
+        }
+        val logged = week.nativeWorkouts.map {
+            it.date to if (byDistance) it.distanceM else it.durationSeconds
+        }
+        (imported + logged).groupBy({ it.first }, { it.second })
+    }
+    val dayLabel = DateTimeFormatter.ofPattern("EEEE", Locale.getDefault())
+    val sessions = if (week.sessions == 1) "1 run" else "${week.sessions} runs"
+    val days = if (week.activeDays == 1) "1 day" else "${week.activeDays} days"
+
+    fun dayValue(index: Int): String {
+        val count = week.sessionsByDay[index]
+        if (count == 0) return "No runs"
+        val known = metricsByDay[week.start.plusDays(index.toLong())].orEmpty()
+            .count { it != null && it.isFinite() && it >= 0 }
+        return when {
+            known == 0 -> "${if (byDistance) "Distance" else "Time"} unavailable"
+            known < count -> "${format(values[index])} recorded · partial"
+            else -> format(values[index])
+        }
+    }
+
+    DisciplinePanel(accent = DisciplineLook.lime) {
+        Text(
+            "YOUR WEEK IN RUNNING",
+            color = DisciplineLook.muted,
+            fontSize = 10.sp,
+            letterSpacing = 1.3.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            "Your week in running",
+            color = DisciplineLook.ink,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 17.sp
+        )
+        StrideLabLiquidSegmentedControl(
+            labels = listOf("distance" to "Distance", "time" to "Time"),
+            selectedKey = metricKey,
+            accent = DisciplineLook.lime,
+            reduceMotion = reduceMotion,
+            testTagPrefix = "today-running-metric",
+            onSelect = { metricKey = it }
+        )
+        Text(
+            total?.let(format) ?: if (week.sessions == 0) "No runs yet" else "—",
+            color = DisciplineLook.lime,
+            fontSize = 38.sp,
+            fontWeight = FontWeight.ExtraBold,
+            letterSpacing = (-1).sp,
+            modifier = Modifier.testTag("today-discipline-primary")
+        )
+        Text("$sessions across $days", color = DisciplineLook.subdued, fontSize = 13.5.sp)
+        review?.mostPerformed?.let { type ->
+            val typeAccent = runTypeColor(type)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(typeAccent.copy(alpha = 0.14f))
+                    .padding(horizontal = 10.dp, vertical = 5.dp)
+            ) {
+                Box(Modifier.size(7.dp).background(typeAccent, CircleShape))
+                Text(
+                    "Most common: ${type.label}",
+                    color = typeAccent,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+        if (missing > 0) {
+            Text(
+                if (total == null) "No $unit saved for these runs."
+                else "$missing ${if (missing == 1) "run has" else "runs have"} no $unit recorded.",
+                color = DisciplineLook.subdued,
+                fontSize = 12.sp
+            )
+        }
+
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .selectableGroup()
+                .testTag("today-discipline-week-bars"),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            values.forEachIndexed { index, value ->
+                val date = week.start.plusDays(index.toLong())
+                val active = index == selectedDay
+                val hasRun = week.sessionsByDay.getOrElse(index) { 0 } > 0
+                val rawFrac = if (value > 0) (value / peak).toFloat().coerceIn(0.10f, 1f) else if (hasRun) 0.12f else 0f
+                val animatedFrac by animateFloatAsState(
+                    targetValue = if (entered) rawFrac else 0f,
+                    animationSpec = if (reduceMotion) snap() else spring(
+                        dampingRatio = TracksideLiquidMotion.DAMPING,
+                        stiffness = TracksideLiquidMotion.STIFFNESS
+                    ),
+                    label = "running-week-bar-$index"
+                )
+                val tileBg by animateColorAsState(
+                    if (active) StrideLabVisualPalette.limeTint else Color.Transparent,
+                    animationSpec = tween(if (reduceMotion) 0 else 170),
+                    label = "running-day-tile-$index"
+                )
+                val tileBorder by animateColorAsState(
+                    if (active) DisciplineLook.lime.copy(alpha = 0.65f) else Color.Transparent,
+                    animationSpec = tween(if (reduceMotion) 0 else 170),
+                    label = "running-day-border-$index"
+                )
+                Surface(
+                    color = tileBg,
+                    shape = RoundedCornerShape(12.dp),
+                    border = if (active) BorderStroke(1.dp, tileBorder) else null,
+                    modifier = Modifier
+                        .weight(1f)
+                        .selectable(active, role = Role.Tab) {
+                            if (selectedDay != index) {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                selectedDay = index
+                            }
+                        }
+                        .testTag("today-running-day-$index")
+                        .semantics { contentDescription = "${date.format(dayLabel)}, ${dayValue(index)}" }
+                ) {
+                    Column(
+                        Modifier.padding(vertical = 6.dp, horizontal = 2.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            Modifier
+                                .height(92.dp)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.BottomCenter
+                        ) {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth(0.56f)
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(7.dp))
+                                    .background(DisciplineLook.panelRaised)
+                            )
+                            if (animatedFrac > 0f) {
+                                Box(
+                                    Modifier
+                                        .fillMaxWidth(0.56f)
+                                        .height((92f * animatedFrac).dp)
+                                        .clip(RoundedCornerShape(topStart = 7.dp, topEnd = 7.dp, bottomStart = 3.dp, bottomEnd = 3.dp))
+                                        .background(
+                                            if (active) StrideLabVisualPalette.barGradient(DisciplineLook.lime)
+                                            else StrideLabVisualPalette.barGradient(DisciplineLook.lime, alphaScale = 0.58f)
+                                        )
+                                ) {
+                                    Box(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .height(2.5.dp)
+                                            .align(Alignment.TopCenter)
+                                            .background(if (active) DisciplineLook.lime else DisciplineLook.lime.copy(alpha = 0.72f))
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            date.format(DateTimeFormatter.ofPattern("EEEEE", Locale.getDefault())),
+                            color = if (active) DisciplineLook.lime else DisciplineLook.subdued,
+                            fontSize = 11.5.sp,
+                            fontWeight = if (active) FontWeight.ExtraBold else FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
+
+        Surface(
+            color = DisciplineLook.panelRaised,
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, DisciplineLook.border),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 13.dp, vertical = 11.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    week.start.plusDays(selectedDay.toLong()).format(dayLabel),
+                    color = DisciplineLook.ink,
+                    modifier = Modifier.weight(1f),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    dayValue(selectedDay),
+                    color = DisciplineLook.lime,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("today-running-day-value"),
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = TextAlign.End
+                )
+            }
+        }
+        week.averageRecordedHr?.let { hr ->
+            Text(
+                "Average run heart rate: ${hr.toInt()} bpm across ${week.hrCoverage} of ${week.sessions} runs",
+                color = DisciplineLook.subdued,
+                fontSize = 12.sp
+            )
         }
     }
 }
@@ -629,31 +1075,32 @@ private fun DisciplineWeekBars(
 private fun DisciplineTrendLine(
     values: List<Double?>,
     tint: Color,
-    reduceMotion: Boolean
+    reduceMotion: Boolean,
+    selected: Int? = null
 ) {
     var entered by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { entered = true }
     val peak = values.filterNotNull().maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
     val reveal by animateFloatAsState(
         targetValue = if (entered) 1f else 0f,
-        animationSpec = if (reduceMotion) snap() else tween(440),
+        animationSpec = if (reduceMotion) snap() else tween(440, easing = FastOutSlowInEasing),
         label = "today-trend-reveal"
     )
     Canvas(
         Modifier
             .fillMaxWidth()
-            .height(92.dp)
+            .height(96.dp)
             .semantics {
-                contentDescription = "Four-week recorded totals: " +
+                contentDescription = "Weekly recorded totals: " +
                     values.joinToString(", ") { it?.toInt()?.toString() ?: "unavailable" }
             }
             .testTag("today-discipline-trend")
     ) {
-        val inset = 10.dp.toPx()
+        val inset = if (selected == null) 10.dp.toPx() else size.width / (values.size * 2f).coerceAtLeast(2f)
         val w = (size.width - inset * 2).coerceAtLeast(1f)
         val h = (size.height - inset * 2).coerceAtLeast(1f)
         val points = values.mapIndexed { i, value ->
-            val x = inset + i * w / 3f
+            val x = inset + i * w / (values.size - 1).coerceAtLeast(1)
             val y = size.height - inset -
                 ((value ?: 0.0) / peak).toFloat().coerceIn(0f, 1f) * h * reveal
             Offset(x, y)
@@ -682,17 +1129,401 @@ private fun DisciplineTrendLine(
             )
         }
         values.forEachIndexed { index, value ->
-            if (value != null) {
-                drawCircle(
-                    color = tint.copy(alpha = 0.25f),
-                    radius = 7.dp.toPx(),
-                    center = points[index]
+            if (index == selected) {
+                val x = points[index].x
+                drawLine(tint.copy(alpha = 0.28f), Offset(x, 0f), Offset(x, size.height), strokeWidth = 1.5.dp.toPx())
+                if (value != null) drawCircle(tint.copy(alpha = 0.30f), 9.dp.toPx(), points[index])
+            }
+            if (value != null) drawCircle(tint, 4.dp.toPx(), points[index])
+        }
+    }
+}
+
+@Composable
+private fun RunningWeekReview(
+    reviews: List<RunningWeekCoach>,
+    plans: List<PlanSnapshot>,
+    today: LocalDate,
+    reduceMotion: Boolean
+) {
+    val current = reviews.lastOrNull() ?: return
+    val week = current.week
+    val known = week.sessions - (current.types[WeeklyRunType.UNKNOWN] ?: 0)
+    if (week.sessions > 0) {
+        DisciplinePanel {
+            RunningReviewTitle("Training breakdown")
+            Text("$known of ${week.sessions} runs classified", color = DisciplineLook.subdued, fontSize = 13.sp)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(10.dp)
+                    .clip(RoundedCornerShape(8.dp)),
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                WeeklyRunType.entries.forEach { type ->
+                    val count = current.types[type] ?: 0
+                    if (count > 0) Box(
+                        Modifier
+                            .weight(count.toFloat())
+                            .fillMaxHeight()
+                            .background(runTypeColor(type))
+                    )
+                }
+            }
+            WeeklyRunType.entries.forEach { type ->
+                val count = current.types[type] ?: 0
+                if (count > 0 || type in listOf(WeeklyRunType.EASY, WeeklyRunType.LONG, WeeklyRunType.QUALITY)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.size(8.dp).background(runTypeColor(type), CircleShape))
+                        Text(type.label, color = DisciplineLook.ink, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        Text("$count", color = DisciplineLook.subdued, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                }
+            }
+            current.qualityTypes.takeIf { it.isNotEmpty() }?.let { types ->
+                Text(
+                    types.entries.joinToString(" · ") { "${it.key} ${it.value}" },
+                    color = DisciplineLook.subdued,
+                    fontSize = 12.5.sp
                 )
-                drawCircle(
-                    color = tint,
-                    radius = 4.dp.toPx(),
-                    center = points[index]
+            }
+        }
+    }
+
+    TrainingWeeksChart(reviews, plans, today, reduceMotion)
+
+    if (week.sessions > 0) {
+        DisciplinePanel { RunningCoachSummary(current) }
+    }
+
+    val complete = reviews.filter { it.week.start.plusDays(6).isBefore(today) }
+    val recent = complete.takeLast(3)
+    val prior = complete.dropLast(3).takeLast(3)
+    if (recent.size == 3 && prior.size == 3 && (recent + prior).all { it.week.sessions > 0 }) {
+        val six = prior + recent
+        DisciplinePanel {
+            RunningReviewTitle("Training progression")
+            Text("Latest 3 completed weeks vs the previous 3", color = DisciplineLook.subdued, fontSize = 13.sp)
+            val distanceChange = if (six.all { it.completeDistance != null })
+                runningPercentChange(recent.map { it.completeDistance!! }.average(),
+                    prior.map { it.completeDistance!! }.average()) else null
+            val dayChange = recent.map { it.week.activeDays }.average() -
+                prior.map { it.week.activeDays }.average()
+            Text(
+                when {
+                    distanceChange != null && distanceChange > 10 && dayChange <= 0 ->
+                        "You covered more ground without adding running days. Open Distance to see where the extra kilometers came from."
+                    distanceChange != null && distanceChange < -10 ->
+                        "You covered less distance in the latest block. Check whether the drop was planned."
+                    dayChange > .3 -> "You ran on more days in the latest block. Open Days run to see how that changed week to week."
+                    else -> "Tap any row below to inspect how the six weeks fit together."
+                },
+                color = DisciplineLook.ink,
+                fontSize = 13.sp
+            )
+            val lighterPlanWeeks = recent.mapNotNull { runningPlanWeekLabel(it.week.start, plans) }
+                .filter { it in setOf("Plan · Taper", "Plan · Deload", "Plan · Recovery") }.distinct()
+            if (lighterPlanWeeks.isNotEmpty()) {
+                Text(
+                    "Recent plan context: ${lighterPlanWeeks.joinToString { it.substringAfter(" · ") }}. A lighter week may be part of the plan.",
+                    color = DisciplineLook.subdued,
+                    fontSize = 12.5.sp
                 )
+            }
+            RunningProgressionRow("Days run per week", six.map { it.week.activeDays.toDouble() }) {
+                String.format(Locale.getDefault(), "%.1f days", it)
+            }
+            if (six.all { it.completeDistance != null }) {
+                RunningProgressionRow("Distance per week", six.map { it.completeDistance!! }, ::runningKm)
+                if (six.all { it.longestMeters != null }) {
+                    RunningProgressionRow("Longest run each week", six.map { it.longestMeters!! }, ::runningKm)
+                }
+            }
+            if (six.all { WeeklyRunType.UNKNOWN !in it.types } && six.any { WeeklyRunType.QUALITY in it.types }) {
+                RunningProgressionRow("Quality runs per week", six.map { (it.types[WeeklyRunType.QUALITY] ?: 0).toDouble() }) {
+                    String.format(Locale.getDefault(), "%.1f runs", it)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RunningCoachSummary(current: RunningWeekCoach) {
+    val week = current.week
+    val known = week.sessions - (current.types[WeeklyRunType.UNKNOWN] ?: 0)
+    RunningReviewTitle("Coach insights")
+    val dominant = current.mostPerformed?.label?.lowercase(Locale.getDefault())
+    val finding = CoachingFinding(
+        observation = when {
+            known == 0 -> "You logged ${week.sessions} ${if (week.sessions == 1) "run" else "runs"}."
+            dominant == null -> "Your classified runs covered a mix of workout types."
+            else -> "Of the runs I could classify, $dominant came up most often."
+        },
+        interpretation = if (known == 0) "The recordings don’t show what kind of running you did yet." else "",
+        evidence = listOf("$known of ${week.sessions} runs classified."),
+        recommendation = when {
+            known < week.sessions -> "Review any unclear workout types in Activity Analysis to sharpen how easy and hard running is balanced."
+            current.types[WeeklyRunType.QUALITY] != null -> "Think back to the last hard session. If you had to push earlier than planned, try a steadier start next time."
+            else -> "Let the next run’s purpose set the pace. If it’s an easy day, aim for an effort that lets you finish a full sentence."
+        },
+        confidence = if (known < week.sessions) "Some workout types are unknown." else "Every saved run has a workout type."
+    )
+    Text(
+        listOf(finding.observation, finding.interpretation).filter { it.isNotBlank() }.joinToString(" "),
+        color = DisciplineLook.ink,
+        fontSize = 13.5.sp
+    )
+    val positives = listOfNotNull(
+        if (week.activeDays > 1) "You spread your running across ${week.activeDays} days." else null,
+        if (known == week.sessions && current.types[WeeklyRunType.EASY] != null &&
+            current.types[WeeklyRunType.QUALITY] != null
+        ) "You made room for easy runs as well as harder sessions." else null
+    )
+    if (positives.isNotEmpty()) {
+        Text("What went well", color = DisciplineLook.lime, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        positives.forEach { Text(it, color = DisciplineLook.subdued, fontSize = 13.sp) }
+    }
+    if (week.missingDistance > 0) {
+        Text(
+            "Some runs are missing distance. Check those recordings before using this week’s total to plan next week.",
+            color = DisciplineLook.subdued,
+            fontSize = 12.5.sp
+        )
+    }
+    Text("Next focus", color = DisciplineLook.lime, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+    Text(finding.recommendation, color = DisciplineLook.ink, fontSize = 13.sp)
+}
+
+@Composable
+private fun RunningProgressionRow(label: String, values: List<Double>, format: (Double) -> String) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val earlier = values.take(3).average()
+    val latest = values.takeLast(3).average()
+    val change = runningPercentChange(latest, earlier)
+    val peak = values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Surface(
+            onClick = { expanded = !expanded },
+            shape = RoundedCornerShape(12.dp),
+            color = if (expanded) StrideLabVisualPalette.limeTint else DisciplineLook.panelRaised,
+            border = BorderStroke(1.dp, if (expanded) DisciplineLook.lime.copy(alpha = 0.55f) else DisciplineLook.border)
+        ) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(label, color = DisciplineLook.ink, fontWeight = FontWeight.SemiBold, fontSize = 13.5.sp)
+                    Text("${format(earlier)} → ${format(latest)}", color = DisciplineLook.subdued, fontSize = 12.5.sp)
+                }
+                Text(
+                    listOfNotNull(change?.let(::runningPercentLabel), if (expanded) "−" else "+").joinToString("  "),
+                    color = DisciplineLook.lime,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(64.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    values.forEachIndexed { index, value ->
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .height((64 * value / peak).dp.coerceAtLeast(4.dp))
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(
+                                    if (index < 3) StrideLabVisualPalette.barGradient(DisciplineLook.lime, alphaScale = 0.52f)
+                                    else StrideLabVisualPalette.barGradient(DisciplineLook.lime)
+                                )
+                                .semantics { contentDescription = "Week ${index + 1}: ${format(value)}" }
+                        )
+                    }
+                }
+                Text(
+                    "Previous 3: ${values.take(3).joinToString(" · ", transform = format)}",
+                    color = DisciplineLook.subdued,
+                    fontSize = 12.sp
+                )
+                Text(
+                    "Latest 3: ${values.takeLast(3).joinToString(" · ", transform = format)}",
+                    color = DisciplineLook.subdued,
+                    fontSize = 12.sp
+                )
+                Text(
+                    when {
+                        change == null -> "There’s no earlier baseline for a percentage comparison."
+                        kotlin.math.abs(change) <= 10 -> "The averages stayed close. Check the individual weeks for variation."
+                        change < 0 -> "The average came down. Compare the lighter weeks with what your plan called for."
+                        values.zipWithNext().any { (from, to) -> from > 0 && to > from * 1.25 } ->
+                            "Some of the increase came in a big step. Check how that week felt before adding more."
+                        else -> "The average rose without a large jump between these weeks. Let how the runs felt guide what you add next."
+                    },
+                    color = DisciplineLook.ink,
+                    fontSize = 12.5.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RunningReviewTitle(title: String) {
+    Text(title, color = DisciplineLook.ink, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
+}
+
+private fun runTypeColor(type: WeeklyRunType): Color = when (type) {
+    WeeklyRunType.EASY -> DisciplineLook.lime
+    WeeklyRunType.LONG -> StrideLabVisualPalette.easyTeal
+    WeeklyRunType.QUALITY -> StrideLabVisualPalette.moderateAmber
+    WeeklyRunType.OTHER -> StrideLabVisualPalette.calisthenicsViolet
+    WeeklyRunType.UNKNOWN -> DisciplineLook.muted
+}
+
+private enum class WeeksMetric(val label: String) {
+    DISTANCE("Distance"), RUNS("Runs"), LONG("Long run"), QUALITY("Quality");
+
+    fun value(review: RunningWeekCoach): Double? = when (this) {
+        DISTANCE -> review.week.recordedDistanceM
+        RUNS -> review.week.sessions.toDouble()
+        LONG -> review.longestMeters
+        QUALITY -> if (WeeklyRunType.UNKNOWN in review.types) null
+        else (review.types[WeeklyRunType.QUALITY] ?: 0).toDouble()
+    }
+
+    fun format(value: Double): String = when (this) {
+        DISTANCE, LONG -> runningKm(value)
+        RUNS, QUALITY -> "${value.toInt()} ${if (value == 1.0) "run" else "runs"}"
+    }
+
+    fun complete(review: RunningWeekCoach): Boolean =
+        value(review) != null && (this !in listOf(DISTANCE, LONG) || review.week.missingDistance == 0)
+}
+
+@Composable
+private fun TrainingWeeksChart(
+    reviews: List<RunningWeekCoach>,
+    plans: List<PlanSnapshot>,
+    today: LocalDate,
+    reduceMotion: Boolean
+) {
+    var metricName by rememberSaveable { mutableStateOf(WeeksMetric.DISTANCE.name) }
+    var selectedIndex by rememberSaveable(reviews.last().week.start) { mutableStateOf(reviews.lastIndex) }
+    var details by rememberSaveable(reviews.last().week.start) { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
+    val metric = WeeksMetric.valueOf(metricName)
+    val selected = reviews[selectedIndex]
+    val values = reviews.map(metric::value)
+    val date = DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
+    val completed = selected.week.start.plusDays(6).isBefore(today)
+    val previous = reviews.getOrNull(selectedIndex - 1)
+    val status = runningPlanWeekLabel(selected.week.start, plans)
+        ?: runningWeekVolumeLabel(selected, previous, today)
+        ?: if (today in selected.week.start..selected.week.start.plusDays(6)) "Week in progress" else null
+    val comparison = if (completed && previous != null && metric.complete(selected) && metric.complete(previous))
+        runningPercentChange(values[selectedIndex]!!, values[selectedIndex - 1]!!) else null
+    val latestFour = reviews.filter { it.week.start.plusDays(6).isBefore(today) }.takeLast(4)
+    val average = latestFour.takeIf { it.size == 4 && it.all { week -> week.completeDistance != null } }
+        ?.map { it.completeDistance!! }?.average()
+    val highest = reviews.mapNotNull { it.completeDistance }.maxOrNull()
+
+    DisciplinePanel {
+        RunningReviewTitle("Training weeks")
+        Text(
+            if (metric == WeeksMetric.DISTANCE) "8 weeks of recorded distance"
+            else "Last 8 weeks · ${metric.label}",
+            color = DisciplineLook.subdued,
+            fontSize = 13.sp
+        )
+        StrideLabLiquidSegmentedControl(
+            labels = WeeksMetric.entries.map { it.name.lowercase(Locale.ROOT) to it.label },
+            selectedKey = metricName.lowercase(Locale.ROOT),
+            accent = DisciplineLook.lime,
+            reduceMotion = reduceMotion,
+            testTagPrefix = "training-weeks-metric",
+            onSelect = { key ->
+                metricName = WeeksMetric.entries.first { it.name.equals(key, ignoreCase = true) }.name
+            }
+        )
+        Box(Modifier.fillMaxWidth()) {
+            DisciplineTrendLine(values, DisciplineLook.lime, reduceMotion = reduceMotion, selected = selectedIndex)
+            Row(Modifier.matchParentSize().selectableGroup()) {
+                reviews.forEachIndexed { index, review ->
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .selectable(index == selectedIndex, role = Role.Tab) {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                selectedIndex = index
+                                details = true
+                            }
+                            .testTag("training-weeks-point-$index")
+                            .semantics {
+                                contentDescription = "Week of ${review.week.start.format(date)}, " +
+                                    (values[index]?.let(metric::format) ?: "unavailable")
+                            }
+                    )
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(reviews.first().week.start.format(date), color = DisciplineLook.subdued, fontSize = 12.sp)
+            Text(reviews.last().week.start.format(date), color = DisciplineLook.subdued, fontSize = 12.sp)
+        }
+        Text("Week of ${selected.week.start.format(date)}", color = DisciplineLook.ink, fontWeight = FontWeight.SemiBold)
+        Text(
+            values[selectedIndex]?.let(metric::format) ?: if (metric == WeeksMetric.QUALITY)
+                "Workout types unavailable" else "No recorded value",
+            color = DisciplineLook.lime,
+            fontSize = 26.sp,
+            fontWeight = FontWeight.ExtraBold
+        )
+        if (status != null) Text(status, color = DisciplineLook.subdued, fontSize = 13.sp)
+        if (values[selectedIndex] != null && !metric.complete(selected)) {
+            Text("Partial recording", color = DisciplineLook.subdued, fontSize = 12.sp)
+        }
+        comparison?.let {
+            Text("${runningPercentLabel(it)} vs the previous week", color = DisciplineLook.subdued, fontSize = 13.sp)
+        }
+        HorizontalDivider(color = DisciplineLook.border)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.weight(1f)) {
+                Text("4-week distance avg.", color = DisciplineLook.subdued, fontSize = 12.sp)
+                Text(average?.let(::runningKm) ?: "—", color = DisciplineLook.ink, fontWeight = FontWeight.Bold)
+            }
+            Column(Modifier.weight(1f)) {
+                Text("Highest saved week", color = DisciplineLook.subdued, fontSize = 12.sp)
+                Text(highest?.let(::runningKm) ?: "—", color = DisciplineLook.ink, fontWeight = FontWeight.Bold)
+            }
+        }
+        TextButton(onClick = { details = !details }, modifier = Modifier.testTag("training-weeks-details")) {
+            Text(if (details) "Hide week details" else "Review this week", color = DisciplineLook.lime, fontWeight = FontWeight.Bold)
+        }
+        if (details) {
+            if (selected.week.sessions == 0) {
+                Text("No runs saved for this week.", color = DisciplineLook.subdued, fontSize = 13.sp)
+            } else {
+                Text(
+                    selected.types.entries.joinToString(" · ") { "${it.value} ${it.key.label.lowercase(Locale.ROOT)}" },
+                    color = DisciplineLook.subdued,
+                    fontSize = 13.sp
+                )
+                RunningCoachSummary(selected)
             }
         }
     }

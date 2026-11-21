@@ -54,11 +54,11 @@ internal fun TracksideParityMoveWorkoutSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF111E28),
+        containerColor = StrideLabVisualPalette.amoledBlack,
         shape = RoundedCornerShape(topStart = 27.dp, topEnd = 27.dp),
         dragHandle = { Box(
             Modifier.padding(top = 12.dp).width(44.dp).height(4.dp)
-                .background(Color(0xFF889AA6), RoundedCornerShape(3.dp))
+                .background(StrideLabVisualPalette.border, RoundedCornerShape(3.dp))
         ) }
     ) {
         Column(
@@ -68,38 +68,44 @@ internal fun TracksideParityMoveWorkoutSheet(
             verticalArrangement = Arrangement.spacedBy(15.dp)
         ) {
             Text("MOVE WORKOUT", fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                color = TracksidePalette.textMuted)
+                letterSpacing = 1.2.sp, color = StrideLabVisualPalette.muted)
             Text(if (review) "Review the proposed move" else "Choose a new day",
-                fontSize = 25.sp, color = TracksidePalette.text, fontWeight = FontWeight.Bold)
+                fontSize = 25.sp, color = StrideLabVisualPalette.ink, fontWeight = FontWeight.ExtraBold)
             Text(session.effectiveTitle + " · " +
                 session.date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.getDefault())),
-                fontSize = 12.sp, color = TracksidePalette.textMuted)
-            Text("AVAILABLE DAYS", fontSize = 11.sp,
-                color = TracksidePalette.textMuted, fontWeight = FontWeight.Bold)
+                fontSize = 12.sp, color = StrideLabVisualPalette.secondary)
+            Text("AVAILABLE DAYS", fontSize = 10.5.sp, letterSpacing = 1.2.sp,
+                color = StrideLabVisualPalette.muted, fontWeight = FontWeight.Bold)
             Row(
-                Modifier.fillMaxWidth().height(64.dp),
-                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                Modifier.fillMaxWidth().height(66.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 destinations.forEach { day ->
                     val canSelect = day >= LocalDate.now() && day in plan.request.start..last &&
                         day.dayOfWeek.value in plan.request.days && day != session.date
+                    val selectedDay = day == proposed
                     Surface(
                         modifier = Modifier.weight(1f).fillMaxHeight()
                             .testTag("move-destination-" + day.toString()),
                         onClick = { proposed = day; review = false },
                         enabled = canSelect,
-                        color = if (day == proposed) Color(0xFF2F4655) else Color(0xFF162631),
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp,
-                            if (day == proposed) TracksidePalette.red else Color(0x665B7080))
+                        color = if (selectedDay) StrideLabVisualPalette.limeTint else StrideLabVisualPalette.surfaceRaised,
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(
+                            if (selectedDay) 1.5.dp else 1.dp,
+                            if (selectedDay) StrideLabVisualPalette.lime else StrideLabVisualPalette.border
+                        )
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center) {
                             Text(day.dayOfWeek.name.take(2),
-                                fontSize = 10.sp, color = TracksidePalette.textMuted)
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (selectedDay) StrideLabVisualPalette.lime else StrideLabVisualPalette.muted)
                             Text(day.dayOfMonth.toString(),
-                                fontSize = 16.sp, color = TracksidePalette.text,
-                                fontWeight = FontWeight.Bold)
+                                fontSize = 16.sp,
+                                color = if (selectedDay) StrideLabVisualPalette.lime else if (canSelect) StrideLabVisualPalette.ink else StrideLabVisualPalette.muted.copy(alpha = 0.45f),
+                                fontWeight = FontWeight.ExtraBold)
                         }
                     }
                 }
