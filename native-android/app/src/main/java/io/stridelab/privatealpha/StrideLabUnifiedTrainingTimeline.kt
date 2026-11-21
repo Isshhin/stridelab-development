@@ -244,8 +244,9 @@ internal fun StrideLabUnifiedTrainingTimeline(
 
     val weekMonday = tracksideCalendarMonday(focusedDate)
     val weekSunday = weekMonday.plusDays(6)
+    val noPlanWeekMonday = tracksideCalendarMonday(noPlanWeekAnchor)
 
-    val visibleDays = remember(active, agendaView, weekOnlyFilter, focusedDate, focusedNoPlanDate, days) {
+    val visibleDays = remember(active, agendaView, weekOnlyFilter, focusedDate, focusedNoPlanDate, noPlanWeekMonday, days) {
         if (active != null && !agendaView) {
             listOf(combinedDayFor(focusedDate))
         } else if (active != null && agendaView && weekOnlyFilter) {
@@ -254,6 +255,9 @@ internal fun StrideLabUnifiedTrainingTimeline(
             weekDays.ifEmpty { listOf(combinedDayFor(focusedDate)) }
         } else if (active == null && focusedNoPlanDate != null) {
             listOf(combinedDayFor(focusedNoPlanDate))
+        } else if (active == null) {
+            val noPlanWeekEnd = noPlanWeekMonday.plusDays(6)
+            days.filter { it.date in noPlanWeekMonday..noPlanWeekEnd }
         } else {
             days
         }
@@ -957,61 +961,23 @@ private fun TimelineRecordedCard(
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 10.dp, vertical = 10.dp),
+                    .padding(horizontal = 13.dp, vertical = 11.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(9.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Box(
-                    Modifier
-                        .size(36.dp)
-                        .background(accent, RoundedCornerShape(10.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isRun) TodayRecordedRunningGlyph(Modifier.size(22.dp))
-                    else Icon(
-                        painterResource(icon),
-                        contentDescription = null,
-                        tint = PlanBuilderPalette.accentOn,
-                        modifier = Modifier.size(21.dp)
-                    )
-                }
                 Column(
                     modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.Start,
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
-                        Box(
-                            Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(accent)
-                        )
-                        Text(
-                            "LOGGED",
-                            fontSize = 9.5.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = 0.8.sp,
-                            color = accent
-                        )
-                        Text(
-                            "·",
-                            fontSize = 11.sp,
-                            color = TimelineStyle.muted
-                        )
-                        Text(
-                            activity.title,
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = TimelineStyle.secondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                    }
+                    Text(
+                        activity.title,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TimelineStyle.secondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     Text(
                         primary,
                         color = TimelineStyle.ink,
@@ -1130,22 +1096,10 @@ private fun TimelinePlannedCard(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Row(
+                    Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Box(
-                        Modifier
-                            .size(38.dp)
-                            .background(accent.copy(alpha = .15f), RoundedCornerShape(10.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painterResource(icon),
-                            contentDescription = null,
-                            tint = accent,
-                            modifier = Modifier.size(21.dp)
-                        )
-                    }
                     Column(
                         Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(2.dp)

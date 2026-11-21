@@ -136,10 +136,30 @@ internal fun ActivityWorkoutClassificationCard(
 
 @Composable
 private fun WorkoutCorrectionOption(label: String, selected: Boolean, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
-        .selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
-        verticalAlignment = Alignment.CenterVertically) {
-        RadioButton(selected = selected, onClick = null, modifier = Modifier.padding(end = 12.dp))
-        Text(label, color = activityText)
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp)
+            .heightIn(min = 48.dp)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        color = if (selected) Color(0xFF1F2A16) else Color(0xFF101312),
+        border = androidx.compose.foundation.BorderStroke(
+            width = if (selected) 1.5.dp else 1.dp,
+            color = if (selected) activityLime else Color(0xFF232B26)
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Text(
+                label,
+                color = if (selected) activityLime else activityText,
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
     }
 }

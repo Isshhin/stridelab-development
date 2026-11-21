@@ -1,5 +1,7 @@
 package io.stridelab.privatealpha
 
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import kotlin.math.floor
 import kotlin.math.pow
 import kotlin.math.roundToInt
@@ -71,27 +73,68 @@ internal object Engine15PaceZoneEstimator {
     const val POLICY_ID = "stridelab.engine15.provisional-pace-zones-v1"
     private const val RIEGEL_EXPONENT = 1.06
 
+    private data class HistoricalRunSample(
+        val startedAt: Instant,
+        val distanceMeters: Double,
+        val paceSecondsPerKm: Double,
+        val averageHr: Double?
+    )
+
+    private fun extractRecentRunSamples(
+        activities: List<ActivityRecord>,
+        minDistanceMeters: Double
+    ): List<HistoricalRunSample> {
+        val all = ActivityDisplayConsolidation.visible(activities)
+            .filter { DashboardSummary.isRun(it) }
+            .mapNotNull { run ->
+                val distM = run.distanceM?.takeIf { it.isFinite() && it >= minDistanceMeters } ?: return@mapNotNull null
+                val rawPace = (run.recordedPace
+                    ?: run.garminMovingPaceSPerKm
+                    ?: run.durationS?.takeIf { it.isFinite() && it > 0.0 }?.let { it * 1000.0 / distM })
+                    ?.takeIf { it.isFinite() && it in 165.0..750.0 } ?: return@mapNotNull null
+                HistoricalRunSample(run.startedAt, distM, rawPace, run.averageHr)
+            }
+            .sortedByDescending { it.startedAt }
+        if (all.isEmpty()) return emptyList()
+        val latest = all.first().startedAt
+        val cutoff56 = latest.minus(56, ChronoUnit.DAYS)
+        val in56Days = all.filter { !it.startedAt.isBefore(cutoff56) }
+        if (in56Days.size >= 3) return in56Days
+        val cutoff90 = latest.minus(90, ChronoUnit.DAYS)
+        val in90Days = all.filter { !it.startedAt.isBefore(cutoff90) }
+        return if (in90Days.size >= 3) in90Days else all.take(12)
+    }
+
+    private fun recencyWeightedEasyAnchor(samples: List<HistoricalRunSample>): Double? {
+        if (samples.isEmpty()) return null
+        val latest = samples.first().startedAt
+        val weighted = buildList {
+            for (sample in samples) {
+                val ageDays = ChronoUnit.DAYS.between(sample.startedAt, latest).coerceAtLeast(0L)
+                // Weight recent 21d at 3x (1.5x equiv), 22-42d at 2x (1.2x equiv), >42d at 1x
+                val copies = when {
+                    ageDays <= 21 -> 3
+                    ageDays <= 42 -> 2
+                    else -> 1
+                }
+                repeat(copies) { add(sample.paceSecondsPerKm) }
+            }
+        }.sorted()
+        val idx = ((weighted.size - 1) * 0.60).roundToInt().coerceIn(0, weighted.lastIndex)
+        return weighted[idx].coerceIn(190.0, 720.0)
+    }
+
     /**
-     * Infers the athlete's real aerobic easy planning pace (seconds/km) from recorded running history.
+     * Infers the athlete's real aerobic easy planning pace (seconds/km) from recent recorded running history.
      */
     fun inferHistoricalEasyPaceSecondsPerKm(
         activities: List<ActivityRecord>,
         fallbackSecondsPerKm: Double = 360.0
     ): Double {
-        val runs = ActivityDisplayConsolidation.visible(activities)
-            .filter { DashboardSummary.isRun(it) }
-        val paces = runs.mapNotNull { run ->
-            val distM = run.distanceM?.takeIf { it.isFinite() && it >= 2_000.0 } ?: return@mapNotNull null
-            val rawPace = run.recordedPace
-                ?: run.garminMovingPaceSPerKm
-                ?: run.durationS?.takeIf { it.isFinite() && it > 0.0 }?.let { it * 1000.0 / distM }
-            rawPace?.takeIf { it.isFinite() && it in 175.0..750.0 }
-        }.sorted()
-        if (paces.isEmpty()) return fallbackSecondsPerKm.takeIf { it.isFinite() && it in 180.0..900.0 } ?: 360.0
-        // Use the 60th percentile of recorded run paces (representing typical easy/aerobic runs,
-        // slower than hard workout days).
-        val idx = ((paces.size - 1) * 0.60).roundToInt().coerceIn(0, paces.lastIndex)
-        return paces[idx].coerceIn(190.0, 720.0)
+        val recent = extractRecentRunSamples(activities, minDistanceMeters = 2_000.0)
+        return recencyWeightedEasyAnchor(recent)
+            ?: fallbackSecondsPerKm.takeIf { it.isFinite() && it in 180.0..900.0 }
+            ?: 360.0
     }
 
     fun estimate(
@@ -113,33 +156,33 @@ internal object Engine15PaceZoneEstimator {
             )
         }
 
-        // Historical activity analysis when activities are provided
-        val validRuns = ActivityDisplayConsolidation.visible(activities)
-            .filter { DashboardSummary.isRun(it) }
-            .mapNotNull { run ->
-                val distM = run.distanceM?.takeIf { it.isFinite() && it >= 2_500.0 } ?: return@mapNotNull null
-                val pace = (run.recordedPace
-                    ?: run.garminMovingPaceSPerKm
-                    ?: run.durationS?.takeIf { it.isFinite() && it > 0.0 }?.let { it * 1000.0 / distM })
-                    ?.takeIf { it.isFinite() && it in 165.0..750.0 } ?: return@mapNotNull null
-                Triple(distM, pace, run.averageHr)
-            }
+        // Recent historical activity analysis (prioritizes last 56 days relative to latest run)
+        val recentRuns = extractRecentRunSamples(activities, minDistanceMeters = 2_500.0)
+        val easyAnchorPace = recencyWeightedEasyAnchor(recentRuns)
 
-        if (validRuns.isNotEmpty()) {
-            val sortedPaces = validRuns.map { it.second }.sorted()
-            val easyAnchorPace = sortedPaces[((sortedPaces.size - 1) * 0.60).roundToInt().coerceIn(0, sortedPaces.lastIndex)]
+        if (recentRuns.isNotEmpty() && easyAnchorPace != null) {
             val thresholdFromEasy = (easyAnchorPace / 1.22).coerceIn(175.0, 620.0)
 
-            // Best sustained effort >= 3.5 km normalized to 10K equivalent via Riegel
-            val sustainedEfforts = validRuns.filter { it.first >= 3_500.0 }.map { (distM, pace, _) ->
-                val durationSec = pace * (distM / 1000.0)
-                val eq10kSec = durationSec * (10_000.0 / distM).pow(RIEGEL_EXPONENT)
-                (eq10kSec / 10.0).coerceIn(170.0, 620.0)
+            // Sustained recent efforts >= 4.0 km normalized to 10K equivalent via Riegel
+            val sustainedEfforts = recentRuns
+                .filter { it.distanceMeters >= 4_000.0 }
+                .map { sample ->
+                    val durationSec = sample.paceSecondsPerKm * (sample.distanceMeters / 1000.0)
+                    val eq10kSec = durationSec * (10_000.0 / sample.distanceMeters).pow(RIEGEL_EXPONENT)
+                    (eq10kSec / 10.0).coerceIn(170.0, 620.0)
+                }
+                .sorted()
+
+            val recentSustainedThreshold = when {
+                sustainedEfforts.size >= 4 -> sustainedEfforts[1] // 2nd-best protects against GPS spikes/outliers
+                sustainedEfforts.size >= 2 -> sustainedEfforts.take(2).average()
+                sustainedEfforts.size == 1 -> sustainedEfforts.first()
+                else -> null
             }
-            val bestSustainedThreshold = sustainedEfforts.minOrNull()
-            val thresholdPace = if (bestSustainedThreshold != null) {
-                // 50/50 blend between strongest sustained effort and aerobic easy-pace anchor
-                (0.55 * minOf(bestSustainedThreshold, thresholdFromEasy) + 0.45 * thresholdFromEasy)
+
+            val thresholdPace = if (recentSustainedThreshold != null) {
+                // 50/50 blend between recent sustained effort anchor and recent aerobic easy anchor
+                (0.50 * minOf(recentSustainedThreshold, thresholdFromEasy) + 0.50 * thresholdFromEasy)
                     .coerceIn(175.0, 620.0)
             } else {
                 thresholdFromEasy

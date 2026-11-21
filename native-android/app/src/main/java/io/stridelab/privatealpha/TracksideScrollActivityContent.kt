@@ -407,6 +407,7 @@ internal fun TracksideActivityContinuousSections(
                 // At the genuine content end, Charts must still be selected.
                 !listState.canScrollForward &&
                     layout.visibleItemsInfo.any { it.index >= chartsStartIndex } -> 3
+                listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 80 -> 0
                 anchor >= chartsStartIndex -> 3
                 anchor >= splitStartIndex -> 2
                 anchor >= analysisStartIndex -> 1
@@ -542,11 +543,6 @@ internal fun TracksideActivityContinuousSections(
                             onSelectSeconds = onSelectSeconds,
                             pauseIntervals = recorded.pauseIntervals
                         )
-                    }
-                if (chartAvailability.heartRate)
-                    item(key = "chart-heart-rate-zones") {
-                        TracksideActivityHeartRateZones(
-                            recorded, activityCorrectionOwner(activity.id, state), state.account)
                     }
                 if (chartAvailability.elevation)
                     item(key = "chart-elevation") {
@@ -715,6 +711,21 @@ private fun TracksideActivityAnalysisBody(
             )
             return@Column
         }
+        ActivityWorkoutClassificationCard(
+            assessment = workoutAssessment,
+            userLabel = userLabel,
+            canSave = correctionOwner != null,
+            saveFailed = labelSaveFailed,
+            onSelect = { label ->
+                labelSaveFailed = !labelStore.save(correctionOwner, activity.id, label)
+                if (!labelSaveFailed) userLabel = label
+            },
+            onClear = {
+                labelSaveFailed = !labelStore.clear(correctionOwner, activity.id)
+                if (!labelSaveFailed) userLabel = null
+            }
+        )
+        Spacer(Modifier.height(14.dp))
         Text(
             "COACH’S NOTES",
             color = activityLime, fontSize = 10.sp, fontWeight = FontWeight.SemiBold
@@ -784,20 +795,6 @@ private fun TracksideActivityAnalysisBody(
                 Text(purpose, color = activityMuted)
             }
         }
-        ActivityWorkoutClassificationCard(
-            assessment = workoutAssessment,
-            userLabel = userLabel,
-            canSave = correctionOwner != null,
-            saveFailed = labelSaveFailed,
-            onSelect = { label ->
-                labelSaveFailed = !labelStore.save(correctionOwner, activity.id, label)
-                if (!labelSaveFailed) userLabel = label
-            },
-            onClear = {
-                labelSaveFailed = !labelStore.clear(correctionOwner, activity.id)
-                if (!labelSaveFailed) userLabel = null
-            }
-        )
         workoutAssessment.adherence?.let { adherence ->
             Spacer(Modifier.height(12.dp))
             ActivityWorkoutComparisonCard(activity, workoutAssessment.linkedSession, adherence)

@@ -357,150 +357,125 @@ internal fun StrideLabTodayScreen(
         listOf("all") + eligiblePages.map { it.key }
     }
 
-    LazyColumn(
-        state = listState,
-        userScrollEnabled = !signedOutFitsScreen,
-        modifier = Modifier.fillMaxSize().background(TodayLook.black)
-            .testTag("screen").semantics { paneTitle = "Today" },
-        // Signed-out content sits still on a normal phone. On smaller
-        // displays, restore dock clearance so the last card can scroll clear.
-        contentPadding = PaddingValues(
-            start = 19.dp, end = 19.dp, top = 12.dp,
-            bottom = if (signedOutFitsScreen) 12.dp else 110.dp
-        ),
-        verticalArrangement = Arrangement.spacedBy(15.dp)
-    ) {
-        if (hasHistory) {
-            item(key = "today-discipline-tabs") {
-                TodayDisciplineTabs(
-                    available = eligiblePages,
-                    selectedKey = selectedPage,
-                    reduceMotion = reduceMotion,
-                    onSelect = { chosenPage = it }
-                )
-            }
-        }
-        item(key = "today-calendar") {
-            TodayWeekCalendar(
-                date = date,
-                accent = animatedTone.value,
-                selectionFractionState = notchPosition,
-                signedOut = !hasHistory,
-                visibleActivities = calendarActivities,
-                rawHistory = calendarHistory,
-                plans = calendarPlans,
-                reduceMotion = reduceMotion,
-                onSelect = { selectedDay = it.toEpochDay() },
-                onPrevious = { selectedDay = date.minusWeeks(1).toEpochDay() },
-                onNext = { selectedDay = date.plusWeeks(1).toEpochDay() }
-            )
-        }
-        state.message?.takeIf(String::isNotBlank)?.let { message ->
-            val suppressLoggedOutBanner = state.account == null || state.needsSignIn
-            if (!suppressLoggedOutBanner) {
-                item(key = "today-status-message") {
-                    SignalCard { Text(message, style = MaterialTheme.typography.bodyMedium) }
+    Box(Modifier.fillMaxSize().background(TodayLook.black)) {
+        LazyColumn(
+            state = listState,
+            userScrollEnabled = !signedOutFitsScreen,
+            modifier = Modifier.fillMaxSize()
+                .testTag("screen").semantics { paneTitle = "Today" },
+            contentPadding = PaddingValues(
+                start = 19.dp, end = 19.dp,
+                top = if (hasHistory) 72.dp else 12.dp,
+                bottom = if (signedOutFitsScreen) 12.dp else 110.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(15.dp)
+        ) {
+            if (selectedPage == "all") {
+                item(key = "today-calendar") {
+                    TodayWeekCalendar(
+                        date = date,
+                        accent = animatedTone.value,
+                        selectionFractionState = notchPosition,
+                        signedOut = !hasHistory,
+                        visibleActivities = calendarActivities,
+                        rawHistory = calendarHistory,
+                        plans = calendarPlans,
+                        reduceMotion = reduceMotion,
+                        onSelect = { selectedDay = it.toEpochDay() },
+                        onPrevious = { selectedDay = date.minusWeeks(1).toEpochDay() },
+                        onNext = { selectedDay = date.plusWeeks(1).toEpochDay() }
+                    )
                 }
             }
-        }
-        if (selectedPage == "all") {
-        item(key = "today-hero") {
-            if (!hasHistory) {
-                // Stable, draw-only animated notch. Do not recompose a
-                // complex hero card for every spring animation frame.
-                TodaySignedOutHero(notchPosition, onOpenTraining)
-            } else if (mixedToday) {
-                TodayMixedDayCard(
-                    date = date,
-                    planId = plan?.id ?: "",
-                    notchFraction = notchPosition.value,
-                    activities = recordedOnDate,
-                    logs = confirmedOnDate,
-                    pending = schedule.filter {
-                        it.status in setOf("planned", "in_progress")
-                    },
-                    plans = safePlans,
-                    onOpenActivity = onOpenActivityDetail,
-                    onOpenWorkout = onOpenWorkout
-                )
-            } else if (showRecorded &&
-                (recordedOnDate.isNotEmpty() || confirmedOnDate.isNotEmpty())
-            ) {
-                // Compact recorded cards only. Planned/recovery and mixed-day
-                // screens keep their existing design and navigation.
-                TodayCompactRecordedCards(
-                    activities = recordedOnDate,
-                    logs = confirmedOnDate,
-                    plans = safePlans,
-                    cachedDetails = state.details,
-                    notchFraction = notchPosition.value,
-                    onOpenActivity = onOpenActivityDetail,
-                    onOpenWorkout = onOpenWorkout
-                )
-            } else if (showRecorded && schedule.isEmpty() &&
-                recordedOnDate.isEmpty() && confirmedOnDate.isEmpty() &&
-                !state.initializing) {
-                // A completely empty date should not claim the same vertical
-                // space as a real scheduled or recorded workout. Dates with
-                // saved sessions retain their full, interactive hero cards.
-                TodayCompactEmptyDay(online = online)
-            } else if (showRecorded) {
-                TodayRecordedTraining(
-                    selectedDate = date,
+            state.message?.takeIf(String::isNotBlank)?.let { message ->
+                val suppressLoggedOutBanner = state.account == null || state.needsSignIn
+                if (!suppressLoggedOutBanner) {
+                    item(key = "today-status-message") {
+                        SignalCard { Text(message, style = MaterialTheme.typography.bodyMedium) }
+                    }
+                }
+            }
+            if (selectedPage == "all") {
+            item(key = "today-hero") {
+                if (!hasHistory) {
+                    TodaySignedOutHero(notchPosition, onOpenTraining)
+                } else if (mixedToday) {
+                    TodayMixedDayCard(
+                        date = date,
+                        planId = plan?.id ?: "",
+                        notchFraction = notchPosition.value,
+                        activities = recordedOnDate,
+                        logs = confirmedOnDate,
+                        pending = schedule.filter {
+                            it.status in setOf("planned", "in_progress")
+                        },
+                        plans = safePlans,
+                        onOpenActivity = onOpenActivityDetail,
+                        onOpenWorkout = onOpenWorkout
+                    )
+                } else if (showRecorded &&
+                    (recordedOnDate.isNotEmpty() || confirmedOnDate.isNotEmpty())
+                ) {
+                    TodayCompactRecordedCards(
+                        activities = recordedOnDate,
+                        logs = confirmedOnDate,
+                        plans = safePlans,
+                        cachedDetails = state.details,
+                        notchFraction = notchPosition.value,
+                        onOpenActivity = onOpenActivityDetail,
+                        onOpenWorkout = onOpenWorkout
+                    )
+                } else if (showRecorded && schedule.isEmpty() &&
+                    recordedOnDate.isEmpty() && confirmedOnDate.isEmpty() &&
+                    !state.initializing) {
+                    TodayCompactEmptyDay(online = online)
+                } else if (showRecorded) {
+                    TodayRecordedTraining(
+                        selectedDate = date,
+                        signedOut = !hasHistory,
+                        loading = state.initializing,
+                        online = online,
+                        accent = animatedTone.value,
+                        notchFraction = notchPosition.value,
+                        activities = recordedOnDate,
+                        logged = confirmedOnDate,
+                        plans = safePlans,
+                        onOpenActivity = onOpenActivityDetail,
+                        onOpenWorkout = onOpenWorkout,
+                        onSignIn = onSignIn
+                    )
+                } else {
+                    TodayWaveWorkout(
+                        accent = animatedTone.value,
+                        notchFraction = notchPosition.value,
+                        reduceMotion = reduceMotion,
+                        date = date,
+                        scheduled = schedule,
+                        planAvailable = plan != null,
+                        signedOut = !hasHistory,
+                        onOpen = { session ->
+                            if (plan != null) onOpenWorkout(plan.id, session.id) else onOpenTraining()
+                        },
+                        onPlan = onOpenTraining,
+                        onSignIn = onSignIn
+                    )
+                }
+            }
+            item(key = "today-next") {
+                TodayNextSession(
+                    next = future,
+                    plan = plan,
                     signedOut = !hasHistory,
-                    loading = state.initializing,
-                    online = online,
-                    accent = animatedTone.value,
-                    notchFraction = notchPosition.value,
-                    activities = recordedOnDate,
-                    logged = confirmedOnDate,
-                    plans = safePlans,
-                    onOpenActivity = onOpenActivityDetail,
-                    onOpenWorkout = onOpenWorkout,
-                    onSignIn = onSignIn
+                    completed = todayCompleted,
+                    total = todaySchedule.size,
+                    onOpen = {
+                        if (!hasHistory) onOpenTraining()
+                        else if (plan != null && future != null) onOpenWorkout(plan.id, future.id)
+                        else onOpenTraining()
+                    }
                 )
+            }
             } else {
-                TodayWaveWorkout(
-                    accent = animatedTone.value,
-                    notchFraction = notchPosition.value,
-                    reduceMotion = reduceMotion,
-                    date = date,
-                    scheduled = schedule,
-                    planAvailable = plan != null,
-                    signedOut = !hasHistory,
-                    onOpen = { session ->
-                        if (plan != null) onOpenWorkout(plan.id, session.id) else onOpenTraining()
-                    },
-                    onPlan = onOpenTraining,
-                    onSignIn = onSignIn
-                )
-            }
-        }
-        item(key = "today-next") {
-            TodayNextSession(
-                next = future,
-                plan = plan,
-                signedOut = !hasHistory,
-                completed = todayCompleted,
-                total = todaySchedule.size,
-                onOpen = {
-                    if (!hasHistory) onOpenTraining()
-                    else if (plan != null && future != null) onOpenWorkout(plan.id, future.id)
-                    else onOpenTraining()
-                }
-            )
-        }
-        item(key = "today-weekly-activity") {
-            TodayWeeklyActivity(
-                start = weekStart,
-                metrics = metrics,
-                selectedDayIndex = date.dayOfWeek.value - 1,
-                reduceMotion = reduceMotion,
-                onOpenActivity = onOpenActivity,
-                signedOut = !hasHistory
-            )
-        }
-        } else {
             item(key = "today-discipline-visuals") {
                 var dragSum by remember(selectedPage) { mutableFloatStateOf(0f) }
                 AnimatedContent(
@@ -629,6 +604,22 @@ internal fun StrideLabTodayScreen(
                         )
                     }
                 }
+            }
+        }
+        }
+        if (hasHistory) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = 19.dp, vertical = 10.dp)
+            ) {
+                TodayDisciplineTabs(
+                    available = eligiblePages,
+                    selectedKey = selectedPage,
+                    reduceMotion = reduceMotion,
+                    onSelect = { chosenPage = it }
+                )
             }
         }
     }
@@ -1146,25 +1137,10 @@ private fun TodayCompactRecordedCard(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth()
-                .padding(start = 15.dp, end = 15.dp, top = if (first) 16.dp else 13.dp, bottom = 14.dp),
+                .padding(start = 16.dp, end = 16.dp, top = if (first) 16.dp else 13.dp, bottom = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(
-                modifier = Modifier.size(52.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(accent),
-                contentAlignment = Alignment.Center
-            ) {
-                if (discipline == "running") {
-                    TodayRecordedRunningGlyph(modifier = Modifier.size(29.dp))
-                } else {
-                    TodayDisciplineGlyph(
-                        kind = discipline,
-                        modifier = Modifier.size(29.dp)
-                    )
-                }
-            }
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -3115,20 +3091,6 @@ private fun TodayNextSession(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        Modifier
-                            .size(36.dp)
-                            .background(nextAccent.copy(alpha = 0.16f), RoundedCornerShape(11.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(iconRes),
-                            contentDescription = null,
-                            tint = nextAccent,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Spacer(Modifier.width(11.dp))
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                         Text(
                             "NEXT SESSION",
