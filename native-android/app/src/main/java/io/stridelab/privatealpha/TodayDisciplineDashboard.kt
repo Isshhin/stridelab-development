@@ -16,6 +16,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -41,6 +42,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
@@ -60,6 +62,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /** Art-directed AMOLED Today Discipline token palette. */
 private object DisciplineLook {
@@ -649,10 +652,10 @@ internal fun TodayDisciplineDashboard(
                 Triple(it.date, "Completed workout$distKm", it.planId + "|" + it.sessionId)
             }
         ).sortedByDescending { it.first }.take(4)
-        if (recent.isNotEmpty()) {
+        if (discipline != TodayDiscipline.RUNNING && recent.isNotEmpty()) {
             DisciplinePanel {
                 Text(
-                    if (discipline == TodayDiscipline.RUNNING) "RUNS THIS WEEK" else "SAVED SESSIONS",
+                    "SAVED SESSIONS",
                     color = DisciplineLook.muted,
                     fontSize = 10.sp,
                     letterSpacing = 1.3.sp,
@@ -1200,48 +1203,309 @@ private fun RunningWeekReview(
     val recent = complete.takeLast(3)
     val prior = complete.dropLast(3).takeLast(3)
     if (recent.size == 3 && prior.size == 3 && (recent + prior).all { it.week.sessions > 0 }) {
-        val six = prior + recent
-        DisciplinePanel {
-            RunningReviewTitle("Training progression")
-            Text("Latest 3 completed weeks vs the previous 3", color = DisciplineLook.subdued, fontSize = 13.sp)
-            val distanceChange = if (six.all { it.completeDistance != null })
-                runningPercentChange(recent.map { it.completeDistance!! }.average(),
-                    prior.map { it.completeDistance!! }.average()) else null
-            val dayChange = recent.map { it.week.activeDays }.average() -
-                prior.map { it.week.activeDays }.average()
-            Text(
-                when {
-                    distanceChange != null && distanceChange > 10 && dayChange <= 0 ->
-                        "You covered more ground without adding running days. Open Distance to see where the extra kilometers came from."
-                    distanceChange != null && distanceChange < -10 ->
-                        "You covered less distance in the latest block. Check whether the drop was planned."
-                    dayChange > .3 -> "You ran on more days in the latest block. Open Days run to see how that changed week to week."
-                    else -> "Tap any row below to inspect how the six weeks fit together."
-                },
-                color = DisciplineLook.ink,
-                fontSize = 13.sp
-            )
-            val lighterPlanWeeks = recent.mapNotNull { runningPlanWeekLabel(it.week.start, plans) }
-                .filter { it in setOf("Plan · Taper", "Plan · Deload", "Plan · Recovery") }.distinct()
-            if (lighterPlanWeeks.isNotEmpty()) {
-                Text(
-                    "Recent plan context: ${lighterPlanWeeks.joinToString { it.substringAfter(" · ") }}. A lighter week may be part of the plan.",
-                    color = DisciplineLook.subdued,
-                    fontSize = 12.5.sp
-                )
-            }
-            RunningProgressionRow("Days run per week", six.map { it.week.activeDays.toDouble() }) {
-                String.format(Locale.getDefault(), "%.1f days", it)
-            }
-            if (six.all { it.completeDistance != null }) {
-                RunningProgressionRow("Distance per week", six.map { it.completeDistance!! }, ::runningKm)
-                if (six.all { it.longestMeters != null }) {
-                    RunningProgressionRow("Longest run each week", six.map { it.longestMeters!! }, ::runningKm)
+        RunningProgressionPanel(prior = prior, recent = recent, plans = plans, reduceMotion = reduceMotion)
+    }
+}
+
+private enum class ProgressionTab(val key: String, val label: String) {
+    OVERVIEW("overview", "Overview"),
+    DAYS("days", "Days Run"),
+    DISTANCE("distance", "Distance"),
+    LONG_RUN("long_run", "Long Run")
+}
+
+@Composable
+private fun RunningProgressionPanel(
+    prior: List<RunningWeekCoach>,
+    recent: List<RunningWeekCoach>,
+    plans: List<PlanSnapshot>,
+    reduceMotion: Boolean
+) {
+    val six = prior + recent
+    var selectedTab by rememberSaveable { mutableStateOf(ProgressionTab.OVERVIEW.key) }
+    val hasDistance = six.all { it.completeDistance != null }
+    val hasLongest = hasDistance && six.all { it.longestMeters != null }
+    val distanceChange = if (hasDistance) {
+        runningPercentChange(
+            recent.map { it.completeDistance!! }.average(),
+            prior.map { it.completeDistance!! }.average()
+        )
+    } else null
+    val dayChange = recent.map { it.week.activeDays }.average() -
+        prior.map { it.week.activeDays }.average()
+
+    val tabs = buildList {
+        add(ProgressionTab.OVERVIEW)
+        add(ProgressionTab.DAYS)
+        if (hasDistance) add(ProgressionTab.DISTANCE)
+        if (hasLongest) add(ProgressionTab.LONG_RUN)
+    }
+    val activeTab = tabs.firstOrNull { it.key == selectedTab } ?: ProgressionTab.OVERVIEW
+
+    DisciplinePanel {
+        RunningReviewTitle("Training Progression")
+        Text("Latest 3 completed weeks vs the previous 3", color = DisciplineLook.subdued, fontSize = 12.5.sp)
+        StrideLabLiquidSegmentedControl(
+            labels = tabs.map { it.key to it.label },
+            selectedKey = activeTab.key,
+            accent = DisciplineLook.lime,
+            reduceMotion = reduceMotion,
+            testTagPrefix = "training-progression-tab",
+            onSelect = { selectedTab = it }
+        )
+
+        if (activeTab == ProgressionTab.OVERVIEW) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    Modifier.weight(0.40f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text("Distance change", color = DisciplineLook.subdued, fontSize = 11.5.sp)
+                    Text(
+                        distanceChange?.let(::runningPercentLabel) ?: "—",
+                        color = DisciplineLook.lime,
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = (-0.5).sp
+                    )
+                    Text("vs. previous 3 weeks", color = DisciplineLook.muted, fontSize = 10.5.sp)
+                }
+                Surface(
+                    modifier = Modifier.weight(0.60f),
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFF1A1F12),
+                    border = BorderStroke(1.dp, DisciplineLook.lime.copy(alpha = 0.25f))
+                ) {
+                    Column(
+                        Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            "Coach interpretation",
+                            color = DisciplineLook.lime,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            when {
+                                distanceChange != null && distanceChange > 10 && dayChange <= 0 ->
+                                    "More ground covered without adding running days."
+                                distanceChange != null && distanceChange < -10 ->
+                                    "Volume eased down in the latest block."
+                                dayChange > .3 ->
+                                    "You ran on more days in the latest block. Open Days Run to compare."
+                                else ->
+                                    "Consistent rhythm across both 3-week blocks."
+                            },
+                            color = DisciplineLook.ink,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp
+                        )
+                    }
                 }
             }
-            if (six.all { WeeklyRunType.UNKNOWN !in it.types } && six.any { WeeklyRunType.QUALITY in it.types }) {
-                RunningProgressionRow("Quality runs per week", six.map { (it.types[WeeklyRunType.QUALITY] ?: 0).toDouble() }) {
-                    String.format(Locale.getDefault(), "%.1f runs", it)
+
+            RunningProgressionSparkCard(
+                label = "Days run per week",
+                values = six.map { it.week.activeDays.toDouble() },
+                formatAvg = { String.format(Locale.getDefault(), "%.1f days", it) },
+                formatBar = { "${it.roundToInt()}" },
+                onClick = { selectedTab = ProgressionTab.DAYS.key }
+            )
+            if (hasDistance) {
+                RunningProgressionSparkCard(
+                    label = "Distance per week",
+                    values = six.map { it.completeDistance!! / 1000.0 },
+                    formatAvg = { String.format(Locale.getDefault(), "%.1f km", it) },
+                    formatBar = { "${it.roundToInt()}" },
+                    onClick = { selectedTab = ProgressionTab.DISTANCE.key }
+                )
+            }
+            if (hasLongest) {
+                RunningProgressionSparkCard(
+                    label = "Longest run each week",
+                    values = six.map { it.longestMeters!! / 1000.0 },
+                    formatAvg = { String.format(Locale.getDefault(), "%.1f km", it) },
+                    formatBar = { "${it.roundToInt()}" },
+                    onClick = { selectedTab = ProgressionTab.LONG_RUN.key }
+                )
+            }
+        } else {
+            val (title, vals, fmtAvg, fmtBar) = when (activeTab) {
+                ProgressionTab.DAYS -> Quad(
+                    "Days run per week",
+                    six.map { it.week.activeDays.toDouble() },
+                    { v: Double -> String.format(Locale.getDefault(), "%.1f days", v) },
+                    { v: Double -> "${v.roundToInt()}" }
+                )
+                ProgressionTab.DISTANCE -> Quad(
+                    "Distance per week",
+                    six.map { (it.completeDistance ?: 0.0) / 1000.0 },
+                    { v: Double -> String.format(Locale.getDefault(), "%.1f km", v) },
+                    { v: Double -> "${v.roundToInt()}" }
+                )
+                else -> Quad(
+                    "Longest run each week",
+                    six.map { (it.longestMeters ?: 0.0) / 1000.0 },
+                    { v: Double -> String.format(Locale.getDefault(), "%.1f km", v) },
+                    { v: Double -> "${v.roundToInt()}" }
+                )
+            }
+            val earlier = vals.take(3).average()
+            val latest = vals.takeLast(3).average()
+            val change = runningPercentChange(latest, earlier)
+            val peak = vals.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(title, color = DisciplineLook.ink, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text("${fmtAvg(earlier)} → ${fmtAvg(latest)}", color = DisciplineLook.subdued, fontSize = 12.5.sp)
+                }
+                change?.let { pct ->
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = Color(0xFF232C16),
+                        border = BorderStroke(1.dp, DisciplineLook.lime.copy(alpha = 0.28f))
+                    ) {
+                        Text(
+                            runningPercentLabel(pct),
+                            color = DisciplineLook.lime,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(92.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Bottom
+            ) {
+                vals.forEachIndexed { idx, v ->
+                    Column(
+                        Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Bottom
+                    ) {
+                        Text(fmtBar(v), color = if (idx < 3) DisciplineLook.muted else DisciplineLook.ink, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(4.dp))
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height((64 * v / peak).dp.coerceAtLeast(6.dp))
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(if (idx < 3) Color(0xFF4F6034) else DisciplineLook.lime)
+                        )
+                    }
+                }
+            }
+        }
+
+        Text(
+            "Muted: previous 3 weeks  ·  Lime: latest 3 weeks",
+            color = DisciplineLook.muted,
+            fontSize = 11.sp
+        )
+    }
+}
+
+private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
+
+@Composable
+private fun RunningProgressionSparkCard(
+    label: String,
+    values: List<Double>,
+    formatAvg: (Double) -> String,
+    formatBar: (Double) -> String,
+    onClick: () -> Unit
+) {
+    val earlier = values.take(3).average()
+    val latest = values.takeLast(3).average()
+    val change = runningPercentChange(latest, earlier)
+    val peak = values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
+
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(15.dp),
+        color = DisciplineLook.panelRaised,
+        border = BorderStroke(1.dp, DisciplineLook.border),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(label, color = DisciplineLook.ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp)
+                    Text("${formatAvg(earlier)} → ${formatAvg(latest)}", color = DisciplineLook.subdued, fontSize = 12.5.sp)
+                }
+                change?.let { pct ->
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = Color(0xFF232C16),
+                        border = BorderStroke(1.dp, DisciplineLook.lime.copy(alpha = 0.25f))
+                    ) {
+                        Text(
+                            runningPercentLabel(pct),
+                            color = DisciplineLook.lime,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Row(
+                    Modifier.width(148.dp).height(42.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    values.forEachIndexed { index, value ->
+                        if (index == 3) {
+                            Box(
+                                Modifier
+                                    .width(1.dp)
+                                    .height(28.dp)
+                                    .background(DisciplineLook.border)
+                            )
+                        }
+                        Column(
+                            Modifier.weight(1f),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Bottom
+                        ) {
+                            Text(
+                                formatBar(value),
+                                color = if (index < 3) DisciplineLook.muted else DisciplineLook.ink,
+                                fontSize = 9.sp,
+                                maxLines = 1
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height((24 * value / peak).dp.coerceAtLeast(4.dp))
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(if (index < 3) Color(0xFF4F6034) else DisciplineLook.lime)
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1254,136 +1518,33 @@ private fun RunningCoachSummary(current: RunningWeekCoach) {
     val known = week.sessions - (current.types[WeeklyRunType.UNKNOWN] ?: 0)
     RunningReviewTitle("Coach insights")
     val dominant = current.mostPerformed?.label?.lowercase(Locale.getDefault())
-    val finding = CoachingFinding(
-        observation = when {
-            known == 0 -> "You logged ${week.sessions} ${if (week.sessions == 1) "run" else "runs"}."
-            dominant == null -> "Your classified runs covered a mix of workout types."
-            else -> "Of the runs I could classify, $dominant came up most often."
-        },
-        interpretation = if (known == 0) "The recordings don’t show what kind of running you did yet." else "",
-        evidence = listOf("$known of ${week.sessions} runs classified."),
-        recommendation = when {
-            known < week.sessions -> "Review any unclear workout types in Activity Analysis to sharpen how easy and hard running is balanced."
-            current.types[WeeklyRunType.QUALITY] != null -> "Think back to the last hard session. If you had to push earlier than planned, try a steadier start next time."
-            else -> "Let the next run’s purpose set the pace. If it’s an easy day, aim for an effort that lets you finish a full sentence."
-        },
-        confidence = if (known < week.sessions) "Some workout types are unknown." else "Every saved run has a workout type."
-    )
-    Text(
-        listOf(finding.observation, finding.interpretation).filter { it.isNotBlank() }.joinToString(" "),
-        color = DisciplineLook.ink,
-        fontSize = 13.5.sp
-    )
-    val positives = listOfNotNull(
-        if (week.activeDays > 1) "You spread your running across ${week.activeDays} days." else null,
-        if (known == week.sessions && current.types[WeeklyRunType.EASY] != null &&
-            current.types[WeeklyRunType.QUALITY] != null
-        ) "You made room for easy runs as well as harder sessions." else null
-    )
-    if (positives.isNotEmpty()) {
-        Text("What went well", color = DisciplineLook.lime, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-        positives.forEach { Text(it, color = DisciplineLook.subdued, fontSize = 13.sp) }
+    val summary = when {
+        known == 0 -> "You logged ${week.sessions} ${if (week.sessions == 1) "run" else "runs"} across ${week.activeDays} days."
+        dominant == null -> "Balanced mix of workout types across ${week.activeDays} days."
+        else -> "Mostly $dominant across ${week.activeDays} active days."
     }
-    if (week.missingDistance > 0) {
-        Text(
-            "Some runs are missing distance. Check those recordings before using this week’s total to plan next week.",
-            color = DisciplineLook.subdued,
-            fontSize = 12.5.sp
-        )
+    val nextCue = when {
+        known < week.sessions -> "Tag unclear workouts in Activity Analysis to sharpen balance."
+        current.types[WeeklyRunType.QUALITY] != null -> "Keep easy days genuinely conversational between quality sessions."
+        else -> "Let effort guide pace on your next easy run."
     }
-    Text("Next focus", color = DisciplineLook.lime, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-    Text(finding.recommendation, color = DisciplineLook.ink, fontSize = 13.sp)
-}
-
-@Composable
-private fun RunningProgressionRow(label: String, values: List<Double>, format: (Double) -> String) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    val earlier = values.take(3).average()
-    val latest = values.takeLast(3).average()
-    val change = runningPercentChange(latest, earlier)
-    val peak = values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Surface(
-            onClick = { expanded = !expanded },
-            shape = RoundedCornerShape(12.dp),
-            color = if (expanded) StrideLabVisualPalette.limeTint else DisciplineLook.panelRaised,
-            border = BorderStroke(1.dp, if (expanded) DisciplineLook.lime.copy(alpha = 0.55f) else DisciplineLook.border)
-        ) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp)
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(label, color = DisciplineLook.ink, fontWeight = FontWeight.SemiBold, fontSize = 13.5.sp)
-                    Text("${format(earlier)} → ${format(latest)}", color = DisciplineLook.subdued, fontSize = 12.5.sp)
-                }
-                Text(
-                    listOfNotNull(change?.let(::runningPercentLabel), if (expanded) "−" else "+").joinToString("  "),
-                    color = DisciplineLook.lime,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-        AnimatedVisibility(
-            visible = expanded,
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut()
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(64.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    values.forEachIndexed { index, value ->
-                        Box(
-                            Modifier
-                                .weight(1f)
-                                .height((64 * value / peak).dp.coerceAtLeast(4.dp))
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(
-                                    if (index < 3) StrideLabVisualPalette.barGradient(DisciplineLook.lime, alphaScale = 0.52f)
-                                    else StrideLabVisualPalette.barGradient(DisciplineLook.lime)
-                                )
-                                .semantics { contentDescription = "Week ${index + 1}: ${format(value)}" }
-                        )
-                    }
-                }
-                Text(
-                    "Previous 3: ${values.take(3).joinToString(" · ", transform = format)}",
-                    color = DisciplineLook.subdued,
-                    fontSize = 12.sp
-                )
-                Text(
-                    "Latest 3: ${values.takeLast(3).joinToString(" · ", transform = format)}",
-                    color = DisciplineLook.subdued,
-                    fontSize = 12.sp
-                )
-                Text(
-                    when {
-                        change == null -> "There’s no earlier baseline for a percentage comparison."
-                        kotlin.math.abs(change) <= 10 -> "The averages stayed close. Check the individual weeks for variation."
-                        change < 0 -> "The average came down. Compare the lighter weeks with what your plan called for."
-                        values.zipWithNext().any { (from, to) -> from > 0 && to > from * 1.25 } ->
-                            "Some of the increase came in a big step. Check how that week felt before adding more."
-                        else -> "The average rose without a large jump between these weeks. Let how the runs felt guide what you add next."
-                    },
-                    color = DisciplineLook.ink,
-                    fontSize = 12.5.sp
-                )
-            }
+    Text(summary, color = DisciplineLook.ink, fontSize = 13.5.sp)
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFF1A1F12),
+        border = BorderStroke(1.dp, DisciplineLook.lime.copy(alpha = 0.25f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text("NEXT FOCUS", color = DisciplineLook.lime, fontWeight = FontWeight.Bold, fontSize = 10.sp, letterSpacing = 1.sp)
+            Text(nextCue, color = DisciplineLook.ink, fontSize = 12.5.sp, lineHeight = 17.sp)
         }
     }
 }
 
 @Composable
 private fun RunningReviewTitle(title: String) {
-    Text(title, color = DisciplineLook.ink, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
+    Text(title, color = DisciplineLook.ink, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
 }
 
 private fun runTypeColor(type: WeeklyRunType): Color = when (type) {
@@ -1410,6 +1571,11 @@ private enum class WeeksMetric(val label: String) {
         RUNS, QUALITY -> "${value.toInt()} ${if (value == 1.0) "run" else "runs"}"
     }
 
+    fun formatCompact(value: Double): String = when (this) {
+        DISTANCE, LONG -> String.format(Locale.US, "%.1f", value / 1000.0)
+        RUNS, QUALITY -> "${value.toInt()}"
+    }
+
     fun complete(review: RunningWeekCoach): Boolean =
         value(review) != null && (this !in listOf(DISTANCE, LONG) || review.week.missingDistance == 0)
 }
@@ -1423,11 +1589,12 @@ private fun TrainingWeeksChart(
 ) {
     var metricName by rememberSaveable { mutableStateOf(WeeksMetric.DISTANCE.name) }
     var selectedIndex by rememberSaveable(reviews.last().week.start) { mutableStateOf(reviews.lastIndex) }
-    var details by rememberSaveable(reviews.last().week.start) { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
     val metric = WeeksMetric.valueOf(metricName)
     val selected = reviews[selectedIndex]
     val values = reviews.map(metric::value)
+    val numericValues = values.map { (it ?: 0.0).let { v -> if (metric in listOf(WeeksMetric.DISTANCE, WeeksMetric.LONG)) v / 1000.0 else v } }
+    val maxVal = (numericValues.maxOrNull() ?: 1.0).coerceAtLeast(1.0)
     val date = DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
     val completed = selected.week.start.plusDays(6).isBefore(today)
     val previous = reviews.getOrNull(selectedIndex - 1)
@@ -1436,18 +1603,14 @@ private fun TrainingWeeksChart(
         ?: if (today in selected.week.start..selected.week.start.plusDays(6)) "Week in progress" else null
     val comparison = if (completed && previous != null && metric.complete(selected) && metric.complete(previous))
         runningPercentChange(values[selectedIndex]!!, values[selectedIndex - 1]!!) else null
-    val latestFour = reviews.filter { it.week.start.plusDays(6).isBefore(today) }.takeLast(4)
-    val average = latestFour.takeIf { it.size == 4 && it.all { week -> week.completeDistance != null } }
-        ?.map { it.completeDistance!! }?.average()
-    val highest = reviews.mapNotNull { it.completeDistance }.maxOrNull()
 
     DisciplinePanel {
-        RunningReviewTitle("Training weeks")
+        RunningReviewTitle("Training Weeks")
         Text(
             if (metric == WeeksMetric.DISTANCE) "8 weeks of recorded distance"
-            else "Last 8 weeks · ${metric.label}",
+            else "8 weeks · ${metric.label}",
             color = DisciplineLook.subdued,
-            fontSize = 13.sp
+            fontSize = 12.5.sp
         )
         StrideLabLiquidSegmentedControl(
             labels = WeeksMetric.entries.map { it.name.lowercase(Locale.ROOT) to it.label },
@@ -1459,71 +1622,239 @@ private fun TrainingWeeksChart(
                 metricName = WeeksMetric.entries.first { it.name.equals(key, ignoreCase = true) }.name
             }
         )
-        Box(Modifier.fillMaxWidth()) {
-            DisciplineTrendLine(values, DisciplineLook.lime, reduceMotion = reduceMotion, selected = selectedIndex)
-            Row(Modifier.matchParentSize().selectableGroup()) {
-                reviews.forEachIndexed { index, review ->
-                    Box(
-                        Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .selectable(index == selectedIndex, role = Role.Tab) {
-                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                selectedIndex = index
-                                details = true
-                            }
-                            .testTag("training-weeks-point-$index")
-                            .semantics {
-                                contentDescription = "Week of ${review.week.start.format(date)}, " +
-                                    (values[index]?.let(metric::format) ?: "unavailable")
-                            }
+
+        // Interactive smooth curved area-line chart with Y-axis + floating tooltip
+        BoxWithConstraints(
+            Modifier
+                .fillMaxWidth()
+                .height(178.dp)
+                .padding(top = 8.dp)
+        ) {
+            val leftAxisWidth = 34.dp
+            val chartWidth = maxWidth - leftAxisWidth
+            val count = reviews.size.coerceAtLeast(1)
+
+            // Y-axis scale labels
+            Column(
+                Modifier
+                    .width(leftAxisWidth)
+                    .fillMaxHeight()
+                    .padding(top = 14.dp, bottom = 10.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                listOf(1.0, 0.75, 0.5, 0.25, 0.0).forEach { frac ->
+                    val v = maxVal * frac
+                    val label = if (frac == 0.0) "0" else if (metric in listOf(WeeksMetric.DISTANCE, WeeksMetric.LONG))
+                        String.format(Locale.US, "%.1f", v) else "${v.roundToInt()}"
+                    Text(label, color = DisciplineLook.muted, fontSize = 9.5.sp, maxLines = 1)
+                }
+            }
+
+            // Curved area-line Canvas
+            Box(
+                Modifier
+                    .padding(start = leftAxisWidth)
+                    .fillMaxSize()
+            ) {
+                Canvas(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(top = 18.dp, bottom = 12.dp, start = 8.dp, end = 8.dp)
+                ) {
+                    val w = size.width
+                    val h = size.height
+                    val stepX = if (count > 1) w / (count - 1).toFloat() else w
+                    val pts = numericValues.mapIndexed { idx, v ->
+                        val x = if (count > 1) idx * stepX else w / 2f
+                        val y = h - (v / maxVal).toFloat().coerceIn(0f, 1f) * h
+                        Offset(x, y)
+                    }
+
+                    // Baseline + vertical dashed guides
+                    drawLine(
+                        color = Color(0xFF282D30),
+                        start = Offset(0f, h),
+                        end = Offset(w, h),
+                        strokeWidth = 1.dp.toPx()
                     )
+                    pts.forEachIndexed { idx, pt ->
+                        drawLine(
+                            color = if (idx == selectedIndex) DisciplineLook.lime.copy(alpha = 0.35f)
+                            else Color(0xFF22272A),
+                            start = Offset(pt.x, 0f),
+                            end = Offset(pt.x, h),
+                            strokeWidth = 1.dp.toPx(),
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f)
+                        )
+                    }
+
+                    if (pts.size >= 2) {
+                        val linePath = Path().apply {
+                            moveTo(pts.first().x, pts.first().y)
+                            for (i in 0 until pts.lastIndex) {
+                                val p0 = pts[i]
+                                val p1 = pts[i + 1]
+                                val cx = (p0.x + p1.x) / 2f
+                                cubicTo(cx, p0.y, cx, p1.y, p1.x, p1.y)
+                            }
+                        }
+                        val fillPath = Path().apply {
+                            addPath(linePath)
+                            lineTo(pts.last().x, h)
+                            lineTo(pts.first().x, h)
+                            close()
+                        }
+                        drawPath(
+                            path = fillPath,
+                            brush = Brush.verticalGradient(
+                                listOf(DisciplineLook.lime.copy(alpha = 0.28f), Color.Transparent)
+                            )
+                        )
+                        drawPath(
+                            path = linePath,
+                            color = DisciplineLook.lime,
+                            style = Stroke(width = 2.6.dp.toPx(), cap = StrokeCap.Round)
+                        )
+                    }
+
+                    pts.forEachIndexed { idx, pt ->
+                        val isSel = idx == selectedIndex
+                        if (isSel) {
+                            drawCircle(DisciplineLook.lime.copy(alpha = 0.25f), radius = 9.dp.toPx(), center = pt)
+                        }
+                        drawCircle(DisciplineLook.lime, radius = if (isSel) 5.dp.toPx() else 3.8.dp.toPx(), center = pt)
+                    }
+                }
+
+                // Floating callout tooltip anchored near selectedIndex
+                val fracX = if (count > 1) selectedIndex.toFloat() / (count - 1).toFloat() else 0.5f
+                val tooltipWidth = 98.dp
+                val rawOffset = (chartWidth - tooltipWidth) * fracX
+                Surface(
+                    modifier = Modifier
+                        .offset(x = rawOffset.coerceIn(0.dp, (chartWidth - tooltipWidth).coerceAtLeast(0.dp)), y = 0.dp)
+                        .width(tooltipWidth),
+                    shape = RoundedCornerShape(11.dp),
+                    color = Color(0xEE141814),
+                    border = BorderStroke(1.2.dp, DisciplineLook.lime)
+                ) {
+                    Column(
+                        Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            values[selectedIndex]?.let(metric::format) ?: "—",
+                            color = DisciplineLook.lime,
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            maxLines = 1
+                        )
+                        Text(
+                            selected.week.start.format(date),
+                            color = DisciplineLook.subdued,
+                            fontSize = 10.sp,
+                            maxLines = 1
+                        )
+                    }
+                }
+
+                // Tap hitboxes across the 8 weeks
+                Row(Modifier.matchParentSize().selectableGroup()) {
+                    reviews.forEachIndexed { index, review ->
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .selectable(index == selectedIndex, role = Role.Tab) {
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    selectedIndex = index
+                                }
+                                .testTag("training-weeks-point-$index")
+                                .semantics {
+                                    contentDescription = "Week of ${review.week.start.format(date)}, " +
+                                        (values[index]?.let(metric::format) ?: "unavailable")
+                                }
+                        )
+                    }
                 }
             }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(reviews.first().week.start.format(date), color = DisciplineLook.subdued, fontSize = 12.sp)
-            Text(reviews.last().week.start.format(date), color = DisciplineLook.subdued, fontSize = 12.sp)
-        }
-        Text("Week of ${selected.week.start.format(date)}", color = DisciplineLook.ink, fontWeight = FontWeight.SemiBold)
-        Text(
-            values[selectedIndex]?.let(metric::format) ?: if (metric == WeeksMetric.QUALITY)
-                "Workout types unavailable" else "No recorded value",
-            color = DisciplineLook.lime,
-            fontSize = 26.sp,
-            fontWeight = FontWeight.ExtraBold
-        )
-        if (status != null) Text(status, color = DisciplineLook.subdued, fontSize = 13.sp)
-        if (values[selectedIndex] != null && !metric.complete(selected)) {
-            Text("Partial recording", color = DisciplineLook.subdued, fontSize = 12.sp)
-        }
-        comparison?.let {
-            Text("${runningPercentLabel(it)} vs the previous week", color = DisciplineLook.subdued, fontSize = 13.sp)
-        }
-        HorizontalDivider(color = DisciplineLook.border)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Column(Modifier.weight(1f)) {
-                Text("4-week distance avg.", color = DisciplineLook.subdued, fontSize = 12.sp)
-                Text(average?.let(::runningKm) ?: "—", color = DisciplineLook.ink, fontWeight = FontWeight.Bold)
+
+        // Clean 8-week horizontal date + value + compact trend indicator strip
+        Row(
+            Modifier.fillMaxWidth().padding(top = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            reviews.forEachIndexed { idx, review ->
+                val isSel = idx == selectedIndex
+                val prev = reviews.getOrNull(idx - 1)
+                val trendLabel = runningWeekVolumeLabel(review, prev, today)
+                val trendSymbol = when (trendLabel) {
+                    "Increasing" -> "↑"
+                    "Reduced" -> "↓"
+                    "Consistent" -> "•"
+                    else -> null
+                }
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            selectedIndex = idx
+                        }
+                        .padding(vertical = 3.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Text(
+                        review.week.start.format(date),
+                        color = if (isSel) DisciplineLook.lime else DisciplineLook.muted,
+                        fontSize = 8.5.sp,
+                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                        maxLines = 1
+                    )
+                    Text(
+                        values[idx]?.let(metric::formatCompact) ?: "—",
+                        color = if (isSel) DisciplineLook.lime else DisciplineLook.ink,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                    if (trendSymbol != null) {
+                        Box(
+                            Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(
+                                    if (trendSymbol == "↑") Color(0xFF232C16) else Color(0xFF1A1E22)
+                                )
+                                .padding(horizontal = 5.dp, vertical = 1.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                trendSymbol,
+                                color = if (trendSymbol == "↑") DisciplineLook.lime else DisciplineLook.subdued,
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
             }
-            Column(Modifier.weight(1f)) {
-                Text("Highest saved week", color = DisciplineLook.subdued, fontSize = 12.sp)
-                Text(highest?.let(::runningKm) ?: "—", color = DisciplineLook.ink, fontWeight = FontWeight.Bold)
-            }
         }
-        TextButton(onClick = { details = !details }, modifier = Modifier.testTag("training-weeks-details")) {
-            Text(if (details) "Hide week details" else "Review this week", color = DisciplineLook.lime, fontWeight = FontWeight.Bold)
-        }
-        if (details) {
-            if (selected.week.sessions == 0) {
-                Text("No runs saved for this week.", color = DisciplineLook.subdued, fontSize = 13.sp)
-            } else {
-                Text(
-                    selected.types.entries.joinToString(" · ") { "${it.value} ${it.key.label.lowercase(Locale.ROOT)}" },
-                    color = DisciplineLook.subdued,
-                    fontSize = 13.sp
-                )
-                RunningCoachSummary(selected)
+
+        if (status != null || comparison != null) {
+            Row(
+                Modifier.fillMaxWidth().padding(top = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (status != null) {
+                    Text(status, color = DisciplineLook.ink, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+                }
+                comparison?.let {
+                    Text("${runningPercentLabel(it)} vs prev wk", color = DisciplineLook.lime, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
