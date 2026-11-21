@@ -357,7 +357,12 @@ internal data class RunningPrescription(
                 require(mixedSegments.sumOf { it.meters ?: it.distanceEquivalentMeters!! }==reconciledDistanceMeters)
             } else {
                 require(mixedSegments.all { it.distanceEquivalentMeters==null })
-                require(estimatedDistanceKm!=null && estimatedDistanceKm.isFinite() && estimatedDistanceKm>0.0 && estimatedDistanceKm<=120.0)
+                val pureTimeOnlyNonQuality = role!="QUALITY" &&
+                    estimatedDistanceKm==null &&
+                    mixedSegments.all { it.meters==null && it.distanceEquivalentMeters==null }
+                if(!pureTimeOnlyNonQuality) {
+                    require(estimatedDistanceKm!=null && estimatedDistanceKm.isFinite() && estimatedDistanceKm>0.0 && estimatedDistanceKm<=120.0)
+                }
             }
         }
     }
@@ -367,14 +372,19 @@ internal data class RunningPrescription(
     fun encode():JSONObject = if(mixedSegments==null) {
         JSONObject().put("version",1).put("role",role).put("family",family).put("segments",JSONArray(segments.map { it.encode() }))
     } else {
-        if(reconciledDistanceMeters!=null) JSONObject().put("version",3).put("role",role).put("family",family)
-            .put("segments",JSONArray(mixedSegments.map { it.encode() }))
-            .put("reconciledDistanceMeters",reconciledDistanceMeters)
-            .put("distanceBasis","USER_SUPPLIED_PER_STEP_EQUIVALENTS")
-        else JSONObject().put("version",2).put("role",role).put("family",family)
+        when {
+            reconciledDistanceMeters!=null -> JSONObject().put("version",3).put("role",role).put("family",family)
+                .put("segments",JSONArray(mixedSegments.map { it.encode() }))
+                .put("reconciledDistanceMeters",reconciledDistanceMeters)
+                .put("distanceBasis","USER_SUPPLIED_PER_STEP_EQUIVALENTS")
+            estimatedDistanceKm==null -> JSONObject().put("version",4).put("role",role).put("family",family)
+                .put("segments",JSONArray(mixedSegments.map { it.encode() }))
+                .put("timeBasis","TIME_ONLY_NO_DISTANCE_TARGET")
+            else -> JSONObject().put("version",2).put("role",role).put("family",family)
                 .put("segments",JSONArray(mixedSegments.map { it.encode() }))
                 .put("estimatedDistanceKm",estimatedDistanceKm)
                 .put("estimateBasis","PLANNING_PACE_NOT_TARGET")
+        }
     }
     companion object {
         fun decode(j:JSONObject):RunningPrescription = when(j.getInt("version")) {
@@ -391,6 +401,11 @@ internal data class RunningPrescription(
                 RunningPrescription(j.getString("role"),j.nullString("family"),emptyList(),
                     j.getJSONArray("segments").objects().map(RunningStepV2::decode),null,
                     j.getInt("reconciledDistanceMeters"))
+            }
+            4 -> {
+                require(j.getString("timeBasis")=="TIME_ONLY_NO_DISTANCE_TARGET")
+                RunningPrescription(j.getString("role"),j.nullString("family"),emptyList(),
+                    j.getJSONArray("segments").objects().map(RunningStepV2::decode),null,null)
             }
             else -> throw IllegalArgumentException("Unsupported running prescription version")
         }

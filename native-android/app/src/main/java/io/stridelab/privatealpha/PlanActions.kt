@@ -9,7 +9,7 @@ internal data class PlanActions(
     val move:(String,Int,String,LocalDate)->Unit={_,_,_,_->},val adjustDifficulty:(String,Int,String,Int)->Unit={_,_,_,_->},val record:(String,Int,String,WorkoutLog,Boolean)->Unit={_,_,_,_,_->},
     val missed:(String,Int,String,String,Boolean)->Unit={_,_,_,_,_->},val acceptSuggestion:(String,Int,String)->Unit={_,_,_->},
     val feedback:(String,Int,String,String,String?)->Unit={_,_,_,_,_->},
-    val shelf:(String,String?,Boolean)->Unit={_,_,_->},val restore:(String)->Unit={},val link:(String,Int,String,String?)->Unit={_,_,_,_->},val swap:(String,Int,String,String)->Unit={_,_,_,_->},
+    val shelf:(String,String?,Boolean)->Unit={_,_,_->},val restore:(String)->Unit={},val link:(String,Int,String,String?)->Unit={_,_,_,_->},val swap:(String,Int,String,String)->Unit={_,_,_,_->},val swapHarder:(String,Int,String,String)->Unit={_,_,_,_->},
     val saveTemplate:(SessionTemplate)->Unit={},val prepareSession:(SessionTemplate,PlanRequest,LocalDate)->Unit={_,_,_->},
     val lockWorkout:(String,Int,String,Boolean)->Unit={_,_,_,_->},
     val previewAvailability:suspend (String,Set<Int>)->Engine15Availability.Impact?={_,_->null},

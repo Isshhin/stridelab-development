@@ -107,6 +107,7 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
         restore={raw->viewModelScope.launch { repo.restorePlans(raw) }},
         link={id,r,s,a->viewModelScope.launch { repo.linkActivity(id,r,s,a) }},
         swap={id,r,s,e->viewModelScope.launch { repo.swapExercise(id,r,s,e) }},
+        swapHarder={id,r,s,e->viewModelScope.launch { repo.swapExercise(id,r,s,e,ExerciseAlternatives.SwapDirection.HARDER) }},
         saveTemplate={t->viewModelScope.launch { repo.saveTemplate(t) }},
         prepareSession={t,p,d->viewModelScope.launch { repo.prepareSession(t,p,d) }},
         lockWorkout={id,r,s,locked->viewModelScope.launch { repo.setSessionLock(id,r,s,locked) }},

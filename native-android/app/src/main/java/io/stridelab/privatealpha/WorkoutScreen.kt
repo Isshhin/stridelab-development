@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.drop
     val entryDraft=state.workoutDrafts[plan.id to session.id]?.takeIf { it.owner==plan.owner && it.logRevision==session.logRevision }
     var pendingSwap by rememberSaveable(plan.owner,session.id) { mutableStateOf<String?>(null) }
     var swapId by rememberSaveable(plan.owner,session.id) { mutableStateOf<String?>(null) }
+    var swapDirection by rememberSaveable(plan.owner,session.id) { mutableStateOf("EASIER") }
     val done=session.status=="completed";val active=Engine1Engines.canManage(plan) && plan.status in setOf("approved","paused") && session.status in setOf("planned","in_progress")
     val plannedRun=session.discipline=="run" && session.status in setOf("planned","in_progress")
     var recordingOpen by rememberSaveable(plan.owner,session.id) { mutableStateOf(!plannedRun) }
@@ -215,8 +216,13 @@ import kotlinx.coroutines.flow.drop
                 Text("${exerciseIndex+1} OF ${exercises.size} · ${ex.equipment.uppercase()}",style=MaterialTheme.typography.labelMedium,color=disciplineColor(session.discipline))
                 Text(ex.name,style=MaterialTheme.typography.headlineSmall);Text("$setCount sets · ${ex.reps?.let { "$it reps" } ?: "${ex.seconds} sec hold"} · rest ${ex.rest} sec")
                 Text(ex.cue)
-                session.swaps.find { it.replacement.id==ex.id }?.let { swap -> Text("Easier alternative to "+session.exercises.first { it.id==swap.originalId }.name,style=MaterialTheme.typography.bodySmall);Text(swap.reason,style=MaterialTheme.typography.bodySmall) }
-                if(active && session.log?.sets?.none { it.exerciseId==ex.id }!=false && ExerciseAlternatives.easier(ex)!=null)OutlinedButton(onClick={swapId=ex.id},enabled=!state.busy,modifier=Modifier.fillMaxWidth()) { Text("Choose an easier alternative") }
+                session.swaps.find { it.replacement.id==ex.id }?.let { swap ->
+                    val prefix = if(swap.replacement.id.endsWith("-progression")) "Harder progression of " else "Easier alternative to "
+                    Text(prefix + session.exercises.first { it.id==swap.originalId }.name,style=MaterialTheme.typography.bodySmall)
+                    Text(swap.reason,style=MaterialTheme.typography.bodySmall)
+                }
+                if(active && session.log?.sets?.none { it.exerciseId==ex.id }!=false && ExerciseAlternatives.easier(ex)!=null)OutlinedButton(onClick={swapDirection="EASIER";swapId=ex.id},enabled=!state.busy,modifier=Modifier.fillMaxWidth()) { Text("Choose an easier alternative") }
+                if(active && session.log?.sets?.none { it.exerciseId==ex.id }!=false && ExerciseAlternatives.harder(ex)!=null)OutlinedButton(onClick={swapDirection="HARDER";swapId=ex.id},enabled=!state.busy,modifier=Modifier.fillMaxWidth()) { Text("Choose a harder progression") }
                 if(!active) Text(if(done) "Actual values below are your saved records. Blank values were not recorded." else if(!Engine1Engines.canManage(plan))"This saved engine/policy is read-only here. Its original prescription is retained for viewing and export." else "Approve the plan before recording. Targets are not completed sets.",style=MaterialTheme.typography.bodySmall)
             } }
             (1..setCount).forEach { i -> item {
@@ -313,14 +319,18 @@ import kotlinx.coroutines.flow.drop
         } else item { PlanFeedbackForm(plan,actions,session.id) }
     }
     }
-    swapId?.let { id -> exercises.find { it.id==id }?.let { original -> ExerciseAlternatives.easier(original)?.let { replacement ->
-        AlertDialog(onDismissRequest={swapId=null},title={Text("Review easier alternative")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
-            Text(replacement.name,style=MaterialTheme.typography.titleLarge)
-            Text("${replacement.sets} sets · ${replacement.reps?.let { "$it reps" } ?: "${replacement.seconds} seconds"} · rest ${replacement.rest} seconds")
-            Text(replacement.cue);Text(ExerciseAlternatives.REASON)
-            Text("Any unsaved entries for this exercise will be cleared. Previously saved sets cannot be replaced.",style=MaterialTheme.typography.bodySmall)
-        }},confirmButton={TextButton(onClick={pendingSwap=id;actions.swap(plan.id,plan.revision,session.id,id);swapId=null}) { Text("Use easier alternative") }},dismissButton={TextButton(onClick={swapId=null}) { Text("Keep original") }})
-    } } }
+    swapId?.let { id -> exercises.find { it.id==id }?.let { original ->
+        val dir = if(swapDirection=="HARDER") ExerciseAlternatives.SwapDirection.HARDER else ExerciseAlternatives.SwapDirection.EASIER
+        ExerciseAlternatives.alternative(original,dir)?.let { replacement ->
+            val harderSwap = dir == ExerciseAlternatives.SwapDirection.HARDER
+            AlertDialog(onDismissRequest={swapId=null},title={Text(if(harderSwap) "Review harder progression" else "Review easier alternative")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                Text(replacement.name,style=MaterialTheme.typography.titleLarge)
+                Text("${replacement.sets} sets · ${replacement.reps?.let { "$it reps" } ?: "${replacement.seconds} seconds"} · rest ${replacement.rest} seconds")
+                Text(replacement.cue);Text(ExerciseAlternatives.reasonFor(dir))
+                Text("Any unsaved entries for this exercise will be cleared. Previously saved sets cannot be replaced.",style=MaterialTheme.typography.bodySmall)
+            }},confirmButton={TextButton(onClick={pendingSwap=id;if(harderSwap) actions.swapHarder(plan.id,plan.revision,session.id,id) else actions.swap(plan.id,plan.revision,session.id,id);swapId=null}) { Text(if(harderSwap) "Use harder progression" else "Use easier alternative") }},dismissButton={TextButton(onClick={swapId=null}) { Text("Keep original") }})
+        }
+    } }
     if(missed && onMissed==null) AlertDialog(onDismissRequest={missed=false},title={Text("Why was this session missed?")},text={ Column { ChoiceChips(listOf("Time","Fatigue","Soreness","Illness","Other"),listOf("Time","Fatigue","Soreness","Illness","Other").indexOf(reason)) { reason=listOf("Time","Fatigue","Soreness","Illness","Other")[it] };Text("No catch-up volume is added. Any recovery suggestion requires your explicit choice.") } },confirmButton={TextButton(onClick={actions.missed(plan.id,plan.revision,session.id,reason,false);missed=false}) { Text("Mark missed") }},dismissButton={Row { TextButton(onClick={actions.missed(plan.id,plan.revision,session.id,reason,true);missed=false}) { Text("Skip") };TextButton(onClick={missed=false}) { Text("Cancel") } }})
     if(move && onMove==null) AlertDialog(onDismissRequest={move=false},title={Text("Move workout")},text={Column { NativeDateField("Scheduled date",moveDate,{moveDate=it});Text("Available-day, long-run-day and recovery conflicts are checked before saving.");formError?.let { Text(it) } }},confirmButton={TextButton(onClick={try {actions.move(plan.id,plan.revision,session.id,LocalDate.parse(moveDate));move=false}catch(e:PlanConstraint){formError=e.message}catch(_:java.time.format.DateTimeParseException){formError="Enter a valid YYYY-MM-DD date."}}) { Text("Save move") }},dismissButton={TextButton(onClick={move=false}) { Text("Cancel") }})
 }

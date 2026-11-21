@@ -154,7 +154,7 @@ internal object PlanOperations {
         return changed
     }
 
-    fun swapExercise(plan:PlanSnapshot,sessionId:String,exerciseId:String,now:Instant=Instant.now()):PlanSnapshot {
+    fun swapExercise(plan:PlanSnapshot,sessionId:String,exerciseId:String,now:Instant=Instant.now(),direction:ExerciseAlternatives.SwapDirection=ExerciseAlternatives.SwapDirection.EASIER):PlanSnapshot {
         compatible(plan)
         if(plan.status !in setOf("approved","paused"))throw PlanConstraint("Approve a plan before choosing an alternative.")
         val s=plan.sessions.find { it.id==sessionId } ?: throw PlanConstraint("Workout is unavailable.")
@@ -162,8 +162,11 @@ internal object PlanOperations {
         if(s.swaps.any { it.originalId==exerciseId })throw PlanConstraint("This exercise already has a reviewed alternative.")
         if(s.log?.sets?.any { it.exerciseId==exerciseId }==true)throw PlanConstraint("Sets were already recorded for this movement. Keep that history; choose a separate reviewed workout instead.")
         val original=s.exercises.find { it.id==exerciseId } ?: throw PlanConstraint("The original exercise is unavailable.")
-        val replacement=ExerciseAlternatives.easier(original) ?: throw PlanConstraint("No reviewed easier alternative is available for this movement.")
-        val swap=ExerciseSwap(exerciseId,replacement,ExerciseAlternatives.REASON,now)
+        val replacement=ExerciseAlternatives.alternative(original,direction) ?: throw PlanConstraint(
+            if(direction==ExerciseAlternatives.SwapDirection.HARDER) "No reviewed harder progression is available for this movement."
+            else "No reviewed easier alternative is available for this movement."
+        )
+        val swap=ExerciseSwap(exerciseId,replacement,ExerciseAlternatives.reasonFor(direction),now)
         return plan.copy(sessions=plan.sessions.map { if(it.id==sessionId)it.copy(swaps=it.swaps+swap)else it })
     }
     fun linkActivity(plan:PlanSnapshot,sessionId:String,activityId:String?):PlanSnapshot {

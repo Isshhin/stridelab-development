@@ -369,6 +369,9 @@ internal object Engine15WorkoutDifficultyAdjuster {
         targetStep: Int,
         baseline: SessionDifficultyBaseline
     ): PlannedSession {
+        if (base.distanceKm == null) {
+            return adjustTimeOnlyRun(base, request, targetStep, baseline)
+        }
         val pace = request.planningPace.coerceAtLeast(180.0)
         val mult = when (targetStep) {
             -2 -> 0.70
@@ -430,11 +433,66 @@ internal object Engine15WorkoutDifficultyAdjuster {
         }
         return base.copy(
             minutes = newMinutes,
-            distanceKm = if (base.distanceKm != null) finalKm else null,
+            distanceKm = finalKm,
             steps = listOf("${formatMetersAsKm(meters)} at $effortText"),
             reason = appendNote(
                 base.reason,
                 "Adjusted to ${labelFor(targetStep)}: scaled distance from ${formatMetersAsKm((baseKm * 1000).roundToInt())} to ${formatMetersAsKm(meters)}."
+            ),
+            runningPrescription = newRx,
+            difficultyStep = targetStep,
+            difficultyBaseline = baseline
+        )
+    }
+
+    private fun adjustTimeOnlyRun(
+        base: PlannedSession,
+        request: PlanRequest,
+        targetStep: Int,
+        baseline: SessionDifficultyBaseline
+    ): PlannedSession {
+        val mult = when (targetStep) {
+            -2 -> 0.70
+            -1 -> 0.85
+            1 -> 1.15
+            else -> 1.30
+        }
+        val maxMin = if (request.timeBudgetEnabled && targetStep > 0) {
+            maxOf(base.minutes, request.minutes)
+        } else 120
+        var newMinutes = (base.minutes * mult).roundToInt().coerceIn(minOf(10, base.minutes), minOf(120, maxMin))
+        if (targetStep < 0 && newMinutes >= base.minutes && base.minutes > 10) {
+            newMinutes = (base.minutes - 2).coerceAtLeast(10)
+        } else if (targetStep > 0 && newMinutes <= base.minutes && maxMin >= base.minutes + 2) {
+            newMinutes = (base.minutes + 2).coerceAtMost(maxMin)
+        }
+        val rx = base.runningPrescription
+        val newRx = if (rx != null && rx.mixedSegments != null && rx.mixedSegments.isNotEmpty()) {
+            val totalSeconds = newMinutes * 60
+            val warmIdx = rx.mixedSegments.indexOfFirst { it.purpose == "WARM_UP" }
+            val coolIdx = rx.mixedSegments.indexOfLast { it.purpose == "COOL_DOWN" }
+            val weights = rx.mixedSegments.mapIndexed { idx, step ->
+                val baseSec = (step.seconds ?: 60).toDouble()
+                if (idx == warmIdx || idx == coolIdx) baseSec * 0.65 else baseSec
+            }
+            val scaledSec = distributePositiveInts(totalSeconds, weights, minEach = 30)
+            val updatedMixed = rx.mixedSegments.mapIndexed { idx, step ->
+                step.copy(seconds = scaledSec[idx].coerceIn(30, 14400))
+            }
+            rx.copy(mixedSegments = updatedMixed)
+        } else rx
+        val updatedSteps = newRx?.mixedSegments?.mapIndexed { idx, step ->
+            val sec = step.seconds ?: 60
+            val durText = if (sec % 60 == 0) "${sec / 60} min" else "$sec s"
+            "${idx + 1}. $durText ${step.purpose.lowercase().replace('_', ' ')} — ${step.effort}"
+        } ?: listOf("$newMinutes min time-based run/walk at easy conversational effort")
+        return base.copy(
+            minutes = newMinutes,
+            distanceKm = null,
+            steps = updatedSteps,
+            reason = appendNote(
+                base.reason,
+                "Adjusted to ${labelFor(targetStep)}: scaled time-based duration from ${base.minutes} min to $newMinutes min."
             ),
             runningPrescription = newRx,
             difficultyStep = targetStep,
@@ -486,7 +544,14 @@ internal object Engine15WorkoutDifficultyAdjuster {
                     newSeconds = ex.seconds?.let { s -> (s * 1.20).roundToInt().coerceAtLeast(s + 5).coerceIn(15, 180) }
                 }
             }
-            ex.copy(sets = newSets, reps = newReps, seconds = newSeconds)
+            val rirCue = when (targetStep) {
+                -2 -> "Target easy technique effort (4+ reps in reserve; lighten load if needed)."
+                -1 -> "Target controlled moderate effort (3 reps in reserve)."
+                1 -> "Target challenging effort (1–2 reps in reserve with clean form)."
+                else -> "Target progressive overload effort (1 rep in reserve; add a small load increment or controlled pause if form is crisp)."
+            }
+            val updatedCue = if (ex.cue.isBlank()) rirCue else "${ex.cue.trimEnd()} $rirCue"
+            ex.copy(sets = newSets, reps = newReps, seconds = newSeconds, cue = updatedCue)
         }
 
         val workMinutes = scaledExercises.sumOf { ex ->

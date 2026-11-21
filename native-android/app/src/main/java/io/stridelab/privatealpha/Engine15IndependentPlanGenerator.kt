@@ -83,6 +83,10 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             Engine15StrengthWorkoutComposer.validateRequest(request)
             return
         }
+        if (Engine15TimeOnlyRunWalkBuilder.isEligible(request)) {
+            Engine15TimeOnlyRunWalkBuilder.compose(request, "engine15-validation", "validation", Instant.EPOCH)
+            return
+        }
         appDraft(previewAutoReconciled(request, "engine15-validation", "validation", Instant.EPOCH))
     }
 
@@ -310,6 +314,12 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 ),
                 name = "Engine 1.5 independent strength plan"
             )
+        }
+        if (Engine15TimeOnlyRunWalkBuilder.isEligible(request)) {
+            RecordPolicy.identifier(owner)
+            RecordPolicy.identifier(id)
+            val external = externalPlanContext(request, owner, plans)
+            return Engine15TimeOnlyRunWalkBuilder.compose(request, owner, id, now, external.blockedRunDates)
         }
         return appDraft(previewAutoReconciled(
             request, owner, id, now, plans, activityEvidence, qualityEvidence,
@@ -858,47 +868,51 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         if (plan.experimentalQualityExposureSeconds != null && plan.experimentalQualityExposureSeconds !in 1..14400)
             throw PlanConstraint("This plan uses an invalid experimental quality exposure anchor.")
         val baselines = plan.sessions.map { it.baselineSession() }
-        // Historical pilots retain their original eligibility semantics during structural validation.
-        val savedUsesAdaptiveRotation = baselines.filter { it.quality }
-            .mapNotNull { it.runningPrescription?.family }
-            .distinct().size > 1
-        fun runPreview(adaptive: Boolean) = preview(
-            plan.request, plan.owner, plan.id, plan.createdAt,
-            qualityEvidence = qualityEvidence,
-            applyTempoExposureGate = plan.experimentalQualityPolicy == QUALITY_POLICY,
-            assertedExposureSecondsOverride = plan.experimentalQualityExposureSeconds,
-            allowExplicitUserFamily = true,
-            adaptiveQualityMode = adaptive
-        )
-        val expected = if (plan.request.qualityDistanceClaims.isEmpty() && baselines.any { it.quality }) {
-            when (val decision = previewAutoReconciled(
+        val expected = if (Engine15TimeOnlyRunWalkBuilder.isEligible(plan.request)) {
+            Engine15TimeOnlyRunWalkBuilder.compose(plan.request, plan.owner, plan.id, plan.createdAt)
+        } else {
+            // Historical pilots retain their original eligibility semantics during structural validation.
+            val savedUsesAdaptiveRotation = baselines.filter { it.quality }
+                .mapNotNull { it.runningPrescription?.family }
+                .distinct().size > 1
+            fun runPreview(adaptive: Boolean) = preview(
                 plan.request, plan.owner, plan.id, plan.createdAt,
                 qualityEvidence = qualityEvidence,
-                assertedExposureSecondsOverride = plan.experimentalQualityExposureSeconds
-            )) {
-                is Engine15IndependentPlanDecision.Deferred ->
-                    throw PlanConstraint("${decision.reasonCode}: ${decision.explanation}")
-                is Engine15IndependentPlanDecision.Candidate -> decision.plan
-            }
-        } else {
-            val initialDecision = runPreview(savedUsesAdaptiveRotation)
-            val needsAdaptiveRetry = plan.experimentalQualityExposureSeconds != null &&
-                !savedUsesAdaptiveRotation &&
-                plan.request.qualityDistanceClaims.isNotEmpty() &&
-                baselines.any { it.quality } &&
-                (initialDecision is Engine15IndependentPlanDecision.Deferred || (
-                    initialDecision is Engine15IndependentPlanDecision.Candidate &&
-                        initialDecision.plan.sessions.associateBy { it.id }.let { expectedById ->
-                            baselines.any { session ->
-                                expectedById[session.id]?.runningPrescription != session.runningPrescription
+                applyTempoExposureGate = plan.experimentalQualityPolicy == QUALITY_POLICY,
+                assertedExposureSecondsOverride = plan.experimentalQualityExposureSeconds,
+                allowExplicitUserFamily = true,
+                adaptiveQualityMode = adaptive
+            )
+            if (plan.request.qualityDistanceClaims.isEmpty() && baselines.any { it.quality }) {
+                when (val decision = previewAutoReconciled(
+                    plan.request, plan.owner, plan.id, plan.createdAt,
+                    qualityEvidence = qualityEvidence,
+                    assertedExposureSecondsOverride = plan.experimentalQualityExposureSeconds
+                )) {
+                    is Engine15IndependentPlanDecision.Deferred ->
+                        throw PlanConstraint("${decision.reasonCode}: ${decision.explanation}")
+                    is Engine15IndependentPlanDecision.Candidate -> decision.plan
+                }
+            } else {
+                val initialDecision = runPreview(savedUsesAdaptiveRotation)
+                val needsAdaptiveRetry = plan.experimentalQualityExposureSeconds != null &&
+                    !savedUsesAdaptiveRotation &&
+                    plan.request.qualityDistanceClaims.isNotEmpty() &&
+                    baselines.any { it.quality } &&
+                    (initialDecision is Engine15IndependentPlanDecision.Deferred || (
+                        initialDecision is Engine15IndependentPlanDecision.Candidate &&
+                            initialDecision.plan.sessions.associateBy { it.id }.let { expectedById ->
+                                baselines.any { session ->
+                                    expectedById[session.id]?.runningPrescription != session.runningPrescription
+                                }
                             }
-                        }
-                ))
-            val resolvedDecision = if (needsAdaptiveRetry) runPreview(true) else initialDecision
-            when (resolvedDecision) {
-                is Engine15IndependentPlanDecision.Deferred ->
-                    throw PlanConstraint("${resolvedDecision.reasonCode}: ${resolvedDecision.explanation}")
-                is Engine15IndependentPlanDecision.Candidate -> resolvedDecision.plan
+                    ))
+                val resolvedDecision = if (needsAdaptiveRetry) runPreview(true) else initialDecision
+                when (resolvedDecision) {
+                    is Engine15IndependentPlanDecision.Deferred ->
+                        throw PlanConstraint("${resolvedDecision.reasonCode}: ${resolvedDecision.explanation}")
+                    is Engine15IndependentPlanDecision.Candidate -> resolvedDecision.plan
+                }
             }
         }
         if (plan.sessions.size != expected.sessions.size ||
