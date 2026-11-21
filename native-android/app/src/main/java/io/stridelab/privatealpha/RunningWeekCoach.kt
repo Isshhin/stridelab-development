@@ -71,10 +71,10 @@ internal fun runningPlanWeekLabel(start: LocalDate, plans: List<PlanSnapshot>): 
     val selected = runs.filter { it.date in start..end }
     if (selected.any { it.kind.equals("race", true) }) return "Plan · Race"
     if (selected.isEmpty()) return "StrideLab plan"
+    // Only the baseline policy has a calendar rule we can read back with confidence.
     if (plan.engineVersion == ENGINE1_VERSION && plan.policyId == ENGINE1_POLICY &&
         plan.foreignSnapshot == null && plan.request.start.dayOfWeek == start.dayOfWeek &&
-        !start.isBefore(plan.request.start)
-    ) {
+        !start.isBefore(plan.request.start)) {
         val index = java.time.temporal.ChronoUnit.WEEKS.between(plan.request.start, start).toInt()
         if (index < plan.request.weeks) {
             val taper = plan.request.goal in setOf("Half marathon", "Marathon") &&

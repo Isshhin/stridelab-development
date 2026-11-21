@@ -50,9 +50,9 @@ class ActivityDetailSectionAnalysisTest {
             "Heart rate", samples.map { it to it.hr!! }
         )
         assertNotNull(result)
-        assertTrue(result!!.headline.contains("131 bpm"))
-        assertTrue(result.summary.contains("148 bpm"))
-        assertTrue(result.evidence.any { it.contains("do not establish cardiac drift") })
+        assertEquals("Heart rate was higher late in the run", result!!.headline)
+        assertTrue(result.summary.contains("131 bpm") && result.summary.contains("162 bpm"))
+        assertTrue(result.evidence.any { it.contains("establish cardiac drift") })
         assertEquals(false, result.hasComparison)
     }
 

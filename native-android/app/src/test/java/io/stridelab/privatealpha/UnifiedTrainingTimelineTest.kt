@@ -189,7 +189,7 @@ class UnifiedTrainingTimelineTest {
             type = "strength", distanceM = null, durationS = null,
             movingTimeS = null, averageHr = null
         )
-        assertEquals("Completed activity" to "", timelineRecordedMetrics(saved))
+        assertEquals("Recorded workout" to "", timelineRecordedMetrics(saved))
     }
 
     @Test fun twoDistinctRecordedRunsRemainSeparateOnSameDate() {

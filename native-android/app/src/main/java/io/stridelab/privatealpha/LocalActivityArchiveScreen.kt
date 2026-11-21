@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -116,64 +117,67 @@ internal fun LocalActivityArchiveScreen(
         }
     }
 
-    Screen("Activity backup", "PRIVATE · OFFLINE", compactTitle = true) {
-        item(key = "archive-back") {
-            TextButton(onClick = onBack, enabled = !busy,
-                modifier = Modifier.testTag("archive-back")) { Text("← Back to More") }
-        }
+
+    MoreFeatureScreen("Activity backup", onBack, "archive-back", backEnabled = !busy) {
         item(key = "archive-intro") {
-            SignalCard {
-                Text("Protect your recorded activities", style = MaterialTheme.typography.titleLarge)
-                Text(
-                    "Export saved activity summaries, GPS, heart-rate samples, laps and " +
-                        "original FIT files where the app retained those bytes. " +
-                        "Previously imported recordings without original FIT files " +
-                        "are still archived through their saved activity details.",
-                    style = MaterialTheme.typography.bodyMedium
+            MoreFeatureCard {
+                MoreFeatureEyebrow("PRIVATE · OFFLINE")
+                Text("Protect recorded activities",
+                    fontSize = 17.sp, lineHeight = 23.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    color = MoreFeatureColors.text)
+                MoreFeatureMuted(
+                    "Back up saved run summaries, GPS, heart-rate samples, laps and " +
+                        "original FIT files when the app retained them. Older recordings " +
+                        "without the original FIT are still included through saved activity details."
                 )
-                Text(
-                    "This archive does not contain generated plans, manual strength logs, " +
-                        "account credentials, or maps. Those use separate storage. " +
-                        "ZIP files are NOT encrypted and may reveal precise routes and health data.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                MoreFeatureDivider()
+                MoreFeatureEyebrow("DATA PRIVACY")
+                MoreFeatureMuted(
+                    "ZIP files are NOT encrypted and may reveal precise routes and health data. " +
+                        "Keep exported files private."
+                )
+                MoreFeatureMuted(
+                    "Activity archives do not include generated plans, manual strength logs, " +
+                        "account credentials or offline maps. Those use separate storage."
                 )
             }
         }
         item(key = "archive-source") {
-            SignalCard {
-                Text("ACTIVITY SOURCE", style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary)
+            MoreFeatureCard {
+                MoreFeatureEyebrow("ACTIVITY SOURCE")
+                MoreFeatureMuted("Choose which saved history to export or restore.")
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
+                    MoreFeatureChip(
+                        "Local Garmin history",
                         selected = source == LocalActivityArchiveScope.LOCAL_GARMIN,
                         onClick = { source = LocalActivityArchiveScope.LOCAL_GARMIN },
                         enabled = !busy,
-                        label = { Text("Local Garmin history") },
-                        modifier = Modifier.testTag("archive-local-garmin")
+                        modifier = Modifier.fillMaxWidth().testTag("archive-local-garmin")
                     )
-                    FilterChip(
+                    MoreFeatureChip(
+                        "Signed-in account history",
                         selected = source == LocalActivityArchiveScope.CLOUD_ACCOUNT,
                         onClick = { source = LocalActivityArchiveScope.CLOUD_ACCOUNT },
                         enabled = !busy && cloudAvailable,
-                        label = { Text("Signed-in account history") },
-                        modifier = Modifier.testTag("archive-cloud-account")
-                    )
-                    Text(
-                        if(source == LocalActivityArchiveScope.LOCAL_GARMIN)
-                            "Can be restored to a new installation's local Garmin owner. " +
-                                "Existing records are never replaced."
-                        else "Restore only while signed in to the same StrideLab account. " +
-                            "An archive never signs you in.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        modifier = Modifier.fillMaxWidth().testTag("archive-cloud-account")
                     )
                 }
+                MoreFeatureMuted(
+                    if (source == LocalActivityArchiveScope.LOCAL_GARMIN)
+                        "Can be restored to a new installation's local Garmin owner. " +
+                            "Existing records are never replaced."
+                    else
+                        "Restore only while signed in to the same StrideLab account. " +
+                            "An archive never signs you in."
+                )
             }
         }
         item(key = "archive-actions") {
-            SignalCard {
-                Button(
+            MoreFeatureCard {
+                MoreFeatureEyebrow("EXPORT OR RESTORE")
+                MoreFeaturePrimaryAction(
+                    text = if (busy) "Preparing…" else "Export activity ZIP",
                     enabled = !busy,
                     onClick = {
                         busy = true
@@ -182,9 +186,10 @@ internal fun LocalActivityArchiveScreen(
                             try {
                                 pendingFile = onExport(source)
                                 createArchive.launch(
-                                    "StrideLab-${source.name.lowercase()}-${LocalDate.now()}.zip")
-                            } catch(error: Exception) {
-                                if(error is CancellationException) throw error
+                                    "StrideLab-${source.name.lowercase()}-${LocalDate.now()}.zip"
+                                )
+                            } catch (error: Exception) {
+                                if (error is CancellationException) throw error
                                 pendingFile?.delete()
                                 pendingFile = null
                                 busy = false
@@ -194,29 +199,34 @@ internal fun LocalActivityArchiveScreen(
                         }
                     },
                     modifier = Modifier.fillMaxWidth().testTag("archive-export")
-                ) { Text(if(busy) "Preparing…" else "Export activity ZIP") }
-                OutlinedButton(
+                )
+                MoreFeatureSecondaryAction(
+                    text = "Restore activity ZIP",
                     enabled = !busy,
-                    onClick = { message = null; importArchive.launch(arrayOf(
-                        "application/zip", "application/octet-stream",
-                        "application/x-zip-compressed"
-                    )) },
+                    onClick = {
+                        message = null
+                        importArchive.launch(arrayOf(
+                            "application/zip", "application/octet-stream",
+                            "application/x-zip-compressed"
+                        ))
+                    },
                     modifier = Modifier.fillMaxWidth().testTag("archive-restore")
-                ) { Text("Restore activity ZIP") }
-                Text(
-                    "Restore checks the entire ZIP and every source checksum before " +
-                        "inserting records. A conflicting activity ID stops the restore " +
-                        "rather than replacing the original.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                MoreFeatureDivider()
+                MoreFeatureMuted(
+                    "Restore validates the entire archive and every checksum before " +
+                        "inserting records. Conflicting IDs stop recovery rather than " +
+                        "replacing your existing activities."
                 )
             }
         }
         message?.let { note ->
             item(key = "archive-feedback") {
-                SignalCard {
+                MoreFeatureCard {
+                    MoreFeatureEyebrow("ARCHIVE STATUS")
                     Text(note, modifier = Modifier.testTag("archive-feedback"),
-                        style = MaterialTheme.typography.bodyMedium)
+                        fontSize = 13.sp, lineHeight = 19.sp,
+                        color = MoreFeatureColors.text)
                 }
             }
         }

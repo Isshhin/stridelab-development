@@ -583,21 +583,35 @@ internal fun StrideLabTodayScreen(
                                     ).associateBy { it.activityId }
                                 } else emptyMap()
                                 val preferences = AthleteHeartRatePreferences(context)
+                                val garminZones = GarminZonePreferenceStore(context)
                                 val manualZones = preferences.settings(state.account)
                                 recentWeeks.map { week ->
                                     summarizeRunningWeek(week) { run ->
+                                        val owner = activityCorrectionOwner(run.id, state)
                                         loadedUserLabels[run.id] ?: detectedById[run.id]?.takeIf {
                                             it.kind != ActivityWorkoutKind.UNKNOWN
                                         }?.let { det ->
                                             UserActivityWorkoutLabel(det.kind, det.qualitySubtype)
-                                        } ?: state.details[run.id]?.let { detail ->
-                                            val dist = HeartRateZoneAnalysis.distribute(detail.samples, manualZones)
-                                            val dur = run.movingTimeS ?: run.durationS
-                                            val z12 = dist?.buckets?.take(2)?.sumOf { it.seconds } ?: 0.0
-                                            val zTotal = dist?.classifiedSeconds ?: 0.0
-                                            if (dur != null && dur > 0 && zTotal >= dur * 0.55 && z12 >= zTotal * 0.85) {
-                                                UserActivityWorkoutLabel(ActivityWorkoutKind.EASY_RUN)
-                                            } else null
+                                        } ?: run {
+                                            val detail = state.details[run.id]
+                                            val distribution = detail?.let {
+                                                if (garminZones.source(owner) == DisplayHeartRateZoneSource.GARMIN) {
+                                                    garminZones.load(owner)?.let { profile -> HeartRateZoneAnalysis.distribute(detail.samples, profile.profile) }
+                                                } else {
+                                                    HeartRateZoneAnalysis.distribute(detail.samples, manualZones)
+                                                }
+                                            }
+                                            val detected = ActivityWorkoutIntelligence.detect(run, detail, safeHistory, distribution)
+                                            if (detected.kind != ActivityWorkoutKind.UNKNOWN) {
+                                                UserActivityWorkoutLabel(detected.kind, detected.qualitySubtype)
+                                            } else {
+                                                val dur = run.movingTimeS ?: run.durationS
+                                                val z12 = distribution?.buckets?.take(2)?.sumOf { it.seconds } ?: 0.0
+                                                val zTotal = distribution?.classifiedSeconds ?: 0.0
+                                                if (dur != null && dur > 0 && zTotal >= dur * 0.55 && z12 >= zTotal * 0.85) {
+                                                    UserActivityWorkoutLabel(ActivityWorkoutKind.EASY_RUN)
+                                                } else null
+                                            }
                                         }
                                     }
                                 }

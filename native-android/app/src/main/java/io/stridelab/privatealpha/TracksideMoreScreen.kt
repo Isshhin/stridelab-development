@@ -10,9 +10,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -20,8 +17,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,15 +25,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -238,7 +230,7 @@ internal fun TracksideMoreDetailScreen(
         when (page) {
             MorePage.Preferences -> {
                 item(key = "detail-athlete-hr") {
-                    AthleteHeartRatePreferenceCard(state.account)
+                    AthleteHeartRatePreferenceCard(state.account, state.localGarminOwner ?: state.account)
                 }
                 item(key = "detail-preferences") {
                     MoreGroup {
@@ -269,231 +261,6 @@ internal fun TracksideMoreDetailScreen(
                             "\nVersion code: " + BuildConfig.VERSION_CODE +
                             "\nBuild type: " + BuildConfig.BUILD_TYPE
                     )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AthleteHeartRatePreferenceCard(account: String?) {
-    val context = LocalContext.current
-    val preferences = remember(context) { AthleteHeartRatePreferences(context) }
-    var saved by remember(account) {
-        mutableStateOf(preferences.settings(account))
-    }
-    var method by remember(account, saved) { mutableStateOf(saved.method) }
-    var maximumText by remember(account, saved) {
-        mutableStateOf(saved.maximumHr?.toString().orEmpty())
-    }
-    var thresholdText by remember(account, saved) {
-        mutableStateOf(saved.lactateThresholdHr?.toString().orEmpty())
-    }
-    var restingText by remember(account, saved) {
-        mutableStateOf(saved.restingHr?.toString().orEmpty())
-    }
-
-    val maximum = maximumText.toIntOrNull()
-    val threshold = thresholdText.toIntOrNull()
-    val resting = restingText.toIntOrNull()
-    val candidate = AthleteHeartRateZoneSettings(
-        method = method,
-        maximumHr = maximum,
-        lactateThresholdHr = threshold,
-        restingHr = resting
-    )
-    val valid = candidate.ready
-
-    Surface(
-        shape = RoundedCornerShape(21.dp), color = moreSurface,
-        border = BorderStroke(1.dp, moreBorder),
-        modifier = Modifier.fillMaxWidth().testTag("athlete-hr-preference")
-    ) {
-        Column(
-            Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(11.dp)
-        ) {
-            Text(
-                "Heart rate zones", color = moreWhite, fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                "Choose how StrideLab calculates five heart-rate zones. " +
-                    "These settings affect Activity Detail only and do not change Garmin or coaching.",
-                color = moreMuted, fontSize = 12.sp, lineHeight = 18.sp
-            )
-
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                HeartRateZoneMethod.entries.forEach { option ->
-                    FilterChip(
-                        selected = method == option,
-                        onClick = { method = option },
-                        label = {
-                            Text(
-                                option.displayName,
-                                maxLines = 1,
-                                fontSize = 11.sp
-                            )
-                        },
-                        modifier = Modifier.weight(1f)
-                            .testTag("athlete-hr-method-" + option.storageValue)
-                    )
-                }
-            }
-
-            Text(
-                when (method) {
-                    HeartRateZoneMethod.MAX_BPM ->
-                        "MAX BPM uses percentages of your saved maximum heart rate."
-                    HeartRateZoneMethod.LTHR_PERCENT ->
-                        "LTHR% uses your lactate-threshold heart rate."
-                    HeartRateZoneMethod.HRR_PERCENT ->
-                        "HRR% uses heart-rate reserve: maximum HR minus resting HR."
-                },
-                color = moreSecondary, fontSize = 11.sp, lineHeight = 16.sp
-            )
-
-            if (method == HeartRateZoneMethod.MAX_BPM ||
-                method == HeartRateZoneMethod.HRR_PERCENT
-            ) {
-                OutlinedTextField(
-                    value = maximumText,
-                    onValueChange = { value ->
-                        if (value.length <= 3 && value.all { it.isDigit() }) {
-                            maximumText = value
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                        .testTag("athlete-max-hr-input"),
-                    label = { Text("Maximum heart rate") },
-                    placeholder = { Text("100–240") },
-                    suffix = { Text("bpm") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    isError = maximumText.isNotBlank() && (maximum == null || maximum !in 100..240),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = moreLime,
-                        focusedLabelColor = moreLime,
-                        unfocusedBorderColor = moreBorder,
-                        focusedTextColor = moreWhite,
-                        unfocusedTextColor = moreWhite
-                    )
-                )
-            }
-
-            if (method == HeartRateZoneMethod.LTHR_PERCENT) {
-                OutlinedTextField(
-                    value = thresholdText,
-                    onValueChange = { value ->
-                        if (value.length <= 3 && value.all { it.isDigit() }) {
-                            thresholdText = value
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                        .testTag("athlete-lthr-input"),
-                    label = { Text("Lactate threshold HR") },
-                    placeholder = { Text("100–230") },
-                    suffix = { Text("bpm") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    isError = thresholdText.isNotBlank() && (threshold == null || threshold !in 100..230),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = moreLime,
-                        focusedLabelColor = moreLime,
-                        unfocusedBorderColor = moreBorder,
-                        focusedTextColor = moreWhite,
-                        unfocusedTextColor = moreWhite
-                    )
-                )
-            }
-
-            if (method == HeartRateZoneMethod.HRR_PERCENT) {
-                OutlinedTextField(
-                    value = restingText,
-                    onValueChange = { value ->
-                        if (value.length <= 3 && value.all { it.isDigit() }) {
-                            restingText = value
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                        .testTag("athlete-resting-hr-input"),
-                    label = { Text("Resting heart rate") },
-                    placeholder = { Text("30–120") },
-                    suffix = { Text("bpm") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    isError = restingText.isNotBlank() &&
-                        (resting == null || resting !in 30..120 ||
-                            (maximum != null && resting >= maximum)),
-                    supportingText = {
-                        if (maximum != null && resting != null && resting >= maximum) {
-                            Text("Resting HR must be below maximum HR.")
-                        }
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = moreLime,
-                        focusedLabelColor = moreLime,
-                        unfocusedBorderColor = moreBorder,
-                        focusedTextColor = moreWhite,
-                        unfocusedTextColor = moreWhite
-                    )
-                )
-            }
-
-            Text(
-                when (method) {
-                    HeartRateZoneMethod.MAX_BPM ->
-                        "Zones: <60%, 60–69%, 70–79%, 80–89%, ≥90% Max HR."
-                    HeartRateZoneMethod.LTHR_PERCENT ->
-                        "Zones: <85%, 85–89%, 90–94%, 95–99%, ≥100% LTHR."
-                    HeartRateZoneMethod.HRR_PERCENT ->
-                        "Zones: <60%, 60–69%, 70–79%, 80–89%, ≥90% HRR."
-                },
-                color = moreMuted, fontSize = 10.sp, lineHeight = 15.sp
-            )
-
-            Text(
-                if (account == null)
-                    "Saved locally on this device."
-                else
-                    "Saved for the signed-in athlete on this device.",
-                color = moreSecondary, fontSize = 10.sp
-            )
-
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (saved.maximumHr != null || saved.lactateThresholdHr != null ||
-                    saved.restingHr != null
-                ) {
-                    TextButton(
-                        onClick = {
-                            preferences.clear(account)
-                            saved = preferences.settings(account)
-                        },
-                        modifier = Modifier.testTag("athlete-max-hr-clear")
-                    ) {
-                        Text("Clear", color = moreMuted)
-                    }
-                }
-                Button(
-                    onClick = {
-                        preferences.save(account, candidate)
-                        saved = candidate
-                    },
-                    enabled = valid && candidate != saved,
-                    modifier = Modifier.testTag("athlete-max-hr-save"),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = moreLime,
-                        contentColor = moreBlack
-                    )
-                ) {
-                    Text("Save", fontWeight = FontWeight.SemiBold)
                 }
             }
         }

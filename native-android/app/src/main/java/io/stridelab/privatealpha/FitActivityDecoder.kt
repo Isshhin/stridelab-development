@@ -11,7 +11,16 @@ internal object FitActivityDecoder {
         val heartRate: Double?, val altitudeM: Double?, val latitude: Double?,
         val longitude: Double?, val cadenceRpm: Double?, val powerW: Double?)
     data class Lap(val startedAt: Instant?, val elapsedS: Double?, val timerS: Double?,
-        val distanceM: Double?, val averageHr: Double?)
+        val distanceM: Double?, val averageHr: Double?,
+        val workoutStepIndex: Int? = null)
+    data class WorkoutStep(
+        val index: Int,
+        val name: String?,
+        val intensity: String?,
+        val durationType: String?,
+        val durationValue: Long?,
+        val targetType: String?
+    )
     data class TimerPause(val startedAt: Instant, val endedAt: Instant)
     data class SourceHeartRateZones(
         val maximumHr: Int?,
@@ -25,7 +34,8 @@ internal object FitActivityDecoder {
         val distanceM: Double?, val averageHr: Double?, val maximumHr: Double?,
         val points: List<Point>, val laps: List<Lap>,
         val timerPauses: List<TimerPause> = emptyList(),
-        val sourceHeartRateZones: SourceHeartRateZones? = null) {
+        val sourceHeartRateZones: SourceHeartRateZones? = null,
+        val workoutSteps: List<WorkoutStep> = emptyList()) {
         fun candidate() = ImportedActivityCandidate(identity,sport,startedAt,elapsedS,distanceM)
         /** Factual observations only; no invented recovery or coaching conclusion. */
         fun evidence(): List<String> = buildList {
@@ -59,6 +69,7 @@ internal object FitActivityDecoder {
         val zoneTargets = mutableListOf<ZonesTargetMesg>()
         val heartRateZones = mutableListOf<HrZoneMesg>()
         val userProfiles = mutableListOf<UserProfileMesg>()
+        val workoutSteps = mutableListOf<WorkoutStepMesg>()
         var activityFile = false
         var count = 0
         val decoder = Decode()
@@ -78,6 +89,9 @@ internal object FitActivityDecoder {
                 }
                 MesgNum.USER_PROFILE -> {
                     require(userProfiles.size < 4); userProfiles.add(UserProfileMesg(message))
+                }
+                MesgNum.WORKOUT_STEP -> {
+                    require(workoutSteps.size < 200); workoutSteps.add(WorkoutStepMesg(message))
                 }
             }
         })
@@ -136,8 +150,17 @@ internal object FitActivityDecoder {
         return Activity(ImportedSourceIdentity(account,"fit-file",sha256=hash),sport,start,elapsed,timer,
             metric(s.totalDistance),metric(s.avgHeartRate,1.0),metric(s.maxHeartRate,1.0),points,
             laps.map { Lap(time(it.startTime),metric(it.totalElapsedTime),metric(it.totalTimerTime),
-                metric(it.totalDistance),metric(it.avgHeartRate,1.0)) },
+                metric(it.totalDistance),metric(it.avgHeartRate,1.0),
+                it.wktStepIndex?.toInt()?.takeIf { index -> index in 0..999 }) },
             timerPauses = timerPauses,
-            sourceHeartRateZones = sourceZones)
+            sourceHeartRateZones = sourceZones,
+            workoutSteps = workoutSteps.mapNotNull { step ->
+                val index = step.messageIndex?.toInt()?.takeIf { it in 0..999 }
+                    ?: return@mapNotNull null
+                WorkoutStep(index, step.wktStepName?.take(128),
+                    step.intensity?.name, step.durationType?.name,
+                    step.durationValue?.toLong()?.takeIf { it in 0..100_000_000L },
+                    step.targetType?.name)
+            }.distinctBy { it.index })
     }
 }

@@ -50,7 +50,7 @@ internal object ActivityIntelligence {
             comparison.changePercent < 0 -> String.format(Locale.getDefault(), "%.1f%% faster than", abs(comparison.changePercent))
             else -> String.format(Locale.getDefault(), "%.1f%% slower than", comparison.changePercent)
         }
-        return "Your recorded average pace is $direction the median of ${comparison.count} comparable earlier runs (${ActivityRecord.duration(comparison.medianPace)} /km). This describes pace, not improved or reduced fitness: effort, terrain, weather and stops may differ. Review those conditions and how the run felt before changing your next session."
+        return "Your recorded average pace is $direction the usual pace across ${comparison.count} similar earlier runs (${ActivityRecord.duration(comparison.medianPace)} /km). This describes pace, not improved or reduced fitness: effort, terrain, weather and stops may differ. Review those conditions and how the run felt before changing your next session."
     }
     /**
      * Athlete-intelligence-style presentation without pretending to use a
@@ -193,10 +193,10 @@ internal object ActivityIntelligence {
             val difference=if (percent < 1.0) "" else
                 String.format(Locale.getDefault(), "%.1f%% ", percent)
             lines.add(
-                "Recorded average pace is " + difference + direction +
-                " the median of " + similar.count + " comparable earlier runs (" +
+                "You ran " + difference + direction +
+                " the usual pace across " + similar.count + " similar earlier runs (" +
                 ActivityRecord.duration(similar.medianPace) + "/km). " +
-                "Different effort, terrain or weather can affect this comparison."
+                "Think back to the route and how hard you worked on those days."
             )
         } else {
             lines.add(
@@ -208,18 +208,17 @@ internal object ActivityIntelligence {
             .mapNotNull { it.hr?.takeIf { value -> value.isFinite() && value > 0.0 } }
         if (hr.size >= 2) {
             lines.add(
-                "Recorded heart rate ranged from " + hr.min().toInt() +
-                " to " + hr.max().toInt() + " bpm across " + hr.size +
-                " measured samples. This does not determine fatigue or recovery."
+                "Your heart rate went from " + hr.min().toInt() +
+                " to " + hr.max().toInt() + " bpm. Check the chart to see where it rose."
             )
         }
         val cadence=recorded?.samples.orEmpty()
             .mapNotNull { it.cadenceSpm?.takeIf { value -> value.isFinite() && value > 0.0 } }
         if (cadence.size >= 2) {
             lines.add(
-                "Recorded cadence ranged from " + cadence.min().toInt() +
+                "Your step rate went from " + cadence.min().toInt() +
                 " to " + cadence.max().toInt() +
-                " spm. This is not an efficiency score."
+                " steps per minute. See where that changed alongside your pace."
             )
         }
         return lines

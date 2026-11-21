@@ -120,6 +120,8 @@ class TodayDisciplineAnalyticsTest {
             LocalDate.parse("2026-11-10"), TodayDiscipline.RUNNING
         )
         assertEquals(8, weeks.size)
+        assertEquals(LocalDate.parse("2026-09-21"), weeks.first().start)
+        assertEquals(LocalDate.parse("2026-11-09"), weeks.last().start)
         assertTrue(weeks.all { it.recordedDistanceM == null &&
             it.recordedSeconds == null && it.sessions == 0 })
     }

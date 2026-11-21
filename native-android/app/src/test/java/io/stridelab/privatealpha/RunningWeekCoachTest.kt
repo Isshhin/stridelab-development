@@ -9,10 +9,8 @@ class RunningWeekCoachTest {
     private val start = LocalDate.of(2026, 11, 9)
 
     private fun week(start: LocalDate, meters: Double, missing: Int = 0) =
-        TodayDisciplineWeek(
-            start, listOf(2), listOf(0.0), listOf(meters),
-            2, 1, null, meters, 2, missing, null, 0, emptyList(), emptyList()
-        )
+        TodayDisciplineWeek(start, listOf(2), listOf(0.0), listOf(meters),
+            2, 1, null, meters, 2, missing, null, 0, emptyList(), emptyList())
 
     @Test fun missingEvidenceDoesNotBecomeEasyRunning() {
         val result = summarizeRunningWeek(week(start, 8000.0)) { null }

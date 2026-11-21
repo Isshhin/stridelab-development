@@ -102,16 +102,34 @@ private data class ActivityMetricItem(
 internal fun TracksidePrimaryActivityMetrics(activity: ActivityRecord) {
     val recordedHr = activity.averageHr?.takeIf { it.isFinite() && it > 0.0 }
     val metrics = buildList {
-        add(ActivityMetricItem("DISTANCE", activity.distanceM?.let {
-            String.format(Locale.getDefault(), "%.2f", it / 1000.0)
-        } ?: "—", if (activity.distanceM != null) "km" else "", ActivityMetricGlyph.Route))
-        add(ActivityMetricItem("AVG PACE",
-            if (activity.supportsPace && activity.detailPaceLabel != "Not recorded")
-                activity.detailPaceLabel.removeSuffix(" /km").trim() else "—",
-            if (activity.supportsPace && activity.detailPaceLabel != "Not recorded") "/km" else "",
-            ActivityMetricGlyph.Shoe))
-        if (recordedHr != null) add(ActivityMetricItem("AVG HR",
-            recordedHr.roundToInt().toString(), "bpm", ActivityMetricGlyph.Heart))
+        if (activityUsesStationaryDetail(activity)) {
+            add(ActivityMetricItem(
+                "DURATION",
+                activityDisplayDurationSeconds(activity)?.let { ActivityRecord.duration(it) } ?: "—",
+                "", ActivityMetricGlyph.Duration
+            ))
+            if (recordedHr != null) add(ActivityMetricItem(
+                "AVG HR", recordedHr.roundToInt().toString(), "bpm",
+                ActivityMetricGlyph.Heart
+            ))
+            activity.maximumHr?.takeIf { it.isFinite() && it > 0.0 }?.let {
+                add(ActivityMetricItem(
+                    "MAX HR", it.roundToInt().toString(), "bpm",
+                    ActivityMetricGlyph.Heart
+                ))
+            }
+        } else {
+            add(ActivityMetricItem("DISTANCE", activity.distanceM?.let {
+                String.format(Locale.getDefault(), "%.2f", it / 1000.0)
+            } ?: "—", if (activity.distanceM != null) "km" else "", ActivityMetricGlyph.Route))
+            add(ActivityMetricItem("AVG PACE",
+                if (activity.supportsPace && activity.detailPaceLabel != "Not recorded")
+                    activity.detailPaceLabel.removeSuffix(" /km").trim() else "—",
+                if (activity.supportsPace && activity.detailPaceLabel != "Not recorded") "/km" else "",
+                ActivityMetricGlyph.Shoe))
+            if (recordedHr != null) add(ActivityMetricItem("AVG HR",
+                recordedHr.roundToInt().toString(), "bpm", ActivityMetricGlyph.Heart))
+        }
     }
     BoxWithConstraints(Modifier.fillMaxWidth().testTag("activity-primary-metrics")) {
         // Keep the map-dominant collapsed sheet compact on regular phones.
@@ -167,7 +185,7 @@ private fun CenteredActivityMetricSections(
     }
 }
 
-private enum class ActivityMetricGlyph { Route, Shoe, Heart }
+private enum class ActivityMetricGlyph { Route, Duration, Shoe, Heart }
 
 @Composable
 private fun PrimaryActivityMetric(
@@ -184,6 +202,19 @@ private fun PrimaryActivityMetric(
             val h = size.height
             val sw = 2.3.dp.toPx()
             when (symbol) {
+                ActivityMetricGlyph.Duration -> {
+                    drawCircle(activityLime, radius = w * .35f,
+                        center = Offset(w * .5f, h * .55f), style = Stroke(sw))
+                    drawLine(activityLime,
+                        Offset(w * .5f, h * .55f), Offset(w * .5f, h * .33f),
+                        sw, StrokeCap.Round)
+                    drawLine(activityLime,
+                        Offset(w * .5f, h * .55f), Offset(w * .66f, h * .62f),
+                        sw, StrokeCap.Round)
+                    drawLine(activityLime,
+                        Offset(w * .37f, h * .10f), Offset(w * .63f, h * .10f),
+                        sw, StrokeCap.Round)
+                }
                 ActivityMetricGlyph.Route -> {
                     drawCircle(activityLime, radius = w * .12f,
                         center = Offset(w * .16f, h * .65f), style = Stroke(sw))
@@ -514,7 +545,8 @@ internal fun TracksideActivityContinuousSections(
                     }
                 if (chartAvailability.heartRate)
                     item(key = "chart-heart-rate-zones") {
-                        TracksideActivityHeartRateZones(recorded, activityCorrectionOwner(activity.id, state))
+                        TracksideActivityHeartRateZones(
+                            recorded, activityCorrectionOwner(activity.id, state), state.account)
                     }
                 if (chartAvailability.elevation)
                     item(key = "chart-elevation") {
@@ -609,9 +641,6 @@ private fun TracksideActivityAnalysisBody(
     actions: NativeActions,
     matchedSourceIds: Set<String>
 ) {
-    val insight = remember(activity, recorded, history) {
-        ActivityIntelligence.presentation(activity, recorded, history)
-    }
     val character = remember(activity, recorded) {
         ActivityIntelligence.workoutCharacter(activity, recorded)
     }
@@ -625,14 +654,32 @@ private fun TracksideActivityAnalysisBody(
         mutableStateOf(labelStore.load(correctionOwner, activity.id))
     }
     var labelSaveFailed by remember(correctionOwner, activity.id) { mutableStateOf(false) }
-    val workoutAssessment = remember(activity, recorded, state.plans, matchedSourceIds) {
+    val heartRateSettings = remember(context, state.account) {
+        AthleteHeartRatePreferences(context).settings(state.account)
+    }
+    val recordedZones = remember(context, correctionOwner, recorded, heartRateSettings) {
+        recorded?.let { detail ->
+            val sources = GarminZonePreferenceStore(context)
+            if (sources.source(correctionOwner) == DisplayHeartRateZoneSource.GARMIN)
+                sources.load(correctionOwner)?.let {
+                    HeartRateZoneAnalysis.distribute(detail.samples, it.profile)
+                }
+            else HeartRateZoneAnalysis.distribute(detail.samples, heartRateSettings)
+        }
+    }
+    val workoutAssessment = remember(activity, recorded, state.plans, matchedSourceIds,
+        history, recordedZones) {
         ActivityWorkoutIntelligence.assess(
             activity, recorded, state.plans, matchedSourceIds,
-            listOfNotNull(state.account, state.localPlanOwner).toSet()
+            listOfNotNull(state.account, state.localPlanOwner).toSet(),
+            history, recordedZones
         )
     }
-    val heartRateSettings = remember(context, correctionOwner) {
-        AthleteHeartRatePreferences(context).settings(correctionOwner)
+    val insight = remember(activity, recorded, history) {
+        ActivityIntelligence.presentation(activity, recorded, history)
+    }
+    val coachNote = remember(activity, recorded, history, workoutAssessment, userLabel) {
+        runCoachNote(activity, recorded, history, workoutAssessment, correction = userLabel)
     }
     val effort = remember(activity, recorded, history, state.plans, matchedSourceIds,
         heartRateSettings, correctionOwner) {
@@ -669,12 +716,12 @@ private fun TracksideActivityAnalysisBody(
             return@Column
         }
         Text(
-            "YOUR RUN, EXPLAINED",
+            "COACH’S NOTES",
             color = activityLime, fontSize = 10.sp, fontWeight = FontWeight.SemiBold
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            insight?.headline ?: "A record of your run.",
+            coachNote.headline,
             color = activityText, fontSize = 23.sp, lineHeight = 29.sp,
             fontFamily = FontFamily.Serif, fontWeight = FontWeight.SemiBold,
             modifier = Modifier.fillMaxWidth().testTag("activity-analysis-headline")
@@ -682,25 +729,14 @@ private fun TracksideActivityAnalysisBody(
         )
         Spacer(Modifier.height(9.dp))
         Text(
-            insight?.summary ?: "There isn't enough recorded information for a meaningful comparison yet.",
+            coachNote.observation,
             color = Color(0xFFCBD7CF), fontSize = 13.sp, lineHeight = 20.sp,
             modifier = Modifier.testTag("activity-analysis-explained")
         )
-        Spacer(Modifier.height(12.dp))
-        ActivityWorkoutLabelEditor(
-            assessment = workoutAssessment,
-            userLabel = userLabel,
-            canSave = correctionOwner != null,
-            saveFailed = labelSaveFailed,
-            onSelect = { label ->
-                labelSaveFailed = !labelStore.save(correctionOwner, activity.id, label)
-                if (!labelSaveFailed) userLabel = label
-            },
-            onClear = {
-                labelSaveFailed = !labelStore.clear(correctionOwner, activity.id)
-                if (!labelSaveFailed) userLabel = null
-            }
-        )
+        coachNote.dayContext?.let {
+            Text(it, color = activityMuted, fontSize = 13.sp,
+                modifier = Modifier.padding(top = 8.dp).testTag("activity-analysis-day-context"))
+        }
         Spacer(Modifier.height(20.dp))
         val focusShape = RoundedCornerShape(14.dp)
         Column(
@@ -717,10 +753,56 @@ private fun TracksideActivityAnalysisBody(
             )
             Spacer(Modifier.height(7.dp))
             Text(
-                "Use your next planned session and how you feel to guide effort. One recorded run alone can't establish fitness, fatigue or recovery.",
+                coachNote.nextFocus,
                 color = activityText, fontSize = 13.sp, lineHeight = 19.sp
             )
         }
+        Spacer(Modifier.height(12.dp))
+        coachNote.finding?.let { finding ->
+            var showEvidence by rememberSaveable(activity.id) { mutableStateOf(false) }
+            TextButton(onClick = { showEvidence = !showEvidence }) {
+                Text(if (showEvidence) "Hide repeat details" else "See repeat details")
+            }
+            if (showEvidence) {
+                finding.evidence.forEach { Text(it, color = activityMuted) }
+                Text(finding.confidence, color = activityMuted)
+            }
+        }
+        workoutAssessment.intended?.let { intended ->
+            val purpose = when (intended.kind) {
+                ActivityWorkoutKind.EASY_RUN -> "Build aerobic endurance at a comfortable effort."
+                ActivityWorkoutKind.RECOVERY_RUN -> "Keep moving with very little extra strain."
+                ActivityWorkoutKind.LONG_RUN -> "Build endurance by spending longer on your feet."
+                ActivityWorkoutKind.QUALITY_RUN -> when (intended.qualitySubtype) {
+                    ActivityQualitySubtype.THRESHOLD -> "Practice holding a strong, controlled effort."
+                    ActivityQualitySubtype.INTERVALS -> "Practice repeating faster efforts with recoveries between them."
+                    else -> "Practice the faster or more demanding work prescribed for this session."
+                }
+                else -> null
+            }
+            if (purpose != null) ActivityAnalysisSection("What the plan was building", "activity-planned-purpose") {
+                Text(purpose, color = activityMuted)
+            }
+        }
+        ActivityWorkoutClassificationCard(
+            assessment = workoutAssessment,
+            userLabel = userLabel,
+            canSave = correctionOwner != null,
+            saveFailed = labelSaveFailed,
+            onSelect = { label ->
+                labelSaveFailed = !labelStore.save(correctionOwner, activity.id, label)
+                if (!labelSaveFailed) userLabel = label
+            },
+            onClear = {
+                labelSaveFailed = !labelStore.clear(correctionOwner, activity.id)
+                if (!labelSaveFailed) userLabel = null
+            }
+        )
+        workoutAssessment.adherence?.let { adherence ->
+            Spacer(Modifier.height(12.dp))
+            ActivityWorkoutComparisonCard(activity, workoutAssessment.linkedSession, adherence)
+        }
+        ActivityRecordedWorkoutTimeline(recorded)
         ActivityAnalysisSection("How It Went", "activity-analysis-how-it-went") {
             if (character != null) {
                 Text(character, color = activityText, fontSize = 13.sp, lineHeight = 19.sp,
@@ -728,77 +810,52 @@ private fun TracksideActivityAnalysisBody(
             } else {
                 Text(
                     if (recorded == null)
-                        "Recorded splits and sensor samples aren't available for this activity."
-                    else "Not enough recorded detail to describe pacing or cadence reliably.",
+                        "I don’t have the splits for this run yet."
+                    else "There isn’t enough here to tell how your pace changed.",
                     color = activityMuted, fontSize = 13.sp, lineHeight = 19.sp,
                     modifier = Modifier.padding(vertical = 6.dp)
                 )
             }
-            val measured = remember(activity, recorded, history) {
-                ActivityIntelligence.briefInsights(activity, recorded, history)
-                    .filterNot { it.startsWith("No reliable pace comparison") }
-                    .take(3)
-            }
-            measured.forEach { line ->
-                HorizontalDivider(color = activityBorder.copy(alpha = .6f), thickness = .7.dp)
-                Row(Modifier.fillMaxWidth().padding(vertical = 10.dp),
-                    verticalAlignment = Alignment.Top) {
-                    Box(Modifier.padding(top = 7.dp).size(5.dp)
-                        .background(activityLime, RoundedCornerShape(3.dp)))
-                    Spacer(Modifier.width(10.dp))
-                    Text(line, color = activityMuted, fontSize = 12.sp, lineHeight = 18.sp)
-                }
-            }
             athleteEvidence?.longestRecordedRunLast28DaysKm?.let { distance ->
                 Text(
-                    "Your longest recorded run in the last four weeks was " +
-                        "${String.format(Locale.ROOT, "%.1f", distance)} km. Saved activity history may be incomplete.",
+                    "Your longest saved run in the past four weeks: " +
+                        "${String.format(Locale.ROOT, "%.1f", distance)} km.",
                     color = activityMuted, fontSize = 12.sp, lineHeight = 18.sp,
                     modifier = Modifier.padding(vertical = 6.dp)
                         .testTag("activity-longest-recorded-run")
                 )
             }
             HorizontalDivider(color = activityBorder.copy(alpha = .6f), thickness = .7.dp)
-            Text("SESSION EFFORT", color = activityLime, fontSize = 10.sp,
+            Text("HOW HARD IT FELT", color = activityLime, fontSize = 10.sp,
                 fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp))
             Text(
                 effort.reportedEffort?.let { "You rated this session $it out of 10." }
-                    ?: "No post-run effort rating is available for this session.",
+                    ?: "You haven’t rated this run yet.",
                 color = if (effort.reportedEffort == null) activityMuted else activityText,
                 fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 5.dp)
             )
-            Text(
-                effort.comparison?.let {
-                    "Compared with ${it.sessionCount} similar completed runs, your median reported effort was " +
-                        "${String.format(Locale.ROOT, "%.1f", it.medianReportedEffort)} out of 10."
-                } ?: "A comparison needs at least three comparable past runs with saved effort ratings.",
+            effort.comparison?.let {
+                Text(
+                    "You usually rate similar runs around " +
+                        "${String.format(Locale.ROOT, "%.1f", it.medianReportedEffort)} out of 10, based on ${it.sessionCount} runs.",
                 color = activityMuted, fontSize = 12.sp, lineHeight = 18.sp,
                 modifier = Modifier.padding(top = 4.dp).testTag("activity-effort-comparison")
-            )
-            Text(
-                when (effort.confidence) {
-                    ActivityEffortConfidence.USER_REPORTED -> "Based on your saved feedback."
-                    ActivityEffortConfidence.RECORDED_HR_WITH_GAPS -> "Heart-rate evidence is approximate; some recording intervals were excluded."
-                    ActivityEffortConfidence.RECORDED_HR_WITHOUT_GAPS -> "Heart-rate evidence is approximate and uses your saved zone settings."
-                    ActivityEffortConfidence.USER_REPORTED_AND_HR -> "Uses your saved feedback and approximate heart-rate data as separate evidence."
-                    ActivityEffortConfidence.INSUFFICIENT -> "There isn't enough reliable effort evidence to assess this session."
-                },
-                color = activityMuted, fontSize = 11.sp, lineHeight = 16.sp,
-                modifier = Modifier.padding(top = 4.dp).testTag("activity-effort-confidence")
-            )
+                )
+            }
+
         }
-        ActivityAnalysisSection("Time in Each Zone", "activity-analysis-heart-rate-zones") {
+        ActivityAnalysisSection("Where your heart rate sat", "activity-analysis-heart-rate-zones") {
             val hrSamples = recorded?.samples.orEmpty().count { it.hr?.isFinite() == true && it.hr > 0.0 }
             when {
                 recorded == null -> Text(
-                    "No recorded heart-rate stream is available for this activity.",
+                    "This run doesn’t have a heart-rate recording.",
                     color = activityMuted, fontSize = 12.sp, lineHeight = 17.sp
                 )
                 hrSamples < 2 -> Text(
-                    "Heart-rate zones are unavailable because this recording has fewer than two valid heart-rate samples.",
+                    "There isn’t enough heart-rate data to show time in zones.",
                     color = activityMuted, fontSize = 12.sp, lineHeight = 17.sp
                 )
-                else -> TracksideActivityHeartRateZones(recorded, correctionOwner)
+                else -> TracksideActivityHeartRateZones(recorded, correctionOwner, state.account)
             }
         }
         ActivityAnalysisSection("How Did It Feel?", "activity-analysis-feel") {
@@ -813,8 +870,8 @@ private fun TracksideActivityAnalysisBody(
                 heading = "Detailed Analysis",
                 tag = "activity-analysis-detailed",
                 descriptor = character,
-                collapsedLabel = "Show technical details",
-                expandedLabel = "Hide technical details",
+                collapsedLabel = "See the numbers",
+                expandedLabel = "Hide the numbers",
                 technicalOnly = true
             )
         } else {
@@ -823,87 +880,6 @@ private fun TracksideActivityAnalysisBody(
                     color = activityMuted, fontSize = 12.sp)
             }
         }
-    }
-}
-
-@Composable
-private fun ActivityWorkoutLabelEditor(
-    assessment: ActivityWorkoutAssessment,
-    userLabel: UserActivityWorkoutLabel?,
-    canSave: Boolean,
-    saveFailed: Boolean,
-    onSelect: (UserActivityWorkoutLabel) -> Unit,
-    onClear: () -> Unit
-) {
-    var labelsExpanded by remember { mutableStateOf(false) }
-    var subtypeExpanded by remember { mutableStateOf(false) }
-    Column(Modifier.fillMaxWidth().testTag("activity-workout-label")) {
-        Text("WORKOUT TYPE", color = activityMuted, fontSize = 10.sp,
-            fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
-        Text("Detected: ${assessment.detected.kind.label}", color = activityText,
-            fontSize = 13.sp, modifier = Modifier.testTag("activity-workout-detected"))
-        Text(assessment.detected.evidence.first(), color = activityMuted,
-            fontSize = 11.sp, lineHeight = 16.sp)
-        assessment.intended?.let { intended ->
-            Spacer(Modifier.height(4.dp))
-            Text("Planned intent: ${intended.qualitySubtype?.label ?: intended.kind.label}",
-                color = activityText, fontSize = 12.sp,
-                modifier = Modifier.testTag("activity-workout-intended"))
-            Text(intended.evidence.first(), color = activityMuted, fontSize = 11.sp, lineHeight = 16.sp)
-        }
-        assessment.intentWarning?.let {
-            Text(it, color = activityMuted, fontSize = 11.sp, lineHeight = 16.sp)
-        }
-        userLabel?.let { label ->
-            Spacer(Modifier.height(4.dp))
-            Text("Your label: ${label.label}", color = activityLime, fontSize = 12.sp,
-                modifier = Modifier.testTag("activity-workout-user-label"))
-            Text("User-reported; the imported activity remains unchanged.",
-                color = activityMuted, fontSize = 11.sp)
-        }
-        Box {
-            OutlinedButton(
-                onClick = { labelsExpanded = true }, enabled = canSave,
-                modifier = Modifier.heightIn(min = 48.dp).testTag("activity-workout-label-edit")
-            ) { Text(if (userLabel == null) "Set workout label" else "Correct workout label") }
-            DropdownMenu(expanded = labelsExpanded, onDismissRequest = { labelsExpanded = false }) {
-                ActivityWorkoutKind.entries.filter { it != ActivityWorkoutKind.UNKNOWN }.forEach { kind ->
-                    DropdownMenuItem(text = { Text(kind.label) }, onClick = {
-                        labelsExpanded = false
-                        onSelect(UserActivityWorkoutLabel(kind))
-                    })
-                }
-            }
-        }
-        if (userLabel?.kind == ActivityWorkoutKind.QUALITY_RUN && canSave) {
-            Box {
-                TextButton(onClick = { subtypeExpanded = true },
-                    modifier = Modifier.heightIn(min = 48.dp).testTag("activity-workout-subtype-edit")) {
-                    Text(userLabel.qualitySubtype?.let { "Quality subtype: ${it.label}" }
-                        ?: "Add a quality subtype")
-                }
-                DropdownMenu(expanded = subtypeExpanded, onDismissRequest = { subtypeExpanded = false }) {
-                    ActivityQualitySubtype.entries.forEach { subtype ->
-                        DropdownMenuItem(text = { Text(subtype.label) }, onClick = {
-                            subtypeExpanded = false
-                            onSelect(userLabel.copy(qualitySubtype = subtype))
-                        })
-                    }
-                    DropdownMenuItem(text = { Text("No subtype") }, onClick = {
-                        subtypeExpanded = false
-                        onSelect(userLabel.copy(qualitySubtype = null))
-                    })
-                }
-            }
-        }
-        if (userLabel != null && canSave) {
-            TextButton(onClick = onClear, modifier = Modifier.heightIn(min = 48.dp)
-                .testTag("activity-workout-label-clear")) { Text("Clear my label") }
-        }
-        if (!canSave) Text("A local activity owner is needed to save a label offline.",
-            color = activityMuted, fontSize = 11.sp)
-        if (saveFailed) Text("Couldn't save the label on this device. Your previous label is unchanged.",
-            color = Color(0xFFFF8C87), fontSize = 11.sp, modifier = Modifier.testTag("activity-workout-label-error"))
     }
 }
 
@@ -933,7 +909,7 @@ private fun TracksideActivityFeedbackEditor(
     }
     if (target == null) {
         Text(
-            "This activity is not linked to one completed StrideLab run. Link it to its workout in Overview to record feedback there.",
+            "Want to save how this run felt? Link it to your planned workout in Overview first.",
             color = activityMuted, fontSize = 12.sp, lineHeight = 17.sp,
             modifier = Modifier.testTag("activity-feedback-unavailable")
         )
@@ -1066,10 +1042,11 @@ private enum class ActivitySummaryGlyph {
 @Composable
 private fun TracksideActivitySummary(activity: ActivityRecord, heading: String = "Summary") {
     val metrics = buildList {
-        activity.distanceM?.let {
+        if (activityHasDisplayDistance(activity)) {
             add(ActivitySummaryMetric("Distance", activity.distanceLabel, ActivitySummaryGlyph.Distance))
         }
-        activity.movingTimeS?.let {
+        (activity.movingTimeS?.takeIf { it.isFinite() && it > 0.0 }
+            ?: activityDisplayDurationSeconds(activity))?.let {
             add(ActivitySummaryMetric("Duration", ActivityRecord.duration(it), ActivitySummaryGlyph.Duration))
         }
         if (activity.supportsPace && activity.detailPaceLabel != "Not recorded") {
@@ -1312,8 +1289,7 @@ private fun TracksideActivityIntelligenceCard(
             }
             Spacer(Modifier.height(1.dp))
             Text(
-                "These are observations from saved activity data, not a fitness, " +
-                    "recovery or training-readiness assessment.",
+                "Use these numbers alongside how the run felt. One run can’t tell you how recovered you are.",
                 color = activityMuted.copy(alpha = .8f),
                 fontSize = 10.sp, lineHeight = 14.sp
             )
@@ -1446,15 +1422,23 @@ private fun TracksideActivitySplitRow(
  * A workout peak is never substituted for missing athlete settings.
  */
 @Composable
-private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, owner: String?) {
+private fun TracksideActivityHeartRateZones(
+    recorded: ActivityDetail, owner: String?, manualOwner: String? = owner
+) {
     val context = LocalContext.current
     val preferences = remember(context) { AthleteHeartRatePreferences(context) }
-    val settings = remember(recorded.activityId, owner) {
-        preferences.settings(owner)
+    val settings = remember(recorded.activityId, manualOwner) {
+        preferences.settings(manualOwner)
     }
+    val zoneStore = remember(context) { GarminZonePreferenceStore(context) }
+    val selectedSource = remember(recorded.activityId, owner) { zoneStore.source(owner) }
+    val importedZones = remember(recorded.activityId, owner) { zoneStore.load(owner) }
+    val useGarmin = selectedSource == DisplayHeartRateZoneSource.GARMIN
     val sourceZones = recorded.sourceHeartRateZones
-    val zones = remember(recorded, settings) {
-        HeartRateZoneAnalysis.distribute(recorded.samples, settings)
+    val zones = remember(recorded, settings, selectedSource, importedZones) {
+        if (useGarmin) importedZones?.let {
+            HeartRateZoneAnalysis.distribute(recorded.samples, it.profile)
+        } else HeartRateZoneAnalysis.distribute(recorded.samples, settings)
     }
     val colors = listOf(
         Color(0xFF9FABBA), Color(0xFF79C9B3), activityLime,
@@ -1479,8 +1463,12 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, owner: Str
                         fontSize = 14.sp, fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        if (settings.ready)
-                            "Calculated from your saved athlete settings"
+                        if (useGarmin && importedZones != null)
+                            "Garmin Connect BPM floors · cached for offline display"
+                        else if (useGarmin)
+                            "Sync Garmin running zones in More > App preferences"
+                        else if (settings.ready)
+                            "Calculated from your saved manual athlete settings"
                         else
                             "Configure " + settings.method.displayName +
                                 " in More > App preferences",
@@ -1490,7 +1478,7 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, owner: Str
                 }
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    settings.method.displayName,
+                    if (useGarmin) "GARMIN" else settings.method.displayName,
                     color = activityLime, fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.testTag("activity-hr-zone-method")
@@ -1526,7 +1514,9 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, owner: Str
             Spacer(Modifier.height(11.dp))
             if (zones == null) {
                 Text(
-                    if (!settings.ready)
+                    if (useGarmin && importedZones == null)
+                        "Garmin running boundaries have not been synced. Select Manual zones or sync Garmin in App preferences."
+                    else if (!useGarmin && !settings.ready)
                         when (settings.method) {
                             HeartRateZoneMethod.MAX_BPM ->
                                 "Save your maximum heart rate to calculate zones."
@@ -1590,9 +1580,13 @@ private fun TracksideActivityHeartRateZones(recorded: ActivityDetail, owner: Str
                 }
                 Spacer(Modifier.height(7.dp))
                 Text(
-                    HeartRateZoneAnalysis.methodSummary(settings) + ". " +
+                    (if (useGarmin)
+                        "Garmin Connect ${importedZones?.profile?.sport ?: "unavailable"} BPM zones. "
+                    else
+                        HeartRateZoneAnalysis.methodSummary(settings) +
+                            ". These are StrideLab estimates, not imported Garmin zones. ") +
                         "Percentage of classified recorded time, not total activity duration. " +
-                        "Gaps over 30 seconds are excluded; these are not imported Garmin zones.",
+                        "Gaps over 30 seconds are excluded.",
                     color = activityMuted, fontSize = 10.sp, lineHeight = 15.sp
                 )
             }
@@ -1862,4 +1856,21 @@ private fun TracksideActivitySourceChart(
             )
         }
     }
+}
+
+/** Existing source-only heart rate chart reused by stationary activity details. */
+@Composable
+internal fun TracksideStationaryHeartRateCharts(
+    recorded: ActivityDetail,
+    owner: String?
+) {
+    val count = remember(recorded) {
+        recorded.samples.count { it.hr?.isFinite() == true && it.hr > 0.0 }
+    }
+    if (count < 2) return
+    TracksideActivitySourceChart(
+        "Heart rate", "bpm", recorded.samples, { it.hr },
+        pauseIntervals = recorded.pauseIntervals
+    )
+    TracksideActivityHeartRateZones(recorded, owner)
 }

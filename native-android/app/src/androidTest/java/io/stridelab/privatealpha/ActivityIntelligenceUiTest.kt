@@ -17,6 +17,35 @@ import java.time.Instant
 class ActivityIntelligenceUiTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
 
+    @Test fun comparisonAndTimelineShowOnlySupportedEvidence() {
+        val run = ActivityRecord("comparison", "Intervals", "run", "fit", Instant.EPOCH,
+            9800.0, 1800.0, null, null, null, null)
+        val session = PlannedSession("planned", java.time.LocalDate.of(2026, 10, 26),
+            "run", "Intervals", 30, 10.0, "quality")
+        val recorded = ActivityDetail(run.id, emptyList(),
+            listOf(ActivityLap(0, 800.0, 180.0, null, null, workoutStepIndex = 0)), 0L,
+            workoutSteps = listOf(
+                ActivityWorkoutStep(0, null, "active", null, null, null),
+                ActivityWorkoutStep(1, "Unexecuted step", "recovery", null, null, null)))
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    androidx.compose.foundation.layout.Column {
+                        ActivityWorkoutComparisonCard(run, session,
+                            ActivityWorkoutAdherence("SUMMARY_ONLY", listOf("Recorded evidence"), 1, 0))
+                        ActivityRecordedWorkoutTimeline(recorded)
+                    }
+                }
+            }
+        }
+        compose.onNodeWithText("98% of prescribed distance recorded").assertExists()
+        compose.onNodeWithText("Work").assertExists()
+        compose.onNodeWithText("Unexecuted step").assertDoesNotExist()
+        compose.onNodeWithText("Recorded evidence").assertDoesNotExist()
+        compose.onNodeWithText("View comparison").performClick()
+        compose.onNodeWithText("Recorded evidence").assertExists()
+    }
+
     @Test fun analysisCheckpointsScrollWithinOneContinuousSheet() {
         val tab = mutableIntStateOf(0)
         val run = ActivityRecord(
@@ -130,13 +159,13 @@ class ActivityIntelligenceUiTest {
         compose.onNodeWithTag("activity-sheet-scroll")
             .performSemanticsAction(SemanticsActions.Expand)
         compose.onNodeWithTag("activity-tab-analysis").performClick()
-        assertTrue(compose.onAllNodesWithText("More recorded activity data", substring = true)
+        assertTrue(compose.onAllNodesWithText("I don’t have enough pace data", substring = true)
             .fetchSemanticsNodes().isNotEmpty())
-        assertTrue(compose.onAllNodesWithText("No recorded heart-rate stream", substring = true)
+        assertTrue(compose.onAllNodesWithText("doesn’t have a heart-rate recording", substring = true)
             .fetchSemanticsNodes().isNotEmpty())
         compose.onNodeWithTag("activity-feedback-unavailable")
-            .assertTextContains("Link it to its workout in Overview", substring = true)
-        compose.onNodeWithTag("activity-workout-detected").assertTextEquals("Detected: Unknown")
+            .assertTextContains("Link it to your planned workout in Overview", substring = true)
+        compose.onNodeWithTag("activity-workout-detected").assertTextEquals("Workout type unclear")
         compose.onNodeWithTag("activity-workout-label-edit").assertExists()
         compose.onNodeWithText("recovery score", substring = true).assertDoesNotExist()
     }
@@ -170,9 +199,7 @@ class ActivityIntelligenceUiTest {
             .performSemanticsAction(SemanticsActions.Expand)
         compose.onNodeWithTag("activity-tab-analysis").performClick()
         compose.onNodeWithTag("activity-workout-label-edit").performClick()
-        compose.onNodeWithText("Quality Run").performClick()
-        compose.onNodeWithTag("activity-workout-subtype-edit").performClick()
-        compose.onNodeWithText("Intervals").performClick()
+        compose.onNodeWithText("Intervals").performScrollTo().performClick()
 
         val saved = UserActivityWorkoutLabel(ActivityWorkoutKind.QUALITY_RUN,
             ActivityQualitySubtype.INTERVALS)
@@ -256,7 +283,7 @@ class ActivityIntelligenceUiTest {
         compose.onNodeWithTag("activity-analysis-detailed-toggle").performClick()
         compose.onAllNodesWithText("Effort, terrain and conditions may differ.",substring=true)
             .onFirst().performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("not a fitness, recovery or training-readiness assessment",substring=true)
+        compose.onNodeWithText("One run can’t tell you how recovered you are.",substring=true)
             .performScrollTo().assertIsDisplayed()
         // An expanded approved activity sheet consumes Back before the route.
         compose.onNodeWithTag("activity-map-back").performClick()
