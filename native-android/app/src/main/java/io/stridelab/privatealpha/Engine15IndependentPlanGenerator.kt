@@ -515,10 +515,19 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                     val meters = match.segments.sumOf { it.assertedMeters.toInt() }
                     if (kotlin.math.abs(meters / 1000.0 - alternative.originalEasyDistanceKm) > 1e-8)
                         return@mapNotNull null
+                    val altFamily = alternative.prescription?.family ?: selection.selectedFamily
+                    val altFamilyName = when (altFamily) {
+                        IndependentQualityFamily.THRESHOLD -> "Threshold"
+                        IndependentQualityFamily.INTERVALS -> "Intervals"
+                        IndependentQualityFamily.HILLS -> "Hills"
+                        IndependentQualityFamily.FARTLEK -> "Fartlek"
+                        IndependentQualityFamily.PROGRESSION -> "Progression"
+                        IndependentQualityFamily.TEMPO, null -> "Tempo"
+                    }
                     val steps = match.segments.map { segment ->
                         val work = segment.purpose == WorkoutPurpose.WORK
                         RunningStepV2(segment.purpose.name,
-                            if (work) when (familyName) {
+                            if (work) when (altFamilyName) {
                                 "Threshold" -> "Controlled, comfortably hard effort. Keep repetitions even and ease off if effort rises."
                                 "Intervals" -> "Hard, repeatable effort. Keep each repetition controlled and use the full easy recovery between efforts."
                                 "Hills" -> "Strong uphill drive with tall posture; jog or walk easily back down for full recovery."
@@ -530,9 +539,9 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                             seconds = segment.seconds.toInt(),
                             distanceEquivalentMeters = segment.assertedMeters.toInt())
                     }
-                    original.copy(kind = "quality", quality = true, title = "$familyName Workout",
+                    original.copy(kind = "quality", quality = true, title = "$altFamilyName Workout",
                         minutes = steps.sumOf { requireNotNull(it.seconds) } / 60,
-                        runningPrescription = RunningPrescription("QUALITY", familyName, emptyList(),
+                        runningPrescription = RunningPrescription("QUALITY", altFamilyName, emptyList(),
                             mixedSegments = steps, reconciledDistanceMeters = meters),
                         steps = steps.map {
                             "${it.seconds!! / 60} min ${it.purpose.lowercase().replace('_', ' ')} · ${formatMetersAsKm(it.distanceEquivalentMeters)} · ${it.effort}"
@@ -540,7 +549,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                         reason = if (alternative.progressionBasis != null &&
                             alternative.progressionBasis != Engine15QualityProgressionBasis.HOLD_NO_REPEATED_EXPOSURE) {
                             "${alternative.prescription!!.rationale} Effort cues guide intensity alongside estimated pace zones."
-                        } else when (familyName) {
+                        } else when (altFamilyName) {
                             "Threshold" -> "Structured Threshold intervals (3 × 4 min comfortably hard with 2 min easy recovery)."
                             "Intervals" -> "Structured VO₂max Intervals (4 × 2 min repeatable hard effort with 2 min easy recovery)."
                             "Hills" -> "Structured Hill Repeats (5 × 1 min strong uphill drive with 2 min easy jog-down recovery)."

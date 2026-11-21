@@ -309,6 +309,39 @@ internal object Engine15QualityProgressionPolicy {
         return maxOf(minOf(progressiveStartSec, w1ExperienceCeiling), meaningfulFloorSec).coerceIn(360, 2400)
     }
 
+    private fun qualityFamilyRotation(
+        request: PlanRequest,
+        primaryFamily: IndependentQualityFamily
+    ): List<IndependentQualityFamily> {
+        val base = when (request.goal) {
+            "Improve 5K" -> when (request.experience) {
+                0 -> listOf(IndependentQualityFamily.TEMPO, IndependentQualityFamily.FARTLEK, IndependentQualityFamily.HILLS)
+                1 -> listOf(IndependentQualityFamily.INTERVALS, IndependentQualityFamily.THRESHOLD, IndependentQualityFamily.TEMPO, IndependentQualityFamily.HILLS)
+                else -> listOf(IndependentQualityFamily.INTERVALS, IndependentQualityFamily.THRESHOLD, IndependentQualityFamily.HILLS, IndependentQualityFamily.TEMPO)
+            }
+            "Improve 10K" -> when (request.experience) {
+                0 -> listOf(IndependentQualityFamily.TEMPO, IndependentQualityFamily.PROGRESSION, IndependentQualityFamily.FARTLEK)
+                1 -> listOf(IndependentQualityFamily.THRESHOLD, IndependentQualityFamily.TEMPO, IndependentQualityFamily.INTERVALS, IndependentQualityFamily.PROGRESSION)
+                else -> listOf(IndependentQualityFamily.THRESHOLD, IndependentQualityFamily.INTERVALS, IndependentQualityFamily.TEMPO, IndependentQualityFamily.PROGRESSION)
+            }
+            "Half marathon" -> when (request.experience) {
+                0 -> listOf(IndependentQualityFamily.TEMPO, IndependentQualityFamily.PROGRESSION, IndependentQualityFamily.FARTLEK)
+                1 -> listOf(IndependentQualityFamily.TEMPO, IndependentQualityFamily.THRESHOLD, IndependentQualityFamily.PROGRESSION, IndependentQualityFamily.FARTLEK)
+                else -> listOf(IndependentQualityFamily.THRESHOLD, IndependentQualityFamily.TEMPO, IndependentQualityFamily.PROGRESSION, IndependentQualityFamily.INTERVALS)
+            }
+            else -> when (request.experience) {
+                0 -> listOf(IndependentQualityFamily.TEMPO, IndependentQualityFamily.PROGRESSION, IndependentQualityFamily.FARTLEK)
+                1 -> listOf(IndependentQualityFamily.TEMPO, IndependentQualityFamily.PROGRESSION, IndependentQualityFamily.THRESHOLD, IndependentQualityFamily.HILLS)
+                else -> listOf(IndependentQualityFamily.TEMPO, IndependentQualityFamily.THRESHOLD, IndependentQualityFamily.PROGRESSION, IndependentQualityFamily.HILLS)
+            }
+        }
+        val filtered = if (request.allowedQualityTypes.isEmpty()) base else base.filter { fam ->
+            request.allowedQualityTypes.any { it.equals(fam.name, ignoreCase = true) }
+        }
+        return if (filtered.isEmpty()) listOf(primaryFamily)
+        else (listOf(primaryFamily) + filtered).distinct()
+    }
+
     fun plan(
         request: PlanRequest,
         selection: Engine15QualityFamilySelectionResult,
@@ -357,21 +390,31 @@ internal object Engine15QualityProgressionPolicy {
             repeatedBaseline + MAX_EXPOSURE_INCREMENT_SECONDS
         }
         val anchorIndex = steps.indexOfLast { it.workSeconds <= repeatedBaseline }.coerceAtLeast(0)
+        val anchorRatio = if (steps.lastIndex > 0) anchorIndex.toDouble() / steps.lastIndex.toDouble() else 0.0
+        val rotateFamilies = adaptiveOverrideActive && !request.preferredQualityExplicit && slots.size >= 2
+        val rotation = if (rotateFamilies) qualityFamilyRotation(request, family) else listOf(family)
 
-        return slots.map { slot ->
+        return slots.mapIndexed { slotIndex, slot ->
+            val weekFamily = rotation[slotIndex % rotation.size]
+            val weekSteps = if (weekFamily == family) steps else ladder(weekFamily, request.experience)
+            val weekIntro = weekSteps.first()
+            val weekAnchorIndex = if (weekFamily == family) anchorIndex else {
+                (anchorRatio * weekSteps.lastIndex).roundToInt().coerceIn(0, weekSteps.lastIndex)
+            }
             val blockIndex = (slot.weekNumber - 1) / 4
             val weekInBlock = (slot.weekNumber - 1) % 4
             val isRaceTaperWeek = isRaceGoal && request.weeks >= 8 && slot.weekNumber == lastLoadingWeek
             val desiredIndex = if (isRaceTaperWeek) {
-                (anchorIndex - 1).coerceAtLeast(0)
+                (weekAnchorIndex - 1).coerceAtLeast(0)
             } else {
-                (anchorIndex + blockIndex + (weekInBlock / 2)).coerceAtMost(steps.lastIndex)
+                (weekAnchorIndex + blockIndex + (weekInBlock / 2)).coerceAtMost(weekSteps.lastIndex)
             }
-            val exposureBounded = steps.take(desiredIndex + 1)
-                .lastOrNull { it.workSeconds <= maxPermittedWork } ?: intro
+            val weekMaxWork = maxOf(weekIntro.workSeconds, maxPermittedWork)
+            val exposureBounded = weekSteps.take(desiredIndex + 1)
+                .lastOrNull { it.workSeconds <= weekMaxWork } ?: weekIntro
             val finalStep = if (timeBudgetSeconds != null) {
-                steps.take(exposureBounded.stepIndex + 1)
-                    .lastOrNull { it.totalSeconds <= timeBudgetSeconds } ?: intro
+                weekSteps.take(exposureBounded.stepIndex + 1)
+                    .lastOrNull { it.totalSeconds <= timeBudgetSeconds } ?: weekIntro
             } else {
                 exposureBounded
             }
@@ -399,7 +442,7 @@ internal object Engine15QualityProgressionPolicy {
             Engine15QualityWeekPrescription(
                 policyId = POLICY_ID,
                 weekNumber = slot.weekNumber,
-                family = family,
+                family = weekFamily,
                 step = finalStep,
                 basis = basis,
                 ruleIds = rules,

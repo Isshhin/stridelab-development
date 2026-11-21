@@ -190,7 +190,7 @@ internal object Engine15QualityWorkoutDryRunBuilder {
                 conflict -> Engine15TempoAlternative(candidate, budget, Engine15QualityDistanceStatus.CLAIM_SET_CONFLICT, prescription = weekPrescription)
                 claim == null -> Engine15TempoAlternative(candidate, budget, Engine15QualityDistanceStatus.DISTANCE_EQUIVALENTS_NOT_SUPPLIED, prescription = weekPrescription)
                 else -> when (val result = Engine15M5TimedDistanceReconciler.reconcileSegmentClaim(
-                    candidate.weekNumber, candidate.slotNumber, template.family,
+                    candidate.weekNumber, candidate.slotNumber, weekPrescription.family,
                     candidate.originalEasyDistanceKm, weekPrescription.step.workout,
                     weekPrescription.step.totalSeconds, weekPrescription.step.workSeconds, claim
                 )) {

@@ -1230,6 +1230,14 @@ private fun RunningWeekReview(
         reduceMotion = reduceMotion
     )
 
+    if (allHistory.any { DashboardSummary.isRun(it) }) {
+        val runningPaceZones = remember(allHistory, plans) {
+            val req = plans.firstOrNull { it.status == "approved" }?.request ?: PlanRequest()
+            Engine15PaceZoneEstimator.estimate(req, activities = allHistory)
+        }
+        ProvisionalPaceZoneStrip(zones = runningPaceZones)
+    }
+
     PersonalBestsCard(
         allHistory = allHistory,
         details = details,
@@ -1421,29 +1429,51 @@ private fun RunningProgressionPanel(
                 }
 
                 Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(124.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.Bottom
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.Top
                 ) {
                     vals.forEachIndexed { idx, v ->
+                        val frac = (v / peak).toFloat().coerceIn(0.08f, 1f)
+                        val isRecent = idx >= 3
                         Column(
                             Modifier.weight(1f),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Bottom
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text(fmtBar(v), color = if (idx < 3) DisciplineLook.muted else DisciplineLook.ink, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                fmtBar(v),
+                                color = if (isRecent) DisciplineLook.ink else DisciplineLook.muted,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
                             Box(
                                 Modifier
                                     .fillMaxWidth()
-                                    .height((76 * v / peak).dp.coerceAtLeast(6.dp))
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(if (idx < 3) Color(0xFF4F6034) else DisciplineLook.lime)
+                                    .height(92.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF171B1E)),
+                                contentAlignment = Alignment.BottomCenter
+                            ) {
+                                Box(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .fillMaxHeight(frac)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(
+                                            if (isRecent) StrideLabVisualPalette.barGradient(DisciplineLook.lime)
+                                            else StrideLabVisualPalette.barGradient(DisciplineLook.lime, alphaScale = 0.48f)
+                                        )
+                                )
+                            }
+                            Text(
+                                six[idx].week.start.format(weekFmt),
+                                color = if (isRecent) DisciplineLook.ink else DisciplineLook.muted,
+                                fontSize = 10.sp,
+                                fontWeight = if (isRecent) FontWeight.SemiBold else FontWeight.Normal,
+                                maxLines = 1
                             )
-                            Spacer(Modifier.height(5.dp))
-                            Text(six[idx].week.start.format(weekFmt), color = DisciplineLook.muted, fontSize = 9.5.sp, maxLines = 1)
                         }
                     }
                 }
