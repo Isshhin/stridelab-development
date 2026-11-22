@@ -41,6 +41,9 @@ internal data class TrainingState(
     val activityMatches: Map<String, ActivityMatchRecord> = emptyMap(),
     val executionAnalyses: Map<String, WorkoutExecutionAnalysis> = emptyMap(),
     val athleteDiagnostics: Map<String, AthleteDiagnosticSnapshot> = emptyMap(),
+    val pendingAdaptationProposals: Map<String, PlanAdaptationProposal> = emptyMap(),
+    val adaptationRevisions: Map<String, List<PlanAdaptationRevision>> = emptyMap(),
+    val adaptationCooldowns: List<AdaptationCooldownRecord> = emptyList(),
     val task: String? = null
 ) {
     val activeAthleteDiagnostic: AthleteDiagnosticSnapshot?
@@ -49,6 +52,14 @@ internal data class TrainingState(
                 ?: plans.firstOrNull { it.status != "archived" }
                 ?: return null
             return athleteDiagnostics[activePlan.id]
+        }
+
+    val activeAdaptationProposal: PlanAdaptationProposal?
+        get() {
+            val activePlan = plans.firstOrNull { it.status == "approved" }
+                ?: plans.firstOrNull { it.status != "archived" }
+                ?: return null
+            return pendingAdaptationProposals[activePlan.id]
         }
 }
 
@@ -205,9 +216,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         store.readableDatabase.query("records",arrayOf("record_id","payload"),"account=? AND kind=? AND record_id LIKE ?",arrayOf(account,"workout","entry-draft-%"),null,null,null).use { c -> while(c.moveToNext())runCatching { WorkoutEntryDraft.decode(JSONObject(c.getString(1)),account).also { require(it.recordId==c.getString(0)) } }.onSuccess { if(validDraft(it,plans))drafts[it.key]=it } }
         val cursor = store.cursor(account, "activity")
         val last = cursor?.let { runCatching { JSONObject(it).getLong("completedAt") }.getOrNull() }
-        val (savedMatches, savedAnalyses, savedDiagnostics) = loadExecutionRecords(account)
+        val bundle = loadExecutionRecords(account)
         mutable.value = mutable.value.copy(activities = titledRecords, lastSync = last, details = details, wellness = wellness, shelf=shelf, templates=templates, workoutDrafts=drafts, plans = plans.sortedByDescending { it.createdAt }, researchDrafts=loadResearchDrafts(account),
-            activityMatches = savedMatches, executionAnalyses = savedAnalyses, athleteDiagnostics = savedDiagnostics,
+            activityMatches = bundle.matches, executionAnalyses = bundle.analyses, athleteDiagnostics = bundle.diagnostics,
+            pendingAdaptationProposals = bundle.pendingProposals, adaptationRevisions = bundle.revisions, adaptationCooldowns = bundle.cooldowns,
             message = if(unsupportedPlans>0) "$unsupportedPlans saved plans require a supported contract and were retained for review." else if(rejected > 0) "$rejected saved activities contain unsupported data and were retained for review." else mutable.value.message)
         loadLocalGarminCache()
     }
@@ -292,15 +304,18 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 }
             }
         }
-        val (savedMatches, savedAnalyses, savedDiagnostics) = loadExecutionRecords(owner)
+        val bundle = loadExecutionRecords(owner)
         mutable.value = mutable.value.copy(
             localPlanOwner = localPlanOwner,
             plans = plans.sortedByDescending { it.createdAt },
             templates = templates, shelf = shelf, workoutDrafts = drafts,
             researchDrafts = loadResearchDrafts(owner),
-            activityMatches = savedMatches,
-            executionAnalyses = savedAnalyses,
-            athleteDiagnostics = savedDiagnostics,
+            activityMatches = bundle.matches,
+            executionAnalyses = bundle.analyses,
+            athleteDiagnostics = bundle.diagnostics,
+            pendingAdaptationProposals = bundle.pendingProposals,
+            adaptationRevisions = bundle.revisions,
+            adaptationCooldowns = bundle.cooldowns,
             message = if (unsupported > 0)
                 "$unsupported locally saved plans require a supported version; their records were retained."
                 else mutable.value.message
@@ -636,6 +651,79 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             reconcileActivityMatchesAndAnalysis()
         }
     }
+    suspend fun approveAdaptationProposal(planId: String, proposalId: String): Boolean =
+        operation("Applying approved plan adaptation…") {
+            val current = mutable.value
+            val plan = current.plans.find { it.id == planId }
+                ?: throw PlanConstraint("This plan is unavailable.")
+            val proposal = current.pendingAdaptationProposals[planId]
+                ?.takeIf { it.proposalId == proposalId }
+                ?: throw PlanConstraint("This adaptation proposal is no longer pending.")
+            val today = java.time.LocalDate.now()
+            val applied = Engine15PlanAdaptationEngine.applyProposal(plan, proposal, today)
+            savePlan(applied.appliedPlan)
+            persistAdaptationProposalLocked(applied.updatedProposal)
+            persistAdaptationRevisionLocked(applied.revision)
+            persistAdaptationCooldownLocked(applied.cooldown)
+            val updatedRevisions = current.adaptationRevisions.toMutableMap().apply {
+                put(planId, getOrDefault(planId, emptyList()) + applied.revision)
+            }
+            mutable.value = mutable.value.copy(
+                pendingAdaptationProposals = mutable.value.pendingAdaptationProposals - planId,
+                adaptationRevisions = updatedRevisions,
+                adaptationCooldowns = (mutable.value.adaptationCooldowns.filterNot {
+                    it.planId == planId && it.adaptationType == applied.cooldown.adaptationType &&
+                        it.disruptionFingerprint == applied.cooldown.disruptionFingerprint
+                } + applied.cooldown)
+            )
+            reconcileActivityMatchesAndAnalysis()
+        }
+    suspend fun dismissAdaptationProposal(planId: String, proposalId: String): Boolean =
+        operation("Dismissing adaptation suggestion…") {
+            val current = mutable.value
+            val proposal = current.pendingAdaptationProposals[planId]
+                ?.takeIf { it.proposalId == proposalId }
+                ?: return@operation
+            val today = java.time.LocalDate.now()
+            val dismissed = proposal.copy(status = AdaptationProposalStatus.DISMISSED)
+            val cooldown = AdaptationCooldownRecord(
+                planId = planId,
+                adaptationType = proposal.type,
+                lastActionStatus = AdaptationProposalStatus.DISMISSED,
+                actionDate = today,
+                cooldownUntilDate = today.plusDays(14L),
+                disruptionFingerprint = proposal.disruptionFingerprint
+            )
+            persistAdaptationProposalLocked(dismissed)
+            persistAdaptationCooldownLocked(cooldown)
+            mutable.value = mutable.value.copy(
+                pendingAdaptationProposals = current.pendingAdaptationProposals - planId,
+                adaptationCooldowns = current.adaptationCooldowns.filterNot {
+                    it.planId == planId && it.adaptationType == cooldown.adaptationType &&
+                        it.disruptionFingerprint == cooldown.disruptionFingerprint
+                } + cooldown
+            )
+        }
+    suspend fun revertLastAdaptation(planId: String): Boolean =
+        operation("Reverting last adaptation…") {
+            val current = mutable.value
+            val plan = current.plans.find { it.id == planId }
+                ?: throw PlanConstraint("This plan is unavailable.")
+            val revisions = current.adaptationRevisions[planId].orEmpty()
+            val latest = revisions.lastOrNull { it.revertedAtDate == null }
+                ?: throw PlanConstraint("No adaptation revision is available to revert.")
+            val reverted = Engine15PlanAdaptationEngine.revertRevision(plan, latest, java.time.LocalDate.now())
+            savePlan(reverted.restoredPlan)
+            persistAdaptationRevisionLocked(reverted.updatedRevision)
+            val updatedList = revisions.map {
+                if (it.revisionId == latest.revisionId) reverted.updatedRevision else it
+            }
+            mutable.value = mutable.value.copy(
+                adaptationRevisions = current.adaptationRevisions + (planId to updatedList),
+                pendingAdaptationProposals = current.pendingAdaptationProposals - planId
+            )
+            reconcileActivityMatchesAndAnalysis()
+        }
     suspend fun approvePlan(id:String,revision:Int)=changePlan(id,revision) { PlanOperations.approve(it,mutable.value.plans) }
     suspend fun pausePlan(id:String,revision:Int)=changePlan(id,revision) { it.copy(status="paused") }
     suspend fun archivePlan(id:String,revision:Int)=changePlan(id,revision) { it.copy(status="archived") }
@@ -1325,7 +1413,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     private data class ExecutionPersistenceBundle(
         val matches: Map<String, ActivityMatchRecord>,
         val analyses: Map<String, WorkoutExecutionAnalysis>,
-        val diagnostics: Map<String, AthleteDiagnosticSnapshot>
+        val diagnostics: Map<String, AthleteDiagnosticSnapshot>,
+        val pendingProposals: Map<String, PlanAdaptationProposal>,
+        val revisions: Map<String, List<PlanAdaptationRevision>>,
+        val cooldowns: List<AdaptationCooldownRecord>
     )
 
     private fun loadExecutionRecords(owner: String): ExecutionPersistenceBundle {
@@ -1374,7 +1465,62 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 }.onSuccess { diagnostics[it.planId] = it }
             }
         }
-        return ExecutionPersistenceBundle(matches, analyses, diagnostics)
+        val today = java.time.LocalDate.now()
+        val pendingProposals = LinkedHashMap<String, PlanAdaptationProposal>()
+        store.readableDatabase.query(
+            "records", arrayOf("record_id", "payload"),
+            "account=? AND kind=? AND record_id LIKE ?",
+            arrayOf(owner, "workout", "adaptation-proposal-%"),
+            null, null, null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                runCatching {
+                    val decoded = PlanAdaptationProposal.decode(JSONObject(cursor.getString(1)), owner)
+                    require(cursor.getString(0) == adaptationProposalRecordId(decoded.proposalId))
+                    decoded
+                }.onSuccess { prop ->
+                    if (prop.status == AdaptationProposalStatus.PENDING && !today.isAfter(prop.expiresAtDate)) {
+                        pendingProposals[prop.planId] = prop
+                    }
+                }
+            }
+        }
+        val revisionsByPlan = LinkedHashMap<String, MutableList<PlanAdaptationRevision>>()
+        store.readableDatabase.query(
+            "records", arrayOf("record_id", "payload"),
+            "account=? AND kind=? AND record_id LIKE ?",
+            arrayOf(owner, "workout", "adaptation-revision-%"),
+            null, null, null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                runCatching {
+                    val decoded = PlanAdaptationRevision.decode(JSONObject(cursor.getString(1)), owner)
+                    require(cursor.getString(0) == adaptationRevisionRecordId(decoded.revisionId))
+                    decoded
+                }.onSuccess { rev ->
+                    revisionsByPlan.getOrPut(rev.planId) { mutableListOf() }.add(rev)
+                }
+            }
+        }
+        val revisions = revisionsByPlan.mapValues { (_, list) ->
+            list.sortedWith(compareBy<PlanAdaptationRevision> { it.appliedAtDate }.thenBy { it.revisionId })
+        }
+        val cooldowns = ArrayList<AdaptationCooldownRecord>()
+        store.readableDatabase.query(
+            "records", arrayOf("record_id", "payload"),
+            "account=? AND kind=? AND record_id LIKE ?",
+            arrayOf(owner, "workout", "adaptation-cooldown-%"),
+            null, null, null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                runCatching {
+                    val decoded = AdaptationCooldownRecord.decode(JSONObject(cursor.getString(1)), owner)
+                    require(cursor.getString(0) == adaptationCooldownRecordId(decoded))
+                    decoded
+                }.onSuccess { cooldowns += it }
+            }
+        }
+        return ExecutionPersistenceBundle(matches, analyses, diagnostics, pendingProposals, revisions, cooldowns)
     }
 
     private fun markManualLinkLocked(activityId: String, sessionId: String) {
@@ -1497,11 +1643,45 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             current.athleteDiagnostics
         }
 
-        if (changedMatches.isNotEmpty() || changedAnalyses.isNotEmpty() || diagnosticChanged) {
+        val today = java.time.LocalDate.now()
+        val existingForPlan = current.pendingAdaptationProposals[plan.id]
+            ?.takeIf { !today.isAfter(it.expiresAtDate) }
+        val newProposal = Engine15PlanAdaptationEngine.evaluateProposal(
+            plan = plan,
+            diagnostic = newDiagnostic,
+            activities = current.activities,
+            matchesByActivityId = mergedMatches,
+            cooldowns = current.adaptationCooldowns,
+            existingProposals = listOfNotNull(existingForPlan),
+            asOfDate = today
+        )
+        val updatedPendingProposals = LinkedHashMap(current.pendingAdaptationProposals)
+        val proposalChanged = if (newProposal != null) {
+            val prev = existingForPlan
+            if (prev == null || prev.copy(createdAtDate = today, expiresAtDate = today) != newProposal.copy(createdAtDate = today, expiresAtDate = today)) {
+                persistAdaptationProposalLocked(newProposal)
+                updatedPendingProposals[plan.id] = newProposal
+                true
+            } else false
+        } else {
+            val hadExpiredOrObsolete = current.pendingAdaptationProposals.containsKey(plan.id)
+            if (hadExpiredOrObsolete) {
+                current.pendingAdaptationProposals[plan.id]?.let { old ->
+                    if (today.isAfter(old.expiresAtDate)) {
+                        persistAdaptationProposalLocked(old.copy(status = AdaptationProposalStatus.EXPIRED))
+                    }
+                }
+                updatedPendingProposals.remove(plan.id)
+                true
+            } else false
+        }
+
+        if (changedMatches.isNotEmpty() || changedAnalyses.isNotEmpty() || diagnosticChanged || proposalChanged) {
             mutable.value = mutable.value.copy(
                 activityMatches = mergedMatches,
                 executionAnalyses = updatedAnalyses,
-                athleteDiagnostics = updatedDiagnostics
+                athleteDiagnostics = updatedDiagnostics,
+                pendingAdaptationProposals = updatedPendingProposals
             )
         }
     }
@@ -1550,6 +1730,30 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         store.applyRemotePage(owner, "workout", rows, null, System.currentTimeMillis())
     }
 
+    private fun persistAdaptationProposalLocked(proposal: PlanAdaptationProposal) {
+        val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+        val id = adaptationProposalRecordId(proposal.proposalId)
+        val raw = proposal.encode(owner).toString()
+        RecordPolicy.record(owner, "workout", id, raw)
+        store.applyRemotePage(owner, "workout", listOf(TrainingStore.RemoteRecord(id, raw, null)), null, System.currentTimeMillis())
+    }
+
+    private fun persistAdaptationRevisionLocked(revision: PlanAdaptationRevision) {
+        val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+        val id = adaptationRevisionRecordId(revision.revisionId)
+        val raw = revision.encode(owner).toString()
+        RecordPolicy.record(owner, "workout", id, raw)
+        store.applyRemotePage(owner, "workout", listOf(TrainingStore.RemoteRecord(id, raw, null)), null, System.currentTimeMillis())
+    }
+
+    private fun persistAdaptationCooldownLocked(cooldown: AdaptationCooldownRecord) {
+        val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+        val id = adaptationCooldownRecordId(cooldown)
+        val raw = cooldown.encode(owner).toString()
+        RecordPolicy.record(owner, "workout", id, raw)
+        store.applyRemotePage(owner, "workout", listOf(TrainingStore.RemoteRecord(id, raw, null)), null, System.currentTimeMillis())
+    }
+
     internal fun close() { scope.cancel(); store.close() }
 
     suspend fun signOut() = operation("Signing out…") {
@@ -1590,6 +1794,18 @@ private fun executionAnalysisRecordId(plannedSessionId: String): String =
 
 private fun athleteDiagnosticRecordId(planId: String): String =
     sha256PrefixKey("athlete-diagnostic-", planId)
+
+private fun adaptationProposalRecordId(proposalId: String): String =
+    sha256PrefixKey("adaptation-proposal-", proposalId)
+
+private fun adaptationRevisionRecordId(revisionId: String): String =
+    sha256PrefixKey("adaptation-revision-", revisionId)
+
+private fun adaptationCooldownRecordId(cooldown: AdaptationCooldownRecord): String =
+    sha256PrefixKey(
+        "adaptation-cooldown-",
+        "${cooldown.planId}:${cooldown.adaptationType.name}:${cooldown.disruptionFingerprint ?: ""}"
+    )
 
 private fun validatedActivityTitle(input:String):String {
     val title = input.trim()
