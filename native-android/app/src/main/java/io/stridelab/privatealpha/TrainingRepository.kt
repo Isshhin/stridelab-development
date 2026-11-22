@@ -38,6 +38,8 @@ internal data class TrainingState(
     val workoutDrafts:Map<Pair<String,String>,WorkoutEntryDraft> = emptyMap(),
     val wellness: List<WellnessRecord> = emptyList(),
     val details: Map<String,ActivityDetail> = emptyMap(),
+    val activityMatches: Map<String, ActivityMatchRecord> = emptyMap(),
+    val executionAnalyses: Map<String, WorkoutExecutionAnalysis> = emptyMap(),
     val task: String? = null
 )
 
@@ -194,7 +196,9 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         store.readableDatabase.query("records",arrayOf("record_id","payload"),"account=? AND kind=? AND record_id LIKE ?",arrayOf(account,"workout","entry-draft-%"),null,null,null).use { c -> while(c.moveToNext())runCatching { WorkoutEntryDraft.decode(JSONObject(c.getString(1)),account).also { require(it.recordId==c.getString(0)) } }.onSuccess { if(validDraft(it,plans))drafts[it.key]=it } }
         val cursor = store.cursor(account, "activity")
         val last = cursor?.let { runCatching { JSONObject(it).getLong("completedAt") }.getOrNull() }
+        val (savedMatches, savedAnalyses) = loadExecutionRecords(account)
         mutable.value = mutable.value.copy(activities = titledRecords, lastSync = last, details = details, wellness = wellness, shelf=shelf, templates=templates, workoutDrafts=drafts, plans = plans.sortedByDescending { it.createdAt }, researchDrafts=loadResearchDrafts(account),
+            activityMatches = savedMatches, executionAnalyses = savedAnalyses,
             message = if(unsupportedPlans>0) "$unsupportedPlans saved plans require a supported contract and were retained for review." else if(rejected > 0) "$rejected saved activities contain unsupported data and were retained for review." else mutable.value.message)
         loadLocalGarminCache()
     }
@@ -279,11 +283,14 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 }
             }
         }
+        val (savedMatches, savedAnalyses) = loadExecutionRecords(owner)
         mutable.value = mutable.value.copy(
             localPlanOwner = localPlanOwner,
             plans = plans.sortedByDescending { it.createdAt },
             templates = templates, shelf = shelf, workoutDrafts = drafts,
             researchDrafts = loadResearchDrafts(owner),
+            activityMatches = savedMatches,
+            executionAnalyses = savedAnalyses,
             message = if (unsupported > 0)
                 "$unsupported locally saved plans require a supported version; their records were retained."
                 else mutable.value.message
@@ -579,13 +586,45 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         if(updated!=plan)savePlan(updated.copy(revision=plan.revision+1))
     }
     suspend fun swapExercise(id:String,revision:Int,sessionId:String,exerciseId:String,direction:ExerciseAlternatives.SwapDirection=ExerciseAlternatives.SwapDirection.EASIER)=changePlan(id,revision) { PlanOperations.swapExercise(it,sessionId,exerciseId,direction=direction) }
-    suspend fun linkActivity(id:String,revision:Int,sessionId:String,activityId:String?)=changePlan(id,revision) { plan ->
-        if(activityId!=null) {
-            val activity=mutable.value.activities.find { it.id==activityId } ?: throw PlanConstraint("This source activity is not cached for your account.")
-            if(!DashboardSummary.isRun(activity))throw PlanConstraint("Only a recorded run can be linked to a planned run.")
-            if(mutable.value.plans.any { p -> p.sessions.any { s -> s.linkedActivityId==activityId && (p.id!=id || s.id!=sessionId) } })throw PlanConstraint("This source run is already linked to another workout. Unlink it there first.")
+    suspend fun linkActivity(id:String,revision:Int,sessionId:String,activityId:String?): Boolean {
+        val priorLinked = mutable.value.plans.find { it.id == id }
+            ?.sessions?.find { it.id == sessionId }?.linkedActivityId
+        val priorAutoLinked = mutable.value.activityMatches.values
+            .firstOrNull {
+                it.plannedSessionId == sessionId &&
+                    (it.matchStatus == ActivityMatchStatus.AUTO_LINKED ||
+                        it.matchStatus == ActivityMatchStatus.MANUALLY_LINKED)
+            }?.activityId
+        val ok = changePlan(id,revision) { plan ->
+            if(activityId!=null) {
+                val activity=mutable.value.activities.find { it.id==activityId } ?: throw PlanConstraint("This source activity is not cached for your account.")
+                if(!DashboardSummary.isRun(activity))throw PlanConstraint("Only a recorded run can be linked to a planned run.")
+                if(mutable.value.plans.any { p -> p.sessions.any { s -> s.linkedActivityId==activityId && (p.id!=id || s.id!=sessionId) } })throw PlanConstraint("This source run is already linked to another workout. Unlink it there first.")
+            }
+            PlanOperations.linkActivity(plan,sessionId,activityId)
         }
-        PlanOperations.linkActivity(plan,sessionId,activityId)
+        if (ok) {
+            withContext(Dispatchers.IO) {
+                mutex.withLock {
+                    if (activityId == null) {
+                        val rejectedId = priorLinked ?: priorAutoLinked
+                        if (rejectedId != null) markManualRejectionLocked(rejectedId, sessionId)
+                    } else {
+                        markManualLinkLocked(activityId, sessionId)
+                    }
+                    reconcileActivityMatchesAndAnalysis()
+                }
+            }
+        }
+        return ok
+    }
+    suspend fun confirmActivityMatch(id: String, revision: Int, sessionId: String, activityId: String): Boolean =
+        linkActivity(id, revision, sessionId, activityId)
+    suspend fun rejectActivityMatch(activityId: String, plannedSessionId: String) = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            markManualRejectionLocked(activityId, plannedSessionId)
+            reconcileActivityMatchesAndAnalysis()
+        }
     }
     suspend fun approvePlan(id:String,revision:Int)=changePlan(id,revision) { PlanOperations.approve(it,mutable.value.plans) }
     suspend fun pausePlan(id:String,revision:Int)=changePlan(id,revision) { it.copy(status="paused") }
@@ -749,6 +788,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         val parsed = ActivityDetail.parse(raw,account,id)
         store.applyRemotePage(account,"activity_detail",listOf(TrainingStore.RemoteRecord(id,raw.toString(),null)),null,System.currentTimeMillis())
         mutable.value = mutable.value.copy(details = mutable.value.details + (id to parsed))
+        reconcileActivityMatchesAndAnalysis()
     }
     private suspend fun operation(label: String, action: () -> Unit): Boolean = withContext(Dispatchers.IO) {
         mutex.withLock {
@@ -985,6 +1025,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 !mutable.value.details.containsKey(it.id)
             }
             if (pageLimit == 100) garminSyncPreferences.acknowledgeManualGarminSync(account)
+            reconcileActivityMatchesAndAnalysis()
             GarminConnectionStatus(
                 state = "connected",
                 lastSuccessfulSync = java.time.Instant.now(),
@@ -1267,7 +1308,182 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             null, System.currentTimeMillis()
         )
         mutable.value = mutable.value.copy(details = mutable.value.details + (id to checked))
+        reconcileActivityMatchesAndAnalysis()
         return checked
+    }
+
+    private fun loadExecutionRecords(
+        owner: String
+    ): Pair<Map<String, ActivityMatchRecord>, Map<String, WorkoutExecutionAnalysis>> {
+        val matches = LinkedHashMap<String, ActivityMatchRecord>()
+        store.readableDatabase.query(
+            "records", arrayOf("record_id", "payload"),
+            "account=? AND kind=? AND record_id LIKE ?",
+            arrayOf(owner, "workout", "activity-match-%"),
+            null, null, null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                runCatching {
+                    val decoded = ActivityMatchRecord.decode(JSONObject(cursor.getString(1)), owner)
+                    require(cursor.getString(0) == activityMatchRecordId(decoded.activityId))
+                    decoded
+                }.onSuccess { matches[it.activityId] = it }
+            }
+        }
+        val analyses = LinkedHashMap<String, WorkoutExecutionAnalysis>()
+        store.readableDatabase.query(
+            "records", arrayOf("record_id", "payload"),
+            "account=? AND kind=? AND record_id LIKE ?",
+            arrayOf(owner, "workout", "execution-analysis-%"),
+            null, null, null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                runCatching {
+                    val decoded = WorkoutExecutionAnalysis.decode(JSONObject(cursor.getString(1)), owner)
+                    require(cursor.getString(0) == executionAnalysisRecordId(decoded.plannedSessionId))
+                    decoded
+                }.onSuccess { analyses[it.plannedSessionId] = it }
+            }
+        }
+        return matches to analyses
+    }
+
+    private fun markManualLinkLocked(activityId: String, sessionId: String) {
+        val current = mutable.value
+        val existing = current.activityMatches[activityId]
+        val activity = current.activities.find { it.id == activityId }
+        val session = current.plans.flatMap { it.sessions }.find { it.id == sessionId }
+        val offset = if (activity != null && session != null) {
+            java.time.temporal.ChronoUnit.DAYS.between(
+                session.date,
+                activity.startedAt.atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            ).toInt().takeIf { it in -1..1 }
+        } else null
+        val record = ActivityMatchRecord(
+            activityId = activityId,
+            plannedSessionId = sessionId,
+            matchStatus = ActivityMatchStatus.MANUALLY_LINKED,
+            confidenceScore = 1.0,
+            dateOffsetDays = offset,
+            reasonCodes = listOf("MANUAL_OVERRIDE_LINKED"),
+            isManualOverride = true,
+            candidates = existing?.candidates ?: emptyList(),
+            evaluatedAtEpochMs = System.currentTimeMillis()
+        )
+        persistActivityMatchesLocked(mapOf(activityId to record))
+        mutable.value = mutable.value.copy(
+            activityMatches = current.activityMatches + (activityId to record)
+        )
+    }
+
+    private fun markManualRejectionLocked(activityId: String, plannedSessionId: String) {
+        val current = mutable.value
+        val existing = current.activityMatches[activityId]
+        val record = ActivityMatchRecord(
+            activityId = activityId,
+            plannedSessionId = plannedSessionId,
+            matchStatus = ActivityMatchStatus.MANUALLY_REJECTED,
+            confidenceScore = 0.0,
+            dateOffsetDays = null,
+            reasonCodes = listOf("MANUAL_OVERRIDE_REJECTED"),
+            isManualOverride = true,
+            candidates = existing?.candidates?.filterNot { it.plannedSessionId == plannedSessionId }
+                ?: emptyList(),
+            evaluatedAtEpochMs = System.currentTimeMillis()
+        )
+        persistActivityMatchesLocked(mapOf(activityId to record))
+        val owner = LocalPlanOwnership.activeOwner(current.account, localPlanOwner)
+        store.deleteRecord(owner, "workout", executionAnalysisRecordId(plannedSessionId))
+        mutable.value = mutable.value.copy(
+            activityMatches = current.activityMatches + (activityId to record),
+            executionAnalyses = current.executionAnalyses - plannedSessionId
+        )
+    }
+
+    private fun reconcileActivityMatchesAndAnalysis() {
+        val current = mutable.value
+        val plan = current.plans.firstOrNull { it.status == "approved" }
+            ?: current.plans.firstOrNull { it.status != "archived" }
+            ?: return
+        val nowMs = System.currentTimeMillis()
+        val matched = Engine15ActivityAutoMatcher.match(
+            activities = current.activities,
+            sessions = plan.sessions,
+            detailsByActivityId = current.details,
+            existingMatches = current.activityMatches,
+            nowEpochMs = nowMs
+        )
+        val mergedMatches = LinkedHashMap(current.activityMatches).apply {
+            putAll(matched)
+        }
+
+        val sessionById = plan.sessions.associateBy { it.id }
+        val activityById = current.activities.associateBy { it.id }
+        val updatedAnalyses = LinkedHashMap(current.executionAnalyses)
+
+        for (match in matched.values) {
+            if (match.matchStatus != ActivityMatchStatus.AUTO_LINKED &&
+                match.matchStatus != ActivityMatchStatus.MANUALLY_LINKED) {
+                continue
+            }
+            val sessionId = match.plannedSessionId ?: continue
+            val session = sessionById[sessionId] ?: continue
+            val activity = activityById[match.activityId] ?: continue
+            val detail = current.details[activity.id]
+            val hrZones = resolveExecutionHrZones(detail)
+            val analysis = Engine15ExecutionAnalyzer.analyze(
+                session = session,
+                activity = activity,
+                detail = detail,
+                athleteHrZones = hrZones,
+                analyzedAtEpochMs = nowMs
+            )
+            updatedAnalyses[sessionId] = analysis
+        }
+
+        val changedMatches = mergedMatches.filter { (k, v) -> current.activityMatches[k] != v }
+        val changedAnalyses = updatedAnalyses.filter { (k, v) -> current.executionAnalyses[k] != v }
+        if (changedMatches.isNotEmpty()) persistActivityMatchesLocked(changedMatches)
+        if (changedAnalyses.isNotEmpty()) persistExecutionAnalysesLocked(changedAnalyses)
+
+        if (changedMatches.isNotEmpty() || changedAnalyses.isNotEmpty()) {
+            mutable.value = mutable.value.copy(
+                activityMatches = mergedMatches,
+                executionAnalyses = updatedAnalyses
+            )
+        }
+    }
+
+    private fun resolveExecutionHrZones(detail: ActivityDetail?): ExecutionHrZoneProfile? {
+        val owner = mutable.value.account ?: localGarminOwner
+        val cachedGarmin = GarminZonePreferenceStore(appContext).load(owner)?.profile
+            ?: GarminZonePreferenceStore(appContext).load(localGarminOwner)?.profile
+        ExecutionHrZoneProfile.fromGarmin(cachedGarmin)?.let { return it }
+        return ExecutionHrZoneProfile.fromActivitySourceZones(detail?.sourceHeartRateZones)
+    }
+
+    private fun persistActivityMatchesLocked(records: Map<String, ActivityMatchRecord>) {
+        if (records.isEmpty()) return
+        val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+        val rows = records.values.map { record ->
+            val id = activityMatchRecordId(record.activityId)
+            val raw = record.encode(owner).toString()
+            RecordPolicy.record(owner, "workout", id, raw)
+            TrainingStore.RemoteRecord(id, raw, null)
+        }
+        store.applyRemotePage(owner, "workout", rows, null, System.currentTimeMillis())
+    }
+
+    private fun persistExecutionAnalysesLocked(records: Map<String, WorkoutExecutionAnalysis>) {
+        if (records.isEmpty()) return
+        val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+        val rows = records.values.map { record ->
+            val id = executionAnalysisRecordId(record.plannedSessionId)
+            val raw = record.encode(owner).toString()
+            RecordPolicy.record(owner, "workout", id, raw)
+            TrainingStore.RemoteRecord(id, raw, null)
+        }
+        store.applyRemotePage(owner, "workout", rows, null, System.currentTimeMillis())
     }
 
     internal fun close() { scope.cancel(); store.close() }
@@ -1292,14 +1508,21 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
 }
 
 /** Stable, bounded local metadata key; never changes the Garmin source ID. */
-private fun localActivityTitleKey(activityId:String):String {
-    RecordPolicy.identifier(activityId)
+private fun sha256PrefixKey(prefix: String, id: String): String {
+    RecordPolicy.identifier(id)
     val digest = MessageDigest.getInstance("SHA-256")
-        .digest(activityId.toByteArray(Charsets.UTF_8))
-    return "local-activity-title-" + digest.joinToString("") {
-        "%02x".format(it.toInt() and 0xff)
-    }
+        .digest(id.toByteArray(Charsets.UTF_8))
+    return prefix + digest.joinToString("") { "%02x".format(it.toInt() and 0xff) }
 }
+
+private fun localActivityTitleKey(activityId: String): String =
+    sha256PrefixKey("local-activity-title-", activityId)
+
+private fun activityMatchRecordId(activityId: String): String =
+    sha256PrefixKey("activity-match-", activityId)
+
+private fun executionAnalysisRecordId(plannedSessionId: String): String =
+    sha256PrefixKey("execution-analysis-", plannedSessionId)
 
 private fun validatedActivityTitle(input:String):String {
     val title = input.trim()
