@@ -223,6 +223,45 @@ class Engine15M28CoachingAuditTest {
         val findingsSummary = mutableListOf<String>()
 
         for (sc in scenarios()) {
+            val zones = Engine15PaceZoneEstimator.estimate(sc.request, activities = sc.activities)
+            sb.appendLine("## ${sc.label}")
+            sb.appendLine("- **Pace Zones:** Easy ${zones.easy.formatRange()} | Tempo ${zones.tempo.formatRange()} | Thr ${zones.threshold.formatRange()} | Int ${zones.intervals.formatRange()}")
+
+            if (Engine15TimeOnlyRunWalkBuilder.isEligible(sc.request)) {
+                val plan = Engine15IndependentPlanGenerator.generateWithHistory(
+                    request = sc.request,
+                    owner = "m28-audit",
+                    plans = emptyList(),
+                    id = "plan-${sc.id}",
+                    now = now,
+                    activities = sc.activities
+                )
+                Engine15IndependentPlanGenerator.validateSaved(plan)
+                val byWeek = plan.sessions.sortedBy { it.date }.groupBy {
+                    (ChronoUnit.DAYS.between(planStart, it.date) / 7).toInt() + 1
+                }.toSortedMap()
+                val flags = mutableListOf<String>()
+                if (plan.sessions.any { it.distanceKm != null }) flags += "CONFIRMED_ZERO beginner received fabricated distanceKm"
+                if (plan.sessions.any { it.quality }) flags += "CONFIRMED_ZERO beginner received forced quality"
+                if (plan.sessions.any { it.minutes <= 0 }) flags += "Zero-minute session"
+                val w3Min = byWeek[3]?.sumOf { it.minutes } ?: 0
+                val w4Min = byWeek[4]?.sumOf { it.minutes } ?: 0
+                if (w4Min >= w3Min) flags += "Week 4 recovery ($w4Min min) did not step back below Week 3 ($w3Min min)"
+                sb.appendLine("- **Mode:** TIME_ONLY Run/Walk foundation (0 synthetic km)")
+                if (flags.isEmpty()) {
+                    sb.appendLine("- **Audit Status:** PASS (0 rubric flags)")
+                } else {
+                    sb.appendLine("- **Audit Flags (${flags.size}):**")
+                    flags.forEach { f ->
+                        sb.appendLine("  - $f")
+                        findingsSummary += "[${sc.id}] $f"
+                        totalFindings++
+                    }
+                }
+                sb.appendLine()
+                continue
+            }
+
             val decision = Engine15IndependentPlanGenerator.previewAutoReconciled(
                 request = sc.request,
                 owner = "m28-audit",
@@ -230,10 +269,6 @@ class Engine15M28CoachingAuditTest {
                 now = now,
                 activities = sc.activities
             )
-            val zones = Engine15PaceZoneEstimator.estimate(sc.request, activities = sc.activities)
-
-            sb.appendLine("## ${sc.label}")
-            sb.appendLine("- **Pace Zones:** Easy ${zones.easy.formatRange()} | Tempo ${zones.tempo.formatRange()} | Thr ${zones.threshold.formatRange()} | Int ${zones.intervals.formatRange()}")
 
             if (decision is Engine15IndependentPlanDecision.Deferred) {
                 sb.appendLine("- **RESULT:** DEFERRED (`${decision.reasonCode}`): ${decision.explanation}")

@@ -51,7 +51,6 @@ class Engine1UiTest {
     }
     private fun openWorkoutLogForm(plannedRun: Boolean, title: String) {
         if(plannedRun) {
-            scrollWorkoutUntil(title,hasTestTag("workout-log-toggle"))
             compose.onNodeWithTag("workout-log-toggle").performClick()
         }
         scrollWorkoutUntil(title,hasTestTag("workout-record-form"))

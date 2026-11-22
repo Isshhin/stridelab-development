@@ -21,6 +21,67 @@ internal object Engine15WeeklyVolumeSkeleton {
     }
 
     /**
+     * Multi-factor weekly mileage progression grounded in recent sustainable baseline,
+     * training frequency (runDays), experience, race distance horizon, scheduled 4th-week
+     * recovery cutbacks, and 30-day single-session exposure context.
+     */
+    fun multiFactorCeiling(
+        week:Int,
+        totalWeeks:Int,
+        recentKm:Double,
+        targetKm:Double?=null,
+        runDays:Int=4,
+        experience:Int=1,
+        raceGoal:String?=null,
+        longestKm:Double?=null,
+        returning:Boolean=false
+    ):Double {
+        require(week>=0 && totalWeeks>=1 && recentKm.isFinite() && recentKm>=0.0 &&
+            (targetKm==null || targetKm.isFinite() && targetKm>=0.0))
+        if(recentKm<=0.0) return 0.0
+        val expRate=when(experience.coerceIn(0,2)) {
+            0 -> 0.050
+            1 -> 0.058
+            else -> 0.065
+        }
+        val freqScale=when {
+            runDays<=2 -> 0.75
+            runDays==3 -> 0.85
+            runDays==4 -> 1.00
+            runDays==5 -> 1.08
+            else -> 1.12
+        }
+        val weeklyRamp=(expRate*freqScale).coerceIn(0.035,0.080)
+        val startKm=when {
+            targetKm==null -> recentKm*0.90
+            targetKm<=recentKm -> minOf(targetKm,recentKm*0.90)
+            recentKm>=55.0 -> recentKm*0.96
+            else -> recentKm*0.95
+        }
+        val goalPeakCapKm=when(raceGoal) {
+            "Marathon" -> minOf(115.0,maxOf(recentKm*1.70,58.0+experience.coerceIn(0,2)*15.0))
+            "Half marathon" -> minOf(95.0,maxOf(recentKm*1.55,42.0+experience.coerceIn(0,2)*12.0))
+            "Improve 10K" -> minOf(85.0,maxOf(recentKm*1.40,34.0+experience.coerceIn(0,2)*10.0))
+            "Improve 5K" -> minOf(80.0,maxOf(recentKm*1.38,26.0+experience.coerceIn(0,2)*10.0))
+            else -> minOf(105.0,recentKm*(1.24+experience.coerceIn(0,2)*0.08))
+        }
+        val loadingWeeksElapsed=(0 until week).count { idx ->
+            val suppressed=Engine15IndependentVolumePlanner.isSuppressedPreTaperRecovery(raceGoal,totalWeeks,idx)
+            !(idx%4==3 && !suppressed)
+        }
+        val raw=minOf(goalPeakCapKm,startKm*Math.pow(1.0+weeklyRamp,loadingWeeksElapsed.toDouble()))
+        val longestCap=longestKm?.takeIf { it.isFinite() && it>0.0 }?.let { longest ->
+            // Gentle guard if 30d single-run exposure is far below average per-run budget when building
+            val exposureScale=if(returning) 0.75 else 1.15
+            maxOf(recentKm,(longest*exposureScale)*runDays*1.15)
+        }
+        val exposureBounded=longestCap?.let { minOf(raw,it) } ?: raw
+        val targetBounded=targetKm?.let { minOf(it,exposureBounded) } ?: exposureBounded
+        val suppressedHere=Engine15IndependentVolumePlanner.isSuppressedPreTaperRecovery(raceGoal,totalWeeks,week)
+        return if(week%4==3 && !suppressedHere) targetBounded*0.80 else targetBounded
+    }
+
+    /**
      * EXACT extracted predecessor of Engine15.runningCeiling.
      * Only one implementation remains; Engine15 delegates to this function.
      */

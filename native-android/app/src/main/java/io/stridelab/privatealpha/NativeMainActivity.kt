@@ -216,6 +216,7 @@ private fun NavHostController.openActivity(id: String) {
     val showFloatingDock = route != "missed/{planId}/{sessionId}" &&
         route != "review-move/{planId}/{sessionId}/{date}" &&
         route != "activity/{id}" && route != "builder/{discipline}" &&
+        route != "workout/{planId}/{sessionId}" &&
         route?.startsWith("auth") != true && route?.startsWith("more/") != true
     CompositionLocalProvider(
         LocalProfileAction provides { nav.openTabRoot("settings") },
@@ -228,12 +229,18 @@ private fun NavHostController.openActivity(id: String) {
     ) { padding ->
         // Today and Training share a true AMOLED-black canvas, including
         // the space behind and below the floating navigation dock.
-        val pageBackground = if (route == "home" || route == "training" || route == "settings" || route?.startsWith("more/") == true) {
-            Brush.verticalGradient(listOf(Color.Black, Color.Black))
-        } else {
-            Brush.verticalGradient(
-                listOf(TracksidePalette.backgroundTop, TracksidePalette.backgroundBottom)
+        val pageBackground = when {
+            route == "home" || route == null -> Brush.verticalGradient(
+                listOf(TodayAdaptivePalette.bg, TodayAdaptivePalette.bg)
             )
+            route == "training" || route == "settings" || route.startsWith("more/") -> {
+                Brush.verticalGradient(listOf(Color.Black, Color.Black))
+            }
+            else -> {
+                Brush.verticalGradient(
+                    listOf(TracksidePalette.backgroundTop, TracksidePalette.backgroundBottom)
+                )
+            }
         }
         Box(Modifier.fillMaxSize().background(pageBackground).padding(padding).imePadding()) {
             Column(Modifier.fillMaxSize()) {
@@ -587,7 +594,8 @@ private fun NavHostController.openActivity(id: String) {
                             onOpenWorkout = { planId, sessionId -> nav.openWorkout(planId, sessionId) },
                             onOpenActivityDetail = { id -> nav.openActivity(id) },
                             onOpenMore = { nav.openTabRoot("settings") },
-                            onSignIn = { nav.navigate("auth") }
+                            onSignIn = { nav.navigate("auth") },
+                            onLoadCachedDetail = actions.loadCachedDetail
                         )
                     }
                     PersistentTabSurface(active = visibleRoot == "training") {
@@ -648,7 +656,8 @@ private fun NavHostController.openActivity(id: String) {
                         onOpenWorkout = { planId, sessionId -> nav.openWorkout(planId, sessionId) },
                         onOpenActivityDetail = { id -> nav.openActivity(id) },
                         onOpenMore = { nav.openTabRoot("settings") },
-                        onSignIn = { nav.navigate("auth") }
+                        onSignIn = { nav.navigate("auth") },
+                        onLoadCachedDetail = actions.loadCachedDetail
                     )
                 }
                 PersistentTabSurface(active = visibleRoot == "training") {

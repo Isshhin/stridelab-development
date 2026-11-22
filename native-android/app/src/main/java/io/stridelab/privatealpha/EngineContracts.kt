@@ -67,7 +67,9 @@ internal data class PlanRequest(
     /** Optional recent race / time-trial benchmark distance in meters (e.g. 5000, 10000, 21097, 42195). */
     val benchmarkDistanceMeters:Int? = null,
     /** Optional recent race / time-trial benchmark duration in seconds. */
-    val benchmarkDurationSeconds:Int? = null
+    val benchmarkDurationSeconds:Int? = null,
+    /** Optional separate duration cap in minutes for the weekly long run when timeBudgetEnabled is true. */
+    val longRunMinutes:Int? = null
 ) {
     init {
         require(qualityDistanceClaims.size <= 32)
@@ -77,6 +79,7 @@ internal data class PlanRequest(
         })
         require(benchmarkDistanceMeters == null || benchmarkDistanceMeters in 1000..100000)
         require(benchmarkDurationSeconds == null || benchmarkDurationSeconds in 120..43200)
+        require(longRunMinutes == null || longRunMinutes in 15..300)
     }
     fun disciplineSessionCount(discipline:String)=when(discipline) {
         "run"->runDays;"str"->strengthDays;"cal"->calDays;"cond"->conditioningDays;else->0
@@ -122,6 +125,7 @@ internal data class PlanRequest(
         if(targetRaceDate!=null)encoded.put("targetRaceDate",targetRaceDate.toString())
         if(benchmarkDistanceMeters!=null)encoded.put("benchmarkDistanceMeters",benchmarkDistanceMeters)
         if(benchmarkDurationSeconds!=null)encoded.put("benchmarkDurationSeconds",benchmarkDurationSeconds)
+        if(longRunMinutes!=null)encoded.put("longRunMinutes",longRunMinutes)
         return encoded
     }
     companion object {
@@ -156,7 +160,8 @@ internal data class PlanRequest(
                 } ?: emptyList(),
                 j.nullString("targetRaceDate")?.let(LocalDate::parse),
                 j.nullInt("benchmarkDistanceMeters"),
-                j.nullInt("benchmarkDurationSeconds"))
+                j.nullInt("benchmarkDurationSeconds"),
+                j.nullInt("longRunMinutes"))
         }
     }
 }
@@ -301,25 +306,79 @@ internal fun JSONArray.objects()=(0 until length()).map { getJSONObject(it) }
 internal fun JSONArray.strings()=(0 until length()).map { getString(it) }
 
 /** Planned distance, not measured execution, threshold or fitness evidence. */
-internal data class RunningSegment(val purpose:String, val meters:Int, val effort:String) {
-    init { require(purpose in setOf("WARM_UP","WORK","RECOVERY","TRANSITION","COOL_DOWN","EASY") && meters>0 && meters<=120000) }
-    fun encode()=JSONObject().put("purpose",purpose).put("meters",meters).put("effort",effort)
-    companion object { fun decode(j:JSONObject)=RunningSegment(j.getString("purpose"),j.getInt("meters"),j.getString("effort")) }
+internal data class RunningSegment(
+    val purpose:String,
+    val meters:Int,
+    val effort:String,
+    val stepIntent:RunningStepIntent?=null,
+    val targetPaceMinSecPerKm:Int?=null,
+    val targetPaceMaxSecPerKm:Int?=null,
+    val targetHrMinBpm:Int?=null,
+    val targetHrMaxBpm:Int?=null
+) {
+    init {
+        require(purpose in setOf("WARM_UP","WORK","RECOVERY","TRANSITION","COOL_DOWN","EASY") && meters>0 && meters<=120000)
+        require(targetPaceMinSecPerKm==null || targetPaceMinSecPerKm in 120..1200)
+        require(targetPaceMaxSecPerKm==null || targetPaceMaxSecPerKm in 120..1200)
+        require(targetPaceMinSecPerKm==null || targetPaceMaxSecPerKm==null || targetPaceMinSecPerKm<=targetPaceMaxSecPerKm)
+        require(targetHrMinBpm==null || targetHrMinBpm in 60..230)
+        require(targetHrMaxBpm==null || targetHrMaxBpm in 60..230)
+        require(targetHrMinBpm==null || targetHrMaxBpm==null || targetHrMinBpm<=targetHrMaxBpm)
+    }
+    fun encode()=JSONObject().put("purpose",purpose).put("meters",meters).put("effort",effort).apply {
+        stepIntent?.let { put("stepIntent",it.name) }
+        targetPaceMinSecPerKm?.let { put("targetPaceMinSecPerKm",it) }
+        targetPaceMaxSecPerKm?.let { put("targetPaceMaxSecPerKm",it) }
+        targetHrMinBpm?.let { put("targetHrMinBpm",it) }
+        targetHrMaxBpm?.let { put("targetHrMaxBpm",it) }
+    }
+    companion object {
+        fun decode(j:JSONObject)=RunningSegment(j.getString("purpose"),j.getInt("meters"),j.getString("effort"),
+            j.nullString("stepIntent")?.let(RunningStepIntent::valueOf),
+            j.nullInt("targetPaceMinSecPerKm"),j.nullInt("targetPaceMaxSecPerKm"),
+            j.nullInt("targetHrMinBpm"),j.nullInt("targetHrMaxBpm"))
+    }
 }
+/** Structured intent for a running workout step, persisted across JSON/SQLite and UI layers. */
+internal enum class RunningStepIntent {
+    WARMUP, COOLDOWN, AEROBIC_EASY, RECOVERY, STEADY, TEMPO, THRESHOLD, VO2_INTERVAL, HILL, STRIDE, RACE_PACE
+}
+
 /** Versioned planned step; any distance equivalent is explicitly user supplied. */
-internal data class RunningStepV2(val purpose:String, val effort:String, val meters:Int?=null, val seconds:Int?=null,
-    val distanceEquivalentMeters:Int?=null) {
+internal data class RunningStepV2(
+    val purpose:String,
+    val effort:String,
+    val meters:Int?=null,
+    val seconds:Int?=null,
+    val distanceEquivalentMeters:Int?=null,
+    val stepIntent:RunningStepIntent?=null,
+    val targetPaceMinSecPerKm:Int?=null,
+    val targetPaceMaxSecPerKm:Int?=null,
+    val targetHrMinBpm:Int?=null,
+    val targetHrMaxBpm:Int?=null
+) {
     init {
         require(purpose in setOf("WARM_UP","WORK","RECOVERY","TRANSITION","COOL_DOWN","EASY"))
         require((meters!=null) xor (seconds!=null))
         require(meters==null || meters in 1..120000)
         require(seconds==null || seconds in 1..14400)
         require(distanceEquivalentMeters==null || seconds!=null && distanceEquivalentMeters in 1..120000)
+        require(targetPaceMinSecPerKm==null || targetPaceMinSecPerKm in 120..1200)
+        require(targetPaceMaxSecPerKm==null || targetPaceMaxSecPerKm in 120..1200)
+        require(targetPaceMinSecPerKm==null || targetPaceMaxSecPerKm==null || targetPaceMinSecPerKm<=targetPaceMaxSecPerKm)
+        require(targetHrMinBpm==null || targetHrMinBpm in 60..230)
+        require(targetHrMaxBpm==null || targetHrMaxBpm in 60..230)
+        require(targetHrMinBpm==null || targetHrMaxBpm==null || targetHrMinBpm<=targetHrMaxBpm)
     }
     fun encode():JSONObject {
         val j=JSONObject().put("purpose",purpose).put("effort",effort)
         if(meters!=null) j.put("meters",meters) else j.put("seconds",seconds)
         distanceEquivalentMeters?.let { j.put("distanceEquivalentMeters",it) }
+        stepIntent?.let { j.put("stepIntent",it.name) }
+        targetPaceMinSecPerKm?.let { j.put("targetPaceMinSecPerKm",it) }
+        targetPaceMaxSecPerKm?.let { j.put("targetPaceMaxSecPerKm",it) }
+        targetHrMinBpm?.let { j.put("targetHrMinBpm",it) }
+        targetHrMaxBpm?.let { j.put("targetHrMaxBpm",it) }
         return j
     }
     companion object {
@@ -327,7 +386,10 @@ internal data class RunningStepV2(val purpose:String, val effort:String, val met
             require(j.has("meters") xor j.has("seconds")) { "A step must have exactly one extent" }
             return RunningStepV2(j.getString("purpose"),j.getString("effort"),
                 if(j.has("meters")) j.getInt("meters") else null,
-                if(j.has("seconds")) j.getInt("seconds") else null,j.nullInt("distanceEquivalentMeters"))
+                if(j.has("seconds")) j.getInt("seconds") else null,j.nullInt("distanceEquivalentMeters"),
+                j.nullString("stepIntent")?.let(RunningStepIntent::valueOf),
+                j.nullInt("targetPaceMinSecPerKm"),j.nullInt("targetPaceMaxSecPerKm"),
+                j.nullInt("targetHrMinBpm"),j.nullInt("targetHrMaxBpm"))
         }
     }
 }
@@ -337,7 +399,9 @@ internal data class RunningPrescription(
     /** Administrative planning-pace estimate only, never an exact distance target. */
     val estimatedDistanceKm:Double?=null,
     /** Exact extent supplied for every timed step; this is not pace-derived. */
-    val reconciledDistanceMeters:Int?=null
+    val reconciledDistanceMeters:Int?=null,
+    /** Optional Step 02 archetype identifier (null for pre-Step-02 snapshots). */
+    val archetypeId:String?=null
 ) {
     init {
         require(role in setOf("RECOVERY","EASY","ENDURANCE","LONG","QUALITY"))
@@ -369,7 +433,31 @@ internal data class RunningPrescription(
     val meters get()=if(mixedSegments==null) segments.sumOf { it.meters } else reconciledDistanceMeters ?: mixedSegments.sumOf { it.meters ?: 0 }
     val workMeters get()=if(mixedSegments==null) segments.filter { it.purpose=="WORK" }.sumOf { it.meters }
         else mixedSegments.filter { it.purpose=="WORK" }.sumOf { it.meters ?: it.distanceEquivalentMeters ?: 0 }
-    fun encode():JSONObject = if(mixedSegments==null) {
+    fun matchesStructuralBaseline(expected:RunningPrescription):Boolean {
+        if(this==expected) return true
+        val curLegacySegs=segments.all {
+            it.stepIntent==null && it.targetPaceMinSecPerKm==null && it.targetPaceMaxSecPerKm==null &&
+                it.targetHrMinBpm==null && it.targetHrMaxBpm==null
+        }
+        val curLegacyMixed=mixedSegments==null || mixedSegments.all {
+            it.stepIntent==null && it.targetPaceMinSecPerKm==null && it.targetPaceMaxSecPerKm==null &&
+                it.targetHrMinBpm==null && it.targetHrMaxBpm==null
+        }
+        if(archetypeId!=null && !curLegacySegs && !curLegacyMixed) return false
+        val strippedExpected = expected.copy(
+            archetypeId = if (archetypeId == null) null else expected.archetypeId,
+            segments = if (curLegacySegs) expected.segments.map {
+                it.copy(stepIntent=null,targetPaceMinSecPerKm=null,targetPaceMaxSecPerKm=null,
+                    targetHrMinBpm=null,targetHrMaxBpm=null)
+            } else expected.segments,
+            mixedSegments = if (mixedSegments != null && expected.mixedSegments != null && curLegacyMixed) expected.mixedSegments.map {
+                it.copy(stepIntent=null,targetPaceMinSecPerKm=null,targetPaceMaxSecPerKm=null,
+                    targetHrMinBpm=null,targetHrMaxBpm=null)
+            } else expected.mixedSegments
+        )
+        return this==strippedExpected
+    }
+    fun encode():JSONObject = (if(mixedSegments==null) {
         JSONObject().put("version",1).put("role",role).put("family",family).put("segments",JSONArray(segments.map { it.encode() }))
     } else {
         when {
@@ -385,29 +473,33 @@ internal data class RunningPrescription(
                 .put("estimatedDistanceKm",estimatedDistanceKm)
                 .put("estimateBasis","PLANNING_PACE_NOT_TARGET")
         }
-    }
+    }).apply { archetypeId?.let { put("archetypeId",it) } }
     companion object {
-        fun decode(j:JSONObject):RunningPrescription = when(j.getInt("version")) {
-            1 -> RunningPrescription(j.getString("role"),j.nullString("family"),
-                j.getJSONArray("segments").objects().map(RunningSegment::decode))
-            2 -> {
-                require(j.getString("estimateBasis")=="PLANNING_PACE_NOT_TARGET")
-                RunningPrescription(j.getString("role"),j.nullString("family"),emptyList(),
-                    j.getJSONArray("segments").objects().map(RunningStepV2::decode),
-                    j.getDouble("estimatedDistanceKm"))
+        fun decode(j:JSONObject):RunningPrescription {
+            val arch=j.nullString("archetypeId")
+            return when(j.getInt("version")) {
+                1 -> RunningPrescription(j.getString("role"),j.nullString("family"),
+                    j.getJSONArray("segments").objects().map(RunningSegment::decode),
+                    archetypeId=arch)
+                2 -> {
+                    require(j.getString("estimateBasis")=="PLANNING_PACE_NOT_TARGET")
+                    RunningPrescription(j.getString("role"),j.nullString("family"),emptyList(),
+                        j.getJSONArray("segments").objects().map(RunningStepV2::decode),
+                        j.getDouble("estimatedDistanceKm"),archetypeId=arch)
+                }
+                3 -> {
+                    require(j.getString("distanceBasis")=="USER_SUPPLIED_PER_STEP_EQUIVALENTS")
+                    RunningPrescription(j.getString("role"),j.nullString("family"),emptyList(),
+                        j.getJSONArray("segments").objects().map(RunningStepV2::decode),null,
+                        j.getInt("reconciledDistanceMeters"),archetypeId=arch)
+                }
+                4 -> {
+                    require(j.getString("timeBasis")=="TIME_ONLY_NO_DISTANCE_TARGET")
+                    RunningPrescription(j.getString("role"),j.nullString("family"),emptyList(),
+                        j.getJSONArray("segments").objects().map(RunningStepV2::decode),null,null,archetypeId=arch)
+                }
+                else -> throw IllegalArgumentException("Unsupported running prescription version")
             }
-            3 -> {
-                require(j.getString("distanceBasis")=="USER_SUPPLIED_PER_STEP_EQUIVALENTS")
-                RunningPrescription(j.getString("role"),j.nullString("family"),emptyList(),
-                    j.getJSONArray("segments").objects().map(RunningStepV2::decode),null,
-                    j.getInt("reconciledDistanceMeters"))
-            }
-            4 -> {
-                require(j.getString("timeBasis")=="TIME_ONLY_NO_DISTANCE_TARGET")
-                RunningPrescription(j.getString("role"),j.nullString("family"),emptyList(),
-                    j.getJSONArray("segments").objects().map(RunningStepV2::decode),null,null)
-            }
-            else -> throw IllegalArgumentException("Unsupported running prescription version")
         }
     }
 }

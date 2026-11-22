@@ -126,7 +126,6 @@ class Engine15CoachControlsTest {
             .assertTextEquals("Easy run")
         compose.onNodeWithTag("workout-recommendations-accordion").assertExists()
         compose.onNodeWithTag("workout-record-form").assertDoesNotExist()
-        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-log-toggle"))
         compose.onNodeWithTag("workout-log-toggle").performClick()
         compose.onNodeWithTag("workout-record-form").assertExists()
         compose.onNodeWithTag("workout-actual-date").assertExists()
@@ -135,7 +134,7 @@ class Engine15CoachControlsTest {
         compose.onNodeWithText("Preview recommendations").assertExists()
     }
 
-    @Test fun plannedRunPreviewHasReadableTargetsAndExpandableNotes() {
+    @Test fun plannedRunPreviewHasReadableTargetsAndOmitsCoachNotes() {
         val session=PlannedSession(
             "preview",day.plusDays(1),"run","Aerobic endurance run",
             109,13.6,"easy",
@@ -159,12 +158,12 @@ class Engine15CoachControlsTest {
         compose.onNodeWithTag("workout-planned-primary-target")
             .assertTextEquals("13.6 km")
         compose.onNodeWithTag("workout-planned-duration")
-            .assertTextEquals("Estimated duration · 109 min")
+            .assertTextEquals("109 min")
         compose.onNodeWithText("13600 m easy running").assertDoesNotExist()
         compose.onNodeWithTag("workout-planned-structure").assertExists()
-        compose.onNodeWithTag("workout-planned-notes-toggle").performScrollTo().performClick()
-        compose.onNodeWithText("The easy aerobic workout supports endurance.")
-            .assertExists()
+        compose.onNodeWithTag("workout-planned-coach-notes").assertDoesNotExist()
+        compose.onNodeWithTag("workout-planned-notes-toggle").assertDoesNotExist()
+        compose.onNodeWithTag("workout-private-feedback").assertDoesNotExist()
     }
 
     @Test fun repeatedIntervalsRenderAsOneGroupWithExactSteps() {
@@ -187,14 +186,14 @@ class Engine15CoachControlsTest {
         show {
             TracksidePlannedRunningPreview(
                 session,Engine15SessionPresentation.forSession(p,session.id),
-                session.title, "Steady controlled effort",onBack={}
+                session.title, onBack={}
             )
         }
         compose.onNodeWithTag("workout-planned-structure").assertExists()
         compose.onNodeWithTag("workout-step-single-0").assertExists()
         compose.onNodeWithTag("workout-repeat-group-1").assertExists()
         compose.onNodeWithTag("workout-repeat-count-1")
-            .assertTextEquals("5 Times")
+            .assertTextEquals("5 × Interval Set")
         compose.onNodeWithTag("workout-repeat-work-1").assertExists()
         compose.onNodeWithTag("workout-repeat-recovery-1").assertExists()
         compose.onNodeWithText("Between repetitions").assertExists()
@@ -223,7 +222,7 @@ class Engine15CoachControlsTest {
         show {
             TracksidePlannedRunningPreview(
                 session,Engine15SessionPresentation.forSession(p,session.id),
-                session.title,"User-defined targets",onBack={}
+                session.title, onBack={}
             )
         }
         compose.onNodeWithTag("workout-mixed-step-0").assertExists()
@@ -253,7 +252,7 @@ class Engine15CoachControlsTest {
         compose.onNodeWithTag("workout-planned-primary-target")
             .assertTextEquals("Time-based")
         compose.onNodeWithTag("workout-planned-duration")
-            .assertTextEquals("Estimated duration · 45 min")
+            .assertTextEquals("45 min")
         compose.onNodeWithText("Planned target: 10.0 km",substring=true)
             .assertDoesNotExist()
     }
@@ -281,7 +280,6 @@ class Engine15CoachControlsTest {
         val p=plan().copy(sessions=listOf(PlannedSession("target",day,"run","Threshold",75,14.0,"quality",quality=true)))
         var recorded:WorkoutLog?=null;val drafts=mutableListOf<WorkoutEntryDraft>()
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { androidx.compose.material3.Surface { WorkoutScreen(TrainingState(initializing=false,plans=listOf(p)),p.id,"target",PlanActions(record={_,_,_,log,_->recorded=log},stageWorkoutDraft={drafts+=it}),{}) } } } }
-        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-log-toggle"))
         compose.onNodeWithTag("workout-log-toggle").performClick()
         compose.onNodeWithTag("workout-record-form").assertExists()
         compose.onNodeWithTag("workout-actual-date").assertExists()
@@ -322,7 +320,6 @@ class Engine15CoachControlsTest {
         val p=plan().copy(sessions=listOf(session))
         val draft=WorkoutEntryDraft(p.owner,p.id,session.id,1,"","","","",day.toString(),"{}",1)
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { androidx.compose.material3.Surface { WorkoutScreen(TrainingState(initializing=false,plans=listOf(p),workoutDrafts=mapOf((p.id to session.id) to draft)),p.id,session.id,PlanActions(),{}) } } } }
-        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("workout-log-toggle"))
         compose.onNodeWithTag("workout-log-toggle").performClick()
         compose.onNodeWithText("How did completion feel?").performScrollTo()
         compose.onAllNodes(hasText("Unanswered") and isSelected()).assertCountEquals(2)

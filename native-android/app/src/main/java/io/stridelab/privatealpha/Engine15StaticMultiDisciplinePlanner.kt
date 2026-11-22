@@ -17,9 +17,13 @@ internal object Engine15StaticMultiDisciplinePlanner {
         active.forEach { discipline ->
             val solo = soloRequest(request, discipline)
             when (discipline) {
-                "run" -> when (val outcome = Engine15IndependentPlanGenerator.previewAutoReconciled(solo, "combined-validation", "combined-validation", java.time.Instant.EPOCH)) {
-                    is Engine15IndependentPlanDecision.Deferred -> throw PlanConstraint("${outcome.reasonCode}: ${outcome.explanation}")
-                    is Engine15IndependentPlanDecision.Candidate -> Unit
+                "run" -> if (Engine15TimeOnlyRunWalkBuilder.isEligible(solo)) {
+                    Engine15TimeOnlyRunWalkBuilder.compose(solo, "combined-validation", "combined-validation", java.time.Instant.EPOCH)
+                } else {
+                    when (val outcome = Engine15IndependentPlanGenerator.previewAutoReconciled(solo, "combined-validation", "combined-validation", java.time.Instant.EPOCH)) {
+                        is Engine15IndependentPlanDecision.Deferred -> throw PlanConstraint("${outcome.reasonCode}: ${outcome.explanation}")
+                        is Engine15IndependentPlanDecision.Candidate -> Unit
+                    }
                 }
                 "str" -> Engine15StrengthWorkoutComposer.validateRequest(solo)
                 "cal" -> Engine15CalisthenicsWorkoutComposer.validateRequest(solo)
@@ -45,20 +49,33 @@ internal object Engine15StaticMultiDisciplinePlanner {
         RecordPolicy.identifier(owner)
         RecordPolicy.identifier(id)
         var runCandidatePlan: PlanSnapshot? = null
+        var runCandidateVolume: Engine15IndependentVolumePlanner.Result? = null
         val sessions = disciplines.filter { request.disciplineSessionCount(it) > 0 }.flatMap { discipline ->
             val solo = soloRequest(request, discipline)
             when (discipline) {
-                "run" -> (Engine15IndependentPlanGenerator.previewAutoReconciled(
-                    solo, owner, id, now, activities = activities, detections = detections
-                ) as? Engine15IndependentPlanDecision.Candidate)
-                    ?.plan?.also { runCandidatePlan = it }?.sessions
-                    ?: throw PlanConstraint("RUNNING_COMPONENT_UNAVAILABLE: No independent running candidate was produced.")
+                "run" -> if (Engine15TimeOnlyRunWalkBuilder.isEligible(solo)) {
+                    Engine15TimeOnlyRunWalkBuilder.compose(solo, owner, id, now).sessions
+                } else {
+                    (Engine15IndependentPlanGenerator.previewAutoReconciled(
+                        solo, owner, id, now, activities = activities, detections = detections
+                    ) as? Engine15IndependentPlanDecision.Candidate)
+                        ?.also {
+                            runCandidatePlan = it.plan
+                            runCandidateVolume = it.volume
+                        }?.plan?.sessions
+                        ?: throw PlanConstraint("RUNNING_COMPONENT_UNAVAILABLE: No independent running candidate was produced.")
+                }
                 "str" -> Engine15StrengthWorkoutComposer.compose(solo, id, library, allowCalendarReschedule = true)
                 "cal" -> Engine15CalisthenicsWorkoutComposer.compose(solo, id, library, allowCalendarReschedule = true)
                 else -> Engine15ConditioningWorkoutComposer.compose(solo, id, library, allowCalendarReschedule = true)
             }
         }
-        val scheduled = schedule(request, sessions)
+        val placed = place(request, sessions)
+        val shaped = runCandidateVolume?.let { volume ->
+            reshapeCombinedRuns(placed, volume, request)
+        } ?: placed
+        val scheduled = annotateCombinedNotes(shaped)
+        validateCalendar(request, scheduled)
         if (scheduled.size != request.weeks * disciplines.sumOf { request.disciplineSessionCount(it) } ||
             scheduled.map { it.id }.distinct().size != scheduled.size)
             throw PlanConstraint("ENGINE15_COMBINED_PLAN_INCOMPLETE: A combined discipline slot is missing or duplicated.")
@@ -122,6 +139,15 @@ internal object Engine15StaticMultiDisciplinePlanner {
         val scheduled = plan.sessions.sortedWith(compareBy<PlannedSession> { it.date }.thenBy { it.id })
         validateCalendar(request, scheduled)
         Engine15SessionLocks.validateOutput(request, scheduled)
+        val runDatesById = scheduled.filter { it.discipline == "run" }.associate { it.id to it.date }
+        val otherSessions = scheduled.filter { it.discipline != "run" }
+        val externalHardDates = otherSessions.filter { isHard(it) }.map { it.date }.toSet()
+        val maxMinutesById = if (request.timeBudgetEnabled) {
+            scheduled.filter { it.discipline == "run" }.mapNotNull { run ->
+                val otherMin = otherSessions.filter { it.date == run.date }.sumOf { it.effectiveMinutes }
+                if (otherMin > 0) run.id to (request.dailyMinutes - otherMin).coerceAtLeast(1) else null
+            }.toMap()
+        } else emptyMap()
         active.forEach { discipline ->
             val candidate = plan.copy(
                 policyId = when (discipline) {
@@ -139,7 +165,10 @@ internal object Engine15StaticMultiDisciplinePlanner {
                         request = candidate.request.copy(
                             qualityCount = if (candidate.sessions.any { it.baselineSession().quality }) candidate.request.qualityCount else 0
                         )
-                    )
+                    ),
+                    combinedRunDatesById = runDatesById,
+                    combinedExternalHardDates = externalHardDates,
+                    combinedMaxMinutesById = maxMinutesById
                 )
                 "str" -> Engine15StrengthWorkoutComposer.validateSaved(candidate, allowCalendarReschedule = true)
                 "cal" -> Engine15CalisthenicsWorkoutComposer.validateSaved(candidate, allowCalendarReschedule = true)
@@ -151,7 +180,20 @@ internal object Engine15StaticMultiDisciplinePlanner {
     fun conflict(a: PlannedSession, b: PlannedSession, request: PlanRequest): Boolean =
         a.date == b.date && a.discipline == b.discipline
 
-    private fun schedule(request: PlanRequest, sessions: List<PlannedSession>): List<PlannedSession> {
+    private fun sameDayPenalty(candidate: PlannedSession, sameDay: List<PlannedSession>): Int {
+        if (sameDay.isEmpty()) return 0
+        val candHard = isHard(candidate)
+        return sameDay.maxOf { peer ->
+            val peerHard = isHard(peer)
+            when {
+                isComplementaryPair(candidate, peer) -> 1
+                candHard && peerHard -> 3
+                else -> 2
+            }
+        }
+    }
+
+    private fun place(request: PlanRequest, sessions: List<PlannedSession>): List<PlannedSession> {
         validateWeeklySlots(request, disciplines.filter { request.disciplineSessionCount(it) > 0 })
         val placed = mutableListOf<PlannedSession>()
         repeat(request.weeks) { weekIndex ->
@@ -162,13 +204,12 @@ internal object Engine15StaticMultiDisciplinePlanner {
                     .thenBy { if (it.kind == "long") 0 else if (isHard(it)) 1 else 2 }
                     .thenBy { it.id }
             )
-            val maxStackPerDay = ((weekSessions.size + request.days.size - 1) / request.days.size).coerceAtLeast(2)
 
             /**
              * User-first 3-tier adaptive scheduler:
              * - Tier 1: Separate days + >=2-day hard-session spacing + daily time budget.
              * - Tier 2: Smart complementary double days (distinct disciplines, up to 2/day) + hard spacing.
-             * - Tier 3: Full user freedom — any distinct-discipline pairing & tight spacing adapted with coaching cues.
+             * - Tier 3: Any distinct-discipline double day (<= 2/day, respecting dailyMinutes) minimizing hard collisions.
              */
             fun tryTier(tier: Int): List<PlannedSession>? {
                 val weekPlaced = mutableListOf<PlannedSession>()
@@ -184,6 +225,9 @@ internal object Engine15StaticMultiDisciplinePlanner {
                             (fixedDay == null || fixedDay == date.dayOfWeek.value) &&
                             (template.kind != "long" || date.dayOfWeek.value == request.longDay)
                     }.sortedWith(compareBy<LocalDate> { date ->
+                        val sameDay = (placed + weekPlaced).filter { it.date == date }
+                        sameDayPenalty(template.copy(date = date), sameDay)
+                    }.thenBy { date ->
                         (placed + weekPlaced).count { it.date == date }
                     }.thenBy { date ->
                         if ((placed + weekPlaced).any { it.date != date && Engine15IndependentPlanGenerator.conflict(template.copy(date = date), it) }) 1 else 0
@@ -206,7 +250,8 @@ internal object Engine15StaticMultiDisciplinePlanner {
                                 if ((placed + weekPlaced).any { it.date != date && Engine15IndependentPlanGenerator.conflict(candidate, it) }) continue
                             }
                             else -> {
-                                if (sameDay.size >= maxStackPerDay) continue
+                                if (sameDay.size >= 2) continue
+                                if (request.timeBudgetEnabled && sameDay.sumOf { it.effectiveMinutes } + candidate.effectiveMinutes > request.dailyMinutes) continue
                             }
                         }
                         weekPlaced += candidate
@@ -219,37 +264,79 @@ internal object Engine15StaticMultiDisciplinePlanner {
             }
 
             val weekResult = tryTier(1) ?: tryTier(2) ?: tryTier(3) ?: throw PlanConstraint(
-                "ENGINE15_COMBINED_SCHEDULE_CONFLICT: Requested fixed weekday assignments or locks cannot be placed within the selected available days."
+                "ENGINE15_COMBINED_SCHEDULE_CONFLICT: Requested fixed weekday assignments, double-day limits, or daily time budget cannot fit within the selected available days."
             )
-            val byDate = weekResult.groupBy { it.date }
-            val annotated = weekResult.map { session ->
-                val peers = byDate[session.date].orEmpty().filter { it.id != session.id }
-                val tightSpacing = (placed + weekResult).any {
-                    it.id != session.id && it.date != session.date && Engine15IndependentPlanGenerator.conflict(session, it)
-                }
-                val note = buildList {
-                    if (peers.isNotEmpty()) add("Stacked day (${peers.joinToString { it.discipline.uppercase() }}): separate AM/PM (4–6h gap) and prioritize running first.")
-                    if (tightSpacing) add("Back-to-back training load: keep effort controlled and prioritize sleep and hydration.")
-                }.joinToString(" ")
-                if (note.isNotBlank() && !session.reason.contains(note)) {
-                    session.copy(reason = (session.reason.trimEnd() + " " + note).trim())
-                } else session
-            }
-            placed += annotated
+            placed += weekResult
         }
-        val result = placed.sortedWith(compareBy<PlannedSession> { it.date }.thenBy { it.id })
-        validateCalendar(request, result)
-        return result
+        return placed.sortedWith(compareBy<PlannedSession> { it.date }.thenBy { it.id })
+    }
+
+    private fun reshapeCombinedRuns(
+        placedSessions: List<PlannedSession>,
+        volume: Engine15IndependentVolumePlanner.Result,
+        request: PlanRequest
+    ): List<PlannedSession> {
+        val runSessions = placedSessions.filter { it.discipline == "run" }
+        if (runSessions.isEmpty()) return placedSessions
+        val otherSessions = placedSessions.filter { it.discipline != "run" }
+        val externalHardDates = otherSessions.filter { isHard(it) }.map { it.date }.toSet()
+        val qualityIds = runSessions.filter { it.quality }.map { it.id }.toSet()
+        val maxMinutesBySessionId = if (request.timeBudgetEnabled) {
+            runSessions.mapNotNull { run ->
+                val otherMin = otherSessions.filter { it.date == run.date }.sumOf { it.effectiveMinutes }
+                if (otherMin > 0) run.id to (request.dailyMinutes - otherMin).coerceAtLeast(1) else null
+            }.toMap()
+        } else emptyMap()
+        val soloRun = soloRequest(request, "run")
+        val shapedRuns = Engine15DailyLoadShaper.shape(
+            sessions = runSessions,
+            volume = volume,
+            request = soloRun,
+            qualitySessionIds = qualityIds,
+            pinnedSessionIds = qualityIds,
+            externalHardDates = externalHardDates,
+            maxMinutesBySessionId = maxMinutesBySessionId
+        )
+        val enrichedRuns = if (runSessions.any { it.runningPrescription?.archetypeId != null }) {
+            Engine15IndependentPlanGenerator.enrichNonQualitySessions(shapedRuns, soloRun, volume)
+        } else {
+            shapedRuns
+        }
+        return (enrichedRuns + otherSessions).sortedWith(compareBy<PlannedSession> { it.date }.thenBy { it.id })
+    }
+
+    private fun annotateCombinedNotes(sessions: List<PlannedSession>): List<PlannedSession> {
+        val byDate = sessions.groupBy { it.date }
+        return sessions.map { session ->
+            val peers = byDate[session.date].orEmpty().filter { it.id != session.id }
+            val tightSpacing = sessions.any {
+                it.id != session.id && it.date != session.date && Engine15IndependentPlanGenerator.conflict(session, it)
+            }
+            val note = buildList {
+                if (peers.isNotEmpty()) add("Stacked day (${peers.joinToString { it.discipline.uppercase() }}): separate AM/PM (4–6h gap) and prioritize running first.")
+                if (tightSpacing) add("Back-to-back training load: keep effort controlled and prioritize sleep and hydration.")
+            }.joinToString(" ")
+            if (note.isNotBlank() && !session.reason.contains(note)) {
+                session.copy(reason = (session.reason.trimEnd() + " " + note).trim())
+            } else session
+        }.sortedWith(compareBy<PlannedSession> { it.date }.thenBy { it.id })
     }
 
     private fun validateCalendar(request: PlanRequest, sessions: List<PlannedSession>) {
-        // Enforce genuine data/integrity invariants only: never block user-chosen multi-discipline double days.
+        // Enforce genuine data/integrity invariants and PlanScheduleValidation limits.
         for (index in sessions.indices) for (other in index + 1 until sessions.size) {
             val a = sessions[index]
             val b = sessions[other]
             if (a.date == b.date && a.discipline == b.discipline) {
                 throw PlanConstraint("ENGINE15_COMBINED_SCHEDULE_CONFLICT: Two sessions of the same discipline cannot share a date.")
             }
+        }
+        val byDate = sessions.groupBy { it.date }
+        if (byDate.values.any { it.size > 2 }) {
+            throw PlanConstraint("ENGINE15_COMBINED_SCHEDULE_CONFLICT: At most two sessions can share a date.")
+        }
+        if (request.timeBudgetEnabled && byDate.values.any { day -> day.sumOf { it.effectiveMinutes } > request.dailyMinutes }) {
+            throw PlanConstraint("ENGINE15_COMBINED_TIME_BUDGET_CONFLICT: Combined daily duration exceeds the requested daily time budget.")
         }
     }
 

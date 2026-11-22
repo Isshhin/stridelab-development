@@ -37,7 +37,9 @@ internal object Engine15IndependentVolumePlanner {
         val returning:Boolean=false,
         val recoveryHold:Boolean=false,
         val userDirected:Boolean=false,
-        val raceGoal:String?=null
+        val raceGoal:String?=null,
+        val experience:Int?=null,
+        val useMultiFactorProgression:Boolean=false
     ) {
         init {
             require(weeks in 1..52 && runningDays in 1..7)
@@ -96,6 +98,18 @@ internal object Engine15IndependentVolumePlanner {
     private fun returnCeilingKm(week:Int,baselineKm:Double,returning:Boolean):Double? =
         if(returning) baselineKm*0.6*minOf(1.2,1.0+week*0.05) else null
 
+    internal fun raceTaperLength(raceGoal: String?, weeks: Int): Int = when {
+        raceGoal == "Marathon" && weeks >= 12 -> 3
+        raceGoal in setOf("Half marathon", "Improve 10K") && weeks >= 10 -> 2
+        raceGoal == "Improve 5K" && weeks >= 6 -> 1
+        else -> 0
+    }
+
+    internal fun isSuppressedPreTaperRecovery(raceGoal: String?, weeks: Int, weekIndex: Int): Boolean {
+        val taperLen = raceTaperLength(raceGoal, weeks)
+        return taperLen > 0 && weekIndex == weeks - taperLen - 1 && weekIndex % 4 == 3
+    }
+
     fun propose(profile:Engine15AthleteCapacity,input:Input):Result {
         val status=when {
             input.recoveryHold -> Status.RECOVERY_REVIEW
@@ -109,7 +123,13 @@ internal object Engine15IndependentVolumePlanner {
         }
         val numeric=status==Status.DISTANCE_CANDIDATE
         val base=profile.typicalWeeklyKm.takeIf { numeric }
-        val longestCapStart = profile.reportedLongestRunKm?.let { it + 1.0 }
+        val longestCapStart = profile.reportedLongestRunKm?.let { longest ->
+            when {
+                input.returning -> floorTenth(maxOf(1.0, longest * 0.75))
+                input.raceGoal != null -> floorTenth(minOf(longest + 1.0, longest * 1.10))
+                else -> longest + 1.0
+            }
+        }
         val (longStepKm, longGoalMaxKm) = when (input.raceGoal) {
             "Marathon" -> 1.5 to 34.0
             "Half marathon" -> 1.0 to 22.0
@@ -118,7 +138,11 @@ internal object Engine15IndependentVolumePlanner {
             else -> 0.0 to 0.0
         }
         val effectiveLongMaxKm = longestCapStart?.let { start ->
-            if (longStepKm <= 0.0) start else maxOf(start, longGoalMaxKm)
+            when {
+                input.returning && input.raceGoal == null -> profile.reportedLongestRunKm
+                longStepKm <= 0.0 -> start
+                else -> maxOf(start, longGoalMaxKm)
+            }
         }
         var buildWeekIndex = 0
         var priorLongCapKm = longestCapStart
@@ -138,12 +162,22 @@ internal object Engine15IndependentVolumePlanner {
                 fiveKTaper && weeksFromEnd == 0 -> if (week % 4 == 3) 0.78 else 0.85
                 else -> null
             }
-            val kind=if(week%4==3 || (taperMultiplier != null && weeksFromEnd == 0)) WeekKind.RECOVERY else WeekKind.LOADING
+            val suppressedPreTaper = isSuppressedPreTaperRecovery(input.raceGoal, input.weeks, week)
+            val kind=if((week%4==3 && !suppressedPreTaper) || (taperMultiplier != null && weeksFromEnd == 0)) WeekKind.RECOVERY else WeekKind.LOADING
             val weekLongExposureCap = longestCapStart?.let { start ->
-                if (input.raceGoal == null) {
-                    start
-                } else if (kind == WeekKind.LOADING && taperMultiplier == null) {
-                    val stepped = floorTenth(minOf(effectiveLongMaxKm!!, start + buildWeekIndex * longStepKm))
+                if (kind == WeekKind.LOADING && taperMultiplier == null) {
+                    val stepped = when {
+                        buildWeekIndex == 0 -> start
+                        input.raceGoal != null -> {
+                            val prev = priorLongCapKm ?: start
+                            floorTenth(minOf(effectiveLongMaxKm!!, prev + longStepKm, prev * 1.10))
+                        }
+                        input.returning -> {
+                            val prev = priorLongCapKm ?: start
+                            floorTenth(minOf(effectiveLongMaxKm!!, prev * 1.05))
+                        }
+                        else -> start
+                    }
                     buildWeekIndex++
                     priorLongCapKm = stepped
                     stepped
@@ -155,7 +189,22 @@ internal object Engine15IndependentVolumePlanner {
                 weekLongExposureCap,input.runningDays
             ) else null
             val existingCeiling=base?.let { baseline ->
-                Engine15WeeklyVolumeSkeleton.ceiling(week,baseline,input.targetWeeklyKm)
+                val ceilingWeek = if (suppressedPreTaper) maxOf(0, week - 1) else week
+                if (input.useMultiFactorProgression) {
+                    Engine15WeeklyVolumeSkeleton.multiFactorCeiling(
+                        week = ceilingWeek,
+                        totalWeeks = input.weeks,
+                        recentKm = baseline,
+                        targetKm = input.targetWeeklyKm,
+                        runDays = input.runningDays,
+                        experience = input.experience ?: 1,
+                        raceGoal = input.raceGoal,
+                        longestKm = profile.reportedLongestRunKm,
+                        returning = input.returning
+                    )
+                } else {
+                    Engine15WeeklyVolumeSkeleton.ceiling(ceilingWeek,baseline,input.targetWeeklyKm)
+                }
             }
             val returnCeiling=base?.let { baseline ->
                 returnCeilingKm(week,baseline,input.returning)
@@ -182,7 +231,10 @@ internal object Engine15IndependentVolumePlanner {
                 // candidate limits as executed cuts just because of 100 m flooring.
                 fun binds(value:Double?)=value!=null && kotlin.math.abs(value-rawBound)<=1e-8
                 if(binds(existingCeiling))flags+="EXISTING_ENGINE15_CEILING"
-                if(binds(capacity))flags+="PROVISIONAL_SESSION_EXPOSURE_CAP"
+                if(binds(capacity)) {
+                    flags+="PROVISIONAL_SESSION_EXPOSURE_CAP"
+                    if(input.useMultiFactorProgression) flags+="SINGLE_SESSION_30D_EXPOSURE_CAP"
+                }
                 if(binds(returnCeiling))flags+="RETURN_FROM_BREAK_CAP"
                 if(binds(recoveryCeiling))flags+="RECOVERY_FROM_PLANNED_WEEK_CAP"
                 if(taperCeiling!=null && binds(taperCeiling))flags+="RACE_TAPER_VOLUME_REDUCTION"

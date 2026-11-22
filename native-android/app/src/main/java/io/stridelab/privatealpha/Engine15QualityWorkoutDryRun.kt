@@ -70,6 +70,7 @@ internal data class Engine15QualityWorkoutDryRun(
     val workSeconds: Int,
     val weeklyDistance: List<Engine15QualityDryRunWeekDistance>,
     val alternatives: List<Engine15TempoAlternative>,
+    val adaptiveMode: Boolean = false,
     val status: Engine15QualityDryRunStatus = if (alternatives.all { it.distanceMatch != null })
         Engine15QualityDryRunStatus.STRUCTURE_VALIDATED_DISTANCE_RECONCILED_FROM_ASSERTIONS else
         Engine15QualityDryRunStatus.STRUCTURE_VALIDATED_DISTANCE_UNRECONCILED,
@@ -99,16 +100,21 @@ internal data class Engine15QualityWorkoutDryRun(
         require(weekNumber > 0 && sessionId.isNotBlank())
         require(originalEasyDistanceKm.isFinite() && originalEasyDistanceKm > 0.0)
         require(totalSeconds > 0 && workSeconds > 0 && totalSeconds >= workSeconds)
-        require(workout.total(WorkoutUnit.SECONDS)?.toInt() == totalSeconds)
-        require(workout.dose(WorkoutUnit.SECONDS, WorkoutPurpose.WORK)?.toInt() == workSeconds)
-        require(workout.total(WorkoutUnit.METERS) == null)
-        require(((workout.dose(WorkoutUnit.SECONDS, WorkoutPurpose.RECOVERY) ?: 0.0) > 0.0) ==
-            (family in setOf(
-                IndependentQualityFamily.THRESHOLD,
-                IndependentQualityFamily.INTERVALS,
-                IndependentQualityFamily.HILLS,
-                IndependentQualityFamily.FARTLEK
-            )))
+        if (!adaptiveMode) {
+            require(workout.total(WorkoutUnit.SECONDS)?.toInt() == totalSeconds)
+            require(workout.dose(WorkoutUnit.SECONDS, WorkoutPurpose.WORK)?.toInt() == workSeconds)
+            require(workout.total(WorkoutUnit.METERS) == null)
+            require(((workout.dose(WorkoutUnit.SECONDS, WorkoutPurpose.RECOVERY) ?: 0.0) > 0.0) ==
+                (family in setOf(
+                    IndependentQualityFamily.THRESHOLD,
+                    IndependentQualityFamily.INTERVALS,
+                    IndependentQualityFamily.HILLS,
+                    IndependentQualityFamily.FARTLEK
+                )))
+        } else {
+            require((workout.dose(WorkoutUnit.SECONDS, WorkoutPurpose.WORK) ?: 0.0) > 0.0 ||
+                (workout.dose(WorkoutUnit.METERS, WorkoutPurpose.WORK) ?: 0.0) > 0.0)
+        }
         require(weeklyDistance.isNotEmpty() && weeklyDistance.map { it.weekNumber } ==
             weeklyDistance.map { it.weekNumber }.distinct().sorted())
         require(weeklyDistance.any { it.weekNumber == weekNumber && it.kind == Engine15IndependentVolumePlanner.WeekKind.LOADING })
@@ -171,8 +177,19 @@ internal object Engine15QualityWorkoutDryRunBuilder {
         val template = IndependentQualityTemplates.get(
             family, IndependentQualityStage.INTRO
         )
+        val taperWeeks = volume.weeks
+            .filter { "RACE_TAPER_VOLUME_REDUCTION" in it.constraintCodes }
+            .map { it.index + 1 }
+            .toSet()
+        val weeklyBudgetsByWeek = volume.weeks.mapNotNull { w ->
+            w.proposedKm?.let { (w.index + 1) to it }
+        }.toMap()
+        val deterministicZones = if (adaptiveQualityMode) Engine15PaceZoneEstimator.estimate(request) else null
         val prescriptions = Engine15QualityProgressionPolicy.plan(
-            request, selection, assertedExposureSecondsOverride, adaptiveQualityMode = adaptiveQualityMode
+            request, selection, assertedExposureSecondsOverride,
+            adaptiveQualityMode = adaptiveQualityMode,
+            taperWeeks = taperWeeks,
+            weeklyBudgetsByWeek = weeklyBudgetsByWeek
         ).associateBy { it.weekNumber to it.slotNumber }
         val firstPrescription = prescriptions[slot.weekNumber to slot.slotNumber] ?: return null
         val workout = firstPrescription.step.workout
@@ -192,7 +209,9 @@ internal object Engine15QualityWorkoutDryRunBuilder {
                 else -> when (val result = Engine15M5TimedDistanceReconciler.reconcileSegmentClaim(
                     candidate.weekNumber, candidate.slotNumber, weekPrescription.family,
                     candidate.originalEasyDistanceKm, weekPrescription.step.workout,
-                    weekPrescription.step.totalSeconds, weekPrescription.step.workSeconds, claim
+                    weekPrescription.step.totalSeconds, weekPrescription.step.workSeconds, claim,
+                    allowMixedUnits = adaptiveQualityMode,
+                    zones = deterministicZones
                 )) {
                     is Engine15M5SegmentDistanceDecision.Deferred -> Engine15TempoAlternative(candidate, budget,
                         Engine15QualityDistanceStatus.INVALID_CLAIM, distanceFailureCode = result.reasonCode, prescription = weekPrescription)
@@ -218,7 +237,8 @@ internal object Engine15QualityWorkoutDryRunBuilder {
             totalSeconds = totalSeconds,
             workSeconds = workSeconds,
             weeklyDistance = weeklyDistance,
-            alternatives = alternatives
+            alternatives = alternatives,
+            adaptiveMode = adaptiveQualityMode
         )
     }
 }

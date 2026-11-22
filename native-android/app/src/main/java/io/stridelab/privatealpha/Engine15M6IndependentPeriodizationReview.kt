@@ -128,7 +128,14 @@ internal object Engine15M6IndependentPeriodizationReview {
             val week = index + 1
             val isRaceTaperFinal = hasRaceTaper && index == source.weeks.lastIndex
             val isRaceTaperWeek = hasRaceTaper && "RACE_TAPER_VOLUME_REDUCTION" in m4b.constraintCodes
-            val plannedPhase = if (isRaceTaperFinal) Engine15M6DPhase.RECOVERY else phase(week)
+            val isSuppressedPreTaper = Engine15IndependentVolumePlanner.isSuppressedPreTaperRecovery(
+                source.input.raceGoal, source.weeks.size, index
+            )
+            val plannedPhase = when {
+                isRaceTaperFinal -> Engine15M6DPhase.RECOVERY
+                isSuppressedPreTaper -> Engine15M6DPhase.BUILD_3
+                else -> phase(week)
+            }
             val expectedKind = if (plannedPhase == Engine15M6DPhase.RECOVERY)
                 Engine15IndependentVolumePlanner.WeekKind.RECOVERY
             else Engine15IndependentVolumePlanner.WeekKind.LOADING
@@ -175,11 +182,11 @@ internal object Engine15M6IndependentPeriodizationReview {
                     "Long-run roles must match the independent M5A run-day contract.",
                     week)
             val longKm = longRuns.singleOrNull()?.distanceKm
-            if (plannedPhase == Engine15M6DPhase.RECOVERY &&
+            if ((plannedPhase == Engine15M6DPhase.RECOVERY || isRaceTaperWeek) &&
                 longKm != null && previousLongKm != null &&
                 longKm > previousLongKm + EPS)
                 return defer("RECOVERY_LONG_RUN_INCREASE",
-                    "A recovery week cannot extend its previous long-run exposure.",
+                    "A recovery or taper week cannot extend its previous long-run exposure.",
                     week)
 
             val reviewedQuality = review.qualityOpportunities.count {

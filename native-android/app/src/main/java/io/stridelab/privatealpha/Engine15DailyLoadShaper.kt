@@ -44,12 +44,23 @@ internal object Engine15DailyLoadShaper {
         }
     }
 
+    private fun minutesToCapTenths(minutes: Int, planningPace: Double): Int {
+        var cap = floorTenths((minutes * 60.0) / planningPace).coerceAtLeast(1)
+        while (cap > 1 && ceil((cap / 10.0) * planningPace / 60.0).toInt() > minutes) {
+            cap--
+        }
+        return cap
+    }
+
     fun shape(
         sessions: List<PlannedSession>,
         volume: Engine15IndependentVolumePlanner.Result,
         request: PlanRequest,
         qualitySessionIds: Set<String>,
-        pinnedSessionIds: Set<String> = emptySet()
+        pinnedSessionIds: Set<String> = emptySet(),
+        externalHardDates: Set<LocalDate> = emptySet(),
+        maxMinutesBySessionId: Map<String, Int> = emptyMap(),
+        minQualitySlotKm: Double? = null
     ): List<PlannedSession> {
         if (sessions.isEmpty() || request.weeks <= 0) return sessions
 
@@ -61,14 +72,10 @@ internal object Engine15DailyLoadShaper {
             .filter { it.kind == "long" }
             .map { it.date }
             .toSet()
-        val hardOrLongDates = hardDates + longDates
+        val hardOrLongDates = hardDates + longDates + externalHardDates
 
         val timeBudgetCapTenths = if (request.timeBudgetEnabled) {
-            var cap = floorTenths((request.minutes * 60.0) / request.planningPace).coerceAtLeast(1)
-            while (cap > 1 && ceil((cap / 10.0) * request.planningPace / 60.0).toInt() > request.minutes) {
-                cap--
-            }
-            cap
+            minutesToCapTenths(request.minutes, request.planningPace)
         } else {
             Int.MAX_VALUE
         }
@@ -159,14 +166,36 @@ internal object Engine15DailyLoadShaper {
                     }
                     val existingMax = adjustable.maxOf { roundTenths(it.distanceKm!!) }
                     val rawMaxCap = minOf(easyCapTenths, longCapBound, timeBudgetCapTenths)
-                    val maxTenths = maxOf(minTenths, rawMaxCap, existingMax)
+                    val baseMaxTenths = maxOf(minTenths, rawMaxCap, existingMax)
+                    val maxTenthsByIndex = IntArray(adjustable.size) { idx ->
+                        val maxMin = maxMinutesBySessionId[adjustable[idx].id]
+                        if (maxMin != null && request.timeBudgetEnabled) {
+                            val sessionCap = minutesToCapTenths(maxMin, request.planningPace)
+                            maxOf(minTenths, minOf(baseMaxTenths, sessionCap))
+                        } else {
+                            baseMaxTenths
+                        }
+                    }
+
+                    val minTenthsByIndex = IntArray(adjustable.size) { minTenths }
+                    if (minQualitySlotKm != null && minQualitySlotKm.isFinite() && minQualitySlotKm > 0.0) {
+                        val targetQualityTenths = ceil(minQualitySlotKm * 10.0 - 1e-8).toInt()
+                        for (idx in adjustable.indices) {
+                            if (roles[adjustable[idx].id] == ShapeRole.QUALITY) {
+                                val othersMin = minTenthsByIndex.sum() - minTenthsByIndex[idx]
+                                val feasibleMax = (remainingTenths - othersMin).coerceAtLeast(minTenths)
+                                minTenthsByIndex[idx] = minOf(targetQualityTenths, maxTenthsByIndex[idx], feasibleMax)
+                                    .coerceAtLeast(minTenths)
+                            }
+                        }
+                    }
 
                     val distributed = allocateWeightedTenths(
                         sessions = adjustable,
                         weights = adjustable.map { roles.getValue(it.id).weight },
                         targetSum = remainingTenths,
-                        minTenths = minTenths,
-                        maxTenths = maxTenths
+                        minTenthsByIndex = minTenthsByIndex,
+                        maxTenthsByIndex = maxTenthsByIndex
                     )
                     adjustable.forEachIndexed { idx, s ->
                         allocatedTenths[s.id] = distributed[idx]
@@ -195,7 +224,8 @@ internal object Engine15DailyLoadShaper {
                             role = role,
                             isRecoveryWeek = isRecoveryWeek,
                             hardDates = hardDates,
-                            longDates = longDates
+                            longDates = longDates,
+                            externalHardDates = externalHardDates
                         )
                         s.copy(
                             title = "Recovery run",
@@ -228,8 +258,9 @@ internal object Engine15DailyLoadShaper {
                             minutes = finalMinutes,
                             steps = listOf("${formatMetersAsKm(finalMeters)} at easy, conversational effort"),
                             reason = easyReason,
-                            runningPrescription = s.runningPrescription?.copy(
+                            runningPrescription = RunningPrescription(
                                 role = "EASY",
+                                family = null,
                                 segments = listOf(
                                     RunningSegment(
                                         "EASY",
@@ -245,11 +276,17 @@ internal object Engine15DailyLoadShaper {
                             distanceKm = finalKm,
                             minutes = finalMinutes,
                             steps = listOf("${formatMetersAsKm(finalMeters)} at easy, conversational effort"),
-                            runningPrescription = s.runningPrescription?.let { rx ->
-                                if (rx.mixedSegments == null && rx.segments.size == 1) {
-                                    rx.copy(segments = listOf(rx.segments.single().copy(meters = finalMeters)))
-                                } else rx
-                            }
+                            runningPrescription = RunningPrescription(
+                                role = "EASY",
+                                family = null,
+                                segments = listOf(
+                                    RunningSegment(
+                                        "EASY",
+                                        finalMeters,
+                                        "Easy, conversational effort; no pace or heart-rate target."
+                                    )
+                                )
+                            )
                         )
                     }
                     else -> s
@@ -273,12 +310,14 @@ internal object Engine15DailyLoadShaper {
         role: ShapeRole,
         isRecoveryWeek: Boolean,
         hardDates: Set<LocalDate>,
-        longDates: Set<LocalDate>
+        longDates: Set<LocalDate>,
+        externalHardDates: Set<LocalDate> = emptySet()
     ): String {
         val prefix = if (isRecoveryWeek) "Recovery week. " else "Loading week. "
         val prevWasQuality = date.minusDays(1) in hardDates
         val prevWasLong = date.minusDays(1) in longDates
-        val nextIsHard = date.plusDays(1) in hardDates
+        val prevWasExternalHard = date.minusDays(1) in externalHardDates
+        val nextIsHard = date.plusDays(1) in (hardDates + externalHardDates)
         val nextIsLong = date.plusDays(1) in longDates
         val detail = when {
             role == ShapeRole.RECOVERY_SANDWICHED -> when {
@@ -295,6 +334,8 @@ internal object Engine15DailyLoadShaper {
                 "Short, very easy recovery run after yesterday's quality session to promote blood flow and absorb the work."
             prevWasLong ->
                 "Short recovery run after yesterday's long run so you absorb endurance work without carrying fatigue."
+            prevWasExternalHard ->
+                "Short recovery run after yesterday's lower-body or full-body cross-training session so legs absorb the load."
             role == ShapeRole.RECOVERY_PRE_LONG || role == ShapeRole.RECOVERY_PRE_LONG_CUTBACK ->
                 "Short shakeout recovery run ahead of tomorrow's long run so legs arrive fresh."
             else ->
@@ -305,15 +346,15 @@ internal object Engine15DailyLoadShaper {
 
     /**
      * Bounded iterative water-filling over weights followed by largest-remainder tenths
-     * rounding so every slot lies in [minTenths, maxTenths] and the sum matches [targetSum]
-     * to exact 0.1 km precision.
+     * rounding so every slot lies in [minTenths, maxTenthsByIndex[i]] and the sum matches
+     * [targetSum] to exact 0.1 km precision.
      */
     private fun allocateWeightedTenths(
         sessions: List<PlannedSession>,
         weights: List<Double>,
         targetSum: Int,
-        minTenths: Int,
-        maxTenths: Int
+        minTenthsByIndex: IntArray,
+        maxTenthsByIndex: IntArray
     ): IntArray {
         val n = sessions.size
         val result = IntArray(n)
@@ -329,15 +370,15 @@ internal object Engine15DailyLoadShaper {
             var worstViolation = 0.0
             for (i in freeIndices) {
                 val exact = remaining * (weights[i] / weightSum)
-                val lowViolation = minTenths - exact
-                val highViolation = exact - maxTenths
+                val lowViolation = minTenthsByIndex[i] - exact
+                val highViolation = exact - maxTenthsByIndex[i]
                 if (lowViolation > 1e-9 && lowViolation > worstViolation) {
                     worstIdx = i
-                    worstClamp = minTenths
+                    worstClamp = minTenthsByIndex[i]
                     worstViolation = lowViolation
                 } else if (highViolation > 1e-9 && highViolation > worstViolation) {
                     worstIdx = i
-                    worstClamp = maxTenths
+                    worstClamp = maxTenthsByIndex[i]
                     worstViolation = highViolation
                 }
             }
@@ -353,7 +394,7 @@ internal object Engine15DailyLoadShaper {
             val fractions = HashMap<Int, Double>(free.size)
             for (i in free) {
                 val exact = remaining * (weights[i] / weightSum)
-                val base = floor(exact + 1e-9).toInt().coerceIn(minTenths, maxTenths)
+                val base = floor(exact + 1e-9).toInt().coerceIn(minTenthsByIndex[i], maxTenthsByIndex[i])
                 result[i] = base
                 fractions[i] = exact - base
             }
@@ -369,26 +410,26 @@ internal object Engine15DailyLoadShaper {
             )
             var residual = targetSum - result.sum()
             while (residual > 0) {
-                val candidate = plusOrder.firstOrNull { result[it] < maxTenths }
-                    ?: (0 until n).first { result[it] < maxTenths }
+                val candidate = plusOrder.firstOrNull { result[it] < maxTenthsByIndex[it] }
+                    ?: (0 until n).first { result[it] < maxTenthsByIndex[it] }
                 result[candidate]++
                 residual--
             }
             while (residual < 0) {
-                val candidate = minusOrder.firstOrNull { result[it] > minTenths }
-                    ?: (0 until n).first { result[it] > minTenths }
+                val candidate = minusOrder.firstOrNull { result[it] > minTenthsByIndex[it] }
+                    ?: (0 until n).first { result[it] > minTenthsByIndex[it] }
                 result[candidate]--
                 residual++
             }
         } else {
             var residual = targetSum - result.sum()
             while (residual > 0) {
-                val candidate = (0 until n).first { result[it] < maxTenths }
+                val candidate = (0 until n).first { result[it] < maxTenthsByIndex[it] }
                 result[candidate]++
                 residual--
             }
             while (residual < 0) {
-                val candidate = (0 until n).first { result[it] > minTenths }
+                val candidate = (0 until n).first { result[it] > minTenthsByIndex[it] }
                 result[candidate]--
                 residual++
             }

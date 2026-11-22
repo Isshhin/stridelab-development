@@ -182,10 +182,12 @@ class Engine15Phase2CoachingTest {
         val asOf = monday.plusDays(6)
         val evalNow = asOf.atTime(18, 0).toInstant(ZoneOffset.UTC)
         val activities = listOf(
-            ActivityRecord("a1", "Easy", "run", "garmin", asOf.minusWeeks(3).atStartOfDay().toInstant(ZoneOffset.UTC), 8000.0, 2880.0, 2880.0, 360.0, 150.0, 20.0),
-            ActivityRecord("a2", "Easy", "run", "garmin", asOf.minusWeeks(2).atStartOfDay().toInstant(ZoneOffset.UTC), 8000.0, 2880.0, 2880.0, 360.0, 149.0, 20.0),
-            ActivityRecord("a3", "Easy", "run", "garmin", asOf.minusWeeks(1).atStartOfDay().toInstant(ZoneOffset.UTC), 8000.0, 2760.0, 2760.0, 345.0, 142.0, 20.0),
-            ActivityRecord("a4", "Easy", "run", "garmin", asOf.atStartOfDay().toInstant(ZoneOffset.UTC), 8000.0, 2720.0, 2720.0, 340.0, 140.0, 20.0)
+            ActivityRecord("a1", "Easy", "run", "garmin", asOf.minusWeeks(3).atTime(12, 0).toInstant(ZoneOffset.UTC), 8000.0, 2880.0, 2880.0, 360.0, 150.0, 20.0),
+            ActivityRecord("a1b", "Easy", "run", "garmin", asOf.minusWeeks(2).minusDays(2).atTime(12, 0).toInstant(ZoneOffset.UTC), 8000.0, 2880.0, 2880.0, 360.0, 150.0, 20.0),
+            ActivityRecord("a2", "Easy", "run", "garmin", asOf.minusWeeks(2).atTime(12, 0).toInstant(ZoneOffset.UTC), 8000.0, 2880.0, 2880.0, 360.0, 149.0, 20.0),
+            ActivityRecord("a3", "Easy", "run", "garmin", asOf.minusWeeks(1).atTime(12, 0).toInstant(ZoneOffset.UTC), 8000.0, 2760.0, 2760.0, 345.0, 142.0, 20.0),
+            ActivityRecord("a3b", "Easy", "run", "garmin", asOf.minusDays(2).atTime(12, 0).toInstant(ZoneOffset.UTC), 8000.0, 2740.0, 2740.0, 342.5, 141.0, 20.0),
+            ActivityRecord("a4", "Easy", "run", "garmin", asOf.atTime(12, 0).toInstant(ZoneOffset.UTC), 8000.0, 2720.0, 2720.0, 340.0, 140.0, 20.0)
         )
         val completed = listOf(
             completedEasy("c1", monday, effort = 4),

@@ -20,9 +20,8 @@ internal object Engine15TimeOnlyRunWalkBuilder {
             request.recentMileageBasis == "CONFIRMED_ZERO" &&
             request.weeklyKm == 0.0 &&
             request.longestKm == 0.0 &&
-            request.targetWeeklyKm == null &&
+            (request.targetWeeklyKm == null || (request.targetWeeklyKm.isFinite() && request.targetWeeklyKm > 0.0)) &&
             request.reportedPeakWeeklyKm == null &&
-            request.qualityCount == 0 &&
             request.userDefinedQualityWorkouts.isEmpty() &&
             !request.userDirectedPlanning &&
             !request.runningRecoveryHold
@@ -236,11 +235,17 @@ internal object Engine15TimeOnlyRunWalkBuilder {
             createdAt = now,
             request = request,
             sessions = sortedSessions,
-            explanations = listOf(
-                "Time-only beginner Run/Walk plan for CONFIRMED_ZERO baseline; zero synthetic distances were fabricated.",
-                "Durations progress conservatively across 4-week build/recovery cycles using conversational jog/walk intervals.",
-                "Every session supports on-demand - Easier / + Harder / Reset scaling while remaining strictly time-based."
-            ),
+            explanations = buildList {
+                add("Time-only beginner Run/Walk plan for CONFIRMED_ZERO baseline; zero synthetic distances were fabricated.")
+                add("Durations progress conservatively across 4-week build/recovery cycles using conversational jog/walk intervals.")
+                add("Every session supports on-demand - Easier / + Harder / Reset scaling while remaining strictly time-based.")
+                if (request.qualityCount > 0) {
+                    add("Quality sessions are adapted to conversational walk/jog intervals until a running foundation is established.")
+                }
+                if (request.targetWeeklyKm != null) {
+                    add("Weekly distance target is deferred until walk/jog consistency is established.")
+                }
+            },
             name = "StrideLab Run/Walk Foundation"
         )
     }
@@ -313,13 +318,15 @@ internal object Engine15TimeOnlyRunWalkBuilder {
         out += RunningStepV2(
             purpose = "WARM_UP",
             effort = "Brisk easy walk warm-up",
-            seconds = (template.warmupMin * 60).coerceIn(60, 1800)
+            seconds = (template.warmupMin * 60).coerceIn(60, 1800),
+            stepIntent = RunningStepIntent.WARMUP
         )
         if (template.continuousJogMin != null) {
             out += RunningStepV2(
                 purpose = if (isRecovery) "RECOVERY" else "EASY",
                 effort = if (isRecovery) "Very easy recovery jog/walk by feel" else "Easy conversational continuous jog",
-                seconds = (template.continuousJogMin * 60).coerceIn(120, 7200)
+                seconds = (template.continuousJogMin * 60).coerceIn(120, 7200),
+                stepIntent = if (isRecovery) RunningStepIntent.RECOVERY else RunningStepIntent.AEROBIC_EASY
             )
         } else {
             val stepPurpose = if (isRecovery) "RECOVERY" else "EASY"
@@ -328,13 +335,15 @@ internal object Engine15TimeOnlyRunWalkBuilder {
                     purpose = stepPurpose,
                     effort = if (isRecovery) "Gentle easy jog ($r/${template.reps}); take walk breaks anytime"
                     else "Easy conversational jog ($r/${template.reps})",
-                    seconds = (template.jogMin * 60).coerceIn(30, 3600)
+                    seconds = (template.jogMin * 60).coerceIn(30, 3600),
+                    stepIntent = if (isRecovery) RunningStepIntent.RECOVERY else RunningStepIntent.AEROBIC_EASY
                 )
                 if (r < template.reps && template.walkMin > 0) {
                     out += RunningStepV2(
                         purpose = "RECOVERY",
                         effort = "Relaxed recovery walk",
-                        seconds = (template.walkMin * 60).coerceIn(30, 1800)
+                        seconds = (template.walkMin * 60).coerceIn(30, 1800),
+                        stepIntent = RunningStepIntent.RECOVERY
                     )
                 }
             }
@@ -342,7 +351,8 @@ internal object Engine15TimeOnlyRunWalkBuilder {
         out += RunningStepV2(
             purpose = "COOL_DOWN",
             effort = "Easy walk cool-down",
-            seconds = (template.cooldownMin * 60).coerceIn(60, 1800)
+            seconds = (template.cooldownMin * 60).coerceIn(60, 1800),
+            stepIntent = RunningStepIntent.COOLDOWN
         )
         return out
     }

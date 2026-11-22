@@ -220,7 +220,7 @@ class Engine15WorkoutDifficultyAdjusterTest {
             targetWeeklyKm = 24.0,
             longestKm = 10.0,
             planningPace = 420.0,
-            minutes = 55,
+            minutes = 60,
             equipment = mapOf("db" to 2, "bench" to 1),
             disciplineGoals = mapOf("run" to "Improve 10K", "str" to "General strength"),
             policyChoice = "engine15",
@@ -240,13 +240,18 @@ class Engine15WorkoutDifficultyAdjusterTest {
         )
         Engine15IndependentPlanGenerator.validateSaved(approvedFree)
 
-        val dayDate = freeCombined.sessions.single { it.id == stackedStrId }.date
-        val baselineDayMinutes = freeCombined.sessions.filter { it.date == dayDate }.sumOf { it.effectiveMinutes }
+        val peakStackedDay = freeCombined.sessions
+            .groupBy { it.date }
+            .filterValues { day -> day.any { it.discipline == "str" } }
+            .maxBy { (_, day) -> day.sumOf { it.effectiveMinutes } }
+        val baselineDayMinutes = peakStackedDay.value.sumOf { it.effectiveMinutes }
         val strictReq = stackedBase.copy(timeBudgetEnabled = true, minutes = 60, dailyMinutes = baselineDayMinutes + 1)
         val strictCombined = Engine15IndependentPlanGenerator.generateWithHistory(
             strictReq, owner, emptyList(), "comb-strict", now, exerciseLibrary = library
         )
-        val strictStrId = strictCombined.sessions.first { it.discipline == "str" }.id
+        val strictStrId = strictCombined.sessions.first {
+            it.date == peakStackedDay.key && it.discipline == "str"
+        }.id
         val error = assertThrows(PlanConstraint::class.java) {
             PlanOperations.adjustDifficulty(
                 PlanOperations.adjustDifficulty(strictCombined, strictStrId, +1),

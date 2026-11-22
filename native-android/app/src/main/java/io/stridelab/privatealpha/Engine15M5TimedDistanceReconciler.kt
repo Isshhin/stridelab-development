@@ -55,11 +55,13 @@ internal data class Engine15M5TimedDistanceSegment(
     val purpose: WorkoutPurpose,
     val target: WorkoutTarget,
     val seconds: Double,
-    val assertedMeters: Double
+    val assertedMeters: Double,
+    val meters: Int? = null
 ) {
     init {
         require(seconds.isFinite() && seconds > 0)
         require(assertedMeters.isFinite() && assertedMeters > 0)
+        require(meters == null || meters > 0)
     }
 }
 
@@ -141,15 +143,32 @@ internal object Engine15M5TimedDistanceReconciler {
     private data class TimedPhase(
         val purpose: WorkoutPurpose,
         val target: WorkoutTarget,
-        val seconds: Double
+        val unit: WorkoutUnit,
+        val amount: Double,
+        val seconds: Double,
+        val meters: Int? = null
     )
 
-    private fun flatten(workout: IndependentWorkoutComposition): List<TimedPhase>? {
+    private fun flatten(
+        workout: IndependentWorkoutComposition,
+        allowMixedUnits: Boolean = false,
+        zones: Engine15ProvisionalPaceZones? = null
+    ): List<TimedPhase>? {
         val phases = mutableListOf<TimedPhase>()
         fun add(step: WorkoutStep): Boolean {
-            if (step.unit != WorkoutUnit.SECONDS || !step.amount.isFinite() || step.amount <= 0.0)
-                return false
-            phases += TimedPhase(step.purpose, step.target, step.amount)
+            if (!step.amount.isFinite() || step.amount <= 0.0) return false
+            when (step.unit) {
+                WorkoutUnit.SECONDS -> {
+                    phases += TimedPhase(step.purpose, step.target, step.unit, step.amount, step.amount, null)
+                }
+                WorkoutUnit.METERS -> {
+                    if (!allowMixedUnits) return false
+                    val metersInt = kotlin.math.round(step.amount).toInt().coerceAtLeast(1)
+                    val estPace = zones?.forTarget(step.target)?.midpointSecondsPerKm ?: 300.0
+                    val estSec = kotlin.math.round(metersInt * estPace / 1000.0).coerceAtLeast(1.0)
+                    phases += TimedPhase(step.purpose, step.target, step.unit, step.amount, estSec, metersInt)
+                }
+            }
             return phases.size <= 400
         }
         for (element in workout.elements) when (element) {
@@ -169,7 +188,7 @@ internal object Engine15M5TimedDistanceReconciler {
     }
 
     /**
-     * Reuses M5C's per-segment arithmetic for an existing timed structure and
+     * Reuses M5C's per-segment arithmetic for an existing timed or mixed-unit structure and
      * its unchanged easy-slot budget. A user assertion remains unauthenticated.
      */
     fun reconcileSegmentClaim(
@@ -180,7 +199,9 @@ internal object Engine15M5TimedDistanceReconciler {
         workout: IndependentWorkoutComposition,
         totalSeconds: Int,
         workSeconds: Int,
-        claim: Engine15M5SegmentDistanceClaim
+        claim: Engine15M5SegmentDistanceClaim,
+        allowMixedUnits: Boolean = false,
+        zones: Engine15ProvisionalPaceZones? = null
     ): Engine15M5SegmentDistanceDecision {
         fun defer(code: String, reason: String) = Engine15M5SegmentDistanceDecision.Deferred(code, reason)
         if (weekNumber != claim.weekNumber || slotNumber != claim.slotNumber)
@@ -191,39 +212,51 @@ internal object Engine15M5TimedDistanceReconciler {
             claim.externalReviewReference.isNullOrBlank())
             return defer("SEGMENT_DISTANCE_REVIEW_MISSING",
                 "An external review reference is required for this claim type.")
-        val phases = flatten(workout)
+        val phases = flatten(workout, allowMixedUnits = allowMixedUnits, zones = zones)
             ?: return defer("INVALID_TIMED_COMPOSITION", "Every workout element must be a bounded timed step.")
         if (phases.size < 3 || phases.first().purpose != WorkoutPurpose.WARM_UP ||
             phases.first().target != WorkoutTarget.EASY ||
             phases.last().purpose != WorkoutPurpose.COOL_DOWN ||
             phases.last().target != WorkoutTarget.EASY)
             return defer("INVALID_TIMED_PHASE_SEQUENCE", "The timed quality structure needs easy warm-up and cooldown phases.")
-        val expectedTarget = when (family) {
-            IndependentQualityFamily.THRESHOLD -> WorkoutTarget.THRESHOLD
-            IndependentQualityFamily.TEMPO -> WorkoutTarget.TEMPO
-            IndependentQualityFamily.INTERVALS -> WorkoutTarget.INTERVALS
-            IndependentQualityFamily.HILLS -> WorkoutTarget.HILLS
-            IndependentQualityFamily.FARTLEK -> WorkoutTarget.FARTLEK
-            IndependentQualityFamily.PROGRESSION -> WorkoutTarget.PROGRESSION
+        val allowedTargets = when {
+            allowMixedUnits && family in setOf(IndependentQualityFamily.INTERVALS, IndependentQualityFamily.THRESHOLD) ->
+                setOf(WorkoutTarget.INTERVALS, WorkoutTarget.THRESHOLD)
+            else -> when (family) {
+                IndependentQualityFamily.THRESHOLD -> setOf(WorkoutTarget.THRESHOLD)
+                IndependentQualityFamily.TEMPO -> setOf(WorkoutTarget.TEMPO)
+                IndependentQualityFamily.INTERVALS -> setOf(WorkoutTarget.INTERVALS)
+                IndependentQualityFamily.HILLS -> setOf(WorkoutTarget.HILLS)
+                IndependentQualityFamily.FARTLEK -> setOf(WorkoutTarget.FARTLEK)
+                IndependentQualityFamily.PROGRESSION -> setOf(WorkoutTarget.PROGRESSION)
+            }
         }
         val interior = phases.drop(1).dropLast(1)
         if (interior.none { it.purpose == WorkoutPurpose.WORK } || interior.any {
                 when (it.purpose) {
-                    WorkoutPurpose.WORK -> it.target != expectedTarget
+                    WorkoutPurpose.WORK -> it.target !in allowedTargets
                     WorkoutPurpose.RECOVERY -> it.target != WorkoutTarget.EASY
                     else -> true
                 }
             })
             return defer("QUALITY_PHASE_STRUCTURE_MISMATCH",
                 "Work steps must match the selected family and recoveries must be easy.")
-        if (kotlin.math.abs(phases.sumOf { it.seconds } - totalSeconds) > 1e-7 ||
-            kotlin.math.abs(phases.filter { it.purpose == WorkoutPurpose.WORK }
-                .sumOf { it.seconds } - workSeconds) > 1e-7)
+        val hasMeterSteps = phases.any { it.unit == WorkoutUnit.METERS }
+        val resolvedTotalSeconds = if (hasMeterSteps) phases.sumOf { it.seconds }.toInt() else totalSeconds
+        val resolvedWorkSeconds = if (hasMeterSteps) phases.filter { it.purpose == WorkoutPurpose.WORK }.sumOf { it.seconds }.toInt() else workSeconds
+        if (!hasMeterSteps && (kotlin.math.abs(phases.sumOf { it.seconds } - totalSeconds) > 1e-7 ||
+                kotlin.math.abs(phases.filter { it.purpose == WorkoutPurpose.WORK }
+                    .sumOf { it.seconds } - workSeconds) > 1e-7))
             return defer("TIMED_DOSE_MISMATCH", "Expanded steps do not match the supplied structure totals.")
         if (claim.assertedMetersByTimedSegment.size != phases.size)
             return defer("SEGMENT_COUNT_MISMATCH", "Provide one distance equivalent for every expanded timed segment.")
         if (claim.assertedMetersByTimedSegment.any { !it.isFinite() || it <= 0.0 })
             return defer("INVALID_ASSERTED_METERS", "Segment distance equivalents must be finite and positive.")
+        if (phases.zip(claim.assertedMetersByTimedSegment).any { (phase, assertedM) ->
+                phase.meters != null && kotlin.math.abs(assertedM - phase.meters) > 0.01
+            })
+            return defer("PRESCRIBED_METER_SEGMENT_MISMATCH",
+                "Distance-prescribed intervals must retain their exact whole-meter targets.")
         val sumMeters = claim.assertedMetersByTimedSegment.sum()
         if (!sumMeters.isFinite() || kotlin.math.abs(sumMeters - originalEasySlotKm * 1000.0) > 0.01)
             return defer("SESSION_DISTANCE_SUM_MISMATCH",
@@ -235,10 +268,10 @@ internal object Engine15M5TimedDistanceReconciler {
                 family = family,
                 originalEasySlotKm = originalEasySlotKm,
                 sumAssertedMeters = sumMeters,
-                workSeconds = workSeconds,
-                totalSeconds = totalSeconds,
+                workSeconds = resolvedWorkSeconds,
+                totalSeconds = resolvedTotalSeconds,
                 segments = phases.zip(claim.assertedMetersByTimedSegment).map { (phase, meters) ->
-                    Engine15M5TimedDistanceSegment(phase.purpose, phase.target, phase.seconds, meters)
+                    Engine15M5TimedDistanceSegment(phase.purpose, phase.target, phase.seconds, meters, phase.meters)
                 },
                 distanceClaimProvenance = claim.provenance
             )
@@ -308,17 +341,60 @@ internal object Engine15M5TimedDistanceReconciler {
     }
 }
 
-/** Compare implied averages only. The margin allows small assertion errors without setting a pace target. */
-internal fun Engine15M5ArithmeticMatch.qualityPaceWarning(): String? {
+/** Compare implied averages and physiological / zone pace bounds without setting a hard pace target. */
+internal fun Engine15M5ArithmeticMatch.qualityPaceWarning(
+    zones: Engine15ProvisionalPaceZones? = null
+): String? {
     val familyName = family.name.lowercase().replaceFirstChar(Char::uppercase)
-    val work = segments.filter { it.purpose == WorkoutPurpose.WORK }
+    val work = segments.filter { it.purpose == WorkoutPurpose.WORK && it.target != WorkoutTarget.HILLS }
     fun Engine15M5TimedDistanceSegment.pace() = seconds * 1000 / assertedMeters
-    val slowestWork = work.maxOf { it.pace() }
-    return segments.filter { it.target == WorkoutTarget.EASY && it.pace() * 1.05 < slowestWork }
-        .joinToString(" ") { easy ->
-            val phase = easy.purpose.name.lowercase().replace('_', ' ')
-            "The asserted $phase implies ${formatTempoImpliedPace(easy.pace())}, faster than $familyName work at ${formatTempoImpliedPace(slowestWork)}. Check the metres for both steps."
-        }.ifEmpty { null }
+    val warnings = mutableListOf<String>()
+
+    if (work.isNotEmpty()) {
+        val slowestWork = work.maxOf { it.pace() }
+        segments.filter { it.target == WorkoutTarget.EASY && it.pace() * 1.05 < slowestWork }
+            .forEach { easy ->
+                val phase = easy.purpose.name.lowercase().replace('_', ' ')
+                warnings += "The asserted $phase implies ${formatTempoImpliedPace(easy.pace())}, faster than $familyName work at ${formatTempoImpliedPace(slowestWork)}. Check the metres for both steps."
+            }
+    }
+
+    for (seg in segments) {
+        val pace = seg.pace()
+        val phase = seg.purpose.name.lowercase().replace('_', ' ')
+        if (zones != null) {
+            if (seg.target == WorkoutTarget.HILLS) {
+                if (pace < zones.hillShort.fastSecondsPerKm * 0.80 || pace > zones.hillLong.slowSecondsPerKm * 1.25) {
+                    warnings += "The asserted $phase implies ${formatTempoImpliedPace(pace)}, outside the expected uphill effort band."
+                }
+            } else {
+                val range = zones.forTarget(seg.target)
+                if (pace < range.fastSecondsPerKm * 0.82 || pace > range.slowSecondsPerKm * 1.22) {
+                    warnings += "The asserted $phase implies ${formatTempoImpliedPace(pace)}, outside the expected ${range.formatRange()} band."
+                }
+            }
+        } else {
+            val isWork = seg.purpose == WorkoutPurpose.WORK
+            val minPace = if (isWork) 150.0 else 180.0
+            val maxPace = if (isWork) 780.0 else 900.0
+            if (pace < minPace || pace > maxPace) {
+                warnings += "The asserted $phase implies implausible ${formatTempoImpliedPace(pace)} pace for $familyName."
+            }
+        }
+    }
+    return warnings.distinct().joinToString(" ").ifEmpty { null }
+}
+
+internal fun Engine15M5ArithmeticMatch.bookendSafetyWarning(): String? {
+    val warmupSec = segments.firstOrNull { it.purpose == WorkoutPurpose.WARM_UP }?.seconds ?: 0.0
+    val cooldownSec = segments.lastOrNull { it.purpose == WorkoutPurpose.COOL_DOWN }?.seconds ?: 0.0
+    if (warmupSec < 480.0 - 1e-6) {
+        return "Warm-up duration (${(warmupSec / 60.0).toInt()} min) is below the 8 min safety floor."
+    }
+    if (cooldownSec < 300.0 - 1e-6) {
+        return "Cool-down duration (${(cooldownSec / 60.0).toInt()} min) is below the 5 min safety floor."
+    }
+    return null
 }
 
 internal fun formatTempoImpliedPace(secondsPerKm: Double) =

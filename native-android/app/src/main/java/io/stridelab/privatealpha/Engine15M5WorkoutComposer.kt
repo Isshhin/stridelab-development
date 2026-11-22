@@ -81,6 +81,10 @@ internal object Engine15M5WorkoutComposer {
 
     private fun tenths(km: Double): Int = floor(km * 10.0 + EPS).toInt()
 
+    fun stepIntentFor(role: Engine15M5RunRole): RunningStepIntent = when (role) {
+        Engine15M5RunRole.EASY, Engine15M5RunRole.LONG -> RunningStepIntent.AEROBIC_EASY
+    }
+
     fun compose(source: Engine15IndependentVolumePlanner.Result):
         Engine15M5CompositionDecision {
         fun defer(id: String, why: String, week: Int? = null) =
@@ -106,6 +110,7 @@ internal object Engine15M5WorkoutComposer {
             "A numeric weekly budget does not establish per-session exposure.")
 
         var previousLongUnits: Int? = null
+        var peakLongUnits: Int? = longest?.let { tenths(it) }
         val result = mutableListOf<Engine15M5WeekPreview>()
         for (week in source.weeks) {
             val number = week.index + 1
@@ -123,6 +128,7 @@ internal object Engine15M5WorkoutComposer {
                 return defer("WEEKLY_BUDGET_NOT_REPRESENTABLE",
                     "Cannot represent this budget as positive 100 m run slots.", number)
 
+            val isTaperWeek = "RACE_TAPER_VOLUME_REDUCTION" in week.constraintCodes
             val lengths: List<Int> = when (runDays) {
                 1 -> {
                     if (total > longMaxUnits)
@@ -134,25 +140,36 @@ internal object Engine15M5WorkoutComposer {
                 2 -> {
                     val first = total / 2
                     val second = total - first
-                    if (first < 1 || second > easyMaxUnits)
+                    val twoDayMaxUnits = if (userDirected) 1200
+                        else if (source.input.raceGoal != null) minOf(longMaxUnits, tenths(weekExposure!! * 0.85))
+                        else easyMaxUnits
+                    if (first < 1 || second > twoDayMaxUnits)
                         return defer("TWO_DAY_EXPOSURE_CONFLICT",
                             "Two easy runs cannot contain this M4B upper-bound budget.", number)
                     listOf(first, second)
                 }
                 else -> {
-                    val longCap = if(userDirected) longMaxUnits
-                        else minOf(longMaxUnits, tenths(total / 10.0 * 0.40))
                     // LONG is not a separate intensity. Give it at least the
                     // longest share and enough distance to keep EASY slots in cap.
                     val minimumLong = maxOf(
                         (total + runDays - 1) / runDays,
                         total - (runDays - 1) * easyMaxUnits
                     )
-                    val preferredRatio = if (source.input.raceGoal in setOf("Marathon", "Half marathon") &&
-                        week.kind == Engine15IndependentVolumePlanner.WeekKind.LOADING) 0.34 else 0.30
+                    val peakCapUnits = peakLongUnits?.let { floor(it * 1.10 + EPS).toInt() } ?: longMaxUnits
+                    val longCap = if (userDirected) longMaxUnits
+                        else minOf(longMaxUnits, tenths(total / 10.0 * 0.40), maxOf(minimumLong, peakCapUnits))
+                    val preferredRatio = when {
+                        isTaperWeek -> 0.28
+                        source.input.raceGoal == "Marathon" &&
+                            week.kind == Engine15IndependentVolumePlanner.WeekKind.LOADING ->
+                            (0.34 + 0.006 * maxOf(0, week.index - 4)).coerceAtMost(0.38)
+                        source.input.raceGoal == "Half marathon" &&
+                            week.kind == Engine15IndependentVolumePlanner.WeekKind.LOADING -> 0.34
+                        else -> 0.30
+                    }
                     val preferredLong = floor(total * preferredRatio + EPS).toInt()
                     var chosenLong = maxOf(minimumLong, minOf(preferredLong, longCap))
-                    if (week.kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY &&
+                    if ((week.kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY || isTaperWeek) &&
                         previousLongUnits != null && minimumLong <= previousLongUnits) {
                         chosenLong = minOf(chosenLong, previousLongUnits)
                     }
@@ -175,11 +192,11 @@ internal object Engine15M5WorkoutComposer {
             }
 
             val longUnits = if (runDays >= 3 || runDays == 1) lengths.last() else null
-            if (week.kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY &&
+            if ((week.kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY || isTaperWeek) &&
                 longUnits != null && previousLongUnits != null &&
                 longUnits > previousLongUnits)
                 return defer("RECOVERY_LONG_RUN_INCREASE",
-                    "The recovery week must not increase the longest session.", number)
+                    "The recovery or taper week must not increase the longest session.", number)
 
             val sessions = lengths.mapIndexed { index, units ->
                 val role = if ((runDays >= 3 || runDays == 1) && index == runDays - 1)
@@ -204,6 +221,9 @@ internal object Engine15M5WorkoutComposer {
             }
             result += Engine15M5WeekPreview(number, week.kind, km, sessions)
             previousLongUnits = longUnits
+            if (longUnits != null) {
+                peakLongUnits = maxOf(peakLongUnits ?: longUnits, longUnits)
+            }
         }
         return Engine15M5CompositionDecision.Candidate(
             policyId = POLICY_ID,

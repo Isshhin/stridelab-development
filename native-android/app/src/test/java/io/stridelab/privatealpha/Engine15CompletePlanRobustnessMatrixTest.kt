@@ -138,7 +138,7 @@ class Engine15CompletePlanRobustnessMatrixTest {
                         val longRun = weekSessions.single { it.kind == "long" }
                         assertEquals(req.longDay, longRun.date.dayOfWeek.value)
                     }
-                    if (w % 4 == 0 && w >= 4) {
+                    if (w % 4 == 0 && w >= 4 && !Engine15IndependentVolumePlanner.isSuppressedPreTaperRecovery(goal, weeks, w - 1)) {
                         val prevKm = byWeek.getValue(w - 1).sumOf { it.distanceKm!! }
                         val recKm = weekSessions.sumOf { it.distanceKm!! }
                         assertTrue("Recovery week $w ($recKm km) should be lighter than week ${w - 1} ($prevKm km)",

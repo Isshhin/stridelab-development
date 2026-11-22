@@ -66,7 +66,7 @@ internal object RunningAerobicEfficiency {
                 earlyAvgHr = null,
                 lateAvgHr = null,
                 percentChange = null,
-                caveat = "Need at least 4 steady runs (>= 3 km with HR) over the last $clampedWeeks weeks to compute aerobic efficiency."
+                caveat = "Need at least 6 steady runs (>= 3 km with HR, >= 3 per early/recent block) over the last $clampedWeeks weeks to compute aerobic efficiency."
             )
         }
 
@@ -103,7 +103,13 @@ internal object RunningAerobicEfficiency {
                 )
             }
 
-        if (filtered.size < 4 || points.size < 3) {
+        val splitIdx = points.size / 2
+        val earlyWeeks = points.take(splitIdx)
+        val lateWeeks = points.drop(splitIdx)
+        val earlyRunCount = earlyWeeks.sumOf { it.runCount }
+        val lateRunCount = lateWeeks.sumOf { it.runCount }
+
+        if (filtered.size < 6 || points.size < 3 || earlyRunCount < 3 || lateRunCount < 3) {
             return AerobicEfficiencySummary(
                 windowWeeks = clampedWeeks,
                 points = points,
@@ -113,13 +119,10 @@ internal object RunningAerobicEfficiency {
                 earlyAvgHr = null,
                 lateAvgHr = null,
                 percentChange = null,
-                caveat = "Building baseline (${filtered.size} qualifying easy runs across ${points.size} weeks; need >= 4 runs & >= 3 weeks)."
+                caveat = "Building baseline (${filtered.size} qualifying easy runs across ${points.size} weeks; need >= 3 runs in both early and recent blocks)."
             )
         }
 
-        val splitIdx = points.size / 2
-        val earlyWeeks = points.take(splitIdx)
-        val lateWeeks = points.drop(splitIdx)
         val earlyAvgPace = earlyWeeks.map { it.avgPaceSecPerKm }.average()
         val lateAvgPace = lateWeeks.map { it.avgPaceSecPerKm }.average()
         val earlyAvgHr = earlyWeeks.map { it.avgHrBpm }.average()
@@ -128,7 +131,7 @@ internal object RunningAerobicEfficiency {
         val lateEf = lateWeeks.map { it.efficiencyFactor }.average()
         val pctChange = if (earlyEf > 0.0) ((lateEf - earlyEf) / earlyEf) * 100.0 else null
 
-        val caveat = "Based on ${filtered.size} aerobic runs (>= 3 km) across ${points.size} weeks. Heat, hills, and wrist-HR lag can affect short-term readings."
+        val caveat = "Based on ${filtered.size} aerobic runs (>= 3 km; $earlyRunCount early vs $lateRunCount recent) across ${points.size} weeks. Heat, hills, and wrist-HR lag can affect short-term readings."
 
         return AerobicEfficiencySummary(
             windowWeeks = clampedWeeks,

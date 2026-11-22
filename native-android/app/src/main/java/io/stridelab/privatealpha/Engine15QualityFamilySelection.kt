@@ -114,7 +114,8 @@ internal object Engine15QualityFamilySelection {
         scheduledSessions: List<PlannedSession>,
         recoveryWeeks: Set<Int>,
         externalSessions: List<Engine15M6CExternalSession>,
-        adaptiveMode: Boolean = false
+        adaptiveMode: Boolean = false,
+        taperWeeks: Set<Int> = emptySet()
     ): Engine15QualityFamilySelectionResult {
         if (request.qualityCount == 0)
             return result(Engine15QualitySelectionDecision.DEFERRED, reason = "NO_QUALITY_REQUESTED",
@@ -179,7 +180,12 @@ internal object Engine15QualityFamilySelection {
                     }
             }.sortedWith(compareBy<PlannedSession> { it.date }.thenBy { it.id })
 
-            val chosenInWeek: List<PlannedSession> = when (request.qualityCount) {
+            val weekQualityTarget = when {
+                week in taperWeeks -> minOf(1, request.qualityCount)
+                adaptiveMode && (request.experience == 0 || request.returning) -> minOf(1, request.qualityCount)
+                else -> request.qualityCount
+            }
+            val chosenInWeek: List<PlannedSession> = when (weekQualityTarget) {
                 1 -> listOfNotNull(validCandidates.firstOrNull())
                 2 -> {
                     var pair: List<PlannedSession>? = null
@@ -199,7 +205,7 @@ internal object Engine15QualityFamilySelection {
                 }
                 else -> emptyList()
             }
-            if (chosenInWeek.size != request.qualityCount)
+            if (chosenInWeek.size != weekQualityTarget)
                 return result(Engine15QualitySelectionDecision.DEFERRED, reason = "QUALITY_SLOT_UNAVAILABLE",
                     explanation = "No unlocked, available easy-run slot in loading week $week satisfies the selected quality day and existing session-spacing checks.",
                     athlete = athlete, rules = listOf("CALENDAR_AND_LOCKS_CHECKED", "KNOWN_HARD_SESSION_SPACING_CHECKED"))
@@ -244,21 +250,45 @@ internal object Engine15QualityFamilySelection {
                 return result(Engine15QualitySelectionDecision.DEFERRED, reason = "ATHLETE_RUNNING_BASELINE_INSUFFICIENT",
                     explanation = "Automatic family selection needs a positive, internally consistent recent-running baseline; no minimum mileage threshold is applied.", athlete = athlete,
                     rules = listOf("BASELINE_EVIDENCE_REVIEWED"))
-            val matrixFamily = if (request.returning) IndependentQualityFamily.TEMPO else when (request.goal) {
-                "Improve 5K" -> if (request.experience == 2)
-                    IndependentQualityFamily.INTERVALS else IndependentQualityFamily.TEMPO
-                "Improve 10K", "Half marathon" -> if (request.experience == 2)
-                    IndependentQualityFamily.THRESHOLD else IndependentQualityFamily.TEMPO
-                "General fitness", "Aerobic foundation", "Marathon" -> IndependentQualityFamily.TEMPO
-                else -> return result(Engine15QualitySelectionDecision.UNSUPPORTED, reason = "RUNNING_GOAL_UNSUPPORTED",
-                    explanation = "The goal has no family mapping in the bounded selection matrix.", athlete = athlete)
+            val matrixFamily = if (adaptiveMode) {
+                when {
+                    request.experience == 0 || request.returning -> when (request.goal) {
+                        "Improve 5K", "Aerobic foundation" -> IndependentQualityFamily.FARTLEK
+                        "Improve 10K", "Half marathon", "Marathon", "General fitness" -> IndependentQualityFamily.TEMPO
+                        else -> return result(Engine15QualitySelectionDecision.UNSUPPORTED, reason = "RUNNING_GOAL_UNSUPPORTED",
+                            explanation = "The goal has no family mapping in the bounded selection matrix.", athlete = athlete)
+                    }
+                    else -> when (request.goal) {
+                        "Improve 5K" -> IndependentQualityFamily.INTERVALS
+                        "Improve 10K", "Half marathon", "General fitness" -> IndependentQualityFamily.THRESHOLD
+                        "Marathon" -> IndependentQualityFamily.TEMPO
+                        "Aerobic foundation" -> IndependentQualityFamily.FARTLEK
+                        else -> return result(Engine15QualitySelectionDecision.UNSUPPORTED, reason = "RUNNING_GOAL_UNSUPPORTED",
+                            explanation = "The goal has no family mapping in the bounded selection matrix.", athlete = athlete)
+                    }
+                }
+            } else {
+                if (request.returning) IndependentQualityFamily.TEMPO else when (request.goal) {
+                    "Improve 5K" -> if (request.experience == 2)
+                        IndependentQualityFamily.INTERVALS else IndependentQualityFamily.TEMPO
+                    "Improve 10K", "Half marathon" -> if (request.experience == 2)
+                        IndependentQualityFamily.THRESHOLD else IndependentQualityFamily.TEMPO
+                    "General fitness", "Aerobic foundation", "Marathon" -> IndependentQualityFamily.TEMPO
+                    else -> return result(Engine15QualitySelectionDecision.UNSUPPORTED, reason = "RUNNING_GOAL_UNSUPPORTED",
+                        explanation = "The goal has no family mapping in the bounded selection matrix.", athlete = athlete)
+                }
             }
             family = if (adaptiveMode && request.allowedQualityTypes.isNotEmpty() &&
                 request.allowedQualityTypes.none { it.equals(matrixFamily.name, ignoreCase = true) }
             ) {
-                supported.entries.firstOrNull { (label, _) ->
+                val allowedValues = supported.entries.filter { (label, _) ->
                     request.allowedQualityTypes.any { it.equals(label, ignoreCase = true) }
-                }?.value ?: matrixFamily
+                }.map { it.value }
+                if (request.experience == 0 || request.returning) {
+                    allowedValues.firstOrNull { it != IndependentQualityFamily.INTERVALS } ?: allowedValues.firstOrNull() ?: matrixFamily
+                } else {
+                    allowedValues.firstOrNull() ?: matrixFamily
+                }
             } else matrixFamily
             basis = Engine15QualitySelectionBasis.GOAL_EXPERIENCE_MATRIX
             qualification = Engine15FamilyPolicyQualification.PROVISIONAL_ENGINEERING_RULE

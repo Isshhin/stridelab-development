@@ -137,9 +137,11 @@ internal object Engine15WorkoutDifficultyAdjuster {
                         RunningSegment(
                             "RECOVERY",
                             meters,
-                            "Recovery, very easy conversational pace (eased from ${base.title})."
+                            "Recovery, very easy conversational pace (eased from ${base.title}).",
+                            stepIntent = RunningStepIntent.RECOVERY
                         )
-                    )
+                    ),
+                    archetypeId = Engine15WorkoutArchetype.RECOVERY_RUN.id
                 ),
                 difficultyStep = targetStep,
                 difficultyBaseline = baseline
@@ -161,17 +163,50 @@ internal object Engine15WorkoutDifficultyAdjuster {
             val coolDown = if (hasCoolDown) mixed.last() else null
             val interior = mixed.subList(if (hasWarmUp) 1 else 0, mixed.size - if (hasCoolDown) 1 else 0)
             val workSteps = interior.filter { it.purpose == "WORK" }
+            val isHeterogeneous = workSteps.size >= 2 &&
+                workSteps.map { it.meters to it.seconds }.distinct().size > 1
 
-            val newInterior: List<RunningStepV2> = if (workSteps.size >= 2) {
+            val newInterior: List<RunningStepV2> = if (isHeterogeneous) {
+                val sampleRec = interior.firstOrNull { it.purpose == "RECOVERY" }
+                val smallestWork = workSteps.minByOrNull { it.meters ?: it.seconds ?: Int.MAX_VALUE } ?: workSteps.first()
+                when (targetStep) {
+                    -1 -> {
+                        val lastWorkIdx = interior.indexOfLast { it.purpose == "WORK" }
+                        val cutStart = if (lastWorkIdx > 0 && interior[lastWorkIdx - 1].purpose == "RECOVERY") {
+                            lastWorkIdx - 1
+                        } else lastWorkIdx
+                        if (cutStart > 0 && workSteps.size > 2) {
+                            interior.subList(0, cutStart).map { it.copy(distanceEquivalentMeters = null) }
+                        } else {
+                            interior.map { it.copy(distanceEquivalentMeters = null) }
+                        }
+                    }
+                    else -> {
+                        val extraReps = if (targetStep >= 2) 2 else 1
+                        buildList {
+                            interior.forEach { add(it.copy(distanceEquivalentMeters = null)) }
+                            repeat(extraReps) {
+                                sampleRec?.let { add(it.copy(distanceEquivalentMeters = null)) }
+                                add(smallestWork.copy(distanceEquivalentMeters = null))
+                            }
+                        }
+                    }
+                }
+            } else if (workSteps.size >= 2) {
                 val sampleWork = workSteps.first()
                 val sampleRec = interior.firstOrNull { it.purpose == "RECOVERY" }
                 if (workSteps.size == 2 && targetStep < 0) {
                     interior.map { step ->
-                        if (step.purpose == "WORK" && step.seconds != null) {
-                            val sec = (((step.seconds * 0.80) / 30.0).roundToInt() * 30).coerceIn(60, 14400)
-                            step.copy(seconds = sec, distanceEquivalentMeters = null)
-                        } else {
-                            step.copy(distanceEquivalentMeters = null)
+                        when {
+                            step.purpose == "WORK" && step.seconds != null -> {
+                                val sec = (((step.seconds * 0.80) / 30.0).roundToInt() * 30).coerceIn(60, 14400)
+                                step.copy(seconds = sec, distanceEquivalentMeters = null)
+                            }
+                            step.purpose == "WORK" && step.meters != null -> {
+                                val scaledM = (((step.meters * 0.75) / 100.0).roundToInt() * 100).coerceAtLeast(200)
+                                step.copy(meters = scaledM, distanceEquivalentMeters = null)
+                            }
+                            else -> step.copy(distanceEquivalentMeters = null)
                         }
                     }
                 } else {
@@ -180,11 +215,13 @@ internal object Engine15WorkoutDifficultyAdjuster {
                         1 -> 1
                         else -> 2
                     }
-                    var targetReps = (workSteps.size + deltaReps).coerceIn(2, 12)
+                    var targetReps = (workSteps.size + deltaReps).coerceIn(2, 14)
                     if (request.timeBudgetEnabled && targetStep > 0) {
                         val fixedSec = (warmUp?.seconds ?: 0) + (coolDown?.seconds ?: 0)
-                        val workSec = sampleWork.seconds ?: 0
-                        val recSec = sampleRec?.seconds ?: 0
+                        val workSec = sampleWork.seconds
+                            ?: ((sampleWork.meters ?: 400) * pace * 0.82 / 1000.0).roundToInt()
+                        val recSec = sampleRec?.seconds
+                            ?: ((sampleRec?.meters ?: 0) * pace / 1000.0).roundToInt()
                         while (targetReps > workSteps.size &&
                             fixedSec + targetReps * workSec + (targetReps - 1) * recSec > request.minutes * 60
                         ) {
@@ -241,7 +278,8 @@ internal object Engine15WorkoutDifficultyAdjuster {
                 val rawNewKm = roundTenths((baseKm * distScale).coerceIn(minOf(baseKm, 3.0), maxKm))
                 val fixedMeters = assembledTemplate.sumOf { it.meters ?: 0 }
                 val timedCount = assembledTemplate.count { it.seconds != null }
-                val newTotalMeters = maxOf((rawNewKm * 1000.0).roundToInt(), fixedMeters + timedCount)
+                val minTimedFloor = timedCount * 400
+                val newTotalMeters = maxOf((rawNewKm * 1000.0).roundToInt(), fixedMeters + minTimedFloor)
 
                 val workSpeeds = mixed.filter { it.purpose == "WORK" && it.seconds != null && it.distanceEquivalentMeters != null }
                     .map { it.distanceEquivalentMeters!!.toDouble() / it.seconds!! }
@@ -274,19 +312,24 @@ internal object Engine15WorkoutDifficultyAdjuster {
                     family = rx.family,
                     segments = emptyList(),
                     mixedSegments = finalSteps,
-                    reconciledDistanceMeters = newTotalMeters
+                    reconciledDistanceMeters = newTotalMeters,
+                    archetypeId = rx.archetypeId
                 )
                 val newMinutes = (
                     finalSteps.sumOf { it.seconds ?: 0 } / 60 +
-                        ceil(finalSteps.sumOf { it.meters ?: 0 } * pace / 60_000.0).toInt()
+                        ceil(finalSteps.sumOf { it.meters ?: 0 } * pace * 0.86 / 60_000.0).toInt()
                     ).coerceAtLeast(10)
                 return base.copy(
                     minutes = newMinutes,
                     distanceKm = newTotalMeters / 1000.0,
                     steps = finalSteps.map { step ->
                         val timeText = step.seconds?.let { s ->
-                            if (s % 60 == 0) "${s / 60} min" else "$s s"
-                        } ?: formatMetersAsKm(step.meters ?: 0)
+                            when {
+                                s % 60 == 0 -> "${s / 60} min"
+                                s > 60 -> "${s / 60}m ${s % 60}s"
+                                else -> "${s}s"
+                            }
+                        } ?: "${step.meters} m (${formatMetersAsKm(step.meters ?: 0)})"
                         val eqText = formatMetersAsKm(step.meters ?: step.distanceEquivalentMeters ?: 0)
                         "$timeText ${step.purpose.lowercase().replace('_', ' ')} · $eqText · ${step.effort}"
                     },
@@ -306,7 +349,8 @@ internal object Engine15WorkoutDifficultyAdjuster {
                     family = rx.family,
                     segments = emptyList(),
                     mixedSegments = assembledTemplate,
-                    estimatedDistanceKm = newEst
+                    estimatedDistanceKm = newEst,
+                    archetypeId = rx.archetypeId
                 )
                 val newMinutes = (assembledTemplate.sumOf { it.seconds ?: 0 } / 60).coerceAtLeast(10)
                 return base.copy(
@@ -405,26 +449,59 @@ internal object Engine15WorkoutDifficultyAdjuster {
         } else rawMinutes
 
         val rx = base.runningPrescription
+        var finalMeters = meters
         val newRx = if (rx != null && rx.mixedSegments == null && rx.segments.isNotEmpty()) {
             val scaled = distributePositiveInts(meters, rx.segments.map { it.meters.toDouble() }, minEach = 100)
             rx.copy(segments = rx.segments.mapIndexed { idx, seg -> seg.copy(meters = scaled[idx]) })
         } else if (rx != null && rx.reconciledDistanceMeters != null && rx.mixedSegments != null) {
-            val fixedMeters = rx.mixedSegments.sumOf { it.meters ?: 0 }
-            val timedIndices = rx.mixedSegments.indices.filter { rx.mixedSegments[it].seconds != null }
-            val scaled = distributePositiveInts(
-                (meters - fixedMeters).coerceAtLeast(timedIndices.size),
-                timedIndices.map { (rx.mixedSegments[it].distanceEquivalentMeters ?: 100).toDouble() }
-            )
-            val eqByIdx = timedIndices.withIndex().associate { (p, idx) -> idx to scaled[p] }
-            rx.copy(
-                mixedSegments = rx.mixedSegments.mapIndexed { idx, step ->
-                    if (step.meters != null) step else step.copy(distanceEquivalentMeters = eqByIdx.getValue(idx))
-                },
-                reconciledDistanceMeters = meters
-            )
+            if (targetStep == -2 && rx.archetypeId == Engine15WorkoutArchetype.EASY_RUN_WITH_STRIDES.id) {
+                RunningPrescription(
+                    role = "RECOVERY",
+                    family = null,
+                    segments = listOf(
+                        RunningSegment(
+                            "RECOVERY",
+                            meters,
+                            "Recovery, very easy conversational pace (strides dropped at -2).",
+                            stepIntent = RunningStepIntent.RECOVERY
+                        )
+                    ),
+                    archetypeId = Engine15WorkoutArchetype.RECOVERY_RUN.id
+                )
+            } else {
+                val fixedEqSum = rx.mixedSegments.filter { it.seconds != null }
+                    .sumOf { it.distanceEquivalentMeters ?: 0 }
+                val timedIndices = rx.mixedSegments.indices.filter { rx.mixedSegments[it].seconds != null }
+                val meterIndices = rx.mixedSegments.indices.filter { rx.mixedSegments[it].meters != null }
+                if (meterIndices.size == 1 && fixedEqSum > 0) {
+                    val mainIdx = meterIndices.single()
+                    val newMainMeters = (meters - fixedEqSum).coerceAtLeast(500)
+                    finalMeters = newMainMeters + fixedEqSum
+                    rx.copy(
+                        mixedSegments = rx.mixedSegments.mapIndexed { idx, step ->
+                            if (idx == mainIdx) step.copy(meters = newMainMeters) else step
+                        },
+                        reconciledDistanceMeters = finalMeters
+                    )
+                } else {
+                    val fixedMeters = rx.mixedSegments.sumOf { it.meters ?: 0 }
+                    val scaled = distributePositiveInts(
+                        (meters - fixedMeters).coerceAtLeast(timedIndices.size),
+                        timedIndices.map { (rx.mixedSegments[it].distanceEquivalentMeters ?: 100).toDouble() }
+                    )
+                    val eqByIdx = timedIndices.withIndex().associate { (p, idx) -> idx to scaled[p] }
+                    rx.copy(
+                        mixedSegments = rx.mixedSegments.mapIndexed { idx, step ->
+                            if (step.meters != null) step else step.copy(distanceEquivalentMeters = eqByIdx.getValue(idx))
+                        },
+                        reconciledDistanceMeters = maxOf(meters, fixedMeters + scaled.sum())
+                    )
+                }
+            }
         } else {
             rx
         }
+        val finalKmResolved = finalMeters / 1000.0
 
         val effortText = when {
             base.kind == "long" -> "easy, conversational endurance effort"
@@ -433,11 +510,11 @@ internal object Engine15WorkoutDifficultyAdjuster {
         }
         return base.copy(
             minutes = newMinutes,
-            distanceKm = finalKm,
-            steps = listOf("${formatMetersAsKm(meters)} at $effortText"),
+            distanceKm = finalKmResolved,
+            steps = listOf("${formatMetersAsKm(finalMeters)} at $effortText"),
             reason = appendNote(
                 base.reason,
-                "Adjusted to ${labelFor(targetStep)}: scaled distance from ${formatMetersAsKm((baseKm * 1000).roundToInt())} to ${formatMetersAsKm(meters)}."
+                "Adjusted to ${labelFor(targetStep)}: scaled distance from ${formatMetersAsKm((baseKm * 1000).roundToInt())} to ${formatMetersAsKm(finalMeters)}."
             ),
             runningPrescription = newRx,
             difficultyStep = targetStep,

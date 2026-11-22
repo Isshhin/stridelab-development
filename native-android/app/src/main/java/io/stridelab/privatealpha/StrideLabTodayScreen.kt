@@ -198,7 +198,8 @@ internal fun StrideLabTodayScreen(
     onOpenWorkout: (String, String) -> Unit,
     onOpenActivityDetail: (String) -> Unit,
     onOpenMore: () -> Unit,
-    onSignIn: () -> Unit
+    onSignIn: () -> Unit,
+    onLoadCachedDetail: (suspend (String) -> Boolean)? = null
 ) {
     var selectedDay by rememberSaveable { mutableLongStateOf(LocalDate.now().toEpochDay()) }
     val date = LocalDate.ofEpochDay(selectedDay)
@@ -318,6 +319,40 @@ internal fun StrideLabTodayScreen(
     val metrics = remember(weekStart, safeActivities, safeHistory, safePlans) {
         savedWeekMetrics(date, safeActivities, safeHistory, safePlans)
     }
+    val weeklyOverview = remember(weekStart, safeActivities, safeHistory, safePlans) {
+        TodayOverviewCalculator.computeWeeklyOverview(weekStart, safeActivities, safeHistory, safePlans)
+    }
+    val dailyTrainingState = remember(date, plan, recordedOnDate, confirmedOnDate, safeHistory, safePlans) {
+        TodayOverviewCalculator.buildDailyTrainingState(
+            date = date,
+            approvedPlan = plan,
+            recordedOnDate = recordedOnDate,
+            confirmedOnDate = confirmedOnDate,
+            rawHistory = safeHistory,
+            plans = safePlans
+        )
+    }
+    val recentActivities = remember(safeActivities, safeHistory, safePlans) {
+        TodayOverviewCalculator.buildRecentActivities(
+            visibleActivities = safeActivities,
+            rawHistory = safeHistory,
+            plans = safePlans,
+            limit = 5
+        )
+    }
+    LaunchedEffect(recordedOnDate, recentActivities, onLoadCachedDetail) {
+        if (onLoadCachedDetail != null) {
+            val runIds = buildSet {
+                recordedOnDate.filter(DashboardSummary::isRun).forEach { add(it.id) }
+                recentActivities.filter { it.isRun }.mapNotNull { it.activityId }.forEach { add(it) }
+            }
+            runIds.forEach { actId ->
+                if (actId !in state.details) {
+                    onLoadCachedDetail.invoke(actId)
+                }
+            }
+        }
+    }
     // The signed-out dashboard is a compact static view on ordinary phones.
     // The former measured-overflow toggle fed its own bottom padding back
     // into the calculation, incorrectly enabling page dragging. Preserve a
@@ -357,18 +392,18 @@ internal fun StrideLabTodayScreen(
         listOf("all") + eligiblePages.map { it.key }
     }
 
-    Box(Modifier.fillMaxSize().background(TodayLook.black)) {
+    Box(Modifier.fillMaxSize().background(TodayAdaptivePalette.bg)) {
         LazyColumn(
             state = listState,
             userScrollEnabled = !signedOutFitsScreen,
             modifier = Modifier.fillMaxSize()
                 .testTag("screen").semantics { paneTitle = "Today" },
             contentPadding = PaddingValues(
-                start = 19.dp, end = 19.dp,
+                start = 16.dp, end = 16.dp,
                 top = if (hasHistory) 72.dp else 12.dp,
-                bottom = if (signedOutFitsScreen) 12.dp else 110.dp
+                bottom = if (signedOutFitsScreen) 12.dp else 112.dp
             ),
-            verticalArrangement = Arrangement.spacedBy(15.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             if (selectedPage == "all") {
                 item(key = "today-calendar") {
@@ -396,85 +431,88 @@ internal fun StrideLabTodayScreen(
                 }
             }
             if (selectedPage == "all") {
-            item(key = "today-hero") {
-                if (!hasHistory) {
-                    TodaySignedOutHero(notchPosition, onOpenTraining)
-                } else if (mixedToday) {
-                    TodayMixedDayCard(
-                        date = date,
-                        planId = plan?.id ?: "",
-                        notchFraction = notchPosition.value,
-                        activities = recordedOnDate,
-                        logs = confirmedOnDate,
-                        pending = schedule.filter {
-                            it.status in setOf("planned", "in_progress")
-                        },
-                        plans = safePlans,
-                        onOpenActivity = onOpenActivityDetail,
-                        onOpenWorkout = onOpenWorkout
-                    )
-                } else if (showRecorded &&
-                    (recordedOnDate.isNotEmpty() || confirmedOnDate.isNotEmpty())
-                ) {
-                    TodayCompactRecordedCards(
-                        activities = recordedOnDate,
-                        logs = confirmedOnDate,
-                        plans = safePlans,
-                        cachedDetails = state.details,
-                        notchFraction = notchPosition.value,
-                        onOpenActivity = onOpenActivityDetail,
-                        onOpenWorkout = onOpenWorkout
-                    )
-                } else if (showRecorded && schedule.isEmpty() &&
-                    recordedOnDate.isEmpty() && confirmedOnDate.isEmpty() &&
-                    !state.initializing) {
-                    TodayCompactEmptyDay(online = online)
-                } else if (showRecorded) {
-                    TodayRecordedTraining(
-                        selectedDate = date,
-                        signedOut = !hasHistory,
-                        loading = state.initializing,
-                        online = online,
-                        accent = animatedTone.value,
-                        notchFraction = notchPosition.value,
-                        activities = recordedOnDate,
-                        logged = confirmedOnDate,
-                        plans = safePlans,
-                        onOpenActivity = onOpenActivityDetail,
-                        onOpenWorkout = onOpenWorkout,
-                        onSignIn = onSignIn
-                    )
-                } else {
-                    TodayWaveWorkout(
-                        accent = animatedTone.value,
-                        notchFraction = notchPosition.value,
-                        reduceMotion = reduceMotion,
-                        date = date,
-                        scheduled = schedule,
-                        planAvailable = plan != null,
-                        signedOut = !hasHistory,
-                        onOpen = { session ->
-                            if (plan != null) onOpenWorkout(plan.id, session.id) else onOpenTraining()
-                        },
-                        onPlan = onOpenTraining,
-                        onSignIn = onSignIn
-                    )
-                }
-            }
-            item(key = "today-next") {
-                TodayNextSession(
-                    next = future,
-                    plan = plan,
-                    signedOut = !hasHistory,
-                    completed = todayCompleted,
-                    total = todaySchedule.size,
-                    onOpen = {
-                        if (!hasHistory) onOpenTraining()
-                        else if (plan != null && future != null) onOpenWorkout(plan.id, future.id)
-                        else onOpenTraining()
+                if (hasHistory) {
+                    item(key = "today-date-context") {
+                        TodayDateContextHeader(
+                            selectedDate = date,
+                            todayDate = todayDate,
+                            onReturnToToday = { selectedDay = todayDate.toEpochDay() }
+                        )
                     }
-                )
-            }
+                }
+                item(key = "today-hero") {
+                    if (!hasHistory) {
+                        TodaySignedOutHero(notchPosition, onOpenTraining)
+                    } else if (isPastDate && plan == null && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion && !state.initializing) {
+                        TodayCompactEmptyDay(online = online)
+                    } else if (state.initializing && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().testTag("today-rest-day"),
+                            shape = RoundedCornerShape(18.dp),
+                            color = TodayAdaptivePalette.card,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, TodayAdaptivePalette.border)
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = "Loading training day...",
+                                    color = TodayAdaptivePalette.text,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    } else {
+                        TodayDailyTrainingCard(
+                            selectedDate = date,
+                            todayDate = todayDate,
+                            dailyState = dailyTrainingState,
+                            cachedDetails = state.details,
+                            hasPrimaryHeroTag = true,
+                            onOpenWorkout = onOpenWorkout,
+                            onOpenActivityDetail = onOpenActivityDetail,
+                            onOpenTraining = onOpenTraining
+                        )
+                    }
+                }
+                if (hasHistory) {
+                    val currentWeekStart = todayDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                    val weekLabel = if (weekStart == currentWeekStart) {
+                        "THIS WEEK"
+                    } else {
+                        val weekEnd = weekStart.plusDays(6)
+                        val fmt = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)
+                        "${weekStart.format(fmt)}–${weekEnd.format(fmt)}".uppercase(Locale.ENGLISH)
+                    }
+                    item(key = "today-training-overview") {
+                        TodayTrainingOverviewCard(
+                            overview = weeklyOverview,
+                            weekLabel = weekLabel
+                        )
+                    }
+                    item(key = "today-recent-activities") {
+                        TodayRecentActivitiesSection(
+                            rows = recentActivities,
+                            cachedDetails = state.details,
+                            onSeeAll = onOpenActivity,
+                            onOpenActivityDetail = onOpenActivityDetail,
+                            onOpenWorkout = onOpenWorkout
+                        )
+                    }
+                } else {
+                    item(key = "today-next") {
+                        TodayNextSession(
+                            next = future,
+                            plan = plan,
+                            signedOut = true,
+                            completed = todayCompleted,
+                            total = todaySchedule.size,
+                            onOpen = { onOpenTraining() }
+                        )
+                    }
+                }
             } else {
             item(key = "today-discipline-visuals") {
                 var dragSum by remember(selectedPage) { mutableFloatStateOf(0f) }
@@ -883,8 +921,8 @@ private fun TodayWeekCalendar(
                                 }
                                 if (marker.pending) {
                                     Box(
-                                        Modifier.size(5.dp).background(
-                                            Color(0xFF8B9298), CircleShape
+                                        Modifier.size(5.5.dp).border(
+                                            1.2.dp, Color(0xFF8B9298), CircleShape
                                         )
                                     )
                                 }

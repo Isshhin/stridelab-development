@@ -33,6 +33,18 @@ internal object Engine15WeeklyReview {
         val aerobicEfficiencyPercentChange:Double? = null
     )
 
+    private fun isProtectedRecoveryOrTaperWeek(request: PlanRequest, date: LocalDate): Boolean {
+        val daysSinceStart = ChronoUnit.DAYS.between(request.start, date)
+        if (daysSinceStart < 0L) return false
+        val weekIndex = (daysSinceStart / 7L).toInt()
+        val runGoal = request.disciplineGoals["run"]?.takeIf { it.isNotBlank() } ?: request.goal
+        val taperLength = Engine15IndependentVolumePlanner.raceTaperLength(runGoal, request.weeks)
+        val isTaperWeek = taperLength > 0 && weekIndex in (request.weeks - taperLength) until request.weeks
+        val isSuppressedPreTaper = Engine15IndependentVolumePlanner.isSuppressedPreTaperRecovery(runGoal, request.weeks, weekIndex)
+        val isScheduledRecoveryWeek = weekIndex % 4 == 3 && !isSuppressedPreTaper
+        return isTaperWeek || isScheduledRecoveryWeek
+    }
+
     fun preview(plan:PlanSnapshot,asOf:LocalDate,input:Input=Input(),allPlans:List<PlanSnapshot> = listOf(plan),now:Instant=Instant.now(),activities:List<ActivityRecord> = emptyList()):Review {
         if(plan.engineVersion!=ENGINE15_VERSION || plan.policyId !in ENGINE15_COACHING_POLICIES || !Engine1Engines.canManage(plan) || plan.status!="approved")
             throw PlanConstraint("Weekly review requires an approved Engine 1.5 plan.")
@@ -106,20 +118,52 @@ internal object Engine15WeeklyReview {
                 val efficiencyProgressWeek=efficiencyGainPct!=null && completed.size>=2 && allComfortableNoDiscomfort &&
                     completed.all { s ->
                         val log=s.coachingLog()!!
-                        (log.effort!=null && log.effort in 1..5) || (log.effort==null && s.linkedActivityId!=null)
+                        log.effort != null && log.effort in 1..5
                     }
-                if(progressionReady && (lowRpeWeek || efficiencyProgressWeek)) {
+                val progressionEligible = progressionReady && (lowRpeWeek || efficiencyProgressWeek)
+                if(progressionEligible) {
                     val progressTargets=candidates.filter { s ->
                         !s.quality && s.runningPrescription?.role!="RECOVERY" &&
-                            !s.title.contains("Recovery",ignoreCase=true)
+                            !s.title.contains("Recovery",ignoreCase=true) &&
+                            !isProtectedRecoveryOrTaperWeek(plan.request, s.date)
                     }.sortedWith(compareByDescending<PlannedSession> { it.kind=="long" }.thenBy { it.date }.thenBy { it.id })
                         .take(2)
+                    val recentCompletedMax = completed.mapNotNull { it.coachingLog()?.distanceKm?.takeIf { d -> d.isFinite() && d > 0.0 } }.maxOrNull()
+                    val reportedLongestKm = plan.request.longestKm.takeIf { it.isFinite() && it > 0.0 }
+                    val zone = ZoneId.systemDefault()
+                    val recentActivityMax = if (activities.isNotEmpty()) {
+                        ActivityDisplayConsolidation.visible(activities)
+                            .filter { DashboardSummary.isRun(it) && !it.startedAt.isAfter(efficiencyAsOf) }
+                            .filter { ChronoUnit.DAYS.between(it.startedAt.atZone(zone).toLocalDate(), asOf) in 0L..28L }
+                            .mapNotNull { it.distanceM?.takeIf { m -> m.isFinite() && m > 0.0 }?.div(1000.0) }
+                            .maxOrNull()
+                    } else null
                     progressTargets.mapNotNull { s ->
                         val delta=ceil(s.minutes*0.05).toInt().coerceIn(3,8)
                         var targetMin=s.minutes+delta
                         if(plan.request.timeBudgetEnabled) {
                             val otherDayMin=plan.sessions.filter { it.date==s.date && it.id!=s.id }.sumOf { it.effectiveMinutes }
                             targetMin=minOf(targetMin,plan.request.dailyMinutes-otherDayMin)
+                        }
+                        if (s.kind == "long" && s.distanceKm != null && s.distanceKm > 0.0 && s.minutes > 0) {
+                            val priorLongRunKm = plan.sessions.filter { prior ->
+                                prior.discipline == "run" && prior.kind == "long" && prior.date < s.date &&
+                                    ChronoUnit.DAYS.between(prior.date, s.date) in 1L..28L
+                            }.mapNotNull { prior ->
+                                (prior.takeIf { it.status == "completed" }?.coachingLog()?.distanceKm ?: prior.distanceKm)
+                                    ?.takeIf { it.isFinite() && it > 0.0 }
+                            }.maxOrNull()
+                            if (priorLongRunKm != null || reportedLongestKm != null) {
+                                val recentLongestKm = listOfNotNull(priorLongRunKm, reportedLongestKm, recentCompletedMax, recentActivityMax).maxOrNull()
+                                if (recentLongestKm != null && recentLongestKm > 0.0) {
+                                    val maxAllowedLongKm = floor(recentLongestKm * 1.10 * 10.0 + 1e-8) / 10.0
+                                    val maxByLongCap = floor(s.minutes * (maxAllowedLongKm / s.distanceKm) + 1e-8).toInt()
+                                    targetMin = minOf(targetMin, maxByLongCap)
+                                    while (targetMin > s.minutes && floor((s.distanceKm * targetMin.toDouble() / s.minutes) * 10.0 + 1e-8) / 10.0 > maxAllowedLongKm + 1e-8) {
+                                        targetMin--
+                                    }
+                                }
+                            }
                         }
                         if(targetMin<=s.minutes) null else {
                             val suggestedDistKm=s.distanceKm?.let { km ->
@@ -139,10 +183,27 @@ internal object Engine15WeeklyReview {
                 } else emptyList()
             }
         }
+        val progressionHeldBySchedule = changes.isEmpty() && !strong && !fatigue && !caution &&
+            input.trigger == Trigger.WEEKLY && input.unavailableDays.isEmpty() && overruns.isEmpty() &&
+            (input.fatigue == null || input.fatigue <= 2) && (
+                (completed.size >= 3 && completed.all { s ->
+                    val log = s.coachingLog()!!
+                    log.completionDifficulty !in setOf("Harder", "Could not finish") &&
+                        log.discomfort !in setOf("Pain", "Soreness") &&
+                        log.effort?.let { r -> r in 1..4 } == true
+                }) || (efficiencyGainPct != null && completed.size >= 2 && completed.all { s ->
+                    val log = s.coachingLog()!!
+                    log.completionDifficulty !in setOf("Harder", "Could not finish") &&
+                        log.discomfort !in setOf("Pain", "Soreness") &&
+                        log.effort != null && log.effort in 1..5
+                })
+            ) && candidates.any { isProtectedRecoveryOrTaperWeek(plan.request, it.date) }
         val hasProgression=changes.any { it.direction==Direction.PROGRESS }
         if(strong)notes+="Pain/illness remains a review concern; the end of this proposal is not clearance to resume."
         if(hasProgression) {
             notes+="Bidirectional progression preview: steady low-effort execution${efficiencyGainPct?.let { String.format(Locale.US," and +%.1f%% aerobic efficiency trend",it) }.orEmpty()} supports a conservative +5% build step if you choose to approve it."
+        } else if (progressionHeldBySchedule) {
+            notes+="Upcoming week is a scheduled recovery or race taper week; progression is held to protect adaptation and freshness."
         }
         if(changes.isEmpty())notes+="Maintain the existing prescription; missing feedback or an isolated easy completion does not authorize increased load."
         notes+="Evidence: "+(completed.map { "${it.id}@${it.logRevision}" }+missed.map { "${it.id}:${it.missedReason}" }).sorted().joinToString()
