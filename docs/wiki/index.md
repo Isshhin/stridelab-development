@@ -16,7 +16,7 @@ Offline-first native Android running and multi-discipline training coach built a
 
 ## Repository Map (`F:\StrideLab\Current-App\stridelab-engine15-dev`, branch `dev`)
 - `native-android/app/src/main/java/io/stridelab/privatealpha/` — Active Kotlin/Compose app, Engine 1.5, Garmin/FIT pipeline, and UI
-- `native-android/app/src/test/java/io/stridelab/privatealpha/` — JVM unit tests (`146` suites / `1,141` tests, including Step 01–04 `Engine15CoachingAcceptanceTest`, `Engine15ActivityAutoMatcherTest`, and `Engine15ExecutionAnalyzerTest`)
+- `native-android/app/src/test/java/io/stridelab/privatealpha/` — JVM unit tests (`147` suites / `1,150` tests, including Step 01–05 `Engine15CoachingAcceptanceTest`, `Engine15ActivityAutoMatcherTest`, `Engine15ExecutionAnalyzerTest`, and `Engine15AthleteDiagnosticsEngineTest`)
 - `native-android/app/src/androidTest/java/io/stridelab/privatealpha/` — Compose & instrumentation UI tests
 - `docs/wiki/` — Persistent Obsidian-compatible LLM memory hub (this wiki)
 - `research/engine15/` — Generated Engine 1.5 coaching audit reports (e.g., `M28A_COACHING_AUDIT_20261121.md`)

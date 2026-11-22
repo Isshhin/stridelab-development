@@ -40,8 +40,17 @@ internal data class TrainingState(
     val details: Map<String,ActivityDetail> = emptyMap(),
     val activityMatches: Map<String, ActivityMatchRecord> = emptyMap(),
     val executionAnalyses: Map<String, WorkoutExecutionAnalysis> = emptyMap(),
+    val athleteDiagnostics: Map<String, AthleteDiagnosticSnapshot> = emptyMap(),
     val task: String? = null
-)
+) {
+    val activeAthleteDiagnostic: AthleteDiagnosticSnapshot?
+        get() {
+            val activePlan = plans.firstOrNull { it.status == "approved" }
+                ?: plans.firstOrNull { it.status != "archived" }
+                ?: return null
+            return athleteDiagnostics[activePlan.id]
+        }
+}
 
 /** All network/database/encryption work is serialized off the main thread, including workers. */
 internal class TrainingRepository(context: Context, private val gateway: TrainingGateway = SupabaseGateway(),
@@ -196,9 +205,9 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         store.readableDatabase.query("records",arrayOf("record_id","payload"),"account=? AND kind=? AND record_id LIKE ?",arrayOf(account,"workout","entry-draft-%"),null,null,null).use { c -> while(c.moveToNext())runCatching { WorkoutEntryDraft.decode(JSONObject(c.getString(1)),account).also { require(it.recordId==c.getString(0)) } }.onSuccess { if(validDraft(it,plans))drafts[it.key]=it } }
         val cursor = store.cursor(account, "activity")
         val last = cursor?.let { runCatching { JSONObject(it).getLong("completedAt") }.getOrNull() }
-        val (savedMatches, savedAnalyses) = loadExecutionRecords(account)
+        val (savedMatches, savedAnalyses, savedDiagnostics) = loadExecutionRecords(account)
         mutable.value = mutable.value.copy(activities = titledRecords, lastSync = last, details = details, wellness = wellness, shelf=shelf, templates=templates, workoutDrafts=drafts, plans = plans.sortedByDescending { it.createdAt }, researchDrafts=loadResearchDrafts(account),
-            activityMatches = savedMatches, executionAnalyses = savedAnalyses,
+            activityMatches = savedMatches, executionAnalyses = savedAnalyses, athleteDiagnostics = savedDiagnostics,
             message = if(unsupportedPlans>0) "$unsupportedPlans saved plans require a supported contract and were retained for review." else if(rejected > 0) "$rejected saved activities contain unsupported data and were retained for review." else mutable.value.message)
         loadLocalGarminCache()
     }
@@ -283,7 +292,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 }
             }
         }
-        val (savedMatches, savedAnalyses) = loadExecutionRecords(owner)
+        val (savedMatches, savedAnalyses, savedDiagnostics) = loadExecutionRecords(owner)
         mutable.value = mutable.value.copy(
             localPlanOwner = localPlanOwner,
             plans = plans.sortedByDescending { it.createdAt },
@@ -291,6 +300,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             researchDrafts = loadResearchDrafts(owner),
             activityMatches = savedMatches,
             executionAnalyses = savedAnalyses,
+            athleteDiagnostics = savedDiagnostics,
             message = if (unsupported > 0)
                 "$unsupported locally saved plans require a supported version; their records were retained."
                 else mutable.value.message
@@ -1312,9 +1322,13 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         return checked
     }
 
-    private fun loadExecutionRecords(
-        owner: String
-    ): Pair<Map<String, ActivityMatchRecord>, Map<String, WorkoutExecutionAnalysis>> {
+    private data class ExecutionPersistenceBundle(
+        val matches: Map<String, ActivityMatchRecord>,
+        val analyses: Map<String, WorkoutExecutionAnalysis>,
+        val diagnostics: Map<String, AthleteDiagnosticSnapshot>
+    )
+
+    private fun loadExecutionRecords(owner: String): ExecutionPersistenceBundle {
         val matches = LinkedHashMap<String, ActivityMatchRecord>()
         store.readableDatabase.query(
             "records", arrayOf("record_id", "payload"),
@@ -1345,7 +1359,22 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 }.onSuccess { analyses[it.plannedSessionId] = it }
             }
         }
-        return matches to analyses
+        val diagnostics = LinkedHashMap<String, AthleteDiagnosticSnapshot>()
+        store.readableDatabase.query(
+            "records", arrayOf("record_id", "payload"),
+            "account=? AND kind=? AND record_id LIKE ?",
+            arrayOf(owner, "workout", "athlete-diagnostic-%"),
+            null, null, null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                runCatching {
+                    val decoded = AthleteDiagnosticSnapshot.decode(JSONObject(cursor.getString(1)), owner)
+                    require(cursor.getString(0) == athleteDiagnosticRecordId(decoded.planId))
+                    decoded
+                }.onSuccess { diagnostics[it.planId] = it }
+            }
+        }
+        return ExecutionPersistenceBundle(matches, analyses, diagnostics)
     }
 
     private fun markManualLinkLocked(activityId: String, sessionId: String) {
@@ -1446,10 +1475,33 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         if (changedMatches.isNotEmpty()) persistActivityMatchesLocked(changedMatches)
         if (changedAnalyses.isNotEmpty()) persistExecutionAnalysesLocked(changedAnalyses)
 
-        if (changedMatches.isNotEmpty() || changedAnalyses.isNotEmpty()) {
+        val hrZones = resolveExecutionHrZones(
+            current.details.values.firstOrNull { it.sourceHeartRateZones != null }
+        )
+        val newDiagnostic = Engine15AthleteDiagnosticsEngine.evaluate(
+            plan = plan,
+            activities = current.activities,
+            matchesByActivityId = mergedMatches,
+            analysesBySessionId = updatedAnalyses,
+            athleteHrZones = hrZones,
+            asOfDate = java.time.LocalDate.now(),
+            evaluatedAtEpochMs = nowMs
+        )
+        val prevDiagnostic = current.athleteDiagnostics[plan.id]
+        val diagnosticChanged = prevDiagnostic == null ||
+            prevDiagnostic.copy(evaluatedAtEpochMs = 0L) != newDiagnostic.copy(evaluatedAtEpochMs = 0L)
+        val updatedDiagnostics = if (diagnosticChanged) {
+            persistAthleteDiagnosticsLocked(mapOf(plan.id to newDiagnostic))
+            current.athleteDiagnostics + (plan.id to newDiagnostic)
+        } else {
+            current.athleteDiagnostics
+        }
+
+        if (changedMatches.isNotEmpty() || changedAnalyses.isNotEmpty() || diagnosticChanged) {
             mutable.value = mutable.value.copy(
                 activityMatches = mergedMatches,
-                executionAnalyses = updatedAnalyses
+                executionAnalyses = updatedAnalyses,
+                athleteDiagnostics = updatedDiagnostics
             )
         }
     }
@@ -1479,6 +1531,18 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
         val rows = records.values.map { record ->
             val id = executionAnalysisRecordId(record.plannedSessionId)
+            val raw = record.encode(owner).toString()
+            RecordPolicy.record(owner, "workout", id, raw)
+            TrainingStore.RemoteRecord(id, raw, null)
+        }
+        store.applyRemotePage(owner, "workout", rows, null, System.currentTimeMillis())
+    }
+
+    private fun persistAthleteDiagnosticsLocked(records: Map<String, AthleteDiagnosticSnapshot>) {
+        if (records.isEmpty()) return
+        val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+        val rows = records.values.map { record ->
+            val id = athleteDiagnosticRecordId(record.planId)
             val raw = record.encode(owner).toString()
             RecordPolicy.record(owner, "workout", id, raw)
             TrainingStore.RemoteRecord(id, raw, null)
@@ -1523,6 +1587,9 @@ private fun activityMatchRecordId(activityId: String): String =
 
 private fun executionAnalysisRecordId(plannedSessionId: String): String =
     sha256PrefixKey("execution-analysis-", plannedSessionId)
+
+private fun athleteDiagnosticRecordId(planId: String): String =
+    sha256PrefixKey("athlete-diagnostic-", planId)
 
 private fun validatedActivityTitle(input:String):String {
     val title = input.trim()
