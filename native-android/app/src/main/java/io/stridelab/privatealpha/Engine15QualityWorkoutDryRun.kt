@@ -184,12 +184,16 @@ internal object Engine15QualityWorkoutDryRunBuilder {
         val weeklyBudgetsByWeek = volume.weeks.mapNotNull { w ->
             w.proposedKm?.let { (w.index + 1) to it }
         }.toMap()
+        val phasesByWeek = if (adaptiveQualityMode) {
+            Engine15MacrocyclePeriodization.assignPhases(request, volume)
+        } else emptyMap()
         val deterministicZones = if (adaptiveQualityMode) Engine15PaceZoneEstimator.estimate(request) else null
         val prescriptions = Engine15QualityProgressionPolicy.plan(
             request, selection, assertedExposureSecondsOverride,
             adaptiveQualityMode = adaptiveQualityMode,
             taperWeeks = taperWeeks,
-            weeklyBudgetsByWeek = weeklyBudgetsByWeek
+            weeklyBudgetsByWeek = weeklyBudgetsByWeek,
+            phasesByWeek = phasesByWeek
         ).associateBy { it.weekNumber to it.slotNumber }
         val firstPrescription = prescriptions[slot.weekNumber to slot.slotNumber] ?: return null
         val workout = firstPrescription.step.workout

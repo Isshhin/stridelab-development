@@ -853,13 +853,130 @@ internal object Engine15QualityProgressionPolicy {
         )
     }
 
+    internal fun phaseArchetypePool(
+        request: PlanRequest,
+        primaryFamily: IndependentQualityFamily,
+        phase: Engine15MacroPhase
+    ): List<Engine15WorkoutArchetype> {
+        val fallbackPool = adaptiveArchetypeRotation(request, primaryFamily)
+        if (request.preferredQualityExplicit) return fallbackPool
+        if (request.experience == 0 || request.returning) return fallbackPool
+
+        val raw = when (phase) {
+            Engine15MacroPhase.BASE -> when (request.goal) {
+                "Improve 5K", "Aerobic foundation" -> listOf(
+                    Engine15WorkoutArchetype.AEROBIC_FARTLEK,
+                    Engine15WorkoutArchetype.SHORT_HILL_SPRINTS,
+                    Engine15WorkoutArchetype.CONTINUOUS_TEMPO,
+                    Engine15WorkoutArchetype.LONG_AEROBIC_HILLS
+                )
+                else -> listOf(
+                    Engine15WorkoutArchetype.CONTINUOUS_TEMPO,
+                    Engine15WorkoutArchetype.AEROBIC_FARTLEK,
+                    Engine15WorkoutArchetype.LONG_AEROBIC_HILLS,
+                    Engine15WorkoutArchetype.SHORT_HILL_SPRINTS
+                )
+            }
+            Engine15MacroPhase.BUILD -> when (request.goal) {
+                "Improve 5K" -> listOf(
+                    Engine15WorkoutArchetype.THRESHOLD_CRUISE_INTERVALS,
+                    Engine15WorkoutArchetype.CLASSIC_VO2MAX_INTERVALS,
+                    Engine15WorkoutArchetype.LONG_AEROBIC_HILLS,
+                    Engine15WorkoutArchetype.BROKEN_TEMPO
+                )
+                "Improve 10K" -> listOf(
+                    Engine15WorkoutArchetype.THRESHOLD_CRUISE_INTERVALS,
+                    Engine15WorkoutArchetype.BROKEN_TEMPO,
+                    Engine15WorkoutArchetype.CLASSIC_VO2MAX_INTERVALS,
+                    Engine15WorkoutArchetype.CONTINUOUS_TEMPO
+                )
+                "Half marathon" -> listOf(
+                    Engine15WorkoutArchetype.THRESHOLD_CRUISE_INTERVALS,
+                    Engine15WorkoutArchetype.BROKEN_TEMPO,
+                    Engine15WorkoutArchetype.CONTINUOUS_TEMPO,
+                    Engine15WorkoutArchetype.LONG_AEROBIC_HILLS
+                )
+                "Marathon" -> listOf(
+                    Engine15WorkoutArchetype.BROKEN_TEMPO,
+                    Engine15WorkoutArchetype.THRESHOLD_CRUISE_INTERVALS,
+                    Engine15WorkoutArchetype.CONTINUOUS_TEMPO,
+                    Engine15WorkoutArchetype.LONG_AEROBIC_HILLS
+                )
+                "Aerobic foundation" -> listOf(
+                    Engine15WorkoutArchetype.AEROBIC_FARTLEK,
+                    Engine15WorkoutArchetype.LONG_AEROBIC_HILLS,
+                    Engine15WorkoutArchetype.SHORT_HILL_SPRINTS,
+                    Engine15WorkoutArchetype.CONTINUOUS_TEMPO
+                )
+                else -> listOf( // "General fitness"
+                    Engine15WorkoutArchetype.THRESHOLD_CRUISE_INTERVALS,
+                    Engine15WorkoutArchetype.BROKEN_TEMPO,
+                    Engine15WorkoutArchetype.AEROBIC_FARTLEK,
+                    Engine15WorkoutArchetype.CLASSIC_VO2MAX_INTERVALS,
+                    Engine15WorkoutArchetype.LONG_AEROBIC_HILLS
+                )
+            }
+            Engine15MacroPhase.PEAK -> when (request.goal) {
+                "Improve 5K" -> if (request.experience >= 2) listOf(
+                    Engine15WorkoutArchetype.SHORT_TRACK_REPEATS,
+                    Engine15WorkoutArchetype.SPEED_ENDURANCE_PYRAMID,
+                    Engine15WorkoutArchetype.CLASSIC_VO2MAX_INTERVALS
+                ) else listOf(
+                    Engine15WorkoutArchetype.SHORT_TRACK_REPEATS,
+                    Engine15WorkoutArchetype.CLASSIC_VO2MAX_INTERVALS,
+                    Engine15WorkoutArchetype.THRESHOLD_CRUISE_INTERVALS
+                )
+                "Improve 10K" -> if (request.experience >= 2) listOf(
+                    Engine15WorkoutArchetype.THRESHOLD_CRUISE_INTERVALS,
+                    Engine15WorkoutArchetype.SPEED_ENDURANCE_PYRAMID,
+                    Engine15WorkoutArchetype.CLASSIC_VO2MAX_INTERVALS
+                ) else listOf(
+                    Engine15WorkoutArchetype.THRESHOLD_CRUISE_INTERVALS,
+                    Engine15WorkoutArchetype.CLASSIC_VO2MAX_INTERVALS,
+                    Engine15WorkoutArchetype.BROKEN_TEMPO
+                )
+                "Half marathon" -> if (request.experience >= 2) listOf(
+                    Engine15WorkoutArchetype.THRESHOLD_CRUISE_INTERVALS,
+                    Engine15WorkoutArchetype.BROKEN_TEMPO,
+                    Engine15WorkoutArchetype.SPEED_ENDURANCE_PYRAMID
+                ) else listOf(
+                    Engine15WorkoutArchetype.THRESHOLD_CRUISE_INTERVALS,
+                    Engine15WorkoutArchetype.BROKEN_TEMPO,
+                    Engine15WorkoutArchetype.CONTINUOUS_TEMPO
+                )
+                "Marathon" -> listOf(
+                    Engine15WorkoutArchetype.BROKEN_TEMPO,
+                    Engine15WorkoutArchetype.THRESHOLD_CRUISE_INTERVALS,
+                    Engine15WorkoutArchetype.CONTINUOUS_TEMPO
+                )
+                else -> fallbackPool
+            }
+            Engine15MacroPhase.TAPER, Engine15MacroPhase.RECOVERY -> when (request.goal) {
+                "Improve 5K" -> listOf(
+                    Engine15WorkoutArchetype.SHORT_TRACK_REPEATS,
+                    Engine15WorkoutArchetype.THRESHOLD_CRUISE_INTERVALS
+                )
+                else -> listOf(
+                    Engine15WorkoutArchetype.THRESHOLD_CRUISE_INTERVALS,
+                    Engine15WorkoutArchetype.CONTINUOUS_TEMPO
+                )
+            }
+        }
+        val filtered = if (request.allowedQualityTypes.isEmpty()) raw else raw.filter { arch ->
+            val famName = arch.family?.name ?: return@filter false
+            request.allowedQualityTypes.any { it.equals(famName, ignoreCase = true) }
+        }
+        return filtered.ifEmpty { fallbackPool }.distinct()
+    }
+
     fun plan(
         request: PlanRequest,
         selection: Engine15QualityFamilySelectionResult,
         assertedExposureSecondsOverride: Int? = null,
         adaptiveQualityMode: Boolean = false,
         taperWeeks: Set<Int> = emptySet(),
-        weeklyBudgetsByWeek: Map<Int, Double> = emptyMap()
+        weeklyBudgetsByWeek: Map<Int, Double> = emptyMap(),
+        phasesByWeek: Map<Int, Engine15MacroPhase> = emptyMap()
     ): List<Engine15QualityWeekPrescription> {
         val family = selection.selectedFamily ?: return emptyList()
         val slots = selection.candidateSlots
@@ -917,28 +1034,31 @@ internal object Engine15QualityProgressionPolicy {
             val distinctLoadingWeeks = slots.map { it.weekNumber }.distinct().sorted()
             val ordinalByWeek = distinctLoadingWeeks.withIndex().associate { (i, w) -> w to i }
             val archCounts = mutableMapOf<Engine15WorkoutArchetype, Int>()
+            val phaseSlotCounts = mutableMapOf<Engine15MacroPhase, Int>()
 
             return slots.mapIndexed { slotIndex, slot ->
                 val weekOrdinal = ordinalByWeek[slot.weekNumber] ?: slotIndex
-                val isRaceTaperWeek = (slot.weekNumber in taperWeeks) ||
-                    (isRaceGoal && request.weeks >= 8 && slot.weekNumber == lastLoadingWeek)
+                val weekPhase = phasesByWeek[slot.weekNumber]
+                    ?: if ((slot.weekNumber in taperWeeks) ||
+                        (isRaceGoal && request.weeks >= 8 && slot.weekNumber == lastLoadingWeek)
+                    ) Engine15MacroPhase.TAPER else Engine15MacroPhase.BUILD
+                val isRaceTaperWeek = weekPhase == Engine15MacroPhase.TAPER
+                val phasePool = if (phasesByWeek.isNotEmpty()) {
+                    phaseArchetypePool(request, family, weekPhase)
+                } else {
+                    archRotation
+                }
+                val phaseSlotIdx = phaseSlotCounts[weekPhase] ?: 0
+                phaseSlotCounts[weekPhase] = phaseSlotIdx + 1
+
                 val primaryArch = when {
-                    archRotation.size == 1 -> archRotation.first()
-                    isRaceTaperWeek && archRotation.any {
-                        it == Engine15WorkoutArchetype.THRESHOLD_CRUISE_INTERVALS ||
-                            it == Engine15WorkoutArchetype.CONTINUOUS_TEMPO ||
-                            it == Engine15WorkoutArchetype.AEROBIC_FARTLEK
-                    } -> archRotation.firstOrNull {
-                        it == Engine15WorkoutArchetype.THRESHOLD_CRUISE_INTERVALS ||
-                            it == Engine15WorkoutArchetype.CONTINUOUS_TEMPO ||
-                            it == Engine15WorkoutArchetype.AEROBIC_FARTLEK
-                    } ?: archRotation.first()
-                    slotIndex == 0 -> archRotation.first()
-                    isConservativeAthlete && weekOrdinal < 2 -> archRotation.first()
-                    else -> {
-                        val effectiveIdx = if (isConservativeAthlete) (slotIndex - 1).coerceAtLeast(0) else slotIndex
-                        archRotation[effectiveIdx % archRotation.size]
-                    }
+                    phasePool.size == 1 -> phasePool.first()
+                    isRaceTaperWeek -> phasePool.first()
+                    isConservativeAthlete && weekOrdinal < 2 -> phasePool.first()
+                    isConservativeAthlete -> phasePool[((slotIndex - 1).coerceAtLeast(0)) % phasePool.size]
+                    phasesByWeek.isNotEmpty() -> phasePool[phaseSlotIdx % phasePool.size]
+                    slotIndex == 0 -> phasePool.first()
+                    else -> phasePool[slotIndex % phasePool.size]
                 }
                 val occurrenceIdx = archCounts[primaryArch] ?: 0
                 archCounts[primaryArch] = occurrenceIdx + 1
@@ -980,10 +1100,10 @@ internal object Engine15QualityProgressionPolicy {
                         }
                     }
                     if (!fitsSlot(archSteps.first(), chosenArch)) {
-                        val sameFamAlt = archRotation.firstOrNull { candArch ->
+                        val sameFamAlt = (phasePool + archRotation).distinct().firstOrNull { candArch ->
                             candArch.family == chosenArch.family &&
                                 fitsSlot(adaptiveLadder(candArch, request.experience, deterministicZones, false).first(), candArch)
-                        } ?: archRotation.firstOrNull { candArch ->
+                        } ?: (phasePool + archRotation).distinct().firstOrNull { candArch ->
                             fitsSlot(adaptiveLadder(candArch, request.experience, deterministicZones, false).first(), candArch)
                         }
                         if (sameFamAlt != null) {
@@ -1048,6 +1168,7 @@ internal object Engine15QualityProgressionPolicy {
                     add("REPEATED_SAME_FAMILY_EXPOSURE_ASSERTED")
                     add("BOUNDED_INCREMENT_CEILING_APPLIED")
                     add("ENERGY_SYSTEM_RECOVERY_RATIOS_APPLIED")
+                    add("MACRO_PHASE_${weekPhase.name}")
                     if (isRaceTaperWeek) add("RACE_TAPER_QUALITY_HOLD")
                     if (timeCapped) add("SESSION_TIME_BUDGET_CAP_APPLIED")
                     if (isConservativeAthlete) add("CONSERVATIVE_ENTRY_HOLD_APPLIED")
@@ -1059,11 +1180,11 @@ internal object Engine15QualityProgressionPolicy {
                 }
                 val rationale = when (basis) {
                     Engine15QualityProgressionBasis.RACE_TAPER_REDUCTION ->
-                        "Taper hold at ${chosenArch.displayTitle} (${finalStep.stageLabel}, $workLabel) before '${request.goal}'."
+                        "[${weekPhase.name}] Taper hold at ${chosenArch.displayTitle} (${finalStep.stageLabel}, $workLabel) before '${request.goal}'."
                     Engine15QualityProgressionBasis.TIME_BUDGET_CAPPED ->
-                        "${chosenArch.displayTitle} (${finalStep.stageLabel}, $workLabel) capped to fit the ${request.minutes}-minute session budget."
+                        "[${weekPhase.name}] ${chosenArch.displayTitle} (${finalStep.stageLabel}, $workLabel) capped to fit the ${request.minutes}-minute session budget."
                     else ->
-                        "${chosenArch.displayTitle} (${finalStep.stageLabel}, $workLabel) dosed within weekly energy-system ceilings."
+                        "[${weekPhase.name}] ${chosenArch.displayTitle} (${finalStep.stageLabel}, $workLabel) dosed within weekly energy-system ceilings."
                 }
                 Engine15QualityWeekPrescription(
                     policyId = POLICY_ID,

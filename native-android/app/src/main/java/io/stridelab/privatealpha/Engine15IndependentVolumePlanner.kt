@@ -98,10 +98,19 @@ internal object Engine15IndependentVolumePlanner {
     private fun returnCeilingKm(week:Int,baselineKm:Double,returning:Boolean):Double? =
         if(returning) baselineKm*0.6*minOf(1.2,1.0+week*0.05) else null
 
-    internal fun raceTaperLength(raceGoal: String?, weeks: Int): Int = when {
-        raceGoal == "Marathon" && weeks >= 12 -> 3
-        raceGoal in setOf("Half marathon", "Improve 10K") && weeks >= 10 -> 2
-        raceGoal == "Improve 5K" && weeks >= 6 -> 1
+    internal fun raceTaperLength(raceGoal: String?, weeks: Int): Int = when (raceGoal) {
+        "Marathon" -> when {
+            weeks >= 12 -> 3
+            weeks >= 8 -> 2
+            weeks >= 5 -> 1
+            else -> 0
+        }
+        "Half marathon", "Improve 10K" -> when {
+            weeks >= 10 -> 2
+            weeks >= 5 -> 1
+            else -> 0
+        }
+        "Improve 5K" -> if (weeks >= 4) 1 else 0
         else -> 0
     }
 
@@ -148,18 +157,16 @@ internal object Engine15IndependentVolumePlanner {
         var priorLongCapKm = longestCapStart
         var priorKm:Double?=null
         var peakBuildKm:Double?=null
-        val marathonTaper = input.raceGoal == "Marathon" && input.weeks >= 12
-        val halfOr10kTaper = input.raceGoal in setOf("Half marathon", "Improve 10K") && input.weeks >= 10
-        val fiveKTaper = input.raceGoal == "Improve 5K" && input.weeks >= 6
+        val taperLen = raceTaperLength(input.raceGoal, input.weeks)
         val weeks=(0 until input.weeks).map { week ->
             val weeksFromEnd = input.weeks - 1 - week
             val taperMultiplier = when {
-                marathonTaper && weeksFromEnd == 2 -> 0.85
-                marathonTaper && weeksFromEnd == 1 -> 0.70
-                marathonTaper && weeksFromEnd == 0 -> 0.55
-                halfOr10kTaper && weeksFromEnd == 1 -> 0.80
-                halfOr10kTaper && weeksFromEnd == 0 -> 0.60
-                fiveKTaper && weeksFromEnd == 0 -> if (week % 4 == 3) 0.78 else 0.85
+                taperLen == 3 && weeksFromEnd == 2 -> 0.85
+                taperLen == 3 && weeksFromEnd == 1 -> 0.70
+                taperLen == 3 && weeksFromEnd == 0 -> 0.55
+                taperLen == 2 && weeksFromEnd == 1 -> 0.80
+                taperLen == 2 && weeksFromEnd == 0 -> 0.60
+                taperLen == 1 && weeksFromEnd == 0 -> if (week % 4 == 3) 0.78 else 0.85
                 else -> null
             }
             val suppressedPreTaper = isSuppressedPreTaperRecovery(input.raceGoal, input.weeks, week)

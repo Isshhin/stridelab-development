@@ -578,7 +578,9 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         val preQualityIds = userDefinedQualityIds + preSelection?.candidateSlots.orEmpty().map { it.sessionId }
         val minQualitySlotKm = if (adaptiveQualityMode && preQualityIds.isNotEmpty() && preSelection?.selectedFamily != null) {
             val estZones = Engine15PaceZoneEstimator.estimate(request)
-            val archPool = Engine15QualityProgressionPolicy.adaptiveArchetypeRotation(request, preSelection.selectedFamily)
+            val archPool = (Engine15QualityProgressionPolicy.adaptiveArchetypeRotation(request, preSelection.selectedFamily) +
+                Engine15QualityProgressionPolicy.phaseArchetypePool(request, preSelection.selectedFamily, Engine15MacroPhase.BASE) +
+                Engine15QualityProgressionPolicy.phaseArchetypePool(request, preSelection.selectedFamily, Engine15MacroPhase.BUILD)).distinct()
             val easySpeed = 1000.0 / estZones.easy.midpointSecondsPerKm
             archPool.maxOf { arch ->
                 val intro = Engine15QualityProgressionPolicy.adaptiveLadder(
@@ -920,6 +922,10 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             preEnrichSessions
         }
 
+        val macroPhases = if (adaptiveQualityMode || enrichArchetypes) {
+            Engine15MacrocyclePeriodization.assignPhases(request, volume)
+        } else emptyMap()
+
         val snapshot = PlanSnapshot(
             id = id,
             owner = owner,
@@ -931,6 +937,10 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             explanations = buildList {
                 add("Independent Engine 1.5 running candidate; no Engine 1.0 generation or validation was used.")
                 add("Mileage basis: ${athlete.basis}; reported/recorded history remains provisional and is not source-authenticated.")
+                if (macroPhases.isNotEmpty()) {
+                    add(Engine15MacrocyclePeriodization.phaseSummary(macroPhases))
+                    addAll(Engine15MacrocyclePeriodization.feasibilityAdvisories(request, volume))
+                }
                 athlete.activityEvidence?.let { evidence ->
                     add("ACTIVITY_EVIDENCE_CONTEXT v${evidence.version}: ${evidence.recordedRunCount} recorded runs; " +
                         "longest recorded in the recent window: ${evidence.longestRecordedRunLast28DaysKm?.let { "%.1f km".format(java.util.Locale.US, it) } ?: "not available"}; " +
@@ -974,36 +984,46 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         val (steadyMin, steadyMax) = Engine15PaceZoneEstimator.paceBoundsForIntent(zones, RunningStepIntent.STEADY)
         val (strideMin, strideMax) = Engine15PaceZoneEstimator.paceBoundsForIntent(zones, RunningStepIntent.STRIDE)
 
+        val phasesByWeek = Engine15MacrocyclePeriodization.assignPhases(request, volume)
         val recoveryWeeks = volume.weeks.filter {
             it.kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY
         }.map { it.index + 1 }.toSet()
         val taperWeeks = volume.weeks.filter {
-            "RACE_TAPER_VOLUME_REDUCTION" in it.constraintCodes
+            "RACE_TAPER_VOLUME_REDUCTION" in it.constraintCodes ||
+                phasesByWeek[it.index + 1] == Engine15MacroPhase.TAPER
         }.map { it.index + 1 }.toSet()
         val loadingOrdinalByWeek = volume.weeks
-            .filter { it.kind != Engine15IndependentVolumePlanner.WeekKind.RECOVERY && "RACE_TAPER_VOLUME_REDUCTION" !in it.constraintCodes }
+            .filter {
+                val wkNum = it.index + 1
+                it.kind != Engine15IndependentVolumePlanner.WeekKind.RECOVERY && wkNum !in taperWeeks
+            }
             .mapIndexed { idx, wk -> (wk.index + 1) to idx }
             .toMap()
         val hardOrLongDates = sessions.filter { it.quality || it.kind == "long" }.map { it.date }.toSet()
 
-        // Pick up to one fresh easy day per eligible loading week for Easy Run + Strides.
-        val strideConfigBySessionId = HashMap<String, Int>()
+        // Pick up to one fresh easy day per eligible loading OR taper week for Easy Run + Strides.
+        val strideConfigBySessionId = HashMap<String, Pair<Int, Int>>() // sessionId -> (reps, recSec)
         for (weekNum in 1..request.weeks) {
-            if (weekNum in recoveryWeeks || weekNum in taperWeeks) continue
-            if ((request.experience == 0 || request.returning) && weekNum <= 2) continue
-            val loadingOrd = loadingOrdinalByWeek[weekNum] ?: continue
-            val includeStridesThisWeek = when (request.goal) {
-                "Half marathon", "Marathon" -> loadingOrd % 2 == 0
+            val phase = phasesByWeek[weekNum] ?: Engine15MacroPhase.BUILD
+            if (phase == Engine15MacroPhase.RECOVERY) continue
+            val isTaperWeek = phase == Engine15MacroPhase.TAPER
+            if (!isTaperWeek && (request.experience == 0 || request.returning) && weekNum <= 2) continue
+            val loadingOrd = loadingOrdinalByWeek[weekNum]
+            val includeStridesThisWeek = when {
+                isTaperWeek -> !request.returning
+                loadingOrd == null -> false
+                request.goal in setOf("Half marathon", "Marathon") -> loadingOrd % 2 == 0
                 else -> true
             }
             if (!includeStridesThisWeek) continue
             val weekStart = request.start.plusWeeks((weekNum - 1).toLong())
             val weekEnd = weekStart.plusWeeks(1)
+            val minMetersForStrides = if (isTaperWeek) 3200 else 4000
             val easyCandidates = sessions.filter { s ->
                 s.date >= weekStart && s.date < weekEnd &&
                     !s.quality && s.kind == "easy" &&
                     s.runningPrescription?.role == "EASY" &&
-                    s.distanceKm != null && kotlin.math.round(s.distanceKm * 1000.0).toInt() >= 4000
+                    s.distanceKm != null && kotlin.math.round(s.distanceKm * 1000.0).toInt() >= minMetersForStrides
             }
             if (easyCandidates.isEmpty()) continue
             val chosen = easyCandidates.filter { s ->
@@ -1011,12 +1031,13 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             }.maxByOrNull { it.distanceKm!! } ?: easyCandidates.maxByOrNull { it.distanceKm!! } ?: continue
             val totalM = kotlin.math.round(chosen.distanceKm!! * 1000.0).toInt()
             val reps = when {
+                isTaperWeek -> 4
                 request.experience == 0 || request.returning -> 4
                 request.experience == 1 -> 6
                 totalM >= 6000 -> 8
                 else -> 6
             }
-            val recSec = if (reps <= 6) 60 else 75
+            val recSec = if (isTaperWeek || reps > 6) 75 else 60
             val strideM = kotlin.math.round(20.0 * 1000.0 / zones.fastIntervals.midpointSecondsPerKm).toInt().coerceIn(40, 140)
             val recM = kotlin.math.round(recSec * 1000.0 / zones.recovery.midpointSecondsPerKm).toInt().coerceIn(50, 260)
             val blockM = reps * (strideM + recM)
@@ -1024,26 +1045,24 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             val estMainMin = kotlin.math.ceil(mainM * zones.easy.midpointSecondsPerKm / 60_000.0).toInt()
             val estStrideMin = (reps * (20 + recSec) + 59) / 60
             if (mainM >= 2000 && (!request.timeBudgetEnabled || estMainMin + estStrideMin <= request.minutes)) {
-                strideConfigBySessionId[chosen.id] = reps
+                strideConfigBySessionId[chosen.id] = reps to recSec
             }
         }
 
         return sessions.map { s ->
             if (s.quality || s.distanceKm == null) return@map s
             val weekNum = (ChronoUnit.DAYS.between(request.start, s.date).toInt() / 7) + 1
+            val weekPhase = phasesByWeek[weekNum] ?: Engine15MacroPhase.BUILD
             val totalMeters = kotlin.math.round(s.distanceKm * 1000.0).toInt().coerceAtLeast(100)
             val rxRole = s.runningPrescription?.role
 
             when {
                 s.kind == "long" -> {
                     val loadingOrd = loadingOrdinalByWeek[weekNum]
-                    val eligibleFastFinish = weekNum !in recoveryWeeks &&
-                        weekNum !in taperWeeks &&
+                    val eligibleFastFinish = (weekPhase == Engine15MacroPhase.BUILD || weekPhase == Engine15MacroPhase.PEAK) &&
                         !request.returning &&
                         loadingOrd != null &&
                         request.goal != "Aerobic foundation" &&
-                        weekNum >= 3 &&
-                        (request.experience >= 1 || weekNum >= 5) &&
                         totalMeters >= 10_000
                     if (eligibleFastFinish && request.goal == "Marathon" && weekNum >= 5 && loadingOrd!! % 2 == 1 && totalMeters >= 18_000) {
                         val finishRatio = (0.26 + 0.03 * ((weekNum - 5) / 2)).coerceIn(0.25, 0.38)
@@ -1136,8 +1155,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                     }
                 }
                 s.id in strideConfigBySessionId -> {
-                    val reps = strideConfigBySessionId.getValue(s.id)
-                    val recSec = if (reps <= 6) 60 else 75
+                    val (reps, recSec) = strideConfigBySessionId.getValue(s.id)
                     val strideM = kotlin.math.round(20.0 * 1000.0 / zones.fastIntervals.midpointSecondsPerKm).toInt().coerceIn(40, 140)
                     val recM = kotlin.math.round(recSec * 1000.0 / zones.recovery.midpointSecondsPerKm).toInt().coerceIn(50, 260)
                     val mainM = totalMeters - reps * (strideM + recM)
