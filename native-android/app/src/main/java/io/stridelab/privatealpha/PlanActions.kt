@@ -23,6 +23,11 @@ internal data class PlanActions(
     val pendingError:(String,String)->String?={_,_->null},
     val stageWorkoutDraft:(WorkoutEntryDraft)->Unit={},
     val saveRunResponse:(String,Int,String,Int?,String?,String?)->Unit={_,_,_,_,_,_->},
+    val confirmActivityMatch:(String,Int,String,String)->Unit={_,_,_,_->},
+    val rejectActivityMatch:(String,String)->Unit={_,_->},
+    val approveAdaptationProposal:(String,String)->Unit={_,_->},
+    val dismissAdaptationProposal:(String,String)->Unit={_,_->},
+    val revertLastAdaptation:(String)->Unit={},
     val previewWeek:(String,Engine15WeeklyReview.Input)->Engine15WeeklyReview.Review?={_,_->null},
     val acceptWeek:(Engine15WeeklyReview.Review)->Unit={},
     val saveResearchReview:(PlanRequest,IndependentAndroidPreviewConstraints)->Unit={_,_->}

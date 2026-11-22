@@ -29,12 +29,15 @@ Back to [[index]] · Related: [[ui-system]] · [[architecture]] · [[engine-rule
     2. `TodayTrainingOverviewCard` (`TodayOverviewCalculator.computeWeeklyOverview`) — verified `Run km`, `Run hours` (`h:mm`), `Runs`, active non-running pills (`Strength`, `Calisthenics`, `Conditioning`), and conditional `Adherence` (omitted when no approved plan or 0 weekly sessions; never counts unlinked bonus runs).
     3. `TodayRecentActivitiesSection` — Option 1 compact `#14181C` list (`See all` → `activities`), deduplicated across imported records and native confirmed logs, sorted descending (`limit = 5`), with `48×32 dp` `TodayCompactGpsThumbnail` when GPS samples are cached.
   - Preserves `TodaySignedOutHero` when signed out with no local history and `TodayCompactEmptyDay` (`< 110.dp`) on past empty no-plan dates; 6 `360.dp` `@Preview`s live in `TodayAdaptiveDashboard.kt`.
+  - Adds compact `.FIT` match confirmation cards on `All` and `Running`, plus the pending adaptation banner and review sheet on `All`; match and proposal actions go through `PlanActions`.
 - **Training (`StrideLabUnifiedTrainingTimeline.kt`):** Chronological planned + recorded activity timeline, draft approval dock (`TracksideParityDraftApprovalDock`), plan management (`TracksideManagePlan`), and weekly coach review (`TracksideWeekReview`, `Engine15CoachControls`).
+  - Shows `Coaching Diagnostics`, the pending adaptation diff sheet, pending activity matches, and a confirmation-gated `Undo Last Adaptation` action for the active plan.
 - **Workout Detail (`WorkoutScreen.kt`, `TracksidePlannedRunningPreview.kt`, `TracksideRunningStepCards.kt`):**
   - Uses `Engine15SessionPresentation.forSession(plan, session.id)` for active targets (`ORIGINAL`, `ACCEPTED_TIME_ONLY`, `ACCEPTED_REST`, `ACCEPTED_PROGRESSION`).
   - Planned runs render in a dedicated Material3 `Scaffold` (`#0A0C0E`) with `WorkoutDetailTopBar`, 3-column symmetric hero metrics (`Planned distance`, `Estimated duration`, `Avg Pace`), unified `WorkoutProfileAndDifficultyCard`, synced `WORKOUT STEPS` timeline (`selectedStepIndex` hoisted in `WorkoutScreen`), optional `Workout recommendations` accordion, and a sticky `START WORKOUT` CTA (`workout-log-toggle`) that toggles the actual-log recording form.
   - Non-running guided sessions launch `WorkoutPlayer` (with `ExerciseAlternatives` easier/harder swaps and rest timer).
   - Previews: `WorkoutDetailIntervalPreview` and `WorkoutDetailSteadyStatePreview` (`360×800 dp`) in `TracksidePlannedRunningPreview.kt`.
+  - Linked running executions show an `Execution Verdict` above the planned steps and expected-versus-observed step rows below; null HR/decoupling fields remain omitted.
 - **Activity Detail & Analytics:** MapLibre GPS route (`TracksideGeographicMap.kt`), moving-time pace/HR charts, manual plan-session linking (`ActivityPlanLink.kt`), and multi-run comparison (`ActivityRunComparisonScreen.kt`).
 
 ## Deprecated & Removed Elements (Do Not Reintroduce)

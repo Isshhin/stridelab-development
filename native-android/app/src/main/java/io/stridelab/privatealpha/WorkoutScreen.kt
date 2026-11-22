@@ -230,6 +230,10 @@ import kotlinx.coroutines.flow.drop
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                val executionAnalysis = state.executionAnalyses[session.id].takeIf {
+                    session.discipline == "run" && (session.linkedActivityId != null || session.status == "completed")
+                }
+                if (executionAnalysis != null) item { WorkoutExecutionVerdictCard(executionAnalysis) }
                 item {
                     TracksidePlannedRunningPreview(
                         session = session,
@@ -252,6 +256,7 @@ import kotlinx.coroutines.flow.drop
                         showInlineTopBar = false
                     )
                 }
+                if (executionAnalysis != null) item { ExecutionStepBreakdownCards(executionAnalysis) }
                 session.linkedActivityId?.let { activityId ->
                     item { LinkedSourceRunCard(activityId) }
                 }

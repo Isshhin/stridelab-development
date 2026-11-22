@@ -199,8 +199,11 @@ internal fun StrideLabTodayScreen(
     onOpenActivityDetail: (String) -> Unit,
     onOpenMore: () -> Unit,
     onSignIn: () -> Unit,
-    onLoadCachedDetail: (suspend (String) -> Boolean)? = null
+    onLoadCachedDetail: (suspend (String) -> Boolean)? = null,
+    actions: PlanActions = PlanActions()
 ) {
+    var reviewedProposal by rememberSaveable { mutableStateOf(false) }
+    val adaptationProposal = state.activeAdaptationProposal
     var selectedDay by rememberSaveable { mutableLongStateOf(LocalDate.now().toEpochDay()) }
     val date = LocalDate.ofEpochDay(selectedDay)
     val todayDate = LocalDate.now()
@@ -405,6 +408,21 @@ internal fun StrideLabTodayScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            if (selectedPage == "all" || selectedPage == TodayDiscipline.RUNNING.key) {
+                item(key = "pending-activity-matches") { PendingActivityMatchCards(state, actions) }
+            }
+            if (selectedPage == TodayDiscipline.RUNNING.key) {
+                item(key = "running-coaching-diagnostics") { AthleteDiagnosticsCard(state.activeAthleteDiagnostic) }
+                if (adaptationProposal?.type == AdaptationType.EASY_PACING_LOCK &&
+                    state.activeAthleteDiagnostic?.recalibrationAdvisory != RecalibrationAdvisory.ADDRESS_EASY_PACING_FIRST) {
+                    item(key = "running-easy-pacing-lock") { EasyPacingLockBanner() }
+                }
+            }
+            if (selectedPage == "all") {
+                item(key = "today-adaptation-proposal") {
+                    AdaptationProposalBanner(adaptationProposal, onReview = { reviewedProposal = true })
+                }
+            }
             if (selectedPage == "all") {
                 item(key = "today-calendar") {
                     TodayWeekCalendar(
@@ -662,6 +680,15 @@ internal fun StrideLabTodayScreen(
                     onSelect = { chosenPage = it }
                 )
             }
+        }
+        if (reviewedProposal && adaptationProposal != null) {
+            AdaptationProposalSheet(
+                proposal = adaptationProposal,
+                busy = state.busy,
+                onDismiss = { reviewedProposal = false },
+                onApply = actions.approveAdaptationProposal,
+                onDismissProposal = actions.dismissAdaptationProposal
+            )
         }
     }
 }
