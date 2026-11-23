@@ -28,6 +28,7 @@ internal fun WorkoutTemplateLibrary(
     back: () -> Unit,
     create: (ManualDiscipline) -> Unit,
     edit: (String) -> Unit,
+    schedule: (String) -> Unit,
     added: (ManualWorkoutTemplate) -> Unit,
     deleted: (String) -> Unit,
     started: (FreeformWorkout) -> Unit
@@ -91,6 +92,7 @@ internal fun WorkoutTemplateLibrary(
             }
             items(visible, key = { it.id }) { template ->
                 TemplateRow(template, enabled = !busy, edit = { edit(template.id) },
+                    schedule = { schedule(template.id) },
                     start = {
                         perform("Could not start the workout.", {
                             access.start(template.startWorkout(LocalDate.now(), System.currentTimeMillis()))
@@ -134,7 +136,7 @@ internal fun WorkoutTemplateLibrary(
 @Composable
 private fun TemplateRow(
     template: ManualWorkoutTemplate, enabled: Boolean, edit: () -> Unit, start: () -> Unit,
-    duplicate: () -> Unit, delete: () -> Unit
+    duplicate: () -> Unit, delete: () -> Unit, schedule: () -> Unit
 ) {
     var options by remember { mutableStateOf(false) }
     FreeformPanel(Modifier.testTag("workout-template-row")) {
@@ -155,8 +157,15 @@ private fun TemplateRow(
                 }
             }
         }
-        TextButton(onClick = start, enabled = enabled, modifier = Modifier.testTag("workout-template-start")) {
-            Text("Start workout", color = if (enabled) freeformPalette.lime else freeformPalette.muted)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton(onClick = start, enabled = enabled,
+                modifier = Modifier.weight(1f).testTag("workout-template-start")) {
+                Text("Start workout", color = if (enabled) freeformPalette.lime else freeformPalette.muted)
+            }
+            TextButton(onClick = schedule, enabled = enabled,
+                modifier = Modifier.weight(1f).testTag("workout-template-schedule")) {
+                Text("Schedule", color = freeformPalette.secondary)
+            }
         }
     }
 }

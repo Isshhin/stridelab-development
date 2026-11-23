@@ -83,7 +83,7 @@ class FreeformStorageAndroidTest {
         ManualDisciplineStore(context, database).use { store ->
             assertEquals(listOf(legacy), store.list(owner))
             assertEquals(listOf(template), store.listTemplates(owner))
-            assertEquals(3, store.readableDatabase.version)
+            assertEquals(4, store.readableDatabase.version)
             val draft = store.createFreeformDraft(FreeformWorkout.start(owner, ManualDiscipline.STRENGTH, date, 100))
             assertTrue(store.discardFreeform(owner, draft.id))
             assertTrue(runCatching { store.saveFreeformDraft(strength(draft)) }.isFailure)
@@ -115,6 +115,11 @@ class FreeformStorageAndroidTest {
             assertTrue(runCatching { access.read(guest) }.isFailure)
             assertTrue(runCatching { access.save(guestDraft) }.isFailure)
             val before = protectedRows()
+            val series = CustomSchedule.create(ManualWorkoutTemplate.empty(owner, ManualDiscipline.STRENGTH),
+                ScheduleRule(date, weekly = true), 100)
+            access.saveSchedule(series)
+            assertEquals(date, plan.sessions.single().date)
+            assertEquals(date, access.read(owner).customBetween(date, date).single().date)
             val logged = access.start(FreeformWorkout.start(owner, ManualDiscipline.STRENGTH, date, 200))
             assertTrue(access.finish(strength(logged)).isComplete)
             val backup = access.export(owner)
@@ -126,6 +131,9 @@ class FreeformStorageAndroidTest {
             gateway.account = other
             assertTrue(repo.signIn("other@example.invalid", "fixture"))
             assertTrue(access.read(other).workouts.isEmpty())
+            assertTrue(access.read(other).schedules.isEmpty())
+            assertTrue(runCatching { access.saveSchedule(series) }.isFailure)
+            assertTrue(runCatching { access.startCustom(owner, CustomOccurrenceKey(series.id, date), date) }.isFailure)
             assertTrue(runCatching { access.read(owner) }.isFailure)
             assertTrue(runCatching { access.restore(other, backup) }.isFailure)
             gateway.account = owner
@@ -177,6 +185,42 @@ class FreeformStorageAndroidTest {
             assertEquals(0, restored.restore(owner, archive))
             assertEquals(listOf(newName), restored.listTemplates(owner))
             assertEquals(completed, restored.listFreeform(owner).single())
+        }
+    }
+
+    @Test fun customSchedulesKeepMovedAndFinishedOccurrencesAcrossArchiveRestore() = runBlocking {
+        val run = ManualWorkoutTemplate.empty(owner, ManualDiscipline.RUNNING).copy(name = "Custom run")
+        val strength = ManualWorkoutTemplate.empty(owner, ManualDiscipline.STRENGTH).copy(name = "Custom lift")
+        val recurring = CustomSchedule.create(run, ScheduleRule(date, weekly = true), 100)
+        val single = CustomSchedule.create(strength, ScheduleRule(date), 100)
+        val key = CustomOccurrenceKey(recurring.id, date)
+        val nextKey = CustomOccurrenceKey(recurring.id, date.plusWeeks(1))
+        val movedDate = date.plusDays(1)
+        val archive = ManualDisciplineStore(context, database).use { store ->
+            store.saveSchedule(recurring)
+            store.saveSchedule(single)
+            assertEquals(2, store.listSchedules(owner).flatMap { it.between(date, date) }.size)
+            assertTrue(store.listSchedules(other).isEmpty())
+            val moved = store.changeSchedule(owner, key, CustomScheduleEdit.One(movedDate, recurring.modifiedAt), 110)
+            val draft = store.startCustom(owner, key, date, 120)
+            assertEquals(draft, store.startCustom(owner, key, date, 121))
+            val done = store.completeFreeform(draft.copy(modifiedAt = 122, distanceKm = "3", durationMinutes = "18"), 123)
+            assertEquals(done, store.startCustom(owner, key, date, 124))
+            assertTrue(runCatching { store.changeSchedule(owner, key, CustomScheduleEdit.One(null, moved.modifiedAt), 125) }.isFailure)
+            store.changeSchedule(owner, nextKey, CustomScheduleEdit.Future(null, moved.modifiedAt), 126)
+            store.export(owner)
+        }
+        ManualDisciplineStore(context, "$name-restore.db").use { restored ->
+            assertTrue(runCatching { restored.restore(other, archive) }.isFailure)
+            assertEquals(3, restored.restore(owner, archive))
+            assertEquals(0, restored.restore(owner, archive))
+            val schedules = restored.listSchedules(owner)
+            val workouts = restored.listFreeform(owner)
+            assertEquals(2, schedules.size)
+            assertEquals(key.workoutId, workouts.single().id)
+            assertEquals(movedDate, workouts.single().custom?.date)
+            val board = FreeformBoard(workouts = workouts, schedules = schedules)
+            assertEquals(listOf(single.id), board.customBetween(date, date.plusWeeks(5)).map { it.key.seriesId })
         }
     }
 

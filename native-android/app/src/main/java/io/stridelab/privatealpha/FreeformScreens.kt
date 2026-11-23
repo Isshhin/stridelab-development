@@ -217,7 +217,7 @@ internal fun FreeformHub(
                 val count = board?.templates?.size ?: 0
                 if (board != null) FreeformTile(
                     title = "Workout templates",
-                    supporting = if (count == 0) "Create a routine you can reuse" else "$count saved",
+                    supporting = if (count == 0) "Create a routine to start or schedule" else "$count saved · Start or schedule",
                     color = freeformPalette.secondary,
                     modifier = Modifier.testTag("freeform-open-templates"),
                     onClick = openTemplates
@@ -271,10 +271,10 @@ internal fun FreeformTile(
 @Composable
 internal fun FreeformHistoryDetail(
     workout: FreeformWorkout?, legacy: ManualDisciplineSession?, loading: Boolean,
-    onSaveAsTemplate: (() -> Unit)? = null, back: () -> Unit
+    onSaveAsTemplate: (() -> Unit)? = null, onRepeatWorkout: (() -> Unit)? = null, back: () -> Unit
 ) {
     val title = workout?.title ?: legacy?.title ?: "Workout"
-    val subtitle = workout?.let { "${it.discipline.label} · Freeform · ${it.performedOn}" }
+    val subtitle = workout?.let { "${it.discipline.label} · ${it.sourceLabel} · ${it.performedOn}" }
         ?: legacy?.let { "${it.discipline.label} · Manual · ${it.performedOn}" }
     FreeformPage(title, subtitle, back) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp),
@@ -284,6 +284,9 @@ internal fun FreeformHistoryDetail(
                     FreeformPanel {
                         Text(workout.summary(), color = freeformPalette.ink, style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.testTag("freeform-history-summary"))
+                        workout.custom?.let { binding ->
+                            Text("Scheduled ${customDateLabel(binding.date)}", color = freeformPalette.secondary)
+                        }
                         if (workout.effort.isNotBlank()) Text("Workout effort ${workout.effort}/10", color = freeformPalette.secondary)
                         if (workout.notes.isNotBlank()) Text(workout.notes, color = freeformPalette.secondary)
                     }
@@ -292,6 +295,11 @@ internal fun FreeformHistoryDetail(
                     OutlinedButton(onClick = onSaveAsTemplate,
                         modifier = Modifier.fillMaxWidth().testTag("freeform-save-as-template"),
                         shape = RoundedCornerShape(12.dp)) { Text("Save as template", color = freeformPalette.lime) }
+                }
+                if (onRepeatWorkout != null && workout.custom != null) item {
+                    OutlinedButton(onClick = onRepeatWorkout,
+                        modifier = Modifier.fillMaxWidth().testTag("custom-repeat-workout"),
+                        shape = RoundedCornerShape(12.dp)) { Text("Repeat workout", color = freeformPalette.lime) }
                 }
                 items(workout.exercises.filter { exercise -> exercise.sets.any { it.completed } }, key = { it.id }) { exercise ->
                     FreeformPanel {

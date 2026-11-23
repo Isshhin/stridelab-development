@@ -34,9 +34,12 @@ NativeMainActivity NavHost ──► Jetpack Compose Screens
 
 - `ManualDisciplineStore` migration 3 adds an owner-keyed Freeform table. Draft edits retain partial input. Completion validates actuals, stores one immutable record under the draft ID, and returns that record on retry.
 - Freeform uses the active StrideLab profile ID or the persistent signed-out plan identity. Repository checks serialize access with profile switches. Training reads completed records as their own source. Freeform writes go to the manual store.
-- Manual archive schema 4 supports detailed templates and template-linked Freeform drafts and completions. Schemas 1–3 remain readable. Restore uses a single transaction and rejects conflicting completed records.
+- Manual archive schema 5 supports custom series, occurrence overrides, and scheduled execution. Schemas 1–4 remain readable. Restore uses a single transaction and rejects conflicting completed records.
 
 - Detailed templates reuse the owner-keyed manual template table. Starting a template snapshots its structure and targets with a template reference and blank actuals. Editing or deleting the template leaves existing workout records intact.
+
+- Manual database version 4 adds owner-keyed custom schedules. A schedule snapshots its template and stores recurrence windows and single-date overrides. The series ID and original occurrence date determine the execution ID, including after a move.
+- Custom execution uses the Freeform store with its own source and scheduled date. The calendar projects unstarted occurrences within bounded windows and uses the stored draft or completion once started.
 
 ## 2. Garmin & FIT Ingestion
 - **Today cold start:** The owner-scoped plan query resolves the training card while scalar activity summaries and session restoration run on IO. The feed publishes cloud and local Garmin summaries together in newest-first order. Secondary caches hydrate separately. Perfetto sections identify the plan query, summary load, secondary caches and individual thumbnail reads.

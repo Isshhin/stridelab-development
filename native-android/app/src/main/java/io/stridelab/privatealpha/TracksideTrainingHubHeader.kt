@@ -47,6 +47,8 @@ internal fun TracksideTrainingHubHeader(
     selectedDate: LocalDate,
     agenda: Boolean,
     recordedDates: Set<LocalDate> = emptySet(),
+    customPlanned: Map<LocalDate, Int> = emptyMap(),
+    customCalendar: Boolean = false,
     onAgenda: (Boolean) -> Unit,
     onSelectedDate: (LocalDate) -> Unit,
     onPlanSelected: (String?) -> Unit,
@@ -227,6 +229,8 @@ internal fun TracksideTrainingHubHeader(
                 recordedDates = recordedDates,
                 weekScopeSelected = agenda,
                 onToggleWeekScope = { onAgenda(!agenda) },
+                customPlanned = customPlanned,
+                customCalendar = customCalendar,
                 onSelect = onSelectedDate
             )
         }

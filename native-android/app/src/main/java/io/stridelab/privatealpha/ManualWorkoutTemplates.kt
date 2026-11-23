@@ -161,10 +161,11 @@ internal object ManualWorkoutTemplateCodec {
 internal data class ManualDisciplineArchiveData(
     val sessions: List<ManualDisciplineSession>,
     val templates: List<ManualWorkoutTemplate>,
-    val freeform: List<FreeformWorkout> = emptyList()
+    val freeform: List<FreeformWorkout> = emptyList(),
+    val schedules: List<CustomSchedule> = emptyList()
 )
 
-/** Schema 4 carries detailed routines alongside the legacy template and workout formats. */
+/** Schema 5 carries scheduled series and custom execution links alongside earlier manual data. */
 internal object ManualDisciplineArchive {
     const val MAX_FILE_BYTES = 32_000_000
     private const val MAX_BODY_CHARS = 8_000_000
@@ -177,7 +178,8 @@ internal object ManualDisciplineArchive {
 
     fun export(owner: String, sessions: List<ManualDisciplineSession>,
         templates: List<ManualWorkoutTemplate>,
-        freeform: List<FreeformWorkout> = emptyList()
+        freeform: List<FreeformWorkout> = emptyList(),
+        schedules: List<CustomSchedule> = emptyList()
     ): String {
         RecordPolicy.identifier(owner)
         require(sessions.size <= 2000 && templates.size <= 100)
@@ -186,7 +188,10 @@ internal object ManualDisciplineArchive {
         require(templates.map { it.id }.distinct().size == templates.size)
         require(freeform.size <= MAX_FREEFORM_RECORDS && freeform.all { it.owner == owner })
         require(freeform.distinctBy { it.id }.size == freeform.size)
+        require(schedules.size <= 2000 && schedules.all { it.owner == owner })
+        require(schedules.distinctBy(CustomSchedule::id).size == schedules.size)
         val schema = when {
+            schedules.isNotEmpty() || freeform.any { it.custom != null } -> 5
             templates.any { it.recipe != null } || freeform.any { it.templateId != null } -> 4
             freeform.isNotEmpty() -> 3
             else -> 2
@@ -198,6 +203,9 @@ internal object ManualDisciplineArchive {
             .apply {
                 if (schema >= 3) {
                     put("freeform", JSONArray(freeform.map { JSONObject(FreeformCodec.encode(it)) }))
+                }
+                if (schema >= 5) {
+                    put("schedules", JSONArray(schedules.map { JSONObject(CustomScheduleCodec.encode(it)) }))
                 }
             }.toString()
         require(body.length <= MAX_BODY_CHARS) { "The workout archive exceeds the supported size." }
@@ -217,7 +225,7 @@ internal object ManualDisciplineArchive {
             ManualDisciplineBackup.import(raw,owner), emptyList()
         )
         val schema = json.getInt("schema")
-        require(schema in 2..4)
+        require(schema in 2..5)
         val sessions = json.getJSONArray("records")
         val templates = json.getJSONArray("templates")
         require(sessions.length() <= 2000 && templates.length() <= 100)
@@ -229,7 +237,7 @@ internal object ManualDisciplineArchive {
         }
         require(saved.map { it.id }.distinct().size == saved.size)
         require(forms.map { it.id }.distinct().size == forms.size)
-        require(schema == 4 || forms.none { it.recipe != null })
+        require(schema >= 4 || forms.none { it.recipe != null })
         val freeform = if (schema >= 3) {
             val rows = json.getJSONArray("freeform")
             require(rows.length() <= MAX_FREEFORM_RECORDS)
@@ -239,6 +247,14 @@ internal object ManualDisciplineArchive {
         } else {
             emptyList()
         }
-        return ManualDisciplineArchiveData(saved, forms, freeform)
+        require(schema >= 5 || freeform.none { it.custom != null })
+        val schedules = if (schema >= 5) {
+            val rows = json.getJSONArray("schedules")
+            require(rows.length() <= 2000)
+            List(rows.length()) { index ->
+                CustomScheduleCodec.decode(rows.getJSONObject(index).toString(), owner)
+            }.also { require(it.distinctBy(CustomSchedule::id).size == it.size) }
+        } else emptyList()
+        return ManualDisciplineArchiveData(saved, forms, freeform, schedules)
     }
 }

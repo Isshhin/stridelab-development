@@ -33,6 +33,8 @@ Defined across `StrideTheme` (`NativeMainActivity.kt`), `WorkoutDetailPalette` (
 - The Training workout hub uses the AMOLED palette and one primary empty-workout action. Drafts and the routine library have distinct rows. Workout backup is a secondary action.
 - Most disciplines use compact actual-entry rows with a shared metric header. Calisthenics retains extra room for hold, rep, and load inputs. Previous confirmed work and template targets have separate labels. Save draft and Finish workout share a single footer.
 
+- The scheduling screen uses the same cards and footer as the logger. Calendar dots indicate scheduled or logged work, and source labels distinguish entries in the selected day. Coached chart totals use coached prescriptions.
+
 ## Shared Components
 - **Today P0 Components (`TodayAdaptiveDashboard.kt`, `StrideLabTodayScreen.kt`):**
   - `TodayWeekCalendar`: Non-color-dependent state markers (solid lime dot = completed activity; outlined `1.2.dp` ring = scheduled/pending workout).

@@ -36,6 +36,12 @@ class FreeformProcessRestartTest {
                     FreeformExercise(name = "Wall sit", sets = listOf(FreeformSet(actual = FreeformMeasure(seconds = "4."))))
                 ))
             access.save(partial)
+            val first = LocalDate.of(2026, 11, 23)
+            val series = CustomSchedule.create(ManualWorkoutTemplate.empty(owner, ManualDiscipline.RUNNING),
+                ScheduleRule(first, weekly = true), 103)
+            access.saveSchedule(series)
+            access.changeSchedule(owner, CustomOccurrenceKey(series.id, first),
+                CustomScheduleEdit.One(first.plusDays(1), series.modifiedAt))
             check(evidence.edit().putInt("pid", Process.myPid()).putString("owner", owner)
                 .putString("emptyId", empty.id).putString("partialId", partial.id).commit())
         } finally {
@@ -53,7 +59,13 @@ class FreeformProcessRestartTest {
             val owner = requireNotNull(repo.state.value.localPlanOwner)
             assertEquals(evidence.getString("owner", null), owner)
             val access = repo.freeformAccess()
-            val drafts = access.read(owner).workouts
+            val board = access.read(owner)
+            val drafts = board.workouts
+            val first = LocalDate.of(2026, 11, 23)
+            val series = board.schedules.single()
+            val moved = board.customBetween(first, first.plusDays(8)).first()
+            assertEquals(first.plusDays(1), moved.date)
+            assertEquals(CustomOccurrenceKey(series.id, first).workoutId, moved.key.workoutId)
             assertEquals(2, drafts.size)
             val empty = drafts.single { it.id == evidence.getString("emptyId", null) }
             assertTrue(empty.distanceKm.isEmpty() && !empty.isComplete)

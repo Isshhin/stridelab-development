@@ -114,7 +114,7 @@ internal fun TracksideTrainingWeekChart(
     onToggleWeekScope: (() -> Unit)? = null,
     onSelect: (LocalDate) -> Unit
 ) = TracksideTrainingWeekChart(listOf(plan), selected, showNavigation, recordedDates,
-    weekScopeSelected, onToggleWeekScope, onSelect)
+    weekScopeSelected, onToggleWeekScope, onSelect = onSelect)
 
 @Composable
 internal fun TracksideTrainingWeekChart(
@@ -124,6 +124,8 @@ internal fun TracksideTrainingWeekChart(
     recordedDates: Set<LocalDate> = emptySet(),
     weekScopeSelected: Boolean = false,
     onToggleWeekScope: (() -> Unit)? = null,
+    customPlanned: Map<LocalDate, Int> = emptyMap(),
+    customCalendar: Boolean = false,
     onSelect: (LocalDate) -> Unit
 ) {
     val first = plans.minOf { it.request.start }
@@ -131,6 +133,10 @@ internal fun TracksideTrainingWeekChart(
     val firstMonday = tracksideCalendarMonday(first)
     val weekStart = tracksideCalendarMonday(selected)
     val lastMonday = tracksideCalendarMonday(last)
+    val firstDate = if (customCalendar) minOf(first, customDateRange.start) else first
+    val lastDate = if (customCalendar) maxOf(last, customDateRange.endInclusive) else last
+    val canGoBack = weekStart > tracksideCalendarMonday(firstDate)
+    val canGoForward = weekStart < tracksideCalendarMonday(lastDate)
     val weekIndex = ChronoUnit.WEEKS.between(firstMonday, weekStart).toInt() + 1
     val totalWeeks = ChronoUnit.WEEKS.between(firstMonday, lastMonday).toInt() + 1
     val days = tracksideTrainingWeek(plans, selected)
@@ -163,6 +169,17 @@ internal fun TracksideTrainingWeekChart(
     val completedInWeek = days.count { day ->
         day.date in recordedDates || day.sessions.any { it.status == "completed" }
     }
+    val customCount = days.sumOf { customPlanned[it.date] ?: 0 }
+    val hasCoachedWeek = days.any { it.sessions.isNotEmpty() }
+    val totalLabel = when {
+        customCalendar && !hasCoachedWeek -> when (customCount) {
+            0 -> "No workouts this week"
+            1 -> "1 custom workout"
+            else -> "$customCount custom workouts"
+        }
+        distanceView -> String.format(Locale.US, "%.1f km %s", totalKm, if (customCalendar) "coached" else "planned")
+        else -> "${total / 60}h ${total % 60}m ${if (customCalendar) "coached" else "planned"}"
+    }
 
     Column(
         Modifier
@@ -184,8 +201,7 @@ internal fun TracksideTrainingWeekChart(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    if (distanceView) String.format(Locale.US, "%.1f km planned", totalKm)
-                    else "${total / 60}h ${total % 60}m planned",
+                    totalLabel,
                     fontSize = 16.sp,
                     color = StrideLabVisualPalette.ink,
                     fontWeight = FontWeight.ExtraBold
@@ -280,15 +296,15 @@ internal fun TracksideTrainingWeekChart(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 TextButton(
-                    onClick = { onSelect(maxOf(first, weekStart.minusWeeks(1))) },
-                    enabled = weekStart > firstMonday,
+                    onClick = { onSelect(maxOf(firstDate, weekStart.minusWeeks(1))) },
+                    enabled = canGoBack,
                     modifier = Modifier.testTag("training-prev-week")
                 ) {
                     Text(
                         "‹",
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (weekStart > firstMonday) StrideLabVisualPalette.lime else StrideLabVisualPalette.muted
+                        color = if (canGoBack) StrideLabVisualPalette.lime else StrideLabVisualPalette.muted
                     )
                 }
                 val end = weekStart.plusDays(6)
@@ -318,7 +334,8 @@ internal fun TracksideTrainingWeekChart(
                             color = if (weekScopeSelected) StrideLabVisualPalette.lime else StrideLabVisualPalette.ink
                         )
                         Text(
-                            "Week $weekIndex of $totalWeeks" + if (onToggleWeekScope != null) {
+                            (if (weekStart in firstMonday..lastMonday) "Week $weekIndex of $totalWeeks" else "Custom calendar") +
+                                if (onToggleWeekScope != null) {
                                 if (weekScopeSelected) " · Showing full week" else " · Tap for full week"
                             } else "",
                             fontSize = 10.5.sp,
@@ -328,15 +345,15 @@ internal fun TracksideTrainingWeekChart(
                 }
 
                 TextButton(
-                    onClick = { onSelect(minOf(last, weekStart.plusWeeks(1))) },
-                    enabled = weekStart < lastMonday,
+                    onClick = { onSelect(minOf(lastDate, weekStart.plusWeeks(1))) },
+                    enabled = canGoForward,
                     modifier = Modifier.testTag("training-next-week")
                 ) {
                     Text(
                         "›",
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (weekStart < lastMonday) StrideLabVisualPalette.lime else StrideLabVisualPalette.muted
+                        color = if (canGoForward) StrideLabVisualPalette.lime else StrideLabVisualPalette.muted
                     )
                 }
             }
@@ -349,7 +366,7 @@ internal fun TracksideTrainingWeekChart(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "${days.sumOf { it.sessions.size }} planned · $completedInWeek logged",
+                "${days.sumOf { it.sessions.size + (customPlanned[it.date] ?: 0) }} planned · $completedInWeek logged",
                 color = StrideLabVisualPalette.secondary,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium
@@ -379,12 +396,13 @@ internal fun TracksideTrainingWeekChart(
 
             Row(rowModifier, horizontalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 4.dp)) {
                 days.forEachIndexed { index, day ->
-                    val enabled = day.date in first..last
+                    val enabled = day.date in firstDate..lastDate
                     val active = day.date == selected && !weekScopeSelected
                     val barAccent = dayBarAccent(day.sessions)
                     val hasLogged = day.date in recordedDates || day.sessions.any { it.status == "completed" }
-                    val hasPlanned = day.sessions.isNotEmpty()
-                    val description = "${day.date}: ${day.sessions.size} planned sessions, ${day.plannedMinutes} planned minutes"
+                    val customCount = customPlanned[day.date] ?: 0
+                    val hasPlanned = day.sessions.isNotEmpty() || customCount > 0
+                    val description = "${day.date}: ${day.sessions.size + customCount} planned sessions, ${day.plannedMinutes} coached minutes"
 
                     Surface(
                         onClick = { onSelect(day.date) },

@@ -2,6 +2,7 @@ package io.stridelab.privatealpha
 
 import android.content.Intent
 import android.os.Bundle
+import java.time.LocalDate
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.EnterTransition
@@ -191,6 +192,7 @@ private fun NavHostController.openActivity(id: String) {
     var freeformBoard by remember(freeformOwner, state.loginGeneration) { mutableStateOf<FreeformBoard?>(null) }
     var freeformReadError by remember(freeformOwner, state.loginGeneration) { mutableStateOf<String?>(null) }
     var freeformReload by remember(freeformOwner, state.loginGeneration) { mutableStateOf(0) }
+    var customCalendarFocus by remember(freeformOwner, state.loginGeneration) { mutableStateOf<LocalDate?>(null) }
     LaunchedEffect(freeformOwner, state.loginGeneration, freeformAccess, freeformReload) {
         if (freeformOwner != null && freeformAccess != null) {
             freeformReadError = null
@@ -201,6 +203,19 @@ private fun NavHostController.openActivity(id: String) {
     val openFreeform: (() -> Unit)? = if (freeformOwner != null && freeformAccess != null) {
         { nav.navigate("freeform/add") { launchSingleTop = true } }
     } else null
+    val openCustomWorkout: (CustomOccurrenceKey) -> Unit = { key ->
+        nav.navigate("freeform/custom/${android.net.Uri.encode(key.seriesId)}/${key.anchor}") { launchSingleTop = true }
+    }
+    fun openTrainingDate(date: LocalDate) {
+        customCalendarFocus = date
+        if (!nav.popBackStack("training", inclusive = false)) nav.openTabRoot("training")
+    }
+    fun plannerNote(discipline: ManualDiscipline, date: LocalDate, excluded: CustomOccurrenceKey? = null): String? {
+        val coached = state.plans.filter { it.owner == freeformOwner && it.status == "approved" }
+            .flatMap { it.sessions }
+        return customAdvisory(discipline, date, coached,
+            freeformBoard?.customBetween(date, date).orEmpty().filter { it.key != excluded })
+    }
     val openFreeformHistory: (String, Boolean) -> Unit = { id, legacy ->
         val kind = if (legacy) "legacy" else "freeform"
         nav.navigate("freeform/history/$kind/${android.net.Uri.encode(id)}") { launchSingleTop = true }
@@ -424,6 +439,7 @@ private fun NavHostController.openActivity(id: String) {
                                 back = { nav.popBackStack() },
                                 create = { nav.navigate("freeform/template/new/${it.name}") },
                                 edit = { nav.navigate("freeform/template/edit/${android.net.Uri.encode(it)}") },
+                                schedule = { nav.navigate("freeform/schedule/template/${android.net.Uri.encode(it)}") },
                                 added = { template ->
                                     freeformBoard = freeformBoard?.withTemplate(template)
                                 },
@@ -475,6 +491,79 @@ private fun NavHostController.openActivity(id: String) {
                         }
                     }
                 }
+                composable("freeform/schedule/{origin}/{id}") { destination ->
+                    val id = destination.arguments?.getString("id")
+                    val fromHistory = destination.arguments?.getString("origin") == "history"
+                    val board = freeformBoard
+                    if (freeformOwner != null && freeformAccess != null) {
+                        key(freeformOwner, state.loginGeneration, fromHistory, id) {
+                            val template = if (fromHistory) {
+                                val workout = board?.workouts?.firstOrNull { it.id == id && it.isComplete }
+                                remember(workout) {
+                                    workout?.let {
+                                        val copy = ManualWorkoutTemplate.fromWorkout(it)
+                                        if (it.templateId != null) copy.copy(id = it.templateId) else copy
+                                    }
+                                }
+                            } else board?.templates?.firstOrNull { it.id == id }
+                            if (template != null) {
+                                val initial = remember(template.id, fromHistory) {
+                                    ScheduleRule(LocalDate.now().plusDays(if (fromHistory) 1 else 0))
+                                }
+                                ScheduleRuleScreen(
+                                    if (fromHistory) "Repeat workout" else "Schedule workout", template, initial,
+                                    allowRepeat = true, advisory = { plannerNote(template.discipline, it) },
+                                    back = { nav.popBackStack() },
+                                    persist = { rule ->
+                                        val schedule = CustomSchedule.create(template, rule, System.currentTimeMillis())
+                                        freeformAccess.saveSchedule(schedule)
+                                        freeformBoard = freeformBoard?.withSchedule(schedule)
+                                    }, saved = ::openTrainingDate
+                                )
+                            } else {
+                                FreeformHistoryDetail(null, null, board == null && freeformReadError == null) {
+                                    nav.popBackStack()
+                                }
+                            }
+                        }
+                    }
+                }
+                composable("freeform/custom/{series}/{anchor}") { destination ->
+                    val series = destination.arguments?.getString("series")
+                    val anchor = destination.arguments?.getString("anchor")?.let {
+                        runCatching { LocalDate.parse(it) }.getOrNull()
+                    }
+                    if (series != null && anchor != null && freeformOwner != null && freeformAccess != null) {
+                        key(freeformOwner, state.loginGeneration, series, anchor) {
+                            val key = CustomOccurrenceKey(series, anchor)
+                            val schedule = freeformBoard?.schedules?.firstOrNull { it.id == series && it.owner == freeformOwner }
+                            val linked = freeformBoard?.workouts?.firstOrNull { it.custom?.key == key && it.owner == freeformOwner }
+                            val occurrence = schedule?.resolve(key)
+                            val item = if (linked != null && !linked.isComplete) {
+                                CustomCalendarItem(key, requireNotNull(linked.custom).date, linked.title, linked.discipline, true)
+                            } else if (linked == null && occurrence != null) {
+                                CustomCalendarItem(key, occurrence.date, occurrence.template.name, occurrence.template.discipline)
+                            } else null
+                            if (item != null) {
+                                CustomOccurrenceScreen(
+                                    freeformOwner, item, schedule, freeformAccess,
+                                    advisory = { plannerNote(item.discipline, it, key) },
+                                    back = { nav.popBackStack() },
+                                    returnToDate = ::openTrainingDate,
+                                    changed = { freeformBoard = freeformBoard?.withSchedule(it) },
+                                    openWorkout = { workout ->
+                                        freeformBoard = freeformBoard?.updated(workout)
+                                        if (workout.isComplete) openFreeformHistory(workout.id, false)
+                                        else nav.navigate("freeform/edit/${android.net.Uri.encode(workout.id)}") { launchSingleTop = true }
+                                    }
+                                )
+                            } else {
+                                FreeformHistoryDetail(linked?.takeIf { it.isComplete }, null,
+                                    freeformBoard == null && freeformReadError == null) { nav.popBackStack() }
+                            }
+                        }
+                    }
+                }
                 composable("freeform/edit/{id}") { destination ->
                     val id = destination.arguments?.getString("id")
                     val board = freeformBoard
@@ -507,6 +596,9 @@ private fun NavHostController.openActivity(id: String) {
                         loading = freeformBoard == null && freeformReadError == null,
                         onSaveAsTemplate = if (!legacy && id != null && freeformAccess != null) {
                             { nav.navigate("freeform/template/from/${android.net.Uri.encode(id)}") }
+                        } else null,
+                        onRepeatWorkout = if (!legacy && id != null && freeformAccess != null) {
+                            { nav.navigate("freeform/schedule/history/${android.net.Uri.encode(id)}") }
                         } else null,
                         back = { nav.popBackStack() }
                     )
@@ -759,7 +851,9 @@ private fun NavHostController.openActivity(id: String) {
                             { p, session -> nav.openWorkout(p, session) },
                             { id -> nav.openActivity(id) },
                             { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") },
-                            manualBoard = freeformBoard, onAddWorkout = openFreeform, onOpenManual = openFreeformHistory
+                            manualBoard = freeformBoard, onAddWorkout = openFreeform, onOpenManual = openFreeformHistory,
+                            onOpenCustom = openCustomWorkout, calendarFocus = customCalendarFocus,
+                            clearCalendarFocus = { customCalendarFocus = null }
                         )
                     }
                     PersistentTabSurface(active = visibleRoot == "settings") {
@@ -806,7 +900,9 @@ private fun NavHostController.openActivity(id: String) {
                         { p, session -> nav.openWorkout(p, session) },
                         { id -> nav.openActivity(id) },
                         { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") },
-                        manualBoard = freeformBoard, onAddWorkout = openFreeform, onOpenManual = openFreeformHistory
+                        manualBoard = freeformBoard, onAddWorkout = openFreeform, onOpenManual = openFreeformHistory,
+                        onOpenCustom = openCustomWorkout, calendarFocus = customCalendarFocus,
+                        clearCalendarFocus = { customCalendarFocus = null }
                     )
                 }
                 PersistentTabSurface(active = visibleRoot == "settings") {

@@ -2118,7 +2118,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
 
     internal fun freeformAccess() = FreeformAccess(
         read = { owner -> withFreeformOwner(owner) {
-            FreeformBoard(manualStore.listFreeform(owner), manualStore.list(owner), manualStore.listTemplates(owner))
+            FreeformBoard(manualStore.listFreeform(owner), manualStore.list(owner), manualStore.listTemplates(owner),
+                manualStore.listSchedules(owner))
         } },
         start = { draft -> withFreeformOwner(draft.owner) { manualStore.createFreeformDraft(draft) } },
         save = { draft -> withFreeformOwner(draft.owner) { manualStore.saveFreeformDraft(draft) } },
@@ -2131,7 +2132,14 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         saveTemplate = { template, previous -> withFreeformOwner(template.owner) {
             if (previous == null) manualStore.saveTemplate(template) else manualStore.updateTemplate(template, previous)
         } },
-        deleteTemplate = { owner, id -> withFreeformOwner(owner) { manualStore.deleteTemplate(owner, id) } }
+        deleteTemplate = { owner, id -> withFreeformOwner(owner) { manualStore.deleteTemplate(owner, id) } },
+        saveSchedule = { schedule -> withFreeformOwner(schedule.owner) { manualStore.saveSchedule(schedule) } },
+        changeSchedule = { owner, key, edit -> withFreeformOwner(owner) {
+            manualStore.changeSchedule(owner, key, edit, System.currentTimeMillis())
+        } },
+        startCustom = { owner, key, date -> withFreeformOwner(owner) {
+            manualStore.startCustom(owner, key, date, System.currentTimeMillis())
+        } }
     )
 
     private suspend fun <T> withFreeformOwner(owner: String, action: suspend () -> T): T =

@@ -71,6 +71,9 @@ Back to [[index]] · Related: [[ui-system]] · [[architecture]] · [[engine-rule
 
 - **Workout templates** opens the searchable, discipline-filtered routine library. Create, edit, rename, duplicate, delete, or start a routine here. Completed Freeform detail offers **Save as template**.
 
+- **Workout templates → Schedule** opens a one-off or weekly schedule with an optional end date. Open a Custom calendar entry to start, resume, move, skip, or edit following repeats. Completed Custom workouts offer **Repeat workout**.
+- Training can jump to a date and uses source labels for Custom, Coached, Freeform, and Garmin imports. The all-dates agenda shows a bounded window of repeats. Recovery notes stay advisory.
+
 ## Deprecated & Removed Elements (Do Not Reintroduce)
 - **Concentric Weekly TSS Rings & Elevated Telemetry Feed on Today (`All`):** Replaced by the verified P0 3-section layout (`TodayDailyTrainingCard`, `TodayTrainingOverviewCard`, Option 1 `TodayRecentActivitiesSection`) to avoid fabricated multisport TSS scores, fake workout-to-activity adherence guessing, and heavy scrolling cards.
 - **Coach's Notes on Workout Detail:** Removed (`workout-planned-coach-notes`, `workout-planned-notes-toggle`, `notesExpanded`, and `coachingReason` parameter in `TracksidePlannedRunningPreview`). *Why:* Cluttered the workout execution screen and duplicated step effort cues.

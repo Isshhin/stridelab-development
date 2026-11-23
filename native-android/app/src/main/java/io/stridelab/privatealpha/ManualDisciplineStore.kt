@@ -145,7 +145,7 @@ internal object ManualDisciplineBackup {
 internal class ManualDisciplineStore(
     context: Context,
     databaseName: String = DATABASE
-) : SQLiteOpenHelper(context.applicationContext, databaseName, null, 3) {
+) : SQLiteOpenHelper(context.applicationContext, databaseName, null, 4) {
     companion object {
         const val DATABASE = "stridelab-standalone-sessions-v1.db"
     }
@@ -155,6 +155,7 @@ internal class ManualDisciplineStore(
         db.execSQL("CREATE INDEX session_owner_date ON sessions(owner,performed_on DESC)")
         createTemplates(db)
         createFreeform(db)
+        createSchedules(db)
     }
     private fun createTemplates(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE manual_templates(owner TEXT NOT NULL, record_id TEXT NOT NULL, name TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(owner,record_id))")
@@ -169,10 +170,83 @@ internal class ManualDisciplineStore(
         db.execSQL("CREATE INDEX freeform_owner_modified ON freeform_workouts(owner,modified_at DESC)")
     }
 
+    private fun createSchedules(db: SQLiteDatabase) {
+        db.execSQL(
+            """CREATE TABLE custom_schedules(
+                owner TEXT NOT NULL, record_id TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(owner,record_id)
+            )"""
+        )
+    }
+
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        require(oldVersion in 1..2 && newVersion == 3)
+        require(oldVersion in 1..3 && newVersion == 4)
         if (oldVersion == 1) createTemplates(db)
-        createFreeform(db)
+        if (oldVersion < 3) createFreeform(db)
+        createSchedules(db)
+    }
+
+    suspend fun listSchedules(owner: String): List<CustomSchedule> = withContext(Dispatchers.IO) {
+        RecordPolicy.identifier(owner)
+        readableDatabase.query("custom_schedules", arrayOf("payload"), "owner=?", arrayOf(owner),
+            null, null, "record_id").use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) add(CustomScheduleCodec.decode(cursor.getString(0), owner))
+            }
+        }
+    }
+
+    suspend fun saveSchedule(schedule: CustomSchedule) = withContext(Dispatchers.IO) {
+        val payload = CustomScheduleCodec.encode(schedule)
+        freeformTransaction { db ->
+            val current = db.schedulePayload(schedule.owner, schedule.id)
+            if (current == null) db.insertSchedule(schedule, payload)
+            else require(current == payload) { "This schedule already exists." }
+        }
+    }
+
+    suspend fun changeSchedule(owner: String, key: CustomOccurrenceKey, edit: CustomScheduleEdit, now: Long): CustomSchedule =
+        withContext(Dispatchers.IO) {
+            freeformTransaction { db ->
+                val current = requireNotNull(db.schedulePayload(owner, key.seriesId)) { "This schedule is unavailable." }
+                    .let { CustomScheduleCodec.decode(it, owner) }
+                require(current.modifiedAt == edit.expectedModifiedAt) { "This schedule changed. Reopen it before editing." }
+                check(db.findFreeform(owner, key.workoutId) == null) { "A workout has already started on this occurrence." }
+                val next = when (edit) {
+                    is CustomScheduleEdit.One -> current.move(key, edit.date, now)
+                    is CustomScheduleEdit.Future -> current.replaceFuture(key.anchor, edit.rule, now)
+                }
+                val values = ContentValues().apply { put("payload", CustomScheduleCodec.encode(next)) }
+                check(db.update("custom_schedules", values, "owner=? AND record_id=?",
+                    arrayOf(owner, current.id)) == 1)
+                next
+            }
+        }
+
+    suspend fun startCustom(owner: String, key: CustomOccurrenceKey, performedOn: LocalDate, now: Long): FreeformWorkout =
+        withContext(Dispatchers.IO) {
+            freeformTransaction { db ->
+                db.findFreeform(owner, key.workoutId)?.let {
+                    check(it.custom?.key == key)
+                    return@freeformTransaction it
+                }
+                val schedule = db.schedulePayload(owner, key.seriesId)?.let { CustomScheduleCodec.decode(it, owner) }
+                val occurrence = requireNotNull(schedule?.resolve(key)) { "This workout is no longer scheduled." }
+                val draft = occurrence.start(performedOn, now)
+                db.writeFreeform(draft, FreeformCodec.encode(draft), updating = false)
+                draft
+            }
+        }
+
+    private fun SQLiteDatabase.schedulePayload(owner: String, id: String): String? =
+        query("custom_schedules", arrayOf("payload"), "owner=? AND record_id=?", arrayOf(owner, id),
+            null, null, null).use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+
+    private fun SQLiteDatabase.insertSchedule(schedule: CustomSchedule, payload: String) {
+        insertOrThrow("custom_schedules", null, ContentValues().apply {
+            put("owner", schedule.owner)
+            put("record_id", schedule.id)
+            put("payload", payload)
+        })
     }
 
     suspend fun listFreeform(owner: String): List<FreeformWorkout> = withContext(Dispatchers.IO) {
@@ -186,7 +260,7 @@ internal class ManualDisciplineStore(
     }
 
     suspend fun createFreeformDraft(draft: FreeformWorkout): FreeformWorkout = withContext(Dispatchers.IO) {
-        require(!draft.isComplete)
+        require(!draft.isComplete && draft.custom == null)
         writableDatabase.writeFreeform(draft, FreeformCodec.encode(draft), updating = false)
         draft
     }
@@ -234,7 +308,7 @@ internal class ManualDisciplineStore(
     }
 
     private fun FreeformWorkout.sameWorkout(other: FreeformWorkout): Boolean =
-        startedAt == other.startedAt && discipline == other.discipline
+        startedAt == other.startedAt && discipline == other.discipline && custom == other.custom
 
     private fun SQLiteDatabase.findFreeform(owner: String, id: String): FreeformWorkout? =
         query("freeform_workouts", arrayOf("payload"), "owner=? AND record_id=?", arrayOf(owner, id),
@@ -334,7 +408,7 @@ internal class ManualDisciplineStore(
     }
 
     suspend fun export(owner: String): String =
-        ManualDisciplineArchive.export(owner, list(owner), listTemplates(owner), listFreeform(owner))
+        ManualDisciplineArchive.export(owner, list(owner), listTemplates(owner), listFreeform(owner), listSchedules(owner))
 
     suspend fun delete(owner: String, id: String): Boolean = withContext(Dispatchers.IO) {
         RecordPolicy.identifier(owner)
@@ -387,6 +461,16 @@ internal class ManualDisciplineStore(
                     put("owner",owner);put("record_id",form.id)
                     put("name",form.name);put("payload",incoming)
                 })
+                additions++
+            }
+            for (schedule in archive.schedules) {
+                val payload = CustomScheduleCodec.encode(schedule)
+                val current = db.schedulePayload(owner, schedule.id)
+                if (current != null) {
+                    require(current == payload) { "A schedule with this ID has different contents. No records changed." }
+                    continue
+                }
+                db.insertSchedule(schedule, payload)
                 additions++
             }
             for (row in archive.freeform) {

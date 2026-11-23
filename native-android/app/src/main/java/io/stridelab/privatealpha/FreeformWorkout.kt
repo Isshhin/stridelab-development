@@ -80,9 +80,11 @@ internal data class FreeformWorkout(
     val templateId: String? = null,
     val workoutName: String = "",
     val targetDistanceKm: String = "",
-    val targetDurationMinutes: String = ""
+    val targetDurationMinutes: String = "",
+    val custom: CustomWorkoutBinding? = null
 ) {
     val isComplete: Boolean get() = completedAt != null
+    val sourceLabel: String get() = if (custom == null) "Freeform" else "Custom"
     val date: LocalDate? get() = runCatching { LocalDate.parse(performedOn) }.getOrNull()
     val title: String get() = workoutName.trim().ifEmpty {
         if (discipline == ManualDiscipline.RUNNING && runType.isNotBlank()) runType.trim() else discipline.label
@@ -169,6 +171,7 @@ internal fun String.requiredDecimal(minExclusive: Double, max: Double): Boolean 
 internal object FreeformCodec {
     private const val MAX_ROW = 1_000_000
     const val SOURCE = "FREEFORM"
+    private const val CUSTOM_SOURCE = "CUSTOM_PLANNED"
 
     fun encode(workout: FreeformWorkout): String {
         workout.validateStructure()
@@ -178,7 +181,8 @@ internal object FreeformCodec {
             require(draft.finish(completedAt) == workout)
         }
         return JSONObject()
-            .put("schema", 1).put("source", SOURCE)
+            .put("schema", if (workout.custom == null) 1 else 2)
+            .put("source", if (workout.custom == null) SOURCE else CUSTOM_SOURCE)
             .put("owner", workout.owner).put("id", workout.id).put("discipline", workout.discipline.name)
             .put("status", if (workout.isComplete) "COMPLETED" else "DRAFT")
             .put("performedOn", workout.performedOn).put("startedAt", workout.startedAt)
@@ -190,6 +194,10 @@ internal object FreeformCodec {
             .put("workoutName", workout.workoutName.ifEmpty { null })
             .put("targetDistanceKm", workout.targetDistanceKm.ifEmpty { null })
             .put("targetDurationMinutes", workout.targetDurationMinutes.ifEmpty { null })
+            .put("custom", workout.custom?.let { binding ->
+                JSONObject().put("seriesId", binding.key.seriesId).put("anchor", binding.key.anchor.toString())
+                    .put("date", binding.date.toString())
+            })
             .put("exercises", writeExercises(workout.exercises))
             .toString().also { require(it.length <= MAX_ROW) { "This workout is too large to save." } }
     }
@@ -210,7 +218,15 @@ internal object FreeformCodec {
     fun decode(raw: String, owner: String): FreeformWorkout {
         require(raw.length <= MAX_ROW)
         val json = JSONObject(raw)
-        require(json.getInt("schema") == 1 && json.getString("source") == SOURCE && json.getString("owner") == owner)
+        val schema = json.getInt("schema")
+        require(schema in 1..2 && json.getString("owner") == owner)
+        require(json.getString("source") == if (schema == 1) SOURCE else CUSTOM_SOURCE)
+        val custom = if (schema == 2) json.getJSONObject("custom").let { binding ->
+            CustomWorkoutBinding(
+                CustomOccurrenceKey(binding.getString("seriesId"), LocalDate.parse(binding.getString("anchor"))),
+                LocalDate.parse(binding.getString("date"))
+            )
+        } else null
         val status = json.getString("status")
         val completed = if (json.isNull("completedAt")) null else json.getLong("completedAt")
         require(status == if (completed == null) "DRAFT" else "COMPLETED")
@@ -224,7 +240,8 @@ internal object FreeformCodec {
             workoutName = json.optString("workoutName", ""),
             targetDistanceKm = json.optString("targetDistanceKm", ""),
             targetDurationMinutes = json.optString("targetDurationMinutes", ""),
-            exercises = readExercises(json.getJSONArray("exercises"))
+            exercises = readExercises(json.getJSONArray("exercises")),
+            custom = custom
         ).also { encode(it) }
     }
 
@@ -261,6 +278,11 @@ internal object FreeformCodec {
         RecordPolicy.identifier(owner)
         RecordPolicy.identifier(id)
         templateId?.let(RecordPolicy::identifier)
+        custom?.let { binding ->
+            RecordPolicy.identifier(binding.key.seriesId)
+            require(binding.key.anchor in customDateRange && binding.date in customDateRange)
+            require(id == binding.key.workoutId && templateId != null)
+        }
         require(workoutName.length <= 100)
         require(startedAt in 1 until Long.MAX_VALUE - 1 && modifiedAt in startedAt until Long.MAX_VALUE)
         require(completedAt == null || completedAt == modifiedAt)

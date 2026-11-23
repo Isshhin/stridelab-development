@@ -76,10 +76,11 @@ internal data class UnifiedTrainingDay(
     val activities: List<DisplayActivity>,
     val workouts: List<UnifiedTrainingWorkout>,
     val freeform: List<FreeformWorkout> = emptyList(),
-    val manual: List<ManualDisciplineSession> = emptyList()
+    val manual: List<ManualDisciplineSession> = emptyList(),
+    val custom: List<CustomCalendarItem> = emptyList()
 ) {
     val hasEntries get() = activities.isNotEmpty() || workouts.isNotEmpty() ||
-        freeform.isNotEmpty() || manual.isNotEmpty()
+        freeform.isNotEmpty() || manual.isNotEmpty() || custom.isNotEmpty()
 }
 
 /**
@@ -96,7 +97,8 @@ internal fun unifiedTrainingDays(
     zone: ZoneId,
     activePlanIds: Set<String> = setOfNotNull(activePlanId),
     freeform: List<FreeformWorkout> = emptyList(),
-    manual: List<ManualDisciplineSession> = emptyList()
+    manual: List<ManualDisciplineSession> = emptyList(),
+    custom: List<CustomCalendarItem> = emptyList()
 ): List<UnifiedTrainingDay> {
     val activitiesByDate = groupedActivities.groupBy {
         it.primary.startedAt.atZone(zone).toLocalDate()
@@ -122,7 +124,9 @@ internal fun unifiedTrainingDays(
     }
     val freeformByDate = freeform.filter { it.isComplete }.groupBy { requireNotNull(it.date) }
     val manualByDate = manual.groupBy { it.performedOn }
-    return (activitiesByDate.keys + workoutsByDate.keys + freeformByDate.keys + manualByDate.keys + today)
+    val customByDate = custom.groupBy { it.date }
+    return (activitiesByDate.keys + workoutsByDate.keys + freeformByDate.keys + manualByDate.keys +
+        customByDate.keys + today)
         .toSortedSet().map { date ->
         UnifiedTrainingDay(
             date = date,
@@ -131,7 +135,8 @@ internal fun unifiedTrainingDays(
             ),
             workouts = workoutsByDate[date].orEmpty().sortedWith(trainingWorkoutOrder),
             freeform = freeformByDate[date].orEmpty(),
-            manual = manualByDate[date].orEmpty()
+            manual = manualByDate[date].orEmpty(),
+            custom = customByDate[date].orEmpty()
         )
     }
 }
@@ -188,7 +193,10 @@ internal fun StrideLabUnifiedTrainingTimeline(
     onManage: (String, LocalDate) -> Unit,
     manualBoard: FreeformBoard? = null,
     onAddWorkout: (() -> Unit)? = null,
-    onOpenManual: (String, Boolean) -> Unit = { _, _ -> }
+    onOpenManual: (String, Boolean) -> Unit = { _, _ -> },
+    onOpenCustom: (CustomOccurrenceKey) -> Unit = {},
+    calendarFocus: LocalDate? = null,
+    clearCalendarFocus: () -> Unit = {}
 ) {
     val account = state.account
     val hasLocalGarmin = state.localGarminIds.isNotEmpty()
@@ -258,7 +266,49 @@ internal fun StrideLabUnifiedTrainingTimeline(
             timelinePlans.flatMap { p -> p.sessions.filter { it.isMarkedComplete }.map { it.log?.performedOn ?: it.date } } +
             manualDates
     }
-    val days = remember(today, zone, visibleGroups, timelinePlans, scopedPlans, hasHistory, freeform, manual) {
+    val showCustom = selectedPlan == null && manualBoard?.schedules.orEmpty().any { it.owner == planProfile }
+    fun focusCalendar(date: LocalDate) {
+        selectedDayText = date.toString()
+        noPlanFocusedDay = date.toString()
+        noPlanWeekAnchorText = date.toString()
+        agendaView = false
+    }
+    LaunchedEffect(calendarFocus, planProfile) {
+        if (calendarFocus != null) {
+            selectedPlanId = null
+            selectedTrackKey = null
+            focusCalendar(calendarFocus)
+            clearCalendarFocus()
+        }
+    }
+
+    val focusedDate = if (hasActivePlans) {
+        val requested = runCatching { LocalDate.parse(selectedDayText) }.getOrDefault(today)
+        if (showCustom) requested.coerceIn(customDateRange.start, customDateRange.endInclusive)
+        else {
+            val start = scopedPlans.minOf { it.request.start }
+            val end = scopedPlans.maxOf { it.request.start.plusWeeks(it.request.weeks.toLong()).minusDays(1) }
+            requested.coerceIn(start, end)
+        }
+    } else today
+    val visibleWeek = tracksideCalendarMonday(if (hasActivePlans) focusedDate else noPlanWeekAnchor)
+    val custom = remember(manualBoard, planProfile, selectedPlan, selectedTrack, visibleWeek, agendaView, weekOnlyFilter, today) {
+        if (selectedPlan != null || manualBoard == null) emptyList() else {
+            val scopedBoard = manualBoard.copy(
+                schedules = manualBoard.schedules.filter { it.owner == planProfile },
+                workouts = manualBoard.workouts.filter { it.owner == planProfile }
+            )
+            val week = scopedBoard.customBetween(visibleWeek, visibleWeek.plusDays(6))
+            val extra = if (hasActivePlans && agendaView && !weekOnlyFilter) {
+                scopedBoard.customBetween(today.minusDays(7), today.plusDays(77))
+            } else emptyList()
+            (week + extra).distinctBy { it.key }.filter {
+                selectedTrack == null || it.discipline.trainingTrackKey == selectedTrack
+            }
+        }
+    }
+    val customDates = remember(custom) { custom.groupingBy { it.date }.eachCount() }
+    val days = remember(today, zone, visibleGroups, timelinePlans, scopedPlans, hasHistory, freeform, manual, custom) {
         unifiedTrainingDays(
             today = today,
             groupedActivities = if (hasHistory) visibleGroups else emptyList(),
@@ -267,14 +317,10 @@ internal fun StrideLabUnifiedTrainingTimeline(
             zone = zone,
             activePlanIds = scopedPlans.map { it.id }.toSet(),
             freeform = freeform,
-            manual = manual
+            manual = manual,
+            custom = custom
         )
     }
-    val focusedDate = if (hasActivePlans) {
-        val start = scopedPlans.minOf { it.request.start }
-        val end = scopedPlans.maxOf { it.request.start.plusWeeks(it.request.weeks.toLong()).minusDays(1) }
-        runCatching { LocalDate.parse(selectedDayText) }.getOrDefault(today).coerceIn(start, end)
-    } else today
 
     val visibleSourceIds = remember(activityGroups) {
         activityGroups.flatMap { g -> listOf(g.primary.id) + g.additionalSources.map { it.id } }.toSet()
@@ -309,7 +355,9 @@ internal fun StrideLabUnifiedTrainingTimeline(
     val scroll = rememberLazyListState()
     LaunchedEffect(agendaView, selectedPlan?.id, selectedTrack, weekOnlyFilter, focusedNoPlanDate) {
         if (!state.initializing) {
-            if (agendaView && !weekOnlyFilter) scroll.scrollToItem(todayIndex + if (hasActivePlans) 2 else 1)
+            if (agendaView && !weekOnlyFilter) {
+                scroll.scrollToItem(todayIndex + (if (hasActivePlans) 2 else 1) + (if (showCustom) 1 else 0))
+            }
             else scroll.scrollToItem(0)
         }
     }
@@ -372,6 +420,7 @@ internal fun StrideLabUnifiedTrainingTimeline(
                         weekAnchor = noPlanWeekAnchor,
                         focusedDate = focusedNoPlanDate,
                         recordedDates = recordedDates,
+                        customDates = customDates.keys,
                         reduceMotion = reduceMotion,
                         onPreviousWeek = {
                             val prevMonday = tracksideCalendarMonday(noPlanWeekAnchor).minusWeeks(1)
@@ -386,8 +435,8 @@ internal fun StrideLabUnifiedTrainingTimeline(
                             noPlanFocusedDay = if (focusedNoPlanDate == tapped) null else tapped.toString()
                         },
                         onShowAll = {
+                            if (noPlanFocusedDay == null) noPlanWeekAnchorText = null
                             noPlanFocusedDay = null
-                            noPlanWeekAnchorText = null
                         }
                     )
                 }
@@ -407,6 +456,8 @@ internal fun StrideLabUnifiedTrainingTimeline(
                             selectedDate = focusedDate,
                             agenda = agendaView,
                             recordedDates = recordedDates,
+                            customPlanned = customDates,
+                            customCalendar = showCustom,
                             onAgenda = { isWeekMode ->
                                 agendaView = isWeekMode
                                 if (isWeekMode) weekOnlyFilter = true
@@ -479,6 +530,12 @@ internal fun StrideLabUnifiedTrainingTimeline(
                     }
                 }
 
+                if (showCustom) item(key = "training-pick-date") {
+                    TextButton(
+                        onClick = { pickCustomDate(context, if (hasActivePlans) focusedDate else noPlanWeekAnchor, ::focusCalendar) },
+                        modifier = Modifier.testTag("training-pick-date")
+                    ) { Text("Go to date", color = TimelineStyle.secondary) }
+                }
                 itemsIndexed(visibleDays, key = { _, day -> "timeline-date-${day.date}" }) { position, day ->
                     Column(
                         modifier = if (position == visibleDays.lastIndex)
@@ -540,10 +597,19 @@ internal fun StrideLabUnifiedTrainingTimeline(
                                         )
                                     }
                                 }
+                                day.custom.forEach { workout ->
+                                    FreeformTile(
+                                        title = workout.title,
+                                        supporting = "Custom · ${workout.discipline.label} · ${if (workout.inProgress) "In progress" else "Scheduled"}",
+                                        color = workout.discipline.markColor,
+                                        onClick = { onOpenCustom(workout.key) },
+                                        modifier = Modifier.testTag("training-custom-${workout.key.workoutId}")
+                                    )
+                                }
                                 day.freeform.forEach { workout ->
                                     FreeformTile(
                                         title = workout.title,
-                                        supporting = "Freeform · ${workout.discipline.label}\n${workout.summary()}",
+                                        supporting = "${workout.sourceLabel} · ${workout.discipline.label}\n${workout.summary()}",
                                         color = workout.discipline.markColor,
                                         onClick = { onOpenManual(workout.id, false) },
                                         modifier = Modifier.testTag("training-freeform-${workout.id}")
@@ -701,6 +767,7 @@ private fun TimelineNoPlanWeekStrip(
     weekAnchor: LocalDate,
     focusedDate: LocalDate?,
     recordedDates: Set<LocalDate>,
+    customDates: Set<LocalDate>,
     reduceMotion: Boolean,
     onPreviousWeek: () -> Unit,
     onNextWeek: () -> Unit,
@@ -792,6 +859,7 @@ private fun TimelineNoPlanWeekStrip(
                     val isSelected = day == focusedDate
                     val isToday = day == today
                     val hasLog = day in recordedDates
+                    val hasCustom = day in customDates
                     val bg by animateColorAsState(
                         when {
                             isSelected -> StrideLabVisualPalette.limeTint
@@ -813,7 +881,10 @@ private fun TimelineNoPlanWeekStrip(
                                 else -> Color.Transparent
                             }
                         ),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).testTag("calendar-day-$day")
+                            .semantics {
+                                contentDescription = "$day" + if (hasCustom) ", custom workout scheduled" else ""
+                            }
                     ) {
                         Column(
                             modifier = Modifier.padding(vertical = 7.dp),
@@ -832,12 +903,12 @@ private fun TimelineNoPlanWeekStrip(
                                 fontWeight = FontWeight.ExtraBold,
                                 color = if (isSelected) TimelineStyle.lime else TimelineStyle.ink
                             )
-                            Box(
-                                Modifier
-                                    .size(5.dp)
-                                    .clip(CircleShape)
-                                    .background(if (hasLog) TimelineStyle.lime else Color.Transparent)
-                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Box(Modifier.size(5.dp).clip(CircleShape)
+                                    .background(if (hasLog) TimelineStyle.lime else Color.Transparent))
+                                if (hasCustom) Box(Modifier.size(5.dp).clip(CircleShape)
+                                    .background(StrideLabVisualPalette.easyTeal))
+                            }
                         }
                     }
                 }
@@ -1013,7 +1084,7 @@ private fun TimelineRecordedCard(
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
-                        activity.title,
+                        if (activity.source.equals("garmin", ignoreCase = true)) "Imported · ${activity.title}" else activity.title,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = TimelineStyle.secondary,
@@ -1161,7 +1232,7 @@ private fun TimelinePlannedCard(
                                     .background(eyebrowTint)
                             )
                             Text(
-                                if (recorded) "COMPLETED" else "PLANNED",
+                                if (recorded) "COACHED · COMPLETED" else "COACHED · PLANNED",
                                 fontSize = 9.5.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 letterSpacing = 0.8.sp,
