@@ -414,22 +414,41 @@ internal fun TracksideActivityContinuousSections(
         }
     }
     var pendingSection by remember(activity.id) { mutableStateOf<Int?>(null) }
+    var pinnedTapSection by remember(activity.id) { mutableStateOf<Int?>(null) }
+    var pinnedScrollPos by remember(activity.id) { mutableStateOf<Pair<Int, Int>?>(null) }
     LaunchedEffect(activity.id) {
+        pinnedTapSection = null
+        pinnedScrollPos = null
         listState.scrollToItem(0)
         if (selectedTab != 0) onTab(0)
     }
-    LaunchedEffect(currentSection, pendingSection) {
-        if (pendingSection == null && selectedTab != currentSection) onTab(currentSection)
+    LaunchedEffect(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset, pendingSection) {
+        if (pendingSection == null && pinnedTapSection != null) {
+            val pos = listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+            if (pinnedScrollPos != null && pos != pinnedScrollPos) {
+                pinnedTapSection = null
+                pinnedScrollPos = null
+            }
+        }
     }
-    val visibleSection = pendingSection ?: currentSection
+    val settledSection = pinnedTapSection ?: currentSection
+    LaunchedEffect(settledSection, pendingSection) {
+        if (pendingSection == null && selectedTab != settledSection) onTab(settledSection)
+    }
+    val visibleSection = pendingSection ?: settledSection
     val sectionOffset = listOf(0, analysisStartIndex, splitStartIndex, chartsStartIndex)
     Column(Modifier.fillMaxSize()) {
         TracksideActivitySectionPill(visibleSection) { index ->
             pendingSection = index
+            pinnedTapSection = index
+            pinnedScrollPos = null
             onTab(index)
             scope.launch {
                 try { listState.animateScrollToItem(sectionOffset[index]) }
-                finally { pendingSection = null }
+                finally {
+                    pinnedScrollPos = listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+                    pendingSection = null
+                }
             }
         }
         BoxWithConstraints(Modifier.weight(1f)) {

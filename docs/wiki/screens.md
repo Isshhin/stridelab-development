@@ -62,6 +62,9 @@ Back to [[index]] · Related: [[ui-system]] · [[architecture]] · [[engine-rule
   - Analysis shows **Training Effect** and **Running Dynamics** when evidence is available. Stride length and vertical ratio identify estimates when derived. The **How Did It Feel?** editor was removed from Analysis. Linked feedback remains on Workout Detail.
   - The detected workout row opens a correction sheet. The former How It Went section is removed. Coaching statistics exclude stop and dropout values without changing the original chart samples.
 - **Offline Maps:** Panning or pinching the picker owns the touch. The shared store tracks download progress while the screen is closed. Unknown totals show a preparing state, and stalls or SDK errors show Retry on the existing saved area.
+- **Share Studio (`ShareStudioScreen.kt`, `ShareCardRenderer.kt`, `ShareStudioModels.kt`):**
+  - Canvas-first activity card studio supporting 4 template families (`Route Focus`, `Stats Focus`, `Minimal`, `Workout Recap`), 8 variants, 3 aspect ratios (`9:16`, `4:5`, `1:1`), MapLibre dark snapshots with offline coverage check and coordinate-trace fallback, 200/400/800 m GPS endpoint privacy trimming (on by default with explicit warning when disabled), transparent and personal-photo backgrounds (editor-session only, never stored in presets), preview-only Instagram Story safe-area guides, honest Workout Recap lap provenance, and up to 100 local v1 presets (`SharePresetStore`).
+- **More Account Presentation (`TracksideMoreScreen.kt`, `TrainingRepository.kt`):** Signed-in profile card resolves display name or email (`AccountProfilePresentation`, including JWT claim extraction and `"StrideLab Account"` fallback) so raw UUIDs are never shown as the primary title.
 
 ### Freeform Workout Logger
 

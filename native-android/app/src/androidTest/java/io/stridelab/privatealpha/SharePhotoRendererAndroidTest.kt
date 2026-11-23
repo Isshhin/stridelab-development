@@ -65,4 +65,49 @@ class SharePhotoRendererAndroidTest {
         assertEquals(ShareBackground.PHOTO,
             reloaded.state.selectVariant(ShareVariant.STORY).background)
     }
+
+    @Test fun editorialDirectionalPhotoScrimAndAllTemplatesRenderAtExactResolution() {
+        val photo = Bitmap.createBitmap(120, 160, Bitmap.Config.ARGB_8888).apply {
+            eraseColor(Color.RED)
+        }
+        try {
+            val photoState = ShareStudioState(
+                ratio = ShareRatio.PORTRAIT,
+                background = ShareBackground.PHOTO,
+                routeMode = ShareRouteMode.HIDDEN
+            )
+            val photoImage = ShareCardRenderer.render(renderable, photoState, photo = photo)
+            try {
+                val topPixel = photoImage.getPixel(540, 16)
+                val midPixel = photoImage.getPixel(540, 340)
+                val bottomPixel = photoImage.getPixel(540, photoImage.height - 16)
+                assertTrue(
+                    "Directional scrim should keep mid-frame red brighter than top/bottom edges",
+                    Color.red(midPixel) > Color.red(topPixel) + 30 &&
+                        Color.red(midPixel) > Color.red(bottomPixel) + 30
+                )
+            } finally {
+                photoImage.recycle()
+            }
+
+            for (template in ShareTemplate.entries) {
+                val state = ShareStudioState(
+                    template = template,
+                    variant = template.variants.first(),
+                    ratio = ShareRatio.SQUARE,
+                    background = ShareBackground.TRANSPARENT
+                )
+                val transparentImage = ShareCardRenderer.render(renderable, state)
+                try {
+                    assertEquals(1080, transparentImage.width)
+                    assertEquals(ShareRatio.SQUARE.height, transparentImage.height)
+                    assertEquals(0, Color.alpha(transparentImage.getPixel(0, 0)))
+                } finally {
+                    transparentImage.recycle()
+                }
+            }
+        } finally {
+            photo.recycle()
+        }
+    }
 }

@@ -57,3 +57,8 @@ Defined across `StrideLabSurfaceTokens` (`StrideLabUiPrimitives.kt`), `StrideThe
   - `RepeatGroup`: Amber gradient header (`N × Interval Set` + `N REPS` badge) over stacked `Work`/`Recover` sub-cards.
   - **Why `groupDisplayMixedSteps` has `<= 1 m` tolerance:** `Engine15WorkoutDifficultyAdjuster` distributes integer meters across timed steps. Otherwise identical reps, including strides, stay grouped. Different pace or HR targets keep separate rows. Grouping only affects presentation.
 - **Activity Telemetry Charts (`ActivityChartMovingTimeAxis.kt`, `ActivityChartDisplayScale.kt`):** Render continuous source-measured lines on a pause-compressed moving-time x-axis.
+- **Two-Tier GPS Route Thumbnail Cache (`ActivityThumbnailCache.kt`, `TodayStartup.kt`):** Synchronous 6 MB in-memory `LruCache<String, ImageBitmap>` backed by local disk PNGs under `cacheDir/gps_thumbs` (`TodayCachedGpsThumbnail`), eliminating reload flashes across `Today` and `Training` tabs.
+- **Share Studio Renderer & Dark Studio Tray (`ShareCardRenderer.kt`, `ShareStudioScreen.kt`):**
+  - Fixed-resolution `1080 × {1920, 1350, 1080}` canvas shared 1:1 between preview and exported PNG.
+  - Editorial tabular typography (`tnum`), tracked uppercase eyebrows/labels, multi-pass GPS trace (outer glow, contrast halo, core stroke, trimmed start/finish endpoint markers), and dual directional photo scrims (`LinearGradient` top/bottom with a `0x16000000` mid-frame veil).
+  - Pure `#000000` studio header and canvas stage paired with a `#121212` bottom tool tray (with custom `Canvas` 2×2 wireframe template previews) and an anchored `#121212` export footer (`48.dp` minimum touch targets).
