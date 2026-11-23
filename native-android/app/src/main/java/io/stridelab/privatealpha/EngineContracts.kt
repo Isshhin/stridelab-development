@@ -226,10 +226,13 @@ internal data class SessionDifficultyBaseline(
 }
 internal data class PlannedSession(val id:String,val date:LocalDate,val discipline:String,val title:String,val minutes:Int,val distanceKm:Double?,val kind:String,val lower:Boolean=false,val quality:Boolean=false,
     val exercises:List<ExercisePrescription> = emptyList(),val steps:List<String> = emptyList(),val reason:String="",val status:String="planned",val missedReason:String?=null,val log:WorkoutLog?=null,val suggestion:SessionSuggestion?=null,val linkedActivityId:String?=null,val linkPreviousStatus:String?=null,val swaps:List<ExerciseSwap> = emptyList(),val logRevision:Int=0,val runningPrescription:RunningPrescription?=null,val runResponse:WorkoutLog?=null,
-    val difficultyStep:Int=0,val difficultyBaseline:SessionDifficultyBaseline?=null) {
+    val difficultyStep:Int=0,val difficultyBaseline:SessionDifficultyBaseline?=null,
+    val runnerSupportDose: RunnerSupportDose? = null, val runnerSupportPlacement: Boolean = false) {
     init {
         require(difficultyStep in -2..2)
         require((difficultyStep==0)==(difficultyBaseline==null))
+        require(runnerSupportDose == null || discipline in setOf("str", "cal"))
+        require(!runnerSupportPlacement || discipline in setOf("str", "cal"))
         runResponse?.let { require(discipline=="run" && it.minutes==null && it.distanceKm==null && it.qualityWorkKm==null && it.sets.isEmpty() && (it.effort==null || it.effort in 1..10)) }
         runningPrescription?.let {
             require(discipline=="run")
@@ -267,10 +270,13 @@ internal data class PlannedSession(val id:String,val date:LocalDate,val discipli
         .apply {
             if(difficultyStep!=0) put("difficultyStep",difficultyStep)
             if(difficultyBaseline!=null) put("difficultyBaseline",difficultyBaseline.encode())
+            runnerSupportDose?.let { put("runnerSupportDose", it.name) }
+            if (runnerSupportPlacement) put("runnerSupportPlacement", true)
         }
     companion object { fun decode(j:JSONObject)=PlannedSession(j.getString("id"),LocalDate.parse(j.getString("date")),j.getString("discipline"),j.getString("title"),j.getInt("minutes"),j.nullDouble("distanceKm"),j.getString("kind"),j.getBoolean("lower"),j.getBoolean("quality"),
         j.getJSONArray("exercises").objects().map(ExercisePrescription::decode),j.getJSONArray("steps").strings(),j.getString("reason"),j.getString("status"),j.nullString("missedReason"),j.optJSONObject("log")?.let(WorkoutLog::decode),j.optJSONObject("suggestion")?.let(SessionSuggestion::decode),j.nullString("linkedActivityId"),j.nullString("linkPreviousStatus"),j.optJSONArray("swaps")?.objects()?.map(ExerciseSwap::decode) ?: emptyList(),j.optInt("logRevision",0),j.optJSONObject("runningPrescription")?.let(RunningPrescription::decode),j.optJSONObject("runResponse")?.let(WorkoutLog::decode),
-        j.optInt("difficultyStep",0),j.optJSONObject("difficultyBaseline")?.let(SessionDifficultyBaseline::decode)) }
+        j.optInt("difficultyStep",0),j.optJSONObject("difficultyBaseline")?.let(SessionDifficultyBaseline::decode),
+        j.nullString("runnerSupportDose")?.let(RunnerSupportDose::valueOf), j.optBoolean("runnerSupportPlacement")) }
 }
 /** Feedback overlays only the coaching interpretation; original actual measurements stay immutable. */
 internal fun PlannedSession.coachingLog():WorkoutLog? {

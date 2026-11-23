@@ -11,7 +11,8 @@ internal enum class AdaptationType {
     PACE_RECALIBRATION_DOWN,
     MISSED_WEEK_RECOVERY,
     PROACTIVE_DELOAD_SWAP,
-    EASY_PACING_LOCK
+    EASY_PACING_LOCK,
+    RUNNER_SUPPORT_DOSE
 }
 
 internal enum class AdaptationProposalStatus {

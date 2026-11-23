@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.launch
 
 @Composable
@@ -110,6 +111,167 @@ internal fun Engine15ScheduleReview(plan: PlanSnapshot, actions: PlanActions, bu
                 }
             }
         }
+        }
+    }
+}
+
+/** A review can change only the supporting plan. Dates are local calendar dates. */
+internal object RunnerSupportSchedule {
+    enum class Tier { HEAVY_LOWER, MODERATE_LOWER, PLYOMETRICS, UPPER_TRUNK, MOBILITY }
+    enum class Option { MOVE, AFTER_QUALITY, CAP_DOSE, NO_SAFE_OPTION }
+    data class Change(val before: PlannedSession, val after: PlannedSession, val options: Set<Option>, val reason: String)
+    data class Review(val candidate: PlanSnapshot, val changes: List<Change>) {
+        val blocked get() = changes.any { Option.NO_SAFE_OPTION in it.options }
+    }
+
+    fun supports(plan: PlanSnapshot) = plan.policyId in setOf(
+        ENGINE15_INDEPENDENT_STRENGTH_POLICY, ENGINE15_INDEPENDENT_CALISTHENICS_POLICY
+    ) && plan.sessions.isNotEmpty() && plan.sessions.all { Engine15DisciplineProgression.isStructured(it) }
+
+    fun tier(session: PlannedSession): Tier = when {
+        session.kind == "structured-plyometrics" -> Tier.PLYOMETRICS
+        session.exercises.all { it.id == "landing-rehearsal" || it.id == "glute-bridge" } -> Tier.MOBILITY
+        session.title in setOf("Full Body", "Lower / Runner Durability") -> Tier.HEAVY_LOWER
+        session.lower -> Tier.MODERATE_LOWER
+        else -> Tier.UPPER_TRUNK
+    }
+
+    fun runningPlans(owner: String, plans: List<PlanSnapshot>) = plans.filter {
+        it.owner == owner && it.status == "approved" && it.sessions.any { session -> session.discipline == "run" }
+    }
+
+    fun phases(runs: List<PlanSnapshot>): Map<LocalDate, Engine15MacroPhase> {
+        val priority = listOf(Engine15MacroPhase.BASE, Engine15MacroPhase.BUILD, Engine15MacroPhase.PEAK,
+            Engine15MacroPhase.RECOVERY, Engine15MacroPhase.TAPER)
+        return buildMap {
+            for (run in runs) {
+                val goal = run.request.disciplineGoals["run"] ?: run.request.goal
+                val request = run.request.copy(goal = goal)
+                val byWeek = Engine15MacrocyclePeriodization.assignPhases(request, List(request.weeks) { index ->
+                    index % 4 == 3 && !Engine15IndependentVolumePlanner.isSuppressedPreTaperRecovery(request.goal, request.weeks, index)
+                })
+                for ((week, phase) in byWeek) for (day in 0L..6L) {
+                    val date = request.start.plusWeeks(week - 1L).plusDays(day)
+                    if (priority.indexOf(phase) > priority.indexOf(get(date))) put(date, phase)
+                }
+            }
+        }
+    }
+
+    fun keyRuns(runs: List<PlanSnapshot>) = runs.flatMap { plan ->
+        plan.sessions.filter { it.discipline == "run" && (it.quality || it.kind == "long") &&
+            it.status in setOf("planned", "in_progress", "completed") }
+    }.groupBy { it.date }
+
+    data class Placement(val score: Int, val afterQuality: Boolean = false, val cap: Boolean = false)
+
+    fun placement(session: PlannedSession, date: LocalDate, keys: Map<LocalDate, List<PlannedSession>>): Placement? {
+        val tier = tier(session)
+        if (tier == Tier.UPPER_TRUNK || tier == Tier.MOBILITY) return Placement(0)
+        val tomorrow = date.plusDays(1) in keys
+        val yesterday = date.minusDays(1) in keys
+        val same = keys[date].orEmpty()
+        if (same.isNotEmpty()) {
+            if (same.size != 1 || same.single().kind == "long" || tomorrow || yesterday) return null
+            return Placement(1, afterQuality = true, cap = tier != Tier.HEAVY_LOWER)
+        }
+        if (tier == Tier.MODERATE_LOWER) {
+            return if (tomorrow || yesterday) Placement(3, cap = true) else Placement(0)
+        }
+        return if (tomorrow || yesterday) null else Placement(0)
+    }
+
+    fun review(plan: PlanSnapshot, others: List<PlanSnapshot>): Review? {
+        if (!supports(plan) || plan.status != "draft") return null
+        val runs = runningPlans(plan.owner, others)
+        val approvedPeers = others.filter { it.owner == plan.owner && it.status == "approved" && it.id != plan.id }
+        val phases = phases(runs)
+        val keys = keyRuns(runs)
+        val sessions = plan.sessions.toMutableList()
+        val changes = mutableListOf<Change>()
+        for ((index, original) in plan.sessions.withIndex()) {
+            val week = ChronoUnit.DAYS.between(plan.request.start, original.date) / 7
+            val start = plan.request.start.plusWeeks(week)
+            val fixed = original.discipline in plan.request.weeklySlots || original.id in plan.request.lockedSessionDays
+            val dates = if (fixed) listOf(original.date) else (0L..6L).map(start::plusDays)
+            val choices = dates.asSequence().filter { date ->
+                date.dayOfWeek.value in plan.request.days
+            }.mapNotNull { date ->
+                val fit = placement(original, date, keys) ?: return@mapNotNull null
+                val phase = phases[date]
+                val mode = when {
+                    fit.cap || phase in setOf(Engine15MacroPhase.RECOVERY, Engine15MacroPhase.TAPER) &&
+                        tier(original) !in setOf(Tier.UPPER_TRUNK, Tier.MOBILITY) -> RunnerSupportDose.LIGHT
+                    original.kind == "structured-plyometrics" || original.title == "Strength for Runners" ||
+                        original.discipline == "cal" && phase in setOf(Engine15MacroPhase.BUILD, Engine15MacroPhase.PEAK) ->
+                        RunnerSupportDose.ENTRY
+                    else -> null
+                }
+                val moved = original.copy(date = date, runnerSupportPlacement = date != original.date)
+                val dosed = if (mode != null) mode.apply(moved, plan.request) else moved
+                val candidate = if (fit.afterQuality) dosed.copy(
+                    reason = "${dosed.reason} Complete the quality run first. Skip support work if recovery or technique is poor."
+                ) else dosed
+                if (plan.request.timeBudgetEnabled && candidate.minutes > plan.request.minutes) return@mapNotNull null
+                if (sessions.any { it.id != candidate.id &&
+                        PlanScheduleValidation.conflict(candidate, it, plan.policyId, plan.policyId) }) return@mapNotNull null
+                if (approvedPeers.any { peer -> peer.sessions.any { existing ->
+                        existing.status in setOf("planned", "in_progress") &&
+                            PlanScheduleValidation.acrossPlansConflict(candidate, existing, plan.policyId, peer.policyId)
+                    } }) return@mapNotNull null
+                val concurrent = approvedPeers.flatMap { peer ->
+                    peer.sessions.filter { it.date == date && it.status in setOf("planned", "in_progress") }.map { peer to it }
+                }
+                val dailyCap = (listOf(plan) + concurrent.map { it.first }).filter { it.request.timeBudgetEnabled }
+                    .minOfOrNull { it.request.dailyMinutes }
+                if (fit.afterQuality && (concurrent.any { it.second.discipline != "run" } ||
+                        dailyCap != null && concurrent.sumOf { it.second.effectiveMinutes } + candidate.minutes > dailyCap))
+                    return@mapNotNull null
+                Triple(candidate, fit, phase)
+            }
+            val choice = choices.minWithOrNull(compareBy<Triple<PlannedSession, Placement, Engine15MacroPhase?>> { it.second.score }
+                .thenBy { kotlin.math.abs(ChronoUnit.DAYS.between(original.date, it.first.date)) }.thenBy { it.first.date })
+            if (choice == null) {
+                changes += Change(original, original, setOf(Option.NO_SAFE_OPTION),
+                    "Change the fixed day or widen your availability to give the key run room.")
+                continue
+            }
+            val (after, fit, phase) = choice
+            sessions[index] = after
+            val options = buildSet {
+                if (after.date != original.date) add(Option.MOVE)
+                if (fit.afterQuality) add(Option.AFTER_QUALITY)
+                if (after.exercises != original.exercises) add(Option.CAP_DOSE)
+            }
+            if (options.isNotEmpty()) {
+                val reason = when {
+                    fit.afterQuality -> "Complete the quality run first. Skip support work if recovery or technique is poor."
+                    phase in setOf(Engine15MacroPhase.RECOVERY, Engine15MacroPhase.TAPER) ->
+                        "Running ${phase?.name?.lowercase()} week. Keep the movement familiar with fewer sets or contacts."
+                    fit.cap -> "Keep two working sets so the nearby key run takes priority."
+                    else -> "Keep support work at a controlled dose before adding load from completed workouts."
+                }
+                changes += Change(original, after, options, reason)
+            }
+        }
+        if (changes.isEmpty() && sessions == plan.sessions) return null
+        return Review(plan.copy(sessions = sessions.sortedBy { it.date }), changes)
+    }
+}
+
+@Composable
+internal fun RunnerSupportPreviewCard(review: RunnerSupportSchedule.Review, weekStart: LocalDate, weekEnd: LocalDate) {
+    TracksideWorkoutNeutralCard {
+        Text("RUNNING PRIORITY", color = TracksidePalette.text, fontWeight = FontWeight.Bold)
+        Text(if (review.blocked) "No safe option for ${review.changes.count { RunnerSupportSchedule.Option.NO_SAFE_OPTION in it.options }} workouts."
+            else "${review.changes.size} schedule or dose changes. Activate to approve this support plan.")
+        for (change in review.changes.filter { it.before.date in weekStart..weekEnd }) {
+            val (before, after, options, reason) = change
+            val date = if (before.date == after.date) "${after.date}" else "${before.date} → ${after.date}"
+            Text("${after.title} · $date", fontWeight = FontWeight.SemiBold)
+            if (RunnerSupportSchedule.Option.CAP_DOSE in options)
+                Text("${RunnerSupportDose.label(before)} → ${RunnerSupportDose.label(after)}")
+            Text(reason, style = MaterialTheme.typography.bodySmall)
         }
     }
 }

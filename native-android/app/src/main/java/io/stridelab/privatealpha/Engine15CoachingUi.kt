@@ -101,7 +101,7 @@ internal fun AdaptationProposalSheet(proposal: PlanAdaptationProposal?, busy: Bo
             Text(proposal.coachingRationale, style = MaterialTheme.typography.bodyMedium)
             val diff = proposal.diff
             Text("FROM ${diff.effectiveFromDate} · ${diff.affectedSessionCount} sessions", style = MaterialTheme.typography.labelMedium, color = CoachingMuted)
-            val disciplineRecovery = "NON_RUNNING_RECOVERY" in proposal.reasonCodes
+            val disciplineRecovery = "NON_RUNNING_RECOVERY" in proposal.reasonCodes || proposal.type == AdaptationType.RUNNER_SUPPORT_DOSE
             if (!disciplineRecovery)
                 Text("Remaining distance · ${diff.totalRemainingKmBefore.oneDecimal()} → ${diff.totalRemainingKmAfter.oneDecimal()} km", style = MaterialTheme.typography.bodyMedium)
             diff.paceDiffs.forEach { pace ->

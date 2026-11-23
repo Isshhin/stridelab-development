@@ -54,8 +54,10 @@ internal data class TrainingState(
     val todayPlanReady: Boolean = !initializing,
     val activitySummariesReady: Boolean = !initializing,
     val groupedActivitySummaries: List<DisplayActivity>? = null,
-    val workoutExecutionOutcomes: Map<Pair<String, String>, WorkoutExecutionOutcome> = emptyMap()
+    val workoutExecutionOutcomes: Map<Pair<String, String>, WorkoutExecutionOutcome> = emptyMap(),
+    val planPreviewSupportReview: RunnerSupportSchedule.Review? = null
 ) {
+    val displayedPlanPreview get() = planPreviewSupportReview?.candidate?.takeIf { it.id == planPreview?.id } ?: planPreview
     fun prescriptionOutcome(planId: String, sessionId: String): PrescriptionOutcome =
         workoutExecutionOutcomes[planId to sessionId]?.prescription ?: PrescriptionOutcome.UNKNOWN
 
@@ -657,9 +659,18 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             }
         } else null
         mutable.value = mutable.value.copy(planPreview = null)
+        val supportDiscipline = when {
+            request.runDays == 0 && request.strengthDays > 0 && request.calDays == 0 && request.conditioningDays == 0 -> "str"
+            request.runDays == 0 && request.calDays > 0 && request.strengthDays == 0 && request.conditioningDays == 0 -> "cal"
+            else -> null
+        }
+        val generationPeers = if (supportDiscipline != null && Engine15DisciplineProgression.supports(request, supportDiscipline)) {
+            // The preview reviews the real Running calendar after constructing the baseline support slots.
+            mutable.value.plans.map { it.copy(sessions = it.sessions.filterNot { session -> session.discipline == "run" }) }
+        } else mutable.value.plans
         val preview = when(selected) {
             Engine15IndependentPlanGenerator -> Engine15IndependentPlanGenerator.generateWithHistory(
-                request, owner, mutable.value.plans,
+                request, owner, generationPeers,
                 exerciseLibrary = if (request.strengthDays > 0 || request.calDays > 0 || request.conditioningDays > 0)
                     engine15ExerciseLibrary else null,
                 activityEvidence = activityEvidence,
@@ -669,7 +680,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             )
             else -> selected.generate(request,owner)
         }
-        mutable.value = mutable.value.copy(planPreview = preview)
+        mutable.value = mutable.value.copy(planPreview = preview,
+            planPreviewSupportReview = RunnerSupportSchedule.review(preview, mutable.value.plans))
     }
     suspend fun changePlan(id:String,revision:Int,action:(PlanSnapshot)->PlanSnapshot) = operation("Saving your plan…") {
         val activeOwner=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)
@@ -734,11 +746,19 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 ?.takeIf { it.proposalId == proposalId }
                 ?: throw PlanConstraint("This adaptation proposal is no longer pending.")
             val today = java.time.LocalDate.now()
+            if (proposal.type == AdaptationType.RUNNER_SUPPORT_DOSE) {
+                val live = Engine15PlanAdaptationEngine.evaluateRunnerSupport(plan, current.plans, today,
+                    current.adaptationCooldowns) { supportReceipt(plan, it) }
+                if (live?.proposalId != proposal.proposalId || live.candidatePlanJson != proposal.candidatePlanJson)
+                    throw PlanConstraint("The workout evidence or Running calendar changed. Review the updated adjustment.")
+            }
             val applied = Engine15PlanAdaptationEngine.applyProposal(plan, proposal, today)
-            savePlan(applied.appliedPlan)
-            persistAdaptationProposalLocked(applied.updatedProposal)
-            persistAdaptationRevisionLocked(applied.revision)
-            persistAdaptationCooldownLocked(applied.cooldown)
+            writeSupportRevisionAtomically(proposal.type) {
+                savePlan(applied.appliedPlan)
+                persistAdaptationProposalLocked(applied.updatedProposal)
+                persistAdaptationRevisionLocked(applied.revision)
+                persistAdaptationCooldownLocked(applied.cooldown)
+            }
             val updatedRevisions = current.adaptationRevisions.toMutableMap().apply {
                 put(planId, getOrDefault(planId, emptyList()) + applied.revision)
             }
@@ -787,8 +807,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             val latest = revisions.lastOrNull { it.revertedAtDate == null }
                 ?: throw PlanConstraint("No adaptation revision is available to revert.")
             val reverted = Engine15PlanAdaptationEngine.revertRevision(plan, latest, java.time.LocalDate.now())
-            savePlan(reverted.restoredPlan)
-            persistAdaptationRevisionLocked(reverted.updatedRevision)
+            writeSupportRevisionAtomically(latest.adaptationType) {
+                savePlan(reverted.restoredPlan)
+                persistAdaptationRevisionLocked(reverted.updatedRevision)
+            }
             val updatedList = revisions.map {
                 if (it.revisionId == latest.revisionId) reverted.updatedRevision else it
             }
@@ -802,13 +824,40 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         mutex.withLock { mutable.value = mutable.value.copy(planPreview = null) }
     }
 
+    private fun writeSupportRevisionAtomically(type: AdaptationType, write: () -> Unit) {
+        if (type != AdaptationType.RUNNER_SUPPORT_DOSE) return write()
+        val before = mutable.value
+        val db = store.writableDatabase
+        try {
+            db.beginTransaction()
+            try {
+                write()
+                db.setTransactionSuccessful()
+            } finally {
+                db.endTransaction()
+            }
+        } catch (failure: Exception) {
+            mutable.value = before
+            throw failure
+        }
+    }
+
     suspend fun approvePlan(id: String, revision: Int) = operation("Activating your plan…") {
         val current = mutable.value
         val owner = LocalPlanOwnership.activeOwner(current.account, localPlanOwner)
         val plan = (current.planPreview?.takeIf { it.id == id } ?: current.plans.find { it.id == id })
             ?.takeIf { it.owner == owner && it.revision == revision }
             ?: throw PlanConstraint("This plan preview is no longer available.")
-        val approved = PlanOperations.approve(plan, current.plans)
+        val reviewed = if (current.planPreview?.id == id) {
+            val latest = RunnerSupportSchedule.review(plan, current.plans)
+            if (latest != current.planPreviewSupportReview) {
+                mutable.value = mutable.value.copy(planPreviewSupportReview = latest)
+                throw PlanConstraint("The Running calendar changed. Review the updated support schedule before activating.")
+            }
+            if (latest?.blocked == true) throw PlanConstraint("No safe option for the fixed support schedule.")
+            latest?.candidate ?: plan
+        } else plan
+        val approved = PlanOperations.approve(reviewed, current.plans)
         savePlan(approved.copy(revision = plan.revision + 1))
         if (current.planPreview?.id == id) mutable.value = mutable.value.copy(planPreview = null)
         reconcileActivityMatchesAndAnalysis()
@@ -1867,7 +1916,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         val today = java.time.LocalDate.now()
         val existingForPlan = current.pendingAdaptationProposals[plan.id]
             ?.takeIf { !today.isAfter(it.expiresAtDate) }
-        val newProposal = Engine15PlanAdaptationEngine.evaluateProposal(
+        val newProposal = if (existingForPlan?.type == AdaptationType.RUNNER_SUPPORT_DOSE) existingForPlan else Engine15PlanAdaptationEngine.evaluateProposal(
             plan = plan,
             diagnostic = newDiagnostic,
             activities = current.activities,
@@ -1905,6 +1954,35 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 pendingAdaptationProposals = updatedPendingProposals
             )
         }
+        reconcileRunnerSupport(today)
+    }
+
+    private fun supportReceipt(plan: PlanSnapshot, session: PlannedSession): WorkoutExecution? {
+        val stored = store.get(plan.owner, "workout", WorkoutExecutionCheckpoint.key(plan.id, session.id)) ?: return null
+        return runCatching {
+            WorkoutExecutionCheckpoint.decode(stored.payload, plan.owner, plan.id, session.id, 0, 0)
+        }.getOrNull()
+    }
+
+    private fun reconcileRunnerSupport(today: java.time.LocalDate) {
+        val state = mutable.value
+        val owner = LocalPlanOwnership.activeOwner(state.account, localPlanOwner)
+        val pending = state.pendingAdaptationProposals.toMutableMap()
+        for (plan in state.plans.filter { it.owner == owner && it.status == "approved" && RunnerSupportSchedule.supports(it) }) {
+            val previous = pending[plan.id]
+            val proposal = Engine15PlanAdaptationEngine.evaluateRunnerSupport(plan, state.plans, today, state.adaptationCooldowns) {
+                supportReceipt(plan, it)
+            }
+            if (proposal?.proposalId == previous?.proposalId) continue
+            if (previous != null && previous.type != AdaptationType.RUNNER_SUPPORT_DOSE && proposal == null) continue
+            previous?.let { persistAdaptationProposalLocked(it.copy(status = AdaptationProposalStatus.EXPIRED)) }
+            if (proposal == null) pending.remove(plan.id) else {
+                persistAdaptationProposalLocked(proposal)
+                pending[plan.id] = proposal
+            }
+        }
+        if (pending != state.pendingAdaptationProposals)
+            mutable.value = mutable.value.copy(pendingAdaptationProposals = pending)
     }
 
     private fun resolveExecutionHrZones(detail: ActivityDetail?): ExecutionHrZoneProfile? {
@@ -1999,6 +2077,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
 /** Stable, bounded local metadata key; never changes the Garmin source ID. */
 private fun sha256PrefixKey(prefix: String, id: String): String {
     RecordPolicy.identifier(id)
+    return hashedLocalKey(prefix, id)
+}
+
+private fun hashedLocalKey(prefix: String, id: String): String {
     val digest = MessageDigest.getInstance("SHA-256")
         .digest(id.toByteArray(Charsets.UTF_8))
     return prefix + digest.joinToString("") { "%02x".format(it.toInt() and 0xff) }
@@ -2023,7 +2105,7 @@ private fun adaptationRevisionRecordId(revisionId: String): String =
     sha256PrefixKey("adaptation-revision-", revisionId)
 
 private fun adaptationCooldownRecordId(cooldown: AdaptationCooldownRecord): String =
-    sha256PrefixKey(
+    hashedLocalKey(
         "adaptation-cooldown-",
         "${cooldown.planId}:${cooldown.adaptationType.name}:${cooldown.disruptionFingerprint ?: ""}"
     )

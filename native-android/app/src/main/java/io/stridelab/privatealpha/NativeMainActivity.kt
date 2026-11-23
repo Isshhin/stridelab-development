@@ -403,7 +403,7 @@ private fun NavHostController.openActivity(id: String) {
                 composable("move/{planId}/{sessionId}") { back ->
                     val planId = back.arguments?.getString("planId") ?: ""
                     val sessionId = back.arguments?.getString("sessionId") ?: ""
-                    val plan = (state.planPreview?.takeIf { it.id == planId } ?: state.plans.firstOrNull { it.id == planId })
+                    val plan = (state.displayedPlanPreview?.takeIf { it.id == planId } ?: state.plans.firstOrNull { it.id == planId })
                     val session = plan?.sessions?.firstOrNull { it.id == sessionId }
                     if (plan == null || session == null) {
                         Screen("Workout unavailable", "TRAINING", compactTitle = true) {

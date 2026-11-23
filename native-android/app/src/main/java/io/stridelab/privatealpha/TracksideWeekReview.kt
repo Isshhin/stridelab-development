@@ -68,7 +68,8 @@ internal fun TracksideWeekReview(
     savedResearchReviews: List<IndependentResearchDraft> = emptyList(),
     onChooseGoalOption: (PlanRequest) -> Unit = {},
     activities: List<ActivityRecord> = emptyList(),
-    recoveryNote: String? = null
+    recoveryNote: String? = null,
+    supportReview: RunnerSupportSchedule.Review? = null
 ) {
     val firstDate = plan?.request?.start ?: request.start
     val totalWeeks = (plan?.request?.weeks ?: request.weeks).coerceAtLeast(1)
@@ -107,13 +108,14 @@ internal fun TracksideWeekReview(
         onBack = onBack,
         ctaLabel = if (busy) "Finalizing…" else if (plan == null) "Generate My Plan" else "Activate Plan",
         onContinue = onContinue,
-        continueEnabled = !busy,
+        continueEnabled = !busy && supportReview?.blocked != true,
         descriptionBottomGap = 16,
         contentTopPadding = 12,
         headlineLineHeight = 34
     ) {
         if (plan != null) TextButton(onClick = onBack, enabled = !busy,
             modifier = Modifier.testTag("builder-discard-preview")) { Text("Discard preview") }
+        supportReview?.let { RunnerSupportPreviewCard(it, weekStart, weekEnd) }
         // 1. Hero Plan Blueprint Summary Card (when plan exists)
         if (plan != null) {
             val peakWeeklyKm = remember(plan.id, plan.revision) {

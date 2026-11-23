@@ -77,7 +77,7 @@ import kotlinx.coroutines.withContext
 @Composable internal fun TrainingScreen(state:TrainingState,actions:PlanActions,onBuild:()->Unit,onOpen:(String,String)->Unit,onSignIn:()->Unit,onManage:(String,LocalDate)->Unit) {
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) };var selectedDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) };var monthView by rememberSaveable { mutableStateOf(false) };var agendaView by rememberSaveable { mutableStateOf(false) }
     var openedResearchReviewId by rememberSaveable { mutableStateOf<String?>(null) }
-    var reviewedAdaptation by rememberSaveable { mutableStateOf(false) }
+    var reviewedAdaptation by rememberSaveable { mutableStateOf<String?>(null) }
     val plans=state.plans.filter { it.status!="archived" }
     val plan=plans.find { it.id==selectedId } ?: plans.find { it.status=="approved" } ?: plans.firstOrNull()
     // Keep the selected day when returning from Workout or Manage. Switch/reset only
@@ -118,11 +118,16 @@ import kotlinx.coroutines.withContext
                 item { AthleteDiagnosticsCard(state.activeAthleteDiagnostic) }
                 if (state.activeAdaptationProposal?.type == AdaptationType.EASY_PACING_LOCK &&
                     state.activeAthleteDiagnostic?.recalibrationAdvisory != RecalibrationAdvisory.ADDRESS_EASY_PACING_FIRST) item { EasyPacingLockBanner() }
-                item {
-                    AdaptationProposalBanner(state.activeAdaptationProposal, onReview = { reviewedAdaptation = true })
+                for (proposal in state.pendingAdaptationProposals.values.filter { proposal ->
+                    state.plans.any { it.id == proposal.planId && it.status == "approved" }
+                }) item {
+                    AdaptationProposalBanner(proposal, onReview = { reviewedAdaptation = proposal.planId })
                 }
-                if (plan != null) item {
-                    UndoAdaptationButton(plan, state.adaptationRevisions[plan.id].orEmpty(), state.busy, actions.revertLastAdaptation)
+                for (revisedPlan in state.plans.filter { it.status == "approved" &&
+                    state.adaptationRevisions[it.id].orEmpty().any { revision -> revision.revertedAtDate == null }
+                }) item {
+                    Text(revisedPlan.request.goal, style = MaterialTheme.typography.labelMedium)
+                    UndoAdaptationButton(revisedPlan, state.adaptationRevisions[revisedPlan.id].orEmpty(), state.busy, actions.revertLastAdaptation)
                 }
                 item { PendingActivityMatchCards(state, actions) }
                 if(plan==null) item { SignalCard { Text("Build your training around your life.",style=MaterialTheme.typography.headlineMedium);Text("Running, strength, calisthenics and conditioning share one calendar. Your plan stays on this device when signed out.");SignalButton("Create a plan",onBuild) } }
@@ -247,11 +252,11 @@ import kotlinx.coroutines.withContext
                 Spacer(Modifier.height(110.dp))
             }
         }
-        if (reviewedAdaptation && state.activeAdaptationProposal != null) {
+        state.pendingAdaptationProposals[reviewedAdaptation]?.let { proposal ->
             AdaptationProposalSheet(
-                proposal = state.activeAdaptationProposal,
+                proposal = proposal,
                 busy = state.busy,
-                onDismiss = { reviewedAdaptation = false },
+                onDismiss = { reviewedAdaptation = null },
                 onApply = actions.approveAdaptationProposal,
                 onDismissProposal = actions.dismissAdaptationProposal
             )

@@ -1,9 +1,67 @@
 package io.stridelab.privatealpha
 
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import kotlin.math.abs
 import kotlin.math.ceil
-import java.time.temporal.ChronoUnit
+
+internal enum class RunnerSupportDose {
+    ENTRY, LIGHT, PROGRESS;
+
+    fun apply(base: PlannedSession, request: PlanRequest): PlannedSession {
+        require(base.discipline in setOf("str", "cal") && Engine15DisciplineProgression.isStructured(base))
+        val jumps = base.kind == "structured-plyometrics"
+        require(this != PROGRESS || jumps || base.title == "Strength for Runners")
+        val exercises = base.exercises.map { exercise ->
+            when {
+                jumps -> {
+                    val entry = if (request.strengthExperience > 0 && !request.returning) 4 else 3
+                    exercise.copy(sets = 2, reps = when (this) {
+                        LIGHT -> 2
+                        ENTRY -> entry
+                        PROGRESS -> entry + 1
+                    })
+                }
+                this == LIGHT -> exercise.copy(sets = minOf(2, exercise.sets))
+                base.title == "Strength for Runners" || base.discipline == "cal" -> {
+                    val increment = if (this == PROGRESS && exercise.id == "glute-bridge") 1 else 0
+                    val repCap = when (exercise.id) {
+                        "split-stance-squat", "single-leg-hinge" -> 12
+                        "strict-pull" -> 3
+                        else -> 6
+                    }
+                    exercise.copy(
+                        sets = minOf(3, exercise.sets),
+                        reps = exercise.reps?.coerceAtMost(repCap)?.plus(increment),
+                        seconds = exercise.seconds?.coerceAtMost(if (exercise.id == "floor-pike") 10 else 15),
+                        cue = when (exercise.id) {
+                            "split-stance-squat" -> "6 per side, alternating sides. Lower for 3 seconds."
+                            "single-leg-hinge" -> "6 per side. Use a wall for balance."
+                            else -> exercise.cue
+                        }
+                    )
+                }
+                else -> exercise
+            }
+        }
+        val steps = if (jumps) base.steps.filterNot { "ground contacts" in it } +
+            "${exercises.sumOf { it.sets * (it.reps ?: 0) }} ground contacts for the session. Skip if fatigued."
+        else base.steps
+        return base.copy(
+            exercises = exercises, steps = steps, minutes = Engine15DisciplineProgression.duration(exercises),
+            runnerSupportDose = this
+        )
+    }
+
+    companion object {
+        fun label(session: PlannedSession): String =
+            if (session.kind == "structured-plyometrics")
+                "${session.exercises.sumOf { it.sets * (it.reps ?: 0) }} contacts"
+            else "${session.exercises.sumOf { it.sets }} sets, ${session.exercises.sumOf { it.sets * (it.reps ?: 0) }} reps, " +
+                "${session.exercises.sumOf { it.sets * (it.seconds ?: 0) }} s of holds"
+    }
+}
+
 
 /** Named prescriptions use existing goal fields, leaving historical goal contracts intact. */
 internal object Engine15DisciplineProgression {
@@ -191,10 +249,17 @@ internal object Engine15DisciplineProgression {
         if (plan.sessions.size != expected.size || plan.sessions.map { it.id }.toSet() != expected.keys)
             throw PlanConstraint("The saved plan is missing structured discipline slots.")
         plan.sessions.forEach { session ->
-            val slot = expected.getValue(session.id)
+            val original = expected.getValue(session.id)
+            val slot = session.runnerSupportDose?.apply(original, plan.request) ?: original
             val base = session.baselineSession()
-            if ((!reschedule && slot.date != session.date) ||
-                base.copy(date = slot.date, reason = slot.reason, status = slot.status, log = slot.log, missedReason = slot.missedReason,
+            val reviewedMove = session.runnerSupportPlacement && discipline in setOf("str", "cal") &&
+                discipline !in plan.request.weeklySlots && session.id !in plan.request.lockedSessionDays &&
+                session.date >= plan.request.start && session.date.dayOfWeek.value in plan.request.days &&
+                ChronoUnit.DAYS.between(plan.request.start, session.date) / 7 ==
+                ChronoUnit.DAYS.between(plan.request.start, original.date) / 7
+            if ((!reschedule && slot.date != session.date && !reviewedMove) ||
+                (session.runnerSupportDose != null && (plan.request.timeBudgetEnabled && session.minutes > plan.request.minutes)) ||
+                base.copy(date = slot.date, runnerSupportPlacement = false, reason = slot.reason, status = slot.status, log = slot.log, missedReason = slot.missedReason,
                     suggestion = slot.suggestion, linkedActivityId = slot.linkedActivityId, linkPreviousStatus = slot.linkPreviousStatus,
                     swaps = slot.swaps, logRevision = slot.logRevision, runResponse = slot.runResponse) != slot ||
                 !Engine15WorkoutDifficultyAdjuster.matchesAdjusted(session, plan.request))

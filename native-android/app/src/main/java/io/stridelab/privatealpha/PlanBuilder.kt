@@ -190,7 +190,7 @@ import org.json.JSONObject
         "Marathon" -> "42K"
         else -> "5K"
     }) }
-    val preview=state.planPreview?.takeIf { it.id == previewId }
+    val preview=state.displayedPlanPreview?.takeIf { it.id == previewId }
     androidx.activity.compose.BackHandler(enabled = step == 4 && !state.busy) {
         actions.discardPlanPreview()
         step = 2
@@ -256,7 +256,9 @@ import org.json.JSONObject
                     weekIndex = previewWeek,
                     onWeekChange = { previewWeek = it },
                     error = error,
-                    recoveryNote = PlanScheduleValidation.crossPlanRecoveryNote(activePreview, state.plans),
+                    supportReview = state.planPreviewSupportReview?.takeIf { it.candidate.id == activePreview.id },
+                    recoveryNote = if (state.planPreviewSupportReview == null)
+                        PlanScheduleValidation.crossPlanRecoveryNote(activePreview, state.plans) else null,
                     onChooseGoalOption = { chosen ->
                         error = null; beforeId = state.planPreview?.id; awaiting = true
                         weeks = chosen.weeks.toString(); targetKm = chosen.targetWeeklyKm.toString(); targetSupplied = true; edit(chosen)

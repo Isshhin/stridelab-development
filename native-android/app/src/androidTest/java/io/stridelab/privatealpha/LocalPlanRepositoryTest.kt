@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.*
@@ -181,6 +182,64 @@ class LocalPlanRepositoryTest {
         assertEquals(PrescriptionOutcome.PARTIALLY_PERFORMED, repo.state.value.prescriptionOutcome(plan.id, session.id))
         assertEquals(committed, repo.state.value.plans.single())
         assertEquals(1, rawPlanCount(plan.owner))
+        assertEquals(0, outboxCount(plan.owner))
+    }
+
+    @Test fun concurrentRunnerSupportPreviewAndAdjustmentPersistAndRollback() = runBlocking {
+        val today = LocalDate.now()
+        val running = PlanRequest(
+            goal = "Improve 10K", start = today.plusDays(4), weeks = 8, experience = 1,
+            days = listOf(1L, 3L, 5L).map { today.plusDays(it).dayOfWeek.value }.toSet(),
+            runDays = 3, longDay = today.plusDays(3).dayOfWeek.value, qualityCount = 0,
+            weeklyKm = 30.0, longestKm = 11.0, targetWeeklyKm = 34.0,
+            recentMileageBasis = "SELF_REPORTED_AVERAGE", timeBudgetEnabled = false
+        )
+        assertTrue(repo.generatePlan(running))
+        val runningPreview = requireNotNull(repo.state.value.planPreview)
+        assertTrue(repo.approvePlan(runningPreview.id, runningPreview.revision))
+        val approvedRun = repo.state.value.plans.single()
+        val exportedRun = approvedRun.sessions.first().runningPrescription
+        val fitAt = Instant.parse("2026-11-23T12:00:00Z")
+        val fit = GarminFitWorkoutEncoder.encode("Run", exportedRun, fitAt)
+
+        val support = PlanRequest(goal = "Strength for Runners", start = today, weeks = 8,
+            days = setOf(today.dayOfWeek.value), runDays = 0, strengthDays = 1,
+            timeBudgetEnabled = false)
+        assertTrue(repo.generatePlan(support))
+        val review = requireNotNull(repo.state.value.planPreviewSupportReview)
+        assertFalse(review.blocked)
+        assertTrue(review.candidate.sessions.any { it.runnerSupportDose == RunnerSupportDose.LIGHT })
+        assertTrue(repo.approvePlan(review.candidate.id, review.candidate.revision))
+        val plan = repo.state.value.plans.single { it.id == review.candidate.id }
+        assertEquals(review.candidate.sessions, plan.sessions)
+        val workout = plan.sessions.first()
+        var execution = requireNotNull(repo.executeWorkout(plan.id, workout.id, null, null))
+        repeat(execution.sets.size) {
+            val target = execution.current.target
+            execution = requireNotNull(repo.executeWorkout(plan.id, workout.id, execution.revision,
+                PlayerEvent.CompleteSet(SetActual(target.reps, seconds = target.seconds, rir = 4))))
+            execution = requireNotNull(repo.executeWorkout(plan.id, workout.id, execution.revision, PlayerEvent.SkipRest))
+        }
+        assertEquals(PlayerPhase.Reviewing, execution.phase)
+        val saved = requireNotNull(repo.executeWorkout(plan.id, workout.id, execution.revision,
+            PlayerEvent.FinalizeSession(Instant.now(), 6, "", today)))
+        assertTrue(saved.receipt)
+        val proposal = requireNotNull(repo.state.value.pendingAdaptationProposals[plan.id])
+        assertEquals(AdaptationType.RUNNER_SUPPORT_DOSE, proposal.type)
+        val before = repo.state.value.plans.single { it.id == plan.id }
+        val applied = repo.approveAdaptationProposal(plan.id, proposal.proposalId)
+        assertTrue(repo.state.value.message, applied)
+        repo.close()
+        open()
+        withTimeout(10_000) { repo.state.first { it.adaptationRevisions[plan.id].orEmpty().isNotEmpty() } }
+        val reloaded = repo.state.value.plans.single { it.id == plan.id }
+        assertTrue(reloaded.sessions.any { it.runnerSupportDose == RunnerSupportDose.PROGRESS })
+        Engine15IndependentPlanGenerator.validateSaved(reloaded)
+        assertTrue(repo.revertLastAdaptation(plan.id))
+        assertEquals(before.sessions, repo.state.value.plans.single { it.id == plan.id }.sessions)
+        assertEquals(approvedRun, repo.state.value.plans.single { it.id == approvedRun.id })
+        assertArrayEquals(fit, GarminFitWorkoutEncoder.encode("Run",
+            repo.state.value.plans.single { it.id == approvedRun.id }.sessions.first().runningPrescription, fitAt))
         assertEquals(0, outboxCount(plan.owner))
     }
 

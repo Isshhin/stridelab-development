@@ -16,7 +16,7 @@ Offline-first native Android running and multi-discipline training coach built a
 
 ## Repository Map (`F:\StrideLab\Current-App\stridelab-engine15-dev`, branch `dev`)
 - `native-android/app/src/main/java/io/stridelab/privatealpha/` — Active Kotlin/Compose app, Engine 1.5, Garmin/FIT pipeline, and UI
-- `native-android/app/src/test/java/io/stridelab/privatealpha/` — JVM unit tests (`158` suites / `1,243` tests, including workout outcomes, multi-plan Today, full running plans, running history estimates, FIT and debriefs)
+- `native-android/app/src/test/java/io/stridelab/privatealpha/` — JVM unit tests (`159` suites / `1,250` tests, including runner support, workout outcomes, multi-plan Today, full running plans, FIT and debriefs)
 - `native-android/app/src/androidTest/java/io/stridelab/privatealpha/` — Compose and instrumentation coverage for Activity Detail and guided execution. The five AMOLED player tests passed on the API 35 emulator at 360 dp and approximately 412 dp with font scales 1.0 and 1.3.
 - `docs/wiki/` — Persistent Obsidian-compatible LLM memory hub (this wiki)
 - `research/engine15/` — Generated Engine 1.5 coaching audit reports (e.g., `M28A_COACHING_AUDIT_20261121.md`)
@@ -41,6 +41,11 @@ Offline-first native Android running and multi-discipline training coach built a
 ## Running Prescription Validation
 
 - The M28A audit reports distance reps in meters with a labeled work time estimate. The full-plan JVM fixtures cover 8-week beginner, 16-week intermediate, and 12-week advanced 10K plans, plus Garmin FIT decoding of the benchmark workouts. See [[engine-rules]] for quality entry and phase rules.
+
+## Runner Support
+
+- The plan blueprint reviews concurrent support dates and doses against the Running calendar. Strength and plyometrics use confirmed local workout evidence for optional progression. Review and Undo are available in Training. See [[engine-rules#Runner Support]].
+- API 35 repository acceptance verified concurrent support preview, receipt based progression, reload and undo, with the approved Running snapshot and FIT bytes preserved.
 
 ## Verification Commands (`native-android/`, JDK 21, run sequentially)
 ```powershell
