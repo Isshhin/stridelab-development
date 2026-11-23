@@ -20,6 +20,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -150,7 +152,8 @@ internal fun TracksideDisciplineScreen(
     request: PlanRequest,
     onToggle: (String) -> Unit,
     onBack: () -> Unit,
-    onContinue: () -> Unit
+    onContinue: () -> Unit,
+    extraResistance: Set<String> = emptySet()
 ) {
     val entries = listOf(
         Triple("run", "Running", "Endurance and speed"),
@@ -163,7 +166,7 @@ internal fun TracksideDisciplineScreen(
     TracksideBuilderFrame(
         eyebrow = "BUILD YOUR PLAN",
         headline = "Choose your focus",
-        description = "Build a separate plan for each focus, or select multiple disciplines to coordinate them in one plan.",
+        description = "Choose up to six tracks. Review their shared schedule before activating.",
         onBack = onBack,
         onContinue = onContinue,
         continueEnabled = request.runDays + request.strengthDays +
@@ -176,7 +179,8 @@ internal fun TracksideDisciplineScreen(
             pair.forEach { (discipline, name, desc) ->
                     val selected = when (discipline) {
                         "run" -> request.runDays > 0
-                        "str", "plyo", "iso" -> request.strengthDays > 0 && strengthTrack(request) == discipline
+                        "str", "plyo", "iso" -> discipline in extraResistance ||
+                            request.strengthDays > 0 && strengthTrack(request) == discipline
                         "cal" -> request.calDays > 0
                         else -> request.conditioningDays > 0
                     }
@@ -188,7 +192,8 @@ internal fun TracksideDisciplineScreen(
                     )
                     Surface(
                         modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 96.dp)
-                            .testTag("discipline-$discipline"),
+                            .testTag("discipline-$discipline")
+                            .semantics { this.selected = selected },
                         onClick = { onToggle(discipline) },
                         shape = RoundedCornerShape(16.dp),
                         color = cardBg,

@@ -69,7 +69,9 @@ internal fun TracksideWeekReview(
     onChooseGoalOption: (PlanRequest) -> Unit = {},
     activities: List<ActivityRecord> = emptyList(),
     recoveryNote: String? = null,
-    supportReview: RunnerSupportSchedule.Review? = null
+    supportReview: RunnerSupportSchedule.Review? = null,
+    activationLabel: String = "Activate Plan",
+    trackControls: (@Composable () -> Unit)? = null
 ) {
     val firstDate = plan?.request?.start ?: request.start
     val totalWeeks = (plan?.request?.weeks ?: request.weeks).coerceAtLeast(1)
@@ -106,7 +108,7 @@ internal fun TracksideWeekReview(
         description = if (plan == null) "Review your weekly structure before generating your preview."
         else "Tap any week bar or workout card to inspect details before activating.",
         onBack = onBack,
-        ctaLabel = if (busy) "Finalizing…" else if (plan == null) "Generate My Plan" else "Activate Plan",
+        ctaLabel = if (busy) "Finalizing…" else if (plan == null) "Generate My Plan" else activationLabel,
         onContinue = onContinue,
         continueEnabled = !busy && supportReview?.blocked != true,
         descriptionBottomGap = 16,
@@ -115,6 +117,7 @@ internal fun TracksideWeekReview(
     ) {
         if (plan != null) TextButton(onClick = onBack, enabled = !busy,
             modifier = Modifier.testTag("builder-discard-preview")) { Text("Discard preview") }
+        trackControls?.invoke()
         supportReview?.let { RunnerSupportPreviewCard(it, weekStart, weekEnd) }
         // 1. Hero Plan Blueprint Summary Card (when plan exists)
         if (plan != null) {

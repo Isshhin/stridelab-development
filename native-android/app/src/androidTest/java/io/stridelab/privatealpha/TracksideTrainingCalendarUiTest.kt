@@ -2,10 +2,11 @@ package io.stridelab.privatealpha
 
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.time.Instant
@@ -34,6 +35,14 @@ class TracksideTrainingCalendarUiTest {
             }
         }
         compose.onNodeWithTag("training-week-chart").assertExists()
+        val chartBounds = compose.onNodeWithTag("training-week-chart").getUnclippedBoundsInRoot()
+        for (offset in 0L..6L) {
+            val day = compose.onNodeWithTag("calendar-day-${start.plusDays(offset)}")
+            day.assertIsDisplayed()
+            val bounds = day.getUnclippedBoundsInRoot()
+            assertTrue(bounds.left >= chartBounds.left - 1.dp && bounds.right <= chartBounds.right + 1.dp)
+        }
+        compose.onNodeWithText("SU", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("calendar-day-2026-11-04").performClick()
         compose.runOnIdle {
             assertEquals(start.plusDays(2), selected.value)

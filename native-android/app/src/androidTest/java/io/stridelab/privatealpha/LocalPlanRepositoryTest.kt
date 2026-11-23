@@ -70,6 +70,74 @@ class LocalPlanRepositoryTest {
             ).use { c -> check(c.moveToFirst()); c.getInt(0) }
         }
 
+    @Test fun savedGearPersistsUnderTheCurrentOwnerWithoutEditingApprovedPlans() = runBlocking {
+        val guest = requireNotNull(repo.state.value.localPlanOwner)
+        assertTrue(repo.generatePlan(request()))
+        val draft = requireNotNull(repo.state.value.planPreview)
+        assertTrue(repo.approvePlan(draft.id, draft.revision))
+        val approved = repo.state.value.plans.single().encode().toString()
+        assertEquals(mapOf("db" to 1), builderEquipmentFor(repo.state.value, request()))
+        assertTrue(repo.saveBuilderEquipment(guest, emptyMap()))
+        repo.close()
+        open()
+        assertEquals(emptyMap<String, Int>(), repo.state.value.savedEquipment)
+        assertEquals(approved, repo.state.value.plans.single().encode().toString())
+        assertTrue(repo.signIn("synthetic@example.invalid", "fixture"))
+        assertNull(repo.state.value.savedEquipment)
+        assertTrue(repo.saveBuilderEquipment(cloudOwner, mapOf("bb" to 1)))
+        assertEquals(0, outboxCount(cloudOwner))
+        assertTrue(repo.signOut())
+        assertEquals(emptyMap<String, Int>(), repo.state.value.savedEquipment)
+        assertTrue(repo.signIn("synthetic@example.invalid", "fixture"))
+        assertEquals(mapOf("bb" to 1), repo.state.value.savedEquipment)
+        assertEquals(0, outboxCount(guest))
+    }
+
+    @Test fun sixTrackActivationRollsBackOnCollisionAndRestoresWithIdenticalRunningFit() = runBlocking {
+        val owner = requireNotNull(repo.state.value.localPlanOwner)
+        val start = LocalDate.now().plusWeeks(1)
+        val request = PlanRequest(
+            goal = "General fitness", start = start, weeks = 2, days = (1..7).toSet(),
+            runDays = 1, longDay = 7, qualityCount = 0, qualityDays = emptySet(),
+            weeklyKm = 8.0, targetWeeklyKm = 8.0, longestKm = 10.0, experience = 1,
+            timeBudgetEnabled = false, strengthDays = 1, calDays = 1, conditioningDays = 1,
+            disciplineGoals = mapOf("str" to "Upper Body & Posture", "cal" to "Core / Anti-Rotation",
+                "cond" to "Steady aerobic cross-conditioning")
+        )
+        val requests = HybridPlanBuilder.split(request, setOf("plyo", "iso"))
+        assertTrue(repo.generateHybridPlan(requests, false))
+        val preview = requireNotNull(repo.state.value.hybridPlanPreview)
+        assertEquals(6, preview.drafts.size)
+        val colliding = preview.drafts.last().second
+        val testStore = TrainingStore(context, databaseName)
+        try {
+            testStore.applyRemotePage(owner, "plan",
+                listOf(TrainingStore.RemoteRecord(colliding.id, colliding.encode().toString(), null)), null, 0L)
+            assertFalse(repo.approveHybridPlan(preview.id))
+            assertEquals(1, rawPlanCount(owner))
+            assertTrue(repo.state.value.plans.isEmpty())
+            testStore.deleteRecord(owner, "plan", colliding.id)
+        } finally { testStore.close() }
+        assertTrue(repo.approveHybridPlan(preview.id))
+        assertEquals(6, rawPlanCount(owner))
+        assertEquals(0, outboxCount(owner))
+        val snapshots = repo.state.value.plans.associateBy { it.id }
+        val backup = PlanBackup.encode(snapshots.values.toList(), emptyList(), owner)
+        val savedRun = snapshots.values.single { it.request.runDays == 1 }.sessions.first()
+        val stamp = Instant.parse("2026-11-23T00:00:00Z")
+        val expected = GarminFitWorkoutEncoder.encode(savedRun.title, savedRun.runningPrescription, stamp)
+        repo.close()
+        context.deleteDatabase(databaseName)
+        open()
+        assertTrue(repo.restorePlans(backup))
+        val restored = repo.state.value.plans.associateBy { it.id }
+        assertEquals(snapshots, restored)
+        restored.values.forEach { Engine15IndependentPlanGenerator.validateSaved(it) }
+        val restoredRun = restored.values.single { it.request.runDays == 1 }.sessions.first()
+        assertArrayEquals(expected, GarminFitWorkoutEncoder.encode(restoredRun.title, restoredRun.runningPrescription, stamp))
+        assertEquals(0, outboxCount(owner))
+    }
+
     @Test fun signedOutGenerationAndApprovalPersistAfterReopeningWithNoCloudOutbox() = runBlocking {
         assertNull(repo.state.value.account)
         val deviceOwner = requireNotNull(repo.state.value.localPlanOwner)

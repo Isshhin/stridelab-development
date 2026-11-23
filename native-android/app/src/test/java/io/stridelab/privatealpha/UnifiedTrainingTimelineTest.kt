@@ -201,4 +201,29 @@ class UnifiedTrainingTimelineTest {
         assertEquals(listOf("run1", "run2"),
             days.single().activities.map { it.primary.id })
     }
+
+    @Test fun concurrentPlansPreserveLocalIdCollisionsWithOffsetCalendarsAndRecordingAliases() {
+        val primary = activity("primary", "2026-11-06T06:00:00Z")
+        val fit = primary.copy(id = "fit-alias", source = "fit")
+        val manual = primary.copy(id = "manual-alias", source = "manual")
+        val running = plan(sessions = listOf(
+            session("shared", "2026-11-06"),
+            session("linked", "2026-11-06", status = "completed", linked = fit.id)
+        )).copy(id = "running")
+        val strength = plan(sessions = listOf(
+            session("shared", "2026-11-06").copy(discipline = "str", title = "Isometrics"),
+            session("other", "2026-11-27").copy(discipline = "str", title = "Plyometrics")
+        )).copy(id = "support", request = running.request.copy(start = today.minusWeeks(2), weeks = 6))
+        val groups = listOf(DisplayActivity(primary, listOf(fit, manual)))
+        val plans = listOf(running, strength)
+        val days = unifiedTrainingDays(today, groups, plans, null, manila, plans.map { it.id }.toSet())
+        val selected = unifiedTrainingSelectedDay(today, days.first(), plans, setOf(primary.id, fit.id, manual.id))
+        assertEquals(listOf(running.id to "shared", strength.id to "shared"), selected.workouts.map { it.planId to it.session.id })
+        assertEquals(listOf("run", "iso"), selected.workouts.map { trainingTrack(it.session) })
+        assertEquals("primary", selected.activities.single().primary.id)
+        assertEquals("plyo", trainingTrack(days.last().workouts.single().session))
+        assertEquals(2, tracksideTrainingWeek(plans, today).single { it.date == today }.sessions.count { it.id == "shared" })
+        val filtered = unifiedTrainingDays(today, groups, listOf(strength), strength.id, manila)
+        assertEquals("support", filtered.first().workouts.single().planId)
+    }
 }

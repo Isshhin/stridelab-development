@@ -42,7 +42,7 @@ internal fun TracksideStrengthSetup(
     onCount: (Int) -> Unit,
     onAssign: (Int, Int) -> Unit,
     onClear: (Int) -> Unit,
-    onEquipment: (String, Boolean) -> Unit,
+    onSaveEquipment: (Map<String, Int>) -> Unit,
     onBack: () -> Unit,
     onEditGoal: () -> Unit,
     onContinue: () -> Unit
@@ -59,7 +59,10 @@ internal fun TracksideStrengthSetup(
     if (choosingEquipment) {
         TracksideStrengthEquipment(
             request = request,
-            onChoice = onEquipment,
+            onSave = { gear ->
+                onSaveEquipment(gear)
+                choosingEquipment = false
+            },
             onBack = { choosingEquipment = false }
         )
         return
@@ -395,15 +398,14 @@ private fun StrengthPreferenceRow(
 @Composable
 private fun TracksideStrengthEquipment(
     request: PlanRequest,
-    onChoice: (String, Boolean) -> Unit,
+    onSave: (Map<String, Int>) -> Unit,
     onBack: () -> Unit
 ) {
-    val list = listOf(
-        "db" to "Dumbbells", "bb" to "Barbell",
-        "bands" to "Resistance bands", "bench" to "Bench",
-        "bar" to "Pull-up bar", "rack" to "Squat rack",
-        "anchor" to "Band anchors", "support" to "Stable supports"
-    )
+    val list = builderEquipmentLabels
+    var selectedIds by rememberSaveable {
+        mutableStateOf(ArrayList(builderEquipmentIds.filter { (request.equipment[it] ?: 0) > 0 }))
+    }
+    androidx.activity.compose.BackHandler(onBack = onBack)
     TracksideBuilderFrame(
         progressStep = 3,
         toolbarTitle = "Equipment",
@@ -412,12 +414,12 @@ private fun TracksideStrengthEquipment(
         description = "StrideLab matches every exercise to your available gear.",
         ctaLabel = "Save gear",
         onBack = onBack,
-        onContinue = onBack,
+        onContinue = { onSave(selectedIds.associateWith { 1 }) },
         descriptionBottomGap = 14,
         contentTopPadding = 12,
         headlineLineHeight = 34
     ) {
-        val selected = list.count { (id, _) -> (request.equipment[id] ?: 0) > 0 }
+        val selected = selectedIds.size
         Text(
             "$selected of ${list.size} selected",
             color = PlanBuilderPalette.accent,
@@ -428,9 +430,11 @@ private fun TracksideStrengthEquipment(
         list.chunked(2).forEach { pair ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                 pair.forEach { (id, label) ->
-                    val active = (request.equipment[id] ?: 0) > 0
+                    val active = id in selectedIds
                     Surface(
-                        onClick = { onChoice(id, !active) },
+                        onClick = {
+                            selectedIds = ArrayList(if (active) selectedIds - id else selectedIds + id)
+                        },
                         modifier = Modifier
                             .weight(1f)
                             .height(74.dp)

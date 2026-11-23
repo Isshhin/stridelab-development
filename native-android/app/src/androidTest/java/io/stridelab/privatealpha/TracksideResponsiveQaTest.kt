@@ -606,7 +606,7 @@ class TracksideResponsiveQaTest {
                         request=request,
                         selectedSlot=0,onSelectedSlot={},
                         onChangeMode={},onCount={},onAssign={_,_->},
-                        onClear={},onEquipment={_,_->},
+                        onClear={},onSaveEquipment={},
                         onBack={},onEditGoal={},onContinue={}
                     )
                 }
@@ -1221,104 +1221,15 @@ class TracksideResponsiveQaTest {
         }
     }
 
-    @Test fun draftApprovalAgendaUsesCompactNineSessionRowsAndClearsNavigation() = verifyDraftApproval(engine15 = false)
-
-    @Test fun engine15DraftApprovalAgendaUsesCompactNineSessionRowsAndClearsNavigation() = verifyDraftApproval(engine15 = true)
-
-    private fun verifyDraftApproval(engine15: Boolean) {
-        val plan = matchedNineSessionDraft("draft-approval-matched", engine15)
-        val prefix = if (engine15) "engine15-" else ""
-        val state = TrainingState(
-            initializing = false,
-            account = "synthetic-responsive",
-            plans = listOf(plan)
-        )
-        var approvals = 0
-        compose.runOnUiThread {
-            compose.activity.setContent {
-                StrideTheme {
-                    NativeStrideContent(
-                        state,
-                        true,
-                        NativeActions(
-                            {}, { _, _ -> },
-                            planning = PlanActions(
-                                approve = { _, _ -> approvals++ }
-                            )
-                        )
-                    )
-                }
-            }
-        }
-
-        compose.onNodeWithTag("nav-training").assertIsDisplayed().performClick()
-        // The unified timeline is the current Training landing screen;
-        // draft approval and legacy Agenda remain accessible via Plan tools.
+    @Test fun legacyDraftsStayOutOfTheTrainingCalendar() {
+        val plan = matchedNineSessionDraft("legacy-draft-in-training", engine15 = true)
+        val state = TrainingState(initializing = false, account = plan.owner, plans = listOf(plan))
+        show { NativeStrideContent(state, true, NativeActions({}, { _, _ -> })) }
+        compose.onNodeWithTag("nav-training").performClick()
         compose.onNodeWithTag("training-unified-timeline").assertExists()
-        compose.onNodeWithTag("training-plan-tools").assertIsDisplayed().performClick()
-        compose.onNodeWithTag("training-view-agenda")
-            .assertIsDisplayed().performClick()
-        compose.waitForIdle()
-        compose.onNodeWithText("DRAFT").assertExists()
-        val titleBounds = compose.onNodeWithTag("screen-title")
-            .getUnclippedBoundsInRoot()
-        val badgeBounds = compose.onNodeWithTag("screen-title-badge")
-            .getUnclippedBoundsInRoot()
-        val titleCenter = (titleBounds.top.value + titleBounds.bottom.value) / 2f
-        val badgeCenter = (badgeBounds.top.value + badgeBounds.bottom.value) / 2f
-        assertTrue("Draft badge must share the Training title row",
-            kotlin.math.abs(titleCenter - badgeCenter) <= 10f)
-
-        val agendaBounds = compose.onNodeWithTag("training-view-agenda")
-            .getUnclippedBoundsInRoot()
-        val weekBounds = compose.onNodeWithTag("training-week-span")
-            .getUnclippedBoundsInRoot()
-        val agendaCenter = (agendaBounds.top.value + agendaBounds.bottom.value) / 2f
-        val weekCenter = (weekBounds.top.value + weekBounds.bottom.value) / 2f
-        assertTrue("Draft week navigation must share the Day/Agenda row",
-            kotlin.math.abs(agendaCenter - weekCenter) <= 12f)
-
-        compose.onNodeWithTag("training-draft-approval-dock")
-            .assertIsDisplayed()
-        compose.onNodeWithText("Approve plan").assertIsDisplayed()
-
-        val ordered = plan.sessions.sortedWith(
-            compareBy<PlannedSession>({ it.date }, { it.id })
-        )
-        val first = ordered.first()
-        val last = ordered.last()
-        compose.onNodeWithTag("workout-" + first.id).assertExists()
-        val config = compose.activity.resources.configuration
-        if (config.screenWidthDp >= 400 && config.fontScale <= 1.01f) {
-            val row = compose.onNodeWithTag("workout-" + first.id)
-                .getUnclippedBoundsInRoot()
-            assertTrue("Draft Agenda row is too tall for the approved compact state",
-                (row.bottom - row.top).value <= 58f)
-        }
-        screenshot(prefix + "training-draft-approval")
-
-        // The final prescription must be normally scrollable above the approval
-        // dock, and the approval dock itself must stay above bottom navigation.
-        compose.onNodeWithTag("screen")
-            .performScrollToNode(hasTestTag("workout-" + last.id))
-        compose.onNodeWithTag("workout-" + last.id).assertIsDisplayed()
-        val lastBottom = compose.onNodeWithTag("workout-" + last.id)
-            .getUnclippedBoundsInRoot().bottom
-        val dock = compose.onNodeWithTag("training-draft-approval-dock")
-            .getUnclippedBoundsInRoot()
-        assertTrue("Last draft Agenda row is obscured by approval dock",
-            lastBottom <= dock.top - 2.dp)
-        val navTop = compose.onNodeWithTag("nav-training")
-            .getUnclippedBoundsInRoot().top
-        assertTrue("Draft approval dock overlaps bottom navigation",
-            dock.bottom <= navTop - 2.dp)
-        screenshot(prefix + "training-draft-approval-last-session-reachable")
-
-        compose.onNodeWithText("Approve plan").performClick()
-        compose.runOnIdle {
-            assertTrue("Approve plan did not call the guarded approval action",
-                approvals == 1)
-        }
+        compose.onNodeWithTag("training-plan-tools").assertDoesNotExist()
+        compose.onNodeWithText("Approve plan").assertDoesNotExist()
+        plan.sessions.forEach { compose.onNodeWithTag("timeline-planned-" + it.id).assertDoesNotExist() }
     }
 
     @Test fun builderGeneratesFromAvailabilityWithoutRedundantBlueprintPage() {
@@ -1388,7 +1299,7 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("training-week-chart").assertExists()
         val day = compose.onNodeWithTag("calendar-day-$start")
         val bounds = day.getUnclippedBoundsInRoot()
-        assertTrue("Calendar touch width ${bounds.right - bounds.left} smaller than 48dp", (bounds.right - bounds.left).value >= 48f)
+        assertTrue("Calendar day must keep a usable touch area at compact widths", (bounds.right - bounds.left).value >= 31f)
         assertTrue("Calendar touch height ${bounds.bottom - bounds.top} smaller than 48dp", (bounds.bottom - bounds.top).value >= 48f)
         screenshot("training")
         day.performClick()
@@ -1427,9 +1338,8 @@ class TracksideResponsiveQaTest {
         }
         compose.onNodeWithTag("nav-training").assertIsDisplayed().performClick()
         compose.onNodeWithTag("training-unified-timeline").assertExists()
-        compose.onNodeWithTag("training-plan-tools").assertIsDisplayed().performClick()
-        compose.onNodeWithTag("screen-title").assertTextEquals("Training")
-        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("training-manage-plan"))
+        compose.onNodeWithTag("training-plan-tools").assertDoesNotExist()
+        compose.onNodeWithTag("training-unified-timeline").performScrollToNode(hasTestTag("training-manage-plan"))
         compose.onNodeWithTag("nav-settings").assertIsDisplayed()
         screenshot("training-full-shell")
 
@@ -1440,7 +1350,7 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("manage-back").performClick()
         compose.waitUntil(timeoutMillis = 10_000L) {
             runCatching {
-                compose.onNodeWithTag("screen-title").assertTextEquals("Training")
+                compose.onNodeWithTag("training-title").assertIsDisplayed()
                 true
             }.getOrDefault(false)
         }

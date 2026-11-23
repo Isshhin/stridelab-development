@@ -27,8 +27,10 @@ internal fun PendingActivityMatchCards(state: TrainingState, actions: PlanAction
             match.plannedSessionId?.let { listOf(ActivityMatchCandidate(it, match.confidenceScore, match.dateOffsetDays ?: 0, match.reasonCodes)) }.orEmpty()
         }
         candidates.forEach { candidate ->
-            val plan = state.plans.firstOrNull { p -> p.sessions.any { it.id == candidate.plannedSessionId } } ?: return@forEach
-            val session = plan.sessions.firstOrNull { it.id == candidate.plannedSessionId } ?: return@forEach
+            val plan = state.plans.singleOrNull { p ->
+                p.status == "approved" && p.sessions.any { it.id == candidate.plannedSessionId && it.discipline == "run" }
+            } ?: return@forEach
+            val session = plan.sessions.singleOrNull { it.id == candidate.plannedSessionId && it.discipline == "run" } ?: return@forEach
             SignalCard(modifier.testTag("activity-match-${match.activityId}-${session.id}")) {
                 Text("CONFIRM WORKOUT LINK", style = MaterialTheme.typography.labelMedium, color = CoachingMuted)
                 Text(activity.title, style = MaterialTheme.typography.titleMedium, color = CoachingInk)

@@ -40,14 +40,11 @@ class TracksideManageNavigationTest {
             }
         }
         compose.onNodeWithTag("nav-training").performClick()
-        // Calendar controls are reached through the existing timeline's Plan tools.
-        compose.onNodeWithTag("training-plan-tools").performClick()
-        compose.waitUntil(timeoutMillis = 10_000L) {
-            runCatching { compose.onNodeWithTag("screen-title").assertTextEquals("Training"); true }.getOrDefault(false)
-        }
-        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("training-calendar"))
+        compose.onNodeWithTag("training-plan-tools").assertDoesNotExist()
+        val timeline = compose.onNodeWithTag("training-unified-timeline")
+        timeline.performScrollToNode(hasTestTag("calendar-day-$selected"))
         compose.onNodeWithTag("calendar-day-$selected").performClick()
-        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("training-manage-plan"))
+        timeline.performScrollToNode(hasTestTag("training-manage-plan"))
         compose.onNodeWithTag("training-manage-plan").performClick()
         compose.onNodeWithTag("screen-title").assertTextEquals("Manage plan")
         compose.onNodeWithTag("nav-training").assertIsSelected()
@@ -56,16 +53,11 @@ class TracksideManageNavigationTest {
         // Training destination instead of reading Manage's exiting semantics tree.
         compose.waitUntil(timeoutMillis = 10_000L) {
             runCatching {
-                compose.onNodeWithTag("screen-title").assertTextEquals("Training")
+                compose.onNodeWithTag("training-title").assertIsDisplayed()
                 true
             }.getOrDefault(false)
         }
-        compose.onNodeWithTag("screen-title").assertTextEquals("Training")
-        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("training-calendar"))
-        compose.onNodeWithTag("training-calendar").assertExists()
-        val dateLabel = selected.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.getDefault()))
-            .uppercase(Locale.getDefault())
-        compose.onNodeWithTag("screen").performScrollToNode(hasText(dateLabel))
-        compose.onNodeWithText(dateLabel).assertExists()
+        timeline.performScrollToNode(hasTestTag("timeline-day-$selected"))
+        compose.onNodeWithTag("timeline-day-$selected").assertExists()
     }
 }

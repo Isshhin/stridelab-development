@@ -1,7 +1,7 @@
 ---
 scope: ui-system
 tags: [stridelab, compose, design-system, amoled, components]
-last_updated: 2026-11-22
+last_updated: 2026-11-23
 ---
 
 # UI Design System (Jetpack Compose)
@@ -36,7 +36,10 @@ Defined across `StrideTheme` (`NativeMainActivity.kt`), `WorkoutDetailPalette` (
   - `TodayTrainingOverviewCard`: 3-column weekly running totals (`Run km`, `Run hours` `h:mm`, `Runs`), active-only non-running discipline pills, and conditional verified `Adherence` progress bar (no fabricated multisport TSS).
   - `TodayRecentActivitiesSection`: Option 1 compact rows inside a single `#14181C` container with `1.dp` `#1E242B` dividers, `Canvas` discipline icon badges, `See all`, and `48×32 dp` `TodayCompactGpsThumbnail` for runs with cached coordinates.
 - **`TracksideFloatingNavigation` (`TracksideFloatingNavigation.kt`):** Persistent 3-tab floating capsule (`Today`, `Training`, `More`, `68.dp` height, `36.dp` corner radius) with animated lime indicator; hidden on detail/builder/workout routes (`showFloatingDock` in `NativeMainActivity.kt`).
+- **Training Calendar:** Seven weighted columns with two-letter day labels keep Sunday inside the viewport. The same chart accepts a single plan or the filtered plans on the Training tab.
+- **Hybrid Blueprint:** The track chips keep the selected week when switching prescriptions. Calendar notes show pairing order and support dose changes before activation.
 - **`WorkoutProfileAndDifficultyCard` (`TracksidePlannedRunningPreview.kt`):**
+  - Blueprint drafts reuse the running metrics, chart and step list without execution or editing controls. Workout unavailable states use the Workout Detail foreground and muted text tokens for contrast.
   - Pure-Compose `Row` bar chart (no external chart library): bar width proportional to `durationMinutes.coerceAtLeast(1f)`, height `fillMaxHeight(intensityFraction)`, vertical gradient fill + `3.dp` top sheen.
   - Flattens repeat intervals (`flattenProfileBars`) into alternating Work/Recover bars mapped to parent `stepIndex`.
   - Unselected bars dim to `alpha = 0.35f` (`animateFloatAsState`) when `selectedStepIndex != null`.
@@ -45,5 +48,5 @@ Defined across `StrideTheme` (`NativeMainActivity.kt`), `WorkoutDetailPalette` (
   - Sealed `WorkoutStepItem` (`SingleStep`, `RepeatGroup`) rendered alongside a continuous left vertical timeline rail (`TimelineRailIndicator`) with color-coded dots synced to `selectedStepIndex`.
   - `SingleStep`: `Row(Modifier.height(IntrinsicSize.Min))` with `4.dp` full-height left accent bar, bold title, right-aligned zone pill, and metric/effort lines.
   - `RepeatGroup`: Amber gradient header (`N × Interval Set` + `N REPS` badge) over stacked `Work`/`Recover` sub-cards.
-  - **Why `groupDisplayMixedSteps` has `<= 1 m` tolerance:** `Engine15WorkoutDifficultyAdjuster` distributes integer meters across timed steps, which can vary by 1 m across identical reps; display tolerance keeps scaled intervals grouped as one `RepeatGroup` without mutating engine data models.
+  - **Why `groupDisplayMixedSteps` has `<= 1 m` tolerance:** `Engine15WorkoutDifficultyAdjuster` distributes integer meters across timed steps. Otherwise identical reps, including strides, stay grouped. Different pace or HR targets keep separate rows. Grouping only affects presentation.
 - **Activity Telemetry Charts (`ActivityChartMovingTimeAxis.kt`, `ActivityChartDisplayScale.kt`):** Render continuous source-measured lines on a pause-compressed moving-time x-axis.

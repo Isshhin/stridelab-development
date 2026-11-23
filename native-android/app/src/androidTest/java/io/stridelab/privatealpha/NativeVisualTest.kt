@@ -101,7 +101,8 @@ class NativeVisualTest {
             }
         }
         compose.onNodeWithTag("nav-training").performClick()
-        compose.onNodeWithTag("training-plan-tools").assertIsDisplayed()
+        compose.onNodeWithTag("training-title").assertIsDisplayed()
+        compose.onNodeWithTag("training-plan-tools").assertDoesNotExist()
         val bounds = compose.onNodeWithTag("training-unified-timeline").fetchSemanticsNode().boundsInRoot
         val viewport = compose.onRoot().fetchSemanticsNode().boundsInRoot
         assertTrue("Training content must stay within the display",bounds.left>=viewport.left && bounds.right<=viewport.right)

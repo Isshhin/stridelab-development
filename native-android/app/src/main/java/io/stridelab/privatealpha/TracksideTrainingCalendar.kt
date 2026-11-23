@@ -10,9 +10,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -66,12 +64,18 @@ internal fun tracksideCalendarMonday(date: LocalDate): LocalDate =
     date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
 
 internal fun tracksideTrainingWeek(plan: PlanSnapshot, selected: LocalDate): List<TracksideTrainingDay> {
+    return tracksideTrainingWeek(listOf(plan), selected)
+}
+
+internal fun tracksideTrainingWeek(plans: List<PlanSnapshot>, selected: LocalDate): List<TracksideTrainingDay> {
     val monday = tracksideCalendarMonday(selected)
     return (0L..6L).map { offset ->
         val date = monday.plusDays(offset)
         TracksideTrainingDay(
             date,
-            plan.sessions.filter { it.date == date && it.status != "unassigned" }.map(plan::cardPresentation)
+            plans.flatMap { plan ->
+                plan.sessions.filter { it.date == date && it.status != "unassigned" }.map(plan::cardPresentation)
+            }
         )
     }
 }
@@ -109,17 +113,29 @@ internal fun TracksideTrainingWeekChart(
     weekScopeSelected: Boolean = false,
     onToggleWeekScope: (() -> Unit)? = null,
     onSelect: (LocalDate) -> Unit
+) = TracksideTrainingWeekChart(listOf(plan), selected, showNavigation, recordedDates,
+    weekScopeSelected, onToggleWeekScope, onSelect)
+
+@Composable
+internal fun TracksideTrainingWeekChart(
+    plans: List<PlanSnapshot>,
+    selected: LocalDate,
+    showNavigation: Boolean = true,
+    recordedDates: Set<LocalDate> = emptySet(),
+    weekScopeSelected: Boolean = false,
+    onToggleWeekScope: (() -> Unit)? = null,
+    onSelect: (LocalDate) -> Unit
 ) {
-    val first = plan.request.start
-    val last = first.plusWeeks(plan.request.weeks.toLong()).minusDays(1)
+    val first = plans.minOf { it.request.start }
+    val last = plans.maxOf { it.request.start.plusWeeks(it.request.weeks.toLong()).minusDays(1) }
     val firstMonday = tracksideCalendarMonday(first)
     val weekStart = tracksideCalendarMonday(selected)
     val lastMonday = tracksideCalendarMonday(last)
     val weekIndex = ChronoUnit.WEEKS.between(firstMonday, weekStart).toInt() + 1
     val totalWeeks = ChronoUnit.WEEKS.between(firstMonday, lastMonday).toInt() + 1
-    val days = tracksideTrainingWeek(plan, selected)
-    val hasRunning = plan.request.runDays > 0 || plan.sessions.any { it.discipline == "run" }
-    var distanceView by rememberSaveable(plan.id) { mutableStateOf(hasRunning) }
+    val days = tracksideTrainingWeek(plans, selected)
+    val hasRunning = plans.any { plan -> plan.sessions.any { it.discipline == "run" } }
+    var distanceView by rememberSaveable(plans.map { it.id }) { mutableStateOf(hasRunning && plans.size == 1) }
     val total = days.sumOf { it.plannedMinutes }
 
     fun activeEstimatedDistance(session: PlannedSession): Double? {
@@ -288,6 +304,7 @@ internal fun TracksideTrainingWeekChart(
                         if (weekScopeSelected) StrideLabVisualPalette.lime else StrideLabVisualPalette.border
                     ),
                     modifier = Modifier
+                        .weight(1f, fill = false)
                         .then(if (onToggleWeekScope != null) Modifier.clickable { onToggleWeekScope() } else Modifier)
                 ) {
                     Column(
@@ -356,28 +373,11 @@ internal fun TracksideTrainingWeekChart(
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val compact = maxWidth < 350.dp
             val expandedFont = LocalDensity.current.fontScale >= 1.3f
-            val scroll = rememberScrollState()
-            val density = LocalDensity.current
-            LaunchedEffect(compact, selected, scroll.maxValue) {
-                if (compact && scroll.maxValue > 0) {
-                    val index = ChronoUnit.DAYS.between(weekStart, selected).toInt().coerceIn(0, 6)
-                    val cellStart = with(density) { (index * 51).dp.roundToPx() }
-                    val cellEnd = with(density) { (index * 51 + 49).dp.roundToPx() }
-                    val viewport = with(density) { maxWidth.roundToPx() }
-                    val target = when {
-                        cellStart < scroll.value -> cellStart
-                        cellEnd > scroll.value + viewport -> cellEnd - viewport
-                        else -> scroll.value
-                    }
-                    scroll.animateScrollTo(target.coerceIn(0, scroll.maxValue))
-                }
-            }
             val rowModifier = Modifier
                 .fillMaxWidth()
                 .height(if (expandedFont) 196.dp else 172.dp)
-                .then(if (compact) Modifier.horizontalScroll(scroll) else Modifier)
 
-            Row(rowModifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(rowModifier, horizontalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 4.dp)) {
                 days.forEachIndexed { index, day ->
                     val enabled = day.date in first..last
                     val active = day.date == selected && !weekScopeSelected
@@ -403,7 +403,7 @@ internal fun TracksideTrainingWeekChart(
                                 else -> StrideLabVisualPalette.border
                             }
                         ),
-                        modifier = (if (compact) Modifier.width(49.dp) else Modifier.weight(1f))
+                        modifier = Modifier.weight(1f)
                             .testTag("calendar-day-${day.date}")
                             .semantics { contentDescription = description }
                     ) {
@@ -467,9 +467,8 @@ internal fun TracksideTrainingWeekChart(
                                 }
                             }
                             Text(
-                                if (compact) day.date.dayOfWeek.name.take(2)
-                                else day.date.format(DateTimeFormatter.ofPattern("EEE", Locale.getDefault())).uppercase(Locale.getDefault()),
-                                color = if (active) StrideLabVisualPalette.lime else StrideLabVisualPalette.muted,
+                                day.date.dayOfWeek.name.take(2),
+                                color = if (active) StrideLabVisualPalette.lime else StrideLabVisualPalette.secondary,
                                 fontSize = 9.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1

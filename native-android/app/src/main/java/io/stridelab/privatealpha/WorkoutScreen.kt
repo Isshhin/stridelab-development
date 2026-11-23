@@ -23,7 +23,15 @@ import kotlinx.coroutines.flow.drop
 
 @Composable internal fun WorkoutScreen(state:TrainingState,planId:String,sessionId:String,actions:PlanActions,onBack:()->Unit,onMissed:(()->Unit)?=null,onMove:(()->Unit)?=null) {
     val plan=state.plans.find { it.id==planId };val session=plan?.sessions?.find { it.id==sessionId }
-    if(plan==null||session==null) { Screen("Workout unavailable","TRAINING") { item { Text("This workout is not saved for the current account.");TextButton(onClick=onBack) { Text("Back to Training") } } };return }
+    if (plan == null || session == null) {
+        Screen("Workout unavailable", "TRAINING") {
+            item {
+                Text("This workout is not saved for the current account.", color = WorkoutDetailPalette.textMuted)
+                TextButton(onClick = onBack) { Text("Back to Training", color = WorkoutDetailPalette.text) }
+            }
+        }
+        return
+    }
     val current = Engine15SessionPresentation.forSession(plan, session.id)
     val focusManager=androidx.compose.ui.platform.LocalFocusManager.current
     val shown = plan.cardPresentation(session)

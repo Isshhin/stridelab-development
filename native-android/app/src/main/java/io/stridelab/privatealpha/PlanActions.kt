@@ -32,5 +32,8 @@ internal data class PlanActions(
     val previewWeek:(String,Engine15WeeklyReview.Input)->Engine15WeeklyReview.Review?={_,_->null},
     val acceptWeek:(Engine15WeeklyReview.Review)->Unit={},
     val discardPlanPreview: () -> Unit = {},
-    val saveResearchReview:(PlanRequest,IndependentAndroidPreviewConstraints)->Unit={_,_->}
+    val saveResearchReview:(PlanRequest,IndependentAndroidPreviewConstraints)->Unit={_,_->},
+    val saveBuilderEquipment: (String, Map<String, Int>) -> Unit = { _, _ -> },
+    val generateHybrid: (List<HybridTrackRequest>, Boolean) -> Unit = { _, _ -> },
+    val approveHybrid: (String) -> Unit = {}
 )

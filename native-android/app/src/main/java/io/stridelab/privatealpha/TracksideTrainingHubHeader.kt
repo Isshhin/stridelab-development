@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,20 +39,23 @@ private val hubBorder = StrideLabVisualPalette.border
  */
 @Composable
 internal fun TracksideTrainingHubHeader(
-    active: PlanSnapshot,
+    selectedPlan: PlanSnapshot?,
     approvedPlans: List<PlanSnapshot>,
+    scopedPlans: List<PlanSnapshot>,
+    tracks: List<String>,
+    selectedTrack: String?,
     selectedDate: LocalDate,
     agenda: Boolean,
-    busy: Boolean,
-    actions: PlanActions,
     recordedDates: Set<LocalDate> = emptySet(),
     onAgenda: (Boolean) -> Unit,
     onSelectedDate: (LocalDate) -> Unit,
-    onPlanSelected: (String) -> Unit,
-    onManage: () -> Unit,
-    onPlanTools: () -> Unit
+    onPlanSelected: (String?) -> Unit,
+    onTrackSelected: (String) -> Unit,
+    onManage: (String) -> Unit
 ) {
-    var selectorOpen by rememberSaveable(active.owner) { mutableStateOf(false) }
+    val scoped = scopedPlans
+    var selectorOpen by rememberSaveable(approvedPlans.first().owner) { mutableStateOf(false) }
+    var manageOpen by rememberSaveable(approvedPlans.first().owner) { mutableStateOf(false) }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -66,11 +71,24 @@ internal fun TracksideTrainingHubHeader(
                 onSelect = { key -> onAgenda(key == "agenda") }
             )
         }
-        TextButton(
-            onClick = onManage,
-            modifier = Modifier.testTag("training-manage-plan")
-        ) {
-            Text("Manage ›", color = hubLime, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        Box {
+            TextButton(
+                onClick = {
+                    if (scoped.size == 1) onManage(scoped.single().id) else manageOpen = true
+                },
+                modifier = Modifier.testTag("training-manage-plan")
+            ) {
+                Text("Manage ›", color = hubLime, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+            DropdownMenu(expanded = manageOpen, onDismissRequest = { manageOpen = false }) {
+                scoped.forEach { plan ->
+                    DropdownMenuItem(
+                        text = { Text(plan.name ?: plan.request.goal) },
+                        onClick = { manageOpen = false; onManage(plan.id) },
+                        modifier = Modifier.testTag("training-manage-${plan.id}")
+                    )
+                }
+            }
         }
     }
 
@@ -99,7 +117,7 @@ internal fun TracksideTrainingHubHeader(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "ACTIVE TRAINING PLAN",
+                    if (scoped.size > 1) "ACTIVE TRAINING PLANS" else "ACTIVE TRAINING PLAN",
                     fontSize = 10.sp,
                     letterSpacing = 1.3.sp,
                     color = StrideLabVisualPalette.muted,
@@ -128,7 +146,9 @@ internal fun TracksideTrainingHubHeader(
             ) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        active.name ?: active.request.goal,
+                        if (selectedTrack != null) trainingTrackLabel(selectedTrack)
+                        else if (scoped.size > 1) "All active plans"
+                        else scoped.single().let { it.name ?: it.request.goal },
                         fontSize = 18.sp,
                         color = hubInk,
                         fontWeight = FontWeight.ExtraBold,
@@ -137,13 +157,15 @@ internal fun TracksideTrainingHubHeader(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        "${active.request.weeks}-week block · ${active.sessions.size} workouts",
+                        if (scoped.size > 1) "${scoped.size} plans · ${scoped.sumOf { it.sessions.size }} workouts"
+                        else scoped.single().let { "${it.request.weeks}-week block · ${it.sessions.size} workouts" },
                         color = hubMuted,
                         fontSize = 11.5.sp
                     )
                 }
-                if (approvedPlans.size > 1) {
-                    TextButton(onClick = { selectorOpen = !selectorOpen }) {
+                if (approvedPlans.size > 1 || tracks.size > 1) {
+                    TextButton(onClick = { selectorOpen = !selectorOpen },
+                        modifier = Modifier.testTag("training-switch-plan")) {
                         Text(
                             if (selectorOpen) "Hide" else "Switch ▾",
                             color = hubLime,
@@ -153,14 +175,15 @@ internal fun TracksideTrainingHubHeader(
                     }
                 }
             }
-            TracksideTrainingTargetWarning(active)
-            if (selectorOpen) approvedPlans.forEach { candidate ->
-                val isCurrent = candidate.id == active.id
+            scoped.forEach { TracksideTrainingTargetWarning(it) }
+            if (selectorOpen) (listOf(null) + approvedPlans).forEach { candidate ->
+                val isCurrent = candidate?.id == selectedPlan?.id && selectedTrack == null
                 Surface(
-                    onClick = { onPlanSelected(candidate.id); selectorOpen = false },
+                    onClick = { onPlanSelected(candidate?.id); selectorOpen = false },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 44.dp),
+                        .heightIn(min = 48.dp)
+                        .testTag("training-filter-${candidate?.id ?: "all"}"),
                     color = if (isCurrent) StrideLabVisualPalette.limeTint else StrideLabVisualPalette.surfaceRaised,
                     shape = RoundedCornerShape(11.dp),
                     border = BorderStroke(1.dp, if (isCurrent) hubLime else hubBorder)
@@ -170,7 +193,7 @@ internal fun TracksideTrainingHubHeader(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            candidate.name ?: candidate.request.goal,
+                            candidate?.let { it.name ?: it.request.goal } ?: "All active plans",
                             color = hubInk,
                             fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
                             modifier = Modifier.weight(1f),
@@ -178,6 +201,12 @@ internal fun TracksideTrainingHubHeader(
                         )
                         if (isCurrent) Text("Active", color = hubLime, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
                     }
+                }
+            }
+            if (selectorOpen && tracks.size > 1) tracks.forEach { track ->
+                TextButton(onClick = { onTrackSelected(track); selectorOpen = false },
+                    modifier = Modifier.fillMaxWidth().testTag("training-discipline-$track")) {
+                    Text(trainingTrackLabel(track), color = if (track == selectedTrack) hubLime else hubInk)
                 }
             }
         }
@@ -192,7 +221,7 @@ internal fun TracksideTrainingHubHeader(
     ) {
         Column(Modifier.padding(14.dp)) {
             TracksideTrainingWeekChart(
-                plan = active,
+                plans = scoped,
                 selected = selectedDate,
                 showNavigation = true,
                 recordedDates = recordedDates,
@@ -202,7 +231,6 @@ internal fun TracksideTrainingHubHeader(
             )
         }
     }
-    Engine15CoachReviewCard(active, actions, busy)
 }
 
 /** Advisory for pre-fix approved plans; never mutates or silently relabels history. */

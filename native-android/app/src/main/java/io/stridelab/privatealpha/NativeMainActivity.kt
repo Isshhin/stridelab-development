@@ -231,7 +231,7 @@ private fun NavHostController.openActivity(id: String) {
     val showFloatingDock = route != "missed/{planId}/{sessionId}" &&
         route != "review-move/{planId}/{sessionId}/{date}" &&
         route != "activity/{id}" && route != "builder/{discipline}" &&
-        route != "workout/{planId}/{sessionId}" &&
+        route != "workout/{planId}/{sessionId}" && route != blueprintWorkoutRoute &&
         route?.startsWith("auth") != true && route?.startsWith("more/") != true
     CompositionLocalProvider(
         LocalProfileAction provides { nav.openTabRoot("settings") },
@@ -399,7 +399,32 @@ private fun NavHostController.openActivity(id: String) {
                         }
                     )
                 }
-                composable("builder/{discipline}") { builder -> PlanBuilder(state,actions.planning,builder.arguments?.getString("discipline") ?: "all",{nav.openTabRoot("training")},{nav.navigate("auth")},{p,s->nav.navigate("workout/${android.net.Uri.encode(p)}/${android.net.Uri.encode(s)}")}) }
+                composable("builder/{discipline}") { builder ->
+                    key(state.account ?: state.localPlanOwner, state.loginGeneration) {
+                        PlanBuilder(
+                            state, actions.planning, builder.arguments?.getString("discipline") ?: "all",
+                            onDone = { nav.openTabRoot("training") },
+                            onSignIn = { nav.navigate("auth") },
+                            onPreview = { planId, sessionId ->
+                                state.blueprintDraft(planId)?.let { draft ->
+                                    val plan = android.net.Uri.encode(planId)
+                                    val session = android.net.Uri.encode(sessionId)
+                                    val generatedAt = android.net.Uri.encode(draft.createdAt.toString())
+                                    nav.navigate("blueprint-workout/$plan/$session/$generatedAt/${state.loginGeneration}")
+                                }
+                            }
+                        )
+                    }
+                }
+                composable(blueprintWorkoutRoute) { entry ->
+                    val args = entry.arguments
+                    BlueprintWorkoutScreen(
+                        state, args?.getString("planId").orEmpty(), args?.getString("sessionId").orEmpty(),
+                        args?.getString("generatedAt").orEmpty(),
+                        args?.getString("loginGeneration")?.toLongOrNull() ?: -1L,
+                        onBack = { nav.popBackStack() }
+                    )
+                }
                 composable("move/{planId}/{sessionId}") { back ->
                     val planId = back.arguments?.getString("planId") ?: ""
                     val sessionId = back.arguments?.getString("sessionId") ?: ""
@@ -410,11 +435,11 @@ private fun NavHostController.openActivity(id: String) {
                             item { TextButton(onClick = { nav.popBackStack() }) { Text("Back") } }
                         }
                     } else {
-                        TrainingScreen(
-                            state, actions.planning,
+                        StrideLabUnifiedTrainingTimeline(
+                            state, groupedActivities, actions.planning,
                             onBuild = { nav.navigate("builder/all") },
-                            onOpen = { id, sId -> nav.openWorkout(id, sId) },
-                            onSignIn = { nav.navigate("auth") },
+                            onOpenWorkout = { id, sId -> nav.openWorkout(id, sId) },
+                            onOpenActivity = { id -> nav.openActivity(id) },
                             onManage = { id, date ->
                                 nav.navigate("manage/${android.net.Uri.encode(id)}/$date")
                             }
@@ -597,7 +622,6 @@ private fun NavHostController.openActivity(id: String) {
                             { nav.navigate("builder/all") },
                             { p, session -> nav.openWorkout(p, session) },
                             { id -> nav.openActivity(id) },
-                            { nav.navigate("auth") },
                             { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") }
                         )
                     }
@@ -644,7 +668,6 @@ private fun NavHostController.openActivity(id: String) {
                         { nav.navigate("builder/all") },
                         { p, session -> nav.openWorkout(p, session) },
                         { id -> nav.openActivity(id) },
-                        { nav.navigate("auth") },
                         { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") }
                     )
                 }

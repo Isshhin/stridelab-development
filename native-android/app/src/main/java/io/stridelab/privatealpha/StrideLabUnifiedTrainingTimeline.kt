@@ -60,6 +60,17 @@ private object TimelineStyle {
 }
 
 internal data class UnifiedTrainingWorkout(val planId: String, val session: PlannedSession)
+internal fun trainingTrack(session: PlannedSession): String = when {
+    session.kind == "structured-plyometrics" || session.title == "Plyometrics" -> "plyo"
+    session.kind == "structured-isometrics" || session.title == "Isometrics" -> "iso"
+    else -> session.discipline
+}
+
+internal fun trainingTrackLabel(track: String): String = when (track) {
+    "plyo" -> "Plyometrics"
+    "iso" -> "Isometrics"
+    else -> disciplineLabel(track)
+}
 internal data class UnifiedTrainingDay(
     val date: LocalDate,
     val activities: List<DisplayActivity>,
@@ -69,15 +80,16 @@ internal data class UnifiedTrainingDay(
 /**
  * Presentation-only join: preserve source records and every real session ID.
  * All dates are local to the device, including the explicit empty Today anchor.
- * Older *logged* sessions appear above Today; future prescriptions come only
- * from the selected approved plan. Linked Garmin sessions appear once.
+ * Older logged sessions appear above Today. Future prescriptions come from
+ * the selected approved plans. Linked Garmin sessions appear once.
  */
 internal fun unifiedTrainingDays(
     today: LocalDate,
     groupedActivities: List<DisplayActivity>,
     plans: List<PlanSnapshot>,
     activePlanId: String?,
-    zone: ZoneId
+    zone: ZoneId,
+    activePlanIds: Set<String> = setOfNotNull(activePlanId)
 ): List<UnifiedTrainingDay> {
     val activitiesByDate = groupedActivities.groupBy {
         it.primary.startedAt.atZone(zone).toLocalDate()
@@ -90,7 +102,7 @@ internal fun unifiedTrainingDays(
         for (session in plan.sessions) {
             if (session.status == "unassigned") continue
             val completed = session.isMarkedComplete
-            val upcoming = plan.id == activePlanId &&
+            val upcoming = plan.id in activePlanIds &&
                 plan.status == "approved" &&
                 session.date >= today &&
                 session.status in setOf("planned", "in_progress")
@@ -107,9 +119,32 @@ internal fun unifiedTrainingDays(
             activities = activitiesByDate[date].orEmpty().sortedWith(
                 compareBy<DisplayActivity> { it.primary.startedAt }.thenBy { it.primary.id }
             ),
-            workouts = workoutsByDate[date].orEmpty()
+            workouts = workoutsByDate[date].orEmpty().sortedWith(trainingWorkoutOrder)
         )
     }
+}
+
+private val trainingWorkoutOrder = compareBy<UnifiedTrainingWorkout> { it.session.isMarkedComplete }
+    .thenBy { it.session.discipline != "run" }
+    .thenBy { it.planId }
+    .thenBy { it.session.id }
+
+internal fun unifiedTrainingSelectedDay(
+    date: LocalDate,
+    base: UnifiedTrainingDay?,
+    activePlans: List<PlanSnapshot>,
+    visibleSourceIds: Set<String>
+): UnifiedTrainingDay {
+    val existing = base?.workouts.orEmpty()
+    val existingIds = existing.map { it.planId to it.session.id }.toSet()
+    val scheduled = activePlans.flatMap { plan ->
+        plan.sessions.filter { session ->
+            session.date == date && session.status != "unassigned" &&
+                (plan.id to session.id) !in existingIds &&
+                !(session.isMarkedComplete && session.linkedActivityId?.let { it in visibleSourceIds } == true)
+        }.map { UnifiedTrainingWorkout(plan.id, it) }
+    }
+    return UnifiedTrainingDay(date, base?.activities.orEmpty(), (existing + scheduled).sortedWith(trainingWorkoutOrder))
 }
 
 /** Only actual dated training records introduce a month heading. */
@@ -138,22 +173,33 @@ internal fun StrideLabUnifiedTrainingTimeline(
     onBuild: () -> Unit,
     onOpenWorkout: (String, String) -> Unit,
     onOpenActivity: (String) -> Unit,
-    onSignIn: () -> Unit,
     onManage: (String, LocalDate) -> Unit
 ) {
     val account = state.account
     val hasLocalGarmin = state.localGarminIds.isNotEmpty()
-    val plans = state.plans
-    val hasHistory = account != null || hasLocalGarmin || plans.isNotEmpty()
-    val approved = plans.filter { it.status == "approved" }
     val planProfile = account ?: state.localPlanOwner
+    val plans = state.plans.filter { it.owner == planProfile && it.status != "draft" }
+    val hasHistory = account != null || hasLocalGarmin || plans.isNotEmpty() || activityGroups.isNotEmpty()
+    val approved = plans.filter { it.status == "approved" }
     var selectedPlanId by rememberSaveable(planProfile) { mutableStateOf<String?>(null) }
-    var showTools by rememberSaveable(planProfile) { mutableStateOf(false) }
-    val active = approved.firstOrNull { it.id == selectedPlanId } ?: approved.firstOrNull()
-    val pendingReview = plans.any { it.status == "paused" }
+    var selectedTrackKey by rememberSaveable(planProfile) { mutableStateOf<String?>(null) }
+    var reviewedAdaptation by rememberSaveable(planProfile) { mutableStateOf<String?>(null) }
+    val selectedPlan = approved.firstOrNull { it.id == selectedPlanId }
+    val tracks = approved.flatMap { it.sessions.map(::trainingTrack) }.distinct()
+    val selectedTrack = selectedTrackKey?.takeIf { it in tracks }
+    val scopedPlans = when {
+        selectedPlan != null -> listOf(selectedPlan)
+        selectedTrack == null -> approved
+        else -> approved.mapNotNull { plan ->
+            plan.sessions.filter { trainingTrack(it) == selectedTrack }.takeIf { it.isNotEmpty() }
+                ?.let { plan.copy(sessions = it) }
+        }
+    }
+    val hasActivePlans = scopedPlans.isNotEmpty()
+    val pausedPlans = plans.filter { it.status == "paused" }
     var agendaView by rememberSaveable(planProfile) { mutableStateOf(false) }
     var weekOnlyFilter by rememberSaveable(planProfile) { mutableStateOf(true) }
-    var selectedDayText by rememberSaveable(planProfile, active?.id) {
+    var selectedDayText by rememberSaveable(planProfile) {
         mutableStateOf(LocalDate.now().toString())
     }
 
@@ -164,97 +210,65 @@ internal fun StrideLabUnifiedTrainingTimeline(
     val noPlanWeekAnchor = noPlanWeekAnchorText?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
         ?: focusedNoPlanDate ?: today
 
-    if (showTools) {
-        Column(Modifier.fillMaxSize().background(TimelineStyle.background)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 12.dp, end = 16.dp, top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    onClick = { showTools = false },
-                    color = TimelineStyle.card,
-                    shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, TimelineStyle.border),
-                    modifier = Modifier.testTag("training-back-to-timeline")
-                ) {
-                    Text(
-                        "‹  Calendar",
-                        color = TimelineStyle.lime,
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
-                    )
-                }
-            }
-            Box(Modifier.weight(1f)) {
-                TrainingScreen(state, actions, onBuild, onOpenWorkout, onSignIn, onManage)
+    val zone = ZoneId.systemDefault()
+    val timelinePlans = if (selectedPlan != null || selectedTrack != null) scopedPlans else plans
+    val visibleGroups = remember(activityGroups, selectedPlan, selectedTrack, scopedPlans) {
+        if (selectedPlan == null && selectedTrack == null) activityGroups
+        else {
+            val sessions = scopedPlans.flatMap { it.sessions }
+            val disciplines = sessions.mapNotNull { TodayDiscipline.fromLog(it.discipline) }.toSet()
+            val links = sessions.mapNotNull { it.linkedActivityId }.toSet()
+            activityGroups.filter { group ->
+                (selectedTrack !in setOf("plyo", "iso") &&
+                    TodayDiscipline.fromActivity(group.primary.type)?.let { it in disciplines } == true) ||
+                    (selectedTrack != null && group.primary.type.equals(trainingTrackLabel(selectedTrack), ignoreCase = true)) ||
+                    group.primary.id in links || group.additionalSources.any { it.id in links }
             }
         }
-        return
     }
-    val zone = ZoneId.systemDefault()
-    val recordedDates = remember(activityGroups, plans, hasHistory, zone) {
+    val recordedDates = remember(visibleGroups, timelinePlans, hasHistory, zone) {
         if (!hasHistory) emptySet()
-        else activityGroups.map { it.primary.startedAt.atZone(zone).toLocalDate() }.toSet() +
-            plans.flatMap { p -> p.sessions.filter { it.status == "completed" }.map { it.log?.performedOn ?: it.date } }
+        else visibleGroups.map { it.primary.startedAt.atZone(zone).toLocalDate() }.toSet() +
+            timelinePlans.flatMap { p -> p.sessions.filter { it.isMarkedComplete }.map { it.log?.performedOn ?: it.date } }
     }
-    val days = remember(today, zone, activityGroups, plans, active?.id, hasHistory) {
+    val days = remember(today, zone, visibleGroups, timelinePlans, scopedPlans, hasHistory) {
         unifiedTrainingDays(
             today = today,
-            groupedActivities = if (hasHistory) activityGroups else emptyList(),
-            plans = plans,
-            activePlanId = active?.id,
-            zone = zone
+            groupedActivities = if (hasHistory) visibleGroups else emptyList(),
+            plans = timelinePlans,
+            activePlanId = selectedPlan?.id,
+            zone = zone,
+            activePlanIds = scopedPlans.map { it.id }.toSet()
         )
     }
-    val focusedDate = active?.let { plan ->
-        val start = plan.request.start
-        val end = start.plusWeeks(plan.request.weeks.toLong()).minusDays(1)
+    val focusedDate = if (hasActivePlans) {
+        val start = scopedPlans.minOf { it.request.start }
+        val end = scopedPlans.maxOf { it.request.start.plusWeeks(it.request.weeks.toLong()).minusDays(1) }
         runCatching { LocalDate.parse(selectedDayText) }.getOrDefault(today).coerceIn(start, end)
-    } ?: today
+    } else today
 
     val visibleSourceIds = remember(activityGroups) {
         activityGroups.flatMap { g -> listOf(g.primary.id) + g.additionalSources.map { it.id } }.toSet()
     }
 
-    // Helper that merges both Logged Activities AND Planned Workouts for any date
-    // (including past dates in the active plan so pressing any day/week shows both!).
-    fun combinedDayFor(targetDate: LocalDate): UnifiedTrainingDay {
-        val base = days.firstOrNull { it.date == targetDate }
-        val acts = base?.activities.orEmpty()
-        val existingWorkouts = base?.workouts.orEmpty()
-        val existingIds = existingWorkouts.map { it.session.id }.toSet()
-        val extraPlanned = if (active != null && active.status == "approved") {
-            active.sessions.filter { s ->
-                s.date == targetDate &&
-                    s.status != "unassigned" &&
-                    s.id !in existingIds &&
-                    !(s.status == "completed" && s.linkedActivityId != null && s.linkedActivityId in visibleSourceIds)
-            }.map { UnifiedTrainingWorkout(active.id, it) }
-        } else emptyList()
-        return UnifiedTrainingDay(
-            date = targetDate,
-            activities = acts,
-            workouts = existingWorkouts + extraPlanned
-        )
-    }
+    fun combinedDayFor(targetDate: LocalDate): UnifiedTrainingDay =
+        unifiedTrainingSelectedDay(targetDate, days.firstOrNull { it.date == targetDate },
+            scopedPlans, visibleSourceIds)
 
     val weekMonday = tracksideCalendarMonday(focusedDate)
     val weekSunday = weekMonday.plusDays(6)
     val noPlanWeekMonday = tracksideCalendarMonday(noPlanWeekAnchor)
 
-    val visibleDays = remember(active, agendaView, weekOnlyFilter, focusedDate, focusedNoPlanDate, noPlanWeekMonday, days) {
-        if (active != null && !agendaView) {
+    val visibleDays = remember(scopedPlans, agendaView, weekOnlyFilter, focusedDate, focusedNoPlanDate, noPlanWeekMonday, days, visibleSourceIds) {
+        if (hasActivePlans && !agendaView) {
             listOf(combinedDayFor(focusedDate))
-        } else if (active != null && agendaView && weekOnlyFilter) {
+        } else if (hasActivePlans && agendaView && weekOnlyFilter) {
             val weekDays = (0L..6L).map { offset -> combinedDayFor(weekMonday.plusDays(offset)) }
                 .filter { it.activities.isNotEmpty() || it.workouts.isNotEmpty() || it.date == focusedDate }
             weekDays.ifEmpty { listOf(combinedDayFor(focusedDate)) }
-        } else if (active == null && focusedNoPlanDate != null) {
+        } else if (!hasActivePlans && focusedNoPlanDate != null) {
             listOf(combinedDayFor(focusedNoPlanDate))
-        } else if (active == null) {
+        } else if (!hasActivePlans) {
             val noPlanWeekEnd = noPlanWeekMonday.plusDays(6)
             days.filter { it.date in noPlanWeekMonday..noPlanWeekEnd }
         } else {
@@ -264,9 +278,9 @@ internal fun StrideLabUnifiedTrainingTimeline(
 
     val todayIndex = visibleDays.indexOfFirst { it.date == today }.coerceAtLeast(0)
     val scroll = rememberLazyListState()
-    LaunchedEffect(agendaView, active?.id, weekOnlyFilter, focusedNoPlanDate) {
+    LaunchedEffect(agendaView, selectedPlan?.id, selectedTrack, weekOnlyFilter, focusedNoPlanDate) {
         if (!state.initializing) {
-            if (agendaView && !weekOnlyFilter) scroll.scrollToItem(todayIndex + if (active != null) 1 else 0)
+            if (agendaView && !weekOnlyFilter) scroll.scrollToItem(todayIndex + if (hasActivePlans) 2 else 1)
             else scroll.scrollToItem(0)
         }
     }
@@ -282,45 +296,16 @@ internal fun StrideLabUnifiedTrainingTimeline(
     val fullDayFmt = remember(locale) { DateTimeFormatter.ofPattern("EEEE, MMM d", locale) }
 
     Column(Modifier.fillMaxSize().background(TimelineStyle.background)) {
-        // Clean Top Bar: Training title + Plan Calendar/Tools icon (single crisp affordance)
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                "Training",
-                color = TimelineStyle.ink,
-                fontSize = 30.sp,
-                lineHeight = 35.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = (-0.6).sp
-            )
-            Surface(
-                onClick = { showTools = true },
-                modifier = Modifier
-                    .size(42.dp)
-                    .testTag("training-plan-tools")
-                    .semantics { contentDescription = "Training plan tools" },
-                color = TimelineStyle.card,
-                shape = CircleShape,
-                border = BorderStroke(
-                    1.dp,
-                    if (pendingReview) StrideLabVisualPalette.moderateAmber.copy(alpha = 0.7f) else TimelineStyle.border
-                )
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        painterResource(R.drawable.trackside_figma_calendar),
-                        contentDescription = null,
-                        tint = if (pendingReview) StrideLabVisualPalette.moderateAmber else TimelineStyle.lime,
-                        modifier = Modifier.size(19.dp)
-                    )
-                }
-            }
-        }
+        Text(
+            "Training",
+            color = TimelineStyle.ink,
+            fontSize = 30.sp,
+            lineHeight = 35.sp,
+            fontWeight = FontWeight.ExtraBold,
+            letterSpacing = (-0.6).sp,
+            modifier = Modifier.padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 8.dp)
+                .testTag("training-title")
+        )
 
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             val lastDateMinHeight = if (agendaView && !weekOnlyFilter)
@@ -336,12 +321,12 @@ internal fun StrideLabUnifiedTrainingTimeline(
                 ),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                if (active != null) item(key = "training-create-plan") {
+                if (hasActivePlans) item(key = "training-create-plan") {
                     OutlinedButton(onClick = onBuild, modifier = Modifier.fillMaxWidth().testTag("training-create-plan")) {
                         Text("Create another plan")
                     }
                 }
-                if (active == null) item(key = "training-no-plan-week-strip") {
+                if (!hasActivePlans) item(key = "training-no-plan-week-strip") {
                     TimelineNoPlanWeekStrip(
                         today = today,
                         weekAnchor = noPlanWeekAnchor,
@@ -366,7 +351,7 @@ internal fun StrideLabUnifiedTrainingTimeline(
                         }
                     )
                 }
-                if (active != null) item(key = "training-hub-overview") {
+                if (hasActivePlans) item(key = "training-hub-overview") {
                     Column(
                         Modifier
                             .fillMaxWidth()
@@ -374,12 +359,13 @@ internal fun StrideLabUnifiedTrainingTimeline(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         TracksideTrainingHubHeader(
-                            active = active,
+                            selectedPlan = selectedPlan,
                             approvedPlans = approved,
+                            scopedPlans = scopedPlans,
+                            tracks = tracks,
+                            selectedTrack = selectedTrack,
                             selectedDate = focusedDate,
                             agenda = agendaView,
-                            busy = state.busy,
-                            actions = actions,
                             recordedDates = recordedDates,
                             onAgenda = { isWeekMode ->
                                 agendaView = isWeekMode
@@ -397,10 +383,10 @@ internal fun StrideLabUnifiedTrainingTimeline(
                             },
                             onPlanSelected = { id ->
                                 selectedPlanId = id
-                                selectedDayText = today.toString()
+                                selectedTrackKey = null
                             },
-                            onManage = { onManage(active.id, focusedDate) },
-                            onPlanTools = { showTools = true }
+                            onTrackSelected = { selectedTrackKey = it; selectedPlanId = null },
+                            onManage = { onManage(it, focusedDate) }
                         )
 
                         // Context bar below calendar showing current Day or Week scope + Logged/Planned counts
@@ -503,17 +489,18 @@ internal fun StrideLabUnifiedTrainingTimeline(
                                 day.workouts.forEach { entry ->
                                     val presented = plans.firstOrNull { it.id == entry.planId }
                                         ?.cardPresentation(entry.session) ?: entry.session
-                                    TimelinePlannedCard(
-                                        session = presented,
-                                        hasDraft = state.workoutDrafts.containsKey(
-                                            entry.planId to entry.session.id
-                                        ),
-                                        onClick = {
-                                            onOpenWorkout(entry.planId, entry.session.id)
-                                        }
-                                    )
+                                    androidx.compose.runtime.key(entry.planId, entry.session.id) {
+                                        TimelinePlannedCard(
+                                            planId = entry.planId,
+                                            session = presented,
+                                            hasDraft = state.workoutDrafts.containsKey(
+                                                entry.planId to entry.session.id
+                                            ),
+                                            onClick = { onOpenWorkout(entry.planId, entry.session.id) }
+                                        )
+                                    }
                                 }
-                                if (active != null && day.activities.isEmpty() && day.workouts.isEmpty()) {
+                                if (hasActivePlans && day.activities.isEmpty() && day.workouts.isEmpty()) {
                                     Surface(
                                         shape = RoundedCornerShape(15.dp),
                                         color = TimelineStyle.card,
@@ -548,33 +535,35 @@ internal fun StrideLabUnifiedTrainingTimeline(
                                 }
                             }
                         }
-                        if ((day.date == today || focusedNoPlanDate == day.date) && active == null && !state.initializing) {
+                        if ((day.date == today || focusedNoPlanDate == day.date) && !hasActivePlans && !state.initializing) {
                             TimelinePromptCard(
-                                title = if (pendingReview) "Your plan needs a review."
-                                else "Your training starts here.",
-                                description = if (pendingReview)
-                                    "Continue reviewing your saved training plan."
-                                else "Create a personalized training plan around your goals and schedule.",
-                                action = if (pendingReview) "Review saved plan"
-                                else "Create training plan",
-                                onAction = {
-                                    if (pendingReview) showTools = true else onBuild()
-                                }
-                            )
-                        } else if (day.date == today && active == null && day.activities.isEmpty() &&
-                            day.workouts.isEmpty() && !state.initializing
-                        ) {
-                            Text(
-                                "No sessions scheduled for this date.",
-                                modifier = Modifier.padding(vertical = 10.dp),
-                                color = TimelineStyle.secondary,
-                                fontSize = 12.sp
+                                title = "Your training starts here.",
+                                description = "Create a personalized training plan around your goals and schedule.",
+                                action = "Create training plan",
+                                onAction = onBuild
                             )
                         }
                     }
                 }
+                for (paused in pausedPlans) item(key = "manage-paused-${paused.id}") {
+                    OutlinedButton(
+                        onClick = { onManage(paused.id, focusedDate) },
+                        modifier = Modifier.fillMaxWidth().testTag("training-manage-paused-${paused.id}")
+                    ) { Text("Review paused plan · ${paused.name ?: paused.request.goal}") }
+                }
+                val reviewPlans = approved.filter { plan -> scopedPlans.any { it.id == plan.id } }
+                trainingCoachingItems(state, reviewPlans, actions) { reviewedAdaptation = it }
+                trainingBackupItems(state, actions)
             }
         }
+    }
+    state.pendingAdaptationProposals[reviewedAdaptation]?.let { proposal ->
+        AdaptationProposalSheet(
+            proposal = proposal, busy = state.busy,
+            onDismiss = { reviewedAdaptation = null },
+            onApply = actions.approveAdaptationProposal,
+            onDismissProposal = actions.dismissAdaptationProposal
+        )
     }
 }
 
@@ -1010,6 +999,7 @@ private fun TimelineRecordedCard(
 
 @Composable
 private fun TimelinePlannedCard(
+    planId: String,
     session: PlannedSession,
     hasDraft: Boolean,
     onClick: () -> Unit
@@ -1032,7 +1022,8 @@ private fun TimelinePlannedCard(
     }
     val recorded = session.isMarkedComplete
     val details = buildList {
-        add(plannedDisciplineLabel(session))
+        add(if (trainingTrack(session) in setOf("plyo", "iso")) trainingTrackLabel(trainingTrack(session))
+            else plannedDisciplineLabel(session))
         val reviewedTimeOnly = session.suggestion?.let { it.accepted && it.minutes < session.minutes } == true
         val distance = if (recorded) session.log?.distanceKm
         else if (reviewedTimeOnly) null else session.distanceKm
@@ -1087,6 +1078,7 @@ private fun TimelinePlannedCard(
             Column(
                 modifier = Modifier
                     .weight(1f)
+                    .testTag("timeline-session-$planId-${session.id}")
                     .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {

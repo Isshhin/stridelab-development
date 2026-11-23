@@ -74,228 +74,101 @@ import kotlinx.coroutines.withContext
         }
     }
 }
-@Composable internal fun TrainingScreen(state:TrainingState,actions:PlanActions,onBuild:()->Unit,onOpen:(String,String)->Unit,onSignIn:()->Unit,onManage:(String,LocalDate)->Unit) {
-    var selectedId by rememberSaveable { mutableStateOf<String?>(null) };var selectedDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) };var monthView by rememberSaveable { mutableStateOf(false) };var agendaView by rememberSaveable { mutableStateOf(false) }
-    var openedResearchReviewId by rememberSaveable { mutableStateOf<String?>(null) }
-    var reviewedAdaptation by rememberSaveable { mutableStateOf<String?>(null) }
-    val plans=state.plans.filter { it.status!="archived" }
-    val plan=plans.find { it.id==selectedId } ?: plans.find { it.status=="approved" } ?: plans.firstOrNull()
-    // Keep the selected day when returning from Workout or Manage. Switch/reset only
-    // when choosing a different plan, or when a stored day leaves the plan interval.
-    var selectionPlanId by rememberSaveable { mutableStateOf<String?>(null) }
-    LaunchedEffect(plan?.id) {
-        if(plan!=null) {
-            val first=plan.request.start
-            val last=first.plusWeeks(plan.request.weeks.toLong()).minusDays(1)
-            val existing=runCatching { LocalDate.parse(selectedDate) }.getOrNull()
-            val chosen=if(selectionPlanId!=plan.id) LocalDate.now() else existing ?: LocalDate.now()
-            selectedDate=chosen.coerceIn(first,last).toString()
-            selectionPlanId=plan.id
+internal fun androidx.compose.foundation.lazy.LazyListScope.trainingBackupItems(
+    state: TrainingState, actions: PlanActions
+) {
+    if(state.researchDrafts.isNotEmpty()) item(key = "training-research-reviews") {
+        var openedResearchReviewId by rememberSaveable(state.account ?: state.localPlanOwner) { mutableStateOf<String?>(null) }
+        SignalCard {
+            Text("SAVED RESEARCH REVIEWS · NOT PLANS",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
+            Text("These mileage comparisons remain non-executable and never enter your workout calendar.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            state.researchDrafts.forEach { review ->
+                TextButton(onClick={openedResearchReviewId=review.id},modifier=Modifier.fillMaxWidth().testTag("training-research-review-${review.id}")) {
+                    Text("Open comparison · ${review.createdAt.toString().take(10)}")
+                }
+            }
+            state.researchDrafts.firstOrNull { it.id==openedResearchReviewId }?.let {
+                IndependentResearchReadOnlyReview(it,Modifier.testTag("training-research-reopened"))
+            }
         }
     }
-    val date=LocalDate.parse(selectedDate).let { stored ->
-        plan?.let { stored.coerceIn(it.request.start,it.request.start.plusWeeks(it.request.weeks.toLong()).minusDays(1)) } ?: stored
-    }
-    Column(Modifier.fillMaxSize()) {
-        Box(Modifier.weight(1f)) {
-            Screen(
-                "Training", "YOUR SHARED CALENDAR", compactTitle = true, dense = true,
-                titleBadge = if (plan?.status == "draft") "DRAFT" else null
-            ) {
-                item {
-                    TracksideParityTrainingControls(
-                        agenda = agendaView && !monthView,
-                        draft = plan?.status == "draft",
-                        hasPlan = plan != null,
-                        onDay = { agendaView = false; monthView = false },
-                        onAgenda = { agendaView = true; monthView = false },
-                        onManage = { plan?.let { onManage(it.id, date) } },
-                        plan = plan,
-                        selected = date,
-                        onSelectWeek = { selectedDate = it.toString() }
+    val hasExportable = state.plans.isNotEmpty() || state.researchDrafts.isNotEmpty()
+    val hasBackupAccess = hasExportable || state.account != null || state.localPlanOwner != null
+    if (hasBackupAccess) item(key = "training-plan-backup") {
+        var backupOpen by rememberSaveable { mutableStateOf(false) }
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = StrideLabVisualPalette.surface,
+            border = BorderStroke(1.dp, StrideLabVisualPalette.border),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { backupOpen = !backupOpen },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Plan backup & portability",
+                            color = StrideLabVisualPalette.ink,
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Text(
+                            "Export plans or restore from a saved file",
+                            color = StrideLabVisualPalette.secondary,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    Text(
+                        if (backupOpen) "▴" else "▾",
+                        color = StrideLabVisualPalette.lime,
+                        style = MaterialTheme.typography.titleMedium
                     )
                 }
-                item { AthleteDiagnosticsCard(state.activeAthleteDiagnostic) }
-                if (state.activeAdaptationProposal?.type == AdaptationType.EASY_PACING_LOCK &&
-                    state.activeAthleteDiagnostic?.recalibrationAdvisory != RecalibrationAdvisory.ADDRESS_EASY_PACING_FIRST) item { EasyPacingLockBanner() }
-                for (proposal in state.pendingAdaptationProposals.values.filter { proposal ->
-                    state.plans.any { it.id == proposal.planId && it.status == "approved" }
-                }) item {
-                    AdaptationProposalBanner(proposal, onReview = { reviewedAdaptation = proposal.planId })
+                if (backupOpen) {
+                    if (hasExportable) NativePlanExport(state.plans, state.researchDrafts)
+                    if (state.account != null || state.localPlanOwner != null) NativePlanImport(state, actions)
                 }
-                for (revisedPlan in state.plans.filter { it.status == "approved" &&
-                    state.adaptationRevisions[it.id].orEmpty().any { revision -> revision.revertedAtDate == null }
-                }) item {
-                    Text(revisedPlan.request.goal, style = MaterialTheme.typography.labelMedium)
-                    UndoAdaptationButton(revisedPlan, state.adaptationRevisions[revisedPlan.id].orEmpty(), state.busy, actions.revertLastAdaptation)
-                }
-                item { PendingActivityMatchCards(state, actions) }
-                if(plan==null) item { SignalCard { Text("Build your training around your life.",style=MaterialTheme.typography.headlineMedium);Text("Running, strength, calisthenics and conditioning share one calendar. Your plan stays on this device when signed out.");SignalButton("Create a plan",onBuild) } }
-                if(state.researchDrafts.isNotEmpty()) item {
-                    SignalCard {
-                        Text("SAVED RESEARCH REVIEWS · NOT PLANS",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
-                        Text("These mileage comparisons remain non-executable and never enter your workout calendar.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                        state.researchDrafts.forEach { review ->
-                            TextButton(onClick={openedResearchReviewId=review.id},modifier=Modifier.fillMaxWidth().testTag("training-research-review-${review.id}")) {
-                                Text("Open comparison · ${review.createdAt.toString().take(10)}")
-                            }
-                        }
-                        state.researchDrafts.firstOrNull { it.id==openedResearchReviewId }?.let {
-                            IndependentResearchReadOnlyReview(it,Modifier.testTag("training-research-reopened"))
-                        }
-                    }
-                }
-                if(plans.size>1) item { Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) { plans.forEach { p -> SignalChip(p.id==plan?.id,{selectedId=p.id},label={Text((p.name ?: p.request.goal)+" · "+p.status)}) } } }
-                if(plan!=null) {
-                    item { Engine15CoachReviewCard(plan,actions,state.busy,state.message) }
-                    item {
-                        Column(Modifier.testTag("training-calendar")) {
-                            TrainingCalendar(
-                                plan, date, monthView,
-                                showWeekNavigation = plan.status != "draft"
-                            ) { selectedDate = it.toString() }
-                        }
-                    }
-                    if(agendaView && !monthView) {
-                        val rows=tracksideTrainingWeek(plan,date)
-                        if(rows.all { it.sessions.isEmpty() }) item { SignalCard { Text("No sessions scheduled for this week",style=MaterialTheme.typography.titleLarge) } }
-                        val agendaRows = rows.filter { it.sessions.isNotEmpty() }
-                        if (agendaRows.isNotEmpty()) {
-                            item(key = "agenda-week-${agendaRows.first().date}") {
-                                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    agendaRows.forEach { day ->
-                                        TracksideParityAgendaDay(
-                                            day = day,
-                                            hasWorkoutDraft = { sessionId ->
-                                                state.workoutDrafts.containsKey(plan.id to sessionId)
-                                            },
-                                            onOpen = { sessionId -> onOpen(plan.id,sessionId) }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        item { Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")).uppercase(),
-                            style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant) }
-                        val day=plan.sessions.filter { it.date==date && it.status!="unassigned" }.map(plan::cardPresentation)
-                        if(day.isEmpty()) item { SignalCard { Text("No workout scheduled",style=MaterialTheme.typography.titleLarge);Text("This calendar date has no prescribed session. No workout or completion is assumed.") } }
-                        day.forEach { session -> item { PlannedWorkoutCard(session,state.workoutDrafts.containsKey(plan.id to session.id),compact=true) { onOpen(plan.id,session.id) } } }
-                    }
-                    if(Engine15MileageTargetIntegrity.review(plan)?.requiresFoundationDecision==true &&
-                        !plan.request.foundationAcknowledged) {
-                        item { TracksideTrainingTargetWarning(plan) }
-                    }
-                }
-                val hasExportable = state.plans.isNotEmpty() || state.researchDrafts.isNotEmpty()
-                val hasBackupAccess = hasExportable || state.account != null || state.localPlanOwner != null
-                if (plan != null) item {
-                    OutlinedButton(onClick = onBuild, modifier = Modifier.fillMaxWidth()) {
-                        Text("Create another plan")
-                    }
-                }
-                if (hasBackupAccess) item {
-                    var backupOpen by rememberSaveable { mutableStateOf(false) }
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = StrideLabVisualPalette.surface,
-                        border = BorderStroke(1.dp, StrideLabVisualPalette.border),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { backupOpen = !backupOpen },
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(
-                                        "Plan backup & portability",
-                                        color = StrideLabVisualPalette.ink,
-                                        style = MaterialTheme.typography.titleSmall
-                                    )
-                                    Text(
-                                        "Export plans or restore from a saved file",
-                                        color = StrideLabVisualPalette.secondary,
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                }
-                                Text(
-                                    if (backupOpen) "▴" else "▾",
-                                    color = StrideLabVisualPalette.lime,
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                            }
-                            if (backupOpen) {
-                                if (hasExportable) NativePlanExport(state.plans, state.researchDrafts)
-                                if (state.account != null || state.localPlanOwner != null) NativePlanImport(state, actions)
-                            }
-                        }
-                    }
-                }
-                if(plan?.status == "paused") item { Spacer(Modifier.height(96.dp)) }
             }
-        }
-        if(plan != null && plan.status == "paused") {
-            TracksideParityDraftApprovalDock(
-                plan,
-                enabled = !state.busy && Engine1Engines.canManage(plan) && plan.sessions.none { it.status == "unassigned" },
-                onApprove = { actions.approve(plan.id,plan.revision) },
-                modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp)
-            )
-            // The floating navigation pill is an overlay, not Scaffold's
-            // bottom bar. Reserve the same clearance used by Screen lists
-            // so the draft approval action remains fully above the pill.
-            if (LocalFloatingDockVisible.current) {
-                Spacer(Modifier.height(110.dp))
-            }
-        }
-        state.pendingAdaptationProposals[reviewedAdaptation]?.let { proposal ->
-            AdaptationProposalSheet(
-                proposal = proposal,
-                busy = state.busy,
-                onDismiss = { reviewedAdaptation = null },
-                onApply = actions.approveAdaptationProposal,
-                onDismissProposal = actions.dismissAdaptationProposal
-            )
         }
     }
 }
-@Composable internal fun TrainingCalendar(
-    plan:PlanSnapshot, selected:LocalDate, month:Boolean,
-    showWeekNavigation:Boolean = true, onSelect:(LocalDate)->Unit
+
+internal fun androidx.compose.foundation.lazy.LazyListScope.trainingCoachingItems(
+    state: TrainingState,
+    plans: List<PlanSnapshot>,
+    actions: PlanActions,
+    onReviewAdaptation: (String) -> Unit
 ) {
-    val first=plan.request.start;val last=first.plusWeeks(plan.request.weeks.toLong()).minusDays(1)
-    if(month) {
-        val ym=YearMonth.from(selected)
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
-            TextButton(onClick={onSelect(maxOf(first,ym.minusMonths(1).atDay(1)))},enabled=ym.atDay(1)>first) { Text("‹") }
-            Text(ym.month.toString()+" "+ym.year,style=MaterialTheme.typography.titleMedium)
-            TextButton(onClick={onSelect(minOf(last,ym.plusMonths(1).atDay(1)))},enabled=ym.atEndOfMonth()<last) { Text("›") }
-        }
-        Row { (1..7).forEach { d -> Text(dayName(d).take(2),Modifier.weight(1f),style=MaterialTheme.typography.labelSmall) } }
-        val gridStart=ym.atDay(1).minusDays((ym.atDay(1).dayOfWeek.value-1).toLong())
-        (0 until 6).forEach { row -> Row(Modifier.fillMaxWidth()) { (0 until 7).forEach { col -> val d=gridStart.plusDays((row*7+col).toLong());DayCell(d,d==selected,plan.sessions.filter { it.date==d && it.status!="unassigned" }.map(plan::cardPresentation),d in first..last && YearMonth.from(d)==ym,{onSelect(d)},Modifier.weight(1f),showWeekday=false) } } }
-    } else {
-        TracksideTrainingWeekChart(
-            plan, selected, showNavigation = showWeekNavigation, onSelect = onSelect
-        )
+    for (plan in plans) item(key = "coaching-review-${plan.id}") {
+        Engine15CoachReviewCard(plan, actions, state.busy, state.message)
+    }
+    if (state.activeAthleteDiagnostic != null) item(key = "training-diagnostics") {
+        AthleteDiagnosticsCard(state.activeAthleteDiagnostic)
+    }
+    if (state.activeAdaptationProposal?.type == AdaptationType.EASY_PACING_LOCK &&
+        state.activeAthleteDiagnostic?.recalibrationAdvisory != RecalibrationAdvisory.ADDRESS_EASY_PACING_FIRST
+    ) item(key = "training-easy-lock") { EasyPacingLockBanner() }
+    for (proposal in state.pendingAdaptationProposals.values.filter { proposal ->
+        state.plans.any { it.id == proposal.planId && it.status == "approved" }
+    }) item(key = "adaptation-review-${proposal.planId}") {
+        AdaptationProposalBanner(proposal, onReview = { onReviewAdaptation(proposal.planId) })
+    }
+    for (plan in state.plans.filter { it.status == "approved" &&
+        state.adaptationRevisions[it.id].orEmpty().any { revision -> revision.revertedAtDate == null }
+    }) item(key = "undo-adaptation-${plan.id}") {
+        Text(plan.name ?: plan.request.goal, style = MaterialTheme.typography.labelMedium,
+            color = StrideLabVisualPalette.ink)
+        UndoAdaptationButton(plan, state.adaptationRevisions[plan.id].orEmpty(), state.busy, actions.revertLastAdaptation)
+    }
+    if (state.activityMatches.isNotEmpty()) item(key = "training-activity-matches") {
+        PendingActivityMatchCards(state, actions)
     }
 }
-@Composable private fun DayCell(date:LocalDate,selected:Boolean,sessions:List<PlannedSession>,enabled:Boolean,onClick:()->Unit,modifier:Modifier,showWeekday:Boolean=true) {
-    Surface(onClick=onClick,enabled=enabled,shape=RoundedCornerShape(18.dp),color=if(selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainer,modifier=modifier.heightIn(min=64.dp).padding(1.dp).testTag("calendar-day-$date").semantics { contentDescription="$date, ${sessions.joinToString { it.title+", "+it.status }.ifEmpty { "no scheduled workout" }}" }) {
-        Column(Modifier.padding(vertical=8.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(3.dp)) {
-            if(showWeekday) Text(dayName(date.dayOfWeek.value).take(2),style=MaterialTheme.typography.labelSmall,color=if(selected)MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("${date.dayOfMonth}",style=MaterialTheme.typography.titleMedium,color=if(!enabled)MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=.45f) else if(selected)MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
-            if(sessions.isNotEmpty()) {
-                Box(Modifier.size(7.dp).background(if(sessions.all { it.status=="completed" }) MaterialTheme.colorScheme.primary else tracksideDisciplineColor(sessions.first().discipline),RoundedCornerShape(4.dp)))
-                if(sessions.size>1) Text("${sessions.size} workouts",style=MaterialTheme.typography.labelSmall,color=if(selected)MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-    }
-}
+
 @Composable internal fun PlanFeedbackForm(plan:PlanSnapshot,actions:PlanActions,sessionId:String?=null,embedded:Boolean=false) {
     var pendingCount by rememberSaveable(plan.id,sessionId) { mutableStateOf<Int?>(null) }
     var category by rememberSaveable(plan.id,sessionId) { mutableStateOf("Plan quality") };var text by rememberSaveable(plan.id,sessionId) { mutableStateOf("") }

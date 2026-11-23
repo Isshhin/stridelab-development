@@ -55,9 +55,14 @@ internal data class TrainingState(
     val activitySummariesReady: Boolean = !initializing,
     val groupedActivitySummaries: List<DisplayActivity>? = null,
     val workoutExecutionOutcomes: Map<Pair<String, String>, WorkoutExecutionOutcome> = emptyMap(),
-    val planPreviewSupportReview: RunnerSupportSchedule.Review? = null
+    val planPreviewSupportReview: RunnerSupportSchedule.Review? = null,
+    val savedEquipment: Map<String, Int>? = null,
+    val hybridPlanPreview: HybridPlanPreview? = null
 ) {
     val displayedPlanPreview get() = planPreviewSupportReview?.candidate?.takeIf { it.id == planPreview?.id } ?: planPreview
+    fun blueprintDraft(id: String): PlanSnapshot? =
+        displayedPlanPreview?.takeIf { it.id == id }
+            ?: hybridPlanPreview?.drafts?.singleOrNull { it.second.id == id }?.second
     fun prescriptionOutcome(planId: String, sessionId: String): PrescriptionOutcome =
         workoutExecutionOutcomes[planId to sessionId]?.prescription ?: PrescriptionOutcome.UNKNOWN
 
@@ -132,7 +137,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 runCatching { vault.read(it) }.getOrNull()?.also { _ -> copyLegacyGarminConnection(it) }
             } }
             val plans = traceStartup("Today plan cache") { readPlans(owner) }
-            publishPlans(plans)
+            publishPlans(owner, plans)
             val secondary = async {
                 traceStartup("Training secondary caches") { readSecondary(owner, account, plans.plans) }
             }
@@ -186,8 +191,9 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         return CachedPlans(plans.sortedByDescending { it.createdAt }, unsupported)
     }
 
-    private fun publishPlans(cache: CachedPlans) {
+    private fun publishPlans(owner: String, cache: CachedPlans) {
         mutable.value = mutable.value.copy(plans = cache.plans, todayPlanReady = true,
+            savedEquipment = readEquipment(owner),
             message = if (cache.unsupported > 0)
                 "${cache.unsupported} saved plans require a supported contract and were retained for review."
             else mutable.value.message)
@@ -292,7 +298,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     private fun loadCache(account: String) {
         val plans = readPlans(account)
         publishSummaries(readSummaries(account))
-        publishPlans(plans)
+        publishPlans(account, plans)
         publishSecondary(readSecondary(account, account, plans.plans))
     }
 
@@ -320,9 +326,29 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
 
     private fun loadLocalPlanCache() {
         val plans = readPlans(localPlanOwner)
-        publishPlans(plans)
+        publishPlans(localPlanOwner, plans)
         publishSecondary(readSecondary(localPlanOwner, null, plans.plans))
     }
+
+    private fun readEquipment(owner: String): Map<String, Int>? =
+        preferences.getString(hashedLocalKey("builder-gear-v1-", owner), null)?.let { raw ->
+            runCatching {
+                val json = JSONObject(raw)
+                builderEquipmentIds.filter { json.optInt(it) == 1 }.associateWith { 1 }
+            }.getOrNull()
+        }
+
+    suspend fun saveBuilderEquipment(owner: String, equipment: Map<String, Int>) =
+        operation("Saving your gear…") {
+            if (owner != LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner))
+                throw PlanConstraint("The profile changed. Reopen equipment to save your gear.")
+            val saved = equipment.filterKeys { it in builderEquipmentIds }.filterValues { it == 1 }
+            check(preferences.edit().putString(
+                hashedLocalKey("builder-gear-v1-", owner),
+                JSONObject(saved).toString()
+            ).commit())
+            mutable.value = mutable.value.copy(savedEquipment = saved)
+        }
 
     private data class SecondaryCaches(
         val templates: List<SessionTemplate>, val shelf: LibraryShelf,
@@ -628,6 +654,23 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         val owner=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)
         val state=mutable.value
         val selected=engine ?: Engine15IndependentPlanGenerator
+        mutable.value = state.copy(planPreview = null, planPreviewSupportReview = null, hybridPlanPreview = null)
+        val supportDiscipline = when {
+            request.runDays == 0 && request.strengthDays > 0 && request.calDays == 0 && request.conditioningDays == 0 -> "str"
+            request.runDays == 0 && request.calDays > 0 && request.strengthDays == 0 && request.conditioningDays == 0 -> "cal"
+            else -> null
+        }
+        val generationPeers = if (supportDiscipline != null && Engine15DisciplineProgression.supports(request, supportDiscipline)) {
+            state.plans.map { it.copy(sessions = it.sessions.filterNot { session -> session.discipline == "run" }) }
+        } else state.plans
+        val preview = draftGenerator(state, owner, selected)(request, generationPeers)
+        mutable.value = mutable.value.copy(planPreview = preview,
+            planPreviewSupportReview = RunnerSupportSchedule.review(preview, state.plans))
+    }
+
+    private fun draftGenerator(
+        state: TrainingState, owner: String, selected: PlanGenerationEngine
+    ): (PlanRequest, List<PlanSnapshot>) -> PlanSnapshot {
         val ownerRows = state.activities.filter { activityCorrectionOwner(it.id, state) == owner }
         val allowedIds = ownerRows.mapTo(mutableSetOf()) { it.id }
         val userLabels = if (ownerRows.isEmpty()) emptyMap() else {
@@ -648,40 +691,53 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         val qualityEvidence = if (detections.isEmpty()) emptyList() else {
             Engine15WorkoutDetection.toQualitySegmentEvidence(owner, detections)
         }
-        val activityEvidence = if (selected === Engine15IndependentPlanGenerator &&
-            request.runDays > 0 && request.strengthDays == 0 &&
-            request.calDays == 0 && request.conditioningDays == 0 &&
-            request.disciplineGoals.keys.all { it == "run" }) {
+        val activityEvidence by lazy {
             if (ownerRows.isEmpty()) null else {
                 ActivityAthleteEvidence.profile(
                     owner, ownerRows, allowedIds, userLabels, java.time.Instant.now()
                 )
             }
-        } else null
-        mutable.value = mutable.value.copy(planPreview = null)
-        val supportDiscipline = when {
-            request.runDays == 0 && request.strengthDays > 0 && request.calDays == 0 && request.conditioningDays == 0 -> "str"
-            request.runDays == 0 && request.calDays > 0 && request.strengthDays == 0 && request.conditioningDays == 0 -> "cal"
-            else -> null
         }
-        val generationPeers = if (supportDiscipline != null && Engine15DisciplineProgression.supports(request, supportDiscipline)) {
-            // The preview reviews the real Running calendar after constructing the baseline support slots.
-            mutable.value.plans.map { it.copy(sessions = it.sessions.filterNot { session -> session.discipline == "run" }) }
-        } else mutable.value.plans
-        val preview = when(selected) {
+        return { request, generationPeers -> when(selected) {
             Engine15IndependentPlanGenerator -> Engine15IndependentPlanGenerator.generateWithHistory(
                 request, owner, generationPeers,
                 exerciseLibrary = if (request.strengthDays > 0 || request.calDays > 0 || request.conditioningDays > 0)
                     engine15ExerciseLibrary else null,
-                activityEvidence = activityEvidence,
+                activityEvidence = if (request.runDays > 0 && request.strengthDays == 0 &&
+                    request.calDays == 0 && request.conditioningDays == 0 &&
+                    request.disciplineGoals.keys.all { it == "run" }) activityEvidence else null,
                 qualityEvidence = qualityEvidence,
                 activities = ownerRows,
                 detections = detections
             )
             else -> selected.generate(request,owner)
+        } }
+    }
+
+    suspend fun generateHybridPlan(requests: List<HybridTrackRequest>, allowPairs: Boolean) =
+        operation("Building your training tracks…") {
+            val state = mutable.value
+            val owner = LocalPlanOwnership.activeOwner(state.account, localPlanOwner)
+            mutable.value = state.copy(planPreview = null, planPreviewSupportReview = null, hybridPlanPreview = null)
+            val result = HybridPlanBuilder.build(java.util.UUID.randomUUID().toString(), owner, requests,
+                state.plans, allowPairs, draftGenerator(state, owner, Engine15IndependentPlanGenerator))
+            mutable.value = mutable.value.copy(hybridPlanPreview = result)
         }
-        mutable.value = mutable.value.copy(planPreview = preview,
-            planPreviewSupportReview = RunnerSupportSchedule.review(preview, mutable.value.plans))
+
+    suspend fun approveHybridPlan(previewId: String) = operation("Activating your training tracks…") {
+        val state = mutable.value
+        val owner = LocalPlanOwnership.activeOwner(state.account, localPlanOwner)
+        val preview = state.hybridPlanPreview?.takeIf { it.id == previewId }
+            ?: throw PlanConstraint("This Blueprint is no longer available.")
+        val approved = HybridPlanBuilder.prepareActivation(preview, owner, state.plans)
+        store.restoreReviewedBackup(owner,
+            approved.map { TrainingStore.RemoteRecord(it.id, it.encode().toString(), null) },
+            emptyList(), state.account != null, System.currentTimeMillis())
+        mutable.value = state.copy(
+            plans = (state.plans + approved).sortedByDescending { it.createdAt },
+            hybridPlanPreview = null
+        )
+        reconcileActivityMatchesAndAnalysis()
     }
     suspend fun changePlan(id:String,revision:Int,action:(PlanSnapshot)->PlanSnapshot) = operation("Saving your plan…") {
         val activeOwner=LocalPlanOwnership.activeOwner(mutable.value.account,localPlanOwner)
@@ -821,7 +877,9 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             reconcileActivityMatchesAndAnalysis()
         }
     suspend fun discardPlanPreview() = withContext(Dispatchers.IO) {
-        mutex.withLock { mutable.value = mutable.value.copy(planPreview = null) }
+        mutex.withLock {
+            mutable.value = mutable.value.copy(planPreview = null, planPreviewSupportReview = null, hybridPlanPreview = null)
+        }
     }
 
     private fun writeSupportRevisionAtomically(type: AdaptationType, write: () -> Unit) {

@@ -138,20 +138,18 @@ internal fun flattenProfileBars(items: List<WorkoutStepItem>): List<WorkoutProfi
 }
 
 private fun sameDisplayMixedStep(a: RunningStepV2, b: RunningStepV2): Boolean =
-    a.purpose == b.purpose &&
-        a.effort == b.effort &&
-        a.meters == b.meters &&
-        a.seconds == b.seconds &&
-        (a.distanceEquivalentMeters == b.distanceEquivalentMeters ||
-            (a.distanceEquivalentMeters != null && b.distanceEquivalentMeters != null &&
-                kotlin.math.abs(a.distanceEquivalentMeters - b.distanceEquivalentMeters) <= 1))
+    a == b || (
+        a.distanceEquivalentMeters != null && b.distanceEquivalentMeters != null &&
+            kotlin.math.abs(a.distanceEquivalentMeters - b.distanceEquivalentMeters) <= 1 &&
+            a.copy(distanceEquivalentMeters = b.distanceEquivalentMeters) == b
+        )
 
 private fun groupDisplayMixedSteps(steps: List<RunningStepV2>): List<MixedRunningStepBlock> {
     val blocks = mutableListOf<MixedRunningStepBlock>()
     var index = 0
     while (index < steps.size) {
         val current = steps[index]
-        if (current.purpose == "WORK") {
+        if (current.purpose == "WORK" || current.stepIntent == RunningStepIntent.STRIDE) {
             val recovery = steps.getOrNull(index + 1)?.takeIf { it.purpose == "RECOVERY" }
             if (recovery != null) {
                 var lastWork = index
@@ -294,8 +292,24 @@ internal fun buildWorkoutStepItems(
         return listOfNotNull(timeText, distText).takeIf { it.isNotEmpty() }?.joinToString(" · ")
     }
 
-    if (mixedSegments != null) {
-        return groupDisplayMixedSteps(mixedSegments).mapIndexed { index, block ->
+    fun displayEffort(effort: String, paceMin: Int?, paceMax: Int?): String? {
+        val paces = listOfNotNull(paceMin, paceMax).distinct().joinToString("–") {
+            ActivityRecord.duration(it.toDouble())
+        }
+        return listOfNotNull(paces.takeIf { it.isNotEmpty() }?.let { "$it /km" },
+            effort.takeIf { it.isNotBlank() }).takeIf { it.isNotEmpty() }?.joinToString(" · ")
+    }
+
+    val displaySteps = mixedSegments ?: segments?.takeIf { steps ->
+        steps.any { it.stepIntent == RunningStepIntent.STRIDE }
+    }?.map { step ->
+        RunningStepV2(step.purpose, step.effort, meters = step.meters, stepIntent = step.stepIntent,
+            targetPaceMinSecPerKm = step.targetPaceMinSecPerKm,
+            targetPaceMaxSecPerKm = step.targetPaceMaxSecPerKm,
+            targetHrMinBpm = step.targetHrMinBpm, targetHrMaxBpm = step.targetHrMaxBpm)
+    }
+    if (displaySteps != null) {
+        return groupDisplayMixedSteps(displaySteps).mapIndexed { index, block ->
             when (block) {
                 is MixedRunningStepBlock.Single -> {
                     val step = block.segment
@@ -305,7 +319,7 @@ internal fun buildWorkoutStepItems(
                             purpose = step.purpose,
                             zoneBadge = zoneBadgeForPurpose(step.purpose, step.stepIntent),
                             metricLine = formatDurationAndMeters(step.seconds, step.meters, step.distanceEquivalentMeters),
-                            effortLine = step.effort.takeIf { it.isNotBlank() },
+                            effortLine = displayEffort(step.effort, step.targetPaceMinSecPerKm, step.targetPaceMaxSecPerKm),
                             accentColor = accentForPurpose(step.purpose),
                             durationMinutes = estimateDurationMin(step.seconds, step.meters ?: step.distanceEquivalentMeters),
                             intensityFraction = intensityForPurpose(step.purpose, step.stepIntent),
@@ -324,7 +338,7 @@ internal fun buildWorkoutStepItems(
                             block.work.meters,
                             block.work.distanceEquivalentMeters
                         ),
-                        effortLine = block.work.effort.takeIf { it.isNotBlank() },
+                        effortLine = displayEffort(block.work.effort, block.work.targetPaceMinSecPerKm, block.work.targetPaceMaxSecPerKm),
                         accentColor = accentForPurpose(block.work.purpose),
                         durationMinutes = estimateDurationMin(
                             block.work.seconds,
@@ -343,7 +357,7 @@ internal fun buildWorkoutStepItems(
                                 rec.meters,
                                 rec.distanceEquivalentMeters
                             ),
-                            effortLine = rec.effort.takeIf { it.isNotBlank() },
+                            effortLine = displayEffort(rec.effort, rec.targetPaceMinSecPerKm, rec.targetPaceMaxSecPerKm),
                             accentColor = accentForPurpose(rec.purpose),
                             durationMinutes = estimateDurationMin(
                                 rec.seconds,
@@ -383,7 +397,7 @@ internal fun buildWorkoutStepItems(
                             purpose = seg.purpose,
                             zoneBadge = zoneBadgeForPurpose(seg.purpose, seg.stepIntent),
                             metricLine = runningStepDisplayKmLabel(seg.meters),
-                            effortLine = seg.effort.takeIf { it.isNotBlank() },
+                            effortLine = displayEffort(seg.effort, seg.targetPaceMinSecPerKm, seg.targetPaceMaxSecPerKm),
                             accentColor = accentForPurpose(seg.purpose),
                             durationMinutes = segMinutes(seg.meters),
                             intensityFraction = intensityForPurpose(seg.purpose, seg.stepIntent),
@@ -394,14 +408,14 @@ internal fun buildWorkoutStepItems(
                 }
                 is RunningStepBlock.Repeat -> {
                     val work = WorkoutStepDetail(
-                        title = "Run",
+                        title = titleForPurpose(block.work.purpose, block.work.stepIntent),
                         purpose = block.work.purpose,
-                        zoneBadge = zoneBadgeForPurpose(block.work.purpose),
+                        zoneBadge = zoneBadgeForPurpose(block.work.purpose, block.work.stepIntent),
                         metricLine = runningStepDisplayKmLabel(block.work.meters),
-                        effortLine = block.work.effort.takeIf { it.isNotBlank() },
+                        effortLine = displayEffort(block.work.effort, block.work.targetPaceMinSecPerKm, block.work.targetPaceMaxSecPerKm),
                         accentColor = accentForPurpose(block.work.purpose),
                         durationMinutes = segMinutes(block.work.meters),
-                        intensityFraction = intensityForPurpose(block.work.purpose),
+                        intensityFraction = intensityForPurpose(block.work.purpose, block.work.stepIntent),
                         testTag = "workout-repeat-work-$index"
                     )
                     val recover = block.recovery?.let { rec ->
@@ -410,7 +424,7 @@ internal fun buildWorkoutStepItems(
                             purpose = rec.purpose,
                             zoneBadge = zoneBadgeForPurpose(rec.purpose),
                             metricLine = runningStepDisplayKmLabel(rec.meters),
-                            effortLine = rec.effort.takeIf { it.isNotBlank() },
+                        effortLine = displayEffort(rec.effort, rec.targetPaceMinSecPerKm, rec.targetPaceMaxSecPerKm),
                             accentColor = accentForPurpose(rec.purpose),
                             durationMinutes = segMinutes(rec.meters),
                             intensityFraction = intensityForPurpose(rec.purpose),

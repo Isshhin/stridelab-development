@@ -98,3 +98,10 @@ Back to [[index]] · Related: [[architecture]] · [[screens]]
   - **Pre-Surface Gate, Cooldowns & Rollback:** Candidate plans must pass untouched `Engine15IndependentPlanGenerator.validateSaved`, distance conservation, spacing, and taper preservation; pace proposals enforce `14`-day cooldowns (`EXPIRED` after `7` days), missed-week recovery bypasses pace cooldowns while suppressing dismissed `disruptionFingerprint`s, and `approveAdaptationProposal` / `revertLastAdaptation` archive/restore exact `previousPlanJson` locally in `TrainingStore`.
 - **Shadow Research Modules:** `Engine15I3..I10`, `IndependentAdaptiveWeek`, `IndependentConstrainedMultiweekPlanner`, and `Engine15HistoryInformedPlanner` are read-only/research fixtures not wired into `TrainingRepository.generatePlan`.
 - **Aerobic Efficiency (`RunningAerobicEfficiency`):** Requires `>= 6` qualifying runs (`>= 3 km` with HR), `>= 3` weeks, and **`>= 3` runs in both `earlyWeeks` and `lateWeeks`** before reporting `percentChange`.
+
+## Hybrid Plan Builder
+
+- Create a separate draft snapshot for each selected track using the existing discipline generators. Strength, plyometrics and isometrics retain distinct goals within the existing resistance storage key.
+- Prefer balanced, open weekdays for automatic support sessions. Keep fixed dates and the long-run day. Allow at most two sessions on a date, require the athlete to opt into compatible pairs, and show the proposed order. A reduced support dose uses the existing structured dose policy.
+- Preserve the running quality family through Engine 1.5's same-family reconciliation. If the dose still cannot fit, ask the athlete to review changes to time, days, frequency or training goal.
+- Recheck plan revisions and validate each snapshot and the shared calendar before activation. Store the approved set through the existing atomic plan restore transaction and keep the standard backup format.
