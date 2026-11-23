@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Exact Figma Trackside 3.0 path geometry, node 698:90; no redraw. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="23dp"
+    android:height="23dp"
+    android:viewportWidth="23"
+    android:viewportHeight="23">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#AAD7F7"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M1.4375 9.58333V13.8958M4.3125 7.1875V16.2917M6.70833 11.5H16.2917M16.2917 7.1875V16.2917M19.1667 9.58333V13.8958M21.0833 9.58333V13.8958" />
+</vector>

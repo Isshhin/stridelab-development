@@ -1,0 +1,191 @@
+package io.stridelab.privatealpha
+
+/**
+ * M2 research-only quality-session examples built from the versioned workout contract.
+ * A template defines structure and an illustrative dose, NOT athlete eligibility,
+ * measured threshold pace, physiological safety, or a progression decision.
+ */
+internal enum class IndependentQualityFamily { THRESHOLD, TEMPO, INTERVALS, HILLS, FARTLEK, PROGRESSION }
+internal enum class IndependentQualityStage { INTRO, EXTENDED, LONG_REPETITIONS }
+
+internal data class IndependentQualityTemplate(
+    val id: String,
+    val family: IndependentQualityFamily,
+    val stage: IndependentQualityStage,
+    val workout: IndependentWorkoutComposition,
+    val evidence: String = "HEURISTIC"
+) {
+    init {
+        require(id == "engine15-${family.name.lowercase()}-${stage.name.lowercase()}-v1")
+        require(evidence == "HEURISTIC")
+        // This first library deliberately limits examples to one warm-up, one
+        // quality block and one cool-down; more complex structures can be added
+        // as separately versioned candidates.
+        require(workout.elements.size == 3)
+        val boundaryUnit = if (stage == IndependentQualityStage.LONG_REPETITIONS)
+            WorkoutUnit.METERS else WorkoutUnit.SECONDS
+        fun easyStep(element: IndependentWorkoutElement, purpose: WorkoutPurpose): Boolean =
+            (element as? IndependentWorkoutElement.Step)?.value?.let { step ->
+                step.purpose == purpose && step.unit == boundaryUnit &&
+                    step.target == WorkoutTarget.EASY && step.repetitions == 1
+            } == true
+        require(easyStep(workout.elements.first(), WorkoutPurpose.WARM_UP))
+        require(easyStep(workout.elements.last(), WorkoutPurpose.COOL_DOWN))
+        when (family) {
+            IndependentQualityFamily.THRESHOLD -> {
+                val group = (workout.elements[1] as? IndependentWorkoutElement.Intervals)?.value
+                    ?: throw IllegalArgumentException("Threshold example requires interval group")
+                require(group.work.target == WorkoutTarget.THRESHOLD &&
+                    group.recovery.target == WorkoutTarget.EASY)
+                if (stage == IndependentQualityStage.LONG_REPETITIONS) {
+                    require(group.repetitions == 3 && group.work.unit == WorkoutUnit.METERS &&
+                        group.work.amount == 3000.0 && group.recovery.unit == WorkoutUnit.SECONDS &&
+                        group.recovery.amount == 90.0)
+                } else require(group.work.unit == WorkoutUnit.SECONDS &&
+                    group.recovery.unit == WorkoutUnit.SECONDS)
+            }
+            IndependentQualityFamily.TEMPO -> {
+                require(stage != IndependentQualityStage.LONG_REPETITIONS)
+                val step = (workout.elements[1] as? IndependentWorkoutElement.Step)?.value
+                    ?: throw IllegalArgumentException("Tempo example requires continuous work")
+                require(step.purpose == WorkoutPurpose.WORK &&
+                    step.unit == WorkoutUnit.SECONDS &&
+                    step.target == WorkoutTarget.TEMPO && step.repetitions == 1)
+            }
+            IndependentQualityFamily.INTERVALS,
+            IndependentQualityFamily.HILLS,
+            IndependentQualityFamily.FARTLEK -> {
+                require(stage != IndependentQualityStage.LONG_REPETITIONS)
+                val expectedTarget = when (family) {
+                    IndependentQualityFamily.INTERVALS -> WorkoutTarget.INTERVALS
+                    IndependentQualityFamily.HILLS -> WorkoutTarget.HILLS
+                    else -> WorkoutTarget.FARTLEK
+                }
+                val group = (workout.elements[1] as? IndependentWorkoutElement.Intervals)?.value
+                    ?: throw IllegalArgumentException("$family example requires interval group")
+                require(group.work.target == expectedTarget &&
+                    group.recovery.target == WorkoutTarget.EASY &&
+                    group.work.unit == WorkoutUnit.SECONDS &&
+                    group.recovery.unit == WorkoutUnit.SECONDS)
+            }
+            IndependentQualityFamily.PROGRESSION -> {
+                require(stage != IndependentQualityStage.LONG_REPETITIONS)
+                val step = (workout.elements[1] as? IndependentWorkoutElement.Step)?.value
+                    ?: throw IllegalArgumentException("Progression example requires continuous work")
+                require(step.purpose == WorkoutPurpose.WORK &&
+                    step.unit == WorkoutUnit.SECONDS &&
+                    step.target == WorkoutTarget.PROGRESSION && step.repetitions == 1)
+            }
+        }
+        require(if (stage == IndependentQualityStage.LONG_REPETITIONS)
+            workout.total(WorkoutUnit.SECONDS) == null && workout.total(WorkoutUnit.METERS) == null
+        else workout.total(WorkoutUnit.SECONDS) != null)
+    }
+
+    fun totalSeconds(): Double = requireNotNull(workout.total(WorkoutUnit.SECONDS))
+    fun workSeconds(): Double = requireNotNull(workout.dose(WorkoutUnit.SECONDS, WorkoutPurpose.WORK))
+    fun recoverySeconds(): Double = workout.dose(WorkoutUnit.SECONDS, WorkoutPurpose.RECOVERY) ?: 0.0
+}
+
+/** Fixed examples only; no auto-selection by fitness, history, goals or feedback. */
+internal object IndependentQualityTemplates {
+    private fun step(purpose: WorkoutPurpose, seconds: Int, target: WorkoutTarget) =
+        WorkoutStep(purpose, WorkoutUnit.SECONDS, seconds.toDouble(), 1, target)
+
+    private fun threshold(stage: IndependentQualityStage, repetitions: Int, workSeconds: Int,
+                          recoverySeconds: Int, warmSeconds: Int, coolSeconds: Int) =
+        IndependentQualityTemplate(
+            "engine15-threshold-${stage.name.lowercase()}-v1", IndependentQualityFamily.THRESHOLD, stage,
+            IndependentWorkoutComposition(listOf(
+                IndependentWorkoutElement.Step(step(WorkoutPurpose.WARM_UP, warmSeconds, WorkoutTarget.EASY)),
+                IndependentWorkoutElement.Intervals(IndependentIntervalGroup(
+                    repetitions,
+                    step(WorkoutPurpose.WORK, workSeconds, WorkoutTarget.THRESHOLD),
+                    step(WorkoutPurpose.RECOVERY, recoverySeconds, WorkoutTarget.EASY)
+                )),
+                IndependentWorkoutElement.Step(step(WorkoutPurpose.COOL_DOWN, coolSeconds, WorkoutTarget.EASY))
+            ))
+        )
+
+    private fun tempo(stage: IndependentQualityStage, workSeconds: Int,
+                      warmSeconds: Int, coolSeconds: Int) =
+        IndependentQualityTemplate(
+            "engine15-tempo-${stage.name.lowercase()}-v1", IndependentQualityFamily.TEMPO, stage,
+            IndependentWorkoutComposition(listOf(
+                IndependentWorkoutElement.Step(step(WorkoutPurpose.WARM_UP, warmSeconds, WorkoutTarget.EASY)),
+                IndependentWorkoutElement.Step(step(WorkoutPurpose.WORK, workSeconds, WorkoutTarget.TEMPO)),
+                IndependentWorkoutElement.Step(step(WorkoutPurpose.COOL_DOWN, coolSeconds, WorkoutTarget.EASY))
+            ))
+        )
+
+    private fun longRepetitions() = IndependentQualityTemplate(
+        id = "engine15-threshold-long_repetitions-v1",
+        family = IndependentQualityFamily.THRESHOLD,
+        stage = IndependentQualityStage.LONG_REPETITIONS,
+        workout = IndependentWorkoutComposition(listOf(
+            IndependentWorkoutElement.Step(WorkoutStep(WorkoutPurpose.WARM_UP,
+                WorkoutUnit.METERS, 2_000.0, 1, WorkoutTarget.EASY)),
+            IndependentWorkoutElement.Intervals(IndependentIntervalGroup(
+                3,
+                WorkoutStep(WorkoutPurpose.WORK, WorkoutUnit.METERS, 3_000.0, 1,
+                    WorkoutTarget.THRESHOLD),
+                step(WorkoutPurpose.RECOVERY, 90, WorkoutTarget.EASY)
+            )),
+            IndependentWorkoutElement.Step(WorkoutStep(WorkoutPurpose.COOL_DOWN,
+                WorkoutUnit.METERS, 2_000.0, 1, WorkoutTarget.EASY))
+        ))
+    )
+
+    private fun repeated(
+        family: IndependentQualityFamily,
+        target: WorkoutTarget,
+        stage: IndependentQualityStage,
+        repetitions: Int,
+        workSeconds: Int,
+        recoverySeconds: Int,
+        warmSeconds: Int,
+        coolSeconds: Int
+    ) = IndependentQualityTemplate(
+        "engine15-${family.name.lowercase()}-${stage.name.lowercase()}-v1", family, stage,
+        IndependentWorkoutComposition(listOf(
+            IndependentWorkoutElement.Step(step(WorkoutPurpose.WARM_UP, warmSeconds, WorkoutTarget.EASY)),
+            IndependentWorkoutElement.Intervals(IndependentIntervalGroup(
+                repetitions,
+                step(WorkoutPurpose.WORK, workSeconds, target),
+                step(WorkoutPurpose.RECOVERY, recoverySeconds, WorkoutTarget.EASY)
+            )),
+            IndependentWorkoutElement.Step(step(WorkoutPurpose.COOL_DOWN, coolSeconds, WorkoutTarget.EASY))
+        ))
+    )
+
+    private fun progression(stage: IndependentQualityStage, workSeconds: Int, warmSeconds: Int, coolSeconds: Int) =
+        IndependentQualityTemplate(
+            "engine15-progression-${stage.name.lowercase()}-v1", IndependentQualityFamily.PROGRESSION, stage,
+            IndependentWorkoutComposition(listOf(
+                IndependentWorkoutElement.Step(step(WorkoutPurpose.WARM_UP, warmSeconds, WorkoutTarget.EASY)),
+                IndependentWorkoutElement.Step(step(WorkoutPurpose.WORK, workSeconds, WorkoutTarget.PROGRESSION)),
+                IndependentWorkoutElement.Step(step(WorkoutPurpose.COOL_DOWN, coolSeconds, WorkoutTarget.EASY))
+            ))
+        )
+
+    // Intro doses match the existing controlled Engine 1.5 text examples;
+    // extended doses are synthetic research alternatives, not auto-progression.
+    fun all(): List<IndependentQualityTemplate> = listOf(
+        threshold(IndependentQualityStage.INTRO, 3, 4 * 60, 2 * 60, 10 * 60, 8 * 60),
+        threshold(IndependentQualityStage.EXTENDED, 4, 5 * 60, 2 * 60, 10 * 60, 10 * 60),
+        tempo(IndependentQualityStage.INTRO, 12 * 60, 10 * 60, 8 * 60),
+        tempo(IndependentQualityStage.EXTENDED, 20 * 60, 10 * 60, 10 * 60),
+        repeated(IndependentQualityFamily.INTERVALS, WorkoutTarget.INTERVALS, IndependentQualityStage.INTRO, 4, 2 * 60, 2 * 60, 10 * 60, 8 * 60),
+        repeated(IndependentQualityFamily.INTERVALS, WorkoutTarget.INTERVALS, IndependentQualityStage.EXTENDED, 5, 3 * 60, 2 * 60, 10 * 60, 10 * 60),
+        repeated(IndependentQualityFamily.HILLS, WorkoutTarget.HILLS, IndependentQualityStage.INTRO, 5, 60, 2 * 60, 10 * 60, 8 * 60),
+        repeated(IndependentQualityFamily.HILLS, WorkoutTarget.HILLS, IndependentQualityStage.EXTENDED, 6, 90, 2 * 60, 10 * 60, 10 * 60),
+        repeated(IndependentQualityFamily.FARTLEK, WorkoutTarget.FARTLEK, IndependentQualityStage.INTRO, 5, 2 * 60, 2 * 60, 10 * 60, 8 * 60),
+        repeated(IndependentQualityFamily.FARTLEK, WorkoutTarget.FARTLEK, IndependentQualityStage.EXTENDED, 6, 3 * 60, 2 * 60, 10 * 60, 10 * 60),
+        progression(IndependentQualityStage.INTRO, 12 * 60, 10 * 60, 8 * 60),
+        progression(IndependentQualityStage.EXTENDED, 20 * 60, 10 * 60, 10 * 60),
+        longRepetitions()
+    )
+
+    fun get(family: IndependentQualityFamily, stage: IndependentQualityStage): IndependentQualityTemplate =
+        all().single { it.family == family && it.stage == stage }
+}

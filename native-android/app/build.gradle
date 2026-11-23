@@ -1,0 +1,96 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'org.jetbrains.kotlin.plugin.compose'
+}
+// Only the seeded upgrade harness renders the retired WebView to inspect its original storage origin.
+def legacyUpgradeProbe = project.findProperty('android.testInstrumentationRunnerArguments.expectLegacyUpgrade') == 'true'
+android {
+    namespace = 'io.stridelab.privatealpha'
+    compileSdk = 36
+    defaultConfig {
+        applicationId 'io.stridelab.privatealpha'
+        // An explicit QA build uses its own package, storage and file-provider authority.
+        // Normal debug and release APK identifiers stay unchanged.
+        manifestPlaceholders['strideAppLabel'] = 'StrideLab'
+        buildConfigField 'boolean', 'ENGINE15_ACTIVE', (project.findProperty('strideEngine15Active') ?: 'true').toString().toBoolean().toString()
+        buildConfigField 'boolean', 'ENGINE15_INDEPENDENT_RUNNING_ACTIVE', (project.findProperty('strideEngine15IndependentRunningActive') ?: 'true').toString().toBoolean().toString()
+        minSdk = 26
+        targetSdk = 35
+        versionCode = (project.findProperty('strideVersionCode') ?: '15').toInteger()
+        versionName = '0.6.6-guided-workout'
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+    // Reuse the exact database, encryption and backup codec without shipping the legacy UI.
+    // No legacy manifest is merged: Compose is the sole launcher.
+    sourceSets {
+        main.java.srcDirs += '../../android-app/android/app/src/main/java'
+        if (legacyUpgradeProbe) {
+            main.assets.srcDirs += '../../android-app/android/app/src/main/assets'
+        } else {
+            main.java.exclude '**/MainActivity.java'
+            androidTest.java.exclude '**/NativeUpgradeTest.java'
+        }
+        main.res.srcDirs += '../../android-app/android/app/src/main/res'
+        test.java.srcDirs += '../../android-app/android/app/src/test/java'
+        androidTest.java.srcDirs += '../../android-app/android/app/src/androidTest/java'
+        androidTest.java.exclude '**/OfflineAppTest.java'
+        if(project.hasProperty('strideProcessProbe')) androidTest.java.srcDirs += '../process-probe-tests'
+    }
+    buildFeatures { compose = true; buildConfig = true }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    kotlinOptions { jvmTarget = '17' }
+    signingConfigs {
+        privateAlpha {
+            def ks = System.getenv('STRIDELAB_KEYSTORE_FILE')
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv('STRIDELAB_STORE_PASSWORD')
+                keyAlias System.getenv('STRIDELAB_KEY_ALIAS')
+                keyPassword System.getenv('STRIDELAB_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        debug {
+            // Opt-in side-by-side install. Never use this property to replace a user's real app.
+            if ((project.findProperty('strideIsolatedQaInstall') ?: 'false').toString().toBoolean()) {
+                applicationIdSuffix '.qa'
+                versionNameSuffix '-qa'
+                manifestPlaceholders['strideAppLabel'] = 'StrideLab QA'
+            }
+        }
+        release {
+            minifyEnabled false
+            buildConfigField 'boolean', 'ENGINE15_ACTIVE', 'true'
+            buildConfigField 'boolean', 'ENGINE15_INDEPENDENT_RUNNING_ACTIVE', 'true'
+            if (System.getenv('STRIDELAB_KEYSTORE_FILE')) signingConfig signingConfigs.privateAlpha
+        }
+    }
+    packaging { resources { excludes += ['META-INF/LICENSE*','META-INF/NOTICE*'] } }
+}
+dependencies {
+    implementation 'com.garmin:fit:21.218.0'
+    // Native geographic OSM-based maps for recorded GPS; no map tiles for absent GPS.
+    implementation 'org.maplibre.gl:android-sdk:13.7.1'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation platform('androidx.compose:compose-bom:2025.10.00')
+    implementation 'androidx.activity:activity-compose:1.11.0'
+    implementation 'androidx.compose.material3:material3'
+    implementation 'androidx.compose.material:material-icons-core'
+    implementation 'androidx.compose.ui:ui-tooling-preview'
+    implementation 'androidx.navigation:navigation-compose:2.9.5'
+    implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.9.4'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
+    implementation 'androidx.work:work-runtime-ktx:2.10.1'
+    implementation 'androidx.webkit:webkit:1.13.0'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+    androidTestImplementation platform('androidx.compose:compose-bom:2025.10.00')
+    androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    debugImplementation 'androidx.compose.ui:ui-test-manifest'
+    debugImplementation 'androidx.compose.ui:ui-tooling'
+}

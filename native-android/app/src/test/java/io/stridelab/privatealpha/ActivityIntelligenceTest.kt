@@ -1,0 +1,108 @@
+package io.stridelab.privatealpha
+
+import org.junit.Assert.*
+import org.junit.Test
+import java.time.Instant
+
+class ActivityIntelligenceTest {
+    private val run = ActivityRecord("current", "Run", "run", "garmin", Instant.parse("2026-10-26T00:00:00Z"), 5000.0, 1800.0, 1750.0, 360.0, 145.0, 0.0)
+    private fun prior(id: String, pace: Double = 400.0) = run.copy(id = id, recordedPace = pace, startedAt = run.startedAt.minusSeconds(86400))
+    @Test fun comparesMedianOfEarlierMatchingEvidence() {
+        val result = ActivityIntelligence.comparison(run, listOf(prior("1", 380.0), prior("2", 400.0), prior("3", 800.0)))!!
+        assertEquals(400.0, result.medianPace, 0.0)
+        assertEquals(-10.0, result.changePercent, .0001)
+        assertTrue(ActivityIntelligence.narrative(run, listOf(prior("1"),prior("2"),prior("3"))).contains("not improved or reduced fitness"))
+    }
+    @Test fun requiresThreeDistinctRunsAndExcludesCurrentOrFuture() {
+        assertNull(ActivityIntelligence.comparison(run, listOf(prior("1"), prior("1"), prior("2"),run,prior("future").copy(startedAt = run.startedAt.plusSeconds(1)))))
+    }
+    @Test fun excludesDifferentSourceDisciplineDistanceAndOldHistory() {
+        val invalid = listOf(prior("source").copy(source="manual"),prior("trail").copy(type="trailrun"),prior("distance").copy(distanceM=6000.0),prior("old").copy(startedAt=run.startedAt.minusSeconds(91*86400)))
+        assertNull(ActivityIntelligence.comparison(run, invalid + listOf(prior("1"), prior("2"))))
+    }
+    @Test fun noPaceInferenceOrStrengthAndWalkingAnalysis() {
+        val history = listOf(prior("1"),prior("2"),prior("3"))
+        for (a in listOf(run.copy(recordedPace=null), run.copy(distanceM=null), run.copy(type="strength"), run.copy(type="walk"))) assertNull(ActivityIntelligence.comparison(a,history))
+    }
+    @Test fun evenMedianAndExactBoundaries() {
+        val history = listOf(prior("1",380.0),prior("2",400.0),prior("3",420.0),prior("4",440.0).copy(distanceM=5500.0,startedAt=run.startedAt.minusSeconds(90*86400)))
+        assertEquals(410.0,ActivityIntelligence.comparison(run,history)!!.medianPace,0.0)
+    }
+    @Test fun readOnlyInsightsUseOnlyRecordedSamplesAndComparableHistory() {
+        val recorded=ActivityDetail(run.id, listOf(
+            ActivitySample(0,0.0,400.0,140.0,null,null,null,172.0),
+            ActivitySample(1,60.0,390.0,160.0,null,null,null,184.0)
+        ), emptyList(),0L)
+        val lines=ActivityIntelligence.briefInsights(
+            run, recorded, listOf(prior("1"),prior("2"),prior("3"))
+        )
+        assertEquals(3,lines.size)
+        assertTrue(lines[0].contains("similar earlier runs"))
+        assertTrue(lines[1].contains("140 to 160 bpm"))
+        assertTrue(lines[2].contains("172 to 184 steps per minute"))
+        assertFalse(lines.joinToString(" ").contains("readiness score"))
+    }
+
+    @Test fun athleteStyleSummaryUsesOnlyComparablePaceEvidence() {
+        val matched = ActivityIntelligence.presentation(
+            run, null, listOf(prior("1", 380.0), prior("2", 400.0), prior("3", 420.0))
+        )!!
+        assertTrue(matched.hasComparison)
+        assertTrue(matched.headline.contains("10.0% faster pace"))
+        assertTrue(matched.summary.contains("across 3 similar runs"))
+        assertFalse(matched.headline.contains("PR"))
+        assertFalse(matched.summary.contains("recovery score"))
+
+        val slower=ActivityIntelligence.presentation(
+            run.copy(recordedPace=440.0),null,
+            listOf(prior("1",380.0),prior("2",400.0),prior("3",420.0))
+        )!!
+        assertTrue(slower.headline.contains("10.0% slower pace"))
+    }
+
+    @Test fun comparisonCardIsOmittedBelowThreeSimilarRuns() {
+        assertNull(ActivityIntelligence.presentation(run, null, emptyList()))
+        assertNull(ActivityIntelligence.presentation(run, null, listOf(prior("1", 380.0), prior("2", 400.0))))
+        assertNull(ActivityIntelligence.presentation(run.copy(type = "strength"), null, emptyList()))
+    }
+
+    @Test fun workoutCharacterUsesOnlyRecordedPatterns() {
+        val recorded = ActivityDetail(
+            run.id,
+            samples = (0 until 40).map { i ->
+                ActivitySample(
+                    i, i * 30.0, 390.0,
+                    135.0 + i * .3, null, null, null,
+                    176.0 + (i % 2)
+                )
+            },
+            laps = listOf(
+                ActivityLap(0, 1000.0, 390.0, 390.0, 140.0),
+                ActivityLap(1, 1000.0, 388.0, 388.0, 143.0),
+                ActivityLap(2, 1000.0, 374.0, 374.0, 148.0),
+                ActivityLap(3, 1000.0, 370.0, 370.0, 151.0)
+            ),
+            fetchedAt = 0L
+        )
+        val character = ActivityIntelligence.workoutCharacter(run, recorded)!!
+        assertTrue(character.contains("Steady pacing"))
+        assertTrue(character.contains("Faster finish"))
+        assertTrue(character.contains("Stable cadence"))
+        assertFalse(character.contains("aerobic", ignoreCase = true))
+        assertNull(ActivityIntelligence.workoutCharacter(run.copy(type = "strength"), recorded))
+    }
+
+    @Test fun insufficientHistoryAndMissingCadenceDoNotProduceInventedInsights() {
+        val recorded=ActivityDetail(run.id,listOf(
+            ActivitySample(0,0.0,400.0,null,null,null,null),
+            ActivitySample(1,60.0,390.0,null,null,null,null)
+        ),emptyList(),0L)
+        val lines=ActivityIntelligence.briefInsights(run,recorded,emptyList())
+        assertEquals(1,lines.size)
+        assertTrue(lines.single().contains("No reliable pace comparison"))
+        assertTrue(ActivityIntelligence.briefInsights(
+            run.copy(type="strength"), recorded, emptyList()
+        ).isEmpty())
+    }
+
+}

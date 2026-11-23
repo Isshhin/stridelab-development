@@ -1,0 +1,53 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'io.stridelab.privatealpha'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'io.stridelab.privatealpha'
+        minSdk 26
+        targetSdk 35
+        versionCode = (project.findProperty('strideVersionCode') ?: '2').toInteger()
+        versionName = (project.findProperty('strideVersionName') ?: '0.2.0-foundation').toString()
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+
+    signingConfigs {
+        privateAlpha {
+            def ks = System.getenv('STRIDELAB_KEYSTORE_FILE')
+            def storePass = System.getenv('STRIDELAB_STORE_PASSWORD')
+            def alias = System.getenv('STRIDELAB_KEY_ALIAS')
+            def keyPass = System.getenv('STRIDELAB_KEY_PASSWORD')
+            if (ks && storePass && alias && keyPass) {
+                storeFile file(ks)
+                storePassword storePass
+                keyAlias alias
+                keyPassword keyPass
+            }
+        }
+    }
+    buildTypes {
+        debug { applicationIdSuffix '' }
+        release {
+            minifyEnabled false
+            shrinkResources false
+            if (System.getenv('STRIDELAB_KEYSTORE_FILE') && System.getenv('STRIDELAB_STORE_PASSWORD') && System.getenv('STRIDELAB_KEY_ALIAS') && System.getenv('STRIDELAB_KEY_PASSWORD')) {
+                signingConfig signingConfigs.privateAlpha
+            }
+        }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    testOptions { unitTests.includeAndroidResources = true }
+    packaging { resources { excludes += ['META-INF/LICENSE*','META-INF/NOTICE*'] } }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.13.0'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+    androidTestImplementation 'androidx.test:core:1.6.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test:rules:1.6.1'
+}

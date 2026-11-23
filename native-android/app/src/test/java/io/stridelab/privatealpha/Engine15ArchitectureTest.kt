@@ -1,0 +1,195 @@
+package io.stridelab.privatealpha
+
+import java.time.Instant
+import java.time.LocalDate
+import org.json.JSONArray
+import org.json.JSONObject
+import org.junit.Assert.*
+import org.junit.Test
+
+class Engine15ArchitectureTest {
+    private val now = Instant.parse("2026-11-03T00:00:00Z")
+    private val start = LocalDate.parse("2026-11-09")
+    private val owner = "synthetic-owner"
+
+    private fun request() = PlanRequest(
+        goal = "Improve 5K",
+        policyChoice = "engine15",
+        start = start,
+        weeks = 4,
+        experience = 1,
+        weeklyKm = 24.0,
+        longestKm = 8.0,
+        runDays = 3,
+        qualityCount = 0,
+        timeBudgetEnabled = false,
+        recentMileageBasis = "SELF_REPORTED_AVERAGE"
+    )
+
+    @Test fun policyAlwaysRoutesToEngine15IndependentWithoutLegacyFallbacks() {
+        val candidate = request()
+        assertSame(Engine15IndependentPlanGenerator, Engine1Engines.resolve(candidate))
+        assertSame(Engine15IndependentPlanGenerator, Engine1Engines.resolve(candidate.copy(policyChoice = "baseline")))
+        assertSame(Engine15IndependentPlanGenerator, Engine1Engines.resolve(candidate.copy(policyChoice = "coordinated")))
+        assertSame(Engine15IndependentPlanGenerator, Engine1Engines.resolve(candidate.copy(policyChoice = "multi-session")))
+        Engine1Engines.validate(candidate)
+
+        assertEquals(candidate, PlanRequest.decode(candidate.encode()))
+        assertThrows(PlanConstraint::class.java) {
+            Engine15IndependentPlanGenerator.validateRequest(candidate.copy(policyChoice = "baseline"))
+        }
+        assertThrows(PlanConstraint::class.java) {
+            Engine15IndependentPlanGenerator.validateRequest(candidate.copy(policyChoice = "invalid"))
+        }
+    }
+
+    @Test fun targetMileageRoundTripsAndLegacyRequestsUseRecentMileageAsTarget() {
+        val request = request().copy(weeklyKm = 42.0, targetWeeklyKm = 65.0)
+        assertEquals(request, PlanRequest.decode(request.encode()))
+        val legacy = request.encode().apply { remove("targetWeeklyKm") }
+        assertNull(PlanRequest.decode(legacy).targetWeeklyKm)
+    }
+
+    @Test fun explicitQualityChoiceIsPersistedWithoutTreatingLegacyDefaultAsIntent() {
+        val implicit = request()
+        assertFalse(implicit.encode().has("preferredQualityExplicit"))
+        assertFalse(PlanRequest.decode(implicit.encode()).preferredQualityExplicit)
+        val oldSavedRequest = implicit.encode().apply { put("preferredQuality", "Threshold") }
+        assertFalse(PlanRequest.decode(oldSavedRequest).preferredQualityExplicit)
+
+        val chosen = implicit.copy(preferredQuality = "Tempo", preferredQualityExplicit = true)
+        assertTrue(chosen.encode().getBoolean("preferredQualityExplicit"))
+        assertEquals(chosen, PlanRequest.decode(chosen.encode()))
+        assertFalse(chosen.copy(policyChoice = "baseline").encode().has("preferredQualityExplicit"))
+    }
+
+    @Test fun userAssertedQualityDistanceClaimsRoundTripAndOldRequestsDefaultEmpty() {
+        val claim = Engine15M5SegmentDistanceClaim(
+            weekNumber = 2,
+            slotNumber = 1,
+            assertedMetersByTimedSegment = listOf(900.0, 1_200.0, 900.0),
+            externalReviewReference = null,
+            provenance = Engine15M5DistanceClaimProvenance.USER_ASSERTED_EQUIVALENT
+        )
+        val requested = request().copy(qualityDistanceClaims = listOf(claim))
+        assertEquals(requested, PlanRequest.decode(requested.encode()))
+        assertEquals(emptyList<Engine15M5SegmentDistanceClaim>(),
+            PlanRequest.decode(request().encode()).qualityDistanceClaims)
+        assertEquals(emptyList<Engine15M5SegmentDistanceClaim>(),
+            PlanRequest.decode(request().encode().apply {
+                put("qualityDistanceClaims", JSONArray())
+            }).qualityDistanceClaims)
+    }
+
+    @Test fun explicitTargetEqualToRecentMileageRemainsExplicitInSavedPlan() {
+        val zeroRequested = request().copy(weeklyKm = 0.0, targetWeeklyKm = 0.0, recentMileageBasis = "CONFIRMED_ZERO")
+        assertThrows(PlanConstraint::class.java) {
+            Engine15IndependentPlanGenerator.generateWithHistory(zeroRequested, owner, emptyList(), "zero", now)
+        }
+        val requested = request().copy(weeklyKm = 24.0, targetWeeklyKm = 24.0)
+        assertTrue(requested.encode().has("targetWeeklyKm"))
+        assertEquals(requested, PlanRequest.decode(requested.encode()))
+        val snapshot = Engine15IndependentPlanGenerator.generateWithHistory(requested, owner, emptyList(), "target-24.0", now)
+        assertEquals(snapshot, PlanSnapshot.decode(snapshot.encode(), owner))
+        assertFalse(request().encode().has("targetWeeklyKm"))
+        assertNull(PlanRequest.decode(request().encode()).targetWeeklyKm)
+    }
+
+    @Test fun tracksidePreferencesAndExactSessionLocksSurviveTheSameSnapshot() {
+        val original = request().copy(
+            dailyMinutes = 85,
+            weeklySlots = mapOf("run" to listOf(6, 1, 2)),
+            preferredQuality = "Intervals",
+            preferredQualityExplicit = true,
+            allowedQualityTypes = setOf("Intervals")
+        )
+        val draft = Engine15IndependentPlanGenerator.generateWithHistory(original, owner, emptyList(), "trackside-lock", now)
+        val target = draft.sessions.first()
+        val locked = PlanOperations.setSessionLock(draft, target.id, true)
+        val reopened = PlanSnapshot.decode(locked.encode(), owner)
+        assertEquals(original.weeklySlots, reopened.request.weeklySlots)
+        assertEquals(original.preferredQuality, reopened.request.preferredQuality)
+        assertTrue(reopened.request.preferredQualityExplicit)
+        assertEquals(original.allowedQualityTypes, reopened.request.allowedQualityTypes)
+        assertEquals(85, reopened.request.dailyMinutes)
+        assertEquals(target.date.toString(), reopened.request.lockedSessionDays[target.id])
+        assertEquals(locked, reopened)
+    }
+
+    @Test fun engine15IndependentPolicyContractsRemainCleanlyManaged() {
+        val candidate = Engine15IndependentPlanGenerator.generateWithHistory(request(), owner, emptyList(), "same-id", now)
+        assertEquals(ENGINE15_VERSION, candidate.engineVersion)
+        assertEquals(ENGINE15_INDEPENDENT_RUNNING_POLICY, candidate.policyId)
+        assertEquals("draft", candidate.status)
+        assertTrue(Engine1Engines.canManage(candidate))
+        assertTrue(Engine1Engines.supports(ENGINE1_VERSION, SessionTemplate.POLICY_ID))
+        assertTrue(Engine1Engines.supports(ENGINE1_VERSION, ENGINE1_POLICY))
+        assertTrue(Engine1Engines.supports(ENGINE15_VERSION, ENGINE15_POLICY))
+        assertFalse(Engine1Engines.supports("99.0", "stridelab.future.unknown-policy"))
+    }
+
+    @Test fun candidateSurvivesOwnerBoundRoundtripAndNonDestructiveBackup() {
+        val draft = Engine15IndependentPlanGenerator.generateWithHistory(request(), owner, emptyList(), "candidate-backup", now)
+        val decoded = PlanSnapshot.decode(draft.encode(), owner)
+        assertEquals(draft, decoded)
+        assertNull(decoded.foreignSnapshot)
+
+        val approved = PlanOperations.approve(decoded, emptyList())
+        val first = approved.sessions.first()
+        val recorded = PlanOperations.record(
+            approved, first.id, WorkoutLog(now, minutes = 22.0, effort = 3), true
+        )
+        val backup = JSONObject()
+            .put("schemaVersion", 1)
+            .put("plans", JSONArray().put(recorded.encode()))
+            .toString()
+
+        assertEquals(listOf(recorded), PlanBackup.read(backup, owner))
+        assertEquals(recorded, PlanSnapshot.decode(recorded.encode(), owner))
+        assertTrue(PlanBackup.additions(listOf(recorded), listOf(recorded)).isEmpty())
+        assertThrows(IllegalArgumentException::class.java) {
+            PlanSnapshot.decode(recorded.encode(), "different-owner")
+        }
+    }
+
+    @Test fun unknownEngine15PolicyStaysOpaqueReadOnlyAndByteFieldsArePreserved() {
+        val candidate = Engine15IndependentPlanGenerator.generateWithHistory(request(), owner, emptyList(), "future", now)
+        val raw = candidate.encode()
+            .put("policyId", "stridelab.engine15.future-policy")
+            .put("futureRule", JSONObject().put("retain", 7))
+        raw.getJSONArray("sessions").getJSONObject(0)
+            .put("futureSession", "preserve")
+
+        val unknown = PlanSnapshot.decode(raw, owner)
+        assertFalse(Engine1Engines.canManage(unknown))
+        assertEquals(7, unknown.encode().getJSONObject("futureRule").getInt("retain"))
+        assertEquals(
+            "preserve",
+            unknown.encode().getJSONArray("sessions").getJSONObject(0)
+                .getString("futureSession")
+        )
+        assertThrows(PlanConstraint::class.java) {
+            PlanOperations.approve(unknown, emptyList())
+        }
+    }
+
+    @Test fun historicalSavedPlansRemainManageableWhileUnknownPoliciesStayReadOnly() {
+        val candidate = Engine15IndependentPlanGenerator.generateWithHistory(request(), owner, emptyList(), "old-plan", now)
+        val historicalDecoded = PlanSnapshot.decode(
+            candidate.encode().put("engineVersion", ENGINE1_VERSION).put("policyId", ENGINE1_POLICY),
+            owner
+        )
+        assertTrue(Engine1Engines.canManage(historicalDecoded))
+
+        val unknownRaw = candidate.encode()
+            .put("engineVersion", "99.0")
+            .put("policyId", "stridelab.future.unknown-policy")
+        val unknownDecoded = PlanSnapshot.decode(unknownRaw, owner)
+
+        assertFalse(Engine1Engines.canManage(unknownDecoded))
+        assertNotNull(unknownDecoded.foreignSnapshot)
+        assertEquals("99.0", unknownDecoded.engineVersion)
+        assertEquals("stridelab.future.unknown-policy", unknownDecoded.policyId)
+        assertEquals(unknownRaw.toString(), unknownDecoded.encode().toString())
+    }
+}

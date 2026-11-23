@@ -1,0 +1,211 @@
+name: Trackside Strength Setup self-hosted Windows verification
+
+on:
+  push:
+    branches:
+      - design/trackside3-figma-parity-no-build-20261103
+    paths:
+      - '.github/workflows/trackside-strength-self-hosted-windows.yml'
+      - 'native-android/app/src/androidTest/java/io/stridelab/privatealpha/TracksideResponsiveQaTest.kt'
+      - 'native-android/app/src/androidTest/java/io/stridelab/privatealpha/TracksideApprovedBuilderActivityUiTest.kt'
+      - 'native-android/app/src/main/java/io/stridelab/privatealpha/TracksideFigmaBuilderScreens.kt'
+      - 'native-android/app/src/main/java/io/stridelab/privatealpha/TracksideFigmaBuilderSchedule.kt'
+      - 'native-android/app/src/main/java/io/stridelab/privatealpha/TracksideFigmaOtherDisciplineSlots.kt'
+      - 'native-android/app/src/main/java/io/stridelab/privatealpha/TracksideFigmaWeekReview.kt'
+      - 'native-android/app/src/main/java/io/stridelab/privatealpha/TracksideParityTraining.kt'
+      - 'native-android/app/src/main/java/io/stridelab/privatealpha/TracksideParityDraftApprovalDock.kt'
+      - 'native-android/app/src/main/java/io/stridelab/privatealpha/NativeMainActivity.kt'
+      - 'native-android/app/src/main/java/io/stridelab/privatealpha/TracksideTrainingCalendar.kt'
+      - 'native-android/app/src/main/java/io/stridelab/privatealpha/TracksideComponents.kt'
+      - 'native-android/app/src/main/java/io/stridelab/privatealpha/TrainingScreens.kt'
+      - 'native-android/app/src/main/java/io/stridelab/privatealpha/TracksideFigmaRunningSetup.kt'
+      - 'native-android/app/src/main/res/drawable/trackside_*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trackside-strength-windows
+  cancel-in-progress: true
+
+jobs:
+  strength-windows-verify:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 120
+    steps:
+      - name: Checkout exact workflow head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify checked-out revision and scope
+        shell: powershell
+        run: |
+          git rev-parse HEAD
+          if ((git rev-parse HEAD).Trim() -ne $env:GITHUB_SHA) { throw "Checkout does not match workflow head" }
+          Write-Host "Trackside source being verified: $env:GITHUB_SHA"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Bind previously verified Windows Android SDK
+        shell: powershell
+        run: |
+          $Sdk = "$env:LOCALAPPDATA\Android\Sdk"
+          if (!(Test-Path "$Sdk\platform-tools\adb.exe")) { throw "adb.exe not found at $Sdk" }
+          if (!(Test-Path "$Sdk\emulator\emulator.exe")) { throw "emulator.exe not found at $Sdk" }
+          if (!(Test-Path "$Sdk\platforms\android-36")) { throw "Android 36 compile SDK not found" }
+          if (!(Test-Path "$Sdk\build-tools\35.0.0")) { throw "Android build-tools 35.0.0 not found" }
+          if ((& "$Sdk\emulator\emulator.exe" -list-avds) -notcontains "Pixel_9") { throw "Verified Pixel_9 AVD not found" }
+          "ANDROID_HOME=$Sdk" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "ANDROID_SDK_ROOT=$Sdk" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "$Sdk\platform-tools" | Out-File $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Validate shared exercise-library schema
+        shell: powershell
+        run: |
+          python -m pip install jsonschema==4.26.0
+          if ($LASTEXITCODE -ne 0) { throw "jsonschema setup failed" }
+          python native-android/tools/validate_exercise_library.py
+          if ($LASTEXITCODE -ne 0) { throw "Exercise library validation failed" }
+          Write-Host "Skipping the Exercise Library protected-source immutability suite in this Trackside workflow because this branch intentionally changes UI and UI-test sources."
+
+      - name: Verify JVM and compile debug Android app and tests
+        shell: powershell
+        run: |
+          gradle --no-daemon --stacktrace -p native-android :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --console=plain
+          if ($LASTEXITCODE -ne 0) { throw "JVM / debug compile failed" }
+
+      - name: Boot API 35 emulator and execute Trackside smoke plus all four responsive suites
+        shell: powershell
+        run: |
+          $Sdk = "$env:LOCALAPPDATA\Android\Sdk"
+          $Adb = "$Sdk\platform-tools\adb.exe"
+          $Emulator = "$Sdk\emulator\emulator.exe"
+          & $Adb start-server | Out-Host
+          $Existing = (& $Adb devices | Out-String)
+          if ($Existing -match "emulator-5556\s+device") {
+            & $Adb -s emulator-5556 emu kill
+            Start-Sleep -Seconds 3
+          }
+          $StdOut = Join-Path $env:RUNNER_TEMP "trackside-emulator.stdout.log"
+          $StdErr = Join-Path $env:RUNNER_TEMP "trackside-emulator.stderr.log"
+          $Process = Start-Process -FilePath $Emulator -ArgumentList @(
+            "-avd", "Pixel_9", "-port", "5556", "-no-window",
+            "-no-audio", "-no-boot-anim", "-no-snapshot",
+            "-gpu", "swiftshader_indirect", "-accel", "on"
+          ) -RedirectStandardOutput $StdOut -RedirectStandardError $StdErr -PassThru
+          $Ready = $false
+          for ($i = 0; $i -lt 150; $i++) {
+            if ($Process.HasExited) {
+              if (Test-Path $StdErr) { Get-Content $StdErr | Out-Host }
+              throw "Emulator exited prematurely"
+            }
+            $Devices = (& $Adb devices | Out-String)
+            if ($Devices -match "emulator-5556\s+device") {
+              $Boot = (& $Adb -s emulator-5556 shell getprop sys.boot_completed | Out-String).Trim()
+              if ($Boot -eq "1") { $Ready = $true; break }
+            }
+            Start-Sleep -Seconds 2
+          }
+          if (!$Ready) {
+            if (Test-Path $StdErr) { Get-Content $StdErr | Out-Host }
+            throw "Emulator boot exceeded 5 minutes"
+          }
+          $Api = (& $Adb -s emulator-5556 shell getprop ro.build.version.sdk | Out-String).Trim()
+          if ($Api -ne "35") { throw "Expected API 35, got $Api" }
+          $Devices = (& $Adb devices | Out-String)
+          $Connected = @($Devices -split "\r?\n" | Where-Object { $_ -match "\s+device\s*$" })
+          if ($Connected.Count -ne 1 -or $Connected[0] -notmatch "^emulator-5556\s+") {
+            throw "Expected only emulator-5556, found: $Devices"
+          }
+          $env:ANDROID_SERIAL = "emulator-5556"
+          "ANDROID_SERIAL=emulator-5556" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          & $Adb -s emulator-5556 shell settings put global window_animation_scale 0
+          & $Adb -s emulator-5556 shell settings put global transition_animation_scale 0
+          & $Adb -s emulator-5556 shell settings put global animator_duration_scale 0
+
+          Write-Host "Before instrumentation: emulator PID=$($Process.Id) exited=$($Process.HasExited)"
+          $DeviceState = (& $Adb -s emulator-5556 get-state 2>&1 | Out-String).Trim()
+          Write-Host "Before instrumentation: $DeviceState"
+          if ($DeviceState -ne "device" -or $Process.HasExited) {
+            if (Test-Path $StdOut) { Get-Content $StdOut -Tail 100 | Out-Host }
+            if (Test-Path $StdErr) { Get-Content $StdErr -Tail 100 | Out-Host }
+            throw "API 35 emulator disconnected before instrumentation"
+          }
+          adb shell wm size 720x1600
+          adb shell wm density 320
+          adb shell settings put system font_scale 1.0
+          gradle --no-daemon --stacktrace -p native-android :app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=io.stridelab.privatealpha.TracksideTabTest,io.stridelab.privatealpha.TracksideTodayTest,io.stridelab.privatealpha.TracksideTrainingCalendarUiTest,io.stridelab.privatealpha.TracksideManagePlanTest,io.stridelab.privatealpha.TracksideManageNavigationTest,io.stridelab.privatealpha.TracksideBatch345UiTest,io.stridelab.privatealpha.TracksideParityStatesUiTest,io.stridelab.privatealpha.TracksideApprovedBuilderActivityUiTest" --console=plain
+          $SmokeExit = $LASTEXITCODE
+          Write-Host "Trackside smoke Gradle exit code: $SmokeExit"
+
+          $Profiles = @(
+            @{ Name="figma-412dp-font100"; Size="824x1900"; Font="1.0" },
+            @{ Name="figma-360dp-font100"; Size="720x1600"; Font="1.0" },
+            @{ Name="compact-360dp-font130"; Size="720x1600"; Font="1.3" },
+            @{ Name="standard-412dp-font150"; Size="824x1900"; Font="1.5" }
+          )
+          $Failures = @()
+          if ($SmokeExit -ne 0) { $Failures += "Trackside smoke failed ($SmokeExit)" }
+          foreach ($P in $Profiles) {
+            Write-Host "::group::Responsive QA $($P.Name)"
+            $Out = "native-android/app/build/qa-screenshots/$($P.Name)"
+            New-Item -ItemType Directory -Path $Out -Force | Out-Null
+            adb shell rm -rf /sdcard/Pictures/StrideLabBatchB
+            adb shell wm size $P.Size
+            adb shell wm density 320
+            adb shell settings put system font_scale $P.Font
+            Start-Sleep -Seconds 3
+            gradle --no-daemon --stacktrace -p native-android :app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=io.stridelab.privatealpha.TracksideResponsiveQaTest" --console=plain
+            $Exit = $LASTEXITCODE
+            for ($Try=1; $Try -le 3; $Try++) {
+              adb pull /sdcard/Pictures/StrideLabBatchB $Out
+              $Pngs = @(Get-ChildItem -Path $Out -Filter *.png -File -Recurse -ErrorAction SilentlyContinue)
+              if ($Pngs.Count -ge 5) { break }
+              Start-Sleep -Seconds 3
+            }
+            Write-Host "Responsive $($P.Name): gradleExit=$Exit screenshots=$($Pngs.Count)"
+            if ($Exit -ne 0) { $Failures += "$($P.Name): instrumentation failure ($Exit)" }
+            if ($Pngs.Count -lt 5) { $Failures += "$($P.Name): only $($Pngs.Count) screenshots" }
+            Write-Host "::endgroup::"
+          }
+          if ($Failures.Count -gt 0) { throw ($Failures -join "; ") }
+
+      - name: Upload exact-head QA screenshots and instrumentation results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trackside-strength-windows-evidence
+          retention-days: 21
+          if-no-files-found: warn
+          path: |
+            native-android/app/build/qa-screenshots/
+            native-android/app/build/reports/androidTests/
+            native-android/app/build/outputs/androidTest-results/
+            native-android/app/build/test-results/
+            native-android/app/build/reports/tests/
+
+      - name: Stop isolated CI emulator
+        if: always()
+        shell: powershell
+        run: |
+          $Adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
+          if (Test-Path $Adb) {
+            $Existing = (& $Adb devices | Out-String)
+            if ($Existing -match "emulator-5556\s+device") { & $Adb -s emulator-5556 emu kill }
+          }

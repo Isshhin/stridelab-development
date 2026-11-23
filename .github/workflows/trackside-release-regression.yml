@@ -1,0 +1,66 @@
+name: Trackside Batch D offline and release regression
+
+on:
+  push:
+    branches:
+      - feature/trackside3-compose-foundation-20261102
+    paths:
+      - 'native-android/**'
+      - '.github/workflows/trackside-release-regression.yml'
+  pull_request:
+    branches:
+      - integration/native-pre-trackside3-verified-20261030
+    paths:
+      - 'native-android/**'
+      - '.github/workflows/trackside-release-regression.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trackside-release-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline-persistence-and-navigation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - run: sdkmanager --install 'platforms;android-36' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Enable emulator KVM acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Verify offline records, plan operations and native navigation
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -camera-back none
+          disable-animations: true
+          script: |
+            adb shell wm size 720x1600
+            adb shell wm density 320
+            adb shell settings put system font_scale 1.0
+            gradle --project-dir native-android --no-daemon :app:connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=io.stridelab.privatealpha.Engine1RepositoryTest,io.stridelab.privatealpha.OutboxOfflineRecoveryTest,io.stridelab.privatealpha.TrainingRepositoryTest,io.stridelab.privatealpha.NativeTabRootTest,io.stridelab.privatealpha.TracksideManagePlanTest,io.stridelab.privatealpha.TracksideManageNavigationTest,io.stridelab.privatealpha.NativeUpgradeTest' --console=plain
+      - name: Preserve release regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trackside-batch-d-persistence-navigation-reports
+          path: |
+            native-android/app/build/reports/androidTests/connected/
+            native-android/app/build/outputs/androidTest-results/connected/
+          if-no-files-found: warn
+          retention-days: 14
